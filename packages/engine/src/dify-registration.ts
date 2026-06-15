@@ -42,7 +42,7 @@ export interface RegisterInput {
   readonly serviceKeyRef: string | null;
   readonly pricingModel: PricingModel;
   /** Persist even when the compat report has `block` items (admin override). */
-  readonly allowBlockers?: boolean;
+  readonly allowBlockers?: boolean | undefined;
 }
 
 export interface RegisterResult {

@@ -1,5 +1,20 @@
 export { holdCredits, releaseHold, topUp } from './account.js';
 export {
+  type AccountRow,
+  type ApiKeyRow,
+  createAccount,
+  type CreateAccountInput,
+  createTenant,
+  type CreateTenantInput,
+  getAccount,
+  getTenant,
+  type LedgerRow,
+  listApiKeys,
+  listLedger,
+  listTenants,
+  type TenantRow,
+} from './admin.js';
+export {
   type AdminUserRecord,
   type ApiKeyRecord,
   createAdminUser,
@@ -12,9 +27,16 @@ export {
   hashApiKey,
 } from './auth.js';
 export {
+  applicableScopes,
   createDifyBinding,
+  createModifier,
+  type CreateModifierInput,
+  createPricebookEntry,
+  type CreatePricebookEntryInput,
   createResource,
   type CreateResourceInput,
+  createUpstreamChannel,
+  type CreateUpstreamChannelInput,
   type DifyBindingRow,
   getAccountByTenant,
   getActivePricebookEntry,
@@ -23,12 +45,18 @@ export {
   getResourceVersion,
   getResourceWithSchema,
   listActiveModifiers,
+  listApplicableModifiers,
   listChannels,
+  listModifiers,
+  listPricebookEntries,
+  listResources,
   type ModifierRow,
+  type ModifierScopeTarget,
   type PricebookEntryRow,
   type Resource,
   type ResourceVersionRow,
   type ResourceWithSchema,
+  updateResourceStatus,
   type UpstreamChannelRow,
 } from './catalog.js';
 export { claimIdempotency, type ClaimResult } from './idempotency.js';

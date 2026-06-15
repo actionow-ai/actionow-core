@@ -9,9 +9,9 @@ import type { DbOrTx } from './types.js';
 export interface CreateApiKeyInput {
   readonly tenantId: string;
   /** Resources this key may run; an empty/omitted list means "no restriction". */
-  readonly resourceAllowlist?: readonly string[];
+  readonly resourceAllowlist?: readonly string[] | undefined;
   /** Per-(tenant,resource) requests-per-minute cap; `null`/omitted → default. */
-  readonly rateLimit?: number;
+  readonly rateLimit?: number | undefined;
 }
 
 /** The created key's id plus its ONE-TIME plaintext (never re-derivable). */

@@ -7,12 +7,14 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   createDifyBinding,
+  createModifier,
   createResource,
   getResourceWithSchema,
+  listApplicableModifiers,
 } from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
 
-const { difyBinding, resource, resourceVersion, tenant } = schema;
+const { difyBinding, modifier, resource, resourceVersion, tenant } = schema;
 
 let container: StartedPostgreSqlContainer;
 let client: ReturnType<typeof postgres>;
@@ -31,7 +33,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE dify_binding, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE dify_binding, resource_version, resource, modifier, tenant RESTART IDENTITY CASCADE`;
 });
 
 async function makeTenant(): Promise<string> {
@@ -149,6 +151,64 @@ describe('createDifyBinding', () => {
     expect(row?.dslHash).toBe('deadbeef');
     expect(row?.difyAppEndpoint).toBe('https://dify.example/v1');
     expect(row?.compatReport).toEqual({ items: [], hasBlockers: false });
+  });
+});
+
+describe('listApplicableModifiers', () => {
+  it('returns only global + matching tenant/resource scopes, highest priority first', async () => {
+    const tenantId = await makeTenant();
+    const otherTenant = await makeTenant();
+
+    // In scope for (tenantId, 'res-a').
+    await createModifier(db, { scope: 'global', op: 'percent_off', value: 10n, priority: 1 });
+    await createModifier(db, {
+      scope: `tenant:${tenantId}`,
+      op: 'percent_off',
+      value: 5n,
+      priority: 3,
+    });
+    await createModifier(db, {
+      scope: 'capability:res-a',
+      op: 'flat_off',
+      value: 100n,
+      priority: 2,
+    });
+    await createModifier(db, {
+      scope: 'resource:res-a',
+      op: 'flat_off',
+      value: 200n,
+      priority: 4,
+    });
+
+    // Out of scope: a different tenant, a different resource, and an inactive
+    // global modifier.
+    await createModifier(db, { scope: `tenant:${otherTenant}`, op: 'percent_off', value: 9n });
+    await createModifier(db, { scope: 'resource:res-b', op: 'flat_off', value: 9n });
+    await createModifier(db, {
+      scope: 'global',
+      op: 'percent_off',
+      value: 99n,
+      active: false,
+    });
+
+    const rows = await listApplicableModifiers(db, { tenantId, resourceId: 'res-a' });
+
+    expect(rows.map((r) => r.scope)).toEqual([
+      'resource:res-a', // priority 4
+      `tenant:${tenantId}`, // priority 3
+      'capability:res-a', // priority 2
+      'global', // priority 1
+    ]);
+  });
+
+  it('excludes a modifier scoped to a different resource', async () => {
+    const tenantId = await makeTenant();
+    await createModifier(db, { scope: 'resource:res-b', op: 'flat_off', value: 9n });
+    const rows = await listApplicableModifiers(db, { tenantId, resourceId: 'res-a' });
+    expect(rows).toHaveLength(0);
+    // sanity: the row IS present in the table
+    const all = await db.select().from(modifier);
+    expect(all).toHaveLength(1);
   });
 });
 

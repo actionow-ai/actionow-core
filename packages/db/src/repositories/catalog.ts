@@ -1,5 +1,5 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { PgTransaction } from 'drizzle-orm/pg-core';
 
 import {
@@ -91,16 +91,59 @@ export async function listChannels(db: DbOrTx, resourceId: string): Promise<Upst
 }
 
 /**
- * List the active modifiers applicable to a run, highest `priority` first.
- * Scope filtering (per-tenant/per-resource) is a Phase-5 concern; for Phase 3
- * we return every active modifier and let the domain `applyModifiers` decide
- * what fires via each modifier's `whenExpr`.
+ * List EVERY active modifier, highest `priority` first (no scope filtering).
+ *
+ * Superseded on the run path by {@link listApplicableModifiers}, which restricts
+ * the set to the scopes applicable to a specific `(tenant, resource)` run (§9.2).
+ * Retained for callers/tests that intentionally want the unfiltered set.
  */
 export async function listActiveModifiers(db: DbOrTx): Promise<ModifierRow[]> {
   return db
     .select()
     .from(modifier)
     .where(eq(modifier.active, true))
+    .orderBy(desc(modifier.priority));
+}
+
+/** The `(tenantId, resourceId)` a modifier scope is resolved against. */
+export interface ModifierScopeTarget {
+  readonly tenantId: string;
+  readonly resourceId: string;
+}
+
+/**
+ * The scope strings that apply to a given run (§9.2). A modifier fires only
+ * when its `scope` column matches one of these exactly:
+ * - `global` — applies to every run.
+ * - `tenant:<tenantId>` — applies to all of one tenant's runs.
+ * - `capability:<resourceId>` / `resource:<resourceId>` — applies to one
+ *   resource. (Capability and resource are the same anchor首期; both spellings
+ *   are accepted so a modifier authored against either matches.)
+ */
+export function applicableScopes(target: ModifierScopeTarget): string[] {
+  return [
+    'global',
+    `tenant:${target.tenantId}`,
+    `capability:${target.resourceId}`,
+    `resource:${target.resourceId}`,
+  ];
+}
+
+/**
+ * List the active modifiers whose `scope` applies to a specific run (§9.2),
+ * highest `priority` first. Replaces {@link listActiveModifiers} on the run
+ * path: a modifier is returned only when it is `active` AND its `scope` is one
+ * of {@link applicableScopes} for the run's `(tenantId, resourceId)`. The
+ * `whenExpr`/coupon evaluation remains a domain concern applied downstream.
+ */
+export async function listApplicableModifiers(
+  db: DbOrTx,
+  target: ModifierScopeTarget,
+): Promise<ModifierRow[]> {
+  return db
+    .select()
+    .from(modifier)
+    .where(and(eq(modifier.active, true), inArray(modifier.scope, applicableScopes(target))))
     .orderBy(desc(modifier.priority));
 }
 
@@ -239,4 +282,155 @@ export async function getResourceWithSchema(
   if (version === undefined) return undefined;
 
   return { ...res, ioSchema: version.ioSchema };
+}
+
+/** List all resources, newest-first (admin catalog view). */
+export async function listResources(db: DbOrTx): Promise<Resource[]> {
+  return db.select().from(resource).orderBy(desc(resource.createdAt));
+}
+
+/**
+ * Set a resource's `status` (e.g. `active` | `disabled`). Returns the updated
+ * row, or `undefined` when the resource does not exist.
+ */
+export async function updateResourceStatus(
+  db: DbOrTx,
+  resourceId: string,
+  status: string,
+): Promise<Resource | undefined> {
+  const rows = await db
+    .update(resource)
+    .set({ status })
+    .where(eq(resource.id, resourceId))
+    .returning();
+  return rows[0];
+}
+
+/** Fields a caller supplies to {@link createUpstreamChannel}. */
+export interface CreateUpstreamChannelInput {
+  readonly resourceId: string;
+  readonly providerType: string;
+  /** Locator for the channel credential (uuid of a `secret_ref`), or null. */
+  readonly credentialRef?: string | null | undefined;
+  readonly weight?: number | undefined;
+  readonly status?: string | undefined;
+}
+
+/** Insert an `upstream_channel` routing row for a resource. */
+export async function createUpstreamChannel(
+  db: DbOrTx,
+  input: CreateUpstreamChannelInput,
+): Promise<UpstreamChannelRow> {
+  const rows = await db
+    .insert(upstreamChannel)
+    .values({
+      resourceId: input.resourceId,
+      providerType: input.providerType,
+      credentialRef: input.credentialRef ?? null,
+      weight: input.weight ?? 1,
+      status: input.status ?? 'active',
+    })
+    .returning();
+  const row = rows[0];
+  if (!row) throw new Error('createUpstreamChannel: insert returned no row');
+  return row;
+}
+
+/** Fields a caller supplies to {@link createPricebookEntry}. */
+export interface CreatePricebookEntryInput {
+  readonly resourceId: string;
+  readonly resourceVersion: number;
+  readonly version: number;
+  /** `unit` | `matrix` | `fixed` | `formula` | `passthrough`. */
+  readonly method: string;
+  /** `pre` | `post`. */
+  readonly timing: string;
+  /** The dimensions/table/amount/formula spec (stored as jsonb). */
+  readonly spec: unknown;
+  /** Optional markup spec (stored as jsonb). */
+  readonly markup?: unknown;
+  readonly active?: boolean | undefined;
+}
+
+/**
+ * Insert a `pricebook_entry`. Any credit-denominated `amount` inside `spec`
+ * MUST already be in µcredits (the controller converts human credits via
+ * `creditsToMicro` before calling this repo).
+ */
+export async function createPricebookEntry(
+  db: DbOrTx,
+  input: CreatePricebookEntryInput,
+): Promise<PricebookEntryRow> {
+  const rows = await db
+    .insert(pricebookEntry)
+    .values({
+      resourceId: input.resourceId,
+      resourceVersion: input.resourceVersion,
+      version: input.version,
+      method: input.method,
+      timing: input.timing,
+      spec: input.spec,
+      markup: input.markup ?? null,
+      active: input.active ?? true,
+    })
+    .returning();
+  const row = rows[0];
+  if (!row) throw new Error('createPricebookEntry: insert returned no row');
+  return row;
+}
+
+/** List pricebook entries for a resource, newest `version` first. */
+export async function listPricebookEntries(
+  db: DbOrTx,
+  resourceId: string,
+): Promise<PricebookEntryRow[]> {
+  return db
+    .select()
+    .from(pricebookEntry)
+    .where(eq(pricebookEntry.resourceId, resourceId))
+    .orderBy(desc(pricebookEntry.version));
+}
+
+/** Fields a caller supplies to {@link createModifier}. */
+export interface CreateModifierInput {
+  /** `global` | `tenant:<id>` | `capability:<id>` | `resource:<id>` (§9.2). */
+  readonly scope: string;
+  readonly whenExpr?: string | null | undefined;
+  /** `override_rate` | `percent_off` | `flat_off` | `percent_add`. */
+  readonly op: string;
+  /**
+   * The modifier value. For `flat_off`/`override_rate` this is a µcredit amount
+   * (the controller converts human credits via `creditsToMicro`); for the
+   * percent ops it is a whole-percent integer.
+   */
+  readonly value?: bigint | null | undefined;
+  readonly stackable?: boolean | undefined;
+  readonly priority?: number | undefined;
+  readonly version?: number | undefined;
+  readonly active?: boolean | undefined;
+}
+
+/** Insert a pricing `modifier` row. */
+export async function createModifier(db: DbOrTx, input: CreateModifierInput): Promise<ModifierRow> {
+  const rows = await db
+    .insert(modifier)
+    .values({
+      scope: input.scope,
+      whenExpr: input.whenExpr ?? null,
+      op: input.op,
+      value: input.value ?? null,
+      stackable: input.stackable ?? true,
+      priority: input.priority ?? 0,
+      version: input.version ?? 1,
+      active: input.active ?? true,
+    })
+    .returning();
+  const row = rows[0];
+  if (!row) throw new Error('createModifier: insert returned no row');
+  return row;
+}
+
+/** List all modifiers, highest `priority` first (admin view, incl. inactive). */
+export async function listModifiers(db: DbOrTx): Promise<ModifierRow[]> {
+  return db.select().from(modifier).orderBy(desc(modifier.priority));
 }
