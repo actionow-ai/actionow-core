@@ -35,7 +35,7 @@ export const resourceVersion = pgTable(
     ioSchema: jsonb('io_schema').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => ({ pk: uniqueIndex('resource_version_pk').on(t.resourceId, t.version) }),
+  (t) => [uniqueIndex('resource_version_pk').on(t.resourceId, t.version)],
 );
 
 export const upstreamChannel = pgTable(
@@ -50,7 +50,7 @@ export const upstreamChannel = pgTable(
     weight: integer('weight').notNull().default(1),
     status: text('status').notNull().default('active'),
   },
-  (t) => ({ resIdx: index('upstream_resource_idx').on(t.resourceId) }),
+  (t) => [index('upstream_resource_idx').on(t.resourceId)],
 );
 
 export const difyBinding = pgTable('dify_binding', {

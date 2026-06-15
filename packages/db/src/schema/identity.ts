@@ -33,10 +33,7 @@ export const apiKey = pgTable(
     status: text('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => ({
-    hashIdx: uniqueIndex('api_key_hash_idx').on(t.hash),
-    tenantIdx: index('api_key_tenant_idx').on(t.tenantId),
-  }),
+  (t) => [uniqueIndex('api_key_hash_idx').on(t.hash), index('api_key_tenant_idx').on(t.tenantId)],
 );
 
 export const adminUser = pgTable('admin_user', {

@@ -9,7 +9,7 @@
     "./schema": "./src/schema/index.ts"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
     "test": "vitest run",
@@ -19,13 +19,13 @@
   "dependencies": {
     "@actionow/contracts": "workspace:*",
     "@actionow/domain": "workspace:*",
-    "drizzle-orm": "^0.33.0",
+    "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.0"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.24.0",
-    "vitest": "^2.1.0",
+    "@testcontainers/postgresql": "^10.13.0",
+    "drizzle-kit": "^0.31.10",
     "typescript": "^5.6.0",
-    "@testcontainers/postgresql": "^10.13.0"
+    "vitest": "^2.1.0"
   }
 }

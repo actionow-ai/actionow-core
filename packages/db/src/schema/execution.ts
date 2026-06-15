@@ -45,10 +45,7 @@ export const job = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => ({
-    statusIdx: index('job_status_idx').on(t.status),
-    tenantIdx: index('job_tenant_idx').on(t.tenantId),
-  }),
+  (t) => [index('job_status_idx').on(t.status), index('job_tenant_idx').on(t.tenantId)],
 );
 
 export const ledgerTxn = pgTable(
@@ -71,13 +68,13 @@ export const ledgerTxn = pgTable(
     usageVector: jsonb('usage_vector'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => ({
+  (t) => [
     // review #11: at most one settle per job
-    settleUniq: uniqueIndex('ledger_settle_per_job')
+    uniqueIndex('ledger_settle_per_job')
       .on(t.jobId)
       .where(sql`type = 'settle'`),
-    jobIdx: index('ledger_job_idx').on(t.jobId),
-  }),
+    index('ledger_job_idx').on(t.jobId),
+  ],
 );
 
 export const idempotencyKey = pgTable(
@@ -90,7 +87,7 @@ export const idempotencyKey = pgTable(
     jobId: uuid('job_id').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => ({ pk: uniqueIndex('idempotency_tenant_key').on(t.tenantId, t.key) }),
+  (t) => [uniqueIndex('idempotency_tenant_key').on(t.tenantId, t.key)],
 );
 
 export const webhookOutbox = pgTable(
@@ -105,5 +102,5 @@ export const webhookOutbox = pgTable(
     nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => ({ dueIdx: index('outbox_due_idx').on(t.status, t.nextAttemptAt) }),
+  (t) => [index('outbox_due_idx').on(t.status, t.nextAttemptAt)],
 );

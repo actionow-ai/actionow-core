@@ -27,7 +27,7 @@ export const pricebookEntry = pgTable(
     markup: jsonb('markup'),
     active: boolean('active').notNull().default(true),
   },
-  (t) => ({ resIdx: index('pricebook_resource_idx').on(t.resourceId, t.version) }),
+  (t) => [index('pricebook_resource_idx').on(t.resourceId, t.version)],
 );
 
 export const modifier = pgTable('modifier', {

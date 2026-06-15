@@ -10,11 +10,16 @@ export const account = pgTable(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenant.id),
-    creditBalance: bigint('credit_balance', { mode: 'bigint' }).notNull().default(0n),
-    creditHeld: bigint('credit_held', { mode: 'bigint' }).notNull().default(0n),
+    // mode:'bigint' kept (values are JS bigint, e.g. 100n); default expressed via sql`0`
+    // because drizzle-kit 0.31.10 cannot JSON-serialize a literal bigint default (`0n`)
+    // when diffing snapshots. Generated DDL is identical: `bigint DEFAULT 0 NOT NULL`.
+    creditBalance: bigint('credit_balance', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
+    creditHeld: bigint('credit_held', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => ({
-    balanceCheck: check('account_balance_ge_held', sql`${t.creditBalance} >= ${t.creditHeld}`),
-  }),
+  (t) => [check('account_balance_ge_held', sql`${t.creditBalance} >= ${t.creditHeld}`)],
 );
