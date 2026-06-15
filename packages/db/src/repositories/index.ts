@@ -1,15 +1,21 @@
 export { holdCredits, releaseHold, topUp } from './account.js';
 export {
+  createDifyBinding,
+  createResource,
+  type CreateResourceInput,
+  type DifyBindingRow,
   getAccountByTenant,
   getActivePricebookEntry,
   getResource,
   getResourceVersion,
+  getResourceWithSchema,
   listActiveModifiers,
   listChannels,
   type ModifierRow,
   type PricebookEntryRow,
   type Resource,
   type ResourceVersionRow,
+  type ResourceWithSchema,
   type UpstreamChannelRow,
 } from './catalog.js';
 export { claimIdempotency, type ClaimResult } from './idempotency.js';
