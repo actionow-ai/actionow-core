@@ -11,6 +11,7 @@ export {
   transitionJob,
 } from './job.js';
 export { appendLedger, type LedgerInput } from './ledger.js';
+export { type ExpiredHold, listExpiredHolds } from './reaper.js';
 export {
   failJob,
   type FailJobInput,
