@@ -1,0 +1,27 @@
+{
+  "name": "@actionow/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start:dev": "tsx watch src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@actionow/contracts": "workspace:*",
+    "@actionow/db": "workspace:*",
+    "@actionow/domain": "workspace:*",
+    "@actionow/infra": "workspace:*",
+    "bullmq": "^5.13.0",
+    "ioredis": "^5.10.1",
+    "reflect-metadata": "^0.2.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
