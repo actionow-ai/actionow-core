@@ -62,6 +62,37 @@ export async function getJob(db: DbOrTx, jobId: string): Promise<Job | undefined
 }
 
 /**
+ * Record the upstream provider's job handle on a job so a later async callback
+ * can correlate the payload back to the job (best-effort; not on the money
+ * path). Returns `true` iff a row was updated.
+ */
+export async function setUpstreamHandle(
+  db: DbOrTx,
+  jobId: string,
+  upstreamJobHandle: string,
+): Promise<boolean> {
+  const rows = await db
+    .update(job)
+    .set({ upstreamJobHandle, updatedAt: sql`now()` })
+    .where(eq(job.id, jobId))
+    .returning({ id: job.id });
+  return rows.length === 1;
+}
+
+/** Fetch the job whose `upstream_job_handle` matches, or `undefined`. */
+export async function getJobByUpstreamHandle(
+  db: DbOrTx,
+  upstreamJobHandle: string,
+): Promise<Job | undefined> {
+  const rows = await db
+    .select()
+    .from(job)
+    .where(eq(job.upstreamJobHandle, upstreamJobHandle))
+    .limit(1);
+  return rows[0];
+}
+
+/**
  * List a tenant's jobs newest-first. `cursor` is an exclusive upper bound on
  * `created_at` (ISO string) for keyset pagination; `limit` caps the page size.
  */

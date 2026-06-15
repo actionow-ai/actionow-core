@@ -34,6 +34,7 @@ import {
 } from '@actionow/domain';
 
 import { EngineError, engineError } from './errors.js';
+import { computeFinalCost } from './pricing.js';
 
 /** A routed upstream channel: how to reach one provider endpoint/credential. */
 export interface RunChannel {
@@ -303,8 +304,12 @@ export class ExecutionService {
     result: SyncResult,
   ): Promise<RunOutcome> {
     const entry = req.pricebookEntry;
-    const base = entry.timing === 'post' ? settle(entry, result.usage) : quote(entry, req.inputs);
-    const { final: finalCost, applied } = applyModifiers(base, req.modifiers);
+    const { credits: finalCost, applied } = computeFinalCost(
+      entry,
+      result.usage,
+      req.inputs,
+      req.modifiers,
+    );
 
     await settleJob(this.deps.db, {
       jobId,

@@ -13,4 +13,8 @@ export class AdapterRegistry {
     if (!a) throw new Error(`no adapter for provider_type "${providerType}"`);
     return a;
   }
+  /** The provider types of every registered adapter (registration order). */
+  providerTypes(): string[] {
+    return [...this.adapters.keys()];
+  }
 }

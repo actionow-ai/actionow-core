@@ -4,8 +4,10 @@ export {
   createJob,
   type CreateJobInput,
   getJob,
+  getJobByUpstreamHandle,
   type Job,
   listJobs,
+  setUpstreamHandle,
   transitionJob,
 } from './job.js';
 export { appendLedger, type LedgerInput } from './ledger.js';
