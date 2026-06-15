@@ -9,11 +9,13 @@ import {
   pricebookEntry,
   resource,
   resourceVersion,
+  secretRef,
   upstreamChannel,
 } from '../schema/index.js';
 import type { DbOrTx } from './types.js';
 
 export type Resource = InferSelectModel<typeof resource>;
+export type SecretRefRow = InferSelectModel<typeof secretRef>;
 export type ResourceVersionRow = InferSelectModel<typeof resourceVersion>;
 export type PricebookEntryRow = InferSelectModel<typeof pricebookEntry>;
 export type ModifierRow = InferSelectModel<typeof modifier>;
@@ -290,6 +292,20 @@ export async function listResources(db: DbOrTx): Promise<Resource[]> {
 }
 
 /**
+ * List the resources visible to one tenant, newest-first. Used by the public
+ * `GET /v1/resources` discovery endpoint (§4.5) so a caller only ever sees its
+ * own tenant's catalog; the API-key `resourceAllowlist` is applied on top by the
+ * controller.
+ */
+export async function listResourcesByTenant(db: DbOrTx, tenantId: string): Promise<Resource[]> {
+  return db
+    .select()
+    .from(resource)
+    .where(eq(resource.tenantId, tenantId))
+    .orderBy(desc(resource.createdAt));
+}
+
+/**
  * Set a resource's `status` (e.g. `active` | `disabled`). Returns the updated
  * row, or `undefined` when the resource does not exist.
  */
@@ -304,6 +320,32 @@ export async function updateResourceStatus(
     .where(eq(resource.id, resourceId))
     .returning();
   return rows[0];
+}
+
+/** Fields a caller supplies to {@link createSecretRef}. */
+export interface CreateSecretRefInput {
+  /** `env` | `vault` — where the secret is materialized from. */
+  readonly provider: string;
+  /** The locator within that provider (e.g. the env var name). */
+  readonly locator: string;
+}
+
+/**
+ * Insert a `secret_ref` row (a credential locator, never the secret itself) and
+ * return it. The resolver materializes the value at run time from `provider` +
+ * `locator`; only the locator is persisted.
+ */
+export async function createSecretRef(
+  db: DbOrTx,
+  input: CreateSecretRefInput,
+): Promise<SecretRefRow> {
+  const rows = await db
+    .insert(secretRef)
+    .values({ provider: input.provider, locator: input.locator })
+    .returning();
+  const row = rows[0];
+  if (!row) throw new Error('createSecretRef: insert returned no row');
+  return row;
 }
 
 /** Fields a caller supplies to {@link createUpstreamChannel}. */
