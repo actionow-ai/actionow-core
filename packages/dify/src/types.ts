@@ -31,3 +31,27 @@ export interface ParsedDsl {
 export interface DifyOutputField extends IoField {
   readonly renderConfirmed: boolean;
 }
+
+/** Classification of a single graph element in the compat & cost report. */
+export type CompatItemKind =
+  | 'model_known'
+  | 'model_unknown'
+  | 'tool_needs_credentials'
+  | 'knowledge_reference'
+  | 'external_http'
+  | 'code_node'
+  | 'missing_plugin';
+
+/** Severity of a compat item. `block` items make the whole report a blocker. */
+export type CompatSeverity = 'ok' | 'warn' | 'block';
+
+export interface CompatItem {
+  readonly kind: CompatItemKind;
+  readonly severity: CompatSeverity;
+  readonly detail: string;
+}
+
+export interface CompatReport {
+  readonly items: readonly CompatItem[];
+  readonly hasBlockers: boolean;
+}
