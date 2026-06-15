@@ -1,11 +1,8 @@
-import type { Database } from '@actionow/db';
-import { getAccountByTenant } from '@actionow/db';
-import type { AppEnv } from '@actionow/infra';
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 
 import { engineUnauthorized } from '../common/errors.js';
-import { DB, ENV } from '../common/tokens.js';
+import type { AuthedRequest } from './api-key.guard.js';
 
 /** The resolved caller identity for a request: tenant + its billing account. */
 export interface TenantContext {
@@ -14,33 +11,22 @@ export interface TenantContext {
 }
 
 /**
- * STUB auth (Phase 3 placeholder — real API-key auth lands in Phase 5).
+ * Reads the tenant context the {@link ApiKeyGuard} attaches to the request
+ * (`req.auth`). The guard performs the actual authentication (API-key hash
+ * lookup, allowlist, account resolution); this service just projects the
+ * guard's {@link ApiKeyContext} into the narrower {@link TenantContext} the
+ * run/jobs services consume.
  *
- * The tenant is taken from the `x-tenant-id` request header, falling back to
- * the `DEV_TENANT_ID` env var when the header is absent. The account is the
- * tenant's single account (Phase 3 assumes one account per tenant). No API key
- * is verified, no rate limit is applied, and no resource allowlist is checked
- * — all of that is Phase 5.
+ * If `req.auth` is absent the route was reached without the guard — a wiring
+ * bug — so we fail closed with `unauthorized` rather than guessing a tenant.
  */
 @Injectable()
 export class AuthService {
-  constructor(
-    @Inject(DB) private readonly db: Database,
-    @Inject(ENV) private readonly env: AppEnv,
-  ) {}
-
-  async resolve(req: Request): Promise<TenantContext> {
-    const headerValue = req.headers['x-tenant-id'];
-    const headerTenant = Array.isArray(headerValue) ? headerValue[0] : headerValue;
-    const tenantId = headerTenant ?? this.env.DEV_TENANT_ID;
-    if (tenantId === undefined || tenantId === '') {
-      throw engineUnauthorized('missing tenant: set x-tenant-id or DEV_TENANT_ID');
+  resolve(req: Request): TenantContext {
+    const auth = (req as AuthedRequest).auth;
+    if (auth === undefined) {
+      throw engineUnauthorized('request is not authenticated');
     }
-
-    const account = await getAccountByTenant(this.db, tenantId);
-    if (account === undefined) {
-      throw engineUnauthorized(`no account for tenant ${tenantId}`);
-    }
-    return { tenantId, accountId: account.id };
+    return { tenantId: auth.tenantId, accountId: auth.accountId };
   }
 }

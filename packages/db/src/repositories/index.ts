@@ -1,5 +1,17 @@
 export { holdCredits, releaseHold, topUp } from './account.js';
 export {
+  type AdminUserRecord,
+  type ApiKeyRecord,
+  createAdminUser,
+  type CreateAdminUserInput,
+  createApiKey,
+  type CreateApiKeyInput,
+  type CreatedApiKey,
+  findAdminByEmail,
+  findApiKeyByHash,
+  hashApiKey,
+} from './auth.js';
+export {
   createDifyBinding,
   createResource,
   type CreateResourceInput,

@@ -1,7 +1,8 @@
 import type { RunOutcome } from '@actionow/engine';
-import { Body, Controller, HttpCode, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, HttpCode, Param, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 
+import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
 import type { RunBody } from './run.service.js';
 import { RunService } from './run.service.js';
@@ -15,6 +16,9 @@ interface RunResponse {
   cost?: { credits: string };
 }
 
+// ApiKeyGuard authenticates the request and sets req.auth. The RateLimitGuard
+// is layered on after it in Task 2 (runs second; reads the key's tenant/limit).
+@UseGuards(ApiKeyGuard)
 @Controller('v1/run')
 export class RunController {
   constructor(
@@ -37,7 +41,7 @@ export class RunController {
     @Body() body: RunBody,
     @Req() req: Request,
   ): Promise<RunResponse> {
-    const ctx = await this.auth.resolve(req);
+    const ctx = this.auth.resolve(req);
     const outcome = await this.runService.run(resourceId, body, ctx);
 
     if (outcome.status === 'queued') {
