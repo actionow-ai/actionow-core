@@ -1,1 +1,2 @@
-export const DOMAIN_VERSION = '0.0.0' as const;
+export * from './credits.js';
+export * from './errors.js';
