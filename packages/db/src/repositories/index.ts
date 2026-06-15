@@ -6,6 +6,7 @@ export {
   type DifyBindingRow,
   getAccountByTenant,
   getActivePricebookEntry,
+  getDifyBinding,
   getResource,
   getResourceVersion,
   getResourceWithSchema,

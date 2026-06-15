@@ -40,6 +40,24 @@ export async function getResourceVersion(
 }
 
 /**
+ * Fetch the dify binding for a resource, highest `resource_version` first (the
+ * binding for the current version). Returns `undefined` when the resource has
+ * no binding yet — used to detect a no-op re-import by `dsl_hash`.
+ */
+export async function getDifyBinding(
+  db: DbOrTx,
+  resourceId: string,
+): Promise<DifyBindingRow | undefined> {
+  const rows = await db
+    .select()
+    .from(difyBinding)
+    .where(eq(difyBinding.resourceId, resourceId))
+    .orderBy(desc(difyBinding.resourceVersion))
+    .limit(1);
+  return rows[0];
+}
+
+/**
  * Fetch the active pricebook entry for a resource version, newest `version`
  * first. Returns `undefined` when no active entry exists.
  */

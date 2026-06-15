@@ -300,6 +300,9 @@ importers:
       '@actionow/db':
         specifier: workspace:*
         version: link:../db
+      '@actionow/dify':
+        specifier: workspace:*
+        version: link:../dify
       '@actionow/domain':
         specifier: workspace:*
         version: link:../domain
