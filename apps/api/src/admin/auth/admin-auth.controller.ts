@@ -1,4 +1,5 @@
 import { Body, Controller, HttpCode, Post } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { engineInvalidInput } from '../../common/errors.js';
 import type { LoginResult } from './admin-auth.service.js';
@@ -10,6 +11,7 @@ interface LoginBody {
   password?: unknown;
 }
 
+@ApiTags('admin')
 @Controller('admin/auth')
 export class AdminAuthController {
   constructor(private readonly auth: AdminAuthService) {}
@@ -21,6 +23,7 @@ export class AdminAuthController {
    */
   @Post('login')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Exchange admin email + password for a JWT' })
   async login(@Body() body: LoginBody): Promise<LoginResult> {
     const { email, password } = body;
     if (typeof email !== 'string' || email === '' || typeof password !== 'string') {

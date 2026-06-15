@@ -1,4 +1,5 @@
 import { Controller, Get, HttpCode, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
@@ -8,6 +9,8 @@ import { JobsService } from './jobs.service.js';
 
 const DEFAULT_LIMIT = 50;
 
+@ApiTags('v1')
+@ApiBearerAuth('api-key')
 @UseGuards(ApiKeyGuard)
 @Controller('v1/jobs')
 export class JobsController {
@@ -18,6 +21,7 @@ export class JobsController {
 
   /** List the caller's jobs newest-first, keyset-paginated by `cursor`. */
   @Get()
+  @ApiOperation({ summary: 'List the caller’s jobs (keyset)' })
   async list(
     @Req() req: Request,
     @Query('cursor') cursor?: string,
@@ -31,6 +35,7 @@ export class JobsController {
 
   /** Fetch a single job by id (404 if it is not the caller's). */
   @Get(':id')
+  @ApiOperation({ summary: 'Fetch a job by id' })
   async get(@Param('id') id: string, @Req() req: Request): Promise<JobView> {
     const ctx = this.auth.resolve(req);
     return this.jobs.get(id, ctx);
@@ -39,6 +44,7 @@ export class JobsController {
   /** Cancel a queued job (transition → canceled + release hold). */
   @Post(':id/cancel')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Cancel a queued job' })
   async cancel(@Param('id') id: string, @Req() req: Request): Promise<JobView> {
     const ctx = this.auth.resolve(req);
     return this.jobs.cancel(id, ctx);

@@ -1,5 +1,6 @@
 import type { RunOutcome } from '@actionow/engine';
 import { Body, Controller, HttpCode, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
@@ -20,6 +21,8 @@ interface RunResponse {
 // ApiKeyGuard authenticates the request and sets req.auth; RateLimitGuard runs
 // second (guards execute in declaration order) and reads the authenticated
 // tenant + the key's rate limit off req.auth.
+@ApiTags('v1')
+@ApiBearerAuth('api-key')
 @UseGuards(ApiKeyGuard, RateLimitGuard)
 @Controller('v1/run')
 export class RunController {
@@ -38,6 +41,7 @@ export class RunController {
    */
   @Post(':resourceId')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Run a resource (blocking → 200, async → 202)' })
   async run(
     @Param('resourceId') resourceId: string,
     @Body() body: RunBody,

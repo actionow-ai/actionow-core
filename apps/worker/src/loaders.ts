@@ -5,7 +5,7 @@ import {
   getActivePricebookEntry,
   getResource,
   type Job,
-  listActiveModifiers,
+  listApplicableModifiers,
   listChannels,
   type ModifierRow,
   type PricebookEntryRow,
@@ -36,7 +36,10 @@ export async function loadJobContext(db: Database, job: Job): Promise<JobExecuti
   }
 
   const channelRows = await listChannels(db, job.resourceId);
-  const modifierRows = await listActiveModifiers(db);
+  const modifierRows = await listApplicableModifiers(db, {
+    tenantId: job.tenantId,
+    resourceId: job.resourceId,
+  });
 
   return {
     accountId: account.id,

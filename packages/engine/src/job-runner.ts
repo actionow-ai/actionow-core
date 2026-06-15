@@ -25,7 +25,7 @@ import {
 
 import { EngineError } from './errors.js';
 import type { RunChannel } from './execution-service.js';
-import { computeFinalCost } from './pricing.js';
+import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
 
 /**
  * The frozen execution context a {@link JobRunner} needs to drive a job that
@@ -199,7 +199,7 @@ export class JobRunner {
       usage,
       output,
       pricebookVersion: ctx.pricebookEntry.version,
-      modifiersApplied: applied,
+      modifiersApplied: serializeAppliedModifiers(applied),
       resourceId: job.resourceId,
       ...(job.callbackUrl !== null
         ? { outbox: { url: job.callbackUrl, payload: { job_id: job.id } } }

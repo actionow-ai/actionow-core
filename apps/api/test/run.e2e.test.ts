@@ -18,8 +18,16 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { ADAPTERS, DB, ENV, JOB_QUEUE, RATE_LIMITER } from '../src/common/tokens.js';
 
-const { account, ledgerTxn, pricebookEntry, resource, resourceVersion, tenant, upstreamChannel } =
-  schema;
+const {
+  account,
+  ledgerTxn,
+  modifier,
+  pricebookEntry,
+  resource,
+  resourceVersion,
+  tenant,
+  upstreamChannel,
+} = schema;
 
 let container: StartedPostgreSqlContainer;
 let client: ReturnType<typeof postgres>;
@@ -143,7 +151,7 @@ async function seed(balance: bigint): Promise<Seed> {
 }
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE webhook_outbox, ledger_txn, idempotency_key, job, pricebook_entry, upstream_channel, resource_version, resource, account, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE webhook_outbox, ledger_txn, idempotency_key, job, pricebook_entry, modifier, upstream_channel, resource_version, resource, account, tenant RESTART IDENTITY CASCADE`;
 });
 
 describe('POST /v1/run/:resourceId (blocking)', () => {
@@ -204,6 +212,49 @@ describe('POST /v1/run/:resourceId (blocking)', () => {
     // no job created
     const jobs = await db.select().from(schema.job);
     expect(jobs).toHaveLength(0);
+  });
+
+  it('applies an in-scope modifier and ignores an out-of-scope one (§9.2)', async () => {
+    const s = await seed(1_000_000n);
+    tenantId = s.tenantId;
+
+    // In scope for (tenantId, openai-gpt): a 10%-off tenant modifier.
+    await db.insert(modifier).values({
+      scope: `tenant:${s.tenantId}`,
+      op: 'percent_off',
+      value: 10n,
+      priority: 0,
+      active: true,
+    });
+    // Out of scope: a 50%-off modifier scoped to a DIFFERENT tenant. If
+    // RunService used the unfiltered list this would slash the cost further;
+    // listApplicableModifiers must exclude it.
+    await db.insert(modifier).values({
+      scope: 'tenant:00000000-0000-0000-0000-000000000000',
+      op: 'percent_off',
+      value: 50n,
+      priority: 0,
+      active: true,
+    });
+
+    const res = await request(app.getHttpServer())
+      .post(`/v1/run/${s.resourceId}`)
+      .set('x-tenant-id', tenantId)
+      .send({ inputs: { prompt: 'hi' }, estimated_usage: { tokens: 1000 } })
+      .expect(200);
+
+    // base 300 µcredits − 10% = 270 (the out-of-scope 50%-off did NOT fire).
+    expect(res.body.cost).toEqual({ credits: '270' });
+
+    // the settle ledger row records exactly ONE applied modifier, with its
+    // µcredit before/after serialized as decimal strings (JSON-safe).
+    const jobId = res.body.job_id as string;
+    const [settleRow] = (
+      await db.select().from(ledgerTxn).where(eq(ledgerTxn.jobId, jobId))
+    ).filter((l) => l.type === 'settle');
+    const applied = settleRow?.modifiersApplied as { before: string; after: string }[];
+    expect(applied).toHaveLength(1);
+    expect(applied[0]).toMatchObject({ before: '300', after: '270' });
   });
 
   it('returns 404 resource_not_found for an unknown resource', async () => {

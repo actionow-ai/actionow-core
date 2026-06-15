@@ -11,7 +11,7 @@ import {
   getActivePricebookEntry,
   getResource,
   getResourceVersion,
-  listActiveModifiers,
+  listApplicableModifiers,
   listChannels,
   type ModifierRow,
   type PricebookEntryRow,
@@ -99,7 +99,10 @@ export class RunService {
       throw engineNotFound(`no active upstream channel for resource ${resourceId}`);
     }
 
-    const modifierRows = await listActiveModifiers(this.db);
+    const modifierRows = await listApplicableModifiers(this.db, {
+      tenantId: ctx.tenantId,
+      resourceId,
+    });
     const execMode = this.selectExecMode(body.exec_mode, resource.execModes as ExecMode[]);
 
     const req: RunRequest = {

@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from './app.module.js';
 import { UnifiedErrorFilter } from './common/unified-error.filter.js';
+import { setupSwagger } from './swagger.js';
 
 async function bootstrap(): Promise<void> {
   const env = loadEnv();
@@ -13,6 +14,7 @@ async function bootstrap(): Promise<void> {
   // AppModule (so it applies under the test harness). Registering here keeps
   // it active even if the DI registration is ever removed.
   app.useGlobalFilters(new UnifiedErrorFilter());
+  setupSwagger(app);
   await app.listen(env.API_PORT);
 }
 

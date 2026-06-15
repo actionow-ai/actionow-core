@@ -34,7 +34,7 @@ import {
 } from '@actionow/domain';
 
 import { EngineError, engineError } from './errors.js';
-import { computeFinalCost } from './pricing.js';
+import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
 
 /** A routed upstream channel: how to reach one provider endpoint/credential. */
 export interface RunChannel {
@@ -320,7 +320,7 @@ export class ExecutionService {
       usage: result.usage,
       output: result.output,
       pricebookVersion: entry.version,
-      modifiersApplied: applied,
+      modifiersApplied: serializeAppliedModifiers(applied),
       resourceId: req.resource.id,
       ...(req.callbackUrl !== undefined
         ? { outbox: { url: req.callbackUrl, payload: { job_id: jobId } } }

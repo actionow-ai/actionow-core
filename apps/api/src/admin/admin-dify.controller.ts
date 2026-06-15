@@ -22,7 +22,7 @@ interface DifyImportView {
  * `content_filtered`. Both mappings live in {@link AdminDifyService}.
  */
 @ApiTags('admin')
-@ApiBearerAuth()
+@ApiBearerAuth('jwt')
 @UseGuards(AdminGuard)
 @Roles('admin')
 @Controller('admin/dify')

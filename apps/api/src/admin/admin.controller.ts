@@ -151,7 +151,7 @@ interface JobView {
  * so JSON never coerces money through a float.
  */
 @ApiTags('admin')
-@ApiBearerAuth()
+@ApiBearerAuth('jwt')
 @UseGuards(AdminGuard)
 @Roles('admin')
 @Controller('admin')
