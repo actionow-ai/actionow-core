@@ -4,6 +4,7 @@ import type { Request } from 'express';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
+import { RateLimitGuard } from '../auth/rate-limit.guard.js';
 import type { RunBody } from './run.service.js';
 import { RunService } from './run.service.js';
 
@@ -16,9 +17,10 @@ interface RunResponse {
   cost?: { credits: string };
 }
 
-// ApiKeyGuard authenticates the request and sets req.auth. The RateLimitGuard
-// is layered on after it in Task 2 (runs second; reads the key's tenant/limit).
-@UseGuards(ApiKeyGuard)
+// ApiKeyGuard authenticates the request and sets req.auth; RateLimitGuard runs
+// second (guards execute in declaration order) and reads the authenticated
+// tenant + the key's rate limit off req.auth.
+@UseGuards(ApiKeyGuard, RateLimitGuard)
 @Controller('v1/run')
 export class RunController {
   constructor(

@@ -3,6 +3,7 @@ import { AdapterRegistry } from '@actionow/adapters';
 import type { SubmitInput, SubmitResult, UnifiedError, UsageVector } from '@actionow/contracts';
 import { createApiKey, schema } from '@actionow/db';
 import type { JobQueuePort } from '@actionow/engine';
+import { FakeRateLimitRedis, RedisRateLimiter } from '@actionow/infra';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
@@ -13,7 +14,7 @@ import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
-import { ADAPTERS, DB, ENV, JOB_QUEUE } from '../src/common/tokens.js';
+import { ADAPTERS, DB, ENV, JOB_QUEUE, RATE_LIMITER } from '../src/common/tokens.js';
 
 const { account, pricebookEntry, resource, resourceVersion, tenant, upstreamChannel } = schema;
 
@@ -59,6 +60,8 @@ beforeAll(async () => {
     .useValue(adapters)
     .overrideProvider(JOB_QUEUE)
     .useValue(noopQueue)
+    .overrideProvider(RATE_LIMITER)
+    .useValue(new RedisRateLimiter(new FakeRateLimitRedis()))
     .overrideProvider(ENV)
     .useValue({
       // 'production' so the x-tenant-id dev fallback is OFF — a real key is required.
@@ -68,6 +71,8 @@ beforeAll(async () => {
       API_PORT: 3000,
       LOG_LEVEL: 'info',
       DEV_TENANT_ID: undefined,
+      RATE_LIMIT_TENANT_PER_MIN: 600,
+      RATE_LIMIT_RESOURCE_PER_MIN: 120,
     })
     .compile();
 

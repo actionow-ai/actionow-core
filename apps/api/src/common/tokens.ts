@@ -7,3 +7,4 @@ export const DB = Symbol('DB');
 export const ENV = Symbol('ENV');
 export const ADAPTERS = Symbol('ADAPTERS');
 export const JOB_QUEUE = Symbol('JOB_QUEUE');
+export const RATE_LIMITER = Symbol('RATE_LIMITER');
