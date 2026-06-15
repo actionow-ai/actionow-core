@@ -19,6 +19,7 @@
     "@actionow/infra": "workspace:*",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
+    "@nestjs/jwt": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "bullmq": "^5.13.0",
     "ioredis": "^5.10.1",

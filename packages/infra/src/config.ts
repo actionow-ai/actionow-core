@@ -1,24 +1,47 @@
 import { z } from 'zod';
 
-const EnvSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  DATABASE_URL: z.string().url(),
-  REDIS_URL: z.string().url(),
-  API_PORT: z.coerce.number().int().positive().default(3000),
-  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
-  // Dev-only fallback tenant id when no `x-tenant-id` header is supplied. The
-  // ApiKeyGuard honors this only outside production (real keys are required in
-  // prod).
-  DEV_TENANT_ID: z.string().uuid().optional(),
-  // Two-level rate-limit defaults (requests per minute). The per-tenant bucket
-  // is a coarse account-wide cap; the per-(tenant,resource) bucket defaults to
-  // this value unless an API key carries its own `rateLimit`.
-  RATE_LIMIT_TENANT_PER_MIN: z.coerce.number().int().positive().default(600),
-  RATE_LIMIT_RESOURCE_PER_MIN: z.coerce.number().int().positive().default(120),
-});
+/** A weak, well-known secret used ONLY outside production for local dev/tests. */
+const DEV_ADMIN_JWT_SECRET = 'dev-admin-jwt-secret-do-not-use-in-prod';
 
-export type AppEnv = z.infer<typeof EnvSchema>;
+const EnvSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    DATABASE_URL: z.string().url(),
+    REDIS_URL: z.string().url(),
+    API_PORT: z.coerce.number().int().positive().default(3000),
+    LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+    // Dev-only fallback tenant id when no `x-tenant-id` header is supplied. The
+    // ApiKeyGuard honors this only outside production (real keys are required in
+    // prod).
+    DEV_TENANT_ID: z.string().uuid().optional(),
+    // Two-level rate-limit defaults (requests per minute). The per-tenant bucket
+    // is a coarse account-wide cap; the per-(tenant,resource) bucket defaults to
+    // this value unless an API key carries its own `rateLimit`.
+    RATE_LIMIT_TENANT_PER_MIN: z.coerce.number().int().positive().default(600),
+    RATE_LIMIT_RESOURCE_PER_MIN: z.coerce.number().int().positive().default(120),
+    // HMAC secret for admin JWTs. Required in production; outside production a
+    // well-known dev default is filled in below. Never logged.
+    ADMIN_JWT_SECRET: z.string().min(1).optional(),
+  })
+  .transform((env) => ({
+    ...env,
+    ADMIN_JWT_SECRET:
+      env.ADMIN_JWT_SECRET ?? (env.NODE_ENV === 'production' ? undefined : DEV_ADMIN_JWT_SECRET),
+  }))
+  .superRefine((env, ctx) => {
+    if (env.ADMIN_JWT_SECRET === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ADMIN_JWT_SECRET'],
+        message: 'ADMIN_JWT_SECRET is required in production',
+      });
+    }
+  });
+
+export type AppEnv = z.infer<typeof EnvSchema> & { ADMIN_JWT_SECRET: string };
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
-  return EnvSchema.parse(source);
+  const env = EnvSchema.parse(source);
+  // The superRefine guarantees ADMIN_JWT_SECRET is set; narrow the type.
+  return env as AppEnv;
 }
