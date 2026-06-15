@@ -130,6 +130,19 @@ export default tseslint.config(
                 ['pkg', { package: 'infra' }],
               ],
             },
+            // engine: orchestration over contracts, domain, db, adapters, infra, dify.
+            {
+              from: [['pkg', { package: 'engine' }]],
+              allow: [
+                ['pkg', { package: 'engine' }],
+                ['pkg', { package: 'contracts' }],
+                ['pkg', { package: 'domain' }],
+                ['pkg', { package: 'db' }],
+                ['pkg', { package: 'adapters' }],
+                ['pkg', { package: 'infra' }],
+                ['pkg', { package: 'dify' }],
+              ],
+            },
             // apps (api, worker): any package + any app.
             {
               from: [['app', {}]],

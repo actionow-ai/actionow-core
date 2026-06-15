@@ -1,0 +1,30 @@
+{
+  "name": "@actionow/engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@actionow/adapters": "workspace:*",
+    "@actionow/contracts": "workspace:*",
+    "@actionow/db": "workspace:*",
+    "@actionow/domain": "workspace:*",
+    "@actionow/infra": "workspace:*"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "^10.13.0",
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

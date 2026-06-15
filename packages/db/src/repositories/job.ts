@@ -8,15 +8,17 @@ import type { DbOrTx } from './types.js';
 export type Job = InferSelectModel<typeof job>;
 
 /**
- * Fields a caller supplies to `createJob`. `id`, `status`, `createdAt`,
- * `updatedAt` are DB-managed (status defaults to `queued` here), so they are
- * omitted; everything else is the frozen version/hold snapshot the caller
- * passes at creation time.
+ * Fields a caller supplies to `createJob`. `status`, `createdAt`, `updatedAt`
+ * are DB-managed (status defaults to `queued` here), so they are omitted;
+ * everything else is the frozen version/hold snapshot the caller passes at
+ * creation time. `id` is optional — when omitted the DB mints a random uuid;
+ * callers that must reference the id before insert (e.g. the idempotency claim
+ * row) may supply their own.
  */
 export type CreateJobInput = Omit<
   InferInsertModel<typeof job>,
   'id' | 'status' | 'createdAt' | 'updatedAt'
->;
+> & { id?: string };
 
 /** Insert a `job` row in status `queued` with the supplied frozen snapshot. */
 export async function createJob(db: DbOrTx, input: CreateJobInput): Promise<Job> {
