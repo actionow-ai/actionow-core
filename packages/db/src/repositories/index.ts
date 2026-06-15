@@ -19,3 +19,10 @@ export {
   type SettleJobInput,
 } from './settle.js';
 export type { DbOrTx } from './types.js';
+export {
+  listDueWebhooks,
+  markWebhookDead,
+  markWebhookSent,
+  rescheduleWebhook,
+  type WebhookOutboxRow,
+} from './webhook.js';
