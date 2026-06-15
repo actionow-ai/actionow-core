@@ -108,29 +108,34 @@ export class DifyRegistrationService {
     const existingResource = await getResource(db, input.resourceId);
     const version = existingResource ? existingResource.currentVersion + 1 : 1;
 
-    // 4. Persist resource (+ version) then the binding.
-    await createResource(db, {
-      id: input.resourceId,
-      tenantId: input.tenantId,
-      kind: draft.mode, // 'workflow'
-      modality: draft.modality, // 'composite'
-      providerType: draft.providerType, // 'dify-workflow'
-      execModes: ['blocking'],
-      ioSchema: draft.ioSchema,
-      version,
-    });
+    // 4. Persist resource (+ version) and the binding in ONE transaction so a
+    //    binding failure rolls the resource/resource_version back together —
+    //    otherwise a committed resource is orphaned and a retry trips the
+    //    `resource_version_pk` unique on the same version.
+    await db.transaction(async (tx) => {
+      await createResource(tx, {
+        id: input.resourceId,
+        tenantId: input.tenantId,
+        kind: draft.mode, // 'workflow'
+        modality: draft.modality, // 'composite'
+        providerType: draft.providerType, // 'dify-workflow'
+        execModes: ['blocking'],
+        ioSchema: draft.ioSchema,
+        version,
+      });
 
-    await createDifyBinding(db, {
-      resourceId: input.resourceId,
-      resourceVersion: version,
-      mode: draft.mode,
-      difyAppEndpoint: input.endpoint,
-      difyServiceKeyRef: input.serviceKeyRef,
-      dslHash: draft.dslHash,
-      pricingModel: input.pricingModel,
-      provisionMode: draft.provisionMode,
-      requiredSecrets: [...draft.requiredSecrets],
-      compatReport: draft.compatReport,
+      await createDifyBinding(tx, {
+        resourceId: input.resourceId,
+        resourceVersion: version,
+        mode: draft.mode,
+        difyAppEndpoint: input.endpoint,
+        difyServiceKeyRef: input.serviceKeyRef,
+        dslHash: draft.dslHash,
+        pricingModel: input.pricingModel,
+        provisionMode: draft.provisionMode,
+        requiredSecrets: [...draft.requiredSecrets],
+        compatReport: draft.compatReport,
+      });
     });
 
     return {

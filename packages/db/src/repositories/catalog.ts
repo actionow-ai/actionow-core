@@ -1,5 +1,6 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { and, desc, eq } from 'drizzle-orm';
+import { PgTransaction } from 'drizzle-orm/pg-core';
 
 import {
   account,
@@ -137,53 +138,73 @@ export interface CreateResourceInput {
   readonly version: number;
 }
 
+/** The `resource` (+ `resource_version`) writes, run against an open handle. */
+async function writeResource(tx: DbOrTx, input: CreateResourceInput): Promise<Resource> {
+  const existing = await getResource(tx, input.id);
+
+  let row: Resource | undefined;
+  if (existing === undefined) {
+    const inserted = await tx
+      .insert(resource)
+      .values({
+        id: input.id,
+        tenantId: input.tenantId,
+        kind: input.kind,
+        modality: input.modality,
+        providerType: input.providerType,
+        execModes: [...input.execModes],
+        currentVersion: input.version,
+      })
+      .returning();
+    row = inserted[0];
+  } else {
+    const updated = await tx
+      .update(resource)
+      .set({ currentVersion: input.version })
+      .where(eq(resource.id, input.id))
+      .returning();
+    row = updated[0];
+  }
+  if (!row) throw new Error('createResource: resource upsert returned no row');
+
+  await tx.insert(resourceVersion).values({
+    resourceId: input.id,
+    version: input.version,
+    ioSchema: input.ioSchema,
+  });
+
+  return row;
+}
+
 /**
  * Create (or version-bump) a resource: writes the `resource` row with
  * `current_version = version` and the matching `resource_version` row carrying
- * the frozen `io_schema`, in a single transaction.
+ * the frozen `io_schema`, atomically.
  *
  * When the `resource` already exists (a re-import) the row is updated to point
  * `current_version` at the new `version` and a fresh `resource_version` row is
  * inserted; the unique `resource_version_pk` guards against a duplicate
  * `(resource_id, version)`.
+ *
+ * Reuses an already-open transaction (`PgTransaction`) when one is passed so a
+ * caller — e.g. dify registration writing the resource and its binding together
+ * — gets a single flat transaction rather than a nested SAVEPOINT. When given
+ * the root connection it opens its own transaction so the two writes stay
+ * atomic on their own.
  */
 export async function createResource(db: DbOrTx, input: CreateResourceInput): Promise<Resource> {
-  return db.transaction(async (tx) => {
-    const existing = await getResource(tx, input.id);
+  // `isOpenTransaction` is a plain boolean (not a type guard) so `db` keeps its
+  // schema-parameterized `DbOrTx` type rather than narrowing to the
+  // unparameterized exported `PgTransaction` class.
+  if (isOpenTransaction(db)) {
+    return writeResource(db, input);
+  }
+  return db.transaction((tx) => writeResource(tx, input));
+}
 
-    let row: Resource | undefined;
-    if (existing === undefined) {
-      const inserted = await tx
-        .insert(resource)
-        .values({
-          id: input.id,
-          tenantId: input.tenantId,
-          kind: input.kind,
-          modality: input.modality,
-          providerType: input.providerType,
-          execModes: [...input.execModes],
-          currentVersion: input.version,
-        })
-        .returning();
-      row = inserted[0];
-    } else {
-      const updated = await tx
-        .update(resource)
-        .set({ currentVersion: input.version })
-        .where(eq(resource.id, input.id))
-        .returning();
-      row = updated[0];
-    }
-    if (!row) throw new Error('createResource: resource upsert returned no row');
-
-    await tx.insert(resourceVersion).values({
-      resourceId: input.id,
-      version: input.version,
-      ioSchema: input.ioSchema,
-    });
-
-    return row;
-  });
+/** True when `db` is an already-open transaction (vs. the root connection). */
+function isOpenTransaction(db: DbOrTx): boolean {
+  return db instanceof PgTransaction;
 }
 
 /** Insert a `dify_binding` row. */

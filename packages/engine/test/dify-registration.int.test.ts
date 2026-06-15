@@ -203,4 +203,65 @@ describe('DifyRegistrationService.register', () => {
     const [resRow] = await db.select().from(resource).where(eq(resource.id, 'rag-forced'));
     expect(resRow?.id).toBe('rag-forced');
   });
+
+  it('rolls back the resource + resource_version when the binding insert fails', async () => {
+    const tenantId = await makeTenant();
+
+    // Wrap `db` so the transaction body runs against a `tx` that throws the
+    // moment `createDifyBinding` issues its `insert(difyBinding)` — i.e. the
+    // SECOND write inside the one transaction. The resource + resource_version
+    // inserts have already run at this point, so this proves they roll back.
+    const wrapTx = (realTx: typeof db): typeof db =>
+      new Proxy(realTx, {
+        get(txTarget, txProp, txReceiver): unknown {
+          if (txProp === 'insert') {
+            return (table: Parameters<typeof db.insert>[0]) => {
+              if (table === difyBinding) {
+                throw new Error('injected: dify_binding insert failed');
+              }
+              return txTarget.insert(table);
+            };
+          }
+          return Reflect.get(txTarget, txProp, txReceiver);
+        },
+      });
+
+    const failingDb = new Proxy(db, {
+      get(target, prop, receiver): unknown {
+        if (prop === 'transaction') {
+          return (cb: (tx: typeof db) => Promise<unknown>) =>
+            target.transaction((realTx) => cb(wrapTx(realTx)));
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    });
+
+    const svc = new DifyRegistrationService({ db: failingDb, knownModels: KNOWN_MODELS });
+
+    await expect(svc.register(baseInput(tenantId, 'atomic'))).rejects.toThrow(
+      /dify_binding insert failed/,
+    );
+
+    // Nothing committed: the resource, its version row and the binding all
+    // rolled back together.
+    const resources = await db.select().from(resource).where(eq(resource.id, 'atomic'));
+    expect(resources).toHaveLength(0);
+    const versions = await db
+      .select()
+      .from(resourceVersion)
+      .where(eq(resourceVersion.resourceId, 'atomic'));
+    expect(versions).toHaveLength(0);
+    const bindings = await db
+      .select()
+      .from(difyBinding)
+      .where(eq(difyBinding.resourceId, 'atomic'));
+    expect(bindings).toHaveLength(0);
+
+    // A subsequent valid re-register starts cleanly at version 1 (no orphaned
+    // resource_version to trip `resource_version_pk`).
+    const out = await buildService().register(baseInput(tenantId, 'atomic'));
+    expect(out.version).toBe(1);
+    const [resRow] = await db.select().from(resource).where(eq(resource.id, 'atomic'));
+    expect(resRow?.currentVersion).toBe(1);
+  });
 });
