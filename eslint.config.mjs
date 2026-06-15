@@ -30,14 +30,28 @@ export default tseslint.config(
       boundaries,
     },
     settings: {
+      // Resolve `@actionow/<name>` imports to `packages/<name>/src/...` so
+      // boundaries (which relies on the import resolver via
+      // eslint-module-utils) can classify the import target by element type.
+      // eslint-module-utils reads the legacy `import/resolver` settings key.
+      // The typescript resolver maps `@actionow/*` to `packages/*/src` via the
+      // referenced tsconfigs + each package's `main: src/index.ts`, which makes
+      // cross-package imports resolvable even where pnpm has not symlinked the
+      // (intentionally undeclared) dependency.
+      'import/resolver': {
+        typescript: {
+          alwaysTryTypes: true,
+          noWarnOnMultipleProjects: true,
+          project: ['packages/*/tsconfig.json', 'apps/*/tsconfig.json'],
+        },
+        node: true,
+      },
+      // Capture-based, file-mode elements classify EVERY file under a package
+      // (including nested files like packages/db/src/schema/index.ts) and
+      // expose the package/app name via `capture` for use in element-types.
       'boundaries/elements': [
-        { type: 'contracts', pattern: 'packages/contracts/*' },
-        { type: 'domain', pattern: 'packages/domain/*' },
-        { type: 'db', pattern: 'packages/db/*' },
-        { type: 'adapters', pattern: 'packages/adapters/*' },
-        { type: 'dify', pattern: 'packages/dify/*' },
-        { type: 'infra', pattern: 'packages/infra/*' },
-        { type: 'app', pattern: 'apps/*' },
+        { type: 'pkg', pattern: 'packages/*/**', mode: 'file', capture: ['package'] },
+        { type: 'app', pattern: 'apps/*/**', mode: 'file', capture: ['app'] },
       ],
     },
     rules: {
@@ -50,21 +64,80 @@ export default tseslint.config(
       '@typescript-eslint/no-misused-promises': 'error',
       '@typescript-eslint/naming-convention': [
         'error',
-        { selector: 'interface', format: ['PascalCase'], custom: { regex: '^I[A-Z]', match: false } },
+        {
+          selector: 'interface',
+          format: ['PascalCase'],
+          custom: { regex: '^I[A-Z]', match: false },
+        },
         { selector: 'typeLike', format: ['PascalCase'] },
       ],
+      // Enforce the §14.5 dependency table. Elements are captured by package
+      // name, so `from`/`allow` are matched on the `package` capture. A package
+      // may always import its own files (same package name).
       'boundaries/element-types': [
         'error',
         {
           default: 'disallow',
           rules: [
-            { from: 'contracts', allow: [] },
-            { from: 'domain', allow: ['contracts'] },
-            { from: 'db', allow: ['contracts', 'domain'] },
-            { from: 'infra', allow: ['contracts'] },
-            { from: 'adapters', allow: ['contracts', 'domain', 'infra'] },
-            { from: 'dify', allow: ['contracts', 'domain', 'infra'] },
-            { from: 'app', allow: ['contracts', 'domain', 'db', 'adapters', 'dify', 'infra'] },
+            // contracts: leaf — may only import its own files.
+            {
+              from: [['pkg', { package: 'contracts' }]],
+              allow: [['pkg', { package: 'contracts' }]],
+            },
+            // domain: contracts only.
+            {
+              from: [['pkg', { package: 'domain' }]],
+              allow: [['pkg', { package: 'domain' }]],
+            },
+            {
+              from: [['pkg', { package: 'domain' }]],
+              allow: [['pkg', { package: 'contracts' }]],
+            },
+            // db: contracts, domain.
+            {
+              from: [['pkg', { package: 'db' }]],
+              allow: [
+                ['pkg', { package: 'db' }],
+                ['pkg', { package: 'contracts' }],
+                ['pkg', { package: 'domain' }],
+              ],
+            },
+            // infra: contracts.
+            {
+              from: [['pkg', { package: 'infra' }]],
+              allow: [
+                ['pkg', { package: 'infra' }],
+                ['pkg', { package: 'contracts' }],
+              ],
+            },
+            // adapters: contracts, domain, infra.
+            {
+              from: [['pkg', { package: 'adapters' }]],
+              allow: [
+                ['pkg', { package: 'adapters' }],
+                ['pkg', { package: 'contracts' }],
+                ['pkg', { package: 'domain' }],
+                ['pkg', { package: 'infra' }],
+              ],
+            },
+            // dify: contracts, domain, infra.
+            {
+              from: [['pkg', { package: 'dify' }]],
+              allow: [
+                ['pkg', { package: 'dify' }],
+                ['pkg', { package: 'contracts' }],
+                ['pkg', { package: 'domain' }],
+                ['pkg', { package: 'infra' }],
+              ],
+            },
+            // apps (api, worker): any package + any app.
+            {
+              from: [['app', {}]],
+              allow: [
+                ['pkg', {}],
+                ['app', {}],
+              ],
+            },
           ],
         },
       ],
@@ -82,6 +155,9 @@ export default tseslint.config(
       ],
     },
   },
-  { files: ['**/*.spec.ts', '**/*.test.ts'], rules: { '@typescript-eslint/no-unsafe-assignment': 'off' } },
+  {
+    files: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: { '@typescript-eslint/no-unsafe-assignment': 'off' },
+  },
   prettier,
 );
