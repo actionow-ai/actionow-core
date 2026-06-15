@@ -1,0 +1,27 @@
+{
+  "name": "actionow-core",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.25.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write \"**/*.{ts,json,md,yaml}\"",
+    "db:generate": "pnpm --filter @actionow/db db:generate",
+    "db:migrate": "pnpm --filter @actionow/db db:migrate",
+    "dev:api": "pnpm --filter @actionow/api start:dev",
+    "dev:worker": "pnpm --filter @actionow/worker start:dev",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "turbo": "^2.1.0",
+    "typescript": "^5.6.0",
+    "prettier": "^3.3.0",
+    "tsx": "^4.19.0"
+  }
+}
