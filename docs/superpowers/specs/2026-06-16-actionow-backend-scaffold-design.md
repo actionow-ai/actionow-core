@@ -25,6 +25,7 @@
 | D12 | OpenAI 兼容端点 | 本期做（薄视图，复用同一管线） | 仅 `modality=text` |
 | D13 | 代码组织 | 模块化单体 @ pnpm monorepo（api 应用 + worker 应用共享 packages） | 可后续拆服务 |
 | D14 | 脚手架将内建评审的结构性修复 | 是 | 见 §10 映射表 |
+| D15 | 代码风格 | Profile 1：ESLint+Prettier · 严格类型 · 架构边界 | 详见 §14 |
 
 ---
 
@@ -265,3 +266,58 @@ secret_ref(id, provider, locator, created_at)                    -- vault 指针
 - 前端（仅 OpenAPI）；托管 Dify provision；advanced-chat；内容安全/合规层；publisher 分成。
 - passthrough/metered 计量为接口与表结构预留，运行不启用（依赖 Dify node 事件，托管期再做）。
 - 多上游健康度量驱动的智能调度（本期仅加权随机 + 故障转移）。
+
+---
+
+## 14. 代码风格与工程规范 (Code Style — Profile 1)
+
+### 14.1 工具链
+
+- **ESLint flat config**（`eslint.config.js`）+ `typescript-eslint`：`strict-type-checked` + `stylistic-type-checked`。
+- **Prettier**（仅格式化）+ `eslint-config-prettier`（关闭与 Prettier 冲突的规则）。
+- 插件：`eslint-plugin-import-x`、`eslint-plugin-simple-import-sort`、`eslint-plugin-boundaries`、`@typescript-eslint`、`eslint-plugin-vitest`（测试）。
+- 提交钩子：`husky` + `lint-staged`（pre-commit 对 staged 文件跑 `eslint --fix` + `prettier --write`）+ `commitlint`（Conventional Commits）。
+- monorepo 编排：`turbo`（lint/test/build 缓存）。
+
+### 14.2 Prettier 格式
+
+`singleQuote: true · semi: true · printWidth: 100 · tabWidth: 2 · trailingComma: 'all' · arrowParens: 'always'`。
+
+### 14.3 TypeScript 严格度（`tsconfig.base.json`）
+
+`strict: true · noUncheckedIndexedAccess · exactOptionalPropertyTypes · noImplicitOverride · useUnknownInCatchVariables · verbatimModuleSyntax · isolatedModules`。
+ESLint 强制：`no-explicit-any`(error)、`explicit-module-boundary-types`、`consistent-type-imports`（`import type`）、**`no-floating-promises` / `no-misused-promises`**（异步资金正确性关键）。
+
+### 14.4 导入排序（simple-import-sort）
+
+`node 内置 → 外部依赖 → 内部包(@actionow/*) → 相对路径`；`import type` 与值导入分组。
+
+### 14.5 架构边界（eslint-plugin-boundaries，守住设计底线）
+
+按 package 定义 element 类型，强制依赖方向（违反即 lint 报错）：
+
+| package | 允许导入 |
+|---|---|
+| `contracts` | （叶子，不依赖任何内部包） |
+| `domain` | `contracts` **only** — 禁 db/infra/adapters/nestjs/drizzle/redis/bullmq（保持纯函数核心） |
+| `db` | `contracts` · `domain` |
+| `adapters` | `contracts` · `domain` · `infra` |
+| `dify` | `contracts` · `domain` · `infra` |
+| `infra` | `contracts` |
+| `apps/api` · `apps/worker` | 任意 package |
+
+`domain` 额外用 `no-restricted-imports` 黑名单 `nestjs/drizzle/ioredis/bullmq` 二次兜底。
+
+### 14.6 命名（@typescript-eslint/naming-convention）
+
+类型/接口/类 `PascalCase`（接口**不**加 `I` 前缀）；变量/函数 `camelCase`；枚举成员 `PascalCase`；文件名 `kebab-case`。DB 表/列 `snake_case`（Drizzle 定义），TS 侧映射为 `camelCase`。优先**具名导出**（除框架要求处）。
+
+### 14.7 错误处理与契约
+
+- `domain` 抛**带 `code` 的类型化领域错误**（自定义 Error 子类）；`api` 全局 exception filter 统一映射到 §4.7 错误码集合。
+- 禁静默 catch；值对象/DTO 默认 `readonly`。
+- **zod 为运行期校验唯一真相源**，TS 类型由 zod `infer`（`contracts` 包）。
+
+### 14.8 注释
+
+导出 API 写 TSDoc；注释密度与上下文一致；不写复述代码的冗余注释。
