@@ -1,3 +1,18 @@
 export { holdCredits, releaseHold, topUp } from './account.js';
+export {
+  createJob,
+  type CreateJobInput,
+  getJob,
+  type Job,
+  listJobs,
+  transitionJob,
+} from './job.js';
 export { appendLedger, type LedgerInput } from './ledger.js';
+export {
+  failJob,
+  type FailJobInput,
+  type OutboxInput,
+  settleJob,
+  type SettleJobInput,
+} from './settle.js';
 export type { DbOrTx } from './types.js';
