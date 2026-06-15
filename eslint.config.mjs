@@ -156,6 +156,126 @@ export default tseslint.config(
       ],
     },
   },
+  // Deterministic enforcement of the §14.5 import boundary table.
+  //
+  // `boundaries/element-types` (above) can only classify *resolved* targets,
+  // so a type-only or otherwise unresolved import of an undeclared workspace
+  // package can slip through. `no-restricted-imports` matches the import
+  // *specifier string* regardless of resolution, so it deterministically
+  // rejects forbidden cross-package edges — including `import type`.
+  //
+  // For each source package below, `patterns` forbids every `@actionow/*`
+  // package that package may NOT import per §14.5 (both the bare specifier and
+  // its subpaths, e.g. `@actionow/db/schema`). A package never needs to forbid
+  // its own name (internal imports are relative). The `files` glob covers the
+  // whole package (`**/*.ts`) so test files are linted too. `engine` may use
+  // every lib and `apps/**` may import everything, so neither is restricted
+  // here.
+  {
+    files: ['packages/contracts/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            '@actionow/domain',
+            '@actionow/domain/*',
+            '@actionow/db',
+            '@actionow/db/*',
+            '@actionow/adapters',
+            '@actionow/adapters/*',
+            '@actionow/dify',
+            '@actionow/dify/*',
+            '@actionow/infra',
+            '@actionow/infra/*',
+            '@actionow/engine',
+            '@actionow/engine/*',
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/infra/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            '@actionow/domain',
+            '@actionow/domain/*',
+            '@actionow/db',
+            '@actionow/db/*',
+            '@actionow/adapters',
+            '@actionow/adapters/*',
+            '@actionow/dify',
+            '@actionow/dify/*',
+            '@actionow/engine',
+            '@actionow/engine/*',
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/db/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            '@actionow/adapters',
+            '@actionow/adapters/*',
+            '@actionow/dify',
+            '@actionow/dify/*',
+            '@actionow/infra',
+            '@actionow/infra/*',
+            '@actionow/engine',
+            '@actionow/engine/*',
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/adapters/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            '@actionow/db',
+            '@actionow/db/*',
+            '@actionow/dify',
+            '@actionow/dify/*',
+            '@actionow/engine',
+            '@actionow/engine/*',
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/dify/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            '@actionow/db',
+            '@actionow/db/*',
+            '@actionow/adapters',
+            '@actionow/adapters/*',
+            '@actionow/engine',
+            '@actionow/engine/*',
+          ],
+        },
+      ],
+    },
+  },
+  // domain: contracts only. Keeps the pre-existing third-party blacklist and
+  // extends the `@actionow/*` patterns to forbid every non-contracts lib
+  // (now including dify + engine).
   {
     files: ['packages/domain/**/*.ts'],
     rules: {
@@ -163,7 +283,18 @@ export default tseslint.config(
         'error',
         {
           paths: ['@nestjs/common', '@nestjs/core', 'drizzle-orm', 'ioredis', 'bullmq'],
-          patterns: ['@actionow/db', '@actionow/infra', '@actionow/adapters'],
+          patterns: [
+            '@actionow/db',
+            '@actionow/db/*',
+            '@actionow/infra',
+            '@actionow/infra/*',
+            '@actionow/adapters',
+            '@actionow/adapters/*',
+            '@actionow/dify',
+            '@actionow/dify/*',
+            '@actionow/engine',
+            '@actionow/engine/*',
+          ],
         },
       ],
     },
