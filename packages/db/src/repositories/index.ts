@@ -1,4 +1,5 @@
 export { holdCredits, releaseHold, topUp } from './account.js';
+export { claimIdempotency, type ClaimResult } from './idempotency.js';
 export {
   createJob,
   type CreateJobInput,
