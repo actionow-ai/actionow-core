@@ -1,0 +1,68 @@
+import type { HttpClient } from './http.js';
+
+export const EXEC_MODES = ['blocking', 'stream', 'async-poll', 'async-callback'] as const;
+export type ExecMode = (typeof EXEC_MODES)[number];
+
+export type UsageVector = Record<string, number>;
+
+export const UNIFIED_ERROR_CODES = [
+  'invalid_input',
+  'insufficient_credits',
+  'resource_not_found',
+  'rate_limited',
+  'upstream_error',
+  'upstream_timeout',
+  'content_filtered',
+  'job_failed',
+  'unauthorized',
+  'internal_error',
+] as const;
+export type UnifiedErrorCode = (typeof UNIFIED_ERROR_CODES)[number];
+
+export interface UnifiedError {
+  code: UnifiedErrorCode;
+  message: string;
+  upstream?: { provider: string; rawCode?: string };
+  retryable: boolean;
+  retryAfterMs?: number;
+}
+
+export interface AdapterContext {
+  providerType: string;
+  model?: string;
+  endpoint?: string;
+  apiKey?: string; // resolved from vault by caller; never logged
+  http: HttpClient;
+}
+
+export interface SubmitInput {
+  resourceId: string;
+  modality: string;
+  inputs: Record<string, unknown>;
+  execMode: ExecMode;
+  ctx: AdapterContext;
+}
+
+export interface SyncResult {
+  kind: 'sync';
+  output: Record<string, unknown>;
+  usage: UsageVector;
+}
+export interface UpstreamJobHandle {
+  kind: 'async';
+  provider: string;
+  upstreamJobId: string;
+  meta?: Record<string, unknown>;
+}
+export type SubmitResult = SyncResult | UpstreamJobHandle;
+
+export type UpstreamStatus = 'running' | 'succeeded' | 'failed';
+export interface PollResult {
+  status: UpstreamStatus;
+  output?: Record<string, unknown>;
+  usage?: UsageVector;
+  error?: UnifiedError;
+}
+export interface CallbackResult extends PollResult {
+  upstreamJobId: string;
+}
