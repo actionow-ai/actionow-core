@@ -262,6 +262,9 @@ importers:
       '@actionow/infra':
         specifier: workspace:*
         version: link:../infra
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
     devDependencies:
       typescript:
         specifier: ^5.6.0
