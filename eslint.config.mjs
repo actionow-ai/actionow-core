@@ -75,8 +75,10 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': [
         'error',
-        { paths: ['@nestjs/common', '@nestjs/core', 'drizzle-orm', 'ioredis', 'bullmq'] },
-        { patterns: ['@actionow/db', '@actionow/infra', '@actionow/adapters'] },
+        {
+          paths: ['@nestjs/common', '@nestjs/core', 'drizzle-orm', 'ioredis', 'bullmq'],
+          patterns: ['@actionow/db', '@actionow/infra', '@actionow/adapters'],
+        },
       ],
     },
   },
