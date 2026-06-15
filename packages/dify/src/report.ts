@@ -40,17 +40,25 @@ function classifyModelNode(node: DifyNode, knownModels: ReadonlySet<string>): Co
   const id = nodeId(node);
 
   if (ref !== undefined && knownModels.has(ref)) {
-    return item('model_known', 'warn', `node ${id}: model ${ref} is mapped`);
+    return item('model_known', 'warn', `node ${id}: model ${ref} is mapped`, ref);
   }
   return item(
     'model_unknown',
     'warn',
     `node ${id}: model ${ref ?? '(unspecified)'} needs a mapping`,
+    ref,
   );
 }
 
-function item(kind: CompatItemKind, severity: CompatSeverity, detail: string): CompatItem {
-  return { kind, severity, detail };
+function item(
+  kind: CompatItemKind,
+  severity: CompatSeverity,
+  detail: string,
+  ref?: string,
+): CompatItem {
+  // `exactOptionalPropertyTypes`: only attach `ref` when one is known, never as
+  // an explicit `undefined`.
+  return ref === undefined ? { kind, severity, detail } : { kind, severity, detail, ref };
 }
 
 /**
@@ -90,6 +98,7 @@ export function buildCompatReport(parsed: ParsedDsl, opts: CompatReportOptions):
           'tool_needs_credentials',
           'warn',
           `node ${id}: tool '${toolName}' may need credentials (none in DSL)`,
+          toolName,
         ),
       );
       continue;
@@ -132,7 +141,7 @@ export function buildCompatReport(parsed: ParsedDsl, opts: CompatReportOptions):
       asString(record.value) ??
       asString(record.type) ??
       '(unknown plugin)';
-    items.push(item('missing_plugin', 'warn', `dependency '${ident}' must be installed`));
+    items.push(item('missing_plugin', 'warn', `dependency '${ident}' must be installed`, ident));
   }
 
   return {

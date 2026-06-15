@@ -49,6 +49,12 @@ export interface CompatItem {
   readonly kind: CompatItemKind;
   readonly severity: CompatSeverity;
   readonly detail: string;
+  /**
+   * The bare identifier the item refers to (model `provider/name`, tool name,
+   * plugin id), when one is known. `requiredSecrets` is built from the `ref`s of
+   * `tool_needs_credentials` items.
+   */
+  readonly ref?: string;
 }
 
 export interface CompatReport {
