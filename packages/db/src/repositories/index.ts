@@ -1,4 +1,17 @@
 export { holdCredits, releaseHold, topUp } from './account.js';
+export {
+  getAccountByTenant,
+  getActivePricebookEntry,
+  getResource,
+  getResourceVersion,
+  listActiveModifiers,
+  listChannels,
+  type ModifierRow,
+  type PricebookEntryRow,
+  type Resource,
+  type ResourceVersionRow,
+  type UpstreamChannelRow,
+} from './catalog.js';
 export { claimIdempotency, type ClaimResult } from './idempotency.js';
 export {
   createJob,
