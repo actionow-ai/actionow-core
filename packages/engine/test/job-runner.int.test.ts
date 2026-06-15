@@ -1,5 +1,5 @@
 import { AdapterRegistry, createAsyncMediaMock } from '@actionow/adapters';
-import type { PollResult, PricebookEntry } from '@actionow/contracts';
+import type { Modifier, PollResult, PricebookEntry } from '@actionow/contracts';
 import { createJob, getJob, holdCredits, type Job, schema, setUpstreamHandle } from '@actionow/db';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { eq } from 'drizzle-orm';
@@ -90,24 +90,24 @@ async function makeQueuedJob(s: Seed, hold: bigint): Promise<Job> {
   });
 }
 
-function contextFor(s: Seed): JobExecutionContext {
+function contextFor(s: Seed, modifiers: Modifier[] = []): JobExecutionContext {
   return {
     accountId: s.accountId,
     providerType: 'async-media-mock',
     modality: 'image',
     pricebookEntry: IMAGE_PRICEBOOK,
-    modifiers: [],
+    modifiers,
     channels: [
       { id: 'c1', weight: 1, credentialRef: undefined, model: undefined, endpoint: undefined },
     ],
   };
 }
 
-function buildRunner(s: Seed, adapters: AdapterRegistry): JobRunner {
+function buildRunner(s: Seed, adapters: AdapterRegistry, modifiers: Modifier[] = []): JobRunner {
   return new JobRunner({
     db,
     adapters,
-    loadContext: () => Promise.resolve(contextFor(s)),
+    loadContext: () => Promise.resolve(contextFor(s, modifiers)),
     resolveSecret: () => Promise.resolve(undefined),
     http: { request: () => Promise.reject(new Error('no http')) },
     maxPolls: 5,
@@ -219,5 +219,51 @@ describe('JobRunner — poll + callback double-settle dedup', () => {
       await db.select().from(ledgerTxn).where(eq(ledgerTxn.jobId, job.id))
     ).filter((l) => l.type === 'settle');
     expect(settleRows).toHaveLength(1);
+  });
+});
+
+describe('JobRunner.settle — applied-modifier serialization (async path)', () => {
+  /** A 10%-off tenant modifier; fires against the 100 µcredit base → 90. */
+  const PERCENT_OFF_10: Modifier = {
+    id: 'mod-async-10off',
+    scope: 'tenant:acme',
+    op: 'percent_off',
+    value: 10,
+    stackable: false,
+    priority: 0,
+    version: 1,
+  };
+
+  it('settles with a firing modifier, persisting before/after as decimal strings', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 1 }));
+    const runner = buildRunner(s, adapters, [PERCENT_OFF_10]);
+
+    // Must NOT throw: the applied-modifier audit carries bigint before/after,
+    // which jsonb cannot serialize unless serializeAppliedModifiers ran first.
+    await expect(runner.process(job.id)).resolves.toBeUndefined();
+
+    // base 100 µcredits (1 image × rate 100) − 10% = 90.
+    const settled = await getJob(db, job.id);
+    expect(settled?.status).toBe('succeeded');
+    expect(settled?.costCredits).toBe(90n);
+    expect(await readAccount(s.accountId)).toEqual({ balance: 999_910n, held: 0n });
+
+    const settleRows = (
+      await db.select().from(ledgerTxn).where(eq(ledgerTxn.jobId, job.id))
+    ).filter((l) => l.type === 'settle');
+    expect(settleRows).toHaveLength(1);
+
+    // The persisted audit must carry before/after as decimal STRINGS — jsonb
+    // round-trips them as strings only because serializeAppliedModifiers
+    // converted the bigint µcredits. A regression that drops that call throws
+    // on settle, so this ledger row would never be written.
+    const applied = settleRows[0]?.modifiersApplied as { before: string; after: string }[];
+    expect(applied).toHaveLength(1);
+    expect(applied[0]).toMatchObject({ before: '100', after: '90' });
+    expect(typeof applied[0]?.before).toBe('string');
+    expect(typeof applied[0]?.after).toBe('string');
   });
 });
