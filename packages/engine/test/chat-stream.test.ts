@@ -1,0 +1,246 @@
+import type { ProviderAdapter } from '@actionow/adapters';
+import { AdapterRegistry } from '@actionow/adapters';
+import type {
+  ChatRequest,
+  ChatResponse,
+  ChatStreamEvent,
+  HttpClient,
+  PricebookEntry,
+} from '@actionow/contracts';
+import type { DbOrTx } from '@actionow/db';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { ExecutionService, type RunRequest } from '../src/execution-service.js';
+import { createChatSettlingStream } from '../src/stream.js';
+
+// Record settle/fail/usage-log calls without a DB: the chat settling stream
+// calls these module-level repo functions, so we replace them with fakes here.
+const settleCalls: { usage: unknown; finalCost: bigint }[] = [];
+const failCalls: { error: unknown }[] = [];
+const usageLogCalls: { model: string; inputTokens?: number; outputTokens?: number }[] = [];
+
+vi.mock('@actionow/db', () => ({
+  settleJob: vi.fn((_db: unknown, p: { usage: unknown; finalCost: bigint }) => {
+    settleCalls.push({ usage: p.usage, finalCost: p.finalCost });
+    return Promise.resolve({ settled: true });
+  }),
+  failJob: vi.fn((_db: unknown, p: { error: unknown }) => {
+    failCalls.push({ error: p.error });
+    return Promise.resolve({ settled: true });
+  }),
+  insertUsageLog: vi.fn(
+    (_db: unknown, p: { model: string; inputTokens?: number; outputTokens?: number }) => {
+      const entry: { model: string; inputTokens?: number; outputTokens?: number } = {
+        model: p.model,
+      };
+      if (p.inputTokens !== undefined) entry.inputTokens = p.inputTokens;
+      if (p.outputTokens !== undefined) entry.outputTokens = p.outputTokens;
+      usageLogCalls.push(entry);
+      return Promise.resolve({});
+    },
+  ),
+  // Enough of the hold/create surface for runChatStream's validateAndHold prefix.
+  holdCredits: vi.fn(() => Promise.resolve(true)),
+  createJob: vi.fn((_db: unknown, p: { id: string }) => Promise.resolve({ id: p.id })),
+  claimIdempotency: vi.fn(() => Promise.resolve({ claimed: true })),
+  getJob: vi.fn(() => Promise.resolve(undefined)),
+}));
+
+beforeEach(() => {
+  settleCalls.length = 0;
+  failCalls.length = 0;
+  usageLogCalls.length = 0;
+});
+
+const FAKE_DB = {} as DbOrTx;
+const FAKE_HTTP: HttpClient = {
+  request: () => Promise.reject(new Error('http should not be called')),
+};
+
+/** A post (unit) pricebook: 1 µcredit per output_token → usage 2 → 2µ. */
+const POST_PRICEBOOK: PricebookEntry = {
+  resourceId: 'chat-resource',
+  resourceVersion: 1,
+  version: 1,
+  method: 'unit',
+  timing: 'post',
+  spec: { method: 'unit', dimensions: { output_tokens: { rate: 1 } } },
+};
+
+const IR: ChatRequest = {
+  model: 'gpt-4o',
+  messages: [{ role: 'user', content: [{ kind: 'text', text: 'hi' }] }],
+};
+
+/** A fake chat adapter: message_start → content_delta → usage → stop → done. */
+function fakeChatAdapter(): ProviderAdapter {
+  return {
+    providerType: 'mock-chat',
+    submit: () => Promise.resolve({ kind: 'sync', output: {}, usage: {} }),
+    chat: (): Promise<ChatResponse> =>
+      Promise.resolve({
+        message: { role: 'assistant', content: [{ kind: 'text', text: 'ok' }] },
+        stopReason: 'stop',
+        usage: { inputTokens: 3, outputTokens: 2 },
+      }),
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async *streamChat(): AsyncIterable<ChatStreamEvent> {
+      yield { type: 'message_start' };
+      yield { type: 'content_delta', text: 'ok' };
+      yield { type: 'usage', usage: { inputTokens: 3, outputTokens: 2 } };
+      yield { type: 'stop', stopReason: 'stop' };
+      yield { type: 'done' };
+    },
+    extractUsage: () => ({}),
+    mapError: () => ({ code: 'upstream_error', message: 'mock', retryable: false }),
+  };
+}
+
+function deps(overrides: Partial<RunRequest> = {}): Parameters<typeof createChatSettlingStream>[0] {
+  const adapters = new AdapterRegistry();
+  adapters.register(fakeChatAdapter());
+  const req: RunRequest = {
+    resource: {
+      id: 'chat-resource',
+      version: 1,
+      modality: 'text',
+      ioSchema: { inputs: [], outputs: [] },
+      execModes: ['stream'],
+      providerType: 'mock-chat',
+    },
+    pricebookEntry: POST_PRICEBOOK,
+    modifiers: [],
+    channels: [{ id: 'c1', weight: 1, credentialRef: 'ref-1' }],
+    inputs: { __ir: IR },
+    execMode: 'stream',
+    tenantId: 'tenant-1',
+    accountId: 'account-1',
+    ...overrides,
+  };
+  return {
+    db: FAKE_DB,
+    adapters,
+    resolveSecret: () => Promise.resolve('sk-secret'),
+    http: FAKE_HTTP,
+    jobId: 'job-1',
+    inputs: { __ir: IR },
+    holdAmount: 1_000n,
+    req,
+  };
+}
+
+describe('createChatSettlingStream', () => {
+  it('forwards IR events verbatim and settles once with snake_case usage', async () => {
+    const events: ChatStreamEvent[] = [];
+    for await (const ev of createChatSettlingStream(deps())) events.push(ev);
+
+    expect(events.map((e) => e.type)).toEqual([
+      'message_start',
+      'content_delta',
+      'usage',
+      'stop',
+      'done',
+    ]);
+    expect(settleCalls).toHaveLength(1);
+    expect(settleCalls[0]?.usage).toEqual({ input_tokens: 3, output_tokens: 2 });
+    // 2 output tokens × 1µ/token = 2µ.
+    expect(settleCalls[0]?.finalCost).toBe(2n);
+    expect(failCalls).toHaveLength(0);
+  });
+
+  it('mirrors usage_log once (snake_case) when usageLogModel is set', async () => {
+    const events: ChatStreamEvent[] = [];
+    for await (const ev of createChatSettlingStream(deps({ usageLogModel: 'gpt-4o' }))) {
+      events.push(ev);
+    }
+
+    expect(settleCalls).toHaveLength(1);
+    expect(usageLogCalls).toHaveLength(1);
+    expect(usageLogCalls[0]).toEqual({ model: 'gpt-4o', inputTokens: 3, outputTokens: 2 });
+  });
+
+  it('does NOT mirror usage_log when usageLogModel is unset', async () => {
+    const events: ChatStreamEvent[] = [];
+    for await (const ev of createChatSettlingStream(deps())) events.push(ev);
+
+    expect(settleCalls).toHaveLength(1);
+    expect(usageLogCalls).toHaveLength(0);
+  });
+
+  it('settles exactly once on consumer early-return (disconnect)', async () => {
+    const stream = createChatSettlingStream(deps());
+    const iter = stream[Symbol.asyncIterator]();
+    const first = await iter.next();
+    expect(first.value).toMatchObject({ type: 'message_start' });
+    await iter.return(undefined);
+
+    expect(settleCalls).toHaveLength(1);
+    expect(failCalls).toHaveLength(0);
+  });
+});
+
+function buildService(): InstanceType<typeof ExecutionService> {
+  const adapters = new AdapterRegistry();
+  adapters.register(fakeChatAdapter());
+  return new ExecutionService({
+    db: FAKE_DB,
+    adapters,
+    resolveSecret: () => Promise.resolve('sk-secret'),
+    http: FAKE_HTTP,
+    now: () => new Date('2026-06-16T00:00:00.000Z'),
+    enqueue: vi.fn<(jobId: string) => Promise<void>>(() => Promise.resolve()),
+  });
+}
+
+function chatReq(overrides: Partial<RunRequest> = {}): RunRequest {
+  return {
+    resource: {
+      id: 'chat-resource',
+      version: 1,
+      modality: 'text',
+      ioSchema: { inputs: [], outputs: [] },
+      execModes: ['stream'],
+      providerType: 'mock-chat',
+    },
+    pricebookEntry: POST_PRICEBOOK,
+    modifiers: [],
+    channels: [{ id: 'c1', weight: 1, credentialRef: 'ref-1' }],
+    inputs: { __ir: IR },
+    execMode: 'stream',
+    tenantId: 'tenant-1',
+    accountId: 'account-1',
+    estimatedUsage: { output_tokens: 1000 },
+    ...overrides,
+  };
+}
+
+describe('ExecutionService.runChatStream / runChat', () => {
+  it('runChatStream returns a defined jobId and forwards IR events', async () => {
+    const svc = buildService();
+    const { jobId, events } = await svc.runChatStream(chatReq());
+    expect(jobId).toBeDefined();
+    expect(typeof jobId).toBe('string');
+
+    const collected: ChatStreamEvent[] = [];
+    for await (const ev of events) collected.push(ev);
+    expect(collected.map((e) => e.type)).toEqual([
+      'message_start',
+      'content_delta',
+      'usage',
+      'stop',
+      'done',
+    ]);
+    expect(settleCalls).toHaveLength(1);
+    expect(settleCalls[0]?.usage).toEqual({ input_tokens: 3, output_tokens: 2 });
+  });
+
+  it('runChat blocks, maps usage→snake_case, and settles once', async () => {
+    const svc = buildService();
+    const { jobId, response, cost } = await svc.runChat(chatReq());
+    expect(jobId).toBeDefined();
+    expect(response.stopReason).toBe('stop');
+    expect(cost.credits).toBe(2n);
+    expect(settleCalls).toHaveLength(1);
+    expect(settleCalls[0]?.usage).toEqual({ input_tokens: 3, output_tokens: 2 });
+  });
+});

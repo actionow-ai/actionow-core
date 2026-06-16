@@ -4,6 +4,9 @@ import type { AdapterRegistry } from '@actionow/adapters';
 import { isRetryableAdapterError, routeWithFailover } from '@actionow/adapters';
 import type {
   AdapterContext,
+  ChatRequest,
+  ChatResponse,
+  ChatStreamEvent,
   ExecMode,
   HttpClient,
   IoSchema,
@@ -37,7 +40,7 @@ import {
 
 import { EngineError, engineError } from './errors.js';
 import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
-import { createSettlingStream } from './stream.js';
+import { createChatSettlingStream, createSettlingStream } from './stream.js';
 
 /** A routed upstream channel: how to reach one provider endpoint/credential. */
 export interface RunChannel {
@@ -114,6 +117,26 @@ export type RunOutcome =
 export interface StreamOutcome {
   jobId: string;
   events: AsyncIterable<StreamEvent>;
+}
+
+/**
+ * The IR-streaming analogue of {@link StreamOutcome}: the persisted job id (the
+ * hold is already placed when this resolves) plus the `events` async iterable of
+ * IR {@link ChatStreamEvent}s the caller renders to its dialect's SSE framing.
+ * Consuming `events` to completion — OR `return()`-ing it early on disconnect —
+ * settles the job exactly once. The API reads the settled job from `jobId`
+ * (known here, before the first event), since the IR `done` shape is unchanged.
+ */
+export interface ChatStreamOutcome {
+  jobId: string;
+  events: AsyncIterable<ChatStreamEvent>;
+}
+
+/** The result of a blocking IR {@link runChat}: the job id, IR response, cost. */
+export interface ChatRunOutcome {
+  jobId: string;
+  response: ChatResponse;
+  cost: RunCost;
 }
 
 export interface ExecutionServiceDeps {
@@ -227,6 +250,82 @@ export class ExecutionService {
       proxyUrlEnv: this.deps.proxyUrlEnv,
     });
     return { jobId, events };
+  }
+
+  /**
+   * Open an IR-streaming chat run. Same synchronous prefix as {@link runStream}
+   * (validate → quote+modifiers → atomic hold → job snapshot) before returning,
+   * so a hold failure (→ 402) surfaces before the first SSE byte. The IR
+   * `ChatRequest` is carried in `req.inputs.__ir`; the returned `events` is the
+   * IR chat settling generator that settles exactly once (and mirrors usage_log
+   * when `req.usageLogModel` is set). Additive: does not touch `runStream`.
+   */
+  async runChatStream(req: RunRequest): Promise<ChatStreamOutcome> {
+    const { db } = this.deps;
+    const jobId = randomUUID();
+    // Validate the user-facing inputs against the resource io_schema with the
+    // out-of-band IR stripped (the strict schema rejects unknown keys); the IR
+    // is re-attached to the stream's inputs below.
+    const { inputs, holdAmount } = await this.validateAndHold(stripIr(req), jobId);
+
+    const events = createChatSettlingStream({
+      db,
+      adapters: this.deps.adapters,
+      resolveSecret: this.deps.resolveSecret,
+      http: this.deps.http,
+      jobId,
+      inputs: withIr(inputs, req.inputs),
+      holdAmount,
+      req,
+      proxyUrlEnv: this.deps.proxyUrlEnv,
+    });
+    return { jobId, events };
+  }
+
+  /**
+   * Blocking IR chat run: same hold prefix, then resolve the adapter, call
+   * `adapter.chat(ir, ctx)`, map the IR camelCase `usage` → the snake_case
+   * engine {@link UsageVector}, and settle via the existing `settleSync` path
+   * (which also fires the `usage_log` mirror when `req.usageLogModel` is set).
+   * Additive: does not touch `run`/`runBlocking`.
+   */
+  async runChat(req: RunRequest): Promise<ChatRunOutcome> {
+    const jobId = randomUUID();
+    const { inputs, holdAmount } = await this.validateAndHold(stripIr(req), jobId);
+    const ir = readIr(inputs, req.inputs);
+
+    const adapter = this.deps.adapters.get(req.resource.providerType);
+    if (adapter.chat === undefined) {
+      await this.failBlocking(
+        req,
+        jobId,
+        holdAmount,
+        engineError('internal_error', `adapter ${req.resource.providerType} cannot chat`),
+      );
+      throw engineError('internal_error', `adapter ${req.resource.providerType} cannot chat`);
+    }
+
+    let response: ChatResponse;
+    try {
+      const ctx = await this.buildContext(req, req.channels[0] ?? { id: 'default', weight: 1 });
+      response = await adapter.chat(ir, ctx);
+    } catch (err) {
+      await this.failBlocking(req, jobId, holdAmount, err);
+      throw toEngineError(err);
+    }
+
+    // camelCase IR usage → snake_case engine UsageVector at the boundary.
+    const usage: UsageVector = {
+      input_tokens: response.usage.inputTokens,
+      output_tokens: response.usage.outputTokens,
+    };
+    const outcome = await this.settleSync(req, jobId, holdAmount, {
+      kind: 'sync',
+      output: { __ir: response },
+      usage,
+    });
+    const cost = outcome.status === 'succeeded' ? outcome.cost : { credits: 0n };
+    return { jobId, response, cost };
   }
 
   private async execute(req: RunRequest, jobId: string): Promise<RunOutcome> {
@@ -512,6 +611,50 @@ export class ExecutionService {
     }
     return this.deps.proxyUrlEnv;
   }
+}
+
+/**
+ * The opaque key under which a chat run carries its IR `ChatRequest` through
+ * `RunRequest.inputs` — out-of-band from the resource's user-facing io_schema,
+ * which validates the rest of `inputs`.
+ */
+const IR_KEY = '__ir';
+
+/**
+ * Re-attach the IR (carried on the original `req.inputs.__ir`) to the validated
+ * inputs the resource io_schema produced, so the chat settling stream can read
+ * it from `inputs.__ir`. The io_schema strips unknown keys, so `__ir` is added
+ * back here rather than relying on it surviving validation.
+ */
+function withIr(
+  validated: Record<string, unknown>,
+  original: Record<string, unknown>,
+): Record<string, unknown> {
+  const ir = original[IR_KEY];
+  return ir === undefined ? validated : { ...validated, [IR_KEY]: ir };
+}
+
+/**
+ * A shallow copy of a chat `RunRequest` with the out-of-band `__ir` key removed
+ * from `inputs`, so the strict resource io_schema validation (which rejects
+ * unknown keys) passes on the user-facing inputs only.
+ */
+function stripIr(req: RunRequest): RunRequest {
+  if (!(IR_KEY in req.inputs)) return req;
+  const inputs = Object.fromEntries(Object.entries(req.inputs).filter(([k]) => k !== IR_KEY));
+  return { ...req, inputs };
+}
+
+/** Read + assert the IR `ChatRequest` carried at `__ir`. */
+function readIr(
+  validated: Record<string, unknown>,
+  original: Record<string, unknown>,
+): ChatRequest {
+  const ir = (original[IR_KEY] ?? validated[IR_KEY]) as ChatRequest | undefined;
+  if (ir === undefined) {
+    throw engineError('internal_error', 'chat run requires inputs.__ir');
+  }
+  return ir;
 }
 
 /** Coerce any thrown value into a unified error payload (sanitized). */
