@@ -5,5 +5,6 @@ export * from './identity.js';
 export * from './model.js';
 export * from './payment.js';
 export * from './pricing.js';
+export * from './redemption.js';
 export * from './storage.js';
 export * from './usage.js';

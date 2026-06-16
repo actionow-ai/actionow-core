@@ -57,6 +57,13 @@
       "when": 1781615741825,
       "tag": "0007_violet_living_mummy",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781616158676,
+      "tag": "0008_right_kingpin",
+      "breakpoints": true
     }
   ]
 }

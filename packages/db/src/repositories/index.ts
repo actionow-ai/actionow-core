@@ -123,6 +123,14 @@ export {
   setIntentStatus,
 } from './payments.js';
 export { type ExpiredHold, listExpiredHolds } from './reaper.js';
+export {
+  claimRedemptionCode,
+  type ClaimRedemptionResult,
+  createRedemptionCode,
+  type CreateRedemptionCodeInput,
+  getRedemptionCode,
+  type RedemptionCodeRow,
+} from './redemption.js';
 export { resolveSecretRef } from './secret-resolver.js';
 export {
   failJob,
