@@ -46,14 +46,31 @@ export function Modal({
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
         className="glass"
-        style={{ width: 'min(440px, 92vw)', borderRadius: 'var(--r-lg)', padding: 'var(--s-5)' }}
+        style={{
+          width: 'min(440px, 92vw)',
+          maxHeight: 'min(86dvh, 720px)',
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: 'var(--r-lg)',
+          padding: 'var(--s-5)',
+        }}
       >
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{title}</h2>
-        <div style={{ marginTop: 'var(--s-4)', display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+        <div
+          style={{
+            marginTop: 'var(--s-4)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--s-3)',
+            overflowY: 'auto',
+            flex: 1,
+            minHeight: 0,
+          }}
+        >
           {children}
         </div>
         {footer && (
-          <div style={{ marginTop: 'var(--s-5)', display: 'flex', justifyContent: 'flex-end', gap: 'var(--s-2)' }}>
+          <div style={{ marginTop: 'var(--s-5)', display: 'flex', justifyContent: 'flex-end', gap: 'var(--s-2)', flexShrink: 0 }}>
             {footer}
           </div>
         )}
