@@ -28,6 +28,20 @@ export async function getResource(db: DbOrTx, resourceId: string): Promise<Resou
   return rows[0];
 }
 
+/** Fetch a resource by id scoped to a tenant (tenant predicate in SQL), or `undefined`. */
+export async function getResourceForTenant(
+  db: DbOrTx,
+  resourceId: string,
+  tenantId: string,
+): Promise<Resource | undefined> {
+  const rows = await db
+    .select()
+    .from(resource)
+    .where(and(eq(resource.id, resourceId), eq(resource.tenantId, tenantId)))
+    .limit(1);
+  return rows[0];
+}
+
 /** Fetch the frozen `io_schema` snapshot for a specific resource version. */
 export async function getResourceVersion(
   db: DbOrTx,

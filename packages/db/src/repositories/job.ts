@@ -61,6 +61,20 @@ export async function getJob(db: DbOrTx, jobId: string): Promise<Job | undefined
   return rows[0];
 }
 
+/** Fetch a job by id scoped to a tenant (tenant predicate in SQL), or `undefined`. */
+export async function getJobForTenant(
+  db: DbOrTx,
+  jobId: string,
+  tenantId: string,
+): Promise<Job | undefined> {
+  const rows = await db
+    .select()
+    .from(job)
+    .where(and(eq(job.id, jobId), eq(job.tenantId, tenantId)))
+    .limit(1);
+  return rows[0];
+}
+
 /**
  * Record the upstream provider's job handle on a job so a later async callback
  * can correlate the payload back to the job (best-effort; not on the money
