@@ -41,12 +41,24 @@ interface Props {
   href?: string;
   onClick?: () => void;
   className?: string;
+  type?: 'button' | 'submit';
+  disabled?: boolean;
 }
 
-export function Button({ children, variant = 'cta', size = 'md', to, href, onClick, className }: Props) {
+export function Button({ children, variant = 'cta', size = 'md', to, href, onClick, className, type, disabled }: Props) {
   const style = styleFor(variant, size);
   const cls = `btn-tactile ${className ?? ''}`;
   if (to) return <Link to={to} className={cls} style={style}>{children}</Link>;
   if (href) return <a href={href} className={cls} style={style}>{children}</a>;
-  return <button type="button" onClick={onClick} className={cls} style={style}>{children}</button>;
+  return (
+    <button
+      type={type ?? 'button'}
+      onClick={onClick}
+      disabled={disabled}
+      className={cls}
+      style={disabled ? { ...style, opacity: 0.7, cursor: 'default' } : style}
+    >
+      {children}
+    </button>
+  );
 }

@@ -20,17 +20,26 @@ import { useMediaQuery } from '../../lib/useMediaQuery';
 
 type Mode = 'login' | 'register';
 
+/** Provider-agnostic, full-modal sample telemetry — the live tail in the brand panel. */
+const LOG = [
+  'chat.completions · gpt-4o · 200',
+  'images.generations · flux · 200',
+  'video.generations · veo · 202',
+  'audio.speech · tts-1 · 200',
+];
+
 function BrandPanel() {
   const { t } = useTranslation(['console', 'landing']);
   const bullets = ['auth.b1', 'auth.b2', 'auth.b3'];
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 'var(--s-10)', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-5)' }}>
       <div data-reveal>
         <Logo size={30} />
       </div>
       <h1
         data-reveal
-        style={{ fontSize: 'clamp(28px, 3vw, 44px)', fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.1, margin: 'var(--s-6) 0 0', maxWidth: 440 }}
+        className="headline-nowrap"
+        style={{ fontSize: 'clamp(28px, 3.4vw, 46px)', fontWeight: 850, letterSpacing: '-0.035em', lineHeight: 1.04, margin: 0 }}
       >
         {t('landing:hero.title1')}
         <FlipWords
@@ -44,17 +53,33 @@ function BrandPanel() {
         />
         {t('landing:hero.title2')}
       </h1>
-      <p data-reveal style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-3)', maxWidth: 400 }}>
+      <p data-reveal style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--muted)', margin: 0, maxWidth: 440 }}>
         {t('auth.brandLead')}
       </p>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 'var(--s-6) 0 0', display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+
+      <ul data-reveal style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
         {bullets.map((b) => (
-          <li key={b} data-reveal style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--text)' }}>
-            <CheckCircleIcon size={18} weight="fill" style={{ color: 'var(--accent)', flexShrink: 0 }} />
+          <li key={b} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: 'var(--text)' }}>
+            <CheckCircleIcon size={17} weight="fill" style={{ color: 'var(--accent)', flexShrink: 0 }} />
             {t(b)}
           </li>
         ))}
       </ul>
+
+      {/* live mini console — what you're signing into */}
+      <div data-reveal className="glass" style={{ borderRadius: 'var(--r-lg)', padding: 'var(--s-4) var(--s-5)', maxWidth: 420 }}>
+        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--faint)', marginBottom: 'var(--s-3)' }}>
+          {t('landing:live.logTitle')}
+        </div>
+        <div className="mono" style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, lineHeight: 1.5, color: '#9bdcb0' }}>
+          {LOG.map((l) => (
+            <span data-log key={l} style={{ whiteSpace: 'nowrap' }}>
+              <span style={{ color: 'var(--faint)' }}>POST </span>
+              {l}
+            </span>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -81,6 +106,12 @@ export function AuthPage() {
         ease: 'power3.out',
         stagger: 0.07,
       });
+      // live tail in the brand panel
+      gsap.fromTo(
+        root.current.querySelectorAll('[data-log]'),
+        { opacity: 0.25 },
+        { opacity: 1, duration: 0.3, ease: 'none', delay: 0.5, stagger: { each: 0.45, repeat: -1, yoyo: true, repeatDelay: 1.4 } },
+      );
     },
     { scope: root, dependencies: [reduced] },
   );
@@ -147,29 +178,9 @@ export function AuthPage() {
           required
         />
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="btn-tactile cta-shine"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            fontSize: 14,
-            fontWeight: 650,
-            color: 'var(--ink)',
-            background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
-            border: 'none',
-            borderRadius: 'var(--r-pill)',
-            padding: '12px 22px',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-            opacity: busy ? 0.7 : 1,
-          }}
-        >
+        <Button variant="cta" size="lg" type="submit" disabled={busy} className="cta-shine">
           {t(mode === 'login' ? 'auth.loginSubmit' : 'auth.registerSubmit')} <ArrowRightIcon size={16} weight="bold" />
-        </button>
+        </Button>
 
         {config.oauthEnabled && (
           <>
@@ -214,13 +225,25 @@ export function AuthPage() {
           position: 'relative',
           zIndex: 1,
           minHeight: '100dvh',
-          display: 'grid',
-          gridTemplateColumns: isDesktop ? '1.15fr 0.85fr' : '1fr',
+          display: 'flex',
           alignItems: 'center',
+          justifyContent: 'center',
+          padding: 'var(--s-8) var(--s-5)',
         }}
       >
-        {isDesktop && <BrandPanel />}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--s-4)' }}>{card}</div>
+        <div
+          style={{
+            width: '100%',
+            maxWidth: isDesktop ? 1040 : 440,
+            display: 'grid',
+            gridTemplateColumns: isDesktop ? '1.05fr 0.95fr' : '1fr',
+            gap: isDesktop ? 'var(--s-10)' : 'var(--s-6)',
+            alignItems: 'center',
+          }}
+        >
+          {isDesktop && <BrandPanel />}
+          <div style={{ display: 'flex', justifyContent: 'center' }}>{card}</div>
+        </div>
       </div>
     </>
   );
