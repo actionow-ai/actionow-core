@@ -1,5 +1,5 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 
 import { paymentEvent, paymentIntent } from '../schema/index.js';
 import type { DbOrTx } from './types.js';
@@ -62,6 +62,38 @@ export async function setIntentStatus(
     .where(eq(paymentIntent.id, id))
     .returning();
   return rows[0];
+}
+
+/**
+ * Fetch an intent by id, tenant-scoped: a row whose `tenant_id` does not match
+ * is indistinguishable from a missing one (returns `undefined`), so a caller
+ * cannot read another tenant's intent.
+ */
+export async function getIntentByIdForTenant(
+  db: DbOrTx,
+  id: string,
+  tenantId: string,
+): Promise<PaymentIntentRow | undefined> {
+  const rows = await db
+    .select()
+    .from(paymentIntent)
+    .where(and(eq(paymentIntent.id, id), eq(paymentIntent.tenantId, tenantId)))
+    .limit(1);
+  return rows[0];
+}
+
+/** List a tenant's payment intents, newest-first, capped by `limit`. */
+export async function listIntentsByTenant(
+  db: DbOrTx,
+  tenantId: string,
+  limit = 50,
+): Promise<PaymentIntentRow[]> {
+  return db
+    .select()
+    .from(paymentIntent)
+    .where(eq(paymentIntent.tenantId, tenantId))
+    .orderBy(desc(paymentIntent.createdAt))
+    .limit(limit);
 }
 
 /** What a caller supplies to {@link insertEventIfNew} (DB-managed fields aside). */

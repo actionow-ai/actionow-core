@@ -10,6 +10,7 @@ import { ExecutionModule } from './execution/execution.module.js';
 import { FilesModule } from './files/files.module.js';
 import { HealthController } from './health/health.controller.js';
 import { JobsModule } from './jobs/jobs.module.js';
+import { PaymentsModule } from './payments/payments.module.js';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { JobsModule } from './jobs/jobs.module.js';
     AuthModule,
     FilesModule,
     CallbacksModule,
+    PaymentsModule,
   ],
   controllers: [HealthController],
   // Register the §4.7 filter globally via DI so it also applies under the

@@ -114,6 +114,7 @@ beforeAll(async () => {
     RATE_LIMIT_RESOURCE_PER_MIN: 600,
     ADMIN_JWT_SECRET: 'phase8-admin-secret',
     STORAGE_MAX_UPLOAD_BYTES: 100 * 1024 * 1024,
+    CREDIT_RATE: 1000,
   };
 
   const adapters = createDefaultRegistry({ asyncMedia: { readyAfterPolls: 1 } });

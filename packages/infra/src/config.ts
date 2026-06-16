@@ -53,6 +53,30 @@ const EnvSchema = z
     // the per-provider callback path is appended. Optional; required only to use
     // OAuth.
     OAUTH_REDIRECT_BASE: z.string().url().optional(),
+    // Payment provider credentials (Phase 10). All optional so the API boots
+    // without payments configured; a provider whose creds are unset is simply
+    // not registered and its `/v1/payments` routes return `invalid_input`.
+    // Secrets, signatures, and keys are never logged.
+    STRIPE_SECRET_KEY: z.string().min(1).optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+    // Hosted-checkout redirect targets (optional; the provider has defaults).
+    STRIPE_SUCCESS_URL: z.string().url().optional(),
+    STRIPE_CANCEL_URL: z.string().url().optional(),
+    ALIPAY_APP_ID: z.string().min(1).optional(),
+    ALIPAY_PRIVATE_KEY: z.string().min(1).optional(),
+    ALIPAY_PUBLIC_KEY: z.string().min(1).optional(),
+    ALIPAY_GATEWAY: z.string().url().optional(),
+    WECHAT_APP_ID: z.string().min(1).optional(),
+    WECHAT_MCH_ID: z.string().min(1).optional(),
+    WECHAT_API_V3_KEY: z.string().min(1).optional(),
+    WECHAT_PUBLIC_KEY: z.string().min(1).optional(),
+    WECHAT_PUBLIC_KEY_ID: z.string().min(1).optional(),
+    CRYPTO_WEBHOOK_SECRET: z.string().min(1).optional(),
+    // µcredits granted per one currency *minor unit* (e.g. 1 USD cent). Frozen
+    // onto each topup intent at creation, so a later change never re-prices an
+    // in-flight intent. Carried as a bigint downstream; coerced from the string
+    // env here.
+    CREDIT_RATE: z.coerce.number().int().positive().default(1000),
   })
   .transform((env) => ({
     ...env,

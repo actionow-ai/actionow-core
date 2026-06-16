@@ -92,10 +92,12 @@ export { appendLedger, type LedgerInput } from './ledger.js';
 export {
   createIntent,
   type CreateIntentInput as CreatePaymentIntentInput,
+  getIntentByIdForTenant,
   getIntentByProviderRef,
   insertEventIfNew,
   type InsertEventInput,
   type InsertEventResult,
+  listIntentsByTenant,
   markEventProcessed,
   type PaymentEventRow,
   type PaymentIntentRow,
