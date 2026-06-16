@@ -1,4 +1,4 @@
-import { type Database, failJob, getJob, type Job, listJobs } from '@actionow/db';
+import { type Database, failJob, getJob, getJobForTenant, type Job, listJobs } from '@actionow/db';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { TenantContext } from '../auth/auth.service.js';
@@ -70,8 +70,8 @@ export class JobsService {
   }
 
   private async requireOwnedJob(jobId: string, ctx: TenantContext): Promise<Job> {
-    const job = await getJob(this.db, jobId);
-    if (job?.tenantId !== ctx.tenantId) {
+    const job = await getJobForTenant(this.db, jobId, ctx.tenantId);
+    if (job === undefined) {
       throw engineNotFound(`job ${jobId} not found`);
     }
     return job;
