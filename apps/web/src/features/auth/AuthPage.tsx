@@ -71,7 +71,7 @@ function BrandPanel() {
         <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--faint)', marginBottom: 'var(--s-3)' }}>
           {t('landing:live.logTitle')}
         </div>
-        <div className="mono" style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, lineHeight: 1.5, color: '#9bdcb0' }}>
+        <div className="mono" style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, lineHeight: 1.5, color: 'var(--log-ok)' }}>
           {LOG.map((l) => (
             <span data-log key={l} style={{ whiteSpace: 'nowrap' }}>
               <span style={{ color: 'var(--faint)' }}>POST </span>
