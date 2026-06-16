@@ -30,11 +30,14 @@
     "backHome": "返回官网"
   },
   "nav": {
-    "groups": { "ops": "运营", "billing": "计费", "access": "访问" },
+    "groups": { "ops": "运营", "billing": "计费", "access": "访问", "catalog": "目录" },
     "dashboard": "仪表盘",
     "tenants": "租户",
     "accounts": "账户 / 充值",
-    "apiKeys": "API Keys"
+    "apiKeys": "API Keys",
+    "resources": "资源",
+    "modifiers": "调价规则",
+    "dify": "Dify 导入"
   },
   "topbar": { "admin": "管理员", "logout": "退出登录", "backHome": "返回官网" },
   "dashboard": {
@@ -93,6 +96,96 @@
       "copied": "已复制",
       "done": "完成"
     }
+  },
+  "resources": {
+    "title": "资源",
+    "new": "新建资源",
+    "empty": "暂无资源",
+    "created": "资源已创建",
+    "submit": "创建",
+    "cols": {
+      "id": "ID",
+      "modality": "模态",
+      "provider": "Provider",
+      "execModes": "执行模式",
+      "status": "状态"
+    },
+    "form": {
+      "id": "资源 ID",
+      "tenant": "租户",
+      "kind": "类型",
+      "modality": "模态",
+      "provider": "Provider 类型",
+      "execModes": "执行模式(逗号分隔)",
+      "ioSchema": "IO Schema (JSON)"
+    },
+    "kind": { "model": "模型", "workflow": "工作流" },
+    "detail": {
+      "back": "返回资源",
+      "channels": "上游通道",
+      "pricebook": "定价",
+      "addChannel": "添加通道",
+      "channelAdded": "通道已添加",
+      "addPrice": "添加定价",
+      "priceAdded": "定价已添加"
+    }
+  },
+  "channels": {
+    "form": {
+      "provider": "Provider 类型",
+      "credentialRef": "凭证 Ref (UUID,可空)",
+      "weight": "权重",
+      "status": "状态"
+    },
+    "note": "端点/模型/代理/配置目前由后端 seed 数据维护,暂不在此表单中。"
+  },
+  "pricebook": {
+    "empty": "暂无定价",
+    "cols": { "method": "方式", "timing": "时机", "version": "版本", "active": "启用" },
+    "form": {
+      "resourceVersion": "资源版本",
+      "version": "定价版本",
+      "method": "计价方式",
+      "timing": "时机",
+      "spec": "Spec (JSON)",
+      "markup": "加价(可空)"
+    }
+  },
+  "modifiers": {
+    "title": "调价规则",
+    "new": "新建规则",
+    "empty": "暂无规则",
+    "created": "规则已创建",
+    "submit": "创建",
+    "cols": {
+      "scope": "范围",
+      "op": "操作",
+      "value": "值",
+      "priority": "优先级",
+      "active": "启用"
+    },
+    "form": {
+      "scope": "范围",
+      "whenExpr": "条件表达式(可空)",
+      "op": "操作",
+      "value": "值(可空)",
+      "priority": "优先级(可空)",
+      "stackable": "可叠加"
+    }
+  },
+  "dify": {
+    "title": "Dify 导入",
+    "submit": "导入",
+    "imported": "导入成功",
+    "form": {
+      "tenant": "租户",
+      "resourceId": "资源 ID",
+      "endpoint": "Dify Endpoint",
+      "yaml": "Workflow YAML",
+      "pricingModel": "定价模型 (JSON)",
+      "allowBlockers": "允许阻塞节点"
+    },
+    "report": "兼容性报告"
   },
   "errors": {
     "invalid_input": "请求参数有误",

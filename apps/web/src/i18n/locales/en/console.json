@@ -30,11 +30,19 @@
     "backHome": "Website"
   },
   "nav": {
-    "groups": { "ops": "Operations", "billing": "Billing", "access": "Access" },
+    "groups": {
+      "ops": "Operations",
+      "billing": "Billing",
+      "access": "Access",
+      "catalog": "Catalog"
+    },
     "dashboard": "Dashboard",
     "tenants": "Tenants",
     "accounts": "Accounts",
-    "apiKeys": "API Keys"
+    "apiKeys": "API Keys",
+    "resources": "Resources",
+    "modifiers": "Modifiers",
+    "dify": "Dify import"
   },
   "topbar": { "admin": "Admin", "logout": "Sign out", "backHome": "Website" },
   "dashboard": {
@@ -93,6 +101,96 @@
       "copied": "Copied",
       "done": "Done"
     }
+  },
+  "resources": {
+    "title": "Resources",
+    "new": "New resource",
+    "empty": "No resources yet",
+    "created": "Resource created",
+    "submit": "Create",
+    "cols": {
+      "id": "ID",
+      "modality": "Modality",
+      "provider": "Provider",
+      "execModes": "Exec modes",
+      "status": "Status"
+    },
+    "form": {
+      "id": "Resource ID",
+      "tenant": "Tenant",
+      "kind": "Kind",
+      "modality": "Modality",
+      "provider": "Provider type",
+      "execModes": "Exec modes (comma-separated)",
+      "ioSchema": "IO schema (JSON)"
+    },
+    "kind": { "model": "Model", "workflow": "Workflow" },
+    "detail": {
+      "back": "Back to resources",
+      "channels": "Upstream channels",
+      "pricebook": "Pricing",
+      "addChannel": "Add channel",
+      "channelAdded": "Channel added",
+      "addPrice": "Add price",
+      "priceAdded": "Price added"
+    }
+  },
+  "channels": {
+    "form": {
+      "provider": "Provider type",
+      "credentialRef": "Credential ref (UUID, optional)",
+      "weight": "Weight",
+      "status": "Status"
+    },
+    "note": "Endpoint/model/proxy/config are maintained as backend seed data for now and not in this form."
+  },
+  "pricebook": {
+    "empty": "No pricing yet",
+    "cols": { "method": "Method", "timing": "Timing", "version": "Version", "active": "Active" },
+    "form": {
+      "resourceVersion": "Resource version",
+      "version": "Price version",
+      "method": "Method",
+      "timing": "Timing",
+      "spec": "Spec (JSON)",
+      "markup": "Markup (optional)"
+    }
+  },
+  "modifiers": {
+    "title": "Modifiers",
+    "new": "New modifier",
+    "empty": "No modifiers yet",
+    "created": "Modifier created",
+    "submit": "Create",
+    "cols": {
+      "scope": "Scope",
+      "op": "Op",
+      "value": "Value",
+      "priority": "Priority",
+      "active": "Active"
+    },
+    "form": {
+      "scope": "Scope",
+      "whenExpr": "When expression (optional)",
+      "op": "Op",
+      "value": "Value (optional)",
+      "priority": "Priority (optional)",
+      "stackable": "Stackable"
+    }
+  },
+  "dify": {
+    "title": "Dify import",
+    "submit": "Import",
+    "imported": "Imported",
+    "form": {
+      "tenant": "Tenant",
+      "resourceId": "Resource ID",
+      "endpoint": "Dify endpoint",
+      "yaml": "Workflow YAML",
+      "pricingModel": "Pricing model (JSON)",
+      "allowBlockers": "Allow blocking nodes"
+    },
+    "report": "Compatibility report"
   },
   "errors": {
     "invalid_input": "Invalid request",
