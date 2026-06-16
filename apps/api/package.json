@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "nest build",
+    "start": "node --import tsx dist/main.js",
     "start:dev": "nest start --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
