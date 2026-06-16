@@ -34,3 +34,9 @@ Items surfaced during phase reviews that were intentionally deferred. None block
 
 - **`resolveFileInputs` not yet wired into `RunService`** (`apps/api/src/files/files.service.ts`). The helper that maps io_schema `file`/`file_list` inputs → presigned GET URLs is implemented + tested but not called in the execution path; wire it when an adapter consumes file inputs (and add media-output upload). → fold into a later exec pass.
 - **`markFileReady` updates by id only** (tenant predicate enforced at the call site via `requireFile`); add a tenant-scoped WHERE for defense-in-depth.
+
+## Phase 8 (minor)
+
+- **Callback replay window is opt-in** (`apps/api/src/callbacks/callbacks.service.ts`): the ~5min timestamp check only runs when `x-actionow-timestamp` is present; a provider that never sends a timestamp gets HMAC integrity but no replay defense. → make the timestamp header required per-provider.
+- **Channel `credentialRef` doubles as upstream key AND callback HMAC secret** (`resolveJobSecret`); multi-channel resources only try the first channel's secret. → give bindings a distinct callback-signing secret (and try all channels) when real provider callbacks land.
+- **Stream-mode idempotency is no-replay** (a reused `idempotency_key` on a stream run → `invalid_input`, since a live stream can't be replayed). Documented behavior, noted for API consumers.
