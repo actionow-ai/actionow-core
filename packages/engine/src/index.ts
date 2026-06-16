@@ -7,5 +7,6 @@ export * from './payment-service.js';
 export * from './pricing.js';
 export * from './queue.js';
 export * from './reaper.js';
+export * from './redemption-service.js';
 export * from './stream.js';
 export * from './webhook.js';
