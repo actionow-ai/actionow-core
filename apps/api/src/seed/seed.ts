@@ -104,6 +104,12 @@ export async function seedAll(db: Database, options: SeedOptions = {}): Promise<
 
   // 2. admin user (email is unique) — a unified `user` row with role=admin and
   //    a verified email (Phase 9). The admin guard gates on `role==='admin'`.
+  //    Per §B.1 this single operator admin (`role='admin'`) is the self-deploy
+  //    super-admin; a self-deployed instance seeds exactly ONE such admin. Every
+  //    OTHER principal is a customer-side user (`role='user'`) provisioned via
+  //    `/auth/register` — never through the seed. The find-then-create guard
+  //    below (on the unique email) ensures re-running the seed never mints a
+  //    second admin.
   if ((await findUserByEmail(db, SEED_ADMIN_EMAIL)) === undefined) {
     await createUser(db, {
       email: SEED_ADMIN_EMAIL,
