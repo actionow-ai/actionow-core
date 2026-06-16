@@ -19,6 +19,8 @@ import {
 import { creditsToMicro } from '@actionow/domain';
 import { hashPassword } from '@actionow/infra';
 
+import { PROVIDER_SEED_IDS, seedProviders } from './seed-providers.js';
+
 /**
  * Dev seed (Phase 5, Task 6). Creates the minimal end-to-end fixtures so a fresh
  * database can take a `POST /v1/run` with an API key:
@@ -188,6 +190,10 @@ async function main(): Promise<void> {
   const db = createDb(url);
 
   const result = await seedAll(db);
+  // Register the real-provider catalog (resources + channels + pricebooks) as
+  // DATA. Idempotent + network-free; the channels' credentials/proxies resolve
+  // from env at run time.
+  await seedProviders(db, { tenantId: result.tenantId });
 
   const log = console.log.bind(console);
   log('seed complete');
@@ -195,6 +201,7 @@ async function main(): Promise<void> {
   log(`  account_id: ${result.accountId}`);
   log(`  admin     : ${result.adminEmail} (password: ${SEED_ADMIN_PASSWORD})`);
   log(`  resource  : ${result.resourceId}`);
+  log(`  providers : ${PROVIDER_SEED_IDS.join(', ')}`);
 
   if (result.apiKey === null) {
     log('  api_key   : (already provisioned; the plaintext is unrecoverable)');
