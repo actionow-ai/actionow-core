@@ -339,6 +339,9 @@ importers:
       '@actionow/infra':
         specifier: workspace:*
         version: link:../infra
+      '@actionow/payments':
+        specifier: workspace:*
+        version: link:../payments
     devDependencies:
       '@testcontainers/postgresql':
         specifier: ^10.13.0

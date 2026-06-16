@@ -74,6 +74,8 @@ export type InsertEventInput = Omit<
 export interface InsertEventResult {
   /** `true` iff this call inserted the row (i.e. the event is new). */
   inserted: boolean;
+  /** The freshly-inserted row when `inserted` is `true`. */
+  row?: PaymentEventRow;
   /** The pre-existing row when `inserted` is `false` (a duplicate delivery). */
   existing?: PaymentEventRow;
 }
@@ -97,7 +99,8 @@ export async function insertEventIfNew(
     .onConflictDoNothing({ target: [paymentEvent.provider, paymentEvent.providerEventId] })
     .returning();
 
-  if (inserted.length === 1) return { inserted: true };
+  const insertedRow = inserted[0];
+  if (insertedRow) return { inserted: true, row: insertedRow };
 
   const existing = await db
     .select()
