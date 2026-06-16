@@ -15,10 +15,10 @@ export function StatusBadge({ status }: { status: string }) {
   return (
     <span
       style={{
-        fontSize: 9,
+        fontSize: 'var(--fs-caption)',
         fontWeight: 600,
         padding: '3px 9px',
-        borderRadius: 12,
+        borderRadius: 'var(--r-pill)',
         color,
         background: 'color-mix(in srgb, currentColor 16%, transparent)',
       }}
