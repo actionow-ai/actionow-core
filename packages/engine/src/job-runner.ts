@@ -58,6 +58,8 @@ export interface JobRunnerDeps {
   sleep?: (ms: number) => Promise<void>;
   /** Source of randomness for weighted channel selection (default Math.random). */
   rng?: () => number;
+  /** Global egress proxy fallback (UPSTREAM_PROXY_URL) when a channel has no proxyRef. */
+  proxyUrlEnv?: string | undefined;
 }
 
 const DEFAULT_MAX_POLLS = 30;
@@ -265,13 +267,29 @@ export class JobRunner {
     channel: RunChannel | undefined,
   ): Promise<AdapterContext> {
     const ctx: AdapterContext = { providerType, http: this.deps.http };
-    if (channel === undefined) return ctx;
+    if (channel === undefined) {
+      // No channel: the global egress proxy fallback still applies.
+      if (this.deps.proxyUrlEnv !== undefined) ctx.proxyUrl = this.deps.proxyUrlEnv;
+      return ctx;
+    }
     if (channel.model !== undefined) ctx.model = channel.model;
     if (channel.endpoint !== undefined) ctx.endpoint = channel.endpoint;
     if (channel.credentialRef !== undefined) {
       const apiKey = await this.deps.resolveSecret(channel.credentialRef);
       if (apiKey !== undefined) ctx.apiKey = apiKey;
     }
+    const proxyUrl = await this.resolveProxy(channel);
+    if (proxyUrl !== undefined) ctx.proxyUrl = proxyUrl;
+    if (channel.config !== undefined) ctx.config = channel.config;
     return ctx;
+  }
+
+  /** Resolve a channel's egress proxy URL: its proxyRef (via resolveSecret), else the global env fallback. */
+  private async resolveProxy(channel: RunChannel): Promise<string | undefined> {
+    if (channel.proxyRef !== undefined) {
+      const url = await this.deps.resolveSecret(channel.proxyRef);
+      if (url !== undefined) return url;
+    }
+    return this.deps.proxyUrlEnv;
   }
 }

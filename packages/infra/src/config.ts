@@ -85,6 +85,10 @@ const EnvSchema = z
     // in-flight intent. Carried as a bigint downstream; coerced from the string
     // env here.
     CREDIT_RATE: z.coerce.number().int().positive().default(1000),
+    // Global egress-proxy URL applied to upstream provider calls when a channel
+    // carries no per-channel `proxy_ref`. Optional. May embed credentials, so it
+    // is treated as a secret: never logged and never returned to clients.
+    UPSTREAM_PROXY_URL: z.string().url().optional(),
   })
   .transform((env) => ({
     ...env,

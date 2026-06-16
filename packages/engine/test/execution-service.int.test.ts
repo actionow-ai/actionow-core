@@ -1,6 +1,7 @@
 import type { ProviderAdapter } from '@actionow/adapters';
 import { AdapterError, AdapterRegistry } from '@actionow/adapters';
 import type {
+  AdapterContext,
   IoSchema,
   PricebookEntry,
   SubmitInput,
@@ -300,6 +301,87 @@ describe('ExecutionService.run — blocking', () => {
     const jobs = await db.select().from(schema.job);
     expect(jobs).toHaveLength(1);
     expect(jobs[0]?.status).toBe('failed');
+  });
+});
+
+describe('ExecutionService.run — channel context threading', () => {
+  /**
+   * Capture the AdapterContext the engine builds so we can assert proxyUrl /
+   * endpoint / model / config threading. `submit` returns a trivial sync result.
+   */
+  function captureAdapter(seen: AdapterContext[]): ProviderAdapter {
+    return {
+      providerType: 'fake-llm',
+      submit(input: SubmitInput): Promise<SubmitResult> {
+        seen.push(input.ctx);
+        return Promise.resolve({ kind: 'sync', output: { text: 'ok' }, usage: { tokens: 1 } });
+      },
+      extractUsage: () => ({}),
+      mapError: () => ({ code: 'upstream_error', message: 'x', retryable: false }),
+    };
+  }
+
+  it('threads channel proxyRef → resolved proxyUrl, plus endpoint/model/config', async () => {
+    const s = await seed(1_000_000n);
+    const seen: AdapterContext[] = [];
+    const adapters = new AdapterRegistry();
+    adapters.register(captureAdapter(seen));
+    // resolveSecret maps the proxy ref to a URL and any other ref to a fake key.
+    const resolveSecret = (ref: string): Promise<string | undefined> =>
+      Promise.resolve(ref === 'proxy-eu' ? 'http://proxy.local:8080' : 'sk-secret');
+    const svc = new ExecutionService({
+      db,
+      adapters,
+      resolveSecret,
+      http: { request: () => Promise.reject(new Error('no http')) },
+      now: () => new Date('2026-06-16T00:00:00.000Z'),
+      enqueue: vi.fn<(jobId: string) => Promise<void>>(() => Promise.resolve()),
+    });
+
+    await svc.run(
+      baseRequest(s, {
+        channels: [
+          {
+            id: 'c1',
+            weight: 1,
+            credentialRef: 'ref-1',
+            model: 'gpt',
+            endpoint: 'https://eu.example',
+            proxyRef: 'proxy-eu',
+            config: { submitPath: '/tasks', pollPath: '/tasks/{id}' },
+          },
+        ],
+      }),
+    );
+
+    expect(seen[0]?.proxyUrl).toBe('http://proxy.local:8080');
+    expect(seen[0]?.endpoint).toBe('https://eu.example');
+    expect(seen[0]?.model).toBe('gpt');
+    expect(seen[0]?.config).toEqual({ submitPath: '/tasks', pollPath: '/tasks/{id}' });
+  });
+
+  it('falls back to UPSTREAM_PROXY_URL when the channel has no proxyRef', async () => {
+    const s = await seed(1_000_000n);
+    const seen: AdapterContext[] = [];
+    const adapters = new AdapterRegistry();
+    adapters.register(captureAdapter(seen));
+    const svc = new ExecutionService({
+      db,
+      adapters,
+      resolveSecret: () => Promise.resolve('sk-secret'),
+      http: { request: () => Promise.reject(new Error('no http')) },
+      now: () => new Date('2026-06-16T00:00:00.000Z'),
+      enqueue: vi.fn<(jobId: string) => Promise<void>>(() => Promise.resolve()),
+      proxyUrlEnv: 'http://global-proxy.local:3128',
+    });
+
+    await svc.run(
+      baseRequest(s, {
+        channels: [{ id: 'c1', weight: 1, credentialRef: 'ref-1', model: 'gpt' }],
+      }),
+    );
+
+    expect(seen[0]?.proxyUrl).toBe('http://global-proxy.local:3128');
   });
 });
 

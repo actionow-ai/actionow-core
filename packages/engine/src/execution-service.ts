@@ -46,6 +46,10 @@ export interface RunChannel {
   credentialRef?: string | undefined;
   model?: string | undefined;
   endpoint?: string | undefined;
+  /** Opaque egress-proxy locator resolved via `resolveSecret`; never logged. */
+  proxyRef?: string | undefined;
+  /** Per-channel protocol config forwarded verbatim to the adapter; never logged. */
+  config?: Record<string, unknown> | undefined;
 }
 
 /** The frozen resource snapshot the caller passes for this run. */
@@ -117,6 +121,8 @@ export interface ExecutionServiceDeps {
   rng?: () => number;
   /** Default hold lifetime in ms; the reaper cancels holds past this. */
   holdTtlMs?: number;
+  /** Global egress proxy fallback (UPSTREAM_PROXY_URL) when a channel has no proxyRef. */
+  proxyUrlEnv?: string | undefined;
 }
 
 const DEFAULT_HOLD_TTL_MS = 15 * 60_000;
@@ -210,6 +216,7 @@ export class ExecutionService {
       inputs,
       holdAmount,
       req,
+      proxyUrlEnv: this.deps.proxyUrlEnv,
     });
     return { jobId, events };
   }
@@ -450,7 +457,19 @@ export class ExecutionService {
     if (channel.model !== undefined) ctx.model = channel.model;
     if (channel.endpoint !== undefined) ctx.endpoint = channel.endpoint;
     if (apiKey !== undefined) ctx.apiKey = apiKey;
+    const proxyUrl = await this.resolveProxy(channel);
+    if (proxyUrl !== undefined) ctx.proxyUrl = proxyUrl;
+    if (channel.config !== undefined) ctx.config = channel.config;
     return ctx;
+  }
+
+  /** Resolve a channel's egress proxy URL: its proxyRef (via resolveSecret), else the global env fallback. */
+  private async resolveProxy(channel: RunChannel): Promise<string | undefined> {
+    if (channel.proxyRef !== undefined) {
+      const url = await this.deps.resolveSecret(channel.proxyRef);
+      if (url !== undefined) return url;
+    }
+    return this.deps.proxyUrlEnv;
   }
 }
 

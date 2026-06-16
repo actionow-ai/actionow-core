@@ -28,6 +28,8 @@ export interface SettlingStreamDeps {
   holdAmount: MicroCredits;
   /** The frozen run request (resource/pricing/channels/account). */
   req: RunRequest;
+  /** Global egress proxy fallback (UPSTREAM_PROXY_URL) when a channel has no proxyRef. */
+  proxyUrlEnv?: string | undefined;
 }
 
 /**
@@ -193,14 +195,33 @@ async function buildContext(
     providerType: deps.req.resource.providerType,
     http: deps.http,
   };
-  if (channel === undefined) return ctx;
+  if (channel === undefined) {
+    // No channel: the global egress proxy fallback still applies.
+    if (deps.proxyUrlEnv !== undefined) ctx.proxyUrl = deps.proxyUrlEnv;
+    return ctx;
+  }
   if (channel.model !== undefined) ctx.model = channel.model;
   if (channel.endpoint !== undefined) ctx.endpoint = channel.endpoint;
   if (channel.credentialRef !== undefined) {
     const apiKey = await deps.resolveSecret(channel.credentialRef);
     if (apiKey !== undefined) ctx.apiKey = apiKey;
   }
+  const proxyUrl = await resolveProxy(deps, channel);
+  if (proxyUrl !== undefined) ctx.proxyUrl = proxyUrl;
+  if (channel.config !== undefined) ctx.config = channel.config;
   return ctx;
+}
+
+/** Resolve a channel's egress proxy URL: its proxyRef (via resolveSecret), else the global env fallback. */
+async function resolveProxy(
+  deps: SettlingStreamDeps,
+  channel: RunChannel,
+): Promise<string | undefined> {
+  if (channel.proxyRef !== undefined) {
+    const url = await deps.resolveSecret(channel.proxyRef);
+    if (url !== undefined) return url;
+  }
+  return deps.proxyUrlEnv;
 }
 
 /** Coerce any thrown value into a sanitized unified error payload. */
