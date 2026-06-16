@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  check,
   index,
   jsonb,
   pgTable,
@@ -45,16 +46,20 @@ export const apiKey = pgTable(
  * existing `admin_user` row migrates in with `role='admin'`. `tenant_id` is the
  * tenant a self-registered user provisioned (null for the seeded admin).
  */
-export const user = pgTable('user', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  email: text('email').notNull().unique(),
-  emailVerified: boolean('email_verified').notNull().default(false),
-  passwordHash: text('password_hash'),
-  role: text('role').notNull().default('user'),
-  status: text('status').notNull().default('active'),
-  tenantId: uuid('tenant_id').references(() => tenant.id),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const user = pgTable(
+  'user',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email').notNull().unique(),
+    emailVerified: boolean('email_verified').notNull().default(false),
+    passwordHash: text('password_hash'),
+    role: text('role').notNull().default('user'),
+    status: text('status').notNull().default('active'),
+    tenantId: uuid('tenant_id').references(() => tenant.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check('user_role_allowed', sql`${t.role} IN ('user', 'admin')`)],
+);
 
 /**
  * A federated identity linking a {@link user} to an external OAuth provider

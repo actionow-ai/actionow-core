@@ -21,6 +21,7 @@ export const job = pgTable(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenant.id),
+    accountId: uuid('account_id').references(() => account.id),
     resourceId: text('resource_id')
       .notNull()
       .references(() => resource.id),

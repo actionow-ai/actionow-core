@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { bigint, check, pgTable, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, check, pgTable, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 import { tenant } from './identity.js';
 
@@ -21,5 +21,8 @@ export const account = pgTable(
       .default(sql`0`),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [check('account_balance_ge_held', sql`${t.creditBalance} >= ${t.creditHeld}`)],
+  (t) => [
+    check('account_balance_ge_held', sql`${t.creditBalance} >= ${t.creditHeld}`),
+    uniqueIndex('account_tenant_unique').on(t.tenantId),
+  ],
 );
