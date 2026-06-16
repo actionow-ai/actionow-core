@@ -10,9 +10,15 @@ import { sseEvent } from '../sse.js';
  * Pure: no network, no SDK runtime.
  *
  * Stateful across events: tracks content-block indices and which block is open,
- * opening a text block on `message_start` and a fresh `tool_use` block (at the
- * next index) on the first `tool_call_delta`. Remembers output tokens from the
- * IR `usage` event for the closing `message_delta`.
+ * opening a text block on `message_start`. Each distinct IR tool index maps to
+ * its own Anthropic `tool_use` block (via `toolBlockByIrIndex`): a
+ * `tool_call_delta` for an IR index with no open block closes the currently-open
+ * block and opens a fresh `tool_use` block at the next index, so N distinct tool
+ * calls render as N distinct blocks with their own id/name. Text that interleaves
+ * after a tool block lazily opens a fresh text block (the original was closed),
+ * and text arriving with no `message_start` lazily opens a text block too.
+ * Remembers output tokens from the IR `usage` event for the closing
+ * `message_delta`.
  *
  * Frame mapping: `message_start` (with model + zeroed `input_tokens`/
  * `output_tokens` usage) + `content_block_start`; each `content_delta` →
@@ -30,15 +36,32 @@ export async function* renderAnthropicMessagesStream(
   const id = `msg_${randomUUID()}`;
   let outputTokens = 0;
   let nextIndex = 0;
-  let textBlockIndex: number | undefined;
-  let toolBlockIndex: number | undefined;
+  // The Anthropic block index currently open as a text block (undefined once it
+  // has been closed, e.g. when a tool block opened after it).
+  let openTextBlockIndex: number | undefined;
+  // IR tool index → its dedicated Anthropic tool_use block index.
+  const toolBlockByIrIndex = new Map<number, number>();
+  // The block index currently open (text or tool), if any.
   let openIndex: number | undefined;
 
   function* closeOpenBlock(): Generator<string> {
     if (openIndex !== undefined) {
       yield sseEvent('content_block_stop', { type: 'content_block_stop', index: openIndex });
+      if (openIndex === openTextBlockIndex) openTextBlockIndex = undefined;
       openIndex = undefined;
     }
+  }
+
+  function* openTextBlock(): Generator<string, number> {
+    const index = nextIndex++;
+    openTextBlockIndex = index;
+    openIndex = index;
+    yield sseEvent('content_block_start', {
+      type: 'content_block_start',
+      index,
+      content_block: { type: 'text', text: '' },
+    });
+    return index;
   }
 
   for await (const event of events) {
@@ -57,26 +80,31 @@ export async function* renderAnthropicMessagesStream(
             usage: { input_tokens: 0, output_tokens: 0 },
           },
         });
-        textBlockIndex = nextIndex++;
-        openIndex = textBlockIndex;
-        yield sseEvent('content_block_start', {
-          type: 'content_block_start',
-          index: textBlockIndex,
-          content_block: { type: 'text', text: '' },
-        });
+        yield* openTextBlock();
         break;
-      case 'content_delta':
+      case 'content_delta': {
+        // Lazily (re)open a text block: none was opened (no message_start), or
+        // the prior text block was closed when a tool block opened.
+        let textIndex = openTextBlockIndex;
+        if (textIndex === undefined) {
+          yield* closeOpenBlock();
+          textIndex = yield* openTextBlock();
+        }
         yield sseEvent('content_block_delta', {
           type: 'content_block_delta',
-          index: textBlockIndex ?? 0,
+          index: textIndex,
           delta: { type: 'text_delta', text: event.text },
         });
         break;
+      }
       case 'tool_call_delta': {
-        // First tool delta: close the current block and open a tool_use block.
+        let toolBlockIndex = toolBlockByIrIndex.get(event.index);
+        // No block yet for this IR tool index: close whatever is open and open a
+        // fresh tool_use block carrying THIS call's id/name.
         if (toolBlockIndex === undefined) {
           yield* closeOpenBlock();
           toolBlockIndex = nextIndex++;
+          toolBlockByIrIndex.set(event.index, toolBlockIndex);
           openIndex = toolBlockIndex;
           yield sseEvent('content_block_start', {
             type: 'content_block_start',

@@ -71,8 +71,14 @@ export async function* renderOpenAIChatStream(
         break;
       }
       case 'usage':
+        // Real OpenAI usage chunks (stream_options.include_usage) carry an empty
+        // `choices` array — not a synthetic empty-delta choice.
         yield sseData({
-          ...chunk({}, null),
+          id,
+          object: 'chat.completion.chunk',
+          created,
+          model,
+          choices: [],
           usage: {
             prompt_tokens: event.usage.inputTokens,
             completion_tokens: event.usage.outputTokens,
