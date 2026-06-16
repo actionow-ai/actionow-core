@@ -1,8 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
 
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
-import { adminUser, apiKey } from '../schema/index.js';
+import { apiKey, user, userIdentity } from '../schema/index.js';
 import type { DbOrTx } from './types.js';
 
 /** Fields a caller supplies to {@link createApiKey}. */
@@ -78,52 +78,151 @@ export async function findApiKeyByHash(
   return rows[0];
 }
 
-/** Fields a caller supplies to {@link createAdminUser}. */
-export interface CreateAdminUserInput {
-  readonly email: string;
-  /** A `scrypt$<salt>$<hash>` string (never a plaintext password). */
-  readonly passwordHash: string;
-  readonly role: string;
+/** Normalize an email for storage/lookup: trim + lowercase (case-insensitive). */
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
 
-/** The admin record needed to authenticate a login + issue a JWT. */
-export interface AdminUserRecord {
+/** Fields a caller supplies to {@link createUser}. */
+export interface CreateUserInput {
+  readonly email: string;
+  /**
+   * A `scrypt$<salt>$<hash>` string (never a plaintext password). Omitted/`null`
+   * for an OAuth-only account that has no local password.
+   */
+  readonly passwordHash?: string | null | undefined;
+  /** `user` (default) or `admin`. */
+  readonly role?: string | undefined;
+  /** `active` (default) or e.g. `disabled`. */
+  readonly status?: string | undefined;
+  /** Whether the email is proven (default `false`); admins/seed pass `true`. */
+  readonly emailVerified?: boolean | undefined;
+  /** The tenant this user provisioned, if any. */
+  readonly tenantId?: string | undefined;
+}
+
+/** The full user record needed to authenticate a login + issue a JWT. */
+export interface UserRecord {
   readonly id: string;
   readonly email: string;
-  readonly passwordHash: string;
+  readonly emailVerified: boolean;
+  /** `null` for an OAuth-only account with no local password. */
+  readonly passwordHash: string | null;
   readonly role: string;
   readonly status: string;
+  readonly tenantId: string | null;
 }
 
-/** Insert an `admin_user` row and return its id. */
-export async function createAdminUser(
+/** The columns selected for a {@link UserRecord}. */
+const USER_COLUMNS = {
+  id: user.id,
+  email: user.email,
+  emailVerified: user.emailVerified,
+  passwordHash: user.passwordHash,
+  role: user.role,
+  status: user.status,
+  tenantId: user.tenantId,
+} as const;
+
+/** Insert a `user` row (email stored lowercase-normalized) and return it. */
+export async function createUser(db: DbOrTx, input: CreateUserInput): Promise<UserRecord> {
+  const rows = await db
+    .insert(user)
+    .values({
+      email: normalizeEmail(input.email),
+      passwordHash: input.passwordHash ?? null,
+      ...(input.role !== undefined ? { role: input.role } : {}),
+      ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.emailVerified !== undefined ? { emailVerified: input.emailVerified } : {}),
+      ...(input.tenantId !== undefined ? { tenantId: input.tenantId } : {}),
+    })
+    .returning(USER_COLUMNS);
+  const row = rows[0];
+  if (!row) throw new Error('createUser: insert returned no row');
+  return row;
+}
+
+/** Look a user up by email (case-insensitive — normalized), or `undefined`. */
+export async function findUserByEmail(db: DbOrTx, email: string): Promise<UserRecord | undefined> {
+  const rows = await db
+    .select(USER_COLUMNS)
+    .from(user)
+    .where(eq(user.email, normalizeEmail(email)))
+    .limit(1);
+  return rows[0];
+}
+
+/** Look a user up by id, or `undefined` when absent. */
+export async function findUserById(db: DbOrTx, id: string): Promise<UserRecord | undefined> {
+  const rows = await db.select(USER_COLUMNS).from(user).where(eq(user.id, id)).limit(1);
+  return rows[0];
+}
+
+/**
+ * Resolve the user behind an external identity by `(provider, provider_user_id)`
+ * — the provider's stable subject, never the email. Joins `user_identity` →
+ * `user`. Returns `undefined` when no identity matches.
+ */
+export async function findUserByIdentity(
   db: DbOrTx,
-  input: CreateAdminUserInput,
+  provider: string,
+  providerUserId: string,
+): Promise<UserRecord | undefined> {
+  const rows = await db
+    .select(USER_COLUMNS)
+    .from(userIdentity)
+    .innerJoin(user, eq(userIdentity.userId, user.id))
+    .where(
+      and(eq(userIdentity.provider, provider), eq(userIdentity.providerUserId, providerUserId)),
+    )
+    .limit(1);
+  return rows[0];
+}
+
+/** Fields a caller supplies to {@link createUserIdentity}. */
+export interface CreateUserIdentityInput {
+  readonly userId: string;
+  readonly provider: string;
+  readonly providerUserId: string;
+}
+
+/**
+ * Link an external identity to a user. The unique `(provider, provider_user_id)`
+ * index makes a duplicate link throw — callers treat that as "already linked".
+ */
+export async function createUserIdentity(
+  db: DbOrTx,
+  input: CreateUserIdentityInput,
 ): Promise<{ id: string }> {
   const rows = await db
-    .insert(adminUser)
-    .values({ email: input.email, passwordHash: input.passwordHash, role: input.role })
-    .returning({ id: adminUser.id });
+    .insert(userIdentity)
+    .values({
+      userId: input.userId,
+      provider: input.provider,
+      providerUserId: input.providerUserId,
+    })
+    .returning({ id: userIdentity.id });
   const row = rows[0];
-  if (!row) throw new Error('createAdminUser: insert returned no row');
+  if (!row) throw new Error('createUserIdentity: insert returned no row');
   return { id: row.id };
 }
 
-/** Look an admin up by email (case-sensitive), or `undefined` when absent. */
-export async function findAdminByEmail(
-  db: DbOrTx,
-  email: string,
-): Promise<AdminUserRecord | undefined> {
-  const rows = await db
-    .select({
-      id: adminUser.id,
-      email: adminUser.email,
-      passwordHash: adminUser.passwordHash,
-      role: adminUser.role,
-      status: adminUser.status,
-    })
-    .from(adminUser)
-    .where(eq(adminUser.email, email))
-    .limit(1);
-  return rows[0];
+/** Fields a caller supplies to {@link linkIdentityTx}. */
+export interface LinkIdentityInput extends CreateUserInput {
+  readonly provider: string;
+  readonly providerUserId: string;
+}
+
+/**
+ * Create a user AND its first external identity in a single transaction — the
+ * find-or-create helper OAuth uses for a brand-new `(provider, sub)`. If either
+ * insert fails (e.g. the unique identity index), the whole thing rolls back.
+ */
+export async function linkIdentityTx(db: DbOrTx, input: LinkIdentityInput): Promise<UserRecord> {
+  const { provider, providerUserId, ...userInput } = input;
+  return db.transaction(async (tx) => {
+    const created = await createUser(tx, userInput);
+    await createUserIdentity(tx, { userId: created.id, provider, providerUserId });
+    return created;
+  });
 }

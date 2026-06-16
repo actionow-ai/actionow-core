@@ -15,6 +15,13 @@
       "when": 1781578832915,
       "tag": "0001_lean_nightcrawler",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781584103660,
+      "tag": "0002_fuzzy_stranger",
+      "breakpoints": true
     }
   ]
 }

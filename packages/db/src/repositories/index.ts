@@ -15,16 +15,22 @@ export {
   type TenantRow,
 } from './admin.js';
 export {
-  type AdminUserRecord,
   type ApiKeyRecord,
-  createAdminUser,
-  type CreateAdminUserInput,
   createApiKey,
   type CreateApiKeyInput,
   type CreatedApiKey,
-  findAdminByEmail,
+  createUser,
+  createUserIdentity,
+  type CreateUserIdentityInput,
+  type CreateUserInput,
   findApiKeyByHash,
+  findUserByEmail,
+  findUserById,
+  findUserByIdentity,
   hashApiKey,
+  type LinkIdentityInput,
+  linkIdentityTx,
+  type UserRecord,
 } from './auth.js';
 export {
   applicableScopes,
