@@ -19,7 +19,11 @@
 1. **Proxy** — option (a): per-channel `proxy_ref` (a `text` env-key locator resolved via `SecretResolver`) + a global `UPSTREAM_PROXY_URL` env fallback. This is the requirement "系统代理 + 不同模型走不同代理".
 2. **Persistence** — best-effort in the worker + `CallbacksService` settle path only (no blocking-path persistence); if the R2 upload fails the job still settles, falling back to the temp upstream URL.
 3. **Pricing** — PLACEHOLDER rates now (refine later in admin/pricebook): media uses the `tasks` dimension — image = flat `250_000` µcredits/image, video = flat `1_500_000` µcredits/video (placeholder; refine to per-second later); chat = per-token via the existing token pricing method at a placeholder rate. Recording upstream `cost` for audit is optional/skip-if-nontrivial.
-4. **Direct-host channels** (openai/anthropic/gemini) — seed `status: 'active'` WITH a `proxy_ref` (usable once a proxy is configured); GPT/Gemini are also reachable via the HuiMeng relay channels.
+4. **Direct-host channels** (openai/anthropic/gemini) — seed `status: 'active'` WITH a `proxy_ref` (usable once a proxy is configured); GPT/Gemini are also reachable via the async-media / OpenAI-compat relay channels.
+5. **NO vendor identity in code or commits (locked correction).** The relay adapter is the GENERIC `async-media` adapter (`providerType: 'async-media'`, done in `b1a50ea`); submit/poll/signed-callback is a vendor-neutral protocol. EVERY vendor specific — base URL, model ids, the task submit/poll URL paths, and the webhook signature/timestamp header names — is per-channel **config DATA seeded in the DB**, never hardcoded and never named in code/commit/PR messages. This OVERRIDES any vendor-named identifiers/paths/headers shown in the original Task 1/5/6/7/12 text below:
+   - **Task 5** ALSO adds a `config` jsonb column to `upstream_channel` (alongside `endpoint`/`model`/`proxy_ref`) to hold the relay protocol config (`{ submitPath, pollPath, signatureHeader, timestampHeader }`).
+   - **Tasks 6 & 7** ALSO thread `channel.config` → `AdapterContext.config` (next to endpoint/model/proxyUrl).
+   - **Task 12** seeds the relay as DATA: a `async-media` channel with `endpoint`, `model`, `credential_ref`, and `config` = the relay's task paths + signature header names. The concrete relay values (its base URL, its `/api/v1/tasks` paths, its `X-…-Signature` header, its image/video model ids) live ONLY in this seed row — they are the one place a vendor name may appear, as seed data.
 
 ---
 
