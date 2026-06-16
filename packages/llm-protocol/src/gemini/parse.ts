@@ -23,9 +23,12 @@ import { asArray, asNumber, asRecord, asString } from '../internal/json.js';
  * `{parts:[{text}]}` object), NOT as a turn — it is hoisted into a leading
  * system-role IR message. Gemini's `model` role maps to the IR `assistant`
  * role; `user` stays `user`. A `functionCall` part becomes the message's
- * `toolCalls` (Gemini carries no call id, so a stable `call_<name>_<index>` id
- * is synthesized); a `functionResponse` part becomes its own `tool`-role IR
- * message whose `toolCallId` references the most recent matching synthesized id.
+ * `toolCalls` (Gemini carries no call id, so a stable `call_<name>_<seq>` id is
+ * synthesized off a global monotonic counter that advances ONLY per
+ * `functionCall` across the whole request, so ids are globally unique even when
+ * one tool is called repeatedly); a `functionResponse` part becomes its own
+ * `tool`-role IR message whose `toolCallId` is the oldest unmatched call id for
+ * that name (FIFO), so N calls of a name match N responses in order.
  *
  * Throws `ProtocolError('invalid_input', ...)` when `contents` is missing/not an
  * array or any field fails the assembled-IR `chatRequestSchema` validation
@@ -45,11 +48,15 @@ export function parseGeminiChat(wire: unknown, model: string): ChatRequest {
     messages.push({ role: 'system', content: [{ kind: 'text', text: systemText }] });
   }
 
-  // Track synthesized tool-call ids by function name so a later
-  // `functionResponse` can reference the matching call.
-  const callIdsByName = new Map<string, string>();
+  // Per-name FIFO queues of unmatched synthesized call ids: a `functionCall`
+  // pushes its id; a later `functionResponse` shifts the oldest one off, so
+  // repeated calls of the same name match their responses in order.
+  const pendingCallIds = new Map<string, string[]>();
+  // Global monotonic counter advanced ONLY per `functionCall` across the whole
+  // walk, so ids stay unique even when a tool is called more than once.
+  const seq = { count: 0 };
   for (const raw of rawContents) {
-    messages.push(...parseContent(raw, callIdsByName));
+    messages.push(...parseContent(raw, pendingCallIds, seq));
   }
 
   const ir: ChatRequest = {
@@ -112,7 +119,11 @@ function toIrRole(role: string | undefined): Message['role'] {
  * remaining parts form the original message (with any `functionCall` parts
  * collected as `toolCalls`).
  */
-function parseContent(raw: unknown, callIdsByName: Map<string, string>): Message[] {
+function parseContent(
+  raw: unknown,
+  pendingCallIds: Map<string, string[]>,
+  seq: { count: number },
+): Message[] {
   const rec = asRecord(raw);
   const role = toIrRole(asString(rec?.role));
 
@@ -125,29 +136,37 @@ function parseContent(raw: unknown, callIdsByName: Map<string, string>): Message
   const content: ContentPart[] = [];
   const toolCalls: ToolCall[] = [];
 
-  parts.forEach((part, index) => {
+  for (const part of parts) {
     const partRec = asRecord(part);
 
     const functionCall = asRecord(partRec?.functionCall);
     if (functionCall !== undefined) {
       const name = asString(functionCall.name) ?? '';
-      const id = `call_${name}_${String(index)}`;
-      callIdsByName.set(name, id);
+      // Advance the global counter ONLY for calls, so ids are unique even when
+      // the same name recurs; queue the id for FIFO response matching.
+      const id = `call_${name}_${String(seq.count)}`;
+      seq.count += 1;
+      const queue = pendingCallIds.get(name);
+      if (queue === undefined) {
+        pendingCallIds.set(name, [id]);
+      } else {
+        queue.push(id);
+      }
       toolCalls.push({ id, name, arguments: asRecord(functionCall.args) ?? {} });
-      return;
+      continue;
     }
 
     const functionResponse = asRecord(partRec?.functionResponse);
     if (functionResponse !== undefined) {
-      out.push(parseFunctionResponse(functionResponse, callIdsByName));
-      return;
+      out.push(parseFunctionResponse(functionResponse, pendingCallIds));
+      continue;
     }
 
     const mapped = parseContentPart(partRec);
     if (mapped !== undefined) {
       content.push(mapped);
     }
-  });
+  }
 
   // Drop an empty carrier (e.g. a user turn that held only functionResponse
   // parts), so a hoisted tool message takes the slot rather than trailing an
@@ -166,12 +185,14 @@ function parseContent(raw: unknown, callIdsByName: Map<string, string>): Message
 
 /**
  * Map a Gemini `functionResponse` part → an IR `tool`-role {@link Message}. The
- * `toolCallId` references the synthesized id of the matching `functionCall`
- * (matched by name); `name` is carried through.
+ * `toolCallId` is the oldest unmatched synthesized id for this name (FIFO
+ * `shift()`), so repeated calls of a name link to their responses in order;
+ * `name` is carried through. An orphan response (no pending call) OMITS
+ * `toolCallId` (respecting `exactOptionalPropertyTypes`).
  */
 function parseFunctionResponse(
   rec: Record<string, unknown>,
-  callIdsByName: Map<string, string>,
+  pendingCallIds: Map<string, string[]>,
 ): Message {
   const name = asString(rec.name) ?? '';
   const message: Message = {
@@ -179,7 +200,7 @@ function parseFunctionResponse(
     content: [{ kind: 'text', text: JSON.stringify(rec.response ?? {}) }],
     name,
   };
-  const toolCallId = callIdsByName.get(name);
+  const toolCallId = pendingCallIds.get(name)?.shift();
   if (toolCallId !== undefined) {
     message.toolCallId = toolCallId;
   }

@@ -79,6 +79,79 @@ describe('parseGeminiChat', () => {
     expect(ir.messages[0]?.toolCalls?.[1]?.id).toBe('call_g_1');
   });
 
+  it('gives distinct ids and ordered toolCallIds when one tool is called twice in a turn', () => {
+    const ir = parseGeminiChat(
+      {
+        contents: [
+          {
+            role: 'model',
+            parts: [
+              { functionCall: { name: 'f', args: { n: 1 } } },
+              { functionCall: { name: 'f', args: { n: 2 } } },
+            ],
+          },
+          {
+            role: 'user',
+            parts: [
+              { functionResponse: { name: 'f', response: { r: 'first' } } },
+              { functionResponse: { name: 'f', response: { r: 'second' } } },
+            ],
+          },
+        ],
+      },
+      'gemini-1.5-pro',
+    );
+
+    const firstId = ir.messages[0]?.toolCalls?.[0]?.id;
+    const secondId = ir.messages[0]?.toolCalls?.[1]?.id;
+    // Distinct globally-unique ids despite the shared name.
+    expect(firstId).toBe('call_f_0');
+    expect(secondId).toBe('call_f_1');
+    expect(firstId).not.toBe(secondId);
+
+    // The two hoisted tool messages link in FIFO order: first response → first call.
+    expect(ir.messages[1]).toMatchObject({ role: 'tool', name: 'f', toolCallId: firstId });
+    expect(ir.messages[2]).toMatchObject({ role: 'tool', name: 'f', toolCallId: secondId });
+  });
+
+  it('gives distinct ids and ordered toolCallIds when one tool is called across turns', () => {
+    const ir = parseGeminiChat(
+      {
+        contents: [
+          { role: 'model', parts: [{ functionCall: { name: 'f', args: { n: 1 } } }] },
+          { role: 'user', parts: [{ functionResponse: { name: 'f', response: { r: 'first' } } }] },
+          { role: 'model', parts: [{ functionCall: { name: 'f', args: { n: 2 } } }] },
+          { role: 'user', parts: [{ functionResponse: { name: 'f', response: { r: 'second' } } }] },
+        ],
+      },
+      'gemini-1.5-pro',
+    );
+
+    const firstCallId = ir.messages[0]?.toolCalls?.[0]?.id;
+    const secondCallId = ir.messages[2]?.toolCalls?.[0]?.id;
+    // The global counter advances across turns, so ids do not collide.
+    expect(firstCallId).toBe('call_f_0');
+    expect(secondCallId).toBe('call_f_1');
+    expect(firstCallId).not.toBe(secondCallId);
+
+    // Each response links to its own call in order.
+    expect(ir.messages[1]).toMatchObject({ role: 'tool', name: 'f', toolCallId: firstCallId });
+    expect(ir.messages[3]).toMatchObject({ role: 'tool', name: 'f', toolCallId: secondCallId });
+  });
+
+  it('omits toolCallId for an orphan functionResponse with no prior call', () => {
+    const ir = parseGeminiChat(
+      {
+        contents: [
+          { role: 'user', parts: [{ functionResponse: { name: 'f', response: { r: 'x' } } }] },
+        ],
+      },
+      'gemini-1.5-pro',
+    );
+    expect(ir.messages[0]).toMatchObject({ role: 'tool', name: 'f' });
+    expect(ir.messages[0]).not.toHaveProperty('toolCallId');
+  });
+
   it('maps inlineData (base64 image)', () => {
     const ir = parseGeminiChat(
       {
