@@ -11,6 +11,7 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
+    "e2e": "pnpm --filter @actionow/api exec vitest run test/full-stack.e2e.test.ts",
     "format": "prettier --write \"**/*.{ts,json,md,yaml}\"",
     "db:generate": "pnpm --filter @actionow/db db:generate",
     "db:migrate": "pnpm --filter @actionow/db db:migrate",
