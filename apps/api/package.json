@@ -25,6 +25,7 @@
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/swagger": "^11.0.0",
+    "arctic": "^3.7.0",
     "bullmq": "^5.13.0",
     "ioredis": "^5.10.1",
     "reflect-metadata": "^0.2.0",

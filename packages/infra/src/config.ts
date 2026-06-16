@@ -42,6 +42,17 @@ const EnvSchema = z
       .optional(),
     // Ceiling on a presigned upload's declared size (bytes). Defaults to 100 MiB.
     STORAGE_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(DEFAULT_MAX_UPLOAD_BYTES),
+    // OAuth provider credentials (Phase 9). All optional so the API boots
+    // without OAuth configured; a provider whose creds are unset has its routes
+    // return `invalid_input` (it never crashes). Secrets are never logged.
+    GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+    GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+    GITHUB_CLIENT_ID: z.string().min(1).optional(),
+    GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
+    // Base URL the provider redirects back to (e.g. `http://localhost:3000`);
+    // the per-provider callback path is appended. Optional; required only to use
+    // OAuth.
+    OAUTH_REDIRECT_BASE: z.string().url().optional(),
   })
   .transform((env) => ({
     ...env,
