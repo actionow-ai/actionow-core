@@ -40,3 +40,10 @@ Items surfaced during phase reviews that were intentionally deferred. None block
 - **Callback replay window is opt-in** (`apps/api/src/callbacks/callbacks.service.ts`): the ~5min timestamp check only runs when `x-actionow-timestamp` is present; a provider that never sends a timestamp gets HMAC integrity but no replay defense. → make the timestamp header required per-provider.
 - **Channel `credentialRef` doubles as upstream key AND callback HMAC secret** (`resolveJobSecret`); multi-channel resources only try the first channel's secret. → give bindings a distinct callback-signing secret (and try all channels) when real provider callbacks land.
 - **Stream-mode idempotency is no-replay** (a reused `idempotency_key` on a stream run → `invalid_input`, since a live stream can't be replayed). Documented behavior, noted for API consumers.
+
+## Phase 10 (minor)
+
+- **`getIntentByProviderRef` + `insertEventIfNew` run outside the fulfillment transaction** (`packages/engine/src/payment-service.ts`). Correctness holds via the `unique(provider,event_id)` constraint (a concurrent duplicate loses the ON CONFLICT race and no-ops), but the read-then-insert isn't itself transactional. → fold into the fulfillment tx if hardened.
+- **`setIntentStatus` has no terminal-state guard** — unconditionally sets `succeeded` on a verified succeeded event. Not reachable now (only succeeded events fulfill; idempotency prevents reprocessing), but a future refund/failed flow needs a status-transition guard.
+- **`order`/`subscription` purposes** record payment (intent succeeded, event processed) but carry no fulfillment hook yet — wire the order/subscription grant when those products land.
+- **WeChat legacy platform-certificate serial branch** is out of scope (unknown serial rejected); add cert-mode verify if a merchant predates the public-key migration.
