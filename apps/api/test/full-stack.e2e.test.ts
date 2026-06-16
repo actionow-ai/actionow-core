@@ -264,6 +264,12 @@ beforeAll(async () => {
     http: new FetchHttpClient(),
     resolveSecret: (ref: string): Promise<string | undefined> =>
       Promise.resolve(ref.startsWith('http://127.0.0.1') ? WEBHOOK_SECRET : undefined),
+    // Storage unconfigured in this e2e → media persistence is a no-op (the job
+    // settles with the temp upstream URL).
+    storage: null,
+    publicBaseUrl: undefined,
+    fetchBytes: () => Promise.reject(new Error('no fetchBytes')),
+    putBytes: () => Promise.reject(new Error('no putBytes')),
   };
   workers = startWorkers(runtime, { webhookSweepMs: 250, reaperSweepMs: 500 });
 

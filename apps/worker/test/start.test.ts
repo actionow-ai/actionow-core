@@ -41,6 +41,10 @@ const runtime: WorkerRuntime = {
   adapters: { providerTypes: () => [], get: () => ({}) } as unknown as AdapterRegistry,
   http: { request: () => Promise.reject(new Error('no http')) },
   resolveSecret: () => Promise.resolve(undefined),
+  storage: null,
+  publicBaseUrl: undefined,
+  fetchBytes: () => Promise.reject(new Error('no fetchBytes')),
+  putBytes: () => Promise.reject(new Error('no putBytes')),
 };
 
 afterEach(() => {

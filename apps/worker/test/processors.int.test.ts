@@ -1,6 +1,7 @@
 import { AdapterRegistry, createAsyncMediaMock } from '@actionow/adapters';
-import type { HttpClient } from '@actionow/contracts';
+import type { HttpClient, StorageProvider } from '@actionow/contracts';
 import { createJob, getJob, holdCredits, type Job, schema } from '@actionow/db';
+import type { FetchBytes, PutBytes } from '@actionow/engine';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { eq } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
@@ -47,6 +48,10 @@ afterEach(async () => {
 });
 
 const noHttp: HttpClient = { request: () => Promise.reject(new Error('no http')) };
+// Default byte fns reject — the network-free suite never persists unless a test
+// configures storage + publicBaseUrl AND overrides these.
+const noFetchBytes: FetchBytes = () => Promise.reject(new Error('no fetchBytes'));
+const noPutBytes: PutBytes = () => Promise.reject(new Error('no putBytes'));
 
 function runtimeWith(adapters: AdapterRegistry, http: HttpClient = noHttp): WorkerRuntime {
   return {
@@ -67,6 +72,10 @@ function runtimeWith(adapters: AdapterRegistry, http: HttpClient = noHttp): Work
     adapters,
     http,
     resolveSecret: () => Promise.resolve(undefined),
+    storage: null,
+    publicBaseUrl: undefined,
+    fetchBytes: noFetchBytes,
+    putBytes: noPutBytes,
   };
 }
 
@@ -180,6 +189,50 @@ describe('job-exec processor', () => {
     await process({ jobId: job.id });
 
     expect(seen[0]).toEqual({ endpoint: 'https://api.deepseek.com/v1', model: 'deepseek-chat' });
+  });
+
+  it('persists async media output to storage and rewrites the public URL', async () => {
+    const s = await seed(1_000_000n);
+    await client`UPDATE resource SET modality='image' WHERE id=${s.resourceId}`;
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 0 }));
+
+    const puts: string[] = [];
+    const storage: StorageProvider = {
+      kind: 'r2',
+      presignPut: (key) => {
+        puts.push(key);
+        return Promise.resolve({ url: `https://r2.local/${key}`, key, expiresIn: 900 });
+      },
+      presignGet: (key) => Promise.resolve({ url: `https://r2.local/${key}`, expiresIn: 3600 }),
+      head: () => Promise.resolve({ exists: true }),
+      delete: () => Promise.resolve(),
+    };
+    const putUrls: string[] = [];
+    const rt = runtimeWith(adapters);
+    rt.storage = storage;
+    rt.publicBaseUrl = 'https://asset.actionow.ai';
+    rt.fetchBytes = () =>
+      Promise.resolve({ bytes: new Uint8Array([1, 2, 3]), contentType: 'image/png' });
+    rt.putBytes = (url) => {
+      putUrls.push(url);
+      return Promise.resolve();
+    };
+    const process = createJobExecProcessor(rt);
+
+    await process({ jobId: job.id });
+
+    const settled = await getJob(db, job.id);
+    expect(settled?.status).toBe('succeeded');
+    expect((settled?.output as Record<string, unknown>).image_url).toContain(
+      'https://asset.actionow.ai/',
+    );
+    expect(puts).toHaveLength(1);
+    const key = puts[0];
+    if (key === undefined) throw new Error('no presigned key captured');
+    expect(key).toBe(`${s.tenantId}/${job.id}.png`);
+    expect(putUrls).toEqual([`https://r2.local/${key}`]);
   });
 });
 

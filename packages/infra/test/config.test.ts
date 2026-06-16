@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { loadEnv } from '../src/config.js';
+import { loadEnv, storageConfigFromEnv } from '../src/config.js';
 
 const base = {
   DATABASE_URL: 'postgres://localhost:5432/app',
@@ -31,6 +31,40 @@ describe('loadEnv ADMIN_JWT_SECRET', () => {
     const env = loadEnv({ ...base });
     expect(env.RATE_LIMIT_TENANT_PER_MIN).toBeGreaterThan(0);
     expect(env.RATE_LIMIT_RESOURCE_PER_MIN).toBeGreaterThan(0);
+  });
+});
+
+describe('storageConfigFromEnv + STORAGE_PUBLIC_BASE_URL', () => {
+  const storageEnv = {
+    ...base,
+    STORAGE_PROVIDER: 'r2',
+    STORAGE_BUCKET: 'actionow',
+    STORAGE_REGION: 'auto',
+    STORAGE_ACCESS_KEY_ID: 'ak',
+    STORAGE_SECRET_ACCESS_KEY: 'sk',
+    STORAGE_ENDPOINT: 'https://acc.r2.cloudflarestorage.com',
+    STORAGE_PUBLIC_BASE_URL: 'https://asset.actionow.ai',
+  };
+
+  it('returns null when STORAGE_* is unconfigured', () => {
+    expect(storageConfigFromEnv(loadEnv({ ...base }))).toBeNull();
+  });
+
+  it('assembles a config from the STORAGE_* fields, including the endpoint', () => {
+    const cfg = storageConfigFromEnv(loadEnv(storageEnv));
+    expect(cfg).toEqual({
+      kind: 'r2',
+      bucket: 'actionow',
+      region: 'auto',
+      accessKeyId: 'ak',
+      secretAccessKey: 'sk',
+      endpoint: 'https://acc.r2.cloudflarestorage.com',
+    });
+  });
+
+  it('parses STORAGE_PUBLIC_BASE_URL (optional URL)', () => {
+    expect(loadEnv({ ...base }).STORAGE_PUBLIC_BASE_URL).toBeUndefined();
+    expect(loadEnv(storageEnv).STORAGE_PUBLIC_BASE_URL).toBe('https://asset.actionow.ai');
   });
 });
 

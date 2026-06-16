@@ -1,3 +1,4 @@
+import type { StorageProviderConfig } from '@actionow/contracts';
 import { STORAGE_PROVIDERS } from '@actionow/contracts';
 import { z } from 'zod';
 
@@ -50,6 +51,10 @@ const EnvSchema = z
       .optional(),
     // Ceiling on a presigned upload's declared size (bytes). Defaults to 100 MiB.
     STORAGE_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(DEFAULT_MAX_UPLOAD_BYTES),
+    // Public custom-domain base for persisted media (e.g. https://asset.actionow.ai).
+    // Optional: when unset (or storage unconfigured) the settle paths skip media
+    // persistence and the job settles with the temp upstream URL.
+    STORAGE_PUBLIC_BASE_URL: z.string().url().optional(),
     // OAuth provider credentials (Phase 9). All optional so the API boots
     // without OAuth configured; a provider whose creds are unset has its routes
     // return `invalid_input` (it never crashes). Secrets are never logged.
@@ -111,4 +116,37 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
   const env = EnvSchema.parse(source);
   // The superRefine guarantees ADMIN_JWT_SECRET is set; narrow the type.
   return env as AppEnv;
+}
+
+/**
+ * Assemble a {@link StorageProviderConfig} from `STORAGE_*` env, or `null` when
+ * any required field is missing (so apps still boot without storage configured;
+ * the storage-dependent paths then no-op / fail closed). The optional
+ * `endpoint`/`forcePathStyle` are only included when set so the S3 SDK derives
+ * AWS defaults otherwise. Reads env only (boundary-safe, infra→contracts), so it
+ * is shared by the api FilesModule and the worker runtime. Credentials are never
+ * logged here — callers log only whether storage was configured.
+ */
+export function storageConfigFromEnv(env: AppEnv): StorageProviderConfig | null {
+  const { STORAGE_PROVIDER, STORAGE_BUCKET, STORAGE_REGION } = env;
+  const { STORAGE_ACCESS_KEY_ID, STORAGE_SECRET_ACCESS_KEY } = env;
+  if (
+    STORAGE_PROVIDER === undefined ||
+    STORAGE_BUCKET === undefined ||
+    STORAGE_REGION === undefined ||
+    STORAGE_ACCESS_KEY_ID === undefined ||
+    STORAGE_SECRET_ACCESS_KEY === undefined
+  ) {
+    return null;
+  }
+  const cfg: StorageProviderConfig = {
+    kind: STORAGE_PROVIDER,
+    bucket: STORAGE_BUCKET,
+    region: STORAGE_REGION,
+    accessKeyId: STORAGE_ACCESS_KEY_ID,
+    secretAccessKey: STORAGE_SECRET_ACCESS_KEY,
+  };
+  if (env.STORAGE_ENDPOINT !== undefined) cfg.endpoint = env.STORAGE_ENDPOINT;
+  if (env.STORAGE_FORCE_PATH_STYLE !== undefined) cfg.forcePathStyle = env.STORAGE_FORCE_PATH_STYLE;
+  return cfg;
 }

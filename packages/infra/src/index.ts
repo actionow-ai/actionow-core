@@ -1,4 +1,4 @@
-export { type AppEnv, loadEnv } from './config.js';
+export { type AppEnv, loadEnv, storageConfigFromEnv } from './config.js';
 export * from './http.js';
 export * from './password.js';
 export * from './rate-limit.js';

@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 
 import type { AdapterRegistry } from '@actionow/adapters';
-import type { Modifier, PricebookEntry } from '@actionow/contracts';
+import type { Modifier, PricebookEntry, StorageProvider } from '@actionow/contracts';
 import {
   type Database,
   getAccountByTenant,
@@ -14,14 +14,14 @@ import {
   type ModifierRow,
   type PricebookEntryRow,
 } from '@actionow/db';
-import type { JobExecutionContext } from '@actionow/engine';
-import { JobRunner, signPayload } from '@actionow/engine';
+import type { FetchBytes, JobExecutionContext, PersistMediaFn, PutBytes } from '@actionow/engine';
+import { JobRunner, persistMediaOutput, signPayload } from '@actionow/engine';
 import { type AppEnv, FetchHttpClient } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { engineUnauthorized } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
-import { ADAPTERS, DB, ENV } from '../common/tokens.js';
+import { ADAPTERS, DB, ENV, STORAGE } from '../common/tokens.js';
 
 /** Default signature header name when a channel's `config` does not override it. */
 const DEFAULT_SIGNATURE_HEADER = 'x-actionow-signature';
@@ -29,6 +29,29 @@ const DEFAULT_SIGNATURE_HEADER = 'x-actionow-signature';
 const DEFAULT_TIMESTAMP_HEADER = 'x-actionow-timestamp';
 /** Replay window: a present timestamp older/newer than this (ms) is rejected. */
 const TIMESTAMP_WINDOW_MS = 5 * 60_000;
+/** Upper bound (ms) on an upstream media transfer before it is aborted. */
+const MEDIA_FETCH_TIMEOUT_MS = 30_000;
+
+/**
+ * Download upstream media bytes over global `fetch`, bounded by an
+ * `AbortSignal.timeout` so a hanging upstream can never stall the settle path.
+ */
+const fetchBytes: FetchBytes = async (url) => {
+  const res = await fetch(url, { signal: AbortSignal.timeout(MEDIA_FETCH_TIMEOUT_MS) });
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  const contentType = res.headers.get('content-type') ?? undefined;
+  return contentType === undefined ? { bytes } : { bytes, contentType };
+};
+
+/** Upload bytes to a presigned PUT URL over global `fetch`. */
+const putBytes: PutBytes = async (url, bytes, contentType) => {
+  await fetch(url, {
+    method: 'PUT',
+    headers: contentType === undefined ? {} : { 'content-type': contentType },
+    body: bytes,
+    signal: AbortSignal.timeout(MEDIA_FETCH_TIMEOUT_MS),
+  });
+};
 
 /**
  * Ingests a signed upstream async-callback. The HMAC over the **raw** request
@@ -47,6 +70,7 @@ export class CallbacksService {
     @Inject(DB) private readonly db: Database,
     @Inject(ADAPTERS) private readonly adapters: AdapterRegistry,
     @Inject(ENV) private readonly env: AppEnv,
+    @Inject(STORAGE) private readonly storage: StorageProvider | null,
     private readonly secrets: SecretResolver,
   ) {}
 
@@ -160,6 +184,7 @@ export class CallbacksService {
 
   /** A `JobRunner` bound to this app's deps + the callback context loader. */
   private buildRunner(): JobRunner {
+    const persistMedia = this.buildPersistMedia();
     return new JobRunner({
       db: this.db,
       adapters: this.adapters,
@@ -167,7 +192,23 @@ export class CallbacksService {
       resolveSecret: (ref: string): Promise<string | undefined> => this.secrets.resolve(ref),
       http: this.http,
       proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
+      ...(persistMedia !== undefined ? { persistMedia } : {}),
     });
+  }
+
+  /**
+   * Best-effort media persistence for the webhook-driven settle path: copy
+   * upstream media URLs into R2 and rewrite them to the public base URL. Returns
+   * `undefined` (no rewrite) when storage or the public base URL is unconfigured,
+   * so a callback still settles with the temp upstream URL. `persistMediaOutput`
+   * swallows its own errors (Task 8); the byte transfer is timeout-bounded.
+   */
+  private buildPersistMedia(): PersistMediaFn | undefined {
+    const storage = this.storage;
+    const publicBaseUrl = this.env.STORAGE_PUBLIC_BASE_URL;
+    if (storage === null || publicBaseUrl === undefined) return undefined;
+    return ({ tenantId, jobId, output }) =>
+      persistMediaOutput({ storage, publicBaseUrl, tenantId, jobId, output, fetchBytes, putBytes });
   }
 
   /**
