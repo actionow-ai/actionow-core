@@ -1,0 +1,52 @@
+import type { CSSProperties, ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+
+type Variant = 'cta' | 'ghost';
+type Size = 'md' | 'lg';
+
+const sizes: Record<Size, CSSProperties> = {
+  md: { fontSize: 13, padding: '9px 16px' },
+  lg: { fontSize: 14, padding: '12px 22px' },
+};
+
+function styleFor(variant: Variant, size: Size): CSSProperties {
+  const base: CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    fontWeight: 650,
+    borderRadius: 'var(--r-pill)',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    border: '1px solid transparent',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease',
+    ...sizes[size],
+  };
+  if (variant === 'cta') {
+    return {
+      ...base,
+      color: 'var(--ink)',
+      background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
+      boxShadow: '0 6px 18px rgba(255, 176, 10, 0.4)',
+    };
+  }
+  return { ...base, color: 'var(--text)', background: 'var(--glass-bg)', borderColor: 'var(--glass-bd)' };
+}
+
+interface Props {
+  children: ReactNode;
+  variant?: Variant;
+  size?: Size;
+  to?: string;
+  href?: string;
+  onClick?: () => void;
+  className?: string;
+}
+
+export function Button({ children, variant = 'cta', size = 'md', to, href, onClick, className }: Props) {
+  const style = styleFor(variant, size);
+  const cls = `btn-tactile ${className ?? ''}`;
+  if (to) return <Link to={to} className={cls} style={style}>{children}</Link>;
+  if (href) return <a href={href} className={cls} style={style}>{children}</a>;
+  return <button type="button" onClick={onClick} className={cls} style={style}>{children}</button>;
+}

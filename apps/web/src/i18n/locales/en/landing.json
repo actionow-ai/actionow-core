@@ -1,0 +1,97 @@
+{
+  "nav": {
+    "features": "Features",
+    "pricing": "Pricing",
+    "docs": "Docs",
+    "console": "Console",
+    "login": "Sign in"
+  },
+  "hero": {
+    "eyebrow": "Unified AI gateway",
+    "title1": "One API for",
+    "titleHl": "every model",
+    "title2": "and workflow",
+    "lead": "Every model and workflow behind one key: multi-modal, streaming or async, with usage billing and a reconcilable ledger.",
+    "ctaPrimary": "Start free",
+    "ctaSecondary": "Read the docs",
+    "codeCaption": "One call, auto-routed and metered"
+  },
+  "providers": { "label": "Works with" },
+  "features": {
+    "eyebrow": "Why Actionow",
+    "title": "Hand integration, billing, and ops to the gateway",
+    "items": {
+      "api": {
+        "t": "Unified API",
+        "d": "One /v1/run endpoint for every model and workflow, provider differences abstracted away."
+      },
+      "billing": {
+        "t": "Metered billing + ledger",
+        "d": "µcredit-precise metering; hold, settle, and refund stay fully auditable."
+      },
+      "exec": {
+        "t": "Streaming / async",
+        "d": "blocking, stream (SSE), async-poll, and async-callback modes."
+      },
+      "dify": {
+        "t": "Dify workflows",
+        "d": "Upload a DSL; io_schema and a compatibility report are extracted automatically."
+      },
+      "files": {
+        "t": "Multimodal + files",
+        "d": "Text, image, video, audio. Presigned direct upload to unified object storage."
+      },
+      "pay": {
+        "t": "Multi-channel payments",
+        "d": "Stripe, Alipay, WeChat, crypto. Top-ups post to the ledger and fulfill automatically."
+      }
+    }
+  },
+  "how": {
+    "title": "From integration to settlement in minutes",
+    "steps": {
+      "s1": {
+        "t": "Get an API key",
+        "d": "Create a tenant and key in the console; set the allowlist and rate limits."
+      },
+      "s2": {
+        "t": "Call /v1/run",
+        "d": "One interface; pick blocking, stream, or async execution per call."
+      },
+      "s3": {
+        "t": "Auto settlement",
+        "d": "Charged precisely by usage; hold to settle writes to the ledger."
+      }
+    }
+  },
+  "pricing": {
+    "title": "Pay as you go, µcredit precise on every call",
+    "lead": "No minimums; top up and go. Enterprises bring their own providers and discounts per channel.",
+    "cards": {
+      "payg": {
+        "t": "Pay as you go",
+        "p": "µcredit",
+        "d": "Billed by actual usage on every call; the ledger is auditable.",
+        "cta": "Get started"
+      },
+      "team": {
+        "t": "Team",
+        "p": "Contact us",
+        "d": "Multi-tenant, modifier discounts, dedicated channels and reconciliation.",
+        "cta": "Talk to sales"
+      }
+    }
+  },
+  "cta": {
+    "title": "Unify your AI calls today",
+    "lead": "Integrate in minutes and get billing, a ledger, and multi-mode execution.",
+    "button": "Open the console"
+  },
+  "footer": {
+    "tagline": "Unified AI gateway",
+    "product": "Product",
+    "docs": "Docs",
+    "console": "Console",
+    "rights": "All rights reserved."
+  }
+}

@@ -14,6 +14,7 @@ export default tseslint.config(
       '**/drizzle/**',
       'eslint.config.mjs',
       'commitlint.config.cjs',
+      '**/vite.config.ts',
     ],
   },
   eslint.configs.recommended,
@@ -300,12 +301,35 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.spec.ts', '**/*.test.ts'],
+    files: ['**/*.spec.ts', '**/*.test.ts', '**/*.test.tsx'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-argument': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
+    },
+  },
+  // Frontend app (React + browser): the strict-type-checked rules tuned for the
+  // backend libs are too aggressive for a UI app. Components don't annotate
+  // every return type, `() => setState(x)` handlers return void by design, and
+  // `getElementById('root')!` is the idiomatic mount. Browser globals enabled.
+  {
+    files: ['apps/web/**/*.{ts,tsx}'],
+    languageOptions: { globals: { ...globals.browser } },
+    rules: {
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/no-confusing-void-expression': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
+    },
+  },
+  // Test setup / polyfills (e.g. a jsdom matchMedia shim) legitimately use empty
+  // stubs and runtime guards the type system thinks are unnecessary.
+  {
+    files: ['apps/web/**/test/**', 'apps/web/**/*.test.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-empty-function': 'off',
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
     },
   },
   prettier,

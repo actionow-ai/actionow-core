@@ -1,0 +1,79 @@
+{
+  "nav": {
+    "features": "功能",
+    "pricing": "定价",
+    "docs": "文档",
+    "console": "控制台",
+    "login": "登录"
+  },
+  "hero": {
+    "eyebrow": "统一 AI 能力网关",
+    "title1": "一个 API,接入",
+    "titleHl": "所有模型",
+    "title2": "与工作流",
+    "lead": "多模型多模态、Dify 工作流、流式与异步执行、用量计费与账本对账,一份密钥全部接入。",
+    "ctaPrimary": "免费开始",
+    "ctaSecondary": "查看文档",
+    "codeCaption": "一次调用,自动路由 + 计费"
+  },
+  "providers": { "label": "已支持" },
+  "features": {
+    "eyebrow": "为什么选 Actionow",
+    "title": "把接入、计费、运维都交给网关",
+    "items": {
+      "api": { "t": "统一 API", "d": "一套 /v1/run 接口接入所有模型与工作流,屏蔽供应商差异。" },
+      "billing": {
+        "t": "用量计费 + 账本",
+        "d": "µcredit 精确计量,hold / settle / 退款全程可审计对账。"
+      },
+      "exec": {
+        "t": "流式 / 异步执行",
+        "d": "blocking、stream(SSE)、async-poll、async-callback 四种模式。"
+      },
+      "dify": { "t": "Dify 工作流", "d": "上传 DSL 自动抽取 io_schema 与兼容性报告,一键上线。" },
+      "files": {
+        "t": "多模态 + 文件",
+        "d": "文本、图像、视频、音频,预签名直传,对象存储统一接入。"
+      },
+      "pay": { "t": "多渠道支付", "d": "Stripe、支付宝、微信、crypto,充值即入账本,自动履约。" }
+    }
+  },
+  "how": {
+    "title": "从接入到结算,只要几分钟",
+    "steps": {
+      "s1": { "t": "拿到 API Key", "d": "在控制台创建租户与密钥,设置资源白名单与限流。" },
+      "s2": { "t": "调用 /v1/run", "d": "用统一接口发起调用,按需选择 blocking、stream 或 async。" },
+      "s3": { "t": "自动计费结算", "d": "按用量精确扣费,hold 到 settle 写入账本,随时对账。" }
+    }
+  },
+  "pricing": {
+    "title": "按用量付费,µcredit 精确到每次调用",
+    "lead": "无最低消费,充值即用。企业可按渠道接入自有供应商与折扣。",
+    "cards": {
+      "payg": {
+        "t": "按量付费",
+        "p": "µcredit",
+        "d": "每次调用按实际用量计费,账本可审计。",
+        "cta": "开始使用"
+      },
+      "team": {
+        "t": "团队",
+        "p": "联系我们",
+        "d": "多租户、修饰符折扣、专属渠道与对账报表。",
+        "cta": "联系销售"
+      }
+    }
+  },
+  "cta": {
+    "title": "现在就把你的 AI 调用统一起来",
+    "lead": "几分钟接入,立刻拥有计费、账本与多模式执行。",
+    "button": "进入控制台"
+  },
+  "footer": {
+    "tagline": "统一 AI 能力网关",
+    "product": "产品",
+    "docs": "文档",
+    "console": "控制台",
+    "rights": "保留所有权利。"
+  }
+}
