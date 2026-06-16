@@ -18,6 +18,14 @@ const EnvSchema = z
     // ApiKeyGuard honors this only outside production (real keys are required in
     // prod).
     DEV_TENANT_ID: z.string().uuid().optional(),
+    // Gate for the dev-only `x-tenant-id` fallback in the ApiKeyGuard. Default
+    // `false`: even outside production the guard requires a real key unless an
+    // operator explicitly opts in. Hardens self-deploy (a misconfigured non-prod
+    // instance no longer silently accepts an unauthenticated tenant header).
+    ALLOW_DEV_TENANT_HEADER: z
+      .enum(['true', 'false'])
+      .transform((v) => v === 'true')
+      .default('false'),
     // Two-level rate-limit defaults (requests per minute). The per-tenant bucket
     // is a coarse account-wide cap; the per-(tenant,resource) bucket defaults to
     // this value unless an API key carries its own `rateLimit`.

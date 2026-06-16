@@ -33,3 +33,19 @@ describe('loadEnv ADMIN_JWT_SECRET', () => {
     expect(env.RATE_LIMIT_RESOURCE_PER_MIN).toBeGreaterThan(0);
   });
 });
+
+describe('ALLOW_DEV_TENANT_HEADER (Track B Task 5)', () => {
+  const base = {
+    DATABASE_URL: 'postgres://u:p@localhost:5432/d',
+    REDIS_URL: 'redis://localhost:6379',
+    ADMIN_JWT_SECRET: 'x',
+  };
+  it('defaults to false', () => {
+    expect(loadEnv({ ...base }).ALLOW_DEV_TENANT_HEADER).toBe(false);
+  });
+  it('coerces the string "true"', () => {
+    expect(loadEnv({ ...base, ALLOW_DEV_TENANT_HEADER: 'true' }).ALLOW_DEV_TENANT_HEADER).toBe(
+      true,
+    );
+  });
+});

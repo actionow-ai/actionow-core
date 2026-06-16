@@ -41,6 +41,13 @@ function guard(repo: ApiKeyRepo, nodeEnv = 'production'): ApiKeyGuard {
   return new ApiKeyGuard({} as never, repo, { NODE_ENV: nodeEnv } as never);
 }
 
+function guardWithFlag(repo: ApiKeyRepo, allowDevHeader: boolean): ApiKeyGuard {
+  return new ApiKeyGuard({} as never, repo, {
+    NODE_ENV: 'development',
+    ALLOW_DEV_TENANT_HEADER: allowDevHeader,
+  } as never);
+}
+
 describe('ApiKeyGuard', () => {
   it('rejects a request with no credentials (401 unauthorized envelope)', async () => {
     const g = guard(repoWithKey());
@@ -132,7 +139,7 @@ describe('ApiKeyGuard', () => {
 
   describe('x-tenant-id dev fallback', () => {
     it('is honored outside production when no key is present', async () => {
-      const g = guard(repoWithKey(), 'development');
+      const g = guardWithFlag(repoWithKey(), true);
       const req = { headers: { 'x-tenant-id': 'dev-tenant' }, params: {} } as unknown as Request;
       const ctx = {
         switchToHttp: () => ({ getRequest: () => req }),
@@ -145,6 +152,23 @@ describe('ApiKeyGuard', () => {
 
     it('is ignored in production (still requires a key)', async () => {
       const g = guard(repoWithKey(), 'production');
+      await expect(
+        g.canActivate(ctxFor({ headers: { 'x-tenant-id': 'dev-tenant' } })),
+      ).rejects.toMatchObject({ unified: { code: 'unauthorized' } });
+    });
+  });
+
+  describe('x-tenant-id requires the explicit ALLOW_DEV_TENANT_HEADER flag', () => {
+    it('honored when the flag is true (non-prod)', async () => {
+      const g = guardWithFlag(repoWithKey(), true);
+      const req = { headers: { 'x-tenant-id': 'dev-tenant' }, params: {} } as unknown as Request;
+      const ctx = {
+        switchToHttp: () => ({ getRequest: () => req }),
+      } as unknown as ExecutionContext;
+      await expect(g.canActivate(ctx)).resolves.toBe(true);
+    });
+    it('rejected when the flag is false even in non-prod', async () => {
+      const g = guardWithFlag(repoWithKey(), false);
       await expect(
         g.canActivate(ctxFor({ headers: { 'x-tenant-id': 'dev-tenant' } })),
       ).rejects.toMatchObject({ unified: { code: 'unauthorized' } });

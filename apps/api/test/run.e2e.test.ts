@@ -85,6 +85,10 @@ beforeAll(async () => {
       API_PORT: 3000,
       LOG_LEVEL: 'info',
       DEV_TENANT_ID: undefined,
+      // Track B Task 5: the `x-tenant-id` dev fallback now requires an explicit
+      // opt-in even outside production. This suite drives `/v1/run` via the
+      // header without an API key, so it must enable the gate.
+      ALLOW_DEV_TENANT_HEADER: true,
       RATE_LIMIT_TENANT_PER_MIN: 600,
       RATE_LIMIT_RESOURCE_PER_MIN: 120,
     })

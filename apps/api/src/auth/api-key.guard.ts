@@ -54,8 +54,10 @@ export const API_KEY_REPO = Symbol('API_KEY_REPO');
  * enforces the key's `resourceAllowlist` against the `:resourceId` route param.
  *
  * The plaintext key is never logged. The only non-key path is a `x-tenant-id`
- * dev fallback, gated to `NODE_ENV !== 'production'` so production always
- * requires a real key.
+ * dev fallback, gated to `NODE_ENV !== 'production'` AND an explicit
+ * `ALLOW_DEV_TENANT_HEADER` opt-in, so production always requires a real key and
+ * a misconfigured non-prod instance does not silently accept an unauthenticated
+ * tenant header.
  */
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
@@ -101,10 +103,11 @@ export class ApiKeyGuard implements CanActivate {
 
   /**
    * Dev-only fallback: resolve the tenant from `x-tenant-id` when no key is
-   * presented. Disabled in production so a real API key is always required.
+   * presented. Disabled in production, and otherwise requires the explicit
+   * `ALLOW_DEV_TENANT_HEADER` opt-in, so a real API key is required by default.
    */
   private async resolveDevFallback(req: AuthedRequest): Promise<ApiKeyContext> {
-    if (this.env.NODE_ENV === 'production') {
+    if (this.env.NODE_ENV === 'production' || !this.env.ALLOW_DEV_TENANT_HEADER) {
       throw engineUnauthorized('missing API key');
     }
     const header = req.headers['x-tenant-id'];
