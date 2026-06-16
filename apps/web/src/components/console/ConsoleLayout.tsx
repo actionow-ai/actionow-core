@@ -230,7 +230,9 @@ export function ConsoleLayout() {
         <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
           <TopBar title={title} />
           <div style={{ flex: 1, minHeight: 0, overflow: 'auto', paddingRight: 2, paddingBottom: isDesktop ? 0 : 76 }}>
-            <Outlet />
+            <div style={{ maxWidth: 'var(--content-max)', margin: '0 auto', width: '100%', height: '100%' }}>
+              <Outlet />
+            </div>
           </div>
         </main>
       </div>

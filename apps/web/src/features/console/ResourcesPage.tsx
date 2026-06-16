@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { PageHeader } from '../../components/console/PageHeader';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge } from '../../components/data/StatusBadge';
@@ -62,26 +63,31 @@ export function ResourcesPage() {
     {
       key: 'id',
       header: t('resources.cols.id'),
+      width: 'minmax(160px, 1.4fr)',
       cell: (r) => (
         <Link to={`/console/resources/${r.id}`} style={{ color: 'var(--accent)' }}>
           {r.id}
         </Link>
       ),
     },
-    { key: 'modality', header: t('resources.cols.modality'), cell: (r) => r.modality },
-    { key: 'provider', header: t('resources.cols.provider'), cell: (r) => r.provider_type },
-    { key: 'execModes', header: t('resources.cols.execModes'), cell: (r) => r.exec_modes.join(', ') },
-    { key: 'status', header: t('resources.cols.status'), cell: (r) => <StatusBadge status={r.status} /> },
+    { key: 'modality', header: t('resources.cols.modality'), width: '120px', cell: (r) => r.modality },
+    { key: 'provider', header: t('resources.cols.provider'), width: '140px', cell: (r) => r.provider_type },
+    { key: 'execModes', header: t('resources.cols.execModes'), width: '1fr', cell: (r) => r.exec_modes.join(', ') },
+    { key: 'status', header: t('resources.cols.status'), width: '110px', cell: (r) => <StatusBadge status={r.status} /> },
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button variant="cta" onClick={() => setOpen(true)}>
-          <PlusIcon size={14} weight="bold" /> {t('resources.new')}
-        </Button>
-      </div>
-      <DataTable columns={columns} rows={data ?? []} rowKey={(r) => r.id} loading={isLoading} empty={t('resources.empty')} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)', height: '100%' }}>
+      <PageHeader
+        title={t('resources.title')}
+        count={data?.length}
+        action={
+          <Button variant="ghost" onClick={() => setOpen(true)}>
+            <PlusIcon size={14} weight="bold" /> {t('resources.new')}
+          </Button>
+        }
+      />
+      <DataTable columns={columns} rows={data ?? []} rowKey={(r) => r.id} loading={isLoading} empty={t('resources.empty')} fill />
 
       <Modal
         open={open}

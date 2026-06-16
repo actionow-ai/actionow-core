@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { PageHeader } from '../../components/console/PageHeader';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge } from '../../components/data/StatusBadge';
@@ -48,21 +49,25 @@ export function ModifiersPage() {
   });
 
   const columns: Column<ModifierView>[] = [
-    { key: 'scope', header: t('modifiers.cols.scope'), cell: (r) => r.scope },
-    { key: 'op', header: t('modifiers.cols.op'), cell: (r) => r.op },
-    { key: 'value', header: t('modifiers.cols.value'), cell: (r) => r.value ?? '—' },
-    { key: 'priority', header: t('modifiers.cols.priority'), cell: (r) => String(r.priority) },
-    { key: 'active', header: t('modifiers.cols.active'), cell: (r) => <StatusBadge status={r.active ? 'active' : 'inactive'} /> },
+    { key: 'scope', header: t('modifiers.cols.scope'), width: '1fr', cell: (r) => r.scope },
+    { key: 'op', header: t('modifiers.cols.op'), width: '160px', cell: (r) => r.op },
+    { key: 'value', header: t('modifiers.cols.value'), width: '100px', cell: (r) => r.value ?? '—' },
+    { key: 'priority', header: t('modifiers.cols.priority'), width: '100px', cell: (r) => String(r.priority) },
+    { key: 'active', header: t('modifiers.cols.active'), width: '110px', cell: (r) => <StatusBadge status={r.active ? 'active' : 'inactive'} /> },
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button variant="cta" onClick={() => setOpen(true)}>
-          <PlusIcon size={14} weight="bold" /> {t('modifiers.new')}
-        </Button>
-      </div>
-      <DataTable columns={columns} rows={data ?? []} rowKey={(r) => r.id} loading={isLoading} empty={t('modifiers.empty')} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)', height: '100%' }}>
+      <PageHeader
+        title={t('modifiers.title')}
+        count={data?.length}
+        action={
+          <Button variant="ghost" onClick={() => setOpen(true)}>
+            <PlusIcon size={14} weight="bold" /> {t('modifiers.new')}
+          </Button>
+        }
+      />
+      <DataTable columns={columns} rows={data ?? []} rowKey={(r) => r.id} loading={isLoading} empty={t('modifiers.empty')} fill />
       <Modal open={open} title={t('modifiers.new')} onClose={() => setOpen(false)}
         footer={<Button variant="cta" onClick={() => create.mutate()}>{t('modifiers.submit')}</Button>}>
         <TextField label={t('modifiers.form.scope')} value={scope} onChange={(e) => setScope(e.target.value)} />

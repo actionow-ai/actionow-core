@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { PageHeader } from '../../components/console/PageHeader';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { Button } from '../../components/ui/Button';
@@ -36,23 +37,28 @@ export function TenantsPage() {
   });
 
   const columns: Column<TenantView>[] = [
-    { key: 'name', header: t('tenants.cols.name'), cell: (r) => r.name },
+    { key: 'name', header: t('tenants.cols.name'), width: 'minmax(160px, 1.4fr)', cell: (r) => r.name },
     {
       key: 'isolation',
       header: t('tenants.cols.isolation'),
+      width: '140px',
       cell: (r) => t(`tenants.isolation.${r.isolation_mode}`, r.isolation_mode),
     },
-    { key: 'created', header: t('tenants.cols.created'), cell: (r) => new Date(r.created_at).toLocaleString() },
+    { key: 'created', header: t('tenants.cols.created'), width: '180px', cell: (r) => new Date(r.created_at).toLocaleString() },
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button variant="cta" onClick={() => setOpen(true)}>
-          <PlusIcon size={14} weight="bold" /> {t('tenants.new')}
-        </Button>
-      </div>
-      <DataTable columns={columns} rows={data ?? []} rowKey={(r) => r.id} loading={isLoading} empty={t('tenants.empty')} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)', height: '100%' }}>
+      <PageHeader
+        title={t('tenants.title')}
+        count={data?.length}
+        action={
+          <Button variant="ghost" onClick={() => setOpen(true)}>
+            <PlusIcon size={14} weight="bold" /> {t('tenants.new')}
+          </Button>
+        }
+      />
+      <DataTable columns={columns} rows={data ?? []} rowKey={(r) => r.id} loading={isLoading} empty={t('tenants.empty')} fill />
 
       <Modal
         open={open}
