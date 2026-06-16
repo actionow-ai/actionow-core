@@ -115,6 +115,9 @@ beforeAll(async () => {
     ADMIN_JWT_SECRET: 'phase8-admin-secret',
     STORAGE_MAX_UPLOAD_BYTES: 100 * 1024 * 1024,
     CREDIT_RATE: 1000,
+    // This suite authenticates over real Bearer API keys (NODE_ENV=production
+    // already disables the fallback), so the dev tenant header stays off.
+    ALLOW_DEV_TENANT_HEADER: false,
   };
 
   const adapters = createDefaultRegistry({ asyncMedia: { readyAfterPolls: 1 } });

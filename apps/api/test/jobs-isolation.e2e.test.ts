@@ -88,6 +88,7 @@ describe('cross-tenant job isolation (Track B Task 4)', () => {
         inputs: {},
       })
       .returning({ id: schema.job.id });
+    if (job === undefined) throw new Error('failed to insert job');
 
     await request(app.getHttpServer())
       .get(`/v1/jobs/${job.id}`)
