@@ -1,11 +1,33 @@
 {
   "auth": {
-    "title": "Admin sign in",
+    "loginTab": "Sign in",
+    "registerTab": "Register",
     "email": "Email",
     "password": "Password",
-    "submit": "Sign in",
-    "notAdmin": "This account is not an admin",
-    "failed": "Sign-in failed, check your email or password"
+    "loginSubmit": "Sign in",
+    "registerSubmit": "Create account",
+    "toRegister": "No account yet?",
+    "toRegisterCta": "Register",
+    "toLogin": "Already have an account?",
+    "toLoginCta": "Sign in",
+    "registered": "Account created, welcome",
+    "loggedIn": "Signed in",
+    "failed": "Failed, check your email or password",
+    "or": "or",
+    "oauthGoogle": "Continue with Google",
+    "oauthGithub": "Continue with GitHub",
+    "brandTitle": "Self-hosted AI gateway and relay",
+    "brandLead": "Multi-tenant, credit billing, protocol relay, out of the box.",
+    "b1": "OpenAI / Anthropic / Gemini compatible endpoints",
+    "b2": "Tenant self-service: keys, usage, top-ups",
+    "b3": "Per-model token pricing and reconciliation"
+  },
+  "app": {
+    "title": "Tenant self-service",
+    "soon": "Self-service console coming soon",
+    "hint": "Your tenant and account are ready. Self-service keys, usage, and top-ups open in a later phase.",
+    "logout": "Sign out",
+    "backHome": "Website"
   },
   "nav": {
     "groups": { "ops": "Operations", "billing": "Billing", "access": "Access" },

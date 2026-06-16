@@ -1,7 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { ConsoleLayout } from './components/console/ConsoleLayout';
-import { LoginPage } from './features/auth/LoginPage';
+import { UserHome } from './features/app/UserHome';
+import { AuthPage } from './features/auth/AuthPage';
 import { AccountsPage } from './features/console/AccountsPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { DashboardPage } from './features/console/DashboardPage';
@@ -13,8 +14,15 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={<AuthPage />} />
+
+      {/* Any authenticated user (tenant self-service home). */}
       <Route element={<ProtectedRoute />}>
+        <Route path="/app" element={<UserHome />} />
+      </Route>
+
+      {/* Operator admin console. */}
+      <Route element={<ProtectedRoute role="admin" />}>
         <Route path="/console" element={<ConsoleLayout />}>
           <Route index element={<Navigate to="/console/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
@@ -23,6 +31,7 @@ export function AppRoutes() {
           <Route path="api-keys" element={<ApiKeysPage />} />
         </Route>
       </Route>
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

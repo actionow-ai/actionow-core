@@ -1,11 +1,33 @@
 {
   "auth": {
-    "title": "管理员登录",
+    "loginTab": "登录",
+    "registerTab": "注册",
     "email": "邮箱",
     "password": "密码",
-    "submit": "登录",
-    "notAdmin": "该账号不是管理员",
-    "failed": "登录失败,请检查邮箱或密码"
+    "loginSubmit": "登录",
+    "registerSubmit": "创建账号",
+    "toRegister": "还没有账号?",
+    "toRegisterCta": "立即注册",
+    "toLogin": "已有账号?",
+    "toLoginCta": "去登录",
+    "registered": "账号已创建,欢迎使用",
+    "loggedIn": "登录成功",
+    "failed": "操作失败,请检查邮箱或密码",
+    "or": "或",
+    "oauthGoogle": "用 Google 继续",
+    "oauthGithub": "用 GitHub 继续",
+    "brandTitle": "自部署的 AI 网关与中转底座",
+    "brandLead": "多租户、积分计费、协议中转,开箱即用。",
+    "b1": "OpenAI / Anthropic / Gemini 兼容端点",
+    "b2": "租户自助:Key、用量、充值",
+    "b3": "按模型 token 计价与对账"
+  },
+  "app": {
+    "title": "租户自助控制台",
+    "soon": "自助控制台即将上线",
+    "hint": "你的租户与账户已就绪。Key 自助、用量自查与自助充值将在后续阶段开放。",
+    "logout": "退出登录",
+    "backHome": "返回官网"
   },
   "nav": {
     "groups": { "ops": "运营", "billing": "计费", "access": "访问" },
