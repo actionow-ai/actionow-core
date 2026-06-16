@@ -22,6 +22,7 @@ import {
   failJob,
   getJob,
   holdCredits,
+  insertUsageLog,
   type Job,
   settleJob,
 } from '@actionow/db';
@@ -74,6 +75,13 @@ export interface RunRequest {
   callbackUrl?: string | undefined;
   idempotencyKey?: string | undefined;
   endUser?: string | undefined;
+  /**
+   * When set, a best-effort `usage_log` row is mirrored on settle with this model
+   * name and the run's token usage (§C.4), populating the console/admin usage
+   * views. Absent for non-relay runs (media/dify) → no log written. A log-insert
+   * failure never fails the settle (the ledger settle is the source of truth).
+   */
+  usageLogModel?: string | undefined;
   /**
    * Upper-bound usage for a `post`-timed pricebook entry; priced via `settle`
    * to size the hold. When absent, `holdFloor` is used.
@@ -416,6 +424,12 @@ export class ExecutionService {
         : {}),
     });
 
+    // Relay-only, best-effort usage mirror (§C.4). Gated on `usageLogModel`, so
+    // non-relay runs (media/dify) write no row. The settle already committed in
+    // its own transaction above; a log-insert failure is swallowed so a usage
+    // observability hiccup never fails (or rolls back) a settled run.
+    await this.mirrorUsageLog(req, finalCost, result.usage);
+
     return {
       jobId,
       status: 'succeeded',
@@ -423,6 +437,33 @@ export class ExecutionService {
       usage: result.usage,
       cost: { credits: finalCost },
     };
+  }
+
+  /**
+   * Mirror a settled relay run into `usage_log` (best-effort). No-op unless
+   * `req.usageLogModel` is set (relay calls). Token counts come from the run's
+   * snake_case `UsageVector` (`input_tokens`/`output_tokens`, missing → 0) —
+   * the shape every adapter emits and `priceModelToken` prices off. Any error
+   * is logged-and-swallowed: the ledger settle is the source of truth.
+   */
+  private async mirrorUsageLog(
+    req: RunRequest,
+    finalCost: MicroCredits,
+    usage: UsageVector,
+  ): Promise<void> {
+    if (req.usageLogModel === undefined) return;
+    try {
+      await insertUsageLog(this.deps.db, {
+        tenantId: req.tenantId,
+        model: req.usageLogModel,
+        inputTokens: usage.input_tokens ?? 0,
+        outputTokens: usage.output_tokens ?? 0,
+        cost: finalCost,
+        status: 'succeeded',
+      });
+    } catch {
+      // Best-effort observability: never fail a settled run on a usage-log error.
+    }
   }
 
   private async failBlocking(
