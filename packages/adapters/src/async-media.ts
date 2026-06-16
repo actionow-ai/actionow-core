@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 import type {
+  AdapterContext,
   CallbackResult,
   PollResult,
   SubmitInput,
@@ -16,6 +17,11 @@ import type { ProviderAdapter } from './types.js';
 const PROVIDER = 'async-media';
 /** Default replay window for webhook timestamps (ms). */
 const TIMESTAMP_WINDOW_MS = 5 * 60_000;
+
+/** Spread `proxyUrl` into a request when the channel set one. */
+function withProxy(ctx: AdapterContext): { proxyUrl?: string } {
+  return ctx.proxyUrl === undefined ? {} : { proxyUrl: ctx.proxyUrl };
+}
 
 /** The verified-callback envelope the engine hands to {@link parseCallback}. */
 export interface AsyncMediaCallbackEnvelope {
@@ -114,6 +120,7 @@ export const asyncMediaAdapter: ProviderAdapter = {
       url: `${ctx.endpoint}${submitPath}`,
       headers: { Authorization: `Bearer ${ctx.apiKey ?? ''}` },
       body,
+      ...withProxy(ctx),
     });
     if (!res.ok) {
       throw new AdapterError(httpStatusToUnified(PROVIDER, res.status));
@@ -144,6 +151,7 @@ export const asyncMediaAdapter: ProviderAdapter = {
       method: 'GET',
       url: `${ctx.endpoint}${pollPath.replace('{id}', upstreamJobId)}`,
       headers: { Authorization: `Bearer ${ctx.apiKey ?? ''}` },
+      ...withProxy(ctx),
     });
     if (!res.ok) {
       return { status: 'failed', error: httpStatusToUnified(PROVIDER, res.status) };

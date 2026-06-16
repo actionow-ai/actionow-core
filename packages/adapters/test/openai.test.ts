@@ -192,6 +192,26 @@ describe('openai adapter', () => {
   it('extractUsage reads prompt/completion tokens directly', () => {
     expect(openaiAdapter.extractUsage(okBody)).toEqual({ input_tokens: 12, output_tokens: 5 });
   });
+
+  it('forwards ctx.proxyUrl onto the http request', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp({ status: 200, body: okBody }, (req) => {
+      seen = req;
+    });
+    const input = baseInput(http, { prompt: 'hi' });
+    input.ctx.proxyUrl = 'http://proxy.local:8080';
+    await openaiAdapter.submit(input);
+    expect(seen?.proxyUrl).toBe('http://proxy.local:8080');
+  });
+
+  it('omits proxyUrl on the http request when ctx.proxyUrl is unset', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp({ status: 200, body: okBody }, (req) => {
+      seen = req;
+    });
+    await openaiAdapter.submit(baseInput(http, { prompt: 'hi' }));
+    expect(seen?.proxyUrl).toBeUndefined();
+  });
 });
 
 describe('openai adapter stream()', () => {
@@ -283,5 +303,20 @@ describe('openai adapter stream()', () => {
     ]);
     const events = await runStream(http, { prompt: 'hi' });
     expect(events.filter((e) => e.kind === 'delta')).toEqual([{ kind: 'delta', text: 'hi' }]);
+  });
+
+  it('forwards ctx.proxyUrl onto the stream request', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeStreamHttp(200, [deltaFrame('x'), doneFrame], (req) => {
+      seen = req;
+    });
+    const input = streamInput(http, { prompt: 'hi' });
+    input.ctx.proxyUrl = 'http://proxy.local:8080';
+    const events = openaiAdapter.stream?.(input, input.ctx);
+    if (events === undefined) {
+      throw new Error('openai adapter has no stream()');
+    }
+    await drain(events);
+    expect(seen?.proxyUrl).toBe('http://proxy.local:8080');
   });
 });

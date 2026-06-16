@@ -16,6 +16,11 @@ import type { ProviderAdapter } from './types.js';
 const PROVIDER = 'openai';
 const DEFAULT_ENDPOINT = 'https://api.openai.com/v1';
 
+/** Spread `proxyUrl` into a request when the channel set one. */
+function withProxy(ctx: AdapterContext): { proxyUrl?: string } {
+  return ctx.proxyUrl === undefined ? {} : { proxyUrl: ctx.proxyUrl };
+}
+
 interface ChatMessage {
   role: string;
   content: string;
@@ -91,6 +96,7 @@ export const openaiAdapter: ProviderAdapter = {
       url: `${endpoint}/chat/completions`,
       headers: { Authorization: `Bearer ${ctx.apiKey ?? ''}` },
       body,
+      ...withProxy(ctx),
     });
 
     if (!res.ok) {
@@ -131,6 +137,7 @@ export const openaiAdapter: ProviderAdapter = {
       url: `${endpoint}/chat/completions`,
       headers: { Authorization: `Bearer ${ctx.apiKey ?? ''}` },
       body,
+      ...withProxy(ctx),
     });
 
     if (!res.ok) {

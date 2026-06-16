@@ -16,6 +16,11 @@ import type { ProviderAdapter } from './types.js';
 const PROVIDER = 'gemini';
 const DEFAULT_ENDPOINT = 'https://generativelanguage.googleapis.com';
 
+/** Spread `proxyUrl` into a request when the channel set one. */
+function withProxy(ctx: AdapterContext): { proxyUrl?: string } {
+  return ctx.proxyUrl === undefined ? {} : { proxyUrl: ctx.proxyUrl };
+}
+
 interface GeminiContent {
   role: 'user' | 'model';
   parts: { text: string }[];
@@ -85,6 +90,7 @@ export const geminiAdapter: ProviderAdapter = {
       method: 'POST',
       url: `${endpoint}/v1beta/models/${ctx.model ?? ''}:generateContent?key=${key}`,
       body: { contents },
+      ...withProxy(ctx),
     });
 
     if (!res.ok) {
@@ -115,6 +121,7 @@ export const geminiAdapter: ProviderAdapter = {
       method: 'POST',
       url: `${endpoint}/v1beta/models/${ctx.model ?? ''}:streamGenerateContent?alt=sse&key=${key}`,
       body: { contents },
+      ...withProxy(ctx),
     });
 
     if (!res.ok) {

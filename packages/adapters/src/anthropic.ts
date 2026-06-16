@@ -18,6 +18,11 @@ const DEFAULT_ENDPOINT = 'https://api.anthropic.com';
 const ANTHROPIC_VERSION = '2023-06-01';
 const DEFAULT_MAX_TOKENS = 1024;
 
+/** Spread `proxyUrl` into a request when the channel set one. */
+function withProxy(ctx: AdapterContext): { proxyUrl?: string } {
+  return ctx.proxyUrl === undefined ? {} : { proxyUrl: ctx.proxyUrl };
+}
+
 interface ChatMessage {
   role: string;
   content: string;
@@ -95,6 +100,7 @@ export const anthropicAdapter: ProviderAdapter = {
         'anthropic-version': ANTHROPIC_VERSION,
       },
       body,
+      ...withProxy(ctx),
     });
 
     if (!res.ok) {
@@ -138,6 +144,7 @@ export const anthropicAdapter: ProviderAdapter = {
         'anthropic-version': ANTHROPIC_VERSION,
       },
       body,
+      ...withProxy(ctx),
     });
 
     if (!res.ok) {

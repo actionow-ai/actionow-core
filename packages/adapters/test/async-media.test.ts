@@ -275,4 +275,30 @@ describe('async-media adapter', () => {
       tasks: 1,
     });
   });
+
+  it('forwards ctx.proxyUrl onto the submit request', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp({ status: 200, body: { task_id: 't', status: 'pending' } }, (r) => {
+      seen = r;
+    });
+    const submitInput = input(http, 'image', { prompt: 'x' }, 'img-model');
+    submitInput.ctx.proxyUrl = 'http://p:8080';
+    await asyncMediaAdapter.submit(submitInput);
+    expect(seen?.proxyUrl).toBe('http://p:8080');
+  });
+
+  it('forwards ctx.proxyUrl onto the poll request', async () => {
+    let seen: HttpRequest | undefined;
+    const ctx = input(
+      fakeHttp({ status: 200, body: { id: 't', status: 'processing' } }, (r) => {
+        seen = r;
+      }),
+      'image',
+      { prompt: 'x' },
+      'img-model',
+    ).ctx;
+    ctx.proxyUrl = 'http://p:8080';
+    await asyncMediaAdapter.poll?.('t', ctx);
+    expect(seen?.proxyUrl).toBe('http://p:8080');
+  });
 });
