@@ -6,6 +6,10 @@ import { AuthPage } from './features/auth/AuthPage';
 import { AccountsPage } from './features/console/AccountsPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { DashboardPage } from './features/console/DashboardPage';
+import { DifyImportPage } from './features/console/DifyImportPage';
+import { ModifiersPage } from './features/console/ModifiersPage';
+import { ResourceDetailPage } from './features/console/ResourceDetailPage';
+import { ResourcesPage } from './features/console/ResourcesPage';
 import { TenantsPage } from './features/console/TenantsPage';
 import { LandingPage } from './features/landing/LandingPage';
 import { ProtectedRoute } from './lib/auth/ProtectedRoute';
@@ -26,6 +30,10 @@ export function AppRoutes() {
         <Route path="/console" element={<ConsoleLayout />}>
           <Route index element={<Navigate to="/console/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="resources" element={<ResourcesPage />} />
+          <Route path="resources/:id" element={<ResourceDetailPage />} />
+          <Route path="modifiers" element={<ModifiersPage />} />
+          <Route path="dify" element={<DifyImportPage />} />
           <Route path="tenants" element={<TenantsPage />} />
           <Route path="accounts" element={<AccountsPage />} />
           <Route path="api-keys" element={<ApiKeysPage />} />
