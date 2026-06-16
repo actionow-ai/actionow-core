@@ -6,8 +6,8 @@ import { Reveal } from './Reveal';
 export function Pricing() {
   const { t } = useTranslation('landing');
   const cards: { key: string; featured: boolean; to?: string; href?: string }[] = [
-    { key: 'payg', featured: true, to: '/login' },
-    { key: 'team', featured: false, href: '#' },
+    { key: 'self', featured: true, href: '#' },
+    { key: 'support', featured: false, href: '#' },
   ];
   return (
     <section id="pricing" style={{ maxWidth: 980, margin: '0 auto', padding: 'var(--s-16) var(--s-4)' }}>

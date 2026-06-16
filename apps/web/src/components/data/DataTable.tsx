@@ -22,13 +22,14 @@ export function DataTable<T>({
 }) {
   const grid = columns.map((c) => c.width ?? '1fr').join(' ');
   return (
-    <div className="panel" style={{ borderRadius: 'var(--r-md)', overflow: 'hidden' }}>
+    <div className="panel" style={{ borderRadius: 'var(--r-md)', overflowX: 'auto' }}>
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: grid,
           gap: 'var(--s-3)',
           padding: '10px var(--s-4)',
+          minWidth: 520,
           fontSize: 9,
           textTransform: 'uppercase',
           letterSpacing: '.05em',
@@ -53,6 +54,7 @@ export function DataTable<T>({
               gridTemplateColumns: grid,
               gap: 'var(--s-3)',
               padding: '11px var(--s-4)',
+              minWidth: 520,
               fontSize: 11.5,
               alignItems: 'center',
               borderBottom: '1px solid var(--row-bd)',

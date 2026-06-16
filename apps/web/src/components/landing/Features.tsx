@@ -1,11 +1,11 @@
 import type { Icon } from '@phosphor-icons/react';
 import {
-  CreditCardIcon,
-  PlugsConnectedIcon,
+  ArrowsLeftRightIcon,
+  ChartLineIcon,
   ReceiptIcon,
-  StackIcon,
-  TreeStructureIcon,
-  WaveSineIcon,
+  ShareNetworkIcon,
+  TagIcon,
+  UsersThreeIcon,
 } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 
@@ -18,12 +18,12 @@ interface Feat {
 }
 
 const FEATS: Feat[] = [
-  { key: 'api', Icon: PlugsConnectedIcon, big: true },
-  { key: 'billing', Icon: ReceiptIcon, big: true },
-  { key: 'exec', Icon: WaveSineIcon },
-  { key: 'dify', Icon: TreeStructureIcon },
-  { key: 'files', Icon: StackIcon },
-  { key: 'pay', Icon: CreditCardIcon },
+  { key: 'protocol', Icon: ArrowsLeftRightIcon, big: true },
+  { key: 'selfservice', Icon: UsersThreeIcon, big: true },
+  { key: 'pricing', Icon: TagIcon },
+  { key: 'routing', Icon: ShareNetworkIcon },
+  { key: 'billing', Icon: ReceiptIcon },
+  { key: 'logs', Icon: ChartLineIcon },
 ];
 
 function FeatureCard({ feat, index }: { feat: Feat; index: number }) {
@@ -82,9 +82,6 @@ export function Features() {
   return (
     <section id="features" style={{ maxWidth: 1200, margin: '0 auto', padding: 'var(--s-16) var(--s-4)' }}>
       <Reveal style={{ marginBottom: 'var(--s-8)' }}>
-        <div style={{ fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 'var(--s-2)' }}>
-          {t('features.eyebrow')}
-        </div>
         <h2 style={{ fontSize: 'clamp(26px, 3.4vw, 38px)', fontWeight: 750, letterSpacing: '-0.02em', margin: 0, maxWidth: 560 }}>
           {t('features.title')}
         </h2>

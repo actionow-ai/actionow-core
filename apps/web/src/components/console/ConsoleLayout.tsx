@@ -3,10 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../lib/auth/AuthProvider';
+import { useMediaQuery } from '../../lib/useMediaQuery';
 import { AppBackground } from '../glass/AppBackground';
 import { LanguageSwitch } from '../layout/LanguageSwitch';
 import { ThemeToggle } from '../layout/ThemeToggle';
-import { activeItem, groupForPath, NAV } from './nav-config';
+import { activeItem, groupForPath, MOBILE_TABS, NAV } from './nav-config';
 
 function Rail({ pathname }: { pathname: string }) {
   const navigate = useNavigate();
@@ -116,7 +117,7 @@ function TopBar({ title }: { title: string }) {
         <Link
           to="/"
           className="glass glass-hover"
-          style={{ fontSize: 12, color: 'var(--muted)', padding: '7px 12px', borderRadius: 'var(--r-pill)' }}
+          style={{ fontSize: 12, color: 'var(--muted)', padding: '7px 12px', borderRadius: 'var(--r-pill)', whiteSpace: 'nowrap' }}
         >
           {t('topbar.backHome')}
         </Link>
@@ -138,6 +139,7 @@ function TopBar({ title }: { title: string }) {
             cursor: 'pointer',
             padding: '7px 12px',
             borderRadius: 'var(--r-pill)',
+            whiteSpace: 'nowrap',
           }}
         >
           <SignOutIcon size={15} />
@@ -148,23 +150,69 @@ function TopBar({ title }: { title: string }) {
   );
 }
 
+function BottomTabs({ pathname }: { pathname: string }) {
+  const { t } = useTranslation('console');
+  return (
+    <nav
+      className="glass"
+      style={{
+        position: 'fixed',
+        left: 'var(--s-3)',
+        right: 'var(--s-3)',
+        bottom: 'var(--s-3)',
+        zIndex: 30,
+        borderRadius: 'var(--r-lg)',
+        display: 'flex',
+        justifyContent: 'space-around',
+        padding: 'var(--s-2)',
+      }}
+    >
+      {MOBILE_TABS.map((tab) => {
+        const TabIcon = tab.icon;
+        const on = pathname.startsWith(tab.to);
+        return (
+          <NavLink
+            key={tab.to}
+            to={tab.to}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 3,
+              fontSize: 10,
+              padding: '6px 12px',
+              borderRadius: 'var(--r-sm)',
+              color: on ? 'var(--accent)' : 'var(--muted)',
+            }}
+          >
+            <TabIcon size={20} weight={on ? 'fill' : 'regular'} />
+            {t(`nav.${tab.labelKey}`)}
+          </NavLink>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function ConsoleLayout() {
   const { t } = useTranslation('console');
   const { pathname } = useLocation();
+  const isDesktop = useMediaQuery('(min-width: 768px)');
   const title = t(`nav.${activeItem(pathname).labelKey}`);
   return (
     <>
       <AppBackground />
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 'var(--s-3)', padding: 'var(--s-4)', height: '100dvh' }}>
-        <Rail pathname={pathname} />
-        <SubNav pathname={pathname} />
+        {isDesktop && <Rail pathname={pathname} />}
+        {isDesktop && <SubNav pathname={pathname} />}
         <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
           <TopBar title={title} />
-          <div style={{ flex: 1, minHeight: 0, overflow: 'auto', paddingRight: 2 }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'auto', paddingRight: 2, paddingBottom: isDesktop ? 0 : 76 }}>
             <Outlet />
           </div>
         </main>
       </div>
+      {!isDesktop && <BottomTabs pathname={pathname} />}
     </>
   );
 }

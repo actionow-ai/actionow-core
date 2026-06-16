@@ -10,7 +10,7 @@ export function Providers() {
       <Reveal>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-8)', flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--faint)' }}>
-            {t('providers.label')}
+            {t('compat.label')}
           </span>
           <ProviderLogos />
         </div>

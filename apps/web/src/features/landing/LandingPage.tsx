@@ -7,6 +7,7 @@ import { HowItWorks } from '../../components/landing/HowItWorks';
 import { Nav } from '../../components/landing/Nav';
 import { Pricing } from '../../components/landing/Pricing';
 import { Providers } from '../../components/landing/Providers';
+import { Scenarios } from '../../components/landing/Scenarios';
 
 export function LandingPage() {
   return (
@@ -17,6 +18,7 @@ export function LandingPage() {
         <main>
           <Hero />
           <Providers />
+          <Scenarios />
           <Features />
           <HowItWorks />
           <Pricing />

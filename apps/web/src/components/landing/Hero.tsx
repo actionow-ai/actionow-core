@@ -3,38 +3,25 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '../ui/Button';
 
-/** Clean code panel showing a real /v1/run call (no fake-terminal chrome). */
+/** OpenAI-compatible relay snippet: same SDK, your own base_url (no fake terminal). */
 function CodePanel() {
   const { t } = useTranslation('landing');
   return (
     <div className="glass" style={{ borderRadius: 'var(--r-lg)', padding: 'var(--s-4)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--s-3)' }}>
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: '0.04em',
-            color: 'var(--ink)',
-            background: 'var(--accent)',
-            padding: '3px 9px',
-            borderRadius: 'var(--r-pill)',
-          }}
-        >
-          POST /v1/run
-        </span>
-        <span style={{ fontSize: 11, color: 'var(--faint)' }}>{t('hero.codeCaption')}</span>
-      </div>
-      <pre className="mono" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.75, color: 'var(--text)', overflowX: 'auto' }}>
+      <div className="mono" style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 'var(--s-3)' }}>openai-python</div>
+      <pre className="mono" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.8, color: 'var(--text)', overflowX: 'auto' }}>
         <code>
-          <span style={{ color: 'var(--accent)' }}>curl</span> -X POST https://api.actionow.ai
-          <span style={{ color: 'var(--accent-2)' }}>/v1/run/gpt-4o</span> {'\\'}
-          {'\n'}  -H <span style={{ color: '#9bdcb0' }}>"Authorization: Bearer ak_•••"</span> {'\\'}
-          {'\n'}  -d <span style={{ color: '#9bdcb0' }}>{'\'{"inputs":{"prompt":"你好"},'}</span>
-          {'\n'}     <span style={{ color: '#9bdcb0' }}>{'"exec_mode":"stream"}\''}</span>
-          {'\n'}
-          {'\n'}<span style={{ color: 'var(--faint)' }}>→ delta… usage… done {'{'}cost:{'{'}credits{'}}'}</span>
+          <span style={{ color: 'var(--faint)' }}>from</span> openai <span style={{ color: 'var(--faint)' }}>import</span> OpenAI
+          {'\n\n'}client = OpenAI(
+          {'\n'}  base_url=<span style={{ color: 'var(--accent)' }}>"https://your-host/v1"</span>,
+          {'\n'}  api_key=<span style={{ color: '#9bdcb0' }}>"ak_•••"</span>,
+          {'\n'})
+          {'\n'}client.chat.completions.create(
+          {'\n'}  model=<span style={{ color: '#9bdcb0' }}>"gpt-4o"</span>, messages=[...],
+          {'\n'})
         </code>
       </pre>
+      <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 'var(--s-3)' }}>{t('hero.codeCaption')}</div>
     </div>
   );
 }
@@ -53,26 +40,13 @@ export function Hero() {
     >
       <div className="hero-grid" style={{ display: 'grid', gap: 'var(--s-10)', alignItems: 'center', width: '100%' }}>
         <div>
-          <span
-            className="glass"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              fontSize: 12,
-              color: 'var(--text)',
-              padding: '6px 13px',
-              borderRadius: 'var(--r-pill)',
-            }}
-          >
-            {t('hero.eyebrow')}
-          </span>
           <h1
             style={{
-              fontSize: 'clamp(34px, 5vw, 58px)',
-              lineHeight: 1.1,
+              fontSize: 'clamp(32px, 5vw, 56px)',
+              lineHeight: 1.12,
               fontWeight: 800,
               letterSpacing: '-0.025em',
-              margin: 'var(--s-4) 0 0',
+              margin: 0,
             }}
           >
             {t('hero.title1')}
@@ -88,11 +62,11 @@ export function Hero() {
             </span>
             {t('hero.title2')}
           </h1>
-          <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-4)', maxWidth: 460 }}>
+          <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-4)', maxWidth: 500 }}>
             {t('hero.lead')}
           </p>
           <div style={{ display: 'flex', gap: 'var(--s-3)', marginTop: 'var(--s-6)', flexWrap: 'wrap' }}>
-            <Button to="/login" variant="cta" size="lg">
+            <Button to="/console" variant="cta" size="lg">
               {t('hero.ctaPrimary')} <ArrowRightIcon size={16} weight="bold" />
             </Button>
             <Button href="#" variant="ghost" size="lg">
