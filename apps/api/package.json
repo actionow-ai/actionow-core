@@ -20,6 +20,7 @@
     "@actionow/domain": "workspace:*",
     "@actionow/engine": "workspace:*",
     "@actionow/infra": "workspace:*",
+    "@actionow/llm-protocol": "workspace:*",
     "@actionow/payments": "workspace:*",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",

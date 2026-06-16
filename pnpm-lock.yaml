@@ -89,6 +89,9 @@ importers:
       '@actionow/infra':
         specifier: workspace:*
         version: link:../../packages/infra
+      '@actionow/llm-protocol':
+        specifier: workspace:*
+        version: link:../../packages/llm-protocol
       '@actionow/payments':
         specifier: workspace:*
         version: link:../../packages/payments

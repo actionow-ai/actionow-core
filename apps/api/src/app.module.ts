@@ -4,6 +4,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { AdminModule } from './admin/admin.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { CallbacksModule } from './callbacks/callbacks.module.js';
+import { ChatModule } from './chat/chat.module.js';
 import { UnifiedErrorFilter } from './common/unified-error.filter.js';
 import { ConsoleModule } from './console/console.module.js';
 import { DbModule } from './db/db.module.js';
@@ -24,6 +25,7 @@ import { PaymentsModule } from './payments/payments.module.js';
     CallbacksModule,
     PaymentsModule,
     ConsoleModule,
+    ChatModule,
   ],
   controllers: [HealthController],
   // Register the §4.7 filter globally via DI so it also applies under the
