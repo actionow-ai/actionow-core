@@ -1,8 +1,15 @@
 import type {
   AdapterContext,
+  ChatRequest,
+  ChatResponse,
+  ChatStreamEvent,
+  ContentPart,
+  Message,
+  StopReason,
   StreamEvent,
   SubmitInput,
   SubmitResult,
+  ToolCall,
   UnifiedError,
   UsageVector,
 } from '@actionow/contracts';
@@ -11,7 +18,7 @@ import { AdapterError, httpStatusToUnified } from './errors.js';
 import { asArray, asNumber, asRecord, asString, parseJsonRecord } from './internal/json.js';
 import { parseSse } from './internal/sse.js';
 import { openStream, streamErrorEvent } from './internal/stream.js';
-import type { ProviderAdapter } from './types.js';
+import type { AdapterCapabilities, ProviderAdapter } from './types.js';
 
 const PROVIDER = 'openai';
 const DEFAULT_ENDPOINT = 'https://api.openai.com/v1';
@@ -19,6 +26,160 @@ const DEFAULT_ENDPOINT = 'https://api.openai.com/v1';
 /** Spread `proxyUrl` into a request when the channel set one. */
 function withProxy(ctx: AdapterContext): { proxyUrl?: string } {
   return ctx.proxyUrl === undefined ? {} : { proxyUrl: ctx.proxyUrl };
+}
+
+const CAPABILITIES: AdapterCapabilities = {
+  tools: true,
+  vision: true,
+  audio: false,
+  json: true,
+  stream: true,
+};
+
+/** Map an IR content part to an OpenAI chat content part. */
+function irPartToOpenAi(part: ContentPart): Record<string, unknown> {
+  if (part.kind === 'text') {
+    return { type: 'text', text: part.text };
+  }
+  if (part.kind === 'image') {
+    return { type: 'image_url', image_url: { url: part.data } };
+  }
+  // audio/file have no first-class OpenAI chat representation; pass text through.
+  return { type: 'text', text: part.data };
+}
+
+/** Build the OpenAI `messages[]` entry for one IR message. */
+function irMessageToOpenAi(msg: Message): Record<string, unknown> {
+  const out: Record<string, unknown> = { role: msg.role };
+
+  if (msg.role === 'tool') {
+    // Tool results carry a flat string content + the originating call id.
+    const text = msg.content
+      .filter((p): p is Extract<ContentPart, { kind: 'text' }> => p.kind === 'text')
+      .map((p) => p.text)
+      .join('');
+    out.content = text;
+    if (msg.toolCallId !== undefined) {
+      out.tool_call_id = msg.toolCallId;
+    }
+    return out;
+  }
+
+  // For assistant turns with tool calls and no content, OpenAI expects null.
+  const textParts = msg.content.filter(
+    (p): p is Extract<ContentPart, { kind: 'text' }> => p.kind === 'text',
+  );
+  const hasNonText = msg.content.some((p) => p.kind !== 'text');
+  if (hasNonText) {
+    out.content = msg.content.map(irPartToOpenAi);
+  } else if (textParts.length > 0) {
+    out.content = textParts.map((p) => p.text).join('');
+  } else {
+    out.content = msg.toolCalls !== undefined && msg.toolCalls.length > 0 ? null : '';
+  }
+
+  if (msg.toolCalls !== undefined && msg.toolCalls.length > 0) {
+    out.tool_calls = msg.toolCalls.map((c) => ({
+      id: c.id,
+      type: 'function',
+      function: { name: c.name, arguments: JSON.stringify(c.arguments) },
+    }));
+  }
+  if (msg.name !== undefined) {
+    out.name = msg.name;
+  }
+  return out;
+}
+
+/** Translate an IR `ChatRequest` into an OpenAI chat-completions body. */
+function buildChatBody(
+  ir: ChatRequest,
+  ctx: AdapterContext,
+  stream: boolean,
+): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    model: ctx.model ?? ir.model,
+    messages: ir.messages.map(irMessageToOpenAi),
+  };
+  if (stream) {
+    body.stream = true;
+    body.stream_options = { include_usage: true };
+  }
+  if (ir.tools !== undefined && ir.tools.length > 0) {
+    body.tools = ir.tools.map((t) => {
+      const fn: Record<string, unknown> = { name: t.name, parameters: t.parameters };
+      if (t.description !== undefined) {
+        fn.description = t.description;
+      }
+      return { type: 'function', function: fn };
+    });
+  }
+  if (ir.toolChoice !== undefined) {
+    body.tool_choice =
+      typeof ir.toolChoice === 'string'
+        ? ir.toolChoice
+        : { type: 'function', function: { name: ir.toolChoice.name } };
+  }
+  const params = ir.params;
+  if (params !== undefined) {
+    if (params.temperature !== undefined) {
+      body.temperature = params.temperature;
+    }
+    if (params.topP !== undefined) {
+      body.top_p = params.topP;
+    }
+    if (params.maxOutputTokens !== undefined) {
+      body.max_tokens = params.maxOutputTokens;
+    }
+    if (params.stop !== undefined) {
+      body.stop = params.stop;
+    }
+    if (params.seed !== undefined) {
+      body.seed = params.seed;
+    }
+    if (params.responseFormat !== undefined && params.responseFormat !== 'text') {
+      body.response_format = { type: params.responseFormat };
+    }
+  }
+  return body;
+}
+
+/** Map an OpenAI `finish_reason` to an IR {@link StopReason}. */
+function mapFinishReason(raw: string | undefined): StopReason {
+  switch (raw) {
+    case 'length':
+      return 'length';
+    case 'tool_calls':
+    case 'function_call':
+      return 'tool_calls';
+    case 'content_filter':
+      return 'content_filter';
+    default:
+      return 'stop';
+  }
+}
+
+/** Parse an OpenAI `message.tool_calls[]` array into IR {@link ToolCall}s. */
+function parseToolCalls(raw: unknown): ToolCall[] {
+  const arr = asArray(raw);
+  if (arr === undefined) {
+    return [];
+  }
+  const calls: ToolCall[] = [];
+  for (const entry of arr) {
+    const rec = asRecord(entry);
+    const fn = asRecord(rec?.function);
+    const name = asString(fn?.name);
+    if (name === undefined) {
+      continue;
+    }
+    calls.push({
+      id: asString(rec?.id) ?? '',
+      name,
+      arguments: parseJsonRecord(asString(fn?.arguments) ?? '') ?? {},
+    });
+  }
+  return calls;
 }
 
 interface ChatMessage {
@@ -76,6 +237,7 @@ function mapErrorBody(status: number, raw: unknown): UnifiedError {
 
 export const openaiAdapter: ProviderAdapter = {
   providerType: PROVIDER,
+  capabilities: CAPABILITIES,
 
   async submit(input: SubmitInput): Promise<SubmitResult> {
     const { ctx, inputs } = input;
@@ -176,6 +338,135 @@ export const openaiAdapter: ProviderAdapter = {
     }
 
     yield { kind: 'done', usage };
+  },
+
+  async chat(ir: ChatRequest, ctx: AdapterContext): Promise<ChatResponse> {
+    const endpoint = ctx.endpoint ?? DEFAULT_ENDPOINT;
+    const body = buildChatBody(ir, ctx, false);
+
+    const res = await ctx.http.request({
+      method: 'POST',
+      url: `${endpoint}/chat/completions`,
+      headers: { Authorization: `Bearer ${ctx.apiKey ?? ''}` },
+      body,
+      ...withProxy(ctx),
+    });
+
+    if (!res.ok) {
+      throw new AdapterError(mapErrorBody(res.status, res.body));
+    }
+
+    const choice = asRecord(asArray(asRecord(res.body)?.choices)?.[0]);
+    const message = asRecord(choice?.message);
+    const content: ContentPart[] = [];
+    const text = asString(message?.content);
+    if (text !== undefined && text.length > 0) {
+      content.push({ kind: 'text', text });
+    }
+    const toolCalls = parseToolCalls(message?.tool_calls);
+
+    const irMessage: Message = { role: 'assistant', content };
+    if (toolCalls.length > 0) {
+      irMessage.toolCalls = toolCalls;
+    }
+
+    const usage = asRecord(asRecord(res.body)?.usage);
+    return {
+      message: irMessage,
+      stopReason: mapFinishReason(asString(choice?.finish_reason)),
+      usage: {
+        inputTokens: asNumber(usage?.prompt_tokens) ?? 0,
+        outputTokens: asNumber(usage?.completion_tokens) ?? 0,
+      },
+    };
+  },
+
+  async *streamChat(ir: ChatRequest, ctx: AdapterContext): AsyncIterable<ChatStreamEvent> {
+    const endpoint = ctx.endpoint ?? DEFAULT_ENDPOINT;
+    const body = buildChatBody(ir, ctx, true);
+
+    const res = await openStream(ctx, PROVIDER, {
+      method: 'POST',
+      url: `${endpoint}/chat/completions`,
+      headers: { Authorization: `Bearer ${ctx.apiKey ?? ''}` },
+      body,
+      ...withProxy(ctx),
+    });
+
+    if (!res.ok) {
+      yield { type: 'error', error: httpStatusToUnified(PROVIDER, res.status) };
+      return;
+    }
+
+    let started = false;
+
+    for await (const frame of parseSse(res.lines)) {
+      const data = frame.data;
+      if (data === '[DONE]') {
+        break;
+      }
+      const obj = parseJsonRecord(data);
+      if (obj === undefined) {
+        continue;
+      }
+
+      if (!started) {
+        started = true;
+        yield { type: 'message_start' };
+      }
+
+      const choice = asRecord(asArray(obj.choices)?.[0]);
+      const delta = asRecord(choice?.delta);
+
+      const text = asString(delta?.content);
+      if (text !== undefined && text.length > 0) {
+        yield { type: 'content_delta', text };
+      }
+
+      const toolDeltas = asArray(delta?.tool_calls);
+      if (toolDeltas !== undefined) {
+        for (const entry of toolDeltas) {
+          const rec = asRecord(entry);
+          const fn = asRecord(rec?.function);
+          const event: Extract<ChatStreamEvent, { type: 'tool_call_delta' }> = {
+            type: 'tool_call_delta',
+            index: asNumber(rec?.index) ?? 0,
+          };
+          const id = asString(rec?.id);
+          if (id !== undefined) {
+            event.id = id;
+          }
+          const name = asString(fn?.name);
+          if (name !== undefined) {
+            event.name = name;
+          }
+          const argsDelta = asString(fn?.arguments);
+          if (argsDelta !== undefined) {
+            event.argumentsDelta = argsDelta;
+          }
+          yield event;
+        }
+      }
+
+      const finish = asString(choice?.finish_reason);
+      if (finish !== undefined) {
+        yield { type: 'stop', stopReason: mapFinishReason(finish) };
+      }
+
+      // A trailing chunk carries usage with an empty `choices` array.
+      const usage = asRecord(obj.usage);
+      if (usage !== undefined) {
+        yield {
+          type: 'usage',
+          usage: {
+            inputTokens: asNumber(usage.prompt_tokens) ?? 0,
+            outputTokens: asNumber(usage.completion_tokens) ?? 0,
+          },
+        };
+      }
+    }
+
+    yield { type: 'done' };
   },
 
   extractUsage,
