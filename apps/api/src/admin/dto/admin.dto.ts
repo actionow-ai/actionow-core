@@ -146,3 +146,14 @@ export const grantModelSchema = z.object({
   tenantId: z.string().uuid(),
 });
 export type GrantModelDto = z.infer<typeof grantModelSchema>;
+
+/** `POST /admin/redemption-codes` — batch-mint codes. */
+export const generateCodesSchema = z.object({
+  /** How many codes to mint (1..1000). */
+  count: z.number().int().min(1).max(1000),
+  /** HUMAN-credit grant per code (converted to µcredits). */
+  creditsPerCode: z.number().positive(),
+  /** Optional ISO-8601 expiry; absent → never expires. */
+  expiresAt: z.string().datetime().optional(),
+});
+export type GenerateCodesDto = z.infer<typeof generateCodesSchema>;

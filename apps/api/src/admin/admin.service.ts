@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import {
   type AccountRow,
   type ApiKeyRow,
@@ -8,6 +10,7 @@ import {
   type CreateModelInput,
   createModifier,
   createPricebookEntry,
+  createRedemptionCode,
   createResource,
   createTenant,
   createUpstreamChannel,
@@ -25,6 +28,7 @@ import {
   listPricebookEntries,
   listResources,
   listTenants,
+  listUsageLogsGlobal,
   type ModelRow,
   type ModifierRow,
   type PricebookEntryRow,
@@ -32,6 +36,7 @@ import {
   type TenantRow,
   topUp,
   type UpstreamChannelRow,
+  type UsageLogRow,
 } from '@actionow/db';
 import { creditsToMicro } from '@actionow/domain';
 import { Inject, Injectable } from '@nestjs/common';
@@ -47,6 +52,7 @@ import type {
   CreatePricebookDto,
   CreateResourceDto,
   CreateTenantDto,
+  GenerateCodesDto,
   GrantModelDto,
   TopupDto,
 } from './dto/admin.dto.js';
@@ -248,6 +254,35 @@ export class AdminService {
 
   listLedger(tenantId: string, cursor: string | undefined, limit: number): Promise<LedgerRow[]> {
     return listLedger(this.db, tenantId, cursor, limit);
+  }
+
+  // ----- redemption codes -----
+
+  /**
+   * Mint `count` redemption codes, each granting `creditsPerCode` (HUMAN credits
+   * → µcredits). Codes are 16 uppercase hex chars (collision-free via randomUUID).
+   * All share the µcredit grant; returned for the operator to distribute.
+   */
+  async generateCodes(dto: GenerateCodesDto): Promise<{ codes: string[]; creditAmount: bigint }> {
+    const creditAmount = creditsToMicro(dto.creditsPerCode);
+    const expiresAt = dto.expiresAt === undefined ? undefined : new Date(dto.expiresAt);
+    const codes: string[] = [];
+    for (let i = 0; i < dto.count; i += 1) {
+      const code = randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase();
+      await createRedemptionCode(this.db, {
+        code,
+        creditAmount,
+        ...(expiresAt !== undefined ? { expiresAt } : {}),
+      });
+      codes.push(code);
+    }
+    return { codes, creditAmount };
+  }
+
+  // ----- usage stats -----
+
+  listUsageGlobal(limit: number): Promise<UsageLogRow[]> {
+    return listUsageLogsGlobal(this.db, limit);
   }
 }
 

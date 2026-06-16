@@ -8,6 +8,7 @@ import type {
   Resource,
   TenantRow,
   UpstreamChannelRow,
+  UsageLogRow,
 } from '@actionow/db';
 import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -33,6 +34,8 @@ import {
   createResourceSchema,
   type CreateTenantDto,
   createTenantSchema,
+  type GenerateCodesDto,
+  generateCodesSchema,
   type GrantModelDto,
   grantModelSchema,
   type TopupDto,
@@ -158,6 +161,18 @@ interface ModelView {
   resource_id: string;
   input_price: string;
   output_price: string;
+  status: string;
+  created_at: string;
+}
+
+interface UsageLogView {
+  id: string;
+  tenant_id: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost: string;
+  latency_ms: number | null;
   status: string;
   created_at: string;
 }
@@ -366,6 +381,27 @@ export class AdminController {
         rows.length === effective && last !== undefined ? last.createdAt.toISOString() : null,
     };
   }
+
+  // ----- redemption codes -----
+
+  @Post('redemption-codes')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Batch-mint redemption codes (credits → µcredits)' })
+  async generateCodes(
+    @Body(new ZodBody(generateCodesSchema)) dto: GenerateCodesDto,
+  ): Promise<{ codes: string[]; credit_amount: string }> {
+    const { codes, creditAmount } = await this.admin.generateCodes(dto);
+    return { codes, credit_amount: creditAmount.toString() };
+  }
+
+  // ----- usage stats -----
+
+  @Get('usage')
+  @ApiOperation({ summary: 'Global per-call usage log (all tenants)' })
+  async listUsage(@Query('limit') limit?: string): Promise<{ logs: UsageLogView[] }> {
+    const rows = await this.admin.listUsageGlobal(parseLimit(limit));
+    return { logs: rows.map(toUsageLogView) };
+  }
 }
 
 function toTenantView(row: TenantRow): TenantView {
@@ -477,6 +513,20 @@ function toModelView(row: ModelRow): ModelView {
     resource_id: row.resourceId,
     input_price: row.inputPrice.toString(),
     output_price: row.outputPrice.toString(),
+    status: row.status,
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toUsageLogView(row: UsageLogRow): UsageLogView {
+  return {
+    id: row.id,
+    tenant_id: row.tenantId,
+    model: row.model,
+    input_tokens: row.inputTokens,
+    output_tokens: row.outputTokens,
+    cost: row.cost.toString(),
+    latency_ms: row.latencyMs,
     status: row.status,
     created_at: row.createdAt.toISOString(),
   };
