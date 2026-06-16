@@ -47,3 +47,7 @@ Items surfaced during phase reviews that were intentionally deferred. None block
 - **`setIntentStatus` has no terminal-state guard** — unconditionally sets `succeeded` on a verified succeeded event. Not reachable now (only succeeded events fulfill; idempotency prevents reprocessing), but a future refund/failed flow needs a status-transition guard.
 - **`order`/`subscription` purposes** record payment (intent succeeded, event processed) but carry no fulfillment hook yet — wire the order/subscription grant when those products land.
 - **WeChat legacy platform-certificate serial branch** is out of scope (unknown serial rejected); add cert-mode verify if a merchant predates the public-key migration.
+
+## Phase 10 (test infra)
+
+- **e2e env stubs are inline & incomplete** — each api e2e builds an `ENV` override literal, so every new _required_ env field (ADMIN_JWT_SECRET, then CREDIT_RATE) silently breaks ~11 old stubs (AppModule init crashes). Phase-10's `CREDIT_RATE` did this; fixed by adding it to every stub. → extract a shared `makeTestEnv(overrides?): AppEnv` helper (one complete base) and route all e2e overrides through it so a new field never breaks old tests. (The Testcontainers parallelism flakiness is now fixed via `fileParallelism:false` on the integration packages.)
