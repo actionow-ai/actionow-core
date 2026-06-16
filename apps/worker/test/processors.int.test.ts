@@ -18,6 +18,7 @@ import type { WorkerRuntime } from '../src/runtime.js';
 
 const {
   account,
+  fileObject,
   ledgerTxn,
   pricebookEntry,
   resource,
@@ -44,7 +45,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE webhook_outbox, ledger_txn, idempotency_key, job, pricebook_entry, upstream_channel, account, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE file_object, webhook_outbox, ledger_txn, idempotency_key, job, pricebook_entry, upstream_channel, account, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
 });
 
 const noHttp: HttpClient = { request: () => Promise.reject(new Error('no http')) };
@@ -233,6 +234,39 @@ describe('job-exec processor', () => {
     if (key === undefined) throw new Error('no presigned key captured');
     expect(key).toBe(`${s.tenantId}/${job.id}.png`);
     expect(putUrls).toEqual([`https://r2.local/${key}`]);
+  });
+
+  it('records a ready file_object for each persisted media object', async () => {
+    const s = await seed(1_000_000n);
+    await client`UPDATE resource SET modality='image' WHERE id=${s.resourceId}`;
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 0 }));
+
+    const storage: StorageProvider = {
+      kind: 'r2',
+      presignPut: (key) => Promise.resolve({ url: `https://r2.local/${key}`, key, expiresIn: 900 }),
+      presignGet: (key) => Promise.resolve({ url: `https://r2.local/${key}`, expiresIn: 3600 }),
+      head: () => Promise.resolve({ exists: true }),
+      delete: () => Promise.resolve(),
+    };
+    const rt = runtimeWith(adapters);
+    rt.storage = storage;
+    rt.publicBaseUrl = 'https://asset.actionow.ai';
+    rt.fetchBytes = () =>
+      Promise.resolve({ bytes: new Uint8Array([1, 2, 3]), contentType: 'image/png' });
+    rt.putBytes = () => Promise.resolve();
+    const process = createJobExecProcessor(rt);
+
+    await process({ jobId: job.id });
+
+    const files = await db.select().from(fileObject).where(eq(fileObject.tenantId, s.tenantId));
+    expect(files).toHaveLength(1);
+    expect(files[0]?.status).toBe('ready');
+    expect(files[0]?.key).toBe(`${s.tenantId}/${job.id}.png`);
+    expect(files[0]?.size).toBe(3);
+    expect(files[0]?.contentType).toBe('image/png');
+    expect(files[0]?.provider).toBe('r2');
   });
 });
 

@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'node:crypto';
 import type { AdapterRegistry } from '@actionow/adapters';
 import type { Modifier, PricebookEntry, StorageProvider } from '@actionow/contracts';
 import {
+  createFileObject,
   type Database,
   getAccountByTenant,
   getActivePricebookEntry,
@@ -11,6 +12,7 @@ import {
   type Job,
   listApplicableModifiers,
   listChannels,
+  markFileReady,
   type ModifierRow,
   type PricebookEntryRow,
 } from '@actionow/db';
@@ -202,13 +204,45 @@ export class CallbacksService {
    * `undefined` (no rewrite) when storage or the public base URL is unconfigured,
    * so a callback still settles with the temp upstream URL. `persistMediaOutput`
    * swallows its own errors (Task 8); the byte transfer is timeout-bounded.
+   *
+   * After the copy, a `ready` `file_object` row is recorded per persisted object so
+   * the tenant's media catalog tracks it (Task 11). The row creation is best-effort:
+   * the output URL is already rewritten, so a catalog-row miss never fails settle.
    */
   private buildPersistMedia(): PersistMediaFn | undefined {
     const storage = this.storage;
     const publicBaseUrl = this.env.STORAGE_PUBLIC_BASE_URL;
     if (storage === null || publicBaseUrl === undefined) return undefined;
-    return ({ tenantId, jobId, output }) =>
-      persistMediaOutput({ storage, publicBaseUrl, tenantId, jobId, output, fetchBytes, putBytes });
+    const db = this.db;
+    const bucket = this.env.STORAGE_BUCKET ?? '';
+    return async ({ tenantId, jobId, output }) => {
+      const result = await persistMediaOutput({
+        storage,
+        publicBaseUrl,
+        tenantId,
+        jobId,
+        output,
+        fetchBytes,
+        putBytes,
+      });
+      for (const obj of result.objects) {
+        try {
+          const file = await createFileObject(db, {
+            tenantId,
+            provider: storage.kind,
+            bucket,
+            key: obj.key,
+          });
+          await markFileReady(db, file.id, {
+            ...(obj.size !== undefined ? { size: obj.size } : {}),
+            ...(obj.contentType !== undefined ? { contentType: obj.contentType } : {}),
+          });
+        } catch {
+          // best-effort: the output URL is already rewritten; a catalog row miss is non-fatal.
+        }
+      }
+      return result;
+    };
   }
 
   /**
