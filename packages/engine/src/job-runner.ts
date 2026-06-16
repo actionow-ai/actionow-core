@@ -25,6 +25,7 @@ import {
 
 import { EngineError } from './errors.js';
 import type { RunChannel } from './execution-service.js';
+import type { PersistMediaResult } from './media-persistence.js';
 import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
 
 /**
@@ -44,6 +45,18 @@ export interface JobExecutionContext {
 
 export type ExecutionContextLoader = (job: Job) => Promise<JobExecutionContext>;
 
+/**
+ * Persist media outputs to durable storage, returning a (possibly) rewritten
+ * output. Optional injected dependency; absent → no rewrite. Best-effort: the
+ * concrete hook never throws (it falls back to the temp upstream URL), so
+ * settle proceeds regardless. Wired in Task 10 over a real StorageProvider.
+ */
+export type PersistMediaFn = (input: {
+  tenantId: string;
+  jobId: string;
+  output: Record<string, unknown>;
+}) => Promise<PersistMediaResult>;
+
 export interface JobRunnerDeps {
   db: DbOrTx;
   adapters: AdapterRegistry;
@@ -60,6 +73,8 @@ export interface JobRunnerDeps {
   rng?: () => number;
   /** Global egress proxy fallback (UPSTREAM_PROXY_URL) when a channel has no proxyRef. */
   proxyUrlEnv?: string | undefined;
+  /** Persist media outputs before settle (rewrites temp upstream URLs to durable ones). */
+  persistMedia?: PersistMediaFn | undefined;
 }
 
 const DEFAULT_MAX_POLLS = 30;
@@ -185,7 +200,20 @@ export class JobRunner {
     result: PollResult,
   ): Promise<{ settled: boolean }> {
     const usage: UsageVector = result.usage ?? {};
-    const output = result.output ?? {};
+    let output = result.output ?? {};
+    // Best-effort media persistence: rewrite temp upstream media URLs to durable
+    // ones BEFORE the settle write. Absent (non-media setups / existing tests) →
+    // unchanged. The hook never throws (Task 8); settle proceeds regardless.
+    if (this.deps.persistMedia !== undefined) {
+      const persisted = await this.deps.persistMedia({
+        tenantId: job.tenantId,
+        jobId: job.id,
+        output,
+      });
+      output = persisted.output;
+    }
+    // Cost is computed from `usage` + `job.inputs`, so rewriting `output` does
+    // not affect pricing.
     const { credits: finalCost, applied } = computeFinalCost(
       ctx.pricebookEntry,
       usage,
