@@ -1,7 +1,16 @@
-import type { SubmitInput, SubmitResult, UnifiedError, UsageVector } from '@actionow/contracts';
+import type {
+  AdapterContext,
+  StreamEvent,
+  SubmitInput,
+  SubmitResult,
+  UnifiedError,
+  UsageVector,
+} from '@actionow/contracts';
 
 import { AdapterError, httpStatusToUnified } from './errors.js';
-import { asArray, asNumber, asRecord, asString } from './internal/json.js';
+import { asArray, asNumber, asRecord, asString, parseJsonRecord } from './internal/json.js';
+import { parseSse } from './internal/sse.js';
+import { openStream, streamErrorEvent } from './internal/stream.js';
 import type { ProviderAdapter } from './types.js';
 
 const PROVIDER = 'openai';
@@ -100,6 +109,66 @@ export const openaiAdapter: ProviderAdapter = {
     }
 
     return { kind: 'sync', output: { text }, usage: extractUsage(res.body) };
+  },
+
+  async *stream(input: SubmitInput, ctx: AdapterContext): AsyncIterable<StreamEvent> {
+    const messages = buildMessages(input.inputs);
+    const endpoint = ctx.endpoint ?? DEFAULT_ENDPOINT;
+
+    const body: Record<string, unknown> = {
+      model: ctx.model,
+      messages,
+      stream: true,
+      stream_options: { include_usage: true },
+    };
+    const maxTokens = asNumber(input.inputs.max_tokens);
+    if (maxTokens !== undefined) {
+      body.max_tokens = maxTokens;
+    }
+
+    const res = await openStream(ctx, PROVIDER, {
+      method: 'POST',
+      url: `${endpoint}/chat/completions`,
+      headers: { Authorization: `Bearer ${ctx.apiKey ?? ''}` },
+      body,
+    });
+
+    if (!res.ok) {
+      yield streamErrorEvent(PROVIDER, res.status);
+      return;
+    }
+
+    // Default usage to zero so a `done` event is always emitted with a vector.
+    let usage: UsageVector = { input_tokens: 0, output_tokens: 0 };
+
+    for await (const frame of parseSse(res.lines)) {
+      const data = frame.data;
+      if (data === '[DONE]') {
+        break;
+      }
+      const obj = parseJsonRecord(data);
+      if (obj === undefined) {
+        continue;
+      }
+
+      // A trailing chunk carries usage with an empty `choices` array.
+      const chunkUsage = asRecord(obj.usage);
+      if (chunkUsage !== undefined) {
+        usage = {
+          input_tokens: asNumber(chunkUsage.prompt_tokens) ?? 0,
+          output_tokens: asNumber(chunkUsage.completion_tokens) ?? 0,
+        };
+        yield { kind: 'usage', usage };
+      }
+
+      const choice = asRecord(asArray(obj.choices)?.[0]);
+      const text = asString(asRecord(choice?.delta)?.content);
+      if (text !== undefined && text.length > 0) {
+        yield { kind: 'delta', text };
+      }
+    }
+
+    yield { kind: 'done', usage };
   },
 
   extractUsage,

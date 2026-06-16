@@ -31,3 +31,15 @@ export function asNumber(x: unknown): number | undefined {
 export function recordAt(x: unknown, key: string): Record<string, unknown> | undefined {
   return asRecord(asRecord(x)?.[key]);
 }
+
+/**
+ * Parse a JSON string into a record, returning `undefined` on parse failure or
+ * a non-object result. Used to decode SSE `data:` payloads defensively.
+ */
+export function parseJsonRecord(text: string): Record<string, unknown> | undefined {
+  try {
+    return asRecord(JSON.parse(text));
+  } catch {
+    return undefined;
+  }
+}

@@ -1,7 +1,16 @@
-import type { SubmitInput, SubmitResult, UnifiedError, UsageVector } from '@actionow/contracts';
+import type {
+  AdapterContext,
+  StreamEvent,
+  SubmitInput,
+  SubmitResult,
+  UnifiedError,
+  UsageVector,
+} from '@actionow/contracts';
 
 import { AdapterError, httpStatusToUnified } from './errors.js';
-import { asArray, asNumber, asRecord, asString } from './internal/json.js';
+import { asArray, asNumber, asRecord, asString, parseJsonRecord } from './internal/json.js';
+import { parseSse } from './internal/sse.js';
+import { openStream, streamErrorEvent } from './internal/stream.js';
 import type { ProviderAdapter } from './types.js';
 
 const PROVIDER = 'anthropic';
@@ -104,6 +113,71 @@ export const anthropicAdapter: ProviderAdapter = {
     }
 
     return { kind: 'sync', output: { text }, usage: extractUsage(res.body) };
+  },
+
+  async *stream(input: SubmitInput, ctx: AdapterContext): AsyncIterable<StreamEvent> {
+    const messages = buildMessages(input.inputs);
+    const endpoint = ctx.endpoint ?? DEFAULT_ENDPOINT;
+
+    const body: Record<string, unknown> = {
+      model: ctx.model,
+      max_tokens: asNumber(input.inputs.max_tokens) ?? DEFAULT_MAX_TOKENS,
+      messages,
+      stream: true,
+    };
+    const system = asString(input.inputs.system);
+    if (system !== undefined) {
+      body.system = system;
+    }
+
+    const res = await openStream(ctx, PROVIDER, {
+      method: 'POST',
+      url: `${endpoint}/v1/messages`,
+      headers: {
+        'x-api-key': ctx.apiKey ?? '',
+        'anthropic-version': ANTHROPIC_VERSION,
+      },
+      body,
+    });
+
+    if (!res.ok) {
+      yield streamErrorEvent(PROVIDER, res.status);
+      return;
+    }
+
+    let inputTokens = 0;
+    let outputTokens = 0;
+
+    for await (const frame of parseSse(res.lines)) {
+      const obj = parseJsonRecord(frame.data);
+      if (obj === undefined) {
+        continue;
+      }
+      const type = asString(obj.type);
+
+      if (type === 'message_start') {
+        // input_tokens (and an initial output count) live on message.usage.
+        const usage = asRecord(asRecord(obj.message)?.usage);
+        inputTokens = asNumber(usage?.input_tokens) ?? inputTokens;
+        outputTokens = asNumber(usage?.output_tokens) ?? outputTokens;
+      } else if (type === 'content_block_delta') {
+        const text = asString(asRecord(obj.delta)?.text);
+        if (text !== undefined && text.length > 0) {
+          yield { kind: 'delta', text };
+        }
+      } else if (type === 'message_delta') {
+        // Anthropic reports cumulative output_tokens here; the last wins.
+        const out = asNumber(asRecord(obj.usage)?.output_tokens);
+        if (out !== undefined) {
+          outputTokens = out;
+        }
+      }
+      // message_stop / ping / content_block_start|stop carry no usage/delta.
+    }
+
+    const usage: UsageVector = { input_tokens: inputTokens, output_tokens: outputTokens };
+    yield { kind: 'usage', usage };
+    yield { kind: 'done', usage };
   },
 
   extractUsage,

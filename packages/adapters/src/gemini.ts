@@ -1,7 +1,16 @@
-import type { SubmitInput, SubmitResult, UnifiedError, UsageVector } from '@actionow/contracts';
+import type {
+  AdapterContext,
+  StreamEvent,
+  SubmitInput,
+  SubmitResult,
+  UnifiedError,
+  UsageVector,
+} from '@actionow/contracts';
 
 import { AdapterError, httpStatusToUnified } from './errors.js';
-import { asArray, asNumber, asRecord, asString } from './internal/json.js';
+import { asArray, asNumber, asRecord, asString, parseJsonRecord } from './internal/json.js';
+import { parseSse } from './internal/sse.js';
+import { openStream, streamErrorEvent } from './internal/stream.js';
 import type { ProviderAdapter } from './types.js';
 
 const PROVIDER = 'gemini';
@@ -95,6 +104,51 @@ export const geminiAdapter: ProviderAdapter = {
     }
 
     return { kind: 'sync', output: { text }, usage: extractUsage(res.body) };
+  },
+
+  async *stream(input: SubmitInput, ctx: AdapterContext): AsyncIterable<StreamEvent> {
+    const contents = buildContents(input.inputs);
+    const endpoint = ctx.endpoint ?? DEFAULT_ENDPOINT;
+    const key = encodeURIComponent(ctx.apiKey ?? '');
+
+    const res = await openStream(ctx, PROVIDER, {
+      method: 'POST',
+      url: `${endpoint}/v1beta/models/${ctx.model ?? ''}:streamGenerateContent?alt=sse&key=${key}`,
+      body: { contents },
+    });
+
+    if (!res.ok) {
+      yield streamErrorEvent(PROVIDER, res.status);
+      return;
+    }
+
+    // Each chunk may carry usageMetadata; the latest seen is the final usage.
+    let usage: UsageVector = { input_tokens: 0, output_tokens: 0 };
+
+    for await (const frame of parseSse(res.lines)) {
+      const obj = parseJsonRecord(frame.data);
+      if (obj === undefined) {
+        continue;
+      }
+
+      const meta = asRecord(obj.usageMetadata);
+      if (meta !== undefined) {
+        usage = {
+          input_tokens: asNumber(meta.promptTokenCount) ?? 0,
+          output_tokens: asNumber(meta.candidatesTokenCount) ?? 0,
+        };
+      }
+
+      const candidate = asRecord(asArray(obj.candidates)?.[0]);
+      const part = asRecord(asArray(asRecord(candidate?.content)?.parts)?.[0]);
+      const text = asString(part?.text);
+      if (text !== undefined && text.length > 0) {
+        yield { kind: 'delta', text };
+      }
+    }
+
+    yield { kind: 'usage', usage };
+    yield { kind: 'done', usage };
   },
 
   extractUsage,
