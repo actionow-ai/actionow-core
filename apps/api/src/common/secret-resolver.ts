@@ -7,7 +7,7 @@ import { DB } from './tokens.js';
  * Resolves a credential `ref` to its secret value. A channel's `credential_ref`
  * is the uuid of a `secret_ref` row: the resolver dereferences that row and,
  * for `provider = 'env'`, reads `SECRET_<locator>` then `<locator>` from
- * `process.env` (e.g. locator `huimeng` → `SECRET_HUIMENG`). A non-uuid ref
+ * `process.env` (e.g. locator `my-key` → `SECRET_MY_KEY`). A non-uuid ref
  * (e.g. a literal proxy locator like `upstream_proxy`, or a dev value) is read
  * directly from `SECRET_<ref>` then `<ref>`. Vault-backed `secret_ref`s
  * (`provider = 'vault'`) return `undefined` until Phase 5.
