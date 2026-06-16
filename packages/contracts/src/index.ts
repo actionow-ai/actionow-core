@@ -1,4 +1,5 @@
 export * from './adapter.js';
+export * from './chat.js';
 export * from './http.js';
 export * from './io-schema.js';
 export * from './job.js';
