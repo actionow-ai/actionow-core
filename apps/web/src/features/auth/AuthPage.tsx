@@ -1,11 +1,11 @@
 import { ArrowRightIcon, CheckCircleIcon } from '@phosphor-icons/react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import { Logo } from '../../components/brand/Logo';
 import { AppBackground } from '../../components/glass/AppBackground';
-import { Reveal } from '../../components/landing/Reveal';
+import { FlipWords } from '../../components/landing/FlipWords';
 import { LanguageSwitch } from '../../components/layout/LanguageSwitch';
 import { ThemeToggle } from '../../components/layout/ThemeToggle';
 import { Button } from '../../components/ui/Button';
@@ -14,23 +14,42 @@ import { toast } from '../../components/ui/toast';
 import { config } from '../../config';
 import { ApiError } from '../../lib/api/errors';
 import { useAuth } from '../../lib/auth/AuthProvider';
+import { gsap, useGSAP } from '../../lib/motion/gsap';
+import { useReducedMotion } from '../../lib/motion/useReducedMotion';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 
 type Mode = 'login' | 'register';
 
 function BrandPanel() {
-  const { t } = useTranslation('console');
+  const { t } = useTranslation(['console', 'landing']);
   const bullets = ['auth.b1', 'auth.b2', 'auth.b3'];
   return (
     <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 'var(--s-10)', height: '100%' }}>
-      <Logo size={30} />
-      <h1 style={{ fontSize: 'clamp(26px, 2.6vw, 36px)', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15, margin: 'var(--s-6) 0 0', maxWidth: 420 }}>
-        {t('auth.brandTitle')}
+      <div data-reveal>
+        <Logo size={30} />
+      </div>
+      <h1
+        data-reveal
+        style={{ fontSize: 'clamp(28px, 3vw, 44px)', fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.1, margin: 'var(--s-6) 0 0', maxWidth: 440 }}
+      >
+        {t('landing:hero.title1')}
+        <FlipWords
+          words={t('landing:hero.flip', { returnObjects: true }) as string[]}
+          style={{
+            background: 'linear-gradient(120deg, var(--accent), var(--accent-2))',
+            WebkitBackgroundClip: 'text',
+            backgroundClip: 'text',
+            color: 'transparent',
+          }}
+        />
+        {t('landing:hero.title2')}
       </h1>
-      <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-3)', maxWidth: 400 }}>{t('auth.brandLead')}</p>
+      <p data-reveal style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-3)', maxWidth: 400 }}>
+        {t('auth.brandLead')}
+      </p>
       <ul style={{ listStyle: 'none', padding: 0, margin: 'var(--s-6) 0 0', display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
         {bullets.map((b) => (
-          <li key={b} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--text)' }}>
+          <li key={b} data-reveal style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--text)' }}>
             <CheckCircleIcon size={18} weight="fill" style={{ color: 'var(--accent)', flexShrink: 0 }} />
             {t(b)}
           </li>
@@ -49,6 +68,22 @@ export function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const reduced = useReducedMotion();
+
+  useGSAP(
+    () => {
+      if (reduced || !root.current) return;
+      gsap.from(root.current.querySelectorAll('[data-reveal]'), {
+        opacity: 0,
+        y: 24,
+        duration: 0.55,
+        ease: 'power3.out',
+        stagger: 0.07,
+      });
+    },
+    { scope: root, dependencies: [reduced] },
+  );
 
   const submit = async () => {
     setBusy(true);
@@ -65,7 +100,7 @@ export function AuthPage() {
   };
 
   const card = (
-    <Reveal style={{ width: 'min(400px, 92vw)' }}>
+    <div data-reveal style={{ width: 'min(400px, 92vw)' }}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -163,7 +198,7 @@ export function AuthPage() {
           </button>
         </div>
       </form>
-    </Reveal>
+    </div>
   );
 
   return (
@@ -174,6 +209,7 @@ export function AuthPage() {
         <ThemeToggle />
       </div>
       <div
+        ref={root}
         style={{
           position: 'relative',
           zIndex: 1,

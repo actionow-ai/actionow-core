@@ -36,6 +36,33 @@
 .btn-tactile:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(255, 176, 10, 0.34); }
 .btn-tactile:active { transform: translateY(1px) scale(0.99); }
 
+/* Editorial bento first-screen: a rich left stack + a tall companion code
+   panel. Layout only — visual styling stays in .glass/.panel/tokens. */
+.hero-bento {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s-4);
+  align-items: start;
+}
+.hb-scenarios {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s-3);
+}
+@media (min-width: 960px) {
+  .hero-bento {
+    grid-template-columns: 1.55fr 1fr;
+    column-gap: var(--s-5);
+  }
+  .hb-scenarios {
+    grid-template-columns: 1fr 1fr;
+  }
+  .hb-right {
+    position: sticky;
+    top: 88px;
+  }
+}
+
 /* Dot-grid backdrop (Aceternity "grid and dot"), faded to the top via a mask. */
 .bg-grid {
   position: fixed;
