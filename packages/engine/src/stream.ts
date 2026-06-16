@@ -76,7 +76,7 @@ export async function* createSettlingStream(deps: SettlingStreamDeps): AsyncGene
       await failStream(deps, failure);
       return undefined;
     }
-    return settleStream(deps, latestUsage ?? {});
+    return settleStream(deps, latestUsage);
   };
 
   try {
@@ -128,22 +128,37 @@ export async function* createSettlingStream(deps: SettlingStreamDeps): AsyncGene
   }
 }
 
-/** Compute the final cost from the observed usage and settle the job once. */
-async function settleStream(deps: SettlingStreamDeps, usage: UsageVector): Promise<MicroCredits> {
+/**
+ * Settle the job once with the policy: when real usage was captured, charge the
+ * true computed cost; when usage is **absent/empty** (client disconnect or an
+ * error before the upstream's final usage frame), charge the held upper bound —
+ * never 0, which would leak revenue (provider tokens consumed but unbilled). The
+ * charge is always capped at `holdAmount` (we never settle above the hold) and
+ * floored at 0.
+ */
+async function settleStream(
+  deps: SettlingStreamDeps,
+  usage: UsageVector | undefined,
+): Promise<MicroCredits> {
   const entry = deps.req.pricebookEntry;
-  const { credits: finalCost, applied } = computeFinalCost(
+  const hasUsage = usage !== undefined && Object.keys(usage).length > 0;
+  const { credits: computed, applied } = computeFinalCost(
     entry,
-    usage,
+    usage ?? {},
     deps.inputs,
     deps.req.modifiers,
   );
+  // No-usage path: charge the held upper bound rather than the empty-usage 0.
+  const candidate = hasUsage ? computed : deps.holdAmount;
+  // Cap at the hold (never settle above what we reserved); floor at 0.
+  const finalCost = candidate < 0n ? 0n : candidate > deps.holdAmount ? deps.holdAmount : candidate;
   await settleJob(deps.db, {
     jobId: deps.jobId,
     accountId: deps.req.accountId,
     tenantId: deps.req.tenantId,
     holdAmount: deps.holdAmount,
     finalCost,
-    usage,
+    usage: usage ?? {},
     output: {},
     pricebookVersion: entry.version,
     modifiersApplied: serializeAppliedModifiers(applied),

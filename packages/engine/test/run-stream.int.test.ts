@@ -197,7 +197,7 @@ describe('ExecutionService.runStream', () => {
     expect(job?.costCredits).toBe(5n);
   });
 
-  it('settles exactly once when the consumer disconnects early (return())', async () => {
+  it('settles exactly once charging the held upper bound when the consumer disconnects early (return())', async () => {
     const s = await seed(1_000_000n);
     const adapters = new AdapterRegistry();
     adapters.register(mockStreamAdapter());
@@ -205,7 +205,11 @@ describe('ExecutionService.runStream', () => {
 
     const { jobId, events } = await svc.runStream(baseRequest(s));
 
-    // Consume only the first delta, then break out → triggers iterator.return().
+    // Hold = 1000-token upper bound × 1µ/token = 1000µ.
+    expect(await readAccount(s.accountId)).toEqual({ balance: 1_000_000n, held: 1_000n });
+
+    // Consume only the first delta, then break out → triggers iterator.return()
+    // BEFORE the upstream usage frame arrives (no usage captured).
     const iter = events[Symbol.asyncIterator]();
     const first = await iter.next();
     expect(first.value).toMatchObject({ kind: 'delta', text: 'hel' });
@@ -215,12 +219,17 @@ describe('ExecutionService.runStream', () => {
     // The generator's finally still settled exactly once.
     const settleRows = await settleRowsFor(jobId);
     expect(settleRows).toHaveLength(1);
+    // No usage was captured before disconnect → charge the held upper bound
+    // (1000µ), NOT 0 (which would leak the provider tokens already consumed).
+    expect(settleRows[0]?.creditsDelta).toBe(-1_000n);
 
+    // Account debited the full held bound, hold released to 0.
     const acct = await readAccount(s.accountId);
-    expect(acct.held).toBe(0n);
+    expect(acct).toEqual({ balance: 999_000n, held: 0n });
 
     const job = await getJob(db, jobId);
     expect(job?.status).toBe('succeeded');
+    expect(job?.costCredits).toBe(1_000n);
   });
 
   it('settles (fail/release) exactly once when the adapter throws mid-stream', async () => {
