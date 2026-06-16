@@ -83,6 +83,7 @@ function SubNav({ pathname }: { pathname: string }) {
             borderRadius: 'var(--r-sm)',
             marginBottom: 2,
             fontSize: 12.5,
+            whiteSpace: 'nowrap',
             color: isActive ? 'var(--text)' : 'var(--muted)',
             background: isActive ? 'rgba(255,214,10,.13)' : 'transparent',
             border: isActive ? '1px solid rgba(255,214,10,.28)' : '1px solid transparent',
@@ -182,6 +183,7 @@ function BottomTabs({ pathname }: { pathname: string }) {
               fontSize: 10,
               padding: '6px 12px',
               borderRadius: 'var(--r-sm)',
+              whiteSpace: 'nowrap',
               color: on ? 'var(--accent)' : 'var(--muted)',
             }}
           >

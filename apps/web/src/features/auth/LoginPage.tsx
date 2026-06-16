@@ -92,6 +92,7 @@ export function LoginPage() {
               cursor: 'pointer',
               boxShadow: '0 6px 18px rgba(255,176,10,.4)',
               opacity: busy ? 0.7 : 1,
+              whiteSpace: 'nowrap',
             }}
           >
             {t('auth.submit')} <ArrowRightIcon size={16} weight="bold" />

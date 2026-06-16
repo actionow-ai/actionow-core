@@ -19,6 +19,7 @@ export function LanguageSwitch() {
         cursor: 'pointer',
         padding: '8px 13px',
         borderRadius: 'var(--r-pill)',
+        whiteSpace: 'nowrap',
       }}
     >
       <TranslateIcon size={16} />
