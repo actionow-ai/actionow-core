@@ -6,13 +6,14 @@ const ALL_PROVIDER_TYPES = [
   'openai',
   'anthropic',
   'gemini',
+  'async-media',
   'async-media-mock',
   'dify-workflow',
   'mock-stream',
 ] as const;
 
 describe('createDefaultRegistry', () => {
-  it('resolves all six built-in provider_types', () => {
+  it('resolves all seven built-in provider_types', () => {
     const registry = createDefaultRegistry();
     for (const providerType of ALL_PROVIDER_TYPES) {
       expect(registry.has(providerType)).toBe(true);

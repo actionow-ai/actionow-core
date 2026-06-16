@@ -1,4 +1,5 @@
 export * from './anthropic.js';
+export * from './async-media.js';
 export * from './async-media-mock.js';
 export * from './default-registry.js';
 export * from './dify-workflow.js';
