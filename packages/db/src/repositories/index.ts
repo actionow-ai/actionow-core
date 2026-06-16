@@ -133,6 +133,13 @@ export {
 } from './settle.js';
 export type { DbOrTx } from './types.js';
 export {
+  insertUsageLog,
+  type InsertUsageLogInput,
+  listUsageLogsByTenant,
+  listUsageLogsGlobal,
+  type UsageLogRow,
+} from './usage.js';
+export {
   listDueWebhooks,
   markWebhookDead,
   markWebhookSent,
