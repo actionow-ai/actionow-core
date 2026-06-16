@@ -4,14 +4,31 @@ import type {
   HttpResponse,
   HttpStreamResponse,
 } from '@actionow/contracts';
+import { ProxyAgent } from 'undici';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 /**
+ * The undici `dispatcher` is exposed on `RequestInit` by the Node global-fetch
+ * types, but those types come from a separate `undici-types` package whose
+ * `Dispatcher` shape can drift from the `undici` package we construct the
+ * `ProxyAgent` from. Bridge the two universes at this single field rather than
+ * pinning the two independently-published type packages together.
+ */
+type FetchInit = Omit<RequestInit, 'dispatcher'> & { dispatcher?: ProxyAgent };
+
+/**
  * Build the `fetch` `RequestInit` shared by buffered and streaming requests:
  * JSON-serialize a body and default the `content-type` header when one is set.
+ *
+ * When an `agent` is supplied it is attached as the undici `dispatcher` so the
+ * request egresses through the per-request proxy.
  */
-function buildInit(req: HttpRequest, signal?: AbortSignal): RequestInit {
+function buildInit(
+  req: HttpRequest,
+  agent: ProxyAgent | undefined,
+  signal?: AbortSignal,
+): RequestInit {
   const headers: Record<string, string> = { ...req.headers };
   let body: string | undefined;
   if (req.body !== undefined) {
@@ -21,14 +38,19 @@ function buildInit(req: HttpRequest, signal?: AbortSignal): RequestInit {
     }
   }
 
-  const init: RequestInit = { method: req.method, headers };
+  const init: FetchInit = { method: req.method, headers };
   if (signal !== undefined) {
     init.signal = signal;
   }
   if (body !== undefined) {
     init.body = body;
   }
-  return init;
+  if (agent !== undefined) {
+    init.dispatcher = agent;
+  }
+  // Bridge the `undici` ProxyAgent's `dispatcher` to the global-fetch RequestInit
+  // (whose `dispatcher` comes from a separate undici-types version); see FetchInit.
+  return init as unknown as RequestInit;
 }
 
 /**
@@ -84,6 +106,19 @@ const emptyLines: AsyncIterable<string> = {
  * - Always captures the raw response `text` so callers can map upstream errors.
  */
 export class FetchHttpClient implements HttpClient {
+  /** One ProxyAgent per proxy URL, reused across requests. */
+  private readonly proxyAgents = new Map<string, ProxyAgent>();
+
+  /** Resolve (caching) the ProxyAgent for a proxy URL. */
+  private agentFor(proxyUrl: string): ProxyAgent {
+    let agent = this.proxyAgents.get(proxyUrl);
+    if (agent === undefined) {
+      agent = new ProxyAgent(proxyUrl);
+      this.proxyAgents.set(proxyUrl, agent);
+    }
+    return agent;
+  }
+
   async request(req: HttpRequest): Promise<HttpResponse> {
     const controller = new AbortController();
     const timeoutMs = req.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -92,7 +127,8 @@ export class FetchHttpClient implements HttpClient {
     }, timeoutMs);
 
     try {
-      const res = await fetch(req.url, buildInit(req, controller.signal));
+      const agent = req.proxyUrl === undefined ? undefined : this.agentFor(req.proxyUrl);
+      const res = await fetch(req.url, buildInit(req, agent, controller.signal));
       const text = await res.text();
 
       let parsed: unknown;
@@ -122,7 +158,8 @@ export class FetchHttpClient implements HttpClient {
    * `fetch`, whose `Response.body` is a web `ReadableStream`.
    */
   async stream(req: HttpRequest): Promise<HttpStreamResponse> {
-    const res = await fetch(req.url, buildInit(req));
+    const agent = req.proxyUrl === undefined ? undefined : this.agentFor(req.proxyUrl);
+    const res = await fetch(req.url, buildInit(req, agent));
     const lines = res.body === null ? emptyLines : iterateUtf8(res.body);
     return { status: res.status, ok: res.ok, lines };
   }

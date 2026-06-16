@@ -127,6 +127,74 @@ describe('FetchHttpClient', () => {
   });
 });
 
+describe('FetchHttpClient proxy support', () => {
+  it('passes an undici dispatcher to fetch when proxyUrl is set', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        stubResponse({ status: 200, contentType: 'application/json', text: '{"ok":true}' }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new FetchHttpClient();
+    await client.request({
+      method: 'GET',
+      url: 'https://x.test/y',
+      proxyUrl: 'http://proxy.local:8080',
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit & { dispatcher?: unknown }];
+    expect(init.dispatcher).toBeDefined();
+  });
+
+  it('does not pass a dispatcher when proxyUrl is absent', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        stubResponse({ status: 200, contentType: 'application/json', text: '{"ok":true}' }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new FetchHttpClient();
+    await client.request({ method: 'GET', url: 'https://x.test/y' });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit & { dispatcher?: unknown }];
+    expect(init.dispatcher).toBeUndefined();
+  });
+
+  it('reuses one ProxyAgent per proxyUrl across requests', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        stubResponse({ status: 200, contentType: 'application/json', text: '{}' }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new FetchHttpClient();
+    await client.request({ method: 'GET', url: 'https://x.test/a', proxyUrl: 'http://p:8080' });
+    await client.request({ method: 'GET', url: 'https://x.test/b', proxyUrl: 'http://p:8080' });
+
+    const d1 = (fetchMock.mock.calls[0]?.[1] as { dispatcher?: unknown }).dispatcher;
+    const d2 = (fetchMock.mock.calls[1]?.[1] as { dispatcher?: unknown }).dispatcher;
+    expect(d1).toBe(d2);
+  });
+
+  it('passes a dispatcher to stream() when proxyUrl is set', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(stubStreamResponse(200, ['data: x\n\n']));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new FetchHttpClient();
+    await client.stream({
+      method: 'POST',
+      url: 'https://x.test/stream',
+      proxyUrl: 'http://proxy.local:8080',
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit & { dispatcher?: unknown }];
+    expect(init.dispatcher).toBeDefined();
+  });
+});
+
 /** Build a `Response`-shaped object whose `body` is a `ReadableStream` of bytes. */
 const stubStreamResponse = (status: number, frames: string[]): Response => {
   const encoder = new TextEncoder();

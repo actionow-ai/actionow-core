@@ -4,6 +4,8 @@ export interface HttpRequest {
   headers?: Record<string, string>;
   body?: unknown;
   timeoutMs?: number;
+  /** Optional per-request HTTP(S) proxy URL; the FetchHttpClient routes via an undici ProxyAgent. */
+  proxyUrl?: string;
 }
 export interface HttpResponse {
   status: number;

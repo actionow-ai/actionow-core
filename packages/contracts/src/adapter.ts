@@ -32,6 +32,8 @@ export interface AdapterContext {
   model?: string;
   endpoint?: string;
   apiKey?: string; // resolved from vault by caller; never logged
+  /** Optional per-channel egress proxy URL (resolved from the channel proxy_ref); never logged. */
+  proxyUrl?: string;
   /**
    * Opaque per-channel protocol config consumed by the adapter (e.g. relay task
    * paths, signature header names); never logged.
