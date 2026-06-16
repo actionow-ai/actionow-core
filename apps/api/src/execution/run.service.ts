@@ -17,7 +17,13 @@ import {
   type PricebookEntryRow,
   type UpstreamChannelRow,
 } from '@actionow/db';
-import type { JobQueuePort, RunChannel, RunOutcome, RunRequest } from '@actionow/engine';
+import type {
+  JobQueuePort,
+  RunChannel,
+  RunOutcome,
+  RunRequest,
+  StreamOutcome,
+} from '@actionow/engine';
 import { ExecutionService } from '@actionow/engine';
 import { FetchHttpClient } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
@@ -60,6 +66,20 @@ export class RunService {
     return service.run(req);
   }
 
+  /**
+   * Open a `stream`-mode run. The engine performs the synchronous prefix
+   * (validate → quote → hold → job snapshot) and **throws here** on
+   * insufficient_credits / invalid_input — so the controller can surface a real
+   * HTTP 402/400 via the {@link UnifiedErrorFilter} before any SSE byte is
+   * written. The returned `events` is the settling generator the controller
+   * pipes to the SSE transport.
+   */
+  async runStream(resourceId: string, body: RunBody, ctx: TenantContext): Promise<StreamOutcome> {
+    const req = await this.buildRequest(resourceId, body, ctx, 'stream');
+    const service = this.buildService();
+    return service.runStream(req);
+  }
+
   /** Construct an {@link ExecutionService} bound to this app's shared deps. */
   private buildService(): ExecutionService {
     return new ExecutionService({
@@ -72,11 +92,18 @@ export class RunService {
     });
   }
 
-  /** Resolve the resource catalog into the engine's {@link RunRequest}. */
+  /**
+   * Resolve the resource catalog into the engine's {@link RunRequest}.
+   *
+   * `forceMode`, when set, overrides the body's `exec_mode` (still validated
+   * against the resource's supported modes) — the SSE endpoint forces `stream`
+   * so a client hitting `Accept: text/event-stream` always streams.
+   */
   private async buildRequest(
     resourceId: string,
     body: RunBody,
     ctx: TenantContext,
+    forceMode?: ExecMode,
   ): Promise<RunRequest> {
     const resource = await getResource(this.db, resourceId);
     if (resource?.tenantId !== ctx.tenantId) {
@@ -103,7 +130,10 @@ export class RunService {
       tenantId: ctx.tenantId,
       resourceId,
     });
-    const execMode = this.selectExecMode(body.exec_mode, resource.execModes as ExecMode[]);
+    const execMode = this.selectExecMode(
+      forceMode ?? body.exec_mode,
+      resource.execModes as ExecMode[],
+    );
 
     const req: RunRequest = {
       resource: {
