@@ -31,9 +31,11 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@actionow/worker": "workspace:*",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/testing": "^11.0.0",
     "@testcontainers/postgresql": "^10.13.0",
+    "@testcontainers/redis": "^10.13.0",
     "@types/express": "^5.0.0",
     "@types/supertest": "^6.0.3",
     "drizzle-orm": "^0.45.2",

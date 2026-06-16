@@ -1,5 +1,5 @@
 import type { JobQueuePort } from '@actionow/engine';
-import { Injectable } from '@nestjs/common';
+import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 
@@ -14,11 +14,18 @@ export const JOB_EXEC_QUEUE = 'job-exec';
  * exercises that path without standing up a queue.
  */
 @Injectable()
-export class BullmqJobQueue implements JobQueuePort {
+export class BullmqJobQueue implements JobQueuePort, OnModuleDestroy {
   private queue: Queue | undefined;
   private connection: Redis | undefined;
 
   constructor(private readonly redisUrl: string) {}
+
+  /** Close the lazily-opened queue + redis connection on app shutdown so a
+   * stopped Redis (e.g. a Testcontainers teardown) does not leave the ioredis
+   * client reconnecting. No-op when the async path never ran. */
+  async onModuleDestroy(): Promise<void> {
+    await this.close();
+  }
 
   async enqueueExec(jobId: string): Promise<void> {
     await this.getQueue().add('exec', { jobId }, { jobId });
