@@ -61,6 +61,7 @@ function runtimeWith(adapters: AdapterRegistry, http: HttpClient = noHttp): Work
       ADMIN_JWT_SECRET: 'test-secret',
       STORAGE_MAX_UPLOAD_BYTES: 100 * 1024 * 1024,
       CREDIT_RATE: 1000,
+      ALLOW_DEV_TENANT_HEADER: false,
     },
     db,
     adapters,
