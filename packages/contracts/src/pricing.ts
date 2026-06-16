@@ -1,6 +1,13 @@
 import { z } from 'zod';
 
-export const PRICE_METHODS = ['unit', 'matrix', 'fixed', 'formula', 'passthrough'] as const;
+export const PRICE_METHODS = [
+  'unit',
+  'matrix',
+  'fixed',
+  'formula',
+  'passthrough',
+  'model_token',
+] as const;
 export type PriceMethod = (typeof PRICE_METHODS)[number];
 export const PRICE_TIMINGS = ['pre', 'post'] as const;
 export type PriceTiming = (typeof PRICE_TIMINGS)[number];
@@ -44,12 +51,22 @@ export const passthroughSpecSchema = z.object({
 });
 export type PassthroughSpec = z.infer<typeof passthroughSpecSchema>;
 
+export const modelTokenSpecSchema = z.object({
+  method: z.literal('model_token'),
+  /** µcredit-per-input-token (frozen from the model's `input_price`). */
+  inputPrice: z.number().int().nonnegative(),
+  /** µcredit-per-output-token (frozen from the model's `output_price`). */
+  outputPrice: z.number().int().nonnegative(),
+});
+export type ModelTokenSpec = z.infer<typeof modelTokenSpecSchema>;
+
 export const priceSpecSchema = z.discriminatedUnion('method', [
   unitSpecSchema,
   matrixSpecSchema,
   fixedSpecSchema,
   formulaSpecSchema,
   passthroughSpecSchema,
+  modelTokenSpecSchema,
 ]);
 export type PriceSpec = z.infer<typeof priceSpecSchema>;
 

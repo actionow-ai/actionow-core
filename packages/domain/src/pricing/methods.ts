@@ -1,4 +1,10 @@
-import type { FixedSpec, FormulaSpec, MatrixSpec, UnitSpec } from '@actionow/contracts';
+import type {
+  FixedSpec,
+  FormulaSpec,
+  MatrixSpec,
+  ModelTokenSpec,
+  UnitSpec,
+} from '@actionow/contracts';
 
 import type { MicroCredits } from '../credits.js';
 import { DomainError } from '../errors.js';
@@ -110,4 +116,17 @@ export function priceFormula(spec: FormulaSpec, vars: Record<string, number>): M
     throw new DomainError('invalid_pricing', 'malformed formula');
   }
   return result;
+}
+
+/**
+ * Token-priced cost: `input_tokens*inputPrice + output_tokens*outputPrice`
+ * (µcredits). Reads the snake_case `usage.input_tokens`/`usage.output_tokens`
+ * keys every adapter emits on its `UsageVector` (missing = 0) so it serves both
+ * `settle` (observed usage) and `quote` (estimated usage). No markup is applied
+ * here; the entry markup + modifier stack apply downstream.
+ */
+export function priceModelToken(spec: ModelTokenSpec, usage: Record<string, number>): MicroCredits {
+  const input = BigInt(usage.input_tokens ?? 0) * BigInt(spec.inputPrice);
+  const output = BigInt(usage.output_tokens ?? 0) * BigInt(spec.outputPrice);
+  return input + output;
 }
