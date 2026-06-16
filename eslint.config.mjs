@@ -130,7 +130,17 @@ export default tseslint.config(
                 ['pkg', { package: 'infra' }],
               ],
             },
-            // engine: orchestration over contracts, domain, db, adapters, infra, dify.
+            // payments: contracts, domain, infra (NOT db/adapters/dify/engine).
+            {
+              from: [['pkg', { package: 'payments' }]],
+              allow: [
+                ['pkg', { package: 'payments' }],
+                ['pkg', { package: 'contracts' }],
+                ['pkg', { package: 'domain' }],
+                ['pkg', { package: 'infra' }],
+              ],
+            },
+            // engine: orchestration over contracts, domain, db, adapters, infra, dify, payments.
             {
               from: [['pkg', { package: 'engine' }]],
               allow: [
@@ -141,6 +151,7 @@ export default tseslint.config(
                 ['pkg', { package: 'adapters' }],
                 ['pkg', { package: 'infra' }],
                 ['pkg', { package: 'dify' }],
+                ['pkg', { package: 'payments' }],
               ],
             },
             // apps (api, worker): any package + any app.
@@ -190,6 +201,8 @@ export default tseslint.config(
             '@actionow/infra/*',
             '@actionow/engine',
             '@actionow/engine/*',
+            '@actionow/payments',
+            '@actionow/payments/*',
           ],
         },
       ],
@@ -212,6 +225,8 @@ export default tseslint.config(
             '@actionow/dify/*',
             '@actionow/engine',
             '@actionow/engine/*',
+            '@actionow/payments',
+            '@actionow/payments/*',
           ],
         },
       ],
@@ -232,6 +247,8 @@ export default tseslint.config(
             '@actionow/infra/*',
             '@actionow/engine',
             '@actionow/engine/*',
+            '@actionow/payments',
+            '@actionow/payments/*',
           ],
         },
       ],
@@ -250,6 +267,8 @@ export default tseslint.config(
             '@actionow/dify/*',
             '@actionow/engine',
             '@actionow/engine/*',
+            '@actionow/payments',
+            '@actionow/payments/*',
           ],
         },
       ],
@@ -266,6 +285,30 @@ export default tseslint.config(
             '@actionow/db/*',
             '@actionow/adapters',
             '@actionow/adapters/*',
+            '@actionow/engine',
+            '@actionow/engine/*',
+            '@actionow/payments',
+            '@actionow/payments/*',
+          ],
+        },
+      ],
+    },
+  },
+  // payments: contracts, domain, infra only. Forbid db/adapters/dify/engine
+  // (engine + apps may import payments, so neither is restricted here).
+  {
+    files: ['packages/payments/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            '@actionow/db',
+            '@actionow/db/*',
+            '@actionow/adapters',
+            '@actionow/adapters/*',
+            '@actionow/dify',
+            '@actionow/dify/*',
             '@actionow/engine',
             '@actionow/engine/*',
           ],
@@ -294,6 +337,8 @@ export default tseslint.config(
             '@actionow/dify/*',
             '@actionow/engine',
             '@actionow/engine/*',
+            '@actionow/payments',
+            '@actionow/payments/*',
           ],
         },
       ],
