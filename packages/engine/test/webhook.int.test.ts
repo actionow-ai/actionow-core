@@ -80,10 +80,13 @@ describe('WebhookDispatcher.dispatchDue', () => {
   });
 
   it('backs off on failure, bumping attempts, then dead-letters at the cap', async () => {
+    // Pin the row's due time explicitly so the test is deterministic regardless of wall clock.
+    const t0 = new Date('2026-06-16T00:00:00.000Z');
     await db.insert(webhookOutbox).values({
       jobId: '00000000-0000-0000-0000-000000000002',
       url: 'https://hook.test/down',
       payload: { job_id: 'job-2' },
+      nextAttemptAt: t0,
     });
 
     // Always fail (500).
@@ -98,8 +101,6 @@ describe('WebhookDispatcher.dispatchDue', () => {
       backoffBaseMs: 1000,
       resolveSecret: () => Promise.resolve('whsec'),
     });
-
-    const t0 = new Date('2026-06-16T00:00:00.000Z');
 
     // Attempt 1 → retried, attempts=1, next_attempt_at = t0 + 1000ms
     const s1 = await dispatcher.dispatchDue(db, http, t0);
