@@ -29,3 +29,8 @@ Items surfaced during phase reviews that were intentionally deferred. None block
 ## Runtime / boot (Phase 6)
 
 - **API standalone boot needs the compiled output + a TS loader for deps.** `tsx`/esbuild cannot emit NestJS `emitDecoratorMetadata` (Nest DI fails: "Parameter decorators only work when experimental decorators are enabled"), and `node dist/main.js` can't load the workspace deps (their `package.json main` points at TS `src/index.ts`). The working command is therefore `nest build` (emits decorator metadata into `dist/`) then `node --import tsx dist/main.js` (tsx transpiles the _dep_ TS, which has no decorators). This is now the `apps/api` `start` script. The worker has no decorators so it runs from source: `node --import tsx src/main.ts`. → For a real deploy, build every workspace package to `dist` and add a `production` exports condition so plain `node` can run without `tsx`.
+
+## Phase 7 (minor)
+
+- **`resolveFileInputs` not yet wired into `RunService`** (`apps/api/src/files/files.service.ts`). The helper that maps io_schema `file`/`file_list` inputs → presigned GET URLs is implemented + tested but not called in the execution path; wire it when an adapter consumes file inputs (and add media-output upload). → fold into a later exec pass.
+- **`markFileReady` updates by id only** (tenant predicate enforced at the call site via `requireFile`); add a tenant-scoped WHERE for defense-in-depth.
