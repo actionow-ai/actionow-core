@@ -5,6 +5,7 @@ export * from './default-registry.js';
 export * from './dify-workflow.js';
 export * from './errors.js';
 export * from './gemini.js';
+export * from './mock-chat.js';
 export * from './mock-stream.js';
 export * from './openai.js';
 export * from './registry.js';
