@@ -57,6 +57,7 @@ export {
   getResourceForTenant,
   getResourceVersion,
   getResourceWithSchema,
+  getSecretRef,
   listActiveModifiers,
   listApplicableModifiers,
   listChannels,
@@ -110,6 +111,7 @@ export {
   setIntentStatus,
 } from './payments.js';
 export { type ExpiredHold, listExpiredHolds } from './reaper.js';
+export { resolveSecretRef } from './secret-resolver.js';
 export {
   failJob,
   type FailJobInput,

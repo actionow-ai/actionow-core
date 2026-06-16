@@ -1,6 +1,6 @@
 import { type AdapterRegistry, createDefaultRegistry } from '@actionow/adapters';
 import type { HttpClient, StorageProvider } from '@actionow/contracts';
-import { createDb, type Database } from '@actionow/db';
+import { createDb, type Database, resolveSecretRef } from '@actionow/db';
 import type { FetchBytes, PutBytes } from '@actionow/engine';
 import {
   type AppEnv,
@@ -62,27 +62,23 @@ const defaultPutBytes: PutBytes = async (url, bytes, contentType) => {
   });
 };
 
-/**
- * STUB secret resolver (Phase 3 — vault-backed resolution is Phase 5). Resolves
- * a credential `ref` from `SECRET_<ref>` then `<ref>` in `process.env`. The
- * value is a secret: handed to the adapter context, never logged.
- */
-export function resolveSecretFromEnv(ref: string): Promise<string | undefined> {
-  const envKey = `SECRET_${ref.replace(/[^A-Za-z0-9]/g, '_').toUpperCase()}`;
-  return Promise.resolve(process.env[envKey] ?? process.env[ref]);
-}
-
 /** Build the production worker runtime from the environment. */
 export function createWorkerRuntime(): WorkerRuntime {
   const env = loadEnv();
   const cfg = storageConfigFromEnv(env);
   const storage = cfg === null ? null : createS3StorageProvider(cfg);
+  const db = createDb(env.DATABASE_URL);
   return {
     env,
-    db: createDb(env.DATABASE_URL),
+    db,
     adapters: createDefaultRegistry(),
     http: new FetchHttpClient(),
-    resolveSecret: resolveSecretFromEnv,
+    // A channel's `credential_ref` is a `secret_ref` uuid: the resolver
+    // dereferences that row → `SECRET_<locator>`/`<locator>` for `provider=env`
+    // (Phase-5 vault deref returns undefined). A non-uuid ref (e.g. the literal
+    // `upstream_proxy` proxy locator) reads `SECRET_<ref>`/`<ref>` directly.
+    // Shared with the api `SecretResolver` via `resolveSecretRef`. Never logged.
+    resolveSecret: (ref: string): Promise<string | undefined> => resolveSecretRef(db, ref),
     storage,
     publicBaseUrl: env.STORAGE_PUBLIC_BASE_URL,
     fetchBytes: defaultFetchBytes,

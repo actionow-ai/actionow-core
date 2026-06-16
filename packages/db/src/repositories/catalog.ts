@@ -336,6 +336,12 @@ export async function updateResourceStatus(
   return rows[0];
 }
 
+/** Fetch a `secret_ref` row by id, or `undefined`. */
+export async function getSecretRef(db: DbOrTx, id: string): Promise<SecretRefRow | undefined> {
+  const rows = await db.select().from(secretRef).where(eq(secretRef.id, id)).limit(1);
+  return rows[0];
+}
+
 /** Fields a caller supplies to {@link createSecretRef}. */
 export interface CreateSecretRefInput {
   /** `env` | `vault` — where the secret is materialized from. */
