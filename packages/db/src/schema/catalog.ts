@@ -47,6 +47,17 @@ export const upstreamChannel = pgTable(
       .references(() => resource.id),
     providerType: text('provider_type').notNull(),
     credentialRef: uuid('credential_ref'),
+    /** Per-channel upstream base URL (e.g. https://api.deepseek.com/v1); null → adapter default. */
+    endpoint: text('endpoint'),
+    /** Per-channel model id (e.g. deepseek-chat, seedream-4.5); null → resource default. */
+    model: text('model'),
+    /** Locator (a secret_ref-style env key) for this channel's egress proxy URL; null → none. */
+    proxyRef: text('proxy_ref'),
+    /**
+     * Generic relay protocol config (vendor specifics as DATA, not code): e.g.
+     * `{ submitPath, pollPath, signatureHeader, timestampHeader }`; null → none.
+     */
+    config: jsonb('config').$type<Record<string, unknown>>(),
     weight: integer('weight').notNull().default(1),
     status: text('status').notNull().default('active'),
   },

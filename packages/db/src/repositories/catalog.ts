@@ -368,6 +368,14 @@ export interface CreateUpstreamChannelInput {
   readonly providerType: string;
   /** Locator for the channel credential (uuid of a `secret_ref`), or null. */
   readonly credentialRef?: string | null | undefined;
+  /** Per-channel upstream base URL; null → adapter default. */
+  readonly endpoint?: string | null | undefined;
+  /** Per-channel model id; null → resource default. */
+  readonly model?: string | null | undefined;
+  /** Env-key locator for this channel's egress proxy URL; null → none. */
+  readonly proxyRef?: string | null | undefined;
+  /** Generic relay protocol config (submit/poll paths, signature header names); null → none. */
+  readonly config?: Record<string, unknown> | null | undefined;
   readonly weight?: number | undefined;
   readonly status?: string | undefined;
 }
@@ -383,6 +391,10 @@ export async function createUpstreamChannel(
       resourceId: input.resourceId,
       providerType: input.providerType,
       credentialRef: input.credentialRef ?? null,
+      endpoint: input.endpoint ?? null,
+      model: input.model ?? null,
+      proxyRef: input.proxyRef ?? null,
+      config: input.config ?? null,
       weight: input.weight ?? 1,
       status: input.status ?? 'active',
     })
