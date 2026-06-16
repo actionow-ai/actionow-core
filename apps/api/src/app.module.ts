@@ -5,6 +5,7 @@ import { AdminModule } from './admin/admin.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { CallbacksModule } from './callbacks/callbacks.module.js';
 import { UnifiedErrorFilter } from './common/unified-error.filter.js';
+import { ConsoleModule } from './console/console.module.js';
 import { DbModule } from './db/db.module.js';
 import { ExecutionModule } from './execution/execution.module.js';
 import { FilesModule } from './files/files.module.js';
@@ -22,6 +23,7 @@ import { PaymentsModule } from './payments/payments.module.js';
     FilesModule,
     CallbacksModule,
     PaymentsModule,
+    ConsoleModule,
   ],
   controllers: [HealthController],
   // Register the §4.7 filter globally via DI so it also applies under the
