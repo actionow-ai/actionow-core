@@ -43,6 +43,13 @@
       "when": 1781603270352,
       "tag": "0005_light_proteus",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781613862410,
+      "tag": "0006_nifty_risque",
+      "breakpoints": true
     }
   ]
 }
