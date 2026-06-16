@@ -1,5 +1,5 @@
-import type { AdminUserRecord, Database } from '@actionow/db';
-import { findAdminByEmail } from '@actionow/db';
+import type { Database, UserRecord } from '@actionow/db';
+import { findUserByEmail } from '@actionow/db';
 import type { AppEnv } from '@actionow/infra';
 import { verifyPassword } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
@@ -23,14 +23,14 @@ export interface AdminClaims {
 
 /**
  * The db surface admin auth depends on. Extracted to an interface so unit tests
- * inject a fake repo with a fixed admin instead of a live database.
+ * inject a fake repo with a fixed user instead of a live database.
  */
 export interface AdminAuthRepo {
-  findAdminByEmail(db: Database, email: string): Promise<AdminUserRecord | undefined>;
+  findUserByEmail(db: Database, email: string): Promise<UserRecord | undefined>;
 }
 
 /** Production repo wired to the real `@actionow/db` function. */
-export const defaultAdminAuthRepo: AdminAuthRepo = { findAdminByEmail };
+export const defaultAdminAuthRepo: AdminAuthRepo = { findUserByEmail };
 
 /** DI token for the (overridable) {@link AdminAuthRepo}. */
 export const ADMIN_AUTH_REPO = Symbol('ADMIN_AUTH_REPO');
@@ -39,11 +39,13 @@ export const ADMIN_AUTH_REPO = Symbol('ADMIN_AUTH_REPO');
 const TOKEN_TTL = '12h';
 
 /**
- * Authenticates admin logins and mints JWTs (§8). Looks the admin up by email,
- * verifies the password against its scrypt hash in constant time, and — on
- * success — signs a `{sub, role}` JWT with `ADMIN_JWT_SECRET`. Every failure
- * (unknown email, wrong password, disabled account) returns the SAME
- * `unauthorized` error so the response can't be used to enumerate admins.
+ * Authenticates admin logins and mints JWTs (§8, repointed to the unified `user`
+ * model in Phase 9). Looks the user up by email, requires `role==='admin'` and
+ * an active account, verifies the password against its scrypt hash in constant
+ * time, and — on success — signs a `{sub, role}` JWT with `ADMIN_JWT_SECRET`.
+ * Every failure (unknown email, non-admin role, disabled account, wrong/absent
+ * password) returns the SAME `unauthorized` error so the response can't be used
+ * to enumerate admins.
  *
  * Neither the password nor the JWT secret is ever logged.
  */
@@ -57,13 +59,19 @@ export class AdminAuthService {
   ) {}
 
   async login(email: string, password: string): Promise<LoginResult> {
-    const admin = await this.repo.findAdminByEmail(this.db, email);
-    // Uniform rejection regardless of which check fails (no user enumeration).
-    if (admin?.status !== 'active' || !verifyPassword(admin.passwordHash, password)) {
+    const user = await this.repo.findUserByEmail(this.db, email);
+    // Uniform rejection regardless of which check fails (no user enumeration):
+    // must be an active admin with a local password that verifies.
+    if (
+      user?.status !== 'active' ||
+      user.role !== 'admin' ||
+      user.passwordHash === null ||
+      !verifyPassword(user.passwordHash, password)
+    ) {
       throw engineUnauthorized('invalid credentials');
     }
 
-    const claims: AdminClaims = { sub: admin.id, role: admin.role };
+    const claims: AdminClaims = { sub: user.id, role: user.role };
     const token = await this.jwt.signAsync(claims, {
       secret: this.env.ADMIN_JWT_SECRET,
       expiresIn: TOKEN_TTL,

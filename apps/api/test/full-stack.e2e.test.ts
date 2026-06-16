@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net';
 import type { ProviderAdapter } from '@actionow/adapters';
 import { createDefaultRegistry } from '@actionow/adapters';
 import type { SubmitInput, SubmitResult, UnifiedError, UsageVector } from '@actionow/contracts';
-import { createAdminUser, createApiKey, createDb, type Database, schema } from '@actionow/db';
+import { createApiKey, createDb, createUser, type Database, schema } from '@actionow/db';
 import { creditsToMicro } from '@actionow/domain';
 import type { AppEnv } from '@actionow/infra';
 import {
@@ -283,10 +283,11 @@ beforeAll(async () => {
 
   // 8. Fixtures: admin user + a funded main tenant with a fake-llm blocking
   //    resource AND an async-media-mock resource.
-  await createAdminUser(db, {
+  await createUser(db, {
     email: ADMIN_EMAIL,
     passwordHash: hashPassword(ADMIN_PASSWORD),
     role: 'admin',
+    emailVerified: true,
   });
   const main = await provisionTenant('phase6-main', creditsToMicro(100));
   mainTenantId = main.tenantId;

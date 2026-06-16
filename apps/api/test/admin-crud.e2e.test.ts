@@ -1,4 +1,4 @@
-import { createAdminUser, schema } from '@actionow/db';
+import { createUser, schema } from '@actionow/db';
 import { hashPassword } from '@actionow/infra';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -74,10 +74,11 @@ afterAll(async () => {
 let token: string;
 
 beforeEach(async () => {
-  await createAdminUser(db, {
+  await createUser(db, {
     email: ADMIN_EMAIL,
     passwordHash: hashPassword(ADMIN_PASSWORD),
     role: 'admin',
+    emailVerified: true,
   });
   const res = await request(app.getHttpServer())
     .post('/admin/auth/login')
@@ -87,7 +88,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE api_key, ledger_txn, dify_binding, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, admin_user RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE api_key, ledger_txn, dify_binding, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, "user" RESTART IDENTITY CASCADE`;
 });
 
 function auth(req: request.Test): request.Test {

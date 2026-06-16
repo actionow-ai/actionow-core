@@ -1,7 +1,6 @@
 import type { Database } from '@actionow/db';
 import {
   createAccount,
-  createAdminUser,
   createApiKey,
   createDb,
   createPricebookEntry,
@@ -9,7 +8,8 @@ import {
   createSecretRef,
   createTenant,
   createUpstreamChannel,
-  findAdminByEmail,
+  createUser,
+  findUserByEmail,
   getAccountByTenant,
   getResource,
   listApiKeys,
@@ -102,12 +102,14 @@ export async function seedAll(db: Database, options: SeedOptions = {}): Promise<
   const existingTenant = await findSeedTenant(db);
   const tenantId = existingTenant?.id ?? (await createTenant(db, { name: SEED_TENANT_NAME })).id;
 
-  // 2. admin user (email is unique)
-  if ((await findAdminByEmail(db, SEED_ADMIN_EMAIL)) === undefined) {
-    await createAdminUser(db, {
+  // 2. admin user (email is unique) — a unified `user` row with role=admin and
+  //    a verified email (Phase 9). The admin guard gates on `role==='admin'`.
+  if ((await findUserByEmail(db, SEED_ADMIN_EMAIL)) === undefined) {
+    await createUser(db, {
       email: SEED_ADMIN_EMAIL,
       passwordHash: hashPassword(SEED_ADMIN_PASSWORD),
       role: 'admin',
+      emailVerified: true,
     });
   }
 

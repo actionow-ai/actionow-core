@@ -1,4 +1,4 @@
-import { createAdminUser, schema } from '@actionow/db';
+import { createUser, schema } from '@actionow/db';
 import { hashPassword } from '@actionow/infra';
 import type { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -54,15 +54,16 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE admin_user RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE "user" RESTART IDENTITY CASCADE`;
 });
 
 describe('POST /admin/auth/login', () => {
   it('200 with a JWT carrying {sub, role} for valid credentials', async () => {
-    const created = await createAdminUser(db, {
+    const created = await createUser(db, {
       email: 'admin@actionow.local',
       passwordHash: hashPassword('hunter2'),
       role: 'admin',
+      emailVerified: true,
     });
 
     const res = await request(app.getHttpServer())
@@ -79,10 +80,11 @@ describe('POST /admin/auth/login', () => {
   });
 
   it('401 unauthorized for a wrong password', async () => {
-    await createAdminUser(db, {
+    await createUser(db, {
       email: 'admin@actionow.local',
       passwordHash: hashPassword('hunter2'),
       role: 'admin',
+      emailVerified: true,
     });
 
     const res = await request(app.getHttpServer())
