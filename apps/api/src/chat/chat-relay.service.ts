@@ -5,6 +5,7 @@ import type {
   IoSchema,
   Modifier,
   PricebookEntry,
+  UsageVector,
 } from '@actionow/contracts';
 import {
   type Database,
@@ -35,6 +36,28 @@ import { ModelResolverService, type ResolvedModel } from './model-resolver.servi
 
 /** The opaque inputs key under which the IR `ChatRequest` rides into the engine. */
 const IR_KEY = '__ir';
+
+/**
+ * Placeholder ceiling for `output_tokens` when the IR carries no explicit
+ * `maxOutputTokens`. The streaming hold is a `model_token` settle of the
+ * estimate (§C1), so this must over-estimate the largest realistic completion
+ * — the over-hold is fully refunded at settle when the true usage is observed.
+ * Chosen large enough that a normal completion's true cost never exceeds the
+ * priced hold (which would otherwise let `settleStream`'s cap clamp the charge).
+ */
+const ESTIMATE_OUTPUT_TOKENS_CEILING = 32_768;
+
+/**
+ * Rough bytes-per-token divisor for the prompt estimate (≈4 bytes/token is the
+ * conventional GPT-family heuristic). Only used to size the streaming hold.
+ */
+const ESTIMATE_BYTES_PER_TOKEN = 4;
+
+/**
+ * Padding multiplier applied to the prompt-byte estimate so the input-token
+ * hold over-shoots a tight `len/4` count (tokenizers vary by dialect/locale).
+ */
+const ESTIMATE_INPUT_PADDING = 2;
 
 /**
  * Funnels each dialect endpoint into the engine: resolves a model name → a chat
@@ -143,10 +166,21 @@ export class ChatRelayService {
       accountId: ctx.accountId,
       // Mirror a usage_log row on settle (§C.4) keyed to the resolved model.
       usageLogModel: modelName,
-      // A `post`-timed model_token entry prices the hold off observed usage; with
-      // no estimate, the engine needs a hold floor. 0 → settle-time pricing only.
-      holdFloor: 0n,
     };
+    if (execMode === 'stream') {
+      // STREAMING needs a NON-ZERO hold (§C1): `settleStream` caps the final
+      // charge at `min(computed, holdAmount)`, so a 0 hold would clamp every
+      // streamed settle to 0 (a revenue leak — provider tokens consumed but
+      // unbilled). A `post`-timed model_token entry sizes the hold from
+      // `estimatedUsage` (priced via the SAME in-process model_token book), so
+      // we supply a generous placeholder-ceiling estimate here. The over-hold
+      // is fully refunded at settle once the adapter's true usage is observed.
+      req.estimatedUsage = estimateStreamUsage(ir);
+    } else {
+      // BLOCKING settles via `settleSync`, which does NOT cap at the hold, so a
+      // 0 floor (settle-time pricing only) is correct and avoids over-holding.
+      req.holdFloor = 0n;
+    }
     return req;
   }
 
@@ -171,6 +205,25 @@ export class ChatRelayService {
       },
     };
   }
+}
+
+/**
+ * Size the streaming hold's upper-bound `estimatedUsage` (snake_case, matching
+ * the engine {@link UsageVector}) from the IR (§C1). This is a deliberately
+ * GENEROUS PLACEHOLDER CEILING — not a real token count — so the `model_token`
+ * hold always exceeds a normal request's true cost and `settleStream`'s cap
+ * never clamps the charge; the over-hold is refunded at settle.
+ *
+ * - `output_tokens`: the request's `params.maxOutputTokens` if set, else the
+ *   module ceiling {@link ESTIMATE_OUTPUT_TOKENS_CEILING}.
+ * - `input_tokens`: a padded `ceil(JSON.stringify(messages).length / 4)` prompt
+ *   estimate (≈4 bytes/token, doubled), so it over-shoots a tight token count.
+ */
+function estimateStreamUsage(ir: ChatRequest): UsageVector {
+  const promptBytes = JSON.stringify(ir.messages).length;
+  const inputTokens = Math.ceil(promptBytes / ESTIMATE_BYTES_PER_TOKEN) * ESTIMATE_INPUT_PADDING;
+  const outputTokens = ir.params?.maxOutputTokens ?? ESTIMATE_OUTPUT_TOKENS_CEILING;
+  return { input_tokens: inputTokens, output_tokens: outputTokens };
 }
 
 /** Map a `modifier` row to the contracts {@link Modifier} (bigint→number value). */

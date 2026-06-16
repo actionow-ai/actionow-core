@@ -33,6 +33,8 @@ import { UnifiedErrorFilter } from '../src/common/unified-error.filter.js';
 const CHAT_RESOURCE = 'chat-mock-resource';
 /** The seeded public model name callers send in the request body / URL. */
 const MODEL_NAME = 'mock-model';
+/** A capability-restricted public model (no tools/vision/audio/json). */
+const NO_CAPS_MODEL = 'mock-model-no-caps';
 /** µcredit-per-input-token (resale price) seeded on the model. */
 const INPUT_PRICE = 3n;
 /** µcredit-per-output-token (resale price) seeded on the model. */
@@ -165,8 +167,12 @@ beforeAll(async () => {
     version: 1,
     ioSchema: { inputs: [], outputs: [{ key: '__ir', type: 'json' }] },
   });
-  // A model_token pricebook entry keyed to the model's prices (the relay also
-  // constructs this in-process; seeding it keeps the resource a valid target).
+  // A DECOY DB pricebook entry priced DIFFERENTLY from the relay's in-process
+  // model_token book (999/999 vs the model's 3/7). The relay ignores the DB
+  // pricebook for chat and prices the settle off the model catalog, so every
+  // settle must land at the 3/7 EXPECTED_COST (-65µ). If the engine ever priced
+  // from this row instead, the settle would be 10*999 + 5*999 = 14985µ and the
+  // -65n assertions below would fail — pinning M1 (the relay path priced it).
   await db.insert(schema.pricebookEntry).values({
     resourceId: CHAT_RESOURCE,
     resourceVersion: 1,
@@ -175,8 +181,8 @@ beforeAll(async () => {
     timing: 'post',
     spec: {
       method: 'model_token',
-      inputPrice: Number(INPUT_PRICE),
-      outputPrice: Number(OUTPUT_PRICE),
+      inputPrice: 999,
+      outputPrice: 999,
     },
     active: true,
   });
@@ -194,6 +200,21 @@ beforeAll(async () => {
     display: 'Mock Model',
     modality: 'chat',
     capabilities: { tools: true, vision: true, audio: true, json: true, stream: true },
+    visibility: 'public',
+    inputPrice: INPUT_PRICE,
+    outputPrice: OUTPUT_PRICE,
+    status: 'active',
+  });
+
+  // C2: a capability-restricted public model resolving to the same chat
+  // resource. Sending `tools` to it makes `normalizeRequest` throw a
+  // `ProtocolError('invalid_input')`, which the filter must surface as HTTP 400.
+  await createModel(db, {
+    name: NO_CAPS_MODEL,
+    resourceId: CHAT_RESOURCE,
+    display: 'Mock Model (no caps)',
+    modality: 'chat',
+    capabilities: { tools: false, vision: false, audio: false, json: false, stream: true },
     visibility: 'public',
     inputPrice: INPUT_PRICE,
     outputPrice: OUTPUT_PRICE,
@@ -275,8 +296,36 @@ describe('OpenAI dialect (/v1/chat/completions)', () => {
       .filter((t): t is string => typeof t === 'string' && t.length > 0);
     expect(texts.join('')).toBe('hello');
 
-    const job = await latestChatJob();
-    expect(await settleRows(job?.id ?? '')).toHaveLength(1);
+    // C1 (revenue leak): the STREAM path must settle the true model_token cost,
+    // not 0. Poll briefly for the generator's `finally` settle to commit, then
+    // assert the newest succeeded chat job settled exactly -EXPECTED_COST (-65µ)
+    // — proving the stream hold was sized big enough that the settle cap never
+    // clamped the charge to the (formerly 0) hold.
+    let job: typeof schema.job.$inferSelect | undefined;
+    for (let i = 0; i < 40; i += 1) {
+      job = await latestChatJob();
+      if (job !== undefined && (await settleRows(job.id)).length === 1) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(job).toBeDefined();
+    const jobId = job?.id ?? '';
+    const settles = await settleRows(jobId);
+    expect(settles).toHaveLength(1);
+    // model_token cost off the model's 3/7 prices: 10*3 + 5*7 = 65µ (NOT 0).
+    expect(settles[0]?.creditsDelta).toBe(-EXPECTED_COST);
+    expect(job?.costCredits).toBe(EXPECTED_COST);
+
+    // A usage_log row was mirrored for the streamed run with the true counts.
+    const logs = await db
+      .select()
+      .from(schema.usageLog)
+      .where(eq(schema.usageLog.tenantId, tenantId));
+    const streamLog = logs
+      .filter((l) => l.model === MODEL_NAME && l.cost === EXPECTED_COST)
+      .find((l) => l.inputTokens === Number(MOCK_INPUT_TOKENS));
+    expect(streamLog).toBeDefined();
+    expect(streamLog?.inputTokens).toBe(Number(MOCK_INPUT_TOKENS));
+    expect(streamLog?.outputTokens).toBe(Number(MOCK_OUTPUT_TOKENS));
   });
 });
 
@@ -297,6 +346,14 @@ describe('Anthropic dialect (/v1/messages)', () => {
     expect(body.role).toBe('assistant');
     const content = body.content as unknown[];
     expect(asRecord(content[0]).text).toBe('hello');
+
+    // L1: assert another dialect's blocking path also settles the relay's
+    // model_token cost (-65µ), not the decoy DB pricebook's 999/999.
+    const job = await latestChatJob();
+    const rows = await settleRows(job?.id ?? '');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.creditsDelta).toBe(-EXPECTED_COST);
+    expect(job?.costCredits).toBe(EXPECTED_COST);
   });
 
   it('stream → event: message_start … event: message_stop', async () => {
@@ -380,6 +437,28 @@ describe('errors + disconnect', () => {
     expect(res.status).toBe(404);
     const body = asRecord(await res.json());
     expect(asRecord(body.error).code).toBe('resource_not_found');
+  });
+
+  it('capability mismatch (tools on a no-tools model) → 400 invalid_input', async () => {
+    const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: NO_CAPS_MODEL,
+        messages: [{ role: 'user', content: 'hi' }],
+        tools: [
+          {
+            type: 'function',
+            function: { name: 'get_weather', description: 'x', parameters: { type: 'object' } },
+          },
+        ],
+      }),
+    });
+    // normalizeRequest throws ProtocolError('invalid_input') — must be a client
+    // 400 with the protocol error's code, NOT a 500 internal_error.
+    expect(res.status).toBe(400);
+    const body = asRecord(await res.json());
+    expect(asRecord(body.error).code).toBe('invalid_input');
   });
 
   it('disconnecting mid-stream settles exactly once', async () => {
