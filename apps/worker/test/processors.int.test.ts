@@ -59,6 +59,7 @@ function runtimeWith(adapters: AdapterRegistry, http: HttpClient = noHttp): Work
       RATE_LIMIT_TENANT_PER_MIN: 600,
       RATE_LIMIT_RESOURCE_PER_MIN: 120,
       ADMIN_JWT_SECRET: 'test-secret',
+      STORAGE_MAX_UPLOAD_BYTES: 100 * 1024 * 1024,
     },
     db,
     adapters,
