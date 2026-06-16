@@ -5,3 +5,4 @@ export * from './gemini/index.js';
 export * from './internal/json.js';
 export * from './normalize.js';
 export * from './openai/index.js';
+export * from './sse.js';
