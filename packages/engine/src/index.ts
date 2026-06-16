@@ -5,4 +5,5 @@ export * from './job-runner.js';
 export * from './pricing.js';
 export * from './queue.js';
 export * from './reaper.js';
+export * from './stream.js';
 export * from './webhook.js';

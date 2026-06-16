@@ -8,6 +8,7 @@ import type {
   HttpClient,
   IoSchema,
   PricebookEntry,
+  StreamEvent,
   SubmitResult,
   SyncResult,
   UnifiedError,
@@ -35,6 +36,7 @@ import {
 
 import { EngineError, engineError } from './errors.js';
 import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
+import { createSettlingStream } from './stream.js';
 
 /** A routed upstream channel: how to reach one provider endpoint/credential. */
 export interface RunChannel {
@@ -91,6 +93,17 @@ export type RunOutcome =
     }
   | { jobId: string; status: 'queued' };
 
+/**
+ * The result of a `stream`-mode run: the persisted job id (the hold is already
+ * placed when this resolves) plus the `events` async iterable the caller pipes
+ * to the SSE transport. Consuming `events` to completion — OR `return()`-ing it
+ * early on a client disconnect — settles the job exactly once.
+ */
+export interface StreamOutcome {
+  jobId: string;
+  events: AsyncIterable<StreamEvent>;
+}
+
 export interface ExecutionServiceDeps {
   db: DbOrTx;
   adapters: AdapterRegistry;
@@ -109,7 +122,7 @@ export interface ExecutionServiceDeps {
 const DEFAULT_HOLD_TTL_MS = 15 * 60_000;
 
 /** Execution modes that run synchronously inline rather than via the queue. */
-const BLOCKING_MODES: readonly ExecMode[] = ['blocking', 'stream'];
+const BLOCKING_MODES: readonly ExecMode[] = ['blocking'];
 
 /**
  * Orchestrates a single `/v1/run` request (§4.1): idempotency → validate →
@@ -161,7 +174,84 @@ export class ExecutionService {
     return { jobId: job.id, status: 'queued' };
   }
 
+  /**
+   * Open a `stream`-mode run (§4.1 stream branch). Performs the same synchronous
+   * prefix as a blocking run — idempotency replay → validate → quote+modifiers →
+   * atomic hold (false → `insufficient_credits`) → job snapshot — **before**
+   * returning, so a hold failure throws (→ HTTP 402/400) before any SSE byte is
+   * written. The returned `events` is the settling generator: consuming it (or
+   * `return()`-ing it on disconnect) settles the job exactly once.
+   *
+   * Idempotency replay is intentionally narrow here: a replayed stream-mode key
+   * cannot re-open a live stream, so a non-claimed key surfaces as an
+   * `invalid_input` rather than silently returning an empty stream.
+   */
+  async runStream(req: RunRequest): Promise<StreamOutcome> {
+    const { db } = this.deps;
+    const jobId = randomUUID();
+
+    if (req.idempotencyKey !== undefined) {
+      // We own the key iff this insert claimed it; the claim row then points at
+      // the `jobId` we generated above (and pass to `createJob`).
+      const claim = await claimIdempotency(db, req.tenantId, req.idempotencyKey, jobId);
+      if (!claim.claimed) {
+        throw engineError('invalid_input', 'idempotency key already used for a stream run');
+      }
+    }
+
+    const { inputs, holdAmount } = await this.validateAndHold(req, jobId);
+
+    const events = createSettlingStream({
+      db,
+      adapters: this.deps.adapters,
+      resolveSecret: this.deps.resolveSecret,
+      http: this.deps.http,
+      jobId,
+      inputs,
+      holdAmount,
+      req,
+    });
+    return { jobId, events };
+  }
+
   private async execute(req: RunRequest, jobId: string): Promise<RunOutcome> {
+    const { inputs, holdAmount, job } = await this.validateAndHold(req, jobId);
+
+    // 6/7. Branch on exec mode.
+    if (BLOCKING_MODES.includes(req.execMode)) {
+      return this.runBlocking(req, inputs, job.id, holdAmount);
+    }
+    if (req.execMode === 'stream') {
+      // `stream` is opened via `runStream`, which owns the SSE generator. A
+      // plain `run()` of a stream resource is a caller error.
+      await failJob(this.deps.db, {
+        jobId: job.id,
+        accountId: req.accountId,
+        holdAmount,
+        to: 'failed',
+        error: {
+          code: 'invalid_input',
+          message: 'stream mode requires runStream',
+          retryable: false,
+        },
+      });
+      throw engineError('invalid_input', 'stream exec mode must be opened via runStream');
+    }
+
+    // async → enqueue and return immediately; the worker JobRunner drives it.
+    await this.deps.enqueue(job.id);
+    return { jobId: job.id, status: 'queued' };
+  }
+
+  /**
+   * The shared synchronous prefix for blocking/stream/async runs: validate the
+   * inputs, compute the modifier-adjusted hold, place the atomic hold (false →
+   * `insufficient_credits`, no job), and persist the queued job snapshot.
+   */
+  private async validateAndHold(
+    req: RunRequest,
+    jobId: string,
+  ): Promise<{ inputs: Record<string, unknown>; holdAmount: MicroCredits; job: Job }> {
     const { db } = this.deps;
 
     // 2. Validate inputs against the frozen io_schema.
@@ -189,15 +279,7 @@ export class ExecutionService {
       this.deps.now().getTime() + (this.deps.holdTtlMs ?? DEFAULT_HOLD_TTL_MS),
     );
     const job = await this.createSnapshotJob(req, inputs, jobId, holdAmount, holdExpiresAt);
-
-    // 6/7. Branch on exec mode.
-    if (BLOCKING_MODES.includes(req.execMode)) {
-      return this.runBlocking(req, inputs, job.id, holdAmount);
-    }
-
-    // async → enqueue and return immediately; the worker JobRunner drives it.
-    await this.deps.enqueue(job.id);
-    return { jobId: job.id, status: 'queued' };
+    return { inputs, holdAmount, job };
   }
 
   /** Compute the modifier-adjusted hold (`pre` quote or `post` upper bound). */

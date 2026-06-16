@@ -68,11 +68,15 @@ export interface CallbackResult extends PollResult {
 }
 
 /**
- * A single event emitted by a streaming adapter (`ProviderAdapter.stream`).
+ * A single event emitted by a streaming adapter (`ProviderAdapter.stream`) or by
+ * the engine's settling stream.
  *
  * - `delta` carries an incremental `text` token.
  * - `usage` reports the normalized `{input_tokens, output_tokens}` once known.
- * - `done` marks the end of the stream and may repeat the final `usage`.
+ * - `done` marks the end of the stream and may repeat the final `usage`. The
+ *   engine's terminal `done` also carries the settled `jobId` + `cost` (the
+ *   `cost.credits` µcredit amount is a decimal string so JSON keeps full
+ *   precision and never coerces money through a float).
  * - `error` carries a {@link UnifiedError}.
  */
 export interface StreamEvent {
@@ -81,6 +85,10 @@ export interface StreamEvent {
   text?: string;
   /** Present on `kind: 'usage' | 'done'` — normalized usage vector. */
   usage?: UsageVector;
+  /** Present on the engine's terminal `kind: 'done'` — the settled job id. */
+  jobId?: string;
+  /** Present on the engine's terminal `kind: 'done'` — the settled cost. */
+  cost?: { credits: string };
   /** Present on `kind: 'error'`. */
   error?: UnifiedError;
 }
