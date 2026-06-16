@@ -1,0 +1,89 @@
+{
+  "auth": {
+    "title": "Admin sign in",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "notAdmin": "This account is not an admin",
+    "failed": "Sign-in failed, check your email or password"
+  },
+  "nav": {
+    "groups": { "ops": "Operations", "billing": "Billing", "access": "Access" },
+    "dashboard": "Dashboard",
+    "tenants": "Tenants",
+    "accounts": "Accounts",
+    "apiKeys": "API Keys"
+  },
+  "topbar": { "admin": "Admin", "logout": "Sign out", "backHome": "Website" },
+  "dashboard": {
+    "stats": { "tenants": "Tenants", "resources": "Resources", "pickTenant": "Select tenant" },
+    "recentJobs": "Recent jobs",
+    "pickTenant": "Pick a tenant to view jobs",
+    "cols": { "resource": "Resource", "execMode": "Exec mode", "cost": "Cost", "status": "Status" }
+  },
+  "tenants": {
+    "title": "Tenants",
+    "new": "New tenant",
+    "cols": { "name": "Name", "isolation": "Isolation", "created": "Created" },
+    "form": { "name": "Name", "isolation": "Isolation" },
+    "isolation": { "field": "Field", "schema": "Schema", "db": "Database" },
+    "empty": "No tenants yet",
+    "created": "Tenant created",
+    "submit": "Create"
+  },
+  "accounts": {
+    "title": "Accounts",
+    "new": "New account",
+    "cols": { "balance": "Balance", "held": "Held", "id": "Account", "actions": "Actions" },
+    "form": { "tenant": "Tenant", "credits": "Opening credits" },
+    "topup": {
+      "action": "Top up",
+      "title": "Top up account",
+      "credits": "Credits to add",
+      "submit": "Top up",
+      "done": "Top-up complete"
+    },
+    "empty": "Create an account to start, or top up an existing one.",
+    "created": "Account created",
+    "submit": "Create"
+  },
+  "apiKeys": {
+    "title": "API Keys",
+    "new": "Mint key",
+    "cols": {
+      "id": "Key ID",
+      "allowlist": "Allowlist",
+      "rateLimit": "Rate limit",
+      "status": "Status",
+      "created": "Created"
+    },
+    "form": {
+      "tenant": "Tenant",
+      "allowlist": "Resource allowlist (comma-separated, optional)",
+      "rateLimit": "Requests per minute (optional)"
+    },
+    "empty": "Pick a tenant to view keys",
+    "submit": "Mint",
+    "reveal": {
+      "title": "Key created",
+      "warn": "The plaintext is shown only once, copy it now.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "done": "Done"
+    }
+  },
+  "errors": {
+    "invalid_input": "Invalid request",
+    "unauthorized": "Unauthorized or session expired",
+    "insufficient_credits": "Insufficient credits",
+    "resource_not_found": "Resource not found",
+    "rate_limited": "Too many requests, try again later",
+    "content_filtered": "Content filtered",
+    "upstream_error": "Upstream service error",
+    "upstream_timeout": "Upstream timeout",
+    "job_failed": "Job failed",
+    "internal_error": "Internal server error",
+    "forbidden_not_admin": "This account is not an admin",
+    "network": "Network error, please retry"
+  }
+}

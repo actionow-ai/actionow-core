@@ -1,0 +1,89 @@
+{
+  "auth": {
+    "title": "管理员登录",
+    "email": "邮箱",
+    "password": "密码",
+    "submit": "登录",
+    "notAdmin": "该账号不是管理员",
+    "failed": "登录失败,请检查邮箱或密码"
+  },
+  "nav": {
+    "groups": { "ops": "运营", "billing": "计费", "access": "访问" },
+    "dashboard": "仪表盘",
+    "tenants": "租户",
+    "accounts": "账户 / 充值",
+    "apiKeys": "API Keys"
+  },
+  "topbar": { "admin": "管理员", "logout": "退出登录", "backHome": "返回官网" },
+  "dashboard": {
+    "stats": { "tenants": "租户", "resources": "资源", "pickTenant": "选择租户" },
+    "recentJobs": "最近任务",
+    "pickTenant": "请选择一个租户以查看任务",
+    "cols": { "resource": "资源", "execMode": "执行模式", "cost": "成本", "status": "状态" }
+  },
+  "tenants": {
+    "title": "租户",
+    "new": "新建租户",
+    "cols": { "name": "名称", "isolation": "隔离模式", "created": "创建时间" },
+    "form": { "name": "名称", "isolation": "隔离模式" },
+    "isolation": { "field": "字段级", "schema": "Schema 级", "db": "库级" },
+    "empty": "暂无租户",
+    "created": "租户已创建",
+    "submit": "创建"
+  },
+  "accounts": {
+    "title": "账户 / 充值",
+    "new": "新建账户",
+    "cols": { "balance": "余额", "held": "冻结", "id": "账户", "actions": "操作" },
+    "form": { "tenant": "租户", "credits": "开通余额(credits)" },
+    "topup": {
+      "action": "充值",
+      "title": "账户充值",
+      "credits": "充值额度(credits)",
+      "submit": "充值",
+      "done": "充值成功"
+    },
+    "empty": "新建一个账户开始,或选择已有账户充值。",
+    "created": "账户已创建",
+    "submit": "创建"
+  },
+  "apiKeys": {
+    "title": "API Keys",
+    "new": "签发 Key",
+    "cols": {
+      "id": "Key ID",
+      "allowlist": "资源白名单",
+      "rateLimit": "限流",
+      "status": "状态",
+      "created": "创建时间"
+    },
+    "form": {
+      "tenant": "租户",
+      "allowlist": "资源白名单(逗号分隔,可空)",
+      "rateLimit": "每分钟请求上限(可空)"
+    },
+    "empty": "请选择租户后查看 Key",
+    "submit": "签发",
+    "reveal": {
+      "title": "Key 已生成",
+      "warn": "明文只显示这一次,请立即复制保存。",
+      "copy": "复制",
+      "copied": "已复制",
+      "done": "完成"
+    }
+  },
+  "errors": {
+    "invalid_input": "请求参数有误",
+    "unauthorized": "未授权或登录已过期",
+    "insufficient_credits": "余额不足",
+    "resource_not_found": "未找到资源",
+    "rate_limited": "请求过于频繁,请稍后再试",
+    "content_filtered": "内容被拦截",
+    "upstream_error": "上游服务错误",
+    "upstream_timeout": "上游服务超时",
+    "job_failed": "任务执行失败",
+    "internal_error": "服务器内部错误",
+    "forbidden_not_admin": "该账号不是管理员",
+    "network": "网络错误,请稍后再试"
+  }
+}

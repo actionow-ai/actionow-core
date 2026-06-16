@@ -27,6 +27,14 @@
   --b3: rgba(245, 158, 11, 0.34);
   --spot: rgba(255, 214, 10, 0.22);
   --blur: 70px;
+
+  --panel-bd-strong: rgba(255, 255, 255, 0.1);
+  --row-bd: rgba(255, 255, 255, 0.06);
+  --ok: #4ade80;
+  --run: #fbbf24;
+  --wait: #fb923c;
+  --fail: #f87171;
+  --idle: #9a9384;
 }
 
 [data-theme='light'] {
@@ -48,6 +56,13 @@
   --b3: rgba(245, 158, 11, 0.4);
   --spot: rgba(255, 176, 10, 0.3);
   --blur: 60px;
+
+  --row-bd: rgba(0, 0, 0, 0.05);
+  --ok: #16a34a;
+  --run: #d9920a;
+  --wait: #ea7a26;
+  --fail: #dc2626;
+  --idle: #7a7263;
 }
 
 * { box-sizing: border-box; }
