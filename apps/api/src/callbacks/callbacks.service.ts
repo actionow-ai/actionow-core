@@ -16,17 +16,17 @@ import {
 } from '@actionow/db';
 import type { JobExecutionContext } from '@actionow/engine';
 import { JobRunner, signPayload } from '@actionow/engine';
-import { FetchHttpClient } from '@actionow/infra';
+import { type AppEnv, FetchHttpClient } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { engineUnauthorized } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
-import { ADAPTERS, DB } from '../common/tokens.js';
+import { ADAPTERS, DB, ENV } from '../common/tokens.js';
 
-/** The header carrying the upstream HMAC-SHA256 hex signature of the raw body. */
-const SIGNATURE_HEADER = 'x-actionow-signature';
-/** Optional header carrying a unix-seconds timestamp for replay protection. */
-const TIMESTAMP_HEADER = 'x-actionow-timestamp';
+/** Default signature header name when a channel's `config` does not override it. */
+const DEFAULT_SIGNATURE_HEADER = 'x-actionow-signature';
+/** Default timestamp header name when a channel's `config` does not override it. */
+const DEFAULT_TIMESTAMP_HEADER = 'x-actionow-timestamp';
 /** Replay window: a present timestamp older/newer than this (ms) is rejected. */
 const TIMESTAMP_WINDOW_MS = 5 * 60_000;
 
@@ -46,6 +46,7 @@ export class CallbacksService {
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(ADAPTERS) private readonly adapters: AdapterRegistry,
+    @Inject(ENV) private readonly env: AppEnv,
     private readonly secrets: SecretResolver,
   ) {}
 
@@ -72,12 +73,13 @@ export class CallbacksService {
       throw engineUnauthorized('callback does not correlate to a known job');
     }
 
-    // 2. Resolve the job's channel signing secret and HMAC-verify the raw body.
-    const secret = await this.resolveJobSecret(job);
-    if (secret === undefined) {
+    // 2. Resolve the job's channel signing secret + its (vendor-neutral) config,
+    //    then HMAC-verify the raw body using the config-driven header names.
+    const signer = await this.resolveJobSigner(job);
+    if (signer === undefined) {
       throw engineUnauthorized('no signing secret for callback');
     }
-    if (!this.verifySignature(secret, rawBody, headers, now)) {
+    if (!this.verifySignature(signer.secret, signer.config, rawBody, headers, now)) {
       throw engineUnauthorized('invalid callback signature');
     }
 
@@ -101,33 +103,47 @@ export class CallbacksService {
     return undefined;
   }
 
-  /** Resolve the per-channel signing secret for a job's resource. */
-  private async resolveJobSecret(job: Job): Promise<string | undefined> {
+  /**
+   * Resolve the per-channel signing secret for a job's resource, along with the
+   * channel's vendor-neutral `config` (the source of the signature/timestamp
+   * header NAMES — never a hardcoded vendor header). Returns the FIRST channel
+   * whose `credentialRef` resolves to a secret.
+   */
+  private async resolveJobSigner(
+    job: Job,
+  ): Promise<{ secret: string; config: Record<string, unknown> | undefined } | undefined> {
     const channels = await listChannels(this.db, job.resourceId);
     for (const channel of channels) {
       if (channel.credentialRef === null) continue;
       const secret = await this.secrets.resolve(channel.credentialRef);
-      if (secret !== undefined) return secret;
+      if (secret !== undefined) return { secret, config: channel.config ?? undefined };
     }
     return undefined;
   }
 
   /**
    * Constant-time HMAC verification over the raw body, plus an optional replay
-   * window when a timestamp header is present. The recomputed digest and the
-   * provided signature are compared with `timingSafeEqual` (length-guarded so a
-   * malformed hex never throws).
+   * window when a timestamp header is present. The signature/timestamp header
+   * NAMES are config-driven (per-channel `config.signatureHeader` /
+   * `config.timestampHeader`), so the generic relay protocol stays
+   * vendor-neutral; they fall back to the actionow defaults when unset. The
+   * recomputed digest and the provided signature are compared with
+   * `timingSafeEqual` (length-guarded so a malformed hex never throws).
    */
   private verifySignature(
     secret: string,
+    config: Record<string, unknown> | undefined,
     rawBody: Buffer,
     headers: Record<string, string | string[] | undefined>,
     now: Date,
   ): boolean {
-    const provided = headerValue(headers, SIGNATURE_HEADER);
+    const signatureHeader = configHeader(config, 'signatureHeader', DEFAULT_SIGNATURE_HEADER);
+    const timestampHeader = configHeader(config, 'timestampHeader', DEFAULT_TIMESTAMP_HEADER);
+
+    const provided = headerValue(headers, signatureHeader);
     if (provided === undefined) return false;
 
-    const ts = headerValue(headers, TIMESTAMP_HEADER);
+    const ts = headerValue(headers, timestampHeader);
     if (ts !== undefined) {
       const tsMs = Number(ts) * 1000;
       if (!Number.isFinite(tsMs) || Math.abs(now.getTime() - tsMs) > TIMESTAMP_WINDOW_MS) {
@@ -150,6 +166,7 @@ export class CallbacksService {
       loadContext: (job: Job): Promise<JobExecutionContext> => this.loadContext(job),
       resolveSecret: (ref: string): Promise<string | undefined> => this.secrets.resolve(ref),
       http: this.http,
+      proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
     });
   }
 
@@ -186,6 +203,10 @@ export class CallbacksService {
         id: c.id,
         weight: c.weight,
         credentialRef: c.credentialRef ?? undefined,
+        endpoint: c.endpoint ?? undefined,
+        model: c.model ?? undefined,
+        proxyRef: c.proxyRef ?? undefined,
+        config: c.config ?? undefined,
       })),
     };
   }
@@ -199,6 +220,20 @@ function headerValue(
   const raw = headers[key] ?? headers[key.toLowerCase()];
   if (raw === undefined) return undefined;
   return Array.isArray(raw) ? raw[0] : raw;
+}
+
+/**
+ * Read a header-name from a channel's vendor-neutral `config` (e.g.
+ * `signatureHeader`), falling back to the given actionow default. The lookup is
+ * lower-cased so it matches the normalized request headers.
+ */
+function configHeader(
+  config: Record<string, unknown> | undefined,
+  key: string,
+  fallback: string,
+): string {
+  const value = config?.[key];
+  return typeof value === 'string' && value.length > 0 ? value.toLowerCase() : fallback;
 }
 
 function toPricebookEntry(row: PricebookEntryRow): PricebookEntry {

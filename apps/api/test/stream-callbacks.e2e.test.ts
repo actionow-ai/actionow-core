@@ -27,6 +27,10 @@ import { UnifiedErrorFilter } from '../src/common/unified-error.filter.js';
 const SIGNATURE_HEADER = 'x-actionow-signature';
 const STREAM_RESOURCE = 'mock-stream-resource';
 const CALLBACK_RESOURCE = 'callback-resource';
+/** A second callback resource whose channel config renames the signature header. */
+const CONFIG_CALLBACK_RESOURCE = 'config-callback-resource';
+/** The custom (vendor-neutral, config-driven) signature header for that channel. */
+const CONFIG_SIGNATURE_HEADER = 'x-relay-signature';
 /** The per-channel signing secret (resolved via SecretResolver from env). */
 const CHANNEL_SECRET = 'phase8-channel-secret';
 /** A fixed credential ref → the SecretResolver maps it to CHANNEL_SECRET. */
@@ -216,6 +220,44 @@ beforeAll(async () => {
     resourceId: CALLBACK_RESOURCE,
     providerType: 'async-media-mock',
     credentialRef: CREDENTIAL_REF,
+    weight: 1,
+    status: 'active',
+  });
+
+  // Config-driven callback resource: identical to CALLBACK_RESOURCE but its
+  // channel `config` renames the signature header (the vendor-neutral relay
+  // protocol carries the header NAMES as data, not a hardcoded vendor header).
+  await db.insert(schema.resource).values({
+    id: CONFIG_CALLBACK_RESOURCE,
+    tenantId,
+    kind: 'model',
+    modality: 'image',
+    providerType: 'async-media-mock',
+    execModes: ['async-callback'],
+    currentVersion: 1,
+  });
+  await db.insert(schema.resourceVersion).values({
+    resourceId: CONFIG_CALLBACK_RESOURCE,
+    version: 1,
+    ioSchema: {
+      inputs: [{ key: 'prompt', type: 'string', required: true }],
+      outputs: [{ key: 'image_url', type: 'string' }],
+    },
+  });
+  await db.insert(schema.pricebookEntry).values({
+    resourceId: CONFIG_CALLBACK_RESOURCE,
+    resourceVersion: 1,
+    version: 1,
+    method: 'fixed',
+    timing: 'pre',
+    spec: { method: 'fixed', amount: 50 },
+    active: true,
+  });
+  await db.insert(schema.upstreamChannel).values({
+    resourceId: CONFIG_CALLBACK_RESOURCE,
+    providerType: 'async-media-mock',
+    credentialRef: CREDENTIAL_REF,
+    config: { signatureHeader: CONFIG_SIGNATURE_HEADER },
     weight: 1,
     status: 'active',
   });
@@ -451,5 +493,63 @@ describe('Phase 8 signed async-callback ingress (real server)', () => {
     const rawBody = JSON.stringify({ upstreamJobId: upstreamId, status: 'succeeded' });
     const res = await postCallback(rawBody, undefined);
     expect(res.status).toBe(401);
+  });
+});
+
+describe('Phase 8 config-driven callback header names (real server)', () => {
+  /** Insert a job for the config-driven resource awaiting a callback. */
+  async function seedConfigJob(upstreamId: string): Promise<string> {
+    const jobId = randomUUID();
+    await db.insert(schema.job).values({
+      id: jobId,
+      tenantId,
+      resourceId: CONFIG_CALLBACK_RESOURCE,
+      resourceVersion: 1,
+      status: 'running',
+      execMode: 'async-callback',
+      inputs: { prompt: 'a cat' },
+      upstreamJobHandle: upstreamId,
+      quotedCredits: 50n,
+    });
+    return jobId;
+  }
+
+  function postWithHeader(
+    rawBody: string,
+    headerName: string,
+    signature: string,
+  ): Promise<Response> {
+    return fetch(`${baseUrl}/v1/callbacks/async-media-mock`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', [headerName]: signature },
+      body: rawBody,
+    });
+  }
+
+  it('verifies a callback signed under the config-named header', async () => {
+    const upstreamId = `up-${randomUUID()}`;
+    const jobId = await seedConfigJob(upstreamId);
+
+    const rawBody = JSON.stringify({ upstreamJobId: upstreamId, status: 'succeeded' });
+    const sig = createHmac('sha256', CHANNEL_SECRET).update(rawBody).digest('hex');
+
+    const res = await postWithHeader(rawBody, CONFIG_SIGNATURE_HEADER, sig);
+    expect(res.status).toBe(200);
+    expect(asRecord(await res.json()).settled).toBe(true);
+    expect(await settleRows(jobId)).toHaveLength(1);
+  });
+
+  it('rejects the same callback sent under the default header name (names come from config)', async () => {
+    const upstreamId = `up-${randomUUID()}`;
+    const jobId = await seedConfigJob(upstreamId);
+
+    const rawBody = JSON.stringify({ upstreamJobId: upstreamId, status: 'succeeded' });
+    const sig = createHmac('sha256', CHANNEL_SECRET).update(rawBody).digest('hex');
+
+    // A valid signature, but under the actionow default header — the channel's
+    // config renamed it, so the verifier looks for CONFIG_SIGNATURE_HEADER only.
+    const res = await postWithHeader(rawBody, SIGNATURE_HEADER, sig);
+    expect(res.status).toBe(401);
+    expect(await settleRows(jobId)).toHaveLength(0);
   });
 });

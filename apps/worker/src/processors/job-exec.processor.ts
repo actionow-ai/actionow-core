@@ -23,6 +23,7 @@ export function createJobExecProcessor(
     loadContext: (job) => loadJobContext(runtime.db, job),
     resolveSecret: runtime.resolveSecret,
     http: runtime.http,
+    proxyUrlEnv: runtime.env.UPSTREAM_PROXY_URL,
   });
 
   return (data: JobExecData): Promise<void> => runner.process(data.jobId);

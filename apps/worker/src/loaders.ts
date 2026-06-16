@@ -51,6 +51,10 @@ export async function loadJobContext(db: Database, job: Job): Promise<JobExecuti
       id: c.id,
       weight: c.weight,
       credentialRef: c.credentialRef ?? undefined,
+      endpoint: c.endpoint ?? undefined,
+      model: c.model ?? undefined,
+      proxyRef: c.proxyRef ?? undefined,
+      config: c.config ?? undefined,
     })),
   };
 }

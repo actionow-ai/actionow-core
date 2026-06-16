@@ -153,6 +153,34 @@ describe('job-exec processor', () => {
     ).filter((l) => l.type === 'settle');
     expect(settleRows).toHaveLength(1);
   });
+
+  it('passes channel endpoint + model into the adapter context on the async path', async () => {
+    const s = await seed(1_000_000n);
+    // Point the resource + channel at a capturing adapter, with per-channel
+    // endpoint + model set on the row.
+    await client`UPDATE upstream_channel SET endpoint='https://api.deepseek.com/v1', model='deepseek-chat', provider_type='capture' WHERE resource_id=${s.resourceId}`;
+    await client`UPDATE resource SET provider_type='capture' WHERE id=${s.resourceId}`;
+
+    const seen: { endpoint: string | undefined; model: string | undefined }[] = [];
+    const adapters = new AdapterRegistry();
+    adapters.register({
+      providerType: 'capture',
+      submit: (i) => {
+        seen.push({ endpoint: i.ctx.endpoint, model: i.ctx.model });
+        return Promise.resolve({ kind: 'async', provider: 'capture', upstreamJobId: 'u1' });
+      },
+      poll: () =>
+        Promise.resolve({ status: 'succeeded', output: { text: 'ok' }, usage: { images: 1 } }),
+      extractUsage: () => ({}),
+      mapError: () => ({ code: 'upstream_error', message: 'x', retryable: false }),
+    });
+
+    const job = await makeQueuedJob(s, 1_000n);
+    const process = createJobExecProcessor(runtimeWith(adapters));
+    await process({ jobId: job.id });
+
+    expect(seen[0]).toEqual({ endpoint: 'https://api.deepseek.com/v1', model: 'deepseek-chat' });
+  });
 });
 
 describe('hold-reaper processor', () => {

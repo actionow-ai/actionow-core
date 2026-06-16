@@ -25,13 +25,13 @@ import type {
   StreamOutcome,
 } from '@actionow/engine';
 import { ExecutionService } from '@actionow/engine';
-import { FetchHttpClient } from '@actionow/infra';
+import { type AppEnv, FetchHttpClient } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { TenantContext } from '../auth/auth.service.js';
 import { engineInvalidInput, engineNotFound } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
-import { ADAPTERS, DB, JOB_QUEUE } from '../common/tokens.js';
+import { ADAPTERS, DB, ENV, JOB_QUEUE } from '../common/tokens.js';
 
 /** A `/v1/run` request body (the run inputs + optional async/idempotency knobs). */
 export interface RunBody {
@@ -57,6 +57,7 @@ export class RunService {
     @Inject(DB) private readonly db: Database,
     @Inject(ADAPTERS) private readonly adapters: AdapterRegistry,
     @Inject(JOB_QUEUE) private readonly queue: JobQueuePort,
+    @Inject(ENV) private readonly env: AppEnv,
     private readonly secrets: SecretResolver,
   ) {}
 
@@ -89,6 +90,7 @@ export class RunService {
       http: this.http,
       now: () => new Date(),
       enqueue: (jobId: string): Promise<void> => this.queue.enqueueExec(jobId),
+      proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
     });
   }
 
@@ -213,5 +215,9 @@ function toRunChannel(row: UpstreamChannelRow): RunChannel {
     id: row.id,
     weight: row.weight,
     credentialRef: row.credentialRef ?? undefined,
+    endpoint: row.endpoint ?? undefined,
+    model: row.model ?? undefined,
+    proxyRef: row.proxyRef ?? undefined,
+    config: row.config ?? undefined,
   };
 }
