@@ -97,6 +97,18 @@ export {
 } from './job.js';
 export { appendLedger, type LedgerInput } from './ledger.js';
 export {
+  createModel,
+  type CreateModelInput,
+  getModelByName,
+  grantModel,
+  listModels,
+  listVisibleModels,
+  type ModelRow,
+  type ModelView,
+  type ResolvedModel,
+  resolveModelForTenant,
+} from './model.js';
+export {
   createIntent,
   type CreateIntentInput as CreatePaymentIntentInput,
   getIntentByIdForTenant,
