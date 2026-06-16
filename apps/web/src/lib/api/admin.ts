@@ -3,11 +3,20 @@ import type {
   AccountView,
   ApiKeyCreatedView,
   ApiKeyView,
+  ChannelView,
   CreateAccountBody,
   CreateApiKeyBody,
+  CreateChannelBody,
+  CreateModifierBody,
+  CreatePricebookBody,
+  CreateResourceBody,
   CreateTenantBody,
+  DifyImportBody,
+  DifyImportView,
   JobView,
+  ModifierView,
   Page,
+  PricebookView,
   ResourceView,
   TenantView,
   TopupBody,
@@ -25,6 +34,21 @@ export function makeAdminApi(client: ApiClient) {
     createTenant: (body: CreateTenantBody) => client.post<TenantView>('/admin/tenants', body),
 
     listResources: () => client.get<ResourceView[]>('/admin/resources'),
+    createResource: (body: CreateResourceBody) =>
+      client.post<ResourceView>('/admin/resources', body),
+    createChannel: (resourceId: string, body: CreateChannelBody) =>
+      client.post<ChannelView>(`/admin/resources/${resourceId}/channels`, body),
+
+    listPricebook: (resourceId: string) =>
+      client.get<PricebookView[]>('/admin/pricebook', { resourceId }),
+    createPricebook: (body: CreatePricebookBody) =>
+      client.post<PricebookView>('/admin/pricebook', body),
+
+    listModifiers: () => client.get<ModifierView[]>('/admin/modifiers'),
+    createModifier: (body: CreateModifierBody) =>
+      client.post<ModifierView>('/admin/modifiers', body),
+
+    difyImport: (body: DifyImportBody) => client.post<DifyImportView>('/admin/dify/import', body),
 
     createAccount: (body: CreateAccountBody) => client.post<AccountView>('/admin/accounts', body),
     topup: (accountId: string, body: TopupBody) =>
