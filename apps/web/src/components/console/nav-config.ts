@@ -1,5 +1,11 @@
 import type { Icon } from '@phosphor-icons/react';
-import { BuildingsIcon, KeyIcon, SquaresFourIcon, WalletIcon } from '@phosphor-icons/react';
+import {
+  BuildingsIcon,
+  KeyIcon,
+  SquaresFourIcon,
+  StackIcon,
+  WalletIcon,
+} from '@phosphor-icons/react';
 
 export interface NavItem {
   to: string;
@@ -18,6 +24,15 @@ export const NAV: NavGroup[] = [
     items: [
       { to: '/console/dashboard', labelKey: 'dashboard' },
       { to: '/console/tenants', labelKey: 'tenants' },
+    ],
+  },
+  {
+    key: 'catalog',
+    icon: StackIcon,
+    items: [
+      { to: '/console/resources', labelKey: 'resources' },
+      { to: '/console/modifiers', labelKey: 'modifiers' },
+      { to: '/console/dify', labelKey: 'dify' },
     ],
   },
   {
@@ -49,7 +64,7 @@ export interface MobileTab {
 }
 export const MOBILE_TABS: MobileTab[] = [
   { to: '/console/dashboard', labelKey: 'dashboard', icon: SquaresFourIcon },
+  { to: '/console/resources', labelKey: 'resources', icon: StackIcon },
   { to: '/console/tenants', labelKey: 'tenants', icon: BuildingsIcon },
-  { to: '/console/accounts', labelKey: 'accounts', icon: WalletIcon },
   { to: '/console/api-keys', labelKey: 'apiKeys', icon: KeyIcon },
 ];
