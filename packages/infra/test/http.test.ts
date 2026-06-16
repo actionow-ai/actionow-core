@@ -126,3 +126,108 @@ describe('FetchHttpClient', () => {
     expect(fetchHttpClient).toBeInstanceOf(FetchHttpClient);
   });
 });
+
+/** Build a `Response`-shaped object whose `body` is a `ReadableStream` of bytes. */
+const stubStreamResponse = (status: number, frames: string[]): Response => {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    start(controller): void {
+      for (const frame of frames) {
+        controller.enqueue(encoder.encode(frame));
+      }
+      controller.close();
+    },
+  });
+  return {
+    status,
+    ok: status >= 200 && status < 300,
+    body,
+  } as unknown as Response;
+};
+
+describe('FetchHttpClient.stream', () => {
+  it('iterates decoded UTF-8 chunks of a ReadableStream body (two SSE frames)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(stubStreamResponse(200, ['data: one\n\n', 'data: two\n\n']));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await fetchHttpClient.stream({
+      method: 'POST',
+      url: 'https://x.test/stream',
+      body: { stream: true },
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.ok).toBe(true);
+
+    const seen: string[] = [];
+    for await (const chunk of res.lines) {
+      seen.push(chunk);
+    }
+    expect(seen.join('')).toBe('data: one\n\ndata: two\n\n');
+  });
+
+  it('serializes a JSON body and sets the content-type header for POST', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(stubStreamResponse(200, ['data: x\n\n']));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchHttpClient.stream({
+      method: 'POST',
+      url: 'https://x.test/stream',
+      headers: { authorization: 'Bearer k' },
+      body: { a: 1 },
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://x.test/stream');
+    expect(init.method).toBe('POST');
+    expect(init.body).toBe('{"a":1}');
+    const headers = init.headers as Record<string, string>;
+    expect(headers.authorization).toBe('Bearer k');
+    expect(headers['content-type']).toBe('application/json');
+  });
+
+  it('reports a non-ok status without a body without throwing', async () => {
+    const noBody = { status: 429, ok: false, body: null } as unknown as Response;
+    const fetchMock = vi.fn().mockResolvedValue(noBody);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await fetchHttpClient.stream({ method: 'POST', url: 'https://x.test/stream' });
+    expect(res.status).toBe(429);
+    expect(res.ok).toBe(false);
+
+    const seen: string[] = [];
+    for await (const chunk of res.lines) {
+      seen.push(chunk);
+    }
+    expect(seen).toEqual([]);
+  });
+
+  it('releases the reader when the consumer stops early (break)', async () => {
+    let cancelled = false;
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller): void {
+        controller.enqueue(encoder.encode('data: one\n\n'));
+        controller.enqueue(encoder.encode('data: two\n\n'));
+        // deliberately leave the stream open
+      },
+      cancel(): void {
+        cancelled = true;
+      },
+    });
+    const openStream = { status: 200, ok: true, body } as unknown as Response;
+    const fetchMock = vi.fn().mockResolvedValue(openStream);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await fetchHttpClient.stream({ method: 'POST', url: 'https://x.test/stream' });
+    for await (const chunk of res.lines) {
+      expect(chunk).toBe('data: one\n\n');
+      break; // early return → generator finally must release the reader
+    }
+    // Give the microtask queue a tick for the cancel to propagate.
+    await Promise.resolve();
+    expect(cancelled).toBe(true);
+  });
+});

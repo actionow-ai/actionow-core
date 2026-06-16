@@ -66,3 +66,21 @@ export interface PollResult {
 export interface CallbackResult extends PollResult {
   upstreamJobId: string;
 }
+
+/**
+ * A single event emitted by a streaming adapter (`ProviderAdapter.stream`).
+ *
+ * - `delta` carries an incremental `text` token.
+ * - `usage` reports the normalized `{input_tokens, output_tokens}` once known.
+ * - `done` marks the end of the stream and may repeat the final `usage`.
+ * - `error` carries a {@link UnifiedError}.
+ */
+export interface StreamEvent {
+  kind: 'delta' | 'usage' | 'done' | 'error';
+  /** Present on `kind: 'delta'` — an incremental text token. */
+  text?: string;
+  /** Present on `kind: 'usage' | 'done'` — normalized usage vector. */
+  usage?: UsageVector;
+  /** Present on `kind: 'error'`. */
+  error?: UnifiedError;
+}

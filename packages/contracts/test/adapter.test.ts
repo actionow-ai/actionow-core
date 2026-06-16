@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ExecMode, SubmitResult, UnifiedError, UnifiedErrorCode } from '../src/adapter.js';
+import type {
+  ExecMode,
+  StreamEvent,
+  SubmitResult,
+  UnifiedError,
+  UnifiedErrorCode,
+} from '../src/adapter.js';
 import { EXEC_MODES, UNIFIED_ERROR_CODES } from '../src/adapter.js';
 
 describe('adapter contract constants', () => {
@@ -37,5 +43,24 @@ describe('adapter contract constants', () => {
   it('models a UnifiedError with retryable flag', () => {
     const err: UnifiedError = { code: 'rate_limited', message: 'slow down', retryable: true };
     expect(err.retryable).toBe(true);
+  });
+
+  it('discriminates StreamEvent on `kind`', () => {
+    const delta: StreamEvent = { kind: 'delta', text: 'hel' };
+    const usage: StreamEvent = { kind: 'usage', usage: { input_tokens: 10, output_tokens: 5 } };
+    const done: StreamEvent = { kind: 'done', usage: { input_tokens: 10, output_tokens: 5 } };
+    const error: StreamEvent = {
+      kind: 'error',
+      error: { code: 'upstream_error', message: 'boom', retryable: true },
+    };
+    expect([delta.kind, usage.kind, done.kind, error.kind]).toEqual([
+      'delta',
+      'usage',
+      'done',
+      'error',
+    ]);
+    expect(delta.text).toBe('hel');
+    expect(usage.usage).toEqual({ input_tokens: 10, output_tokens: 5 });
+    expect(error.error?.code).toBe('upstream_error');
   });
 });
