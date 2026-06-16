@@ -218,6 +218,7 @@ beforeAll(async () => {
     RATE_LIMIT_TENANT_PER_MIN: 600,
     RATE_LIMIT_RESOURCE_PER_MIN: 600,
     ADMIN_JWT_SECRET: ADMIN_SECRET,
+    STORAGE_MAX_UPLOAD_BYTES: 100 * 1024 * 1024,
   };
 
   // 4. API adapter registry: the real default registry (async-media-mock ready

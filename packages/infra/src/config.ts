@@ -1,7 +1,11 @@
+import { STORAGE_PROVIDERS } from '@actionow/contracts';
 import { z } from 'zod';
 
 /** A weak, well-known secret used ONLY outside production for local dev/tests. */
 const DEV_ADMIN_JWT_SECRET = 'dev-admin-jwt-secret-do-not-use-in-prod';
+
+/** Default ceiling on a presigned upload's declared size: 100 MiB. */
+const DEFAULT_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
 const EnvSchema = z
   .object({
@@ -22,6 +26,22 @@ const EnvSchema = z
     // HMAC secret for admin JWTs. Required in production; outside production a
     // well-known dev default is filled in below. Never logged.
     ADMIN_JWT_SECRET: z.string().min(1).optional(),
+    // Default S3-compatible object-storage provider. All STORAGE_* fields are
+    // optional so the API boots without storage configured; the /v1/files
+    // endpoints guard usage and fail with `invalid_input` when unconfigured.
+    // Credentials are never logged.
+    STORAGE_PROVIDER: z.enum(STORAGE_PROVIDERS).optional(),
+    STORAGE_BUCKET: z.string().min(1).optional(),
+    STORAGE_REGION: z.string().min(1).optional(),
+    STORAGE_ENDPOINT: z.string().url().optional(),
+    STORAGE_ACCESS_KEY_ID: z.string().min(1).optional(),
+    STORAGE_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    STORAGE_FORCE_PATH_STYLE: z
+      .enum(['true', 'false'])
+      .transform((v) => v === 'true')
+      .optional(),
+    // Ceiling on a presigned upload's declared size (bytes). Defaults to 100 MiB.
+    STORAGE_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(DEFAULT_MAX_UPLOAD_BYTES),
   })
   .transform((env) => ({
     ...env,
