@@ -5,8 +5,10 @@ import type { FetchBytes, PutBytes } from '@actionow/engine';
 import {
   type AppEnv,
   createS3StorageProvider,
+  fetchBytesWithTimeout,
   FetchHttpClient,
   loadEnv,
+  putBytesWithTimeout,
   storageConfigFromEnv,
 } from '@actionow/infra';
 
@@ -37,31 +39,6 @@ export interface WorkerRuntime {
   putBytes: PutBytes;
 }
 
-/** Upper bound (ms) on a single upstream media download before it is aborted. */
-const MEDIA_FETCH_TIMEOUT_MS = 30_000;
-
-/**
- * Default {@link FetchBytes}: download an upstream media URL over global `fetch`,
- * bounded by an `AbortSignal.timeout` so a hanging upstream can never stall the
- * settle path (Task 9 review). Returns the raw bytes + content type.
- */
-const defaultFetchBytes: FetchBytes = async (url) => {
-  const res = await fetch(url, { signal: AbortSignal.timeout(MEDIA_FETCH_TIMEOUT_MS) });
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  const contentType = res.headers.get('content-type') ?? undefined;
-  return contentType === undefined ? { bytes } : { bytes, contentType };
-};
-
-/** Default {@link PutBytes}: upload bytes to a presigned PUT URL over global `fetch`. */
-const defaultPutBytes: PutBytes = async (url, bytes, contentType) => {
-  await fetch(url, {
-    method: 'PUT',
-    headers: contentType === undefined ? {} : { 'content-type': contentType },
-    body: bytes,
-    signal: AbortSignal.timeout(MEDIA_FETCH_TIMEOUT_MS),
-  });
-};
-
 /** Build the production worker runtime from the environment. */
 export function createWorkerRuntime(): WorkerRuntime {
   const env = loadEnv();
@@ -81,7 +58,7 @@ export function createWorkerRuntime(): WorkerRuntime {
     resolveSecret: (ref: string): Promise<string | undefined> => resolveSecretRef(db, ref),
     storage,
     publicBaseUrl: env.STORAGE_PUBLIC_BASE_URL,
-    fetchBytes: defaultFetchBytes,
-    putBytes: defaultPutBytes,
+    fetchBytes: fetchBytesWithTimeout,
+    putBytes: putBytesWithTimeout,
   };
 }

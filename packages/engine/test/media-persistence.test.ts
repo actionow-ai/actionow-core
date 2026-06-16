@@ -38,8 +38,8 @@ describe('persistMediaOutput', () => {
       tenantId: 'tenant-1',
       jobId: 'job-1',
       output: {
-        image_url: 'https://cdn.huimengi.com/a.png',
-        image_urls: ['https://cdn.huimengi.com/a.png'],
+        image_url: 'https://cdn.example.com/a.png',
+        image_urls: ['https://cdn.example.com/a.png'],
       },
     });
 
@@ -60,7 +60,7 @@ describe('persistMediaOutput', () => {
       putBytes: () => Promise.resolve(),
       tenantId: 't',
       jobId: 'j',
-      output: { video_url: 'https://cdn.huimengi.com/v.mp4?token=abc' },
+      output: { video_url: 'https://cdn.example.com/v.mp4?token=abc' },
     });
     expect(r.output.video_url).toBe('https://asset.actionow.ai/t/j.mp4');
   });
@@ -74,10 +74,10 @@ describe('persistMediaOutput', () => {
       putBytes: () => Promise.resolve(),
       tenantId: 't',
       jobId: 'j',
-      output: { image_url: 'https://cdn.huimengi.com/a.png' },
+      output: { image_url: 'https://cdn.example.com/a.png' },
     });
     expect(r.persisted).toBe(false);
-    expect(r.output.image_url).toBe('https://cdn.huimengi.com/a.png');
+    expect(r.output.image_url).toBe('https://cdn.example.com/a.png');
     expect(r.objects).toEqual([]);
   });
 

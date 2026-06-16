@@ -16,9 +16,14 @@ import {
   type ModifierRow,
   type PricebookEntryRow,
 } from '@actionow/db';
-import type { FetchBytes, JobExecutionContext, PersistMediaFn, PutBytes } from '@actionow/engine';
+import type { JobExecutionContext, PersistMediaFn } from '@actionow/engine';
 import { JobRunner, persistMediaOutput, signPayload } from '@actionow/engine';
-import { type AppEnv, FetchHttpClient } from '@actionow/infra';
+import {
+  type AppEnv,
+  fetchBytesWithTimeout,
+  FetchHttpClient,
+  putBytesWithTimeout,
+} from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { engineUnauthorized } from '../common/errors.js';
@@ -31,29 +36,6 @@ const DEFAULT_SIGNATURE_HEADER = 'x-actionow-signature';
 const DEFAULT_TIMESTAMP_HEADER = 'x-actionow-timestamp';
 /** Replay window: a present timestamp older/newer than this (ms) is rejected. */
 const TIMESTAMP_WINDOW_MS = 5 * 60_000;
-/** Upper bound (ms) on an upstream media transfer before it is aborted. */
-const MEDIA_FETCH_TIMEOUT_MS = 30_000;
-
-/**
- * Download upstream media bytes over global `fetch`, bounded by an
- * `AbortSignal.timeout` so a hanging upstream can never stall the settle path.
- */
-const fetchBytes: FetchBytes = async (url) => {
-  const res = await fetch(url, { signal: AbortSignal.timeout(MEDIA_FETCH_TIMEOUT_MS) });
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  const contentType = res.headers.get('content-type') ?? undefined;
-  return contentType === undefined ? { bytes } : { bytes, contentType };
-};
-
-/** Upload bytes to a presigned PUT URL over global `fetch`. */
-const putBytes: PutBytes = async (url, bytes, contentType) => {
-  await fetch(url, {
-    method: 'PUT',
-    headers: contentType === undefined ? {} : { 'content-type': contentType },
-    body: bytes,
-    signal: AbortSignal.timeout(MEDIA_FETCH_TIMEOUT_MS),
-  });
-};
 
 /**
  * Ingests a signed upstream async-callback. The HMAC over the **raw** request
@@ -222,8 +204,8 @@ export class CallbacksService {
         tenantId,
         jobId,
         output,
-        fetchBytes,
-        putBytes,
+        fetchBytes: fetchBytesWithTimeout,
+        putBytes: putBytesWithTimeout,
       });
       for (const obj of result.objects) {
         try {
