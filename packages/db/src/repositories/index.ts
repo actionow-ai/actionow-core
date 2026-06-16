@@ -16,6 +16,7 @@ export {
 } from './admin.js';
 export {
   type ApiKeyRecord,
+  type ApiKeyView,
   createApiKey,
   type CreateApiKeyInput,
   type CreatedApiKey,
@@ -23,13 +24,16 @@ export {
   createUserIdentity,
   type CreateUserIdentityInput,
   type CreateUserInput,
+  disableApiKeyForTenant,
   findApiKeyByHash,
   findUserByEmail,
   findUserById,
   findUserByIdentity,
+  getApiKeyForTenant,
   hashApiKey,
   type LinkIdentityInput,
   linkIdentityTx,
+  rotateApiKeyForTenant,
   type UserRecord,
 } from './auth.js';
 export {

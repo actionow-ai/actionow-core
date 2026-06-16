@@ -78,6 +78,85 @@ export async function findApiKeyByHash(
   return rows[0];
 }
 
+/** The tenant-scoped view of an `api_key` row (no `hash`). */
+export interface ApiKeyView {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly resourceAllowlist: string[];
+  readonly rateLimit: number | null;
+  readonly status: string;
+  readonly createdAt: Date;
+}
+
+const API_KEY_VIEW_COLUMNS = {
+  id: apiKey.id,
+  tenantId: apiKey.tenantId,
+  resourceAllowlist: apiKey.resourceAllowlist,
+  rateLimit: apiKey.rateLimit,
+  status: apiKey.status,
+  createdAt: apiKey.createdAt,
+} as const;
+
+/**
+ * Read one API key scoped to a tenant. The `tenant_id` predicate is in SQL, so a
+ * key id that belongs to another tenant resolves to `undefined` (cross-tenant
+ * safe). Excludes the `hash` — callers only ever see the one-time plaintext.
+ */
+export async function getApiKeyForTenant(
+  db: DbOrTx,
+  keyId: string,
+  tenantId: string,
+): Promise<ApiKeyView | undefined> {
+  const rows = await db
+    .select(API_KEY_VIEW_COLUMNS)
+    .from(apiKey)
+    .where(and(eq(apiKey.id, keyId), eq(apiKey.tenantId, tenantId)))
+    .limit(1);
+  return rows[0];
+}
+
+/**
+ * Flip a tenant's key to `status='disabled'`. Tenant-predicated in SQL, so a
+ * cross-tenant id updates no rows and returns `false`; `true` on success.
+ */
+export async function disableApiKeyForTenant(
+  db: DbOrTx,
+  keyId: string,
+  tenantId: string,
+): Promise<boolean> {
+  const rows = await db
+    .update(apiKey)
+    .set({ status: 'disabled' })
+    .where(and(eq(apiKey.id, keyId), eq(apiKey.tenantId, tenantId)))
+    .returning({ id: apiKey.id });
+  return rows.length === 1;
+}
+
+/**
+ * Rotate a tenant's key in one transaction: mint a fresh plaintext that inherits
+ * the old key's `resourceAllowlist`/`rateLimit`, then disable the old row. The
+ * tenant predicate is in SQL — a cross-tenant id is a no-op returning `undefined`
+ * (nothing is minted or disabled). The new {@link CreatedApiKey} plaintext is
+ * shown ONCE.
+ */
+export async function rotateApiKeyForTenant(
+  db: DbOrTx,
+  keyId: string,
+  tenantId: string,
+): Promise<CreatedApiKey | undefined> {
+  return db.transaction(async (tx) => {
+    const existing = await getApiKeyForTenant(tx, keyId, tenantId);
+    if (existing === undefined) return undefined;
+    const created = await createApiKey(tx, {
+      tenantId,
+      resourceAllowlist: existing.resourceAllowlist,
+      rateLimit: existing.rateLimit ?? undefined,
+    });
+    await disableApiKeyForTenant(tx, keyId, tenantId);
+    return created;
+  });
+}
+
 /** Normalize an email for storage/lookup: trim + lowercase (case-insensitive). */
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
