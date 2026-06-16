@@ -8,7 +8,14 @@ import { defineConfig } from 'vitest/config';
  * compiles with `emitDecoratorMetadata` enabled, matching `tsc`/`nest build`.
  */
 export default defineConfig({
-  test: { include: ['test/**/*.test.ts'], testTimeout: 60000, hookTimeout: 180000 },
+  test: {
+    include: ['test/**/*.test.ts'],
+    testTimeout: 60000,
+    hookTimeout: 180000,
+    // Many e2e files each spin their own Testcontainers (pg/redis/minio); running
+    // them in parallel exhausts Docker. Run files sequentially for reliability.
+    fileParallelism: false,
+  },
   plugins: [
     swc.vite({
       jsc: {

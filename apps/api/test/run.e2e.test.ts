@@ -79,6 +79,7 @@ beforeAll(async () => {
     .overrideProvider(ENV)
     .useValue({
       NODE_ENV: 'test',
+      CREDIT_RATE: 1000,
       DATABASE_URL: container.getConnectionUri(),
       REDIS_URL: 'redis://localhost:6379',
       API_PORT: 3000,

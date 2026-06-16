@@ -110,6 +110,7 @@ beforeAll(async () => {
       // production disables the x-tenant-id dev fallback, so a real API key is
       // required — exactly the surface §12 exercises.
       NODE_ENV: 'production',
+      CREDIT_RATE: 1000,
       DATABASE_URL: container.getConnectionUri(),
       REDIS_URL: 'redis://localhost:6379',
       API_PORT: 3000,
