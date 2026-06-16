@@ -49,7 +49,7 @@ export const upstreamChannel = pgTable(
     credentialRef: uuid('credential_ref'),
     /** Per-channel upstream base URL (e.g. https://api.deepseek.com/v1); null → adapter default. */
     endpoint: text('endpoint'),
-    /** Per-channel model id (e.g. deepseek-chat, seedream-4.5); null → resource default. */
+    /** Per-channel model id (e.g. the upstream's model name); null → resource default. */
     model: text('model'),
     /** Locator (a secret_ref-style env key) for this channel's egress proxy URL; null → none. */
     proxyRef: text('proxy_ref'),
