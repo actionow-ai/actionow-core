@@ -179,7 +179,7 @@ export function AuthPage() {
           zIndex: 1,
           minHeight: '100dvh',
           display: 'grid',
-          gridTemplateColumns: isDesktop ? '1fr 1fr' : '1fr',
+          gridTemplateColumns: isDesktop ? '1.15fr 0.85fr' : '1fr',
           alignItems: 'center',
         }}
       >

@@ -15,6 +15,14 @@ export default defineConfig({
       '/v1': API,
     },
   },
+  preview: {
+    port: 4173,
+    proxy: {
+      '/admin': API,
+      '/auth': API,
+      '/v1': API,
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,

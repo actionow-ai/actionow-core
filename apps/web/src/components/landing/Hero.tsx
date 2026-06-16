@@ -39,14 +39,14 @@ export function Hero() {
         padding: 'var(--s-10) var(--s-4) var(--s-8)',
       }}
     >
-      <div className="hero-grid" style={{ display: 'grid', gap: 'var(--s-10)', alignItems: 'center', width: '100%' }}>
+      <div className="hero-grid" style={{ display: 'grid', gap: 'var(--s-10)', width: '100%' }}>
         <div>
           <h1
             style={{
-              fontSize: 'clamp(32px, 5vw, 56px)',
-              lineHeight: 1.12,
+              fontSize: 'clamp(38px, 6.2vw, 74px)',
+              lineHeight: 1.04,
               fontWeight: 800,
-              letterSpacing: '-0.025em',
+              letterSpacing: '-0.03em',
               margin: 0,
             }}
           >
@@ -74,7 +74,9 @@ export function Hero() {
             </Button>
           </div>
         </div>
-        <CodePanel />
+        <div className="hero-code">
+          <CodePanel />
+        </div>
       </div>
     </section>
   );

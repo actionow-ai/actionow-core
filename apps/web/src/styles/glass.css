@@ -22,9 +22,15 @@
   background: color-mix(in srgb, var(--glass-bg) 70%, var(--hover-bg));
 }
 
-/* Hero responsive split (1-col on mobile, asymmetric 2-col from 880px). */
-.hero-grid { grid-template-columns: 1fr; }
-@media (min-width: 880px) { .hero-grid { grid-template-columns: 1.05fr 0.95fr; } }
+/* Hero: editorial asymmetric layout. Mobile = stacked; from 960px the code
+   showcase sits in a narrower right column and is dropped down + nudged out of
+   the container, so the composition reads layered/offset, not a neat 50/50. */
+.hero-grid { grid-template-columns: 1fr; align-items: start; }
+.hero-code { width: 100%; }
+@media (min-width: 960px) {
+  .hero-grid { grid-template-columns: 1.25fr 0.9fr; column-gap: var(--s-8); }
+  .hero-code { margin-top: var(--s-16); transform: translateX(6%); }
+}
 
 /* Tactile button feedback (physical push). */
 .btn-tactile:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(255, 176, 10, 0.34); }
