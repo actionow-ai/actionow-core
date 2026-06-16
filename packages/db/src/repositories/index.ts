@@ -63,6 +63,14 @@ export {
   updateResourceStatus,
   type UpstreamChannelRow,
 } from './catalog.js';
+export {
+  createFileObject,
+  type CreateFileObjectInput,
+  type FileObject,
+  type FileReadyInput,
+  getFileObject,
+  markFileReady,
+} from './files.js';
 export { claimIdempotency, type ClaimResult } from './idempotency.js';
 export {
   createJob,
