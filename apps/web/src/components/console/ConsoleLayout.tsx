@@ -1,4 +1,4 @@
-import { SignOutIcon } from '@phosphor-icons/react';
+import { HouseIcon, SignOutIcon } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
@@ -100,6 +100,16 @@ function TopBar({ title }: { title: string }) {
   const { t } = useTranslation('console');
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const isDesktop = useMediaQuery('(min-width: 768px)');
+  const iconBtn = {
+    width: 38,
+    height: 38,
+    borderRadius: 'var(--r-pill)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 0,
+  } as const;
   return (
     <div
       className="glass"
@@ -117,10 +127,15 @@ function TopBar({ title }: { title: string }) {
       <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
         <Link
           to="/"
+          aria-label={t('topbar.backHome')}
           className="glass glass-hover"
-          style={{ fontSize: 12, color: 'var(--muted)', padding: '7px 12px', borderRadius: 'var(--r-pill)', whiteSpace: 'nowrap' }}
+          style={
+            isDesktop
+              ? { fontSize: 12, color: 'var(--muted)', padding: '7px 12px', borderRadius: 'var(--r-pill)', whiteSpace: 'nowrap' }
+              : { ...iconBtn, color: 'var(--muted)' }
+          }
         >
-          {t('topbar.backHome')}
+          {isDesktop ? t('topbar.backHome') : <HouseIcon size={16} />}
         </Link>
         <LanguageSwitch />
         <ThemeToggle />
@@ -130,21 +145,26 @@ function TopBar({ title }: { title: string }) {
             logout();
             void navigate('/login', { replace: true });
           }}
+          aria-label={t('topbar.logout')}
           className="glass glass-hover"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            fontSize: 12,
-            color: 'var(--text)',
-            cursor: 'pointer',
-            padding: '7px 12px',
-            borderRadius: 'var(--r-pill)',
-            whiteSpace: 'nowrap',
-          }}
+          style={
+            isDesktop
+              ? {
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12,
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                  padding: '7px 12px',
+                  borderRadius: 'var(--r-pill)',
+                  whiteSpace: 'nowrap',
+                }
+              : { ...iconBtn, color: 'var(--text)', cursor: 'pointer' }
+          }
         >
           <SignOutIcon size={15} />
-          {t('topbar.logout')}
+          {isDesktop && t('topbar.logout')}
         </button>
       </span>
     </div>
