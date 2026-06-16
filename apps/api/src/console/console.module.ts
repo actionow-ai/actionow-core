@@ -7,7 +7,7 @@ import { PaymentsModule } from '../payments/payments.module.js';
 import { ConsoleController } from './console.controller.js';
 import { CONSOLE_REPO, ConsoleGuard, defaultConsoleRepo } from './console.guard.js';
 import { ConsoleService } from './console.service.js';
-import { fakeModelsPort, MODELS_PORT } from './models.port.js';
+import { MODELS_PORT, realModelsPort } from './models.port.js';
 
 /**
  * The tenant self-service console (`/console`, Track B capstone). The
@@ -16,8 +16,8 @@ import { fakeModelsPort, MODELS_PORT } from './models.port.js';
  * `JwtModule` is registered with that secret here — mirroring the
  * {@link AdminModule} shape. The engine `PaymentService` (token `PAYMENTS`) for
  * self-topup is provided by the {@link PaymentsModule} (which `exports` it);
- * `DB`/`ENV` come from the global `DbModule`. `MODELS_PORT` defaults to the empty
- * fake (Track C wires the real catalog port later).
+ * `DB`/`ENV` come from the global `DbModule`. `MODELS_PORT` is bound to the real
+ * Track C catalog port (`listVisibleModels` over `DB`).
  */
 @Module({
   imports: [
@@ -32,7 +32,7 @@ import { fakeModelsPort, MODELS_PORT } from './models.port.js';
     ConsoleService,
     ConsoleGuard,
     { provide: CONSOLE_REPO, useValue: defaultConsoleRepo },
-    { provide: MODELS_PORT, useValue: fakeModelsPort },
+    { provide: MODELS_PORT, useValue: realModelsPort },
   ],
 })
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- NestJS modules are decorated empty classes

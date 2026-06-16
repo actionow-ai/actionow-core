@@ -1,4 +1,5 @@
 import type { Database } from '@actionow/db';
+import { listVisibleModels } from '@actionow/db';
 
 /**
  * The tenant-scoped public view of a catalog model the console lists. Owned by
@@ -31,4 +32,24 @@ export const MODELS_PORT = Symbol('MODELS_PORT');
  */
 export const fakeModelsPort: ModelsPort = {
   listVisibleModels: () => Promise.resolve([]),
+};
+
+/**
+ * The real {@link ModelsPort} (Track C): delegates to the `@actionow/db`
+ * `listVisibleModels` repo (public + tenant-granted models, visibility-gated in
+ * SQL) and maps each repo row to the console {@link ModelView}. The repo's
+ * `display` is nullable; it is coerced to a non-null string via `display ?? name`
+ * so the console contract's `display: string` always holds.
+ */
+export const realModelsPort: ModelsPort = {
+  async listVisibleModels(db: Database, tenantId: string): Promise<ModelView[]> {
+    const rows = await listVisibleModels(db, tenantId);
+    return rows.map((m) => ({
+      name: m.name,
+      display: m.display ?? m.name,
+      modality: m.modality,
+      capabilities: m.capabilities,
+      visibility: m.visibility,
+    }));
+  },
 };
