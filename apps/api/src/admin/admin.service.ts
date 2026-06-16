@@ -4,6 +4,8 @@ import {
   createAccount,
   createApiKey,
   type CreatedApiKey,
+  createModel,
+  type CreateModelInput,
   createModifier,
   createPricebookEntry,
   createResource,
@@ -12,15 +14,18 @@ import {
   type Database,
   getAccount,
   getResource,
+  grantModel,
   type Job,
   type LedgerRow,
   listApiKeys,
   listJobs,
   listLedger,
+  listModels,
   listModifiers,
   listPricebookEntries,
   listResources,
   listTenants,
+  type ModelRow,
   type ModifierRow,
   type PricebookEntryRow,
   type Resource,
@@ -37,10 +42,12 @@ import type {
   CreateAccountDto,
   CreateApiKeyDto,
   CreateChannelDto,
+  CreateModelDto,
   CreateModifierDto,
   CreatePricebookDto,
   CreateResourceDto,
   CreateTenantDto,
+  GrantModelDto,
   TopupDto,
 } from './dto/admin.dto.js';
 
@@ -198,6 +205,37 @@ export class AdminService {
 
   listModifiers(): Promise<ModifierRow[]> {
     return listModifiers(this.db);
+  }
+
+  // ----- models -----
+
+  /**
+   * Register a relay model. `inputPrice`/`outputPrice` are µcredit-per-token
+   * integers (NOT human credits) — passed through unchanged. `capabilities`
+   * defaults to `{}` when omitted.
+   */
+  createModel(dto: CreateModelDto): Promise<ModelRow> {
+    const input: CreateModelInput = {
+      name: dto.name,
+      resourceId: dto.resourceId,
+      ...(dto.display !== undefined ? { display: dto.display } : {}),
+      ...(dto.modality !== undefined ? { modality: dto.modality } : {}),
+      ...(dto.capabilities !== undefined ? { capabilities: dto.capabilities } : {}),
+      ...(dto.visibility !== undefined ? { visibility: dto.visibility } : {}),
+      ...(dto.inputPrice !== undefined ? { inputPrice: BigInt(dto.inputPrice) } : {}),
+      ...(dto.outputPrice !== undefined ? { outputPrice: BigInt(dto.outputPrice) } : {}),
+      ...(dto.status !== undefined ? { status: dto.status } : {}),
+    };
+    return createModel(this.db, input);
+  }
+
+  listModels(): Promise<ModelRow[]> {
+    return listModels(this.db);
+  }
+
+  /** Grant a tenant-visibility model (by name) to a tenant. */
+  async grantModel(modelName: string, dto: GrantModelDto): Promise<void> {
+    await grantModel(this.db, modelName, dto.tenantId);
   }
 
   // ----- jobs -----

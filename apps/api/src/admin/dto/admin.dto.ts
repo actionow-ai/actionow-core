@@ -118,3 +118,31 @@ export const difyImportSchema = z.object({
   allowBlockers: z.boolean().optional(),
 });
 export type DifyImportDto = z.infer<typeof difyImportSchema>;
+
+/** `POST /admin/models` — register a relay model (name → chat resource). */
+export const createModelSchema = z.object({
+  name: z.string().min(1),
+  /** The chat `resource` id this model routes to (carries channels/creds). */
+  resourceId: z.string().min(1),
+  display: z.string().optional(),
+  /** Defaults to `chat`. */
+  modality: z.string().optional(),
+  /** Feature flags read by the relay (tools/vision/audio/json/stream). */
+  capabilities: z.record(z.string(), z.boolean()).optional(),
+  visibility: z.enum(['public', 'tenant']).optional(),
+  /**
+   * µcredit-per-INPUT-token (integer). Entered directly as µcredits (token
+   * prices are sub-credit fractions), NOT human credits. Defaults to 0.
+   */
+  inputPrice: z.number().int().nonnegative().optional(),
+  /** µcredit-per-OUTPUT-token (integer). Same convention. Defaults to 0. */
+  outputPrice: z.number().int().nonnegative().optional(),
+  status: z.enum(['active', 'disabled']).optional(),
+});
+export type CreateModelDto = z.infer<typeof createModelSchema>;
+
+/** `POST /admin/models/:name/grants` — grant a tenant-visibility model. */
+export const grantModelSchema = z.object({
+  tenantId: z.string().uuid(),
+});
+export type GrantModelDto = z.infer<typeof grantModelSchema>;

@@ -2,6 +2,7 @@ import type {
   AccountRow,
   Job,
   LedgerRow,
+  ModelRow,
   ModifierRow,
   PricebookEntryRow,
   Resource,
@@ -22,6 +23,8 @@ import {
   createApiKeySchema,
   type CreateChannelDto,
   createChannelSchema,
+  type CreateModelDto,
+  createModelSchema,
   type CreateModifierDto,
   createModifierSchema,
   type CreatePricebookDto,
@@ -30,6 +33,8 @@ import {
   createResourceSchema,
   type CreateTenantDto,
   createTenantSchema,
+  type GrantModelDto,
+  grantModelSchema,
   type TopupDto,
   topupSchema,
 } from './dto/admin.dto.js';
@@ -140,6 +145,20 @@ interface JobView {
   status: string;
   exec_mode: string;
   cost: string | null;
+  created_at: string;
+}
+
+interface ModelView {
+  id: string;
+  name: string;
+  display: string | null;
+  modality: string;
+  capabilities: Record<string, boolean>;
+  visibility: string;
+  resource_id: string;
+  input_price: string;
+  output_price: string;
+  status: string;
   created_at: string;
 }
 
@@ -284,6 +303,32 @@ export class AdminController {
     return (await this.admin.listModifiers()).map(toModifierView);
   }
 
+  // ----- models -----
+
+  @Post('models')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Register a relay model (name → chat resource)' })
+  async createModel(@Body(new ZodBody(createModelSchema)) dto: CreateModelDto): Promise<ModelView> {
+    return toModelView(await this.admin.createModel(dto));
+  }
+
+  @Get('models')
+  @ApiOperation({ summary: 'List the relay model catalog' })
+  async listModels(): Promise<ModelView[]> {
+    return (await this.admin.listModels()).map(toModelView);
+  }
+
+  @Post('models/:name/grants')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Grant a tenant-visibility model to a tenant' })
+  async grantModel(
+    @Param('name') name: string,
+    @Body(new ZodBody(grantModelSchema)) dto: GrantModelDto,
+  ): Promise<{ ok: true }> {
+    await this.admin.grantModel(name, dto);
+    return { ok: true };
+  }
+
   // ----- jobs -----
 
   @Get('jobs')
@@ -417,6 +462,22 @@ function toJobView(row: Job): JobView {
     status: row.status,
     exec_mode: row.execMode,
     cost: row.costCredits === null ? null : row.costCredits.toString(),
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toModelView(row: ModelRow): ModelView {
+  return {
+    id: row.id,
+    name: row.name,
+    display: row.display,
+    modality: row.modality,
+    capabilities: row.capabilities,
+    visibility: row.visibility,
+    resource_id: row.resourceId,
+    input_price: row.inputPrice.toString(),
+    output_price: row.outputPrice.toString(),
+    status: row.status,
     created_at: row.createdAt.toISOString(),
   };
 }
