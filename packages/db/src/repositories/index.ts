@@ -89,6 +89,18 @@ export {
   transitionJob,
 } from './job.js';
 export { appendLedger, type LedgerInput } from './ledger.js';
+export {
+  createIntent,
+  type CreateIntentInput as CreatePaymentIntentInput,
+  getIntentByProviderRef,
+  insertEventIfNew,
+  type InsertEventInput,
+  type InsertEventResult,
+  markEventProcessed,
+  type PaymentEventRow,
+  type PaymentIntentRow,
+  setIntentStatus,
+} from './payments.js';
 export { type ExpiredHold, listExpiredHolds } from './reaper.js';
 export {
   failJob,
