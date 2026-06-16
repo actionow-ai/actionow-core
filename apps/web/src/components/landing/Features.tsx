@@ -9,6 +9,7 @@ import {
 } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 
+import { SpotlightCard } from '../glass/SpotlightCard';
 import { Reveal } from './Reveal';
 
 interface Feat {
@@ -30,29 +31,8 @@ function FeatureCard({ feat, index }: { feat: Feat; index: number }) {
   const { t } = useTranslation('landing');
   const { Icon } = feat;
   return (
-    <Reveal
-      delay={index * 0.05}
-      className={`glass glass-hover ${feat.big ? 'md:col-span-2' : ''}`}
-      style={{
-        position: 'relative',
-        overflow: 'hidden',
-        borderRadius: 'var(--r-lg)',
-        padding: 'var(--s-5)',
-        minHeight: feat.big ? 180 : 150,
-      }}
-    >
-      {feat.big && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'radial-gradient(120% 100% at 100% 0%, rgba(255, 214, 10, 0.12), transparent 60%)',
-            pointerEvents: 'none',
-          }}
-        />
-      )}
-      <div style={{ position: 'relative' }}>
+    <Reveal delay={index * 0.05} className={feat.big ? 'md:col-span-2' : ''}>
+      <SpotlightCard style={{ borderRadius: 'var(--r-lg)', padding: 'var(--s-5)', minHeight: feat.big ? 180 : 150 }}>
         <span
           style={{
             display: 'inline-flex',
@@ -72,7 +52,7 @@ function FeatureCard({ feat, index }: { feat: Feat; index: number }) {
         <p style={{ fontSize: 13.5, lineHeight: 1.55, color: 'var(--muted)', marginTop: 'var(--s-2)', maxWidth: 420 }}>
           {t(`features.items.${feat.key}.d`)}
         </p>
-      </div>
+      </SpotlightCard>
     </Reveal>
   );
 }

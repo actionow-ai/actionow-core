@@ -11,6 +11,7 @@
     "title1": "Self-host your own ",
     "titleHl": "AI gateway & relay",
     "title2": "",
+    "flip": ["AI gateway", "a model relay", "credit billing", "self-service"],
     "lead": "Multi-tenant accounts, credit billing and payments out of the box, with OpenAI / Anthropic / Gemini compatible endpoints. Deploy once; your customers become tenants.",
     "ctaPrimary": "Deploy now",
     "ctaSecondary": "Read the docs",

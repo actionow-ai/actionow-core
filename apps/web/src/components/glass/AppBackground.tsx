@@ -16,7 +16,7 @@ const BLOBS = [
   { key: 'b3', size: 420, css: { left: '34%', top: '46%' }, color: 'var(--b3)', depth: 0.035, idle: [20, 28, 8] },
 ] as const;
 
-export function AppBackground() {
+export function AppBackground({ grid = false }: { grid?: boolean }) {
   const root = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
 
@@ -60,6 +60,7 @@ export function AppBackground() {
 
   return (
     <div ref={root} aria-hidden="true" style={{ position: 'fixed', inset: 0, overflow: 'hidden', zIndex: 0, pointerEvents: 'none' }}>
+      {grid && <div className="bg-grid" />}
       {BLOBS.map((b) => (
         <div key={b.key} data-blob={b.key} style={{ position: 'absolute', width: b.size, height: b.size, willChange: 'transform', ...b.css }}>
           <div style={{ width: '100%', height: '100%', borderRadius: '50%', filter: 'blur(var(--blur))', background: `radial-gradient(circle, ${b.color}, transparent 70%)` }} />

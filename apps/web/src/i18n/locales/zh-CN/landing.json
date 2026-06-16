@@ -10,7 +10,8 @@
   "hero": {
     "title1": "自部署的 ",
     "titleHl": "AI 网关与中转",
-    "title2": "底座",
+    "title2": " 底座",
+    "flip": ["AI 网关", "模型中转", "积分计费", "租户自助"],
     "lead": "开箱即用的多租户、积分计费与支付,加上 OpenAI / Anthropic / Gemini 兼容端点。部署一套,把你的客户变成租户。",
     "ctaPrimary": "一键部署",
     "ctaSecondary": "查看文档",

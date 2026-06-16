@@ -2,6 +2,7 @@ import { ArrowRightIcon, BookOpenIcon } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '../ui/Button';
+import { FlipWords } from './FlipWords';
 
 /** OpenAI-compatible relay snippet: same SDK, your own base_url (no fake terminal). */
 function CodePanel() {
@@ -50,23 +51,22 @@ export function Hero() {
             }}
           >
             {t('hero.title1')}
-            <span
+            <FlipWords
+              words={t('hero.flip', { returnObjects: true }) as string[]}
               style={{
                 background: 'linear-gradient(120deg, var(--accent), var(--accent-2))',
                 WebkitBackgroundClip: 'text',
                 backgroundClip: 'text',
                 color: 'transparent',
               }}
-            >
-              {t('hero.titleHl')}
-            </span>
+            />
             {t('hero.title2')}
           </h1>
           <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-4)', maxWidth: 500 }}>
             {t('hero.lead')}
           </p>
           <div style={{ display: 'flex', gap: 'var(--s-3)', marginTop: 'var(--s-6)', flexWrap: 'wrap' }}>
-            <Button to="/console" variant="cta" size="lg">
+            <Button to="/console" variant="cta" size="lg" className="cta-shine">
               {t('hero.ctaPrimary')} <ArrowRightIcon size={16} weight="bold" />
             </Button>
             <Button href="#" variant="ghost" size="lg">

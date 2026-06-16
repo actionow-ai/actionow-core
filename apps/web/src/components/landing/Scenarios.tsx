@@ -2,29 +2,32 @@ import type { Icon } from '@phosphor-icons/react';
 import { ArrowsLeftRightIcon, StackIcon } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 
+import { SpotlightCard } from '../glass/SpotlightCard';
 import { Reveal } from './Reveal';
 
 function Card({ k, GlyphIcon, index }: { k: string; GlyphIcon: Icon; index: number }) {
   const { t } = useTranslation('landing');
   return (
-    <Reveal delay={index * 0.06} className="glass glass-hover" style={{ borderRadius: 'var(--r-lg)', padding: 'var(--s-6)' }}>
-      <span
-        style={{
-          display: 'inline-flex',
-          width: 40,
-          height: 40,
-          borderRadius: 12,
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--ink)',
-          background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
-          marginBottom: 'var(--s-4)',
-        }}
-      >
-        <GlyphIcon size={21} weight="duotone" />
-      </span>
-      <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em' }}>{t(`scenarios.${k}.t`)}</div>
-      <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-2)' }}>{t(`scenarios.${k}.d`)}</p>
+    <Reveal delay={index * 0.06}>
+      <SpotlightCard style={{ borderRadius: 'var(--r-lg)', padding: 'var(--s-6)', height: '100%' }}>
+        <span
+          style={{
+            display: 'inline-flex',
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--ink)',
+            background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
+            marginBottom: 'var(--s-4)',
+          }}
+        >
+          <GlyphIcon size={21} weight="duotone" />
+        </span>
+        <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em' }}>{t(`scenarios.${k}.t`)}</div>
+        <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-2)' }}>{t(`scenarios.${k}.d`)}</p>
+      </SpotlightCard>
     </Reveal>
   );
 }

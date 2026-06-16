@@ -30,6 +30,56 @@
 .btn-tactile:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(255, 176, 10, 0.34); }
 .btn-tactile:active { transform: translateY(1px) scale(0.99); }
 
+/* Dot-grid backdrop (Aceternity "grid and dot"), faded to the top via a mask. */
+.bg-grid {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 85% 55% at 50% 0%, #000 35%, transparent 72%);
+  mask-image: radial-gradient(ellipse 85% 55% at 50% 0%, #000 35%, transparent 72%);
+}
+
+/* Card spotlight: a warm radial glow that follows the cursor inside the card. */
+.spotlight-card { position: relative; overflow: hidden; }
+.spotlight-card .spotlight-glow {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  background: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 50%),
+    color-mix(in srgb, var(--accent) 16%, transparent),
+    transparent 60%
+  );
+}
+.spotlight-card:hover .spotlight-glow { opacity: 1; }
+
+/* Shimmer sweep for primary CTAs (a subtle moving highlight). */
+.cta-shine { position: relative; overflow: hidden; }
+.cta-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -160%;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transform: skewX(-18deg);
+  animation: cta-sweep 4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes cta-sweep {
+  0% { left: -160%; }
+  55%, 100% { left: 160%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cta-shine::after { animation: none; display: none; }
+}
+
 /* Accessibility: reduce transparency → near-opaque surfaces. */
 @media (prefers-reduced-transparency: reduce) {
   .glass { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--panel-bg); }

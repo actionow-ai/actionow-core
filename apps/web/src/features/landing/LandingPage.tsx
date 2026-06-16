@@ -12,7 +12,7 @@ import { Scenarios } from '../../components/landing/Scenarios';
 export function LandingPage() {
   return (
     <>
-      <AppBackground />
+      <AppBackground grid />
       <div style={{ position: 'relative', zIndex: 1 }}>
         <Nav />
         <main>

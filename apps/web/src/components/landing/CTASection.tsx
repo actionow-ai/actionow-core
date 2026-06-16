@@ -36,7 +36,7 @@ export function CTASection() {
               {t('cta.lead')}
             </p>
             <div style={{ marginTop: 'var(--s-6)', display: 'flex', justifyContent: 'center' }}>
-              <Button to="/login" variant="cta" size="lg">
+              <Button to="/login" variant="cta" size="lg" className="cta-shine">
                 {t('cta.button')} <ArrowRightIcon size={16} weight="bold" />
               </Button>
             </div>

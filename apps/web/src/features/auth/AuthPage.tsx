@@ -115,7 +115,7 @@ export function AuthPage() {
         <button
           type="submit"
           disabled={busy}
-          className="btn-tactile"
+          className="btn-tactile cta-shine"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -168,7 +168,7 @@ export function AuthPage() {
 
   return (
     <>
-      <AppBackground />
+      <AppBackground grid />
       <div style={{ position: 'absolute', top: 'var(--s-4)', right: 'var(--s-4)', zIndex: 2, display: 'flex', gap: 'var(--s-2)' }}>
         <LanguageSwitch />
         <ThemeToggle />
