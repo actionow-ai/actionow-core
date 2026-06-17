@@ -48,6 +48,36 @@ export const MARKUP_TYPES: EnumOption<'percent' | 'flat'>[] = [
   { value: 'flat', labelKey: 'enums.markupType.flat' },
 ];
 
+/** Model visibility: `public` = open to all tenants; `tenant` = grant-gated. */
+export const VISIBILITIES: EnumOption<'public' | 'tenant'>[] = [
+  { value: 'public', labelKey: 'enums.visibility.public' },
+  { value: 'tenant', labelKey: 'enums.visibility.tenant' },
+];
+
+export const MODEL_STATUSES: EnumOption<'active' | 'disabled'>[] = [
+  { value: 'active', labelKey: 'enums.modelStatus.active' },
+  { value: 'disabled', labelKey: 'enums.modelStatus.disabled' },
+];
+
+/** A known capability flag, surfaced as a toggle (editor) / chip (table). */
+export interface CapabilityDef {
+  key: string;
+  labelKey: string;
+}
+
+/**
+ * Known model capability flags. The set is open-ended (`capabilities` is a
+ * free-form `Record<string,boolean>`); these are the common ones the UI labels
+ * and chips. Unknown flags are preserved and shown by their raw key.
+ */
+export const CAPABILITIES: CapabilityDef[] = [
+  { key: 'tools', labelKey: 'enums.capability.tools' },
+  { key: 'vision', labelKey: 'enums.capability.vision' },
+  { key: 'audio', labelKey: 'enums.capability.audio' },
+  { key: 'json', labelKey: 'enums.capability.json' },
+  { key: 'stream', labelKey: 'enums.capability.stream' },
+];
+
 /** Common upstream provider identifiers — suggestions for free-text fields (not an enum). */
 export const COMMON_PROVIDERS = [
   'openai',

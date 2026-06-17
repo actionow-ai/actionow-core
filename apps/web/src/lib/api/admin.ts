@@ -19,6 +19,7 @@ import type {
   GenerateCodesBody,
   JobView,
   LedgerView,
+  ModelGrantView,
   ModelView,
   ModifierView,
   Page,
@@ -31,6 +32,7 @@ import type {
   TenantView,
   TopupBody,
   UpdateChannelBody,
+  UpdateModelBody,
   UpdateResourceBody,
   UsageLogView,
   UsageRollupView,
@@ -96,9 +98,26 @@ export function makeAdminApi(client: ApiClient) {
     createSecret: (body: CreateSecretBody) => client.post<SecretView>('/admin/secrets', body),
 
     listModels: async () => (await client.getPage<ModelView>('/admin/models')).rows,
-    createModel: (body: CreateModelBody) => client.post<ModelView>('/admin/models', body),
-    grantModel: (name: string, body: { tenantId: string }) =>
-      client.post<{ ok: true }>(`/admin/models/${name}/grants`, body),
+    createModel: (body: CreateModelBody, idempotencyKey?: string) =>
+      client.post<ModelView>('/admin/models', body, { idempotencyKey }),
+    getModel: (name: string) => client.get<ModelView>(`/admin/models/${encodeURIComponent(name)}`),
+    // PATCH carries no idempotency key (the client's `patch` has no such option,
+    // and PATCH is naturally idempotent — re-applying the same body is a no-op).
+    updateModel: (name: string, body: UpdateModelBody) =>
+      client.patch<ModelView>(`/admin/models/${encodeURIComponent(name)}`, body),
+    deleteModel: (name: string): Promise<void> =>
+      client.delete<undefined>(`/admin/models/${encodeURIComponent(name)}`),
+    grantModel: (name: string, body: { tenantId: string }, idempotencyKey?: string) =>
+      client.post<{ ok: true }>(`/admin/models/${encodeURIComponent(name)}/grants`, body, {
+        idempotencyKey,
+      }),
+    listModelGrants: async (name: string) =>
+      (await client.getPage<ModelGrantView>(`/admin/models/${encodeURIComponent(name)}/grants`))
+        .rows,
+    revokeModelGrant: (name: string, tenantId: string): Promise<void> =>
+      client.delete<undefined>(
+        `/admin/models/${encodeURIComponent(name)}/grants/${encodeURIComponent(tenantId)}`,
+      ),
 
     generateCodes: (body: GenerateCodesBody) =>
       client.post<{ codes: string[]; credit_amount: string }>('/admin/redemption-codes', body),

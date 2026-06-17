@@ -128,6 +128,14 @@ export interface ModelView {
   created_at: string;
 }
 
+/** A tenant grant on a `tenant`-visibility model (public models ignore grants). */
+export interface ModelGrantView {
+  id: string;
+  model_id: string;
+  tenant_id: string;
+  created_at: string;
+}
+
 export interface UsageLogView {
   id: string;
   tenant_id: string;
@@ -280,6 +288,20 @@ export interface CreateModelBody {
   inputPrice?: number;
   /** µcredit-per-OUTPUT-token (integer). */
   outputPrice?: number;
+  status?: 'active' | 'disabled';
+}
+/**
+ * PATCH a model: omitted = unchanged; `display: null` clears the label. `name`,
+ * `resourceId` and `modality` are immutable post-create (backend strips them).
+ */
+export interface UpdateModelBody {
+  display?: string | null;
+  capabilities?: Record<string, boolean>;
+  /** µcredit-per-INPUT-token (integer). */
+  inputPrice?: number;
+  /** µcredit-per-OUTPUT-token (integer). */
+  outputPrice?: number;
+  visibility?: 'public' | 'tenant';
   status?: 'active' | 'disabled';
 }
 export interface GenerateCodesBody {
