@@ -291,9 +291,16 @@ describe('webhook-outbox processor', () => {
   it('delivers a due webhook and marks it sent', async () => {
     const s = await seed(1_000_000n);
     const job = await makeQueuedJob(s, 1_000n);
-    await db
-      .insert(webhookOutbox)
-      .values({ jobId: job.id, url: 'https://hook.example/cb', payload: { job_id: job.id } });
+    // Seed an explicit past due-time so the row is unambiguously due regardless
+    // of Postgres-container-vs-host clock skew (defaultNow() uses the container
+    // clock; the processor queries with the host clock). Mirrors the hold-reaper
+    // test's `new Date(Date.now() - 60_000)`.
+    await db.insert(webhookOutbox).values({
+      jobId: job.id,
+      url: 'https://hook.example/cb',
+      payload: { job_id: job.id },
+      nextAttemptAt: new Date(Date.now() - 60_000),
+    });
 
     const calls: { url: string }[] = [];
     const http: HttpClient = {
