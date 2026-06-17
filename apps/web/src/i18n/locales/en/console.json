@@ -40,6 +40,7 @@
     "tenants": "Tenants",
     "accounts": "Accounts",
     "apiKeys": "API Keys",
+    "catalog": "Catalog",
     "resources": "Resources",
     "models": "Models",
     "modifiers": "Modifiers",

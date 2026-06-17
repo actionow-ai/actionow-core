@@ -1,18 +1,25 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 
 import { ConsoleLayout } from './components/console/ConsoleLayout';
 import { UserHome } from './features/app/UserHome';
 import { AuthPage } from './features/auth/AuthPage';
 import { AccountsPage } from './features/console/AccountsPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
+import { CatalogPage } from './features/console/CatalogPage';
 import { DashboardPage } from './features/console/DashboardPage';
 import { DifyImportPage } from './features/console/DifyImportPage';
-import { ModelsPage } from './features/console/ModelsPage';
 import { ModifiersPage } from './features/console/ModifiersPage';
-import { ResourcesPage } from './features/console/ResourcesPage';
 import { TenantsPage } from './features/console/TenantsPage';
 import { LandingPage } from './features/landing/LandingPage';
 import { ProtectedRoute } from './lib/auth/ProtectedRoute';
+
+/** Redirect the legacy `/console/resources/:id` deep link into the unified catalog route, preserving the selected resource as `?id`. */
+function ResourceRedirect() {
+  const { id } = useParams();
+  return (
+    <Navigate to={`/console/catalog?tab=resources&id=${encodeURIComponent(id ?? '')}`} replace />
+  );
+}
 
 export function AppRoutes() {
   return (
@@ -30,9 +37,14 @@ export function AppRoutes() {
         <Route path="/console" element={<ConsoleLayout />}>
           <Route index element={<Navigate to="/console/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="resources" element={<ResourcesPage />} />
-          <Route path="resources/:id" element={<ResourcesPage />} />
-          <Route path="models" element={<ModelsPage />} />
+          <Route path="catalog" element={<CatalogPage />} />
+          {/* Legacy routes redirect into the unified catalog page (single route + ?tab). */}
+          <Route
+            path="resources"
+            element={<Navigate to="/console/catalog?tab=resources" replace />}
+          />
+          <Route path="resources/:id" element={<ResourceRedirect />} />
+          <Route path="models" element={<Navigate to="/console/catalog?tab=models" replace />} />
           <Route path="modifiers" element={<ModifiersPage />} />
           <Route path="dify" element={<DifyImportPage />} />
           <Route path="tenants" element={<TenantsPage />} />

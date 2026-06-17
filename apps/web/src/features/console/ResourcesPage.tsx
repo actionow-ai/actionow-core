@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CSSProperties } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
 
 import { useSetConsoleAction, useSetConsoleBack } from '../../components/console/ConsoleChrome';
 import { CardCollection } from '../../components/data/CardCollection';
@@ -33,12 +32,14 @@ import { useAdminApi } from '../../lib/api/useAdminApi';
 import { BP } from '../../lib/breakpoints';
 import { STALE_REFERENCE } from '../../lib/query';
 import { useMediaQuery } from '../../lib/useMediaQuery';
+import { useUrlState } from '../../lib/useUrlState';
 import { ResourceDetailPane } from './ResourceDetailPane';
 
 export function ResourcesPage() {
   const { t } = useTranslation('console');
-  const { id } = useParams();
-  const navigate = useNavigate();
+  // Resource selection lives in url-state (`?id=`) so it shares the single
+  // /console/catalog route with the page-level 模型|资源 tab (no route param).
+  const [id, setId] = useUrlState('id');
   const api = useAdminApi();
   const qc = useQueryClient();
   const isWide = useMediaQuery(BP.xxl);
@@ -97,10 +98,11 @@ export function ResourcesPage() {
     ),
     [t],
   );
-  // On a narrow viewport the detail replaces the list, so offer a back target.
+  // On a narrow viewport the detail replaces the list, so offer a back target
+  // (clears the selection by dropping `?id` while keeping the resources tab).
   useSetConsoleBack(
-    id !== undefined && !isWide
-      ? { to: '/console/resources', label: t('resources.detail.back') }
+    id !== '' && !isWide
+      ? { to: '/console/catalog?tab=resources', label: t('resources.detail.back') }
       : null,
   );
 
@@ -119,7 +121,7 @@ export function ResourcesPage() {
             <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
           }
           chips={[r.modality, r.provider_type, ...r.exec_modes]}
-          onClick={() => void navigate(`/console/resources/${r.id}`)}
+          onClick={() => setId(r.id)}
           selected={r.id === id}
         />
       )}
@@ -127,7 +129,7 @@ export function ResourcesPage() {
   );
 
   const detail =
-    id !== undefined ? (
+    id !== '' ? (
       <ResourceDetailPane id={id} />
     ) : (
       <div
@@ -221,7 +223,7 @@ export function ResourcesPage() {
 
   return (
     <div style={SCROLL_COL}>
-      {id !== undefined ? detail : list}
+      {id !== '' ? detail : list}
       {modal}
     </div>
   );
