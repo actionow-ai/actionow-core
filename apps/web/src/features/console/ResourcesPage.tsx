@@ -16,6 +16,7 @@ import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
+import { qk } from '../../lib/api/queryKeys';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { BP } from '../../lib/breakpoints';
 import { useMediaQuery } from '../../lib/useMediaQuery';
@@ -28,7 +29,7 @@ export function ResourcesPage() {
   const api = useAdminApi();
   const qc = useQueryClient();
   const isWide = useMediaQuery(BP.xl);
-  const { data, isLoading } = useQuery({ queryKey: ['admin', 'resources'], queryFn: () => api.listResources() });
+  const { data, isLoading } = useQuery({ queryKey: qk.resources(), queryFn: () => api.listResources() });
 
   const [open, setOpen] = useState(false);
   const [rid, setRid] = useState('');
@@ -55,7 +56,7 @@ export function ResourcesPage() {
       });
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['admin', 'resources'] });
+      await qc.invalidateQueries({ queryKey: qk.resources() });
       toast(t('resources.created'));
       setOpen(false);
     },

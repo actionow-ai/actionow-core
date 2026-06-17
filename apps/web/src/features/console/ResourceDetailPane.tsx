@@ -14,6 +14,7 @@ import { SectionHeader } from '../../components/ui/SectionHeader';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
+import { qk } from '../../lib/api/queryKeys';
 import type { PricebookView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
@@ -23,9 +24,9 @@ export function ResourceDetailPane({ id }: { id: string }) {
   const api = useAdminApi();
   const qc = useQueryClient();
 
-  const resources = useQuery({ queryKey: ['admin', 'resources'], queryFn: () => api.listResources() });
+  const resources = useQuery({ queryKey: qk.resources(), queryFn: () => api.listResources() });
   const resource = (resources.data ?? []).find((r) => r.id === id);
-  const pricebook = useQuery({ queryKey: ['admin', 'pricebook', id], queryFn: () => api.listPricebook(id), enabled: id !== '' });
+  const pricebook = useQuery({ queryKey: qk.pricebook(id), queryFn: () => api.listPricebook(id), enabled: id !== '' });
 
   const [chOpen, setChOpen] = useState(false);
   const [chProvider, setChProvider] = useState('openai');
@@ -65,7 +66,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
       });
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['admin', 'pricebook', id] });
+      await qc.invalidateQueries({ queryKey: qk.pricebook(id) });
       toast(t('resources.detail.priceAdded'));
       setPbOpen(false);
     },

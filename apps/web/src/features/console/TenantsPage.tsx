@@ -12,13 +12,14 @@ import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
+import { qk } from '../../lib/api/queryKeys';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
 export function TenantsPage() {
   const { t } = useTranslation('console');
   const api = useAdminApi();
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({ queryKey: ['tenants'], queryFn: () => api.listTenants() });
+  const { data, isLoading } = useQuery({ queryKey: qk.tenants(), queryFn: () => api.listTenants() });
 
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -27,7 +28,7 @@ export function TenantsPage() {
   const create = useMutation({
     mutationFn: () => api.createTenant({ name, isolationMode: isolation as 'field' | 'schema' | 'db' }),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['tenants'] });
+      await qc.invalidateQueries({ queryKey: qk.tenants() });
       toast(t('tenants.created'));
       setOpen(false);
       setName('');

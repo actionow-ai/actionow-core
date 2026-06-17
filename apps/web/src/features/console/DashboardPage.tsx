@@ -11,18 +11,19 @@ import { Money } from '../../components/data/Money';
 import { StatusBadge } from '../../components/data/StatusBadge';
 import { TenantSelect } from '../../components/data/TenantSelect';
 import { SectionHeader } from '../../components/ui/SectionHeader';
+import { qk } from '../../lib/api/queryKeys';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
 export function DashboardPage() {
   const { t } = useTranslation('console');
   const api = useAdminApi();
 
-  const tenants = useQuery({ queryKey: ['tenants'], queryFn: () => api.listTenants() });
-  const resources = useQuery({ queryKey: ['resources'], queryFn: () => api.listResources() });
+  const tenants = useQuery({ queryKey: qk.tenants(), queryFn: () => api.listTenants() });
+  const resources = useQuery({ queryKey: qk.resources(), queryFn: () => api.listResources() });
 
   const [tenantId, setTenantId] = useState('');
   const jobs = useQuery({
-    queryKey: ['jobs', tenantId],
+    queryKey: qk.jobs(tenantId),
     queryFn: () => api.listJobs({ tenantId, limit: 8 }),
     enabled: tenantId !== '',
   });

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
+import { qk } from '../../lib/api/queryKeys';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { Select } from '../ui/Select';
 import { SelectField } from '../ui/SelectField';
@@ -20,7 +21,7 @@ export function TenantSelect({
   placeholder?: string;
 }) {
   const api = useAdminApi();
-  const { data } = useQuery({ queryKey: ['tenants'], queryFn: () => api.listTenants() });
+  const { data } = useQuery({ queryKey: qk.tenants(), queryFn: () => api.listTenants() });
   const options = (data ?? []).map((t) => ({ value: t.id, label: t.name }));
   if (label === undefined) {
     return <Select value={value} onChange={onChange} options={options} placeholder={placeholder} ariaLabel={placeholder} />;

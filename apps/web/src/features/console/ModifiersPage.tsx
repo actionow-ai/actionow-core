@@ -13,6 +13,7 @@ import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
+import { qk } from '../../lib/api/queryKeys';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
 const OPS = ['override_rate', 'percent_off', 'flat_off', 'percent_add'];
@@ -21,7 +22,7 @@ export function ModifiersPage() {
   const { t } = useTranslation('console');
   const api = useAdminApi();
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({ queryKey: ['admin', 'modifiers'], queryFn: () => api.listModifiers() });
+  const { data, isLoading } = useQuery({ queryKey: qk.modifiers(), queryFn: () => api.listModifiers() });
 
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState('global');
@@ -40,7 +41,7 @@ export function ModifiersPage() {
         priority: priority.trim() === '' ? undefined : Number(priority),
       }),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['admin', 'modifiers'] });
+      await qc.invalidateQueries({ queryKey: qk.modifiers() });
       toast(t('modifiers.created'));
       setOpen(false);
     },

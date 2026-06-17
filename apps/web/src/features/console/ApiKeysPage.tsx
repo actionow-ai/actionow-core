@@ -14,6 +14,7 @@ import { Modal } from '../../components/ui/Modal';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
+import { qk } from '../../lib/api/queryKeys';
 import type { CreateApiKeyBody } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
@@ -24,7 +25,7 @@ export function ApiKeysPage() {
 
   const [tenantId, setTenantId] = useState('');
   const { data, isLoading } = useQuery({
-    queryKey: ['api-keys', tenantId],
+    queryKey: qk.apiKeys(tenantId),
     queryFn: () => api.listApiKeys(tenantId),
     enabled: tenantId !== '',
   });
@@ -46,7 +47,7 @@ export function ApiKeysPage() {
       return api.createApiKey(body);
     },
     onSuccess: async (r) => {
-      await qc.invalidateQueries({ queryKey: ['api-keys', tenantId] });
+      await qc.invalidateQueries({ queryKey: qk.apiKeys(tenantId) });
       setFormOpen(false);
       setAllowlist('');
       setRateLimit('');
