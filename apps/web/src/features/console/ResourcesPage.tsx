@@ -7,15 +7,24 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useSetConsoleAction, useSetConsoleBack } from '../../components/console/ConsoleChrome';
 import { CardCollection } from '../../components/data/CardCollection';
 import { EntityCard } from '../../components/data/EntityCard';
+import { IoSchemaField } from '../../components/data/IoSchemaField';
+import { buildIoSchema, emptyIoField, type IoField } from '../../components/data/ioSchemaShape';
 import { ProviderIcon } from '../../components/data/ProviderIcon';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
+import { TenantSelect } from '../../components/data/TenantSelect';
 import { Button } from '../../components/ui/Button';
-import { JsonField, validateJson } from '../../components/ui/JsonField';
+import { ChipsField } from '../../components/ui/ChipsField';
 import { Modal } from '../../components/ui/Modal';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
-import { ApiError } from '../../lib/api/errors';
+import {
+  COMMON_PROVIDERS,
+  EXEC_MODES,
+  MODALITIES,
+  RESOURCE_KINDS,
+  toOptions,
+} from '../../lib/api/enums';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { Modality } from '../../lib/api/types';
@@ -42,26 +51,25 @@ export function ResourcesPage() {
   const [rid, setRid] = useState('');
   const [tenantId, setTenantId] = useState('');
   const [kind, setKind] = useState<'model' | 'workflow'>('model');
-  const [modality, setModality] = useState('text');
+  const [modality, setModality] = useState<Modality>('text');
   const [provider, setProvider] = useState('openai');
-  const [execModes, setExecModes] = useState('blocking');
-  const [ioSchema, setIoSchema] = useState('{\n  "inputs": [],\n  "outputs": []\n}');
-  const [jsonErr, setJsonErr] = useState<string | undefined>(undefined);
+  const [execModes, setExecModes] = useState<string[]>(['blocking']);
+  const [ioForm, setIoForm] = useState<{ inputs: IoField[]; outputs: IoField[] }>({
+    inputs: [{ ...emptyIoField(), key: 'prompt', type: 'string', required: true }],
+    outputs: [{ ...emptyIoField(), key: 'text', type: 'string' }],
+  });
 
   const create = useMutation({
-    mutationFn: () => {
-      const parsed = validateJson(ioSchema);
-      if (!parsed.ok) throw new ApiError('invalid_input', parsed.error, 400, false);
-      return api.createResource({
+    mutationFn: () =>
+      api.createResource({
         id: rid,
         tenantId,
         kind,
-        modality: modality as Modality,
+        modality,
         providerType: provider,
-        execModes: execModes.split(',').map((s) => s.trim()).filter(Boolean),
-        ioSchema: parsed.value,
-      });
-    },
+        execModes,
+        ioSchema: buildIoSchema(ioForm.inputs, ioForm.outputs),
+      }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: qk.resources() });
       toast(t('resources.created'));
@@ -79,7 +87,11 @@ export function ResourcesPage() {
     [t],
   );
   // On a narrow viewport the detail replaces the list, so offer a back target.
-  useSetConsoleBack(id !== undefined && !isWide ? { to: '/console/resources', label: t('resources.detail.back') } : null);
+  useSetConsoleBack(
+    id !== undefined && !isWide
+      ? { to: '/console/resources', label: t('resources.detail.back') }
+      : null,
+  );
 
   const list = (
     <CardCollection
@@ -92,7 +104,9 @@ export function ResourcesPage() {
           key={r.id}
           glyph={<ProviderIcon provider={r.provider_type} size={22} />}
           title={r.id}
-          badge={<StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />}
+          badge={
+            <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+          }
           chips={[r.modality, r.provider_type, ...r.exec_modes]}
           onClick={() => void navigate(`/console/resources/${r.id}`)}
           selected={r.id === id}
@@ -105,7 +119,18 @@ export function ResourcesPage() {
     id !== undefined ? (
       <ResourceDetailPane id={id} />
     ) : (
-      <div className="panel" style={{ height: '100%', display: 'grid', placeItems: 'center', borderRadius: 'var(--r-md)', color: 'var(--muted)', fontSize: 'var(--fs-sm)', padding: 'var(--s-6)' }}>
+      <div
+        className="panel"
+        style={{
+          height: '100%',
+          display: 'grid',
+          placeItems: 'center',
+          borderRadius: 'var(--r-md)',
+          color: 'var(--muted)',
+          fontSize: 'var(--fs-sm)',
+          padding: 'var(--s-6)',
+        }}
+      >
         {t('resources.detail.pick')}
       </div>
     );
@@ -121,36 +146,56 @@ export function ResourcesPage() {
         </Button>
       }
     >
-      <TextField label={t('resources.form.id')} value={rid} onChange={setRid} />
-      <TextField label={t('resources.form.tenant')} value={tenantId} onChange={setTenantId} />
+      <TextField
+        label={t('resources.form.id')}
+        tooltip={t('resources.tip.id')}
+        value={rid}
+        onChange={setRid}
+      />
+      <TenantSelect label={t('resources.form.tenant')} value={tenantId} onChange={setTenantId} />
       <SelectField
         label={t('resources.form.kind')}
+        tooltip={t('resources.tip.kind')}
         value={kind}
         onChange={(v) => setKind(v as 'model' | 'workflow')}
-        options={[
-          { value: 'model', label: t('resources.kind.model') },
-          { value: 'workflow', label: t('resources.kind.workflow') },
-        ]}
+        options={toOptions(RESOURCE_KINDS, t)}
       />
-      <TextField label={t('resources.form.modality')} value={modality} onChange={setModality} />
-      <TextField label={t('resources.form.provider')} value={provider} onChange={setProvider} />
-      <TextField label={t('resources.form.execModes')} value={execModes} onChange={setExecModes} />
-      <JsonField
-        label={t('resources.form.ioSchema')}
-        value={ioSchema}
-        onChange={(v) => {
-          setIoSchema(v);
-          setJsonErr(validateJson(v).ok ? undefined : 'invalid JSON');
-        }}
-        error={jsonErr}
+      <SelectField
+        label={t('resources.form.modality')}
+        tooltip={t('resources.tip.modality')}
+        value={modality}
+        onChange={(v) => setModality(v as Modality)}
+        options={toOptions(MODALITIES, t)}
       />
+      <TextField
+        label={t('resources.form.provider')}
+        tooltip={t('resources.tip.providerType')}
+        hint={COMMON_PROVIDERS.join(' · ')}
+        value={provider}
+        onChange={setProvider}
+      />
+      <ChipsField
+        label={t('resources.form.execModes')}
+        tooltip={t('resources.tip.execModes')}
+        value={execModes}
+        onChange={setExecModes}
+        suggestions={[...EXEC_MODES]}
+      />
+      <IoSchemaField value={ioForm} onChange={setIoForm} />
     </Modal>
   );
 
   // Wide: master list + detail side by side. Narrow: detail replaces list when selected.
   if (isWide) {
     return (
-      <div style={{ height: '100%', display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) minmax(360px, 1.2fr)', gap: 'var(--s-3)' }}>
+      <div
+        style={{
+          height: '100%',
+          display: 'grid',
+          gridTemplateColumns: 'minmax(300px, 1fr) minmax(360px, 1.2fr)',
+          gap: 'var(--s-3)',
+        }}
+      >
         <div style={{ minHeight: 0, overflowY: 'auto', padding: 'var(--s-2)' }}>{list}</div>
         <div style={{ minHeight: 0, overflowY: 'auto', padding: 'var(--s-2)' }}>{detail}</div>
         {modal}
