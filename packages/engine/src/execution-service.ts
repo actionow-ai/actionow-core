@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
 import type { AdapterRegistry } from '@actionow/adapters';
-import { isRetryableAdapterError, routeWithFailover } from '@actionow/adapters';
 import type {
   AdapterContext,
   ChatRequest,
@@ -38,6 +37,7 @@ import {
   validateInputs,
 } from '@actionow/domain';
 
+import { routeBlocking } from './channel-routing.js';
 import { EngineError, engineError } from './errors.js';
 import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
 import { createChatSettlingStream, createSettlingStream } from './stream.js';
@@ -305,10 +305,14 @@ export class ExecutionService {
       throw engineError('internal_error', `adapter ${req.resource.providerType} cannot chat`);
     }
 
+    const chat = adapter.chat.bind(adapter);
     let response: ChatResponse;
     try {
-      const ctx = await this.buildContext(req, req.channels[0] ?? { id: 'default', weight: 1 });
-      response = await adapter.chat(ir, ctx);
+      response = await routeBlocking(
+        { db: this.deps.db, now: this.deps.now, rng: this.deps.rng ?? Math.random },
+        req.channels,
+        async (channel) => chat(ir, await this.buildContext(req, channel)),
+      );
     } catch (err) {
       await this.failBlocking(req, jobId, holdAmount, err);
       throw toEngineError(err);
@@ -456,20 +460,17 @@ export class ExecutionService {
 
     let result: SubmitResult;
     try {
-      result = await routeWithFailover(
-        req.channels.map((c) => ({ id: c.id, weight: c.weight, value: c })),
-        rng,
-        async (channel) => {
-          const ctx = await this.buildContext(req, channel);
-          return adapter.submit({
+      result = await routeBlocking(
+        { db: this.deps.db, now: this.deps.now, rng },
+        req.channels,
+        async (channel) =>
+          adapter.submit({
             resourceId: req.resource.id,
             modality: req.resource.modality,
             inputs,
             execMode: req.execMode,
-            ctx,
-          });
-        },
-        isRetryableAdapterError,
+            ctx: await this.buildContext(req, channel),
+          }),
       );
     } catch (err) {
       await this.failBlocking(req, jobId, holdAmount, err);

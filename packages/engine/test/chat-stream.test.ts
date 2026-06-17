@@ -44,6 +44,10 @@ vi.mock('@actionow/db', () => ({
   createJob: vi.fn((_db: unknown, p: { id: string }) => Promise.resolve({ id: p.id })),
   claimIdempotency: vi.fn(() => Promise.resolve({ claimed: true })),
   getJob: vi.fn(() => Promise.resolve(undefined)),
+  // Channel-routing health: single-channel tests never query/record, but the
+  // mock must provide them so the rewired runChat/streamChat paths resolve.
+  listCooledDownChannelIds: vi.fn(() => Promise.resolve([])),
+  recordChannelFailure: vi.fn(() => Promise.resolve()),
 }));
 
 beforeEach(() => {
