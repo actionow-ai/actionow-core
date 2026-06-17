@@ -1,7 +1,15 @@
-import type { ChatRequest, ChatStreamEvent } from '@actionow/contracts';
+import type {
+  AdapterContext,
+  ChatRequest,
+  ChatStreamEvent,
+  HttpRequest,
+  HttpResponse,
+  HttpStreamResponse,
+} from '@actionow/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
+  codexOAuthAdapter,
   irToResponsesBody,
   parseResponsesResponse,
   parseResponsesSse,
@@ -82,18 +90,30 @@ describe('irToResponsesBody', () => {
     expect(body.model).toBe('gpt-5-codex');
   });
 
-  it('omits instructions when there is no system message and honors stream:true', () => {
+  it('falls back to the default instructions when there is no system message and honors stream:true', () => {
     const body = irToResponsesBody(
       { model: 'm', messages: [{ role: 'user', content: [{ kind: 'text', text: 'hi' }] }] },
       { stream: true },
     );
-    expect('instructions' in body).toBe(false);
+    // The codex backend rejects an absent/empty instructions, so we always send one.
+    expect(body.instructions).toBe('You are a helpful assistant.');
     expect(body.stream).toBe(true);
     expect(body.input).toEqual([
       { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'hi' }] },
     ]);
     expect('tools' in body).toBe(false);
     expect('max_output_tokens' in body).toBe(false);
+  });
+
+  it('honors a model override from opts, else uses ir.model', () => {
+    const base: ChatRequest = {
+      model: 'm',
+      messages: [{ role: 'user', content: [{ kind: 'text', text: 'hi' }] }],
+    };
+    // An explicit override flows to the body's model.
+    expect(irToResponsesBody(base, { stream: true, model: 'gpt-5.5' }).model).toBe('gpt-5.5');
+    // Without the override the IR model is used.
+    expect(irToResponsesBody(base, { stream: true }).model).toBe('m');
   });
 
   it('renders an assistant text part as output_text', () => {
@@ -244,5 +264,139 @@ describe('parseResponsesSse', () => {
       type: 'error',
       error: { code: 'upstream_error', message: 'boom', retryable: false },
     });
+  });
+});
+
+/**
+ * A mock HttpClient whose `stream(req)` returns an SSE `HttpStreamResponse`
+ * shaped exactly like `FetchHttpClient.stream`: `{ status, ok, lines }` where
+ * `lines` is an async iterable of decoded UTF-8 chunks (the adapter's
+ * `streamChat` reads `res.lines` and frames them via `parseSse`). `request`
+ * must never be called now that `chat()` streams.
+ */
+function streamingHttp(frames: string[]): {
+  http: AdapterContext['http'];
+  seen: { req?: HttpRequest };
+} {
+  const seen: { req?: HttpRequest } = {};
+  const http: AdapterContext['http'] = {
+    request(): Promise<HttpResponse> {
+      return Promise.reject(new Error('chat() must stream, not buffer'));
+    },
+    stream(req: HttpRequest): Promise<HttpStreamResponse> {
+      seen.req = req;
+      return Promise.resolve({
+        status: 200,
+        ok: true,
+        lines: gen(frames),
+      });
+    },
+  };
+  return { http, seen };
+}
+
+/** `chat` is optional on ProviderAdapter; assert it exists for these tests. */
+const chat = codexOAuthAdapter.chat?.bind(codexOAuthAdapter);
+if (chat === undefined) {
+  throw new Error('codex-oauth adapter has no chat()');
+}
+
+describe('codexOAuthAdapter.chat (stream-and-aggregate)', () => {
+  it('streams, aggregates the deltas + usage + stop, and sends stream:true + SSE Accept', async () => {
+    const { http, seen } = streamingHttp([
+      'event: response.created\ndata: {"type":"response.created"}\n\n',
+      'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"codex relay"}\n\n',
+      'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":" ok"}\n\n',
+      'event: response.completed\ndata: {"type":"response.completed","response":{"status":"completed","usage":{"input_tokens":11,"output_tokens":4}}}\n\n',
+    ]);
+    const ctx: AdapterContext = {
+      providerType: 'codex-oauth',
+      apiKey: 'tok',
+      endpoint: 'https://fake.local/backend-api/codex',
+      http,
+    };
+
+    const res = await chat(
+      { model: 'm', messages: [{ role: 'user', content: [{ kind: 'text', text: 'hi' }] }] },
+      ctx,
+    );
+
+    expect(res.message.role).toBe('assistant');
+    expect(res.message.content).toEqual([{ kind: 'text', text: 'codex relay ok' }]);
+    expect(res.message.toolCalls).toBeUndefined();
+    expect(res.usage).toEqual({ inputTokens: 11, outputTokens: 4 });
+    expect(res.stopReason).toBe('stop');
+
+    // The POSTed request streamed: stream:true body + Accept: text/event-stream.
+    expect(seen.req?.method).toBe('POST');
+    expect(seen.req?.url).toBe('https://fake.local/backend-api/codex/responses');
+    expect((seen.req?.body as { stream?: boolean }).stream).toBe(true);
+    expect(seen.req?.headers?.Accept).toBe('text/event-stream');
+  });
+
+  it('aggregates a streamed function_call into toolCalls with parsed arguments', async () => {
+    const { http } = streamingHttp([
+      'event: response.created\ndata: {"type":"response.created"}\n\n',
+      'event: response.output_item.added\ndata: {"type":"response.output_item.added","output_index":0,"item":{"type":"function_call","id":"item_0","call_id":"call_7","name":"lookup"}}\n\n',
+      'event: response.function_call_arguments.delta\ndata: {"type":"response.function_call_arguments.delta","item_id":"item_0","output_index":0,"delta":"{\\"q\\":"}\n\n',
+      'event: response.function_call_arguments.delta\ndata: {"type":"response.function_call_arguments.delta","item_id":"item_0","output_index":0,"delta":"1}"}\n\n',
+      'event: response.completed\ndata: {"type":"response.completed","response":{"status":"completed","usage":{"input_tokens":5,"output_tokens":6}}}\n\n',
+    ]);
+    const ctx: AdapterContext = {
+      providerType: 'codex-oauth',
+      apiKey: 'tok',
+      endpoint: 'https://fake.local/backend-api/codex',
+      http,
+    };
+
+    const res = await chat(
+      { model: 'm', messages: [{ role: 'user', content: [{ kind: 'text', text: 'go' }] }] },
+      ctx,
+    );
+
+    expect(res.message.toolCalls).toEqual([{ id: 'call_7', name: 'lookup', arguments: { q: 1 } }]);
+    expect(res.stopReason).toBe('tool_calls');
+  });
+
+  it('throws an AdapterError on a streamed error event', async () => {
+    const { http } = streamingHttp([
+      'event: response.created\ndata: {"type":"response.created"}\n\n',
+      'event: response.failed\ndata: {"type":"response.failed","response":{"error":{"message":"boom"}}}\n\n',
+    ]);
+    const ctx: AdapterContext = {
+      providerType: 'codex-oauth',
+      apiKey: 'tok',
+      endpoint: 'https://fake.local/backend-api/codex',
+      http,
+    };
+
+    await expect(
+      chat(
+        { model: 'm', messages: [{ role: 'user', content: [{ kind: 'text', text: 'x' }] }] },
+        ctx,
+      ),
+    ).rejects.toThrow('boom');
+  });
+
+  it('threads ctx.model into the streamed request body', async () => {
+    const { http, seen } = streamingHttp([
+      'event: response.created\ndata: {"type":"response.created"}\n\n',
+      'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"hi"}\n\n',
+      'event: response.completed\ndata: {"type":"response.completed","response":{"status":"completed","usage":{"input_tokens":1,"output_tokens":1}}}\n\n',
+    ]);
+    const ctx: AdapterContext = {
+      providerType: 'codex-oauth',
+      model: 'gpt-5.5',
+      apiKey: 'tok',
+      endpoint: 'https://fake.local/backend-api/codex',
+      http,
+    };
+
+    await chat(
+      { model: 'ir-model', messages: [{ role: 'user', content: [{ kind: 'text', text: 'hi' }] }] },
+      ctx,
+    );
+
+    expect((seen.req?.body as { model?: string }).model).toBe('gpt-5.5');
   });
 });

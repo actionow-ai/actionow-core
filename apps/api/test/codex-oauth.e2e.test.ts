@@ -39,10 +39,11 @@ import { UnifiedErrorFilter } from '../src/common/unified-error.filter.js';
  * translation: `Authorization: Bearer <oauth access token>`, `Originator:
  * codex_cli_rs`, `Chatgpt-Account-Id: <acct>`, `OpenAI-Beta: responses=experimental`,
  * a `codex_cli_rs` User-Agent, and a Responses-shaped body (`store:false`, system
- * hoisted to `instructions`, an `input` array with NO system role). It returns a
- * canned non-stream Responses reply, which the relay translates back to OpenAI
- * `chat.completion`. We then assert settle-once, a `usage_log` row tagged
- * `provider_type='codex-oauth'`, and the `x-actionow-channel: codex-oauth` header.
+ * hoisted to `instructions`, an `input` array with NO system role). The codex
+ * backend is stream-only, so it returns a canned Responses SSE stream, which the
+ * relay's `chat()` aggregates back into an OpenAI `chat.completion`. We then
+ * assert settle-once, a `usage_log` row tagged `provider_type='codex-oauth'`,
+ * and the `x-actionow-channel: codex-oauth` header.
  *
  * The oauth access token decrypts because `SECRET_ENCRYPTION_KEY` is set both in
  * the ENV override AND on `process.env` (the `oauth` branch of `resolveSecretRef`
@@ -127,21 +128,30 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-/** Canned OpenAI Responses non-stream reply the fake upstream returns. */
-const CANNED_RESPONSE = {
-  output: [
-    {
-      type: 'message',
-      role: 'assistant',
-      content: [{ type: 'output_text', text: 'hi from codex' }],
+/**
+ * Canned OpenAI **Responses SSE** stream the fake upstream emits.
+ *
+ * The codex backend is stream-only, so the adapter's `chat()` requests an SSE
+ * stream (`stream:true` + `Accept: text/event-stream`) and aggregates it. These
+ * frames are the streaming equivalent of the old non-stream reply: two
+ * `output_text.delta`s that concatenate to `'hi from codex'`, then a
+ * `response.completed` carrying the same `usage` + a `completed` status.
+ */
+const CANNED_SSE_FRAMES = [
+  'event: response.created\ndata: {"type":"response.created"}\n\n',
+  'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"hi from "}\n\n',
+  'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"codex"}\n\n',
+  `event: response.completed\ndata: ${JSON.stringify({
+    type: 'response.completed',
+    response: {
+      status: 'completed',
+      usage: {
+        input_tokens: Number(UPSTREAM_INPUT_TOKENS),
+        output_tokens: Number(UPSTREAM_OUTPUT_TOKENS),
+      },
     },
-  ],
-  usage: {
-    input_tokens: Number(UPSTREAM_INPUT_TOKENS),
-    output_tokens: Number(UPSTREAM_OUTPUT_TOKENS),
-  },
-  status: 'completed',
-};
+  })}\n\n`,
+];
 
 beforeAll(async () => {
   // Stand up the fake "codex responses" upstream. The adapter POSTs to
@@ -151,8 +161,14 @@ beforeAll(async () => {
     void (async () => {
       const raw = await readBody(req);
       seen = { headers: req.headers, body: asRecord(JSON.parse(raw)) };
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify(CANNED_RESPONSE));
+      // The codex backend is stream-only: respond with an SSE stream of
+      // Responses events, which the relay's chat() aggregates back into a
+      // chat.completion.
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      for (const frame of CANNED_SSE_FRAMES) {
+        res.write(frame);
+      }
+      res.end();
     })();
   });
   await new Promise<void>((resolve) => upstream?.listen(0, '127.0.0.1', resolve));

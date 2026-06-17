@@ -18,6 +18,30 @@ const fakeHttp = (
   },
 });
 
+/** Yield canned SSE frames as decoded chunks (mirrors FetchHttpClient.stream). */
+function sseLines(frames: string[]): AsyncIterable<string> {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  return (async function* g(): AsyncIterable<string> {
+    for (const f of frames) yield f;
+  })();
+}
+
+/**
+ * A streaming HttpClient — `chat()` is stream-only now, so it reaches
+ * `http.stream` (via the adapter's shared transport), never `request`.
+ */
+const streamingHttp = (
+  status: number,
+  frames: string[],
+  cap?: (r: HttpRequest) => void,
+): HttpClient => ({
+  request: () => Promise.reject(new Error('codex chat() must stream, not buffer')),
+  stream: (r: HttpRequest) => {
+    cap?.(r);
+    return Promise.resolve({ status, ok: status < 400, lines: sseLines(frames) });
+  },
+});
+
 const ir: ChatRequest = {
   model: 'gpt-5-codex',
   messages: [
@@ -50,16 +74,16 @@ describe('codexOAuthAdapter.chat', () => {
     ).rejects.toThrow();
   });
 
-  it('POSTs a Responses-shaped body to the codex backend with cli-impersonation headers', async () => {
+  it('streams a Responses-shaped body to the codex backend with cli-impersonation headers', async () => {
     let seen: HttpRequest | undefined;
-    const http = fakeHttp(
-      {
-        status: 200,
-        body: {
-          output: [{ type: 'message', content: [{ type: 'output_text', text: 'hello' }] }],
-          usage: { input_tokens: 7, output_tokens: 3 },
-        },
-      },
+    // The codex backend is stream-only; chat() streams + aggregates the SSE reply.
+    const http = streamingHttp(
+      200,
+      [
+        'event: response.created\ndata: {"type":"response.created"}\n\n',
+        'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"hello"}\n\n',
+        'event: response.completed\ndata: {"type":"response.completed","response":{"status":"completed","usage":{"input_tokens":7,"output_tokens":3}}}\n\n',
+      ],
       (r) => {
         seen = r;
       },
@@ -83,13 +107,14 @@ describe('codexOAuthAdapter.chat', () => {
     expect(headers['OpenAI-Beta']).toBe('responses=experimental');
     expect(headers['User-Agent']).toContain('codex_cli_rs');
     expect(headers.version).toBe('0.125.0');
-    expect(headers.Accept).toBe('application/json');
+    // The codex backend is stream-only — chat() requests the SSE stream.
+    expect(headers.Accept).toBe('text/event-stream');
     expect(headers['Content-Type']).toBe('application/json');
 
-    // Responses-shaped body: store:false, input array, system -> instructions.
+    // Responses-shaped body: store:false, stream:true, input array, system -> instructions.
     expect(seen?.body).toMatchObject({
       store: false,
-      stream: false,
+      stream: true,
       instructions: 'be terse',
     });
     expect(Array.isArray((seen?.body as { input?: unknown }).input)).toBe(true);
@@ -101,9 +126,16 @@ describe('codexOAuthAdapter.chat', () => {
 
   it('omits Chatgpt-Account-Id when config has no chatgptAccountId', async () => {
     let seen: HttpRequest | undefined;
-    const http = fakeHttp({ status: 200, body: { output: [], usage: {} } }, (r) => {
-      seen = r;
-    });
+    const http = streamingHttp(
+      200,
+      [
+        'event: response.created\ndata: {"type":"response.created"}\n\n',
+        'event: response.completed\ndata: {"type":"response.completed","response":{"status":"completed","usage":{}}}\n\n',
+      ],
+      (r) => {
+        seen = r;
+      },
+    );
     await codexOAuthAdapter.chat?.(ir, {
       providerType: 'codex-oauth',
       apiKey: 'oat-tok',
@@ -114,9 +146,16 @@ describe('codexOAuthAdapter.chat', () => {
 
   it('forwards ctx.proxyUrl onto the http request', async () => {
     let seen: HttpRequest | undefined;
-    const http = fakeHttp({ status: 200, body: { output: [], usage: {} } }, (r) => {
-      seen = r;
-    });
+    const http = streamingHttp(
+      200,
+      [
+        'event: response.created\ndata: {"type":"response.created"}\n\n',
+        'event: response.completed\ndata: {"type":"response.completed","response":{"status":"completed","usage":{}}}\n\n',
+      ],
+      (r) => {
+        seen = r;
+      },
+    );
     await codexOAuthAdapter.chat?.(ir, {
       providerType: 'codex-oauth',
       apiKey: 'oat-tok',

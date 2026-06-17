@@ -31,16 +31,33 @@ import { parseSse } from './internal/sse.js';
 import { openStream } from './internal/stream.js';
 import type { AdapterCapabilities, ProviderAdapter } from './types.js';
 
+/**
+ * The codex backend rejects a request with an absent/empty `instructions`
+ * field (HTTP 400 `{"detail":"Instructions are required"}`), so we always send
+ * a non-empty value — this default applies when the IR has no system text.
+ */
+const CODEX_DEFAULT_INSTRUCTIONS = 'You are a helpful assistant.';
+
 /** Options for {@link irToResponsesBody}. */
 export interface ResponsesBodyOpts {
   /** Whether to request an SSE stream (sets `stream`). */
   stream: boolean;
+  /**
+   * Optional upstream model name override. When set (e.g. from a per-channel
+   * `ctx.model`), it wins over `ir.model` so a channel can pin the upstream to
+   * a supported model name.
+   */
+  model?: string;
 }
 
-/** A Responses request body. `input` is always an array; `store` is always false. */
+/**
+ * A Responses request body. `input` is always an array; `store` is always
+ * false; `instructions` is always present and non-empty (the codex backend
+ * rejects an absent/empty one).
+ */
 export interface ResponsesBody {
   model: string;
-  instructions?: string;
+  instructions: string;
   input: Record<string, unknown>[];
   stream: boolean;
   store: false;
@@ -137,8 +154,11 @@ function pushInputItems(items: Record<string, unknown>[], msg: Message): void {
  * Translate an IR {@link ChatRequest} into an OpenAI Responses request body.
  *
  * All `system` messages are concatenated into top-level `instructions` (the
- * Responses upstream rejects a system role inside `input`). `store` is always
- * false; `stream` follows the caller's opts.
+ * Responses upstream rejects a system role inside `input`); when the IR carries
+ * no system text we fall back to {@link CODEX_DEFAULT_INSTRUCTIONS} because the
+ * codex backend rejects an absent/empty `instructions`. `store` is always
+ * false; `stream` follows the caller's opts; `model` is `opts.model ?? ir.model`
+ * so a per-channel override (`ctx.model`) reaches the upstream.
  */
 export function irToResponsesBody(ir: ChatRequest, opts: ResponsesBodyOpts): ResponsesBody {
   const systemTexts: string[] = [];
@@ -152,14 +172,13 @@ export function irToResponsesBody(ir: ChatRequest, opts: ResponsesBodyOpts): Res
   }
 
   const body: ResponsesBody = {
-    model: ir.model,
+    model: opts.model ?? ir.model,
+    // Always non-empty: the codex backend rejects an absent/empty instructions.
+    instructions: systemTexts.length > 0 ? systemTexts.join('\n') : CODEX_DEFAULT_INSTRUCTIONS,
     input,
     stream: opts.stream,
     store: false,
   };
-  if (systemTexts.length > 0) {
-    body.instructions = systemTexts.join('\n');
-  }
   if (ir.tools !== undefined && ir.tools.length > 0) {
     body.tools = ir.tools.map(irToolToResponses);
   }
@@ -236,6 +255,79 @@ export function parseResponsesResponse(wire: unknown): ChatResponse {
     stopReason: responseStopReason(root, toolCalls.length > 0),
     usage: usageFrom(root?.usage),
   };
+}
+
+/**
+ * Fold a {@link parseResponsesSse} event stream into a {@link ChatResponse}.
+ *
+ * Mirrors the {@link parseResponsesResponse} (non-stream) output shape:
+ * - `content_delta.text` slices concatenate into the assistant text part;
+ * - `tool_call_delta` events accumulate per IR `index` (the first carries
+ *   `id`/`name`, later ones carry `argumentsDelta` slices); the concatenated
+ *   arguments string is JSON-parsed once at the end;
+ * - the `usage` event becomes `ChatResponse.usage`;
+ * - the `stop` event becomes `stopReason`;
+ * - an `error` event throws an {@link AdapterError}.
+ */
+async function aggregateStream(events: AsyncIterable<ChatStreamEvent>): Promise<ChatResponse> {
+  let text = '';
+  let usage: ChatUsage = { inputTokens: 0, outputTokens: 0 };
+  let stopReason: StopReason = 'stop';
+  // Per IR index: id/name (from the first slice) + accumulated arguments string.
+  const calls = new Map<number, { id: string; name: string; args: string }>();
+
+  for await (const event of events) {
+    switch (event.type) {
+      case 'content_delta':
+        text += event.text;
+        break;
+      case 'tool_call_delta': {
+        let call = calls.get(event.index);
+        if (call === undefined) {
+          call = { id: '', name: '', args: '' };
+          calls.set(event.index, call);
+        }
+        if (event.id !== undefined) {
+          call.id = event.id;
+        }
+        if (event.name !== undefined) {
+          call.name = event.name;
+        }
+        if (event.argumentsDelta !== undefined) {
+          call.args += event.argumentsDelta;
+        }
+        break;
+      }
+      case 'usage':
+        usage = event.usage;
+        break;
+      case 'stop':
+        stopReason = event.stopReason;
+        break;
+      case 'error':
+        throw new AdapterError(event.error);
+      default:
+        break;
+    }
+  }
+
+  const content: ContentPart[] = [];
+  if (text.length > 0) {
+    content.push({ kind: 'text', text });
+  }
+  const toolCalls: ToolCall[] = [...calls.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, call]) => ({
+      id: call.id,
+      name: call.name,
+      arguments: parseJsonRecord(call.args) ?? {},
+    }));
+
+  const message: Message = { role: 'assistant', content };
+  if (toolCalls.length > 0) {
+    message.toolCalls = toolCalls;
+  }
+  return { message, stopReason, usage };
 }
 
 /** Resolve the IR stopReason for a non-stream reply. */
@@ -460,6 +552,36 @@ function mapErrorBody(status: number, raw: unknown): UnifiedError {
 }
 
 /**
+ * The single transport for the codex backend: POST a `stream:true` Responses
+ * body with `Accept: text/event-stream` and parse the SSE reply into IR
+ * {@link ChatStreamEvent}s. Both `chat()` (which then aggregates) and
+ * `streamChat()` go through here, since the backend is stream-only. The
+ * per-channel `ctx.model` override flows into the body's `model`.
+ */
+async function* streamResponses(
+  ir: ChatRequest,
+  ctx: AdapterContext,
+): AsyncIterable<ChatStreamEvent> {
+  const endpoint = ctx.endpoint ?? CODEX_DEFAULT_ENDPOINT;
+  const opts: ResponsesBodyOpts =
+    ctx.model === undefined ? { stream: true } : { stream: true, model: ctx.model };
+  const res = await openStream(ctx, PROVIDER, {
+    method: 'POST',
+    url: `${endpoint}/responses`,
+    headers: codexHeaders(ctx, 'text/event-stream'),
+    body: irToResponsesBody(ir, opts),
+    ...withProxy(ctx),
+  });
+
+  if (!res.ok) {
+    yield { type: 'error', error: httpStatusToUnified(PROVIDER, res.status) };
+    return;
+  }
+
+  yield* parseResponsesSse(res.lines);
+}
+
+/**
  * Adapter for the ChatGPT private Codex backend over OAuth (provider type
  * `codex-oauth`). It speaks the OpenAI **Responses** API and impersonates the
  * first-party `codex_cli_rs` CLI so the operator can relay through their own
@@ -482,38 +604,14 @@ export const codexOAuthAdapter: ProviderAdapter = {
   },
 
   async chat(ir: ChatRequest, ctx: AdapterContext): Promise<ChatResponse> {
-    const endpoint = ctx.endpoint ?? CODEX_DEFAULT_ENDPOINT;
-    const res = await ctx.http.request({
-      method: 'POST',
-      url: `${endpoint}/responses`,
-      headers: codexHeaders(ctx, 'application/json'),
-      body: irToResponsesBody(ir, { stream: false }),
-      ...withProxy(ctx),
-    });
-
-    if (!res.ok) {
-      throw new AdapterError(mapErrorBody(res.status, res.body));
-    }
-
-    return parseResponsesResponse(res.body);
+    // The codex backend is stream-only (a non-stream request returns HTTP 400
+    // `{"detail":"Stream must be set to true"}`), so the blocking path consumes
+    // the SSE stream and folds it into a ChatResponse.
+    return aggregateStream(streamResponses(ir, ctx));
   },
 
-  async *streamChat(ir: ChatRequest, ctx: AdapterContext): AsyncIterable<ChatStreamEvent> {
-    const endpoint = ctx.endpoint ?? CODEX_DEFAULT_ENDPOINT;
-    const res = await openStream(ctx, PROVIDER, {
-      method: 'POST',
-      url: `${endpoint}/responses`,
-      headers: codexHeaders(ctx, 'text/event-stream'),
-      body: irToResponsesBody(ir, { stream: true }),
-      ...withProxy(ctx),
-    });
-
-    if (!res.ok) {
-      yield { type: 'error', error: httpStatusToUnified(PROVIDER, res.status) };
-      return;
-    }
-
-    yield* parseResponsesSse(res.lines);
+  streamChat(ir: ChatRequest, ctx: AdapterContext): AsyncIterable<ChatStreamEvent> {
+    return streamResponses(ir, ctx);
   },
 
   extractUsage,
