@@ -56,6 +56,11 @@ export interface DataTableProps<T> {
   filterKeys?: (row: T) => string;
   /** Trailing, right-pinned per-row action buttons. */
   rowActions?: (row: T) => ReactNode;
+  /** Reserved width of the row-actions column. Required when `rowActions` are
+   * wider than a single control: `table-layout: fixed` can't shrink-to-content,
+   * so without an explicit width the pinned cell overflows the scrollport.
+   * Defaults to `1` (auto-min) for a single-control actions cell. */
+  actionsWidth?: string;
   /** Leading checkbox column + select-all; pairs with `bulkActions`. */
   selectable?: boolean;
   /** Bulk-action bar slot, shown when ≥1 row is selected. */
@@ -95,6 +100,7 @@ export function DataTable<T>({
   searchable,
   filterKeys,
   rowActions,
+  actionsWidth,
   selectable,
   bulkActions,
   columnToggle,
@@ -316,7 +322,7 @@ export function DataTable<T>({
                         <Checkbox
                           checked={selected.has(rowKey(r))}
                           onChange={() => toggleRow(rowKey(r))}
-                          label={t('table.selectRow')}
+                          ariaLabel={t('table.selectRow')}
                         />
                       </span>
                     )}
@@ -383,7 +389,7 @@ export function DataTable<T>({
                     <Checkbox
                       checked={allOnPage}
                       onChange={toggleSelectAll}
-                      label={t('table.selectAll')}
+                      ariaLabel={t('table.selectAll')}
                       indeterminate={someOnPage}
                     />
                   </span>
@@ -431,7 +437,7 @@ export function DataTable<T>({
                 <th
                   scope="col"
                   aria-hidden="true"
-                  style={{ ...headerCellStyle, width: 1, ...stickyCellStyle('right', true) }}
+                  style={{ ...headerCellStyle, width: actionsWidth ?? 1, ...stickyCellStyle('right', true) }}
                 />
               )}
             </tr>
@@ -463,7 +469,7 @@ export function DataTable<T>({
                     {selectable === true && (
                       <td style={{ ...bodyCellStyle, ...stickyCellStyle('left', false), background: rowBg ?? 'var(--overlay-bg)' }}>
                         <span onClick={stop} onKeyDown={stopKey} role="presentation">
-                          <Checkbox checked={selected.has(key)} onChange={() => toggleRow(key)} label={t('table.selectRow')} />
+                          <Checkbox checked={selected.has(key)} onChange={() => toggleRow(key)} ariaLabel={t('table.selectRow')} />
                         </span>
                       </td>
                     )}
@@ -476,7 +482,7 @@ export function DataTable<T>({
                           ...(c.sticky !== undefined ? { background: rowBg ?? 'var(--overlay-bg)' } : null),
                         }}
                       >
-                        <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.cell(r)}</div>
+                        <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.cell(r)}</div>
                       </td>
                     ))}
                     {rowActions !== undefined && (
@@ -486,7 +492,8 @@ export function DataTable<T>({
                           ...stickyCellStyle('right', false),
                           background: rowBg ?? 'var(--overlay-bg)',
                           whiteSpace: 'nowrap',
-                          width: 1,
+                          width: actionsWidth ?? 1,
+                          textAlign: 'right',
                         }}
                       >
                         <span onClick={stop} onKeyDown={stopKey} role="presentation" style={{ display: 'inline-flex', gap: 'var(--s-2)' }}>
@@ -516,6 +523,7 @@ const headerCellStyle: CSSProperties = {
   letterSpacing: '.05em',
   color: 'var(--muted)',
   borderBottom: '1px solid var(--row-bd)',
+  whiteSpace: 'nowrap',
   position: 'sticky',
   top: 0,
   // Sticky header sits over scrolled rows: use the near-opaque overlay token

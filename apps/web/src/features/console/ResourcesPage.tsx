@@ -1,5 +1,6 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { CSSProperties } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -40,7 +41,7 @@ export function ResourcesPage() {
   const navigate = useNavigate();
   const api = useAdminApi();
   const qc = useQueryClient();
-  const isWide = useMediaQuery(BP.xl);
+  const isWide = useMediaQuery(BP.xxl);
   const { data, isLoading } = useQuery({
     queryKey: qk.resources(),
     queryFn: () => api.listResources(),
@@ -207,21 +208,33 @@ export function ResourcesPage() {
         style={{
           height: '100%',
           display: 'grid',
-          gridTemplateColumns: 'minmax(300px, 1fr) minmax(360px, 1.2fr)',
+          gridTemplateColumns: 'minmax(280px, 0.9fr) minmax(420px, 1.4fr)',
           gap: 'var(--s-3)',
         }}
       >
-        <div style={{ minHeight: 0, overflowY: 'auto', padding: 'var(--s-2)' }}>{list}</div>
-        <div style={{ minHeight: 0, overflowY: 'auto', padding: 'var(--s-2)' }}>{detail}</div>
+        <div style={SCROLL_COL}>{list}</div>
+        <div style={SCROLL_COL}>{detail}</div>
         {modal}
       </div>
     );
   }
 
   return (
-    <div style={{ height: '100%', minHeight: 0, overflowY: 'auto', padding: 'var(--s-2)' }}>
+    <div style={SCROLL_COL}>
       {id !== undefined ? detail : list}
       {modal}
     </div>
   );
 }
+
+// A scroll column in the master-detail. `overflowX: hidden` keeps a card's
+// hover-lift shadow from triggering a horizontal scrollbar; the asymmetric
+// padding (wider sides + bottom) gives the shadow + selected ring room so they
+// aren't clipped at the scroll edges, while content still reads as filling.
+const SCROLL_COL: CSSProperties = {
+  height: '100%',
+  minHeight: 0,
+  overflowY: 'auto',
+  overflowX: 'hidden',
+  padding: 'var(--s-2) var(--s-3) var(--s-4)',
+};

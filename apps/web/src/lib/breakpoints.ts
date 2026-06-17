@@ -5,6 +5,8 @@ export const BP = {
   wide: '(min-width: 880px)',
   lg: '(min-width: 960px)',
   xl: '(min-width: 1100px)',
+  /** Master-detail side-by-side: needs room for a list column AND a data table. */
+  xxl: '(min-width: 1280px)',
 } as const;
 
 export type Breakpoint = keyof typeof BP;

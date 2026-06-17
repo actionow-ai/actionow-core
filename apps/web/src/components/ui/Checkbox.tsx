@@ -11,12 +11,17 @@ export function Checkbox({
   checked,
   onChange,
   label,
+  ariaLabel,
   disabled,
   indeterminate,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
+  /** Visible text rendered beside the box; also used as the accessible name. */
   label?: string;
+  /** Accessible name with NO visible text — for icon-only checkboxes such as a
+   * table's select-row / select-all cells. Ignored when `label` is set. */
+  ariaLabel?: string;
   disabled?: boolean;
   indeterminate?: boolean;
 }) {
@@ -26,7 +31,7 @@ export function Checkbox({
       type="button"
       role="checkbox"
       aria-checked={indeterminate === true ? 'mixed' : checked}
-      aria-label={label}
+      aria-label={label ?? ariaLabel}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       style={{

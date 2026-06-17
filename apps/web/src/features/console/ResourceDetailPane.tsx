@@ -1,4 +1,11 @@
-import { ArrowsClockwiseIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
+import {
+  ArrowsClockwiseIcon,
+  PauseIcon,
+  PencilSimpleIcon,
+  PlayIcon,
+  PlusIcon,
+  TrashIcon,
+} from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +16,7 @@ import { ProviderIcon } from '../../components/data/ProviderIcon';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { RowAction } from '../../components/ui/RowAction';
 import { SelectField } from '../../components/ui/SelectField';
 import { Tabs } from '../../components/ui/Tabs';
 import { toast } from '../../components/ui/toast';
@@ -217,34 +225,37 @@ export function ResourceDetailPane({ id }: { id: string }) {
         loading={channels.isLoading}
         empty={t('channels.empty')}
         searchable
+        actionsWidth="164px"
         selectable
         rowActions={(r) => (
           <div style={{ display: 'flex', gap: 'var(--s-1)' }}>
-            <Button
-              variant="ghost"
-              size="sm"
+            <RowAction
+              icon={PencilSimpleIcon}
+              label={t('common.edit')}
               onClick={() => {
                 setEditing(r);
                 setChOpen(true);
               }}
-            >
-              {t('common.edit')}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => toggleStatus.mutate(r)}>
-              {r.status === 'active' ? t('channels.actions.disable') : t('channels.actions.enable')}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => syncModels.mutate(r)}
+            />
+            <RowAction
+              icon={r.status === 'active' ? PauseIcon : PlayIcon}
+              label={
+                r.status === 'active' ? t('channels.actions.disable') : t('channels.actions.enable')
+              }
+              onClick={() => toggleStatus.mutate(r)}
+            />
+            <RowAction
+              icon={ArrowsClockwiseIcon}
+              label={t('channels.actions.syncModels')}
               loading={syncModels.isPending && syncModels.variables.id === r.id}
-            >
-              <ArrowsClockwiseIcon size={14} weight="bold" aria-hidden="true" />{' '}
-              {t('channels.actions.syncModels')}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setDelTarget(r)}>
-              <TrashIcon size={14} weight="bold" aria-hidden="true" /> {t('channels.actions.delete')}
-            </Button>
+              onClick={() => syncModels.mutate(r)}
+            />
+            <RowAction
+              icon={TrashIcon}
+              label={t('channels.actions.delete')}
+              danger
+              onClick={() => setDelTarget(r)}
+            />
           </div>
         )}
         bulkActions={(sel, clear) => (

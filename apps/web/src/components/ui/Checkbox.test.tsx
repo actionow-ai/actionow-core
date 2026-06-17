@@ -41,4 +41,10 @@ describe('Checkbox', () => {
     render(<Checkbox checked={false} label="Accept" onChange={() => undefined} indeterminate />);
     expect(screen.getByRole('checkbox', { name: 'Accept' })).toHaveAttribute('aria-checked', 'mixed');
   });
+
+  it('names an icon-only checkbox via ariaLabel without rendering visible text', () => {
+    render(<Checkbox checked={false} ariaLabel="Select row" onChange={() => undefined} />);
+    const box = screen.getByRole('checkbox', { name: 'Select row' });
+    expect(box).toHaveTextContent('');
+  });
 });
