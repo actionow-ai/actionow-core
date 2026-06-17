@@ -232,6 +232,38 @@
     "inactive": "未启用",
     "canceled": "已取消"
   },
+  "enums": {
+    "modality": {
+      "text": "文本",
+      "image": "图像",
+      "video": "视频",
+      "audio": "音频",
+      "composite": "复合"
+    },
+    "kind": {
+      "model": "模型",
+      "workflow": "工作流"
+    },
+    "method": {
+      "unit": "单位计价",
+      "matrix": "矩阵计价",
+      "fixed": "固定计价",
+      "formula": "公式计价",
+      "passthrough": "透传计价"
+    },
+    "timing": {
+      "pre": "预计费",
+      "post": "后计费"
+    },
+    "channelStatus": {
+      "active": "启用",
+      "disabled": "已停用"
+    },
+    "markupType": {
+      "percent": "百分比",
+      "flat": "定额"
+    }
+  },
   "errors": {
     "invalid_input": "请求参数有误",
     "unauthorized": "未授权或登录已过期",

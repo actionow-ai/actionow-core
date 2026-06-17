@@ -237,6 +237,38 @@
     "inactive": "Inactive",
     "canceled": "Canceled"
   },
+  "enums": {
+    "modality": {
+      "text": "Text",
+      "image": "Image",
+      "video": "Video",
+      "audio": "Audio",
+      "composite": "Composite"
+    },
+    "kind": {
+      "model": "Model",
+      "workflow": "Workflow"
+    },
+    "method": {
+      "unit": "Unit",
+      "matrix": "Matrix",
+      "fixed": "Fixed",
+      "formula": "Formula",
+      "passthrough": "Passthrough"
+    },
+    "timing": {
+      "pre": "Pre",
+      "post": "Post"
+    },
+    "channelStatus": {
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "markupType": {
+      "percent": "Percent",
+      "flat": "Flat"
+    }
+  },
   "errors": {
     "invalid_input": "Invalid request",
     "unauthorized": "Unauthorized or session expired",
