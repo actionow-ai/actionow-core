@@ -138,6 +138,8 @@
       "execModes": "调用方可使用的执行方式:blocking、stream、async-poll 或 async-callback。按回车添加。"
     },
     "kind": { "model": "模型", "workflow": "工作流" },
+    "actions": { "setStatus": "状态" },
+    "statusUpdated": "资源状态已更新",
     "tabs": {
       "overview": "概览",
       "channels": "通道",
@@ -161,6 +163,8 @@
     "save": "保存通道",
     "created": "通道已创建",
     "updated": "通道已更新",
+    "deleted": "通道已删除",
+    "synced": "已同步 {{total}} 个模型",
     "form": {
       "provider": "Provider 类型",
       "endpoint": "端点",
@@ -182,7 +186,12 @@
       "credentialRef": "保存该通道 API Key 的加密密文 id。可用「新建凭证」创建。",
       "config": "该通道的 Provider 专属键值配置(如异步提交/轮询路径)。"
     },
-    "actions": { "enable": "启用", "disable": "停用" },
+    "actions": {
+      "enable": "启用",
+      "disable": "停用",
+      "delete": "删除",
+      "syncModels": "同步模型"
+    },
     "preset": { "asyncMedia": "异步媒体预设" },
     "cols": {
       "provider": "Provider",
@@ -224,7 +233,11 @@
       "version": "该定价条目的版本号;调高它可覆盖更早的定价。"
     }
   },
-  "common": { "edit": "编辑" },
+  "common": { "edit": "编辑", "delete": "删除", "confirm": "确认", "cancel": "取消" },
+  "confirm": {
+    "deleteChannelTitle": "删除通道?",
+    "deleteChannelMsg": "确定永久删除 {{provider}} 通道吗?此操作不可撤销。"
+  },
   "table": {
     "search": "搜索",
     "selected": "已选 {{n}} 项",

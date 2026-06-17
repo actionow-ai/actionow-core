@@ -143,6 +143,8 @@
       "execModes": "How callers may invoke this resource: blocking, stream, async-poll or async-callback. Press Enter to add."
     },
     "kind": { "model": "Model", "workflow": "Workflow" },
+    "actions": { "setStatus": "Status" },
+    "statusUpdated": "Resource status updated",
     "tabs": {
       "overview": "Overview",
       "channels": "Channels",
@@ -166,6 +168,8 @@
     "save": "Save channel",
     "created": "Channel created",
     "updated": "Channel updated",
+    "deleted": "Channel deleted",
+    "synced": "Synced {{total}} model(s)",
     "form": {
       "provider": "Provider type",
       "endpoint": "Endpoint",
@@ -187,7 +191,12 @@
       "credentialRef": "Id of the encrypted secret holding this channel's API key. Use \"New credential\" to create one.",
       "config": "Provider-specific key/value settings for this channel (e.g. async submit/poll paths)."
     },
-    "actions": { "enable": "Enable", "disable": "Disable" },
+    "actions": {
+      "enable": "Enable",
+      "disable": "Disable",
+      "delete": "Delete",
+      "syncModels": "Sync models"
+    },
     "preset": { "asyncMedia": "Async media preset" },
     "cols": {
       "provider": "Provider",
@@ -229,7 +238,11 @@
       "version": "Version number for this price entry; bump it to supersede an earlier price."
     }
   },
-  "common": { "edit": "Edit" },
+  "common": { "edit": "Edit", "delete": "Delete", "confirm": "Confirm", "cancel": "Cancel" },
+  "confirm": {
+    "deleteChannelTitle": "Delete channel?",
+    "deleteChannelMsg": "Permanently delete the {{provider}} channel? This cannot be undone."
+  },
   "table": {
     "search": "Search",
     "selected": "{{n}} selected",
