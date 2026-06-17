@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { bigint, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, check, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 import { tenant } from './identity.js';
 
@@ -10,6 +10,7 @@ import { tenant } from './identity.js';
  * console (per-tenant) and admin (global) views. `cost` is the final µcredit
  * charge mirrored from settle.
  */
+// immutable: no updated_at (one append-only row per relay call)
 export const usageLog = pgTable(
   'usage_log',
   {
@@ -24,7 +25,8 @@ export const usageLog = pgTable(
       .notNull()
       .default(sql`0`),
     latencyMs: bigint('latency_ms', { mode: 'number' }),
-    status: text('status').notNull(), // succeeded | failed | canceled
+    // status allowed values: succeeded | failed | canceled (insertUsageLog)
+    status: text('status').notNull(),
     /** The upstream_channel that served this request (P1b); null if unknown/pre-P1b. */
     channelId: uuid('channel_id'),
     /** That channel's provider/adapter type (P1b); null if unknown/pre-P1b. */
@@ -36,5 +38,6 @@ export const usageLog = pgTable(
   (t) => [
     index('usage_log_tenant_idx').on(t.tenantId, t.createdAt),
     index('usage_log_model_idx').on(t.model),
+    check('usage_log_status_allowed', sql`${t.status} IN ('succeeded', 'failed', 'canceled')`),
   ],
 );

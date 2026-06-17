@@ -1,4 +1,5 @@
-import { bigint, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { bigint, check, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 import { tenant } from './identity.js';
 
@@ -24,8 +25,13 @@ export const fileObject = pgTable(
     size: bigint('size', { mode: 'number' }),
     contentType: text('content_type'),
     etag: text('etag'),
-    status: text('status').notNull().default('pending'), // pending|ready
+    // status allowed values: pending (createFileObject default) | ready (markFileReady)
+    status: text('status').notNull().default('pending'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('file_object_tenant_idx').on(t.tenantId)],
+  (t) => [
+    index('file_object_tenant_idx').on(t.tenantId),
+    check('file_object_status_allowed', sql`${t.status} IN ('pending', 'ready')`),
+  ],
 );

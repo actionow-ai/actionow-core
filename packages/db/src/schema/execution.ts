@@ -1,6 +1,8 @@
+import type { UnifiedError, UsageVector } from '@actionow/contracts';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  check,
   index,
   jsonb,
   pgTable,
@@ -26,14 +28,16 @@ export const job = pgTable(
       .notNull()
       .references(() => resource.id),
     resourceVersion: bigint('resource_version', { mode: 'number' }).notNull(),
-    status: text('status').notNull(), // queued|running|succeeded|failed|canceled
+    // status allowed values: queued | running | succeeded | failed | canceled (JOB_STATUSES)
+    status: text('status').notNull(),
     execMode: text('exec_mode').notNull(),
-    inputs: jsonb('inputs').notNull(),
-    output: jsonb('output'),
-    usage: jsonb('usage'),
+    inputs: jsonb('inputs').$type<Record<string, unknown>>().notNull(),
+    output: jsonb('output').$type<Record<string, unknown>>(),
+    usage: jsonb('usage').$type<UsageVector>(),
     upstreamJobHandle: text('upstream_job_handle'),
     pricebookEntryId: uuid('pricebook_entry_id'),
     pricebookVersion: bigint('pricebook_version', { mode: 'number' }),
+    // dynamic shape (per-run snapshot of applied modifiers); left untyped intentionally.
     modifiersSnapshot: jsonb('modifiers_snapshot'),
     quotedCredits: bigint('quoted_credits', { mode: 'bigint' }),
     costCredits: bigint('cost_credits', { mode: 'bigint' }),
@@ -42,13 +46,21 @@ export const job = pgTable(
     callbackUrl: text('callback_url'),
     idempotencyKey: text('idempotency_key'),
     endUser: text('end_user'),
-    error: jsonb('error'),
+    error: jsonb('error').$type<UnifiedError>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('job_status_idx').on(t.status), index('job_tenant_idx').on(t.tenantId)],
+  (t) => [
+    index('job_status_idx').on(t.status),
+    index('job_tenant_idx').on(t.tenantId),
+    check(
+      'job_status_allowed',
+      sql`${t.status} IN ('queued', 'running', 'succeeded', 'failed', 'canceled')`,
+    ),
+  ],
 );
 
+// immutable: no updated_at (an append-only money ledger row is never mutated)
 export const ledgerTxn = pgTable(
   'ledger_txn',
   {
@@ -75,9 +87,12 @@ export const ledgerTxn = pgTable(
       .on(t.jobId)
       .where(sql`type = 'settle'`),
     index('ledger_job_idx').on(t.jobId),
+    index('ledger_txn_tenant_idx').on(t.tenantId),
+    index('ledger_txn_account_idx').on(t.accountId),
   ],
 );
 
+// immutable: no updated_at (an idempotency claim row is write-once)
 export const idempotencyKey = pgTable(
   'idempotency_key',
   {
@@ -88,9 +103,11 @@ export const idempotencyKey = pgTable(
     jobId: uuid('job_id').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
+  // `idempotency_tenant_key` on (tenant_id, key) also serves as the FK index on tenant_id.
   (t) => [uniqueIndex('idempotency_tenant_key').on(t.tenantId, t.key)],
 );
 
+// immutable: no updated_at (status moves pending→sent/dead but the row is otherwise append-only)
 export const webhookOutbox = pgTable(
   'webhook_outbox',
   {
@@ -98,10 +115,15 @@ export const webhookOutbox = pgTable(
     jobId: uuid('job_id').notNull(),
     url: text('url').notNull(),
     payload: jsonb('payload').notNull(),
+    // status allowed values: pending (default) | sent (markWebhookSent) | dead (markWebhookDead)
     status: text('status').notNull().default('pending'),
     attempts: bigint('attempts', { mode: 'number' }).notNull().default(0),
     nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('outbox_due_idx').on(t.status, t.nextAttemptAt)],
+  (t) => [
+    index('outbox_due_idx').on(t.status, t.nextAttemptAt),
+    index('webhook_outbox_job_idx').on(t.jobId),
+    check('webhook_outbox_status_allowed', sql`${t.status} IN ('pending', 'sent', 'dead')`),
+  ],
 );

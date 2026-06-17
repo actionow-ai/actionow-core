@@ -27,6 +27,7 @@ import {
  * nullable uuids, NOT foreign keys: trace writes are best-effort and must never
  * fail (or be rolled back) by a referential-integrity check on a transient id.
  */
+// immutable: no updated_at (one append-only audit row per upstream call)
 export const relayTrace = pgTable('relay_trace', {
   id: uuid('id').primaryKey().defaultRandom(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

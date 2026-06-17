@@ -1,4 +1,6 @@
+import { sql } from 'drizzle-orm';
 import {
+  check,
   index,
   integer,
   jsonb,
@@ -11,20 +13,32 @@ import {
 
 import { tenant } from './identity.js';
 
-export const resource = pgTable('resource', {
-  id: text('id').primaryKey(),
-  tenantId: uuid('tenant_id')
-    .notNull()
-    .references(() => tenant.id),
-  kind: text('kind').notNull(), // model | workflow
-  modality: text('modality').notNull(), // text|image|video|audio|composite
-  providerType: text('provider_type').notNull(),
-  execModes: jsonb('exec_modes').$type<string[]>().notNull(),
-  status: text('status').notNull().default('active'),
-  currentVersion: integer('current_version').notNull().default(1),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const resource = pgTable(
+  'resource',
+  {
+    // NOTE: resource.id stays `text` (human-readable slug) — intentional, do not migrate to uuid.
+    id: text('id').primaryKey(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenant.id),
+    kind: text('kind').notNull(), // model | workflow
+    modality: text('modality').notNull(), // text|image|video|audio|composite
+    providerType: text('provider_type').notNull(),
+    execModes: jsonb('exec_modes').$type<string[]>().notNull(),
+    // status allowed values: active | disabled (createResource default + updateResourceStatus)
+    status: text('status').notNull().default('active'),
+    currentVersion: integer('current_version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('resource_tenant_idx').on(t.tenantId),
+    check('resource_status_allowed', sql`${t.status} IN ('active', 'disabled')`),
+  ],
+);
 
+// immutable: no updated_at (a frozen version snapshot is never mutated)
 export const resourceVersion = pgTable(
   'resource_version',
   {
@@ -32,10 +46,16 @@ export const resourceVersion = pgTable(
       .notNull()
       .references(() => resource.id),
     version: integer('version').notNull(),
+    // Untyped jsonb on purpose: the stored io_schema is broader than the
+    // form-oriented contracts `IoSchema` — chat resources persist a synthetic
+    // `{ key:'__ir', type:'json' }` output field outside the IoType enum.
     ioSchema: jsonb('io_schema').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('resource_version_pk').on(t.resourceId, t.version)],
+  (t) => [
+    uniqueIndex('resource_version_pk').on(t.resourceId, t.version),
+    index('resource_version_resource_idx').on(t.resourceId),
+  ],
 );
 
 export const upstreamChannel = pgTable(
@@ -59,9 +79,15 @@ export const upstreamChannel = pgTable(
      */
     config: jsonb('config').$type<Record<string, unknown>>(),
     weight: integer('weight').notNull().default(1),
+    // status allowed values: active | disabled (createUpstreamChannel default + admin update DTO)
     status: text('status').notNull().default('active'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [index('upstream_resource_idx').on(t.resourceId)],
+  (t) => [
+    index('upstream_resource_idx').on(t.resourceId),
+    check('upstream_channel_status_allowed', sql`${t.status} IN ('active', 'disabled')`),
+  ],
 );
 
 /**
@@ -79,29 +105,40 @@ export const channelHealth = pgTable('channel_health', {
   consecutiveFailures: integer('consecutive_failures').notNull().default(0),
   cooldownUntil: timestamp('cooldown_until', { withTimezone: true }),
   lastFailureAt: timestamp('last_failure_at', { withTimezone: true }),
+  // defaultNow backfills existing rows to "now"; channel_health rows are short-lived (acceptable).
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const difyBinding = pgTable('dify_binding', {
-  resourceId: text('resource_id')
-    .notNull()
-    .references(() => resource.id),
-  resourceVersion: integer('resource_version').notNull(),
-  mode: text('mode').notNull(), // workflow | advanced-chat
-  difyAppEndpoint: text('dify_app_endpoint').notNull(),
-  difyServiceKeyRef: uuid('dify_service_key_ref'),
-  dslHash: text('dsl_hash').notNull(),
-  pricingModel: text('pricing_model').notNull(), // metered | fixed | matrix
-  provisionMode: text('provision_mode').notNull().default('byo'), // byo | hosted
-  requiredSecrets: jsonb('required_secrets').$type<string[]>().notNull().default([]),
-  compatReport: jsonb('compat_report'),
-});
+export const difyBinding = pgTable(
+  'dify_binding',
+  {
+    resourceId: text('resource_id')
+      .notNull()
+      .references(() => resource.id),
+    resourceVersion: integer('resource_version').notNull(),
+    mode: text('mode').notNull(), // workflow | advanced-chat
+    difyAppEndpoint: text('dify_app_endpoint').notNull(),
+    difyServiceKeyRef: uuid('dify_service_key_ref'),
+    dslHash: text('dsl_hash').notNull(),
+    pricingModel: text('pricing_model').notNull(), // metered | fixed | matrix
+    provisionMode: text('provision_mode').notNull().default('byo'), // byo | hosted
+    requiredSecrets: jsonb('required_secrets').$type<string[]>().notNull().default([]),
+    compatReport: jsonb('compat_report'),
+    // defaultNow backfills existing rows to "now" (acceptable).
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => [index('dify_binding_resource_idx').on(t.resourceId)],
+);
 
 export const secretRef = pgTable('secret_ref', {
   id: uuid('id').primaryKey().defaultRandom(),
-  provider: text('provider').notNull(), // env | vault
+  provider: text('provider').notNull(), // env | enc | oauth | vault
   locator: text('locator').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
 /**
@@ -109,6 +146,7 @@ export const secretRef = pgTable('secret_ref', {
  * `iv.tag.ciphertext` string produced by `encryptSecret`; decrypted on resolve
  * with the env master key. 1:1 with its `secret_ref`.
  */
+// immutable: no updated_at (the AES-GCM ciphertext blob is write-once per secret_ref)
 export const secretMaterial = pgTable('secret_material', {
   secretRefId: uuid('secret_ref_id')
     .primaryKey()

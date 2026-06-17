@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  check,
   index,
   jsonb,
   pgTable,
@@ -43,10 +44,16 @@ export const model = pgTable(
     outputPrice: bigint('output_price', { mode: 'bigint' })
       .notNull()
       .default(sql`0`),
-    status: text('status').notNull().default('active'), // active | disabled
+    // status allowed values: active | disabled (create default + admin DTO + sync insert)
+    status: text('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [uniqueIndex('model_name_idx').on(t.name), index('model_resource_idx').on(t.resourceId)],
+  (t) => [
+    uniqueIndex('model_name_idx').on(t.name),
+    index('model_resource_idx').on(t.resourceId),
+    check('model_status_allowed', sql`${t.status} IN ('active', 'disabled')`),
+  ],
 );
 
 /**

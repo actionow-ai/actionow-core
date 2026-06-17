@@ -20,9 +20,11 @@ export const account = pgTable(
       .notNull()
       .default(sql`0`),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (t) => [
     check('account_balance_ge_held', sql`${t.creditBalance} >= ${t.creditHeld}`),
+    // account_tenant_unique also serves as the FK index on tenant_id
     uniqueIndex('account_tenant_unique').on(t.tenantId),
   ],
 );

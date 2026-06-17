@@ -17,6 +17,8 @@ export const tenant = pgTable('tenant', {
   name: text('name').notNull(),
   isolationMode: text('isolation_mode').notNull().default('field'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
 export const apiKey = pgTable(
@@ -32,10 +34,17 @@ export const apiKey = pgTable(
       .notNull()
       .default(sql`'[]'::jsonb`),
     rateLimit: bigint('rate_limit', { mode: 'number' }),
+    // status allowed values: active | disabled (createApiKey default + disableApiKeyForTenant)
     status: text('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [uniqueIndex('api_key_hash_idx').on(t.hash), index('api_key_tenant_idx').on(t.tenantId)],
+  (t) => [
+    uniqueIndex('api_key_hash_idx').on(t.hash),
+    index('api_key_tenant_idx').on(t.tenantId),
+    check('api_key_status_allowed', sql`${t.status} IN ('active', 'disabled')`),
+  ],
 );
 
 /**
@@ -57,8 +66,12 @@ export const user = pgTable(
     status: text('status').notNull().default('active'),
     tenantId: uuid('tenant_id').references(() => tenant.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [check('user_role_allowed', sql`${t.role} IN ('user', 'admin')`)],
+  (t) => [
+    check('user_role_allowed', sql`${t.role} IN ('user', 'admin')`),
+    index('user_tenant_idx').on(t.tenantId),
+  ],
 );
 
 /**
@@ -67,6 +80,7 @@ export const user = pgTable(
  * subject id, NEVER the email — so a provider account links to exactly one
  * user. Cascades on user deletion; indexed by `user_id` for "my identities".
  */
+// immutable: no updated_at (a federated identity link is never mutated in place)
 export const userIdentity = pgTable(
   'user_identity',
   {

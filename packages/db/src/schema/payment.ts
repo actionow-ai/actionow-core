@@ -1,6 +1,8 @@
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  check,
   index,
   jsonb,
   pgTable,
@@ -38,7 +40,9 @@ export const paymentIntent = pgTable(
     amountMinor: bigint('amount_minor', { mode: 'bigint' }).notNull(),
     currency: text('currency').notNull(),
     creditAmount: bigint('credit_amount', { mode: 'bigint' }),
-    status: text('status').notNull().default('created'), // created|pending|succeeded|failed|expired|refunded
+    // status allowed values: created (insert default) | pending | succeeded | failed |
+    // expired | refunded (provider normalizers + setIntentStatus).
+    status: text('status').notNull().default('created'),
     idempotencyKey: text('idempotency_key'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -46,6 +50,10 @@ export const paymentIntent = pgTable(
   (t) => [
     uniqueIndex('payment_intent_provider_ref').on(t.provider, t.providerRef),
     index('payment_intent_tenant_idx').on(t.tenantId),
+    check(
+      'payment_intent_status_allowed',
+      sql`${t.status} IN ('created', 'pending', 'succeeded', 'failed', 'expired', 'refunded')`,
+    ),
   ],
 );
 
@@ -57,6 +65,7 @@ export const paymentIntent = pgTable(
  * verified body (kept for audit); `signature_ok` records that verification
  * passed; `processed_at` is set once fulfillment completes.
  */
+// immutable: no updated_at (a verified webhook event is an append-only audit record)
 export const paymentEvent = pgTable(
   'payment_event',
   {
