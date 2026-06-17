@@ -142,14 +142,13 @@
     "kind": { "model": "模型", "workflow": "工作流" },
     "actions": { "setStatus": "状态" },
     "statusUpdated": "资源状态已更新",
-    "tabs": {
+    "sections": {
       "overview": "概览",
       "channels": "通道",
       "pricing": "定价"
     },
     "detail": {
       "back": "返回资源",
-      "tabsLabel": "资源详情分区",
       "channels": "上游通道",
       "pricebook": "定价",
       "addChannel": "添加通道",

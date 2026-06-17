@@ -7,6 +7,7 @@ import {
   TrashIcon,
 } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -18,7 +19,6 @@ import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RowAction } from '../../components/ui/RowAction';
 import { SelectField } from '../../components/ui/SelectField';
-import { Tabs } from '../../components/ui/Tabs';
 import { toast } from '../../components/ui/toast';
 import { CHANNEL_STATUSES, toOptions } from '../../lib/api/enums';
 import { mutationError } from '../../lib/api/mutationError';
@@ -26,11 +26,35 @@ import { qk } from '../../lib/api/queryKeys';
 import type { ChannelStatus, ChannelView, PricebookView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
-import { useUrlState } from '../../lib/useUrlState';
 import { ChannelEditor } from './ChannelEditor';
 import { PricingModal } from './PricingModal';
 
-/** The right pane of the Resources master-detail: tabbed overview / channels / pricing. */
+/**
+ * A labelled section block for the merged detail pane: an uppercase muted
+ * heading above its content, used to stack overview / channels / pricing in one
+ * scrolling column (no tabs).
+ */
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+      <h2
+        style={{
+          margin: 0,
+          fontSize: 'var(--fs-caption)',
+          fontWeight: 600,
+          letterSpacing: '.1em',
+          textTransform: 'uppercase',
+          color: 'var(--faint)',
+        }}
+      >
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+/** The right pane of the Resources master-detail: one scrolling pane that stacks overview / channels / pricing as sections. */
 export function ResourceDetailPane({ id }: { id: string }) {
   const { t } = useTranslation('console');
   const api = useAdminApi();
@@ -52,8 +76,6 @@ export function ResourceDetailPane({ id }: { id: string }) {
     queryFn: () => api.listPricebook(id),
     enabled: id !== '',
   });
-
-  const [tab, setTab] = useUrlState('tab', 'overview');
 
   const [chOpen, setChOpen] = useState(false);
   const [editing, setEditing] = useState<ChannelView | undefined>(undefined);
@@ -207,7 +229,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
   );
 
   const channelsPanel = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+    <>
       <div>
         <Button
           onClick={() => {
@@ -283,11 +305,11 @@ export function ResourceDetailPane({ id }: { id: string }) {
           </>
         )}
       />
-    </div>
+    </>
   );
 
   const pricingPanel = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+    <>
       <div>
         <Button onClick={() => setPbOpen(true)}>
           <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('resources.detail.addPrice')}
@@ -302,23 +324,14 @@ export function ResourceDetailPane({ id }: { id: string }) {
         searchable
         pageSize={10}
       />
-    </div>
+    </>
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-      <Tabs
-        value={tab}
-        onChange={setTab}
-        ariaLabel={t('resources.detail.tabsLabel')}
-        tabs={[
-          { value: 'overview', label: t('resources.tabs.overview') },
-          { value: 'channels', label: t('resources.tabs.channels') },
-          { value: 'pricing', label: t('resources.tabs.pricing') },
-        ]}
-      >
-        {tab === 'channels' ? channelsPanel : tab === 'pricing' ? pricingPanel : overviewPanel}
-      </Tabs>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-5)' }}>
+      <Section title={t('resources.sections.overview')}>{overviewPanel}</Section>
+      <Section title={t('resources.sections.channels')}>{channelsPanel}</Section>
+      <Section title={t('resources.sections.pricing')}>{pricingPanel}</Section>
 
       <ChannelEditor
         key={editing?.id ?? 'new'}

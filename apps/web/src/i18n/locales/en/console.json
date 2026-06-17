@@ -147,14 +147,13 @@
     "kind": { "model": "Model", "workflow": "Workflow" },
     "actions": { "setStatus": "Status" },
     "statusUpdated": "Resource status updated",
-    "tabs": {
+    "sections": {
       "overview": "Overview",
       "channels": "Channels",
       "pricing": "Pricing"
     },
     "detail": {
       "back": "Back to resources",
-      "tabsLabel": "Resource detail sections",
       "channels": "Upstream channels",
       "pricebook": "Pricing",
       "addChannel": "Add channel",
