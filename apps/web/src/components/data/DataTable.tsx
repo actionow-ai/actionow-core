@@ -60,6 +60,9 @@ export function DataTable<T>({
       onClick,
       role: clickable ? ('button' as const) : undefined,
       tabIndex: clickable ? 0 : undefined,
+      // A clickable row acts as a toggle in master-detail; expose its selected
+      // state to assistive tech (matching EntityCard), not just the visual bg.
+      ariaPressed: clickable ? selected : undefined,
       onKeyDown: clickable
         ? (e: KeyboardEvent<HTMLDivElement>) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -92,6 +95,7 @@ export function DataTable<T>({
                   onKeyDown={rp.onKeyDown}
                   role={rp.role}
                   tabIndex={rp.tabIndex}
+                  aria-pressed={rp.ariaPressed}
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -162,6 +166,7 @@ export function DataTable<T>({
                 onKeyDown={rp.onKeyDown}
                 role={rp.role}
                 tabIndex={rp.tabIndex}
+                aria-pressed={rp.ariaPressed}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: grid,
