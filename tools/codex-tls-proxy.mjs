@@ -82,9 +82,22 @@ const server = http.createServer((req, res) => {
         return;
       }
       buf = Buffer.concat([buf, d]);
-      const sep = buf.indexOf('\r\n\r\n');
-      if (sep === -1) return;
-      const head = buf.subarray(0, sep).toString('utf8');
+      // curl -i through an HTTPS CONNECT proxy prefixes the real response with a
+      // "HTTP/1.1 200 Connection established\r\n\r\n" preamble. Skip any such
+      // tunnel block(s) so we parse the REAL response head, not the proxy's.
+      let start = 0;
+      let sep;
+      for (;;) {
+        sep = buf.indexOf('\r\n\r\n', start);
+        if (sep === -1) return; // header block not fully arrived yet
+        const firstLine = buf.subarray(start, sep).toString('utf8').split('\r\n')[0] ?? '';
+        if (/connection established/i.test(firstLine)) {
+          start = sep + 4;
+          continue;
+        }
+        break;
+      }
+      const head = buf.subarray(start, sep).toString('utf8');
       const rest = buf.subarray(sep + 4);
       const lines = head.split('\r\n');
       const statusLine = lines[0] ?? ''; // "HTTP/2 200" | "HTTP/1.1 400 Bad Request"
