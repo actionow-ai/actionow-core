@@ -51,7 +51,7 @@ export function ModelEditor({
 
   // The model being edited — fetched fresh so the form seeds from canonical state.
   const model = useQuery({
-    queryKey: ['admin', 'models', name],
+    queryKey: qk.model(name ?? ''),
     queryFn: () => api.getModel(name!),
     enabled: open && editing,
   });
@@ -79,7 +79,8 @@ export function ModelEditor({
     setResourceId(m.resource_id);
     setDisplay(m.display ?? '');
     setModality(m.modality);
-    setCapabilities(m.capabilities);
+    // Defensive copy: never seed the query-cached object into mutable form state.
+    setCapabilities({ ...m.capabilities });
     setVisibility(m.visibility === 'tenant' ? 'tenant' : 'public');
     setInputPrice(Number(m.input_price));
     setOutputPrice(Number(m.output_price));
@@ -115,7 +116,7 @@ export function ModelEditor({
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: qk.models() });
-      if (editing) await qc.invalidateQueries({ queryKey: ['admin', 'models', name] });
+      if (editing) await qc.invalidateQueries({ queryKey: qk.model(name) });
       toast(t(editing ? 'models.updated' : 'models.created'));
       onClose();
     },

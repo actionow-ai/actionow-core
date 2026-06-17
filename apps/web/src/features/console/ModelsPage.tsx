@@ -67,11 +67,22 @@ export function ModelsPage() {
   const [delTarget, setDelTarget] = useState<ModelView | undefined>(undefined);
 
   const bulkSetStatus = useMutation({
-    mutationFn: async ({ rows, status }: { rows: ModelView[]; status: 'active' | 'disabled' }) => {
+    mutationFn: async ({
+      rows,
+      status,
+    }: {
+      rows: ModelView[];
+      status: 'active' | 'disabled';
+      clear: () => void;
+    }) => {
       await Promise.all(rows.map((m) => api.updateModel(m.name, { status })));
     },
-    onSuccess: async () => {
+    // Clear the selection only after the batch succeeds, so a failed bulk op
+    // leaves the rows selected for an easy retry (vs. clearing optimistically).
+    onSuccess: async (_data, { clear }) => {
       await qc.invalidateQueries({ queryKey: qk.models() });
+      clear();
+      toast(t('models.statusUpdated'));
     },
     onError: mutationError(t),
   });
@@ -240,20 +251,14 @@ export function ModelsPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                bulkSetStatus.mutate({ rows: sel, status: 'active' });
-                clear();
-              }}
+              onClick={() => bulkSetStatus.mutate({ rows: sel, status: 'active', clear })}
             >
               {t('models.actions.enable')}
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                bulkSetStatus.mutate({ rows: sel, status: 'disabled' });
-                clear();
-              }}
+              onClick={() => bulkSetStatus.mutate({ rows: sel, status: 'disabled', clear })}
             >
               {t('models.actions.disable')}
             </Button>

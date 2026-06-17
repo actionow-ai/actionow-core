@@ -8,6 +8,7 @@ export const qk = {
   apiKeys: (tenantId: string) => ['admin', 'api-keys', tenantId] as const,
   jobs: (tenantId: string) => ['admin', 'jobs', tenantId] as const,
   models: () => ['admin', 'models'] as const,
+  model: (name: string) => ['admin', 'models', name] as const,
   modelGrants: (name: string) => ['admin', 'models', name, 'grants'] as const,
   usage: (params: Record<string, unknown>) => ['admin', 'usage', params] as const,
   analyticsUsage: (params: Record<string, unknown>) =>

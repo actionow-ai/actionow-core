@@ -173,6 +173,7 @@
     "created": "Model created",
     "updated": "Model updated",
     "deleted": "Model deleted",
+    "statusUpdated": "Model status updated",
     "cols": {
       "model": "Model",
       "modality": "Modality",

@@ -168,6 +168,7 @@
     "created": "模型已创建",
     "updated": "模型已更新",
     "deleted": "模型已删除",
+    "statusUpdated": "模型状态已更新",
     "cols": {
       "model": "模型",
       "modality": "模态",
