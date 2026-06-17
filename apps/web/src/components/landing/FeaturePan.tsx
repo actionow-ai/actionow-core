@@ -11,7 +11,7 @@ import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { BP } from '../../lib/breakpoints';
-import { gsap, ScrollTrigger, useGSAP } from '../../lib/motion/gsap';
+import { gsap, useGSAP } from '../../lib/motion/gsap';
 import { useReducedMotion } from '../../lib/motion/useReducedMotion';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 
@@ -88,7 +88,6 @@ export function FeaturePan() {
           invalidateOnRefresh: true,
         },
       });
-      return () => ScrollTrigger.getAll().forEach((s) => s.kill());
     },
     { dependencies: [panned] },
   );

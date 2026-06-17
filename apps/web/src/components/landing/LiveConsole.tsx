@@ -82,8 +82,6 @@ export function LiveConsole() {
         { opacity: 0.2 },
         { opacity: 1, duration: 0.3, ease: 'none', stagger: { each: 0.5, repeat: -1, yoyo: true, repeatDelay: 1.6 } },
       );
-
-      return () => ScrollTrigger.getAll().forEach((s) => s.kill());
     },
     { scope: root, dependencies: [reduced] },
   );
