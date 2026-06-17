@@ -45,7 +45,7 @@ export function ImmersiveHero() {
         data-r
         className="headline-nowrap"
         style={{
-          fontSize: 'clamp(40px, 8vw, 104px)',
+          fontSize: 'var(--fs-display)',
           fontWeight: 850,
           letterSpacing: '-0.04em',
           lineHeight: 0.98,

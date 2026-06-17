@@ -93,7 +93,7 @@ export function LiveConsole() {
           <span className="mono" style={{ fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--accent)' }}>
             {t('live.eyebrow')}
           </span>
-          <h2 style={{ fontSize: 'clamp(26px, 3.4vw, 40px)', fontWeight: 780, letterSpacing: '-0.02em', margin: 'var(--s-3) 0 0' }}>
+          <h2 style={{ fontSize: 'var(--fs-h2)', fontWeight: 780, letterSpacing: '-0.02em', margin: 'var(--s-3) 0 0' }}>
             {t('live.title')}
           </h2>
           <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-3)' }}>{t('live.lead')}</p>

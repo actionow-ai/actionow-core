@@ -40,7 +40,7 @@ function BrandPanel() {
       <h1
         data-reveal
         className="headline-nowrap"
-        style={{ fontSize: 'clamp(28px, 3.4vw, 46px)', fontWeight: 850, letterSpacing: '-0.035em', lineHeight: 1.04, margin: 0 }}
+        style={{ fontSize: 'var(--fs-h1)', fontWeight: 850, letterSpacing: '-0.035em', lineHeight: 1.04, margin: 0 }}
       >
         {t('landing:hero.title1')}
         <FlipWords

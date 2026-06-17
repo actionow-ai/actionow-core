@@ -93,7 +93,7 @@ export function FeaturePan() {
   );
 
   const heading = (
-    <h2 style={{ fontSize: 'clamp(26px, 3.4vw, 40px)', fontWeight: 780, letterSpacing: '-0.02em', margin: 0, maxWidth: 560 }}>
+    <h2 style={{ fontSize: 'var(--fs-h2)', fontWeight: 780, letterSpacing: '-0.02em', margin: 0, maxWidth: 560 }}>
       {t('features.title')}
     </h2>
   );

@@ -9,7 +9,7 @@ export function HowItWorks() {
   return (
     <section style={{ maxWidth: 1080, margin: '0 auto', padding: 'var(--s-16) var(--s-4)' }}>
       <Reveal style={{ marginBottom: 'var(--s-10)', textAlign: 'center' }}>
-        <h2 style={{ fontSize: 'clamp(26px, 3.4vw, 40px)', fontWeight: 780, letterSpacing: '-0.02em', margin: 0 }}>
+        <h2 style={{ fontSize: 'var(--fs-h2)', fontWeight: 780, letterSpacing: '-0.02em', margin: 0 }}>
           {t('how.title')}
         </h2>
       </Reveal>
