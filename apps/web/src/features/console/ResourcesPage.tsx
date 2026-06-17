@@ -14,6 +14,7 @@ import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { TenantSelect } from '../../components/data/TenantSelect';
 import { Button } from '../../components/ui/Button';
 import { ChipsField } from '../../components/ui/ChipsField';
+import { ComboboxField } from '../../components/ui/ComboboxField';
 import { Modal } from '../../components/ui/Modal';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
@@ -185,10 +186,11 @@ export function ResourcesPage() {
         onChange={(v) => setModality(v as Modality)}
         options={toOptions(MODALITIES, t)}
       />
-      <TextField
+      <ComboboxField
         label={t('resources.form.provider')}
         tooltip={t('resources.tip.providerType')}
         hint={COMMON_PROVIDERS.join(' · ')}
+        options={[...COMMON_PROVIDERS]}
         value={provider}
         onChange={setProvider}
       />

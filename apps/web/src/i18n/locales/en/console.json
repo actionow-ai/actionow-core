@@ -290,6 +290,7 @@
   },
   "credentials": {
     "new": "New credential",
+    "pickExisting": "Select an existing credential",
     "value": "Secret value",
     "label": "Label (optional)",
     "save": "Create credential",

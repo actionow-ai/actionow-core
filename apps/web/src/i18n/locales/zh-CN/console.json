@@ -285,6 +285,7 @@
   },
   "credentials": {
     "new": "新建凭证",
+    "pickExisting": "选择已有凭证",
     "value": "密文值",
     "label": "标签(可空)",
     "save": "创建凭证",

@@ -1,8 +1,10 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { SecretSelect } from '../../components/data/SecretSelect';
 import { Button } from '../../components/ui/Button';
+import { ComboboxField } from '../../components/ui/ComboboxField';
 import { Drawer } from '../../components/ui/Drawer';
 import { KeyValueEditor } from '../../components/ui/KeyValueEditor';
 import { type KvRow, objectFromRows, rowsFromObject } from '../../components/ui/kvRows';
@@ -15,6 +17,7 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ChannelStatus, ChannelView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { STALE_REFERENCE } from '../../lib/query';
 
 const ASYNC_MEDIA_PRESET = {
   submitPath: '/api/v1/tasks',
@@ -47,6 +50,17 @@ export function ChannelEditor({
   const qc = useQueryClient();
   const editing = channel !== undefined;
 
+  // Model suggestions = this resource's already-registered model names (free
+  // entry still allowed, so an upstream-only model can be typed).
+  const models = useQuery({
+    queryKey: qk.models(),
+    queryFn: () => api.listModels(),
+    staleTime: STALE_REFERENCE,
+  });
+  const modelOptions = (models.data ?? [])
+    .filter((m) => m.resource_id === resourceId)
+    .map((m) => m.name);
+
   const [providerType, setProviderType] = useState(channel?.provider_type ?? '');
   const [endpoint, setEndpoint] = useState(channel?.endpoint ?? '');
   const [model, setModel] = useState(channel?.model ?? '');
@@ -70,7 +84,10 @@ export function ChannelEditor({
         value: credValue,
         label: credLabel.trim() === '' ? undefined : credLabel.trim(),
       }),
-    onSuccess: (s) => {
+    onSuccess: async (s) => {
+      // Refresh the SecretSelect list so the just-created secret is selectable,
+      // then point credentialRef at it.
+      await qc.invalidateQueries({ queryKey: qk.secrets() });
       setCredentialRef(s.id);
       setCredOpen(false);
       setCredValue('');
@@ -117,10 +134,11 @@ export function ChannelEditor({
         </Button>
       }
     >
-      <TextField
+      <ComboboxField
         label={t('channels.form.provider')}
         tooltip={t('channels.tip.provider')}
         hint={editing ? t('channels.tip.providerFixed') : COMMON_PROVIDERS.join(' · ')}
+        options={[...COMMON_PROVIDERS]}
         value={providerType}
         onChange={setProviderType}
         disabled={editing}
@@ -131,9 +149,10 @@ export function ChannelEditor({
         value={endpoint}
         onChange={setEndpoint}
       />
-      <TextField
+      <ComboboxField
         label={t('channels.form.model')}
         tooltip={t('channels.tip.model')}
+        options={modelOptions}
         value={model}
         onChange={setModel}
       />
@@ -158,10 +177,11 @@ export function ChannelEditor({
         options={toOptions(CHANNEL_STATUSES, t)}
       />
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--s-2)' }}>
-        <div style={{ flex: 1 }}>
-          <TextField
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <SecretSelect
             label={t('channels.form.credentialRef')}
             tooltip={t('channels.tip.credentialRef')}
+            placeholder={t('credentials.pickExisting')}
             value={credentialRef}
             onChange={setCredentialRef}
           />
