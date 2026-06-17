@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 
 import { BP } from '../../lib/breakpoints';
+import { gsap, useGSAP } from '../../lib/motion/gsap';
+import { DUR, EASE } from '../../lib/motion/tokens';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 import { AppBackground } from '../glass/AppBackground';
 import { BottomTabs } from './chrome/BottomTabs';
@@ -19,6 +21,22 @@ export function ConsoleLayout() {
   const [action, setAction] = useState<ReactNode>(null);
   const [filters, setFilters] = useState<ReactNode>(null);
   const [back, setBack] = useState<ConsoleBack | null>(null);
+  const viewRef = useRef<HTMLDivElement>(null);
+
+  // Route transition: a quick enter (fade + slide-up) on the routed view each
+  // time the path changes. Transform/opacity only, so the scroll/fill layout is
+  // untouched; reduced-motion skips it (matchMedia no-preference branch only).
+  useGSAP(
+    () => {
+      const el = viewRef.current;
+      if (!el) return;
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        gsap.fromTo(el, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: DUR.base, ease: EASE.out });
+      });
+    },
+    { dependencies: [pathname] },
+  );
 
   return (
     <ConsoleActionContext.Provider value={setAction}>
@@ -31,7 +49,7 @@ export function ConsoleLayout() {
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
               <TopBar action={action} filters={filters} back={back} />
               <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 'var(--s-3)', paddingBottom: isDesktop ? 'var(--s-3)' : 76 }}>
-                <div style={{ width: '100%', height: '100%' }}>
+                <div ref={viewRef} style={{ width: '100%', height: '100%' }}>
                   <Outlet />
                 </div>
               </div>
