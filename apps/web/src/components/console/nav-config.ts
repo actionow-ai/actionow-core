@@ -31,6 +31,7 @@ export const NAV: NavGroup[] = [
     icon: StackIcon,
     items: [
       { to: '/console/resources', labelKey: 'resources' },
+      { to: '/console/models', labelKey: 'models' },
       { to: '/console/modifiers', labelKey: 'modifiers' },
       { to: '/console/dify', labelKey: 'dify' },
     ],

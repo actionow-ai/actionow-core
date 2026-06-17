@@ -41,6 +41,7 @@
     "accounts": "Accounts",
     "apiKeys": "API Keys",
     "resources": "Resources",
+    "models": "Models",
     "modifiers": "Modifiers",
     "dify": "Dify import"
   },
@@ -49,6 +50,7 @@
     "dashboard": "Tenants & resources overview, recent jobs",
     "tenants": "Create and view tenants",
     "resources": "Models, upstream channels & pricing",
+    "models": "Relay models, tenant grants & token pricing",
     "modifiers": "Global and scoped pricing rules",
     "dify": "Import a Dify workflow as a resource",
     "accounts": "Account balance & top-up",
@@ -160,6 +162,75 @@
       "addPrice": "Add price",
       "priceAdded": "Price added",
       "pick": "Select a resource to view details"
+    }
+  },
+  "models": {
+    "title": "Models",
+    "new": "New model",
+    "editTitle": "Edit model",
+    "save": "Save model",
+    "empty": "No models yet",
+    "created": "Model created",
+    "updated": "Model updated",
+    "deleted": "Model deleted",
+    "cols": {
+      "model": "Model",
+      "modality": "Modality",
+      "capabilities": "Capabilities",
+      "inputPrice": "Input price",
+      "outputPrice": "Output price",
+      "visibility": "Visibility",
+      "status": "Status"
+    },
+    "form": {
+      "name": "Name",
+      "resource": "Resource",
+      "resourcePlaceholder": "Select a resource",
+      "display": "Display name",
+      "modality": "Modality",
+      "capabilities": "Capabilities",
+      "visibility": "Visibility",
+      "inputPrice": "Input price",
+      "outputPrice": "Output price",
+      "status": "Status"
+    },
+    "tip": {
+      "name": "The unique model id callers request (e.g. anthropic/claude-3-5-sonnet). Immutable after creation.",
+      "resource": "Which resource/upstream this model routes to.",
+      "resourceFixed": "Resource is fixed after creation.",
+      "display": "Optional human-readable label shown in lists.",
+      "modality": "The data type this model handles. Immutable after creation.",
+      "modalityFixed": "Modality is fixed after creation.",
+      "capabilities": "Features this model supports — toggle the ones that apply.",
+      "visibility": "Public = available to all tenants; Tenant = only granted tenants can use it.",
+      "visibilityTenant": "Tenant-only: grant access per tenant from the grants drawer.",
+      "price": "Price in µcredits per token. 1 credit = 1,000,000 µcredits.",
+      "priceEquiv": "µcredits / token · ≈ {{n}} credits / 1,000,000 tokens",
+      "status": "Disabled models are hidden from callers."
+    },
+    "actions": {
+      "grants": "Grants",
+      "enable": "Enable",
+      "disable": "Disable"
+    },
+    "grant": {
+      "title": "Grants · {{name}}",
+      "note": "Public models are open to all tenants. Grants only gate tenant-visibility models.",
+      "tenant": "Tenant",
+      "tenantPlaceholder": "Select a tenant",
+      "submit": "Grant",
+      "revoke": "Revoke",
+      "granted": "Tenant granted",
+      "revoked": "Grant revoked",
+      "empty": "No grants yet",
+      "colTenant": "Tenant",
+      "colGranted": "Granted"
+    },
+    "confirm": {
+      "deleteTitle": "Delete model?",
+      "deleteMsg": "Permanently delete model {{name}}? This frees the name for re-create and cannot be undone.",
+      "revokeTitle": "Revoke grant?",
+      "revokeMsg": "Revoke access for {{tenant}}? They will no longer be able to use this model."
     }
   },
   "channels": {
@@ -336,6 +407,21 @@
     "markupType": {
       "percent": "Percent",
       "flat": "Flat"
+    },
+    "visibility": {
+      "public": "Public",
+      "tenant": "Tenant"
+    },
+    "modelStatus": {
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "capability": {
+      "tools": "Tools",
+      "vision": "Vision",
+      "audio": "Audio",
+      "json": "JSON mode",
+      "stream": "Streaming"
     }
   },
   "forms": {

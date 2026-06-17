@@ -36,6 +36,7 @@
     "accounts": "账户 / 充值",
     "apiKeys": "API Keys",
     "resources": "资源",
+    "models": "模型",
     "modifiers": "调价规则",
     "dify": "Dify 导入"
   },
@@ -44,6 +45,7 @@
     "dashboard": "租户与资源概览,最近任务",
     "tenants": "创建与查看租户",
     "resources": "模型、上游通道与定价",
+    "models": "中转模型、租户授权与 token 计价",
     "modifiers": "全局与范围化的调价规则",
     "dify": "把 Dify 工作流导入为资源",
     "accounts": "账户余额与充值",
@@ -155,6 +157,75 @@
       "addPrice": "添加定价",
       "priceAdded": "定价已添加",
       "pick": "从左侧选择一个资源查看详情"
+    }
+  },
+  "models": {
+    "title": "模型",
+    "new": "新建模型",
+    "editTitle": "编辑模型",
+    "save": "保存模型",
+    "empty": "暂无模型",
+    "created": "模型已创建",
+    "updated": "模型已更新",
+    "deleted": "模型已删除",
+    "cols": {
+      "model": "模型",
+      "modality": "模态",
+      "capabilities": "能力",
+      "inputPrice": "输入价",
+      "outputPrice": "输出价",
+      "visibility": "可见性",
+      "status": "状态"
+    },
+    "form": {
+      "name": "名称",
+      "resource": "资源",
+      "resourcePlaceholder": "选择一个资源",
+      "display": "显示名",
+      "modality": "模态",
+      "capabilities": "能力",
+      "visibility": "可见性",
+      "inputPrice": "输入价",
+      "outputPrice": "输出价",
+      "status": "状态"
+    },
+    "tip": {
+      "name": "调用方请求时使用的唯一模型 id(如 anthropic/claude-3-5-sonnet)。创建后不可更改。",
+      "resource": "该模型路由到的资源 / 上游。",
+      "resourceFixed": "资源创建后不可更改。",
+      "display": "可选的可读标签,显示在列表中。",
+      "modality": "该模型处理的数据类型。创建后不可更改。",
+      "modalityFixed": "模态创建后不可更改。",
+      "capabilities": "该模型支持的能力——勾选适用项。",
+      "visibility": "Public = 对所有租户开放;Tenant = 仅获授权的租户可用。",
+      "visibilityTenant": "仅租户可见:在授权抽屉中按租户授予访问权。",
+      "price": "价格,单位为每 token 的 µcredits。1 credit = 1,000,000 µcredits。",
+      "priceEquiv": "µcredits / token · ≈ {{n}} credits / 1,000,000 tokens",
+      "status": "已停用的模型对调用方不可见。"
+    },
+    "actions": {
+      "grants": "授权",
+      "enable": "启用",
+      "disable": "停用"
+    },
+    "grant": {
+      "title": "授权 · {{name}}",
+      "note": "Public 模型对所有租户开放。授权仅用于限制 tenant 可见性的模型。",
+      "tenant": "租户",
+      "tenantPlaceholder": "选择一个租户",
+      "submit": "授权",
+      "revoke": "撤销",
+      "granted": "租户已授权",
+      "revoked": "授权已撤销",
+      "empty": "暂无授权",
+      "colTenant": "租户",
+      "colGranted": "授权时间"
+    },
+    "confirm": {
+      "deleteTitle": "删除模型?",
+      "deleteMsg": "确定永久删除模型 {{name}} 吗?删除后该名称可被重新创建,此操作不可撤销。",
+      "revokeTitle": "撤销授权?",
+      "revokeMsg": "确定撤销 {{tenant}} 的访问权吗?该租户将无法再使用此模型。"
     }
   },
   "channels": {
@@ -331,6 +402,21 @@
     "markupType": {
       "percent": "百分比",
       "flat": "定额"
+    },
+    "visibility": {
+      "public": "公开",
+      "tenant": "租户"
+    },
+    "modelStatus": {
+      "active": "启用",
+      "disabled": "已停用"
+    },
+    "capability": {
+      "tools": "工具调用",
+      "vision": "视觉",
+      "audio": "音频",
+      "json": "JSON 模式",
+      "stream": "流式"
     }
   },
   "forms": {

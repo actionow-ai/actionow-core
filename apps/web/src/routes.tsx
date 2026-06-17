@@ -7,6 +7,7 @@ import { AccountsPage } from './features/console/AccountsPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { DashboardPage } from './features/console/DashboardPage';
 import { DifyImportPage } from './features/console/DifyImportPage';
+import { ModelsPage } from './features/console/ModelsPage';
 import { ModifiersPage } from './features/console/ModifiersPage';
 import { ResourcesPage } from './features/console/ResourcesPage';
 import { TenantsPage } from './features/console/TenantsPage';
@@ -31,6 +32,7 @@ export function AppRoutes() {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="resources" element={<ResourcesPage />} />
           <Route path="resources/:id" element={<ResourcesPage />} />
+          <Route path="models" element={<ModelsPage />} />
           <Route path="modifiers" element={<ModifiersPage />} />
           <Route path="dify" element={<DifyImportPage />} />
           <Route path="tenants" element={<TenantsPage />} />
