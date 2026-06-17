@@ -32,6 +32,10 @@ import { Roles } from './auth/roles.decorator.js';
 import {
   type AnalyticsUsageQueryDto,
   analyticsUsageQuerySchema,
+  type CodexLoginComplete,
+  codexLoginCompleteSchema,
+  type CodexLoginStart,
+  codexLoginStartSchema,
   type CreateAccountDto,
   createAccountSchema,
   type CreateApiKeyDto,
@@ -120,6 +124,16 @@ interface OAuthSessionView {
   provider_kind: string;
   account_label: string | null;
   account_id: string | null;
+}
+
+/**
+ * The turnkey codex login-start response: the `authorize_url` the operator opens
+ * and the sealed `state` (the PKCE verifier, encrypted) to echo back to
+ * `.../complete`. Carries NO secret material in the clear.
+ */
+interface CodexLoginStartView {
+  authorize_url: string;
+  state: string;
 }
 
 interface ResourceView {
@@ -333,6 +347,38 @@ export class AdminController {
     @Body(new ZodBody(createOAuthSessionSchema)) dto: CreateOAuthSessionDto,
   ): Promise<OAuthSessionView> {
     const session = await this.admin.createOAuthSession(dto);
+    return {
+      id: session.id,
+      provider_kind: session.providerKind,
+      account_label: session.accountLabel ?? null,
+      account_id: session.accountId ?? null,
+    };
+  }
+
+  @Post('oauth-sessions/codex/login/start')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Begin a turnkey server-side codex OAuth login (returns authorize_url + sealed state)',
+  })
+  startCodexLogin(
+    // The `@Body` pipe validates the explicit ToS ack (`z.literal(true)`); the
+    // start path needs no field from the validated body, so the pipe is the
+    // sole consumer of `dto` (kept for the route's request contract + swagger).
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    @Body(new ZodBody(codexLoginStartSchema)) dto: CodexLoginStart,
+  ): CodexLoginStartView {
+    return this.admin.startCodexLogin();
+  }
+
+  @Post('oauth-sessions/codex/login/complete')
+  @HttpCode(201)
+  @ApiOperation({
+    summary: 'Complete a turnkey codex OAuth login (exchange the code; tokens never returned)',
+  })
+  async completeCodexLogin(
+    @Body(new ZodBody(codexLoginCompleteSchema)) dto: CodexLoginComplete,
+  ): Promise<OAuthSessionView> {
+    const session = await this.admin.completeCodexLogin(dto);
     return {
       id: session.id,
       provider_kind: session.providerKind,

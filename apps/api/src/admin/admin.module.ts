@@ -1,8 +1,8 @@
-import type { AppEnv } from '@actionow/infra';
+import { type AppEnv, FetchHttpClient } from '@actionow/infra';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 
-import { ENV, KNOWN_MODELS } from '../common/tokens.js';
+import { ENV, HTTP, KNOWN_MODELS } from '../common/tokens.js';
 import { AdminController } from './admin.controller.js';
 import { AdminService } from './admin.service.js';
 import { AdminDifyController } from './admin-dify.controller.js';
@@ -38,6 +38,9 @@ import {
     AdminGuard,
     { provide: ADMIN_AUTH_REPO, useValue: defaultAdminAuthRepo },
     { provide: KNOWN_MODELS, useValue: new Set<string>() },
+    // The shared HttpClient for the codex OAuth code-exchange; overridable in
+    // tests (the OAuth-login e2e injects a fake — no real network call).
+    { provide: HTTP, useValue: new FetchHttpClient() },
   ],
   exports: [AdminGuard, JwtModule],
 })

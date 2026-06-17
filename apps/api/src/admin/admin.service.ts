@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import type { HttpClient } from '@actionow/contracts';
 import {
   type AccountRow,
   type ApiKeyRow,
@@ -18,6 +19,8 @@ import {
   createTenant,
   createUpstreamChannel,
   type Database,
+  decryptSecret,
+  encryptSecret,
   getAccount,
   getResource,
   grantModel,
@@ -48,14 +51,21 @@ import {
   type UsageRollupRow,
 } from '@actionow/db';
 import { creditsToMicro } from '@actionow/domain';
-import { parseChatgptIdentity } from '@actionow/engine';
-import type { AppEnv } from '@actionow/infra';
-import { Inject, Injectable } from '@nestjs/common';
+import {
+  buildCodexAuthorizeUrl,
+  CodexAuthError,
+  exchangeCodexCode,
+  generateCodexPkce,
+  parseChatgptIdentity,
+} from '@actionow/engine';
+import { type AppEnv, FetchHttpClient } from '@actionow/infra';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { engineInvalidInput, engineNotFound } from '../common/errors.js';
-import { DB, ENV } from '../common/tokens.js';
+import { DB, ENV, HTTP } from '../common/tokens.js';
 import type {
   AnalyticsUsageQueryDto,
+  CodexLoginComplete,
   CreateAccountDto,
   CreateApiKeyDto,
   CreateChannelDto,
@@ -75,6 +85,29 @@ import type {
 /** Modifier ops whose `value` is a µcredit amount (vs. a whole-percent int). */
 const CREDIT_VALUE_OPS = new Set(['flat_off', 'override_rate']);
 
+/** Reject a sealed codex login `state` older than this — the round-trip is prompt. */
+const CODEX_STATE_TTL_MS = 10 * 60_000;
+
+/** The OAuth-session view returned by both the paste-auth and login paths (NO tokens). */
+interface OAuthSessionView {
+  id: string;
+  providerKind: string;
+  accountLabel?: string;
+  accountId?: string;
+}
+
+/** The fields a successful token acquisition contributes to a persisted session. */
+interface OAuthSessionInputs {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: Date;
+  idToken?: string | undefined;
+  /** An explicit account-id override (the paste path supplies this). */
+  accountId?: string | undefined;
+  /** An explicit label override (paste path: `account_label`/`email`; login: `accountLabel`). */
+  accountLabel?: string | undefined;
+}
+
 /**
  * The thin write/read layer behind the admin CRUD controllers. Owns the
  * dto→db-repo mapping and the credit→µcredit conversion at the boundary: every
@@ -84,10 +117,17 @@ const CREDIT_VALUE_OPS = new Set(['flat_off', 'override_rate']);
  */
 @Injectable()
 export class AdminService {
+  private readonly http: HttpClient;
+
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(ENV) private readonly env: AppEnv,
-  ) {}
+    @Optional() @Inject(HTTP) http?: HttpClient,
+  ) {
+    // Default to a real fetch client so existing constructions/tests that don't
+    // wire an HTTP provider keep working; the OAuth-login e2e overrides it.
+    this.http = http ?? new FetchHttpClient();
+  }
 
   // ----- tenants -----
 
@@ -167,20 +207,9 @@ export class AdminService {
    * RFC3339 `expired` string), falling back to an already-expired timestamp when
    * both are absent so the refresh sweep always picks the session up.
    */
-  async createOAuthSession(
-    dto: CreateOAuthSessionDto,
-  ): Promise<{ id: string; providerKind: string; accountLabel?: string; accountId?: string }> {
-    if (this.env.ENABLE_OAUTH_CHANNELS !== true) {
-      throw engineInvalidInput('oauth channels are disabled (set ENABLE_OAUTH_CHANNELS)');
-    }
-    const keyB64 = this.env.SECRET_ENCRYPTION_KEY;
-    if (keyB64 === undefined || keyB64 === '') {
-      throw engineInvalidInput('SECRET_ENCRYPTION_KEY is not configured');
-    }
+  async createOAuthSession(dto: CreateOAuthSessionDto): Promise<OAuthSessionView> {
+    this.requireOAuthEnabled();
     const a = dto.authJson;
-    const identity = a.id_token !== undefined ? parseChatgptIdentity(a.id_token) : {};
-    const accountId = a.account_id ?? identity.accountId;
-    const accountLabel = a.account_label ?? a.email ?? identity.email;
     // `expiresAt` is UNCONDITIONAL: when both `expires_in` and the RFC3339
     // `expired` are absent we fall back to an already-expired timestamp so the
     // refresh sweep claims the session on its next tick (a NULL `expires_at` is
@@ -196,19 +225,130 @@ export class AdminService {
     if (Number.isNaN(expiresAt.getTime())) {
       throw engineInvalidInput('authJson.expired is not a valid date');
     }
-    const input: CreateOAuthSessionInput = {
-      providerKind: dto.providerKind,
+    return this.persistOAuthSession(dto.providerKind, {
       accessToken: a.access_token,
       refreshToken: a.refresh_token,
-      keyB64,
       expiresAt,
+      idToken: a.id_token,
+      accountId: a.account_id,
+      accountLabel: a.account_label ?? a.email,
+    });
+  }
+
+  /**
+   * Begin the turnkey server-side codex OAuth login. The explicit ToS ack is
+   * enforced by the controller's `codexLoginStartSchema` (`z.literal(true)`)
+   * before we get here. Generates a PKCE pair and SEALS the verifier into the
+   * OAuth `state` by encrypting it with the master key (so the two endpoints
+   * share NO server state — multi-replica safe — and the ciphertext is an
+   * unguessable CSRF token). Returns the `authorize_url` the operator opens plus
+   * the sealed `state` to echo back to `.../complete`.
+   */
+  startCodexLogin(): { authorize_url: string; state: string } {
+    const keyB64 = this.requireOAuthEnabled();
+    const { verifier, challenge } = generateCodexPkce();
+    const state = encryptSecret(JSON.stringify({ v: verifier, t: Date.now() }), keyB64);
+    const authorize_url = buildCodexAuthorizeUrl({ state, codeChallenge: challenge });
+    return { authorize_url, state };
+  }
+
+  /**
+   * Finish the codex login: unseal the PKCE verifier from `state`, exchange the
+   * authorization `code` for tokens, and persist them (encrypted at rest, never
+   * returned). Any decrypt/parse/staleness failure on `state`, and any code
+   * rejection from upstream, surfaces as a clean `invalid_input` (400) — never a
+   * 500. The tokens themselves are never logged or echoed.
+   */
+  async completeCodexLogin(dto: CodexLoginComplete): Promise<OAuthSessionView> {
+    const keyB64 = this.requireOAuthEnabled();
+    const codeVerifier = this.unsealCodexState(dto.state, keyB64);
+    let tokens;
+    try {
+      tokens = await exchangeCodexCode(this.http, { code: dto.code, codeVerifier }, new Date());
+    } catch (err) {
+      if (err instanceof CodexAuthError) {
+        // terminal (bad/dead code) and transient (429) both fail the login here;
+        // a clean 400 keeps the master key + verifier off the error path.
+        throw engineInvalidInput('codex authorization failed');
+      }
+      throw err;
+    }
+    return this.persistOAuthSession('codex-oauth', {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresAt: tokens.expiresAt,
+      idToken: tokens.idToken,
+      accountLabel: dto.accountLabel,
+    });
+  }
+
+  /** The shared gate both oauth paths run: env flag + a present, 32-byte master key. */
+  private requireOAuthEnabled(): string {
+    if (this.env.ENABLE_OAUTH_CHANNELS !== true) {
+      throw engineInvalidInput('oauth channels are disabled (set ENABLE_OAUTH_CHANNELS)');
+    }
+    const keyB64 = this.env.SECRET_ENCRYPTION_KEY;
+    if (keyB64 === undefined || keyB64 === '') {
+      throw engineInvalidInput('SECRET_ENCRYPTION_KEY is not configured');
+    }
+    return keyB64;
+  }
+
+  /**
+   * Recover the PKCE `code_verifier` sealed into a login `state` by
+   * {@link startCodexLogin}. Any decrypt/parse/shape failure, or a state older
+   * than {@link CODEX_STATE_TTL_MS}, throws `invalid_input` — never a 500 (the
+   * thrown message carries no key/verifier material).
+   */
+  private unsealCodexState(state: string, keyB64: string): string {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(decryptSecret(state, keyB64));
+    } catch {
+      throw engineInvalidInput('invalid login state');
+    }
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      typeof (parsed as { v?: unknown }).v !== 'string' ||
+      typeof (parsed as { t?: unknown }).t !== 'number'
+    ) {
+      throw engineInvalidInput('invalid login state');
+    }
+    const { v, t } = parsed as { v: string; t: number };
+    if (Date.now() - t >= CODEX_STATE_TTL_MS) {
+      throw engineInvalidInput('login state expired');
+    }
+    return v;
+  }
+
+  /**
+   * The shared persistence both oauth paths reach: derive the account id/label
+   * from an optional id_token (overridable), encrypt + insert the tokens via
+   * {@link createOAuthSession}, and return the token-free view. The `expiresAt`
+   * is passed UNCONDITIONALLY (the callers compute the fallback).
+   */
+  private async persistOAuthSession(
+    providerKind: string,
+    s: OAuthSessionInputs,
+  ): Promise<OAuthSessionView> {
+    const keyB64 = this.requireOAuthEnabled();
+    const identity = s.idToken !== undefined ? parseChatgptIdentity(s.idToken) : {};
+    const accountId = s.accountId ?? identity.accountId;
+    const accountLabel = s.accountLabel ?? identity.email;
+    const input: CreateOAuthSessionInput = {
+      providerKind,
+      accessToken: s.accessToken,
+      refreshToken: s.refreshToken,
+      keyB64,
+      expiresAt: s.expiresAt,
       ...(accountId !== undefined ? { accountId } : {}),
       ...(accountLabel !== undefined ? { accountLabel } : {}),
     };
     const row = await createOAuthSession(this.db, input);
     return {
       id: row.id,
-      providerKind: dto.providerKind,
+      providerKind,
       ...(accountLabel !== undefined ? { accountLabel } : {}),
       ...(accountId !== undefined ? { accountId } : {}),
     };

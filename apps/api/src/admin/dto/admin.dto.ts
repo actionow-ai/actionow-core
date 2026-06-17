@@ -204,6 +204,38 @@ export const createOAuthSessionSchema = z.object({
 });
 export type CreateOAuthSessionDto = z.infer<typeof createOAuthSessionSchema>;
 
+/**
+ * `POST /admin/oauth-sessions/codex/login/start` — begin the turnkey server-side
+ * codex OAuth login. Gated by `ENABLE_OAUTH_CHANNELS` + an explicit ToS ack. The
+ * server generates a PKCE pair and returns an `authorize_url` the operator opens
+ * plus the sealed `state` (the PKCE verifier encrypted into it) to echo back to
+ * `.../complete`. No server-side state is stored between the two calls.
+ */
+export const codexLoginStartSchema = z.object({
+  /** Must be exactly `true`: an explicit acknowledgement of the upstream ToS. */
+  acknowledgeUpstreamTos: z.literal(true),
+});
+export type CodexLoginStart = z.infer<typeof codexLoginStartSchema>;
+
+/**
+ * `POST /admin/oauth-sessions/codex/login/complete` — finish the codex login by
+ * exchanging the authorization `code` for tokens. `state` is the sealed value
+ * returned by `.../start` (carries the PKCE verifier); an optional `accountLabel`
+ * overrides the label derived from the id_token. The tokens are encrypted at
+ * rest and never returned.
+ */
+export const codexLoginCompleteSchema = z.object({
+  /** Must be exactly `true`: an explicit acknowledgement of the upstream ToS. */
+  acknowledgeUpstreamTos: z.literal(true),
+  /** The authorization code the operator pasted back from the callback. */
+  code: z.string().min(1),
+  /** The sealed state from `.../start` (the PKCE verifier, encrypted). */
+  state: z.string().min(1),
+  /** Optional label override (falls back to the id_token email/account). */
+  accountLabel: z.string().min(1).optional(),
+});
+export type CodexLoginComplete = z.infer<typeof codexLoginCompleteSchema>;
+
 /** `GET /admin/analytics/usage` — usage rollup query. */
 export const analyticsUsageQuerySchema = z.object({
   groupBy: z.enum(['day', 'model', 'tenant', 'channel', 'api_key']),

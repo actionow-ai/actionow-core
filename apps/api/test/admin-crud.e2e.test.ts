@@ -1,4 +1,10 @@
-import { createUser, listRefreshableSessions, schema } from '@actionow/db';
+import type { HttpClient, HttpRequest, HttpResponse } from '@actionow/contracts';
+import {
+  createUser,
+  getDecryptedOAuthSession,
+  listRefreshableSessions,
+  schema,
+} from '@actionow/db';
 import { hashPassword } from '@actionow/infra';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -10,7 +16,32 @@ import request from 'supertest';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
-import { DB, ENV } from '../src/common/tokens.js';
+import { DB, ENV, HTTP } from '../src/common/tokens.js';
+
+/**
+ * A controllable fake {@link HttpClient}: captures the last request (so tests can
+ * assert the form-encoded exchange body) and a call count (so the gate-off test
+ * can prove the upstream was never hit), and returns a canned response.
+ */
+class FakeHttpClient implements HttpClient {
+  calls = 0;
+  lastRequest: HttpRequest | undefined;
+  next: HttpResponse = { status: 200, ok: true, body: {}, text: '' };
+
+  request(req: HttpRequest): Promise<HttpResponse> {
+    this.calls += 1;
+    this.lastRequest = req;
+    return Promise.resolve(this.next);
+  }
+
+  reset(): void {
+    this.calls = 0;
+    this.lastRequest = undefined;
+    this.next = { status: 200, ok: true, body: {}, text: '' };
+  }
+}
+
+const fakeHttp = new FakeHttpClient();
 
 const ADMIN_SECRET = 'e2e-admin-secret';
 const ADMIN_EMAIL = 'admin@actionow.local';
@@ -64,6 +95,8 @@ beforeAll(async () => {
       SECRET_ENCRYPTION_KEY: SECRET_KEY_B64,
       ENABLE_OAUTH_CHANNELS: true,
     })
+    .overrideProvider(HTTP)
+    .useValue(fakeHttp)
     .compile();
 
   app = moduleRef.createNestApplication();
@@ -423,6 +456,193 @@ describe('POST /admin/oauth-sessions (paste-auth, ToS-gated)', () => {
     // a bad paste must NOT leave a half-written session/secret_ref behind.
     const rows = await db.select().from(schema.oauthSession);
     expect(rows).toHaveLength(0);
+  });
+});
+
+/**
+ * Build a second app instance with `ENABLE_OAUTH_CHANNELS` UNSET, sharing the
+ * same db + fake http, so the gate-off cases prove the env flag refuses the
+ * login routes before any upstream call. Returns a freshly-authed token too.
+ */
+async function buildDisabledApp(): Promise<{ app: INestApplication; token: string }> {
+  const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+    .overrideProvider(DB)
+    .useValue(db)
+    .overrideProvider(ENV)
+    .useValue({
+      NODE_ENV: 'production',
+      CREDIT_RATE: 1000,
+      DATABASE_URL: container.getConnectionUri(),
+      REDIS_URL: 'redis://localhost:6379',
+      API_PORT: 3000,
+      LOG_LEVEL: 'info',
+      DEV_TENANT_ID: undefined,
+      RATE_LIMIT_TENANT_PER_MIN: 600,
+      RATE_LIMIT_RESOURCE_PER_MIN: 120,
+      ADMIN_JWT_SECRET: ADMIN_SECRET,
+      SECRET_ENCRYPTION_KEY: SECRET_KEY_B64,
+      // ENABLE_OAUTH_CHANNELS intentionally UNSET → oauth login is gated off.
+    })
+    .overrideProvider(HTTP)
+    .useValue(fakeHttp)
+    .compile();
+  const disabledApp = moduleRef.createNestApplication();
+  await disabledApp.init();
+  const res = await request(disabledApp.getHttpServer())
+    .post('/admin/auth/login')
+    .send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD })
+    .expect(200);
+  return { app: disabledApp, token: res.body.token as string };
+}
+
+describe('POST /admin/oauth-sessions/codex/login/start (turnkey, ToS-gated)', () => {
+  beforeEach(() => {
+    fakeHttp.reset();
+  });
+
+  it('refuses when ENABLE_OAUTH_CHANNELS is off', async () => {
+    const disabled = await buildDisabledApp();
+    try {
+      const res = await request(disabled.app.getHttpServer())
+        .post('/admin/oauth-sessions/codex/login/start')
+        .set('authorization', `Bearer ${disabled.token}`)
+        .send({ acknowledgeUpstreamTos: true })
+        .expect(400);
+      expect(res.body.error.code).toBe('invalid_input');
+    } finally {
+      await disabled.app.close();
+    }
+  });
+
+  it('rejects a missing ToS acknowledgement with 400 invalid_input', async () => {
+    const res = await auth(
+      request(app.getHttpServer()).post('/admin/oauth-sessions/codex/login/start').send({}),
+    ).expect(400);
+    expect(res.body.error.code).toBe('invalid_input');
+  });
+
+  it('returns an authorize_url + sealed state with the codex PKCE params', async () => {
+    const res = await auth(
+      request(app.getHttpServer())
+        .post('/admin/oauth-sessions/codex/login/start')
+        .send({ acknowledgeUpstreamTos: true }),
+    ).expect(200);
+
+    expect(res.body.state).toBeTypeOf('string');
+    expect(res.body.state.length).toBeGreaterThan(0);
+    const url = new URL(res.body.authorize_url as string);
+    expect(url.searchParams.get('client_id')).toBe('app_EMoamEEZ73f0CkXaXp7hrann');
+    expect(url.searchParams.get('code_challenge_method')).toBe('S256');
+    expect(url.searchParams.get('code_challenge')).toBeTruthy();
+    // the response state is exactly the URL's state param (sealed verifier).
+    expect(url.searchParams.get('state')).toBe(res.body.state);
+  });
+});
+
+describe('POST /admin/oauth-sessions/codex/login/complete (turnkey, ToS-gated)', () => {
+  const idToken = craftIdToken({
+    'https://api.openai.com/auth': { chatgpt_account_id: 'acct_login_1', chatgpt_plan_type: 'pro' },
+    email: 'op@example.com',
+  });
+
+  /** Run start and return the sealed state to pass back to complete. */
+  async function startLogin(): Promise<string> {
+    const res = await auth(
+      request(app.getHttpServer())
+        .post('/admin/oauth-sessions/codex/login/start')
+        .send({ acknowledgeUpstreamTos: true }),
+    ).expect(200);
+    return res.body.state as string;
+  }
+
+  beforeEach(() => {
+    fakeHttp.reset();
+  });
+
+  it('exchanges the code, persists encrypted tokens, and never echoes them', async () => {
+    const state = await startLogin();
+    fakeHttp.next = {
+      status: 200,
+      ok: true,
+      body: {
+        access_token: 'login-at',
+        refresh_token: 'login-rt',
+        id_token: idToken,
+        expires_in: 3600,
+      },
+      text: '',
+    };
+
+    const res = await auth(
+      request(app.getHttpServer())
+        .post('/admin/oauth-sessions/codex/login/complete')
+        .send({ acknowledgeUpstreamTos: true, code: 'authcode', state }),
+    ).expect(201);
+
+    expect(res.body.provider_kind).toBe('codex-oauth');
+    expect(res.body.account_id).toBe('acct_login_1');
+    expect(res.body.account_label).toBe('op@example.com');
+    expect(res.body.id).toMatch(/^[0-9a-f-]{36}$/);
+    // tokens NEVER returned in the view.
+    expect(JSON.stringify(res.body)).not.toContain('login-at');
+    expect(JSON.stringify(res.body)).not.toContain('login-rt');
+
+    // the upstream exchange saw a form-encoded authorization_code grant carrying
+    // the recovered PKCE verifier.
+    const body = String(fakeHttp.lastRequest?.body);
+    expect(body).toContain('grant_type=authorization_code');
+    expect(body).toContain('code=authcode');
+    expect(body).toContain('code_verifier=');
+
+    // a real oauth_session row exists; decrypting it round-trips the access token.
+    const [row] = await db.select().from(schema.oauthSession);
+    expect(row?.providerKind).toBe('codex-oauth');
+    const secretRefId = row?.secretRefId ?? '';
+    const dec = await getDecryptedOAuthSession(db, secretRefId, SECRET_KEY_B64);
+    expect(dec?.accessToken).toBe('login-at');
+  });
+
+  it('rejects a tampered state with 400 invalid_input and persists nothing', async () => {
+    const res = await auth(
+      request(app.getHttpServer())
+        .post('/admin/oauth-sessions/codex/login/complete')
+        .send({ acknowledgeUpstreamTos: true, code: 'authcode', state: 'garbage' }),
+    ).expect(400);
+    expect(res.body.error.code).toBe('invalid_input');
+
+    const rows = await db.select().from(schema.oauthSession);
+    expect(rows).toHaveLength(0);
+  });
+
+  it('maps a rejected exchange to 400 invalid_input and persists nothing', async () => {
+    const state = await startLogin();
+    fakeHttp.next = { status: 400, ok: false, body: {}, text: '' };
+
+    const res = await auth(
+      request(app.getHttpServer())
+        .post('/admin/oauth-sessions/codex/login/complete')
+        .send({ acknowledgeUpstreamTos: true, code: 'badcode', state }),
+    ).expect(400);
+    expect(res.body.error.code).toBe('invalid_input');
+
+    const rows = await db.select().from(schema.oauthSession);
+    expect(rows).toHaveLength(0);
+  });
+
+  it('refuses when ENABLE_OAUTH_CHANNELS is off WITHOUT calling upstream', async () => {
+    const disabled = await buildDisabledApp();
+    try {
+      const res = await request(disabled.app.getHttpServer())
+        .post('/admin/oauth-sessions/codex/login/complete')
+        .set('authorization', `Bearer ${disabled.token}`)
+        .send({ acknowledgeUpstreamTos: true, code: 'authcode', state: 'whatever' })
+        .expect(400);
+      expect(res.body.error.code).toBe('invalid_input');
+      // the gate runs BEFORE the exchange — the upstream was never hit.
+      expect(fakeHttp.calls).toBe(0);
+    } finally {
+      await disabled.app.close();
+    }
   });
 });
 
