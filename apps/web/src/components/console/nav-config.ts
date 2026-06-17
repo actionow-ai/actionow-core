@@ -46,7 +46,9 @@ export const NAV: NavGroup[] = [
     key: 'billing',
     icon: CoinsIcon,
     items: [
-      { to: '/console/groups', labelKey: 'groups' },
+      // labelKey `routeGroups` (not `groups`) avoids colliding with the
+      // `nav.groups.*` group-label namespace in the i18n bundle.
+      { to: '/console/groups', labelKey: 'routeGroups' },
       { to: '/console/official-prices', labelKey: 'officialPrices' },
       { to: '/console/modifiers', labelKey: 'modifiers' },
     ],

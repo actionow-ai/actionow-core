@@ -39,7 +39,7 @@
     "resources": "资源",
     "models": "模型",
     "modifiers": "调价规则",
-    "groups": "分组",
+    "routeGroups": "分组",
     "officialPrices": "官方价格",
     "dify": "Dify 导入"
   },
@@ -55,7 +55,7 @@
     "resources": "模型、上游通道与定价",
     "models": "中转模型、租户授权与 token 计价",
     "modifiers": "全局与范围化的调价规则",
-    "groups": "路由分组与渠道成员",
+    "routeGroups": "路由分组与渠道成员",
     "officialPrices": "模型参考价格",
     "dify": "把 Dify 工作流导入为资源",
     "accounts": "账户余额与充值",

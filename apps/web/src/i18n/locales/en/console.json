@@ -44,7 +44,7 @@
     "resources": "Resources",
     "models": "Models",
     "modifiers": "Modifiers",
-    "groups": "Groups",
+    "routeGroups": "Groups",
     "officialPrices": "Official prices",
     "dify": "Dify import"
   },
@@ -60,7 +60,7 @@
     "resources": "Models, upstream channels & pricing",
     "models": "Relay models, tenant grants & token pricing",
     "modifiers": "Global and scoped pricing rules",
-    "groups": "Route groups & channel membership",
+    "routeGroups": "Route groups & channel membership",
     "officialPrices": "Reference model prices",
     "dify": "Import a Dify workflow as a resource",
     "accounts": "Account balance & top-up",
