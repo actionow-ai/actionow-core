@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -28,9 +28,12 @@ describe('Modal focus trap', () => {
     // focus moved inside the dialog
     expect(screen.getByRole('dialog')).toContainElement(document.activeElement as HTMLElement);
 
-    // Escape closes and focus returns to the trigger
+    // Escape closes: focus returns to the trigger immediately, and the dialog
+    // unmounts once the exit animation completes (deferred-unmount lifecycle).
     await user.keyboard('{Escape}');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
   });
 });

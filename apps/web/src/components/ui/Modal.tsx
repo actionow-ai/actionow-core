@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { gsap, useGSAP } from '../../lib/motion/gsap';
+import { DUR, EASE } from '../../lib/motion/tokens';
 import { useFocusTrap } from '../../lib/useFocusTrap';
 
 export function Modal({
@@ -17,8 +19,19 @@ export function Modal({
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  // `mounted` keeps the node in the tree through the exit animation; it only
+  // drops to false once the close tween completes (or instantly when reduced).
+  const [mounted, setMounted] = useState(open);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(dialogRef, open);
+
+  // Focus-trap only while actually open (not during the exit animation), so the
+  // trigger regains focus the moment a close is requested.
+  useFocusTrap(dialogRef, open && mounted);
+
+  useEffect(() => {
+    if (open) setMounted(true);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -29,16 +42,47 @@ export function Modal({
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  useGSAP(
+    () => {
+      const backdrop = backdropRef.current;
+      const dialog = dialogRef.current;
+      if (!backdrop || !dialog) return;
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (open) {
+        if (reduced) {
+          gsap.set(backdrop, { opacity: 1 });
+          gsap.set(dialog, { opacity: 1, scale: 1, y: 0 });
+          return;
+        }
+        gsap.fromTo(backdrop, { opacity: 0 }, { opacity: 1, duration: DUR.base, ease: EASE.out });
+        gsap.fromTo(dialog, { opacity: 0, scale: 0.96, y: 8 }, { opacity: 1, scale: 1, y: 0, duration: DUR.base, ease: EASE.out });
+        return;
+      }
+
+      // Closing: animate out, then unmount. Reduced-motion unmounts immediately.
+      if (reduced) {
+        setMounted(false);
+        return;
+      }
+      const tl = gsap.timeline({ onComplete: () => setMounted(false) });
+      tl.to(dialog, { opacity: 0, scale: 0.96, y: 8, duration: DUR.fast, ease: EASE.in }, 0);
+      tl.to(backdrop, { opacity: 0, duration: DUR.fast, ease: EASE.in }, 0);
+    },
+    { dependencies: [open] },
+  );
+
+  if (!mounted) return null;
   return createPortal(
     <div
+      ref={backdropRef}
       role="presentation"
       onClick={onClose}
       style={{
         position: 'fixed',
         inset: 0,
         zIndex: 80,
-        background: 'rgba(0,0,0,.45)',
+        background: 'var(--scrim)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
