@@ -154,7 +154,10 @@ export {
   type InsertUsageLogInput,
   listUsageLogsByTenant,
   listUsageLogsGlobal,
+  rollupUsage,
   type UsageLogRow,
+  type UsageRollupQuery,
+  type UsageRollupRow,
 } from './usage.js';
 export {
   listDueWebhooks,
