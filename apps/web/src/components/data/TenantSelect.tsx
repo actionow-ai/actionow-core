@@ -1,15 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { Select } from '../ui/Select';
 import { SelectField } from '../ui/SelectField';
 
+/**
+ * Tenant picker. With a `label` it renders a stacked field (for forms); without
+ * one it renders a compact bare Select (for the TopBar filter slot).
+ */
 export function TenantSelect({
   label,
   value,
   onChange,
   placeholder,
 }: {
-  label: string;
+  label?: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
@@ -17,5 +22,8 @@ export function TenantSelect({
   const api = useAdminApi();
   const { data } = useQuery({ queryKey: ['tenants'], queryFn: () => api.listTenants() });
   const options = (data ?? []).map((t) => ({ value: t.id, label: t.name }));
+  if (label === undefined) {
+    return <Select value={value} onChange={onChange} options={options} placeholder={placeholder} ariaLabel={placeholder} />;
+  }
   return <SelectField label={label} value={value} onChange={onChange} options={options} placeholder={placeholder} />;
 }

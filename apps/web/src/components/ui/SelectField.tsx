@@ -1,7 +1,7 @@
-export interface Option {
-  value: string;
-  label: string;
-}
+import type { Option } from './Select';
+import { Select } from './Select';
+
+export type { Option };
 
 export function SelectField({
   label,
@@ -17,21 +17,9 @@ export function SelectField({
   placeholder?: string;
 }) {
   return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>
       {label}
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="panel"
-        style={{ fontSize: 13, color: 'var(--text)', padding: '9px 11px', borderRadius: 'var(--r-sm)', outline: 'none' }}
-      >
-        {placeholder !== undefined && <option value="">{placeholder}</option>}
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      <Select value={value} onChange={onChange} options={options} placeholder={placeholder} ariaLabel={label} />
     </label>
   );
 }

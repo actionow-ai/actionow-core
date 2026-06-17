@@ -27,7 +27,7 @@ function styleFor(variant: Variant, size: Size): CSSProperties {
       ...base,
       color: 'var(--ink)',
       background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
-      boxShadow: '0 6px 18px rgba(255, 176, 10, 0.4)',
+      boxShadow: 'var(--shadow-cta)',
     };
   }
   return { ...base, color: 'var(--text)', background: 'var(--glass-bg)', borderColor: 'var(--glass-bd)' };

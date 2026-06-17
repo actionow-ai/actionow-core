@@ -1,115 +1,199 @@
-import { HouseIcon, SignOutIcon } from '@phosphor-icons/react';
+import { ArrowLeftIcon, ArrowsClockwiseIcon, HouseIcon, MoonIcon, SignOutIcon, SunIcon, TranslateIcon } from '@phosphor-icons/react';
+import { useIsFetching, useQueryClient } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../lib/auth/AuthProvider';
+import { useReducedMotion } from '../../lib/motion/useReducedMotion';
+import { useTheme } from '../../lib/theme/ThemeProvider';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 import { AppBackground } from '../glass/AppBackground';
 import { LanguageSwitch } from '../layout/LanguageSwitch';
 import { ThemeToggle } from '../layout/ThemeToggle';
+import type { ConsoleBack } from './ConsoleChrome';
+import { ConsoleActionContext, ConsoleBackContext, ConsoleFiltersContext } from './ConsoleChrome';
 import { activeItem, groupForPath, MOBILE_TABS, NAV } from './nav-config';
 
+const RAIL_STEP = 52; // 40px button + 12px gap
+const SUBNAV_STEP = 38; // 34px item + 4px gap
+const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+
+/** Square icon button with a tooltip that slides out to its right on hover. */
+function RailButton({ label, active, onClick, children }: { label: string; active?: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      className={`ico-btn${active ? ' is-active' : ''}`}
+      aria-label={label}
+      aria-current={active ? 'page' : undefined}
+      onClick={onClick}
+    >
+      {children}
+      <span className="ico-tip">{label}</span>
+    </button>
+  );
+}
+
 function Rail({ pathname }: { pathname: string }) {
+  const { t } = useTranslation('console');
+  const { t: tc } = useTranslation();
+  const { i18n } = useTranslation();
   const navigate = useNavigate();
-  const active = groupForPath(pathname);
+  const reduced = useReducedMotion();
+  const { theme, toggle } = useTheme();
+  const { logout } = useAuth();
+
+  const activeIdx = NAV.findIndex((g) => g.key === groupForPath(pathname).key);
+  const isZh = i18n.language.startsWith('zh');
+
   return (
     <div
       className="glass"
-      style={{
-        width: 56,
-        borderRadius: 'var(--r-lg)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 'var(--s-3)',
-        padding: 'var(--s-4) 0',
-      }}
+      style={{ width: 64, borderRadius: 'var(--r-lg)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--s-4)', padding: 'var(--s-4) 0' }}
     >
-      {NAV.map((g) => {
-        const GroupIcon = g.icon;
-        const on = g.key === active.key;
-        return (
-          <button
-            key={g.key}
-            type="button"
-            aria-label={g.key}
-            aria-current={on ? 'true' : undefined}
-            onClick={() => void navigate(g.items[0].to)}
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 'var(--r-sm)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: 'none',
-              color: on ? 'var(--ink)' : 'var(--muted)',
-              background: on ? 'linear-gradient(135deg, var(--accent), var(--accent-2))' : 'transparent',
-              boxShadow: on ? '0 4px 14px rgba(255,176,10,.45)' : undefined,
-            }}
-          >
-            <GroupIcon size={19} weight={on ? 'fill' : 'regular'} />
-          </button>
-        );
-      })}
+      <RailButton label={t('topbar.backHome')} onClick={() => void navigate('/')}>
+        <span
+          aria-hidden="true"
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 8,
+            background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--ink)',
+            boxShadow: 'var(--glow-accent)',
+          }}
+        >
+          <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round">
+            <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" />
+          </svg>
+        </span>
+      </RailButton>
+
+      <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--s-3)' }}>
+        <span
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: '50%',
+            width: 40,
+            height: 40,
+            marginLeft: -20,
+            borderRadius: 'var(--r-sm)',
+            background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
+            boxShadow: 'var(--shadow-cta)',
+            zIndex: 0,
+            opacity: activeIdx >= 0 ? 1 : 0,
+            transform: `translateY(${String(Math.max(activeIdx, 0) * RAIL_STEP)}px)`,
+            transition: reduced ? 'none' : `transform 0.32s ${EASE}`,
+          }}
+        />
+        {NAV.map((g, i) => {
+          const GroupIcon = g.icon;
+          const on = i === activeIdx;
+          return (
+            <RailButton key={g.key} label={t(`nav.groups.${g.key}`)} active={on} onClick={() => void navigate(g.items[0].to)}>
+              <GroupIcon size={19} weight={on ? 'fill' : 'regular'} />
+            </RailButton>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--s-2)' }}>
+        <RailButton label={isZh ? tc('lang.en') : tc('lang.zh')} onClick={() => void i18n.changeLanguage(isZh ? 'en' : 'zh-CN')}>
+          <TranslateIcon size={18} />
+        </RailButton>
+        <RailButton label={theme === 'dark' ? tc('theme.toLight') : tc('theme.toDark')} onClick={toggle}>
+          {theme === 'dark' ? <MoonIcon size={18} /> : <SunIcon size={18} />}
+        </RailButton>
+        <RailButton
+          label={t('topbar.logout')}
+          onClick={() => {
+            logout();
+            void navigate('/login', { replace: true });
+          }}
+        >
+          <SignOutIcon size={18} />
+        </RailButton>
+      </div>
     </div>
   );
 }
 
 function SubNav({ pathname }: { pathname: string }) {
   const { t } = useTranslation('console');
+  const reduced = useReducedMotion();
   const group = groupForPath(pathname);
+  const activeIdx = group.items.findIndex((it) => pathname.startsWith(it.to));
+
   return (
-    <div className="glass" style={{ width: 184, borderRadius: 'var(--r-lg)', padding: 'var(--s-4) var(--s-3)' }}>
-      <div
-        style={{
-          fontSize: 9,
-          letterSpacing: '.1em',
-          textTransform: 'uppercase',
-          color: 'var(--faint)',
-          margin: '0 var(--s-2) 8px',
-        }}
-      >
+    <div className="glass" style={{ width: 200, borderRadius: 'var(--r-lg)', padding: 'var(--s-4) var(--s-3)' }}>
+      <div style={{ fontSize: 'var(--fs-caption)', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', margin: '0 var(--s-2) var(--s-3)' }}>
         {t(`nav.groups.${group.key}`)}
       </div>
-      {group.items.map((it) => (
-        <NavLink
-          key={it.to}
-          to={it.to}
-          style={({ isActive }) => ({
-            display: 'block',
-            padding: '9px 10px',
+      <div style={{ position: 'relative' }}>
+        <span
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            height: 34,
+            boxSizing: 'border-box',
             borderRadius: 'var(--r-sm)',
-            marginBottom: 2,
-            fontSize: 12.5,
-            whiteSpace: 'nowrap',
-            color: isActive ? 'var(--text)' : 'var(--muted)',
-            background: isActive ? 'rgba(255,214,10,.13)' : 'transparent',
-            border: isActive ? '1px solid rgba(255,214,10,.28)' : '1px solid transparent',
-          })}
-        >
-          {t(`nav.${it.labelKey}`)}
-        </NavLink>
-      ))}
+            background: 'var(--hover-bg)',
+            border: '1px solid var(--hover-bd)',
+            opacity: activeIdx >= 0 ? 1 : 0,
+            transform: `translateY(${String(Math.max(activeIdx, 0) * SUBNAV_STEP)}px)`,
+            transition: reduced ? 'none' : `transform 0.26s ${EASE}`,
+          }}
+        />
+        {group.items.map((it, i) => (
+          <NavLink
+            key={it.to}
+            to={it.to}
+            style={{
+              position: 'relative',
+              zIndex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              height: 34,
+              marginBottom: 4,
+              padding: '0 10px',
+              borderRadius: 'var(--r-sm)',
+              fontSize: 'var(--fs-sm)',
+              whiteSpace: 'nowrap',
+              textDecoration: 'none',
+              color: i === activeIdx ? 'var(--text)' : 'var(--muted)',
+            }}
+          >
+            {t(`nav.${it.labelKey}`)}
+          </NavLink>
+        ))}
+      </div>
     </div>
   );
 }
 
-function TopBar({ title }: { title: string }) {
+function TopBar({ action, filters, back }: { action: ReactNode; filters: ReactNode; back: ConsoleBack | null }) {
   const { t } = useTranslation('console');
-  const { logout } = useAuth();
+  const { pathname } = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
+  const qc = useQueryClient();
+  const fetching = useIsFetching();
+  const reduced = useReducedMotion();
   const isDesktop = useMediaQuery('(min-width: 768px)');
-  const iconBtn = {
-    width: 38,
-    height: 38,
-    borderRadius: 'var(--r-pill)',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 0,
-  } as const;
+
+  const item = activeItem(pathname);
+  const subtitle = t(`subtitles.${item.labelKey}`, '');
+
   return (
     <div
       className="glass"
@@ -117,56 +201,57 @@ function TopBar({ title }: { title: string }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: 'var(--s-2)',
+        flexWrap: isDesktop ? 'nowrap' : 'wrap',
+        gap: 'var(--s-3)',
         padding: 'var(--s-3) var(--s-4)',
         borderRadius: 'var(--r-md)',
       }}
     >
-      <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', flexShrink: 0 }}>{title}</span>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
-        <Link
-          to="/"
-          aria-label={t('topbar.backHome')}
-          className="glass glass-hover"
-          style={
-            isDesktop
-              ? { fontSize: 12, color: 'var(--muted)', padding: '7px 12px', borderRadius: 'var(--r-pill)', whiteSpace: 'nowrap' }
-              : { ...iconBtn, color: 'var(--muted)' }
-          }
-        >
-          {isDesktop ? t('topbar.backHome') : <HouseIcon size={16} />}
-        </Link>
-        <LanguageSwitch />
-        <ThemeToggle />
-        <button
-          type="button"
-          onClick={() => {
-            logout();
-            void navigate('/login', { replace: true });
-          }}
-          aria-label={t('topbar.logout')}
-          className="glass glass-hover"
-          style={
-            isDesktop
-              ? {
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  fontSize: 12,
-                  color: 'var(--text)',
-                  cursor: 'pointer',
-                  padding: '7px 12px',
-                  borderRadius: 'var(--r-pill)',
-                  whiteSpace: 'nowrap',
-                }
-              : { ...iconBtn, color: 'var(--text)', cursor: 'pointer' }
-          }
-        >
-          <SignOutIcon size={15} />
-          {isDesktop && t('topbar.logout')}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}>
+        {back !== null && (
+          <button type="button" className="ico-btn" aria-label={back.label} onClick={() => void navigate(back.to)} style={{ flexShrink: 0 }}>
+            <ArrowLeftIcon size={17} />
+          </button>
+        )}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 'var(--fs-lg)', fontWeight: 'var(--fw-semibold)', letterSpacing: 'var(--track-snug)', whiteSpace: 'nowrap' }}>
+            {t(`nav.${item.labelKey}`)}
+          </div>
+          {isDesktop && subtitle !== '' && (
+            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {subtitle}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', flexShrink: 0 }}>
+        {filters}
+        {action}
+        <button type="button" className="ico-btn" aria-label={t('topbar.refresh')} onClick={() => void qc.invalidateQueries()}>
+          <ArrowsClockwiseIcon size={17} className={fetching > 0 && !reduced ? 'refresh-spin' : undefined} />
         </button>
-      </span>
+        {!isDesktop && (
+          <>
+            <LanguageSwitch />
+            <ThemeToggle />
+            <button type="button" className="ico-btn" aria-label={t('topbar.backHome')} onClick={() => void navigate('/')}>
+              <HouseIcon size={16} />
+            </button>
+            <button
+              type="button"
+              className="ico-btn"
+              aria-label={t('topbar.logout')}
+              onClick={() => {
+                logout();
+                void navigate('/login', { replace: true });
+              }}
+            >
+              <SignOutIcon size={16} />
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -217,26 +302,32 @@ function BottomTabs({ pathname }: { pathname: string }) {
 }
 
 export function ConsoleLayout() {
-  const { t } = useTranslation('console');
   const { pathname } = useLocation();
   const isDesktop = useMediaQuery('(min-width: 768px)');
-  const title = t(`nav.${activeItem(pathname).labelKey}`);
+  const [action, setAction] = useState<ReactNode>(null);
+  const [filters, setFilters] = useState<ReactNode>(null);
+  const [back, setBack] = useState<ConsoleBack | null>(null);
+
   return (
-    <>
-      <AppBackground />
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 'var(--s-3)', padding: 'var(--s-4)', height: '100dvh' }}>
-        {isDesktop && <Rail pathname={pathname} />}
-        {isDesktop && <SubNav pathname={pathname} />}
-        <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-          <TopBar title={title} />
-          <div style={{ flex: 1, minHeight: 0, overflow: 'auto', paddingRight: 2, paddingBottom: isDesktop ? 0 : 76 }}>
-            <div style={{ maxWidth: 'var(--content-max)', margin: '0 auto', width: '100%', height: '100%' }}>
-              <Outlet />
+    <ConsoleActionContext.Provider value={setAction}>
+      <ConsoleFiltersContext.Provider value={setFilters}>
+        <ConsoleBackContext.Provider value={setBack}>
+        <AppBackground />
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 'var(--s-3)', padding: 'var(--s-4)', height: '100dvh' }}>
+          {isDesktop && <Rail pathname={pathname} />}
+          {isDesktop && <SubNav pathname={pathname} />}
+          <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+            <TopBar action={action} filters={filters} back={back} />
+            <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 'var(--s-3)', paddingBottom: isDesktop ? 'var(--s-3)' : 76 }}>
+              <div style={{ width: '100%', height: '100%' }}>
+                <Outlet />
+              </div>
             </div>
-          </div>
-        </main>
-      </div>
-      {!isDesktop && <BottomTabs pathname={pathname} />}
-    </>
+          </main>
+        </div>
+        {!isDesktop && <BottomTabs pathname={pathname} />}
+        </ConsoleBackContext.Provider>
+      </ConsoleFiltersContext.Provider>
+    </ConsoleActionContext.Provider>
   );
 }

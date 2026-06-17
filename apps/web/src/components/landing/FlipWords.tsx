@@ -36,7 +36,10 @@ export function FlipWords({ words, className, style }: { words: string[]; classN
         }).fromTo(
           el,
           { yPercent: 45, opacity: 0 },
-          { yPercent: 0, opacity: 1, duration: 0.42, ease: 'power3.out' },
+          // immediateRender:false — without it, every fromTo in the timeline
+          // applies its "from" (opacity 0) at build time, blanking the word
+          // for the first ~1.8s hold before the playhead reaches it.
+          { yPercent: 0, opacity: 1, duration: 0.42, ease: 'power3.out', immediateRender: false },
         );
       });
     },

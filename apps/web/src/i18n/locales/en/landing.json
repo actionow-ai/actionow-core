@@ -2,6 +2,7 @@
   "nav": {
     "features": "Capabilities",
     "scenarios": "Use cases",
+    "pricing": "Pricing",
     "docs": "Docs",
     "console": "Console",
     "deploy": "Deploy",
@@ -12,7 +13,7 @@
     "titleHl": "AI gateway & relay",
     "title2": "",
     "flip": ["AI gateway", "a model relay", "credit billing", "self-service"],
-    "lead": "Multi-tenant accounts, credit billing and payments out of the box, with OpenAI / Anthropic / Gemini compatible endpoints. Deploy once; your customers become tenants.",
+    "lead": "Multi-tenant accounts, credit billing and payments out of the box, with OpenAI / Anthropic / Gemini compatible endpoints across text, image, video, and audio. Deploy once; your customers become tenants.",
     "ctaPrimary": "Deploy now",
     "ctaSecondary": "Read the docs",
     "codeCaption": "OpenAI-compatible, just change the base_url"
@@ -26,7 +27,7 @@
     },
     "relay": {
       "t": "Run a model relay",
-      "d": "Resell model access NewAPI-style: customers call your instance with the OpenAI, Anthropic, or Gemini SDK, priced per token. Your margin sits on top of upstream cost."
+      "d": "Resell model access to your customers: they call your instance with the OpenAI, Anthropic, or Gemini SDK, priced per token; your margin sits on top of upstream cost."
     }
   },
   "features": {
@@ -76,6 +77,13 @@
     }
   },
   "compat": { "label": "Works with your existing SDKs" },
+  "live": {
+    "eyebrow": "Runtime at a glance",
+    "title": "Watch it run",
+    "lead": "Multi-tenant, full-modal, metered per request — text, image, video, and audio, all in one console.",
+    "stats": { "tenants": "Tenants", "calls": "Calls today", "spend": "Spend · credits" },
+    "logTitle": "Live call log"
+  },
   "pricing": {
     "title": "You self-host, you set the price",
     "lead": "Actionow is your own base: resale prices, discounts, and data all stay with you. Open-source scaffold, self-hosted on your terms.",
@@ -102,6 +110,7 @@
   "footer": {
     "tagline": "Self-hosted AI gateway and relay",
     "product": "Product",
+    "resources": "Resources",
     "docs": "Docs",
     "console": "Console",
     "rights": "All rights reserved."

@@ -1,8 +1,9 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
 import { Money } from '../../components/data/Money';
 import { TenantSelect } from '../../components/data/TenantSelect';
 import { Button } from '../../components/ui/Button';
@@ -47,14 +48,18 @@ export function AccountsPage() {
     onError: (e) => toast(e instanceof ApiError ? t(`errors.${e.code}`) : t('errors.network'), 'error'),
   });
 
+  const action = useMemo(
+    () => (
+      <Button variant="ghost" onClick={() => setCreateOpen(true)}>
+        <PlusIcon size={14} weight="bold" /> {t('accounts.new')}
+      </Button>
+    ),
+    [t],
+  );
+  useSetConsoleAction(action);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button variant="cta" onClick={() => setCreateOpen(true)}>
-          <PlusIcon size={14} weight="bold" /> {t('accounts.new')}
-        </Button>
-      </div>
-
       {account ? (
         <div
           className="glass"

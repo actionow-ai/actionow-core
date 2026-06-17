@@ -11,11 +11,11 @@ export function Pricing() {
   ];
   return (
     <section id="pricing" style={{ maxWidth: 980, margin: '0 auto', padding: 'var(--s-16) var(--s-4)' }}>
-      <Reveal style={{ marginBottom: 'var(--s-8)' }}>
-        <h2 style={{ fontSize: 'clamp(26px, 3.4vw, 38px)', fontWeight: 750, letterSpacing: '-0.02em', margin: 0, maxWidth: 620 }}>
+      <Reveal style={{ marginBottom: 'var(--s-8)', textAlign: 'center' }}>
+        <h2 style={{ fontSize: 'clamp(26px, 3.4vw, 40px)', fontWeight: 780, letterSpacing: '-0.02em', margin: 0 }}>
           {t('pricing.title')}
         </h2>
-        <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-3)', maxWidth: 520 }}>
+        <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--muted)', margin: 'var(--s-3) auto 0', maxWidth: 520 }}>
           {t('pricing.lead')}
         </p>
       </Reveal>

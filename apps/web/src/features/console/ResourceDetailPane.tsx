@@ -1,11 +1,11 @@
-import { ArrowLeftIcon, PlusIcon } from '@phosphor-icons/react';
+import { PlusIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
 
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
+import { ProviderIcon } from '../../components/data/ProviderIcon';
 import { StatusBadge } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { JsonField, validateJson } from '../../components/ui/JsonField';
@@ -17,9 +17,9 @@ import { ApiError } from '../../lib/api/errors';
 import type { PricebookView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
-export function ResourceDetailPage() {
+/** The right pane of the Resources master-detail: a resource's channels + pricebook. */
+export function ResourceDetailPane({ id }: { id: string }) {
   const { t } = useTranslation('console');
-  const { id = '' } = useParams();
   const api = useAdminApi();
   const qc = useQueryClient();
 
@@ -32,12 +32,16 @@ export function ResourceDetailPage() {
   const [chCred, setChCred] = useState('');
   const [chWeight, setChWeight] = useState('1');
   const addChannel = useMutation({
-    mutationFn: () => api.createChannel(id, {
-      providerType: chProvider,
-      credentialRef: chCred.trim() === '' ? undefined : chCred.trim(),
-      weight: Number(chWeight) || 1,
-    }),
-    onSuccess: () => { toast(t('resources.detail.channelAdded')); setChOpen(false); },
+    mutationFn: () =>
+      api.createChannel(id, {
+        providerType: chProvider,
+        credentialRef: chCred.trim() === '' ? undefined : chCred.trim(),
+        weight: Number(chWeight) || 1,
+      }),
+    onSuccess: () => {
+      toast(t('resources.detail.channelAdded'));
+      setChOpen(false);
+    },
     onError: (e) => toast(e instanceof ApiError ? t(`errors.${e.code}`, e.message) : t('errors.network'), 'error'),
   });
 
@@ -51,11 +55,20 @@ export function ResourceDetailPage() {
       const parsed = validateJson(spec);
       if (!parsed.ok) throw new ApiError('invalid_input', parsed.error, 400, false);
       return api.createPricebook({
-        resourceId: id, resourceVersion: resource?.current_version ?? 1, version: 1,
-        method, timing, spec: parsed.value, active: true,
+        resourceId: id,
+        resourceVersion: resource?.current_version ?? 1,
+        version: 1,
+        method,
+        timing,
+        spec: parsed.value,
+        active: true,
       });
     },
-    onSuccess: async () => { await qc.invalidateQueries({ queryKey: ['admin', 'pricebook', id] }); toast(t('resources.detail.priceAdded')); setPbOpen(false); },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['admin', 'pricebook', id] });
+      toast(t('resources.detail.priceAdded'));
+      setPbOpen(false);
+    },
     onError: (e) => toast(e instanceof ApiError ? t(`errors.${e.code}`, e.message) : t('errors.network'), 'error'),
   });
 
@@ -68,45 +81,81 @@ export function ResourceDetailPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-5)' }}>
-      <Link to="/console/resources" style={{ fontSize: 12.5, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        <ArrowLeftIcon size={14} /> {t('resources.detail.back')}
-      </Link>
-      <div className="panel" style={{ borderRadius: 'var(--r-md)', padding: 'var(--s-4)' }}>
-        <div style={{ fontSize: 17, fontWeight: 700 }}>{id}</div>
-        {resource && (
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 6 }}>
-            {resource.modality} · {resource.provider_type} · {resource.exec_modes.join(', ')} · <StatusBadge status={resource.status} />
-          </div>
-        )}
+      <div className="panel" style={{ borderRadius: 'var(--r-md)', padding: 'var(--s-4)', display: 'flex', alignItems: 'flex-start', gap: 'var(--s-3)' }}>
+        {resource && <ProviderIcon provider={resource.provider_type} size={28} />}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 'var(--fs-lg)', fontWeight: 'var(--fw-semibold)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{id}</div>
+          {resource && (
+            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span>
+                {resource.modality} · {resource.provider_type} · {resource.exec_modes.join(', ')}
+              </span>
+              <StatusBadge status={resource.status} />
+            </div>
+          )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-        <SectionHeader title={t('resources.detail.channels')} action={
-          <Button onClick={() => setChOpen(true)}><PlusIcon size={14} weight="bold" /> {t('resources.detail.addChannel')}</Button>
-        } />
-        <div style={{ fontSize: 12, color: 'var(--faint)' }}>{t('channels.note')}</div>
+        <SectionHeader
+          title={t('resources.detail.channels')}
+          action={
+            <Button onClick={() => setChOpen(true)}>
+              <PlusIcon size={14} weight="bold" /> {t('resources.detail.addChannel')}
+            </Button>
+          }
+        />
+        <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>{t('channels.note')}</div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-        <SectionHeader title={t('resources.detail.pricebook')} action={
-          <Button onClick={() => setPbOpen(true)}><PlusIcon size={14} weight="bold" /> {t('resources.detail.addPrice')}</Button>
-        } />
+        <SectionHeader
+          title={t('resources.detail.pricebook')}
+          action={
+            <Button onClick={() => setPbOpen(true)}>
+              <PlusIcon size={14} weight="bold" /> {t('resources.detail.addPrice')}
+            </Button>
+          }
+        />
         <DataTable columns={pbCols} rows={pricebook.data ?? []} rowKey={(r) => r.id} loading={pricebook.isLoading} empty={t('pricebook.empty')} />
       </div>
 
-      <Modal open={chOpen} title={t('resources.detail.addChannel')} onClose={() => setChOpen(false)}
-        footer={<Button variant="cta" onClick={() => addChannel.mutate()}>{t('resources.detail.addChannel')}</Button>}>
+      <Modal
+        open={chOpen}
+        title={t('resources.detail.addChannel')}
+        onClose={() => setChOpen(false)}
+        footer={
+          <Button variant="cta" onClick={() => addChannel.mutate()}>
+            {t('resources.detail.addChannel')}
+          </Button>
+        }
+      >
         <TextField label={t('channels.form.provider')} value={chProvider} onChange={(e) => setChProvider(e.target.value)} />
         <TextField label={t('channels.form.credentialRef')} value={chCred} onChange={(e) => setChCred(e.target.value)} />
         <TextField label={t('channels.form.weight')} value={chWeight} onChange={(e) => setChWeight(e.target.value)} />
       </Modal>
 
-      <Modal open={pbOpen} title={t('resources.detail.addPrice')} onClose={() => setPbOpen(false)}
-        footer={<Button variant="cta" onClick={() => addPrice.mutate()}>{t('resources.detail.addPrice')}</Button>}>
+      <Modal
+        open={pbOpen}
+        title={t('resources.detail.addPrice')}
+        onClose={() => setPbOpen(false)}
+        footer={
+          <Button variant="cta" onClick={() => addPrice.mutate()}>
+            {t('resources.detail.addPrice')}
+          </Button>
+        }
+      >
         <TextField label={t('pricebook.form.method')} value={method} onChange={(e) => setMethod(e.target.value)} />
         <TextField label={t('pricebook.form.timing')} value={timing} onChange={(e) => setTiming(e.target.value)} />
-        <JsonField label={t('pricebook.form.spec')} value={spec}
-          onChange={(v) => { setSpec(v); setPbErr(validateJson(v).ok ? undefined : 'invalid JSON'); }} error={pbErr} />
+        <JsonField
+          label={t('pricebook.form.spec')}
+          value={spec}
+          onChange={(v) => {
+            setSpec(v);
+            setPbErr(validateJson(v).ok ? undefined : 'invalid JSON');
+          }}
+          error={pbErr}
+        />
       </Modal>
     </div>
   );

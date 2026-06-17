@@ -1,11 +1,11 @@
-import { PlusIcon } from '@phosphor-icons/react';
+import { PlusIcon, SlidersHorizontalIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { PageHeader } from '../../components/console/PageHeader';
-import type { Column } from '../../components/data/DataTable';
-import { DataTable } from '../../components/data/DataTable';
+import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
+import { CardCollection } from '../../components/data/CardCollection';
+import { EntityCard } from '../../components/data/EntityCard';
 import { StatusBadge } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -13,7 +13,6 @@ import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
-import type { ModifierView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
 const OPS = ['override_rate', 'percent_off', 'flat_off', 'percent_add'];
@@ -48,31 +47,49 @@ export function ModifiersPage() {
     onError: (e) => toast(e instanceof ApiError ? t(`errors.${e.code}`, e.message) : t('errors.network'), 'error'),
   });
 
-  const columns: Column<ModifierView>[] = [
-    { key: 'scope', header: t('modifiers.cols.scope'), width: '1fr', cell: (r) => r.scope },
-    { key: 'op', header: t('modifiers.cols.op'), width: '160px', cell: (r) => r.op },
-    { key: 'value', header: t('modifiers.cols.value'), width: '100px', cell: (r) => r.value ?? '—' },
-    { key: 'priority', header: t('modifiers.cols.priority'), width: '100px', cell: (r) => String(r.priority) },
-    { key: 'active', header: t('modifiers.cols.active'), width: '110px', cell: (r) => <StatusBadge status={r.active ? 'active' : 'inactive'} /> },
-  ];
+  const action = useMemo(
+    () => (
+      <Button variant="ghost" onClick={() => setOpen(true)}>
+        <PlusIcon size={14} weight="bold" /> {t('modifiers.new')}
+      </Button>
+    ),
+    [t],
+  );
+  useSetConsoleAction(action);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)', height: '100%' }}>
-      <PageHeader
-        title={t('modifiers.title')}
-        count={data?.length}
-        action={
-          <Button variant="ghost" onClick={() => setOpen(true)}>
-            <PlusIcon size={14} weight="bold" /> {t('modifiers.new')}
+    <div style={{ height: '100%' }}>
+      <CardCollection
+        rows={data ?? []}
+        loading={isLoading}
+        empty={t('modifiers.empty')}
+        renderCard={(r) => (
+          <EntityCard
+            key={r.id}
+            icon={SlidersHorizontalIcon}
+            title={r.scope}
+            badge={<StatusBadge status={r.active ? 'active' : 'inactive'} />}
+            chips={[r.op]}
+            meta={[
+              { label: t('modifiers.cols.value'), value: r.value ?? '—' },
+              { label: t('modifiers.cols.priority'), value: String(r.priority) },
+            ]}
+          />
+        )}
+      />
+
+      <Modal
+        open={open}
+        title={t('modifiers.new')}
+        onClose={() => setOpen(false)}
+        footer={
+          <Button variant="cta" onClick={() => create.mutate()}>
+            {t('modifiers.submit')}
           </Button>
         }
-      />
-      <DataTable columns={columns} rows={data ?? []} rowKey={(r) => r.id} loading={isLoading} empty={t('modifiers.empty')} fill />
-      <Modal open={open} title={t('modifiers.new')} onClose={() => setOpen(false)}
-        footer={<Button variant="cta" onClick={() => create.mutate()}>{t('modifiers.submit')}</Button>}>
+      >
         <TextField label={t('modifiers.form.scope')} value={scope} onChange={(e) => setScope(e.target.value)} />
-        <SelectField label={t('modifiers.form.op')} value={op} onChange={(v) => setOp(v)}
-          options={OPS.map((o) => ({ value: o, label: o }))} />
+        <SelectField label={t('modifiers.form.op')} value={op} onChange={(v) => setOp(v)} options={OPS.map((o) => ({ value: o, label: o }))} />
         <TextField label={t('modifiers.form.value')} value={value} onChange={(e) => setValue(e.target.value)} />
         <TextField label={t('modifiers.form.whenExpr')} value={whenExpr} onChange={(e) => setWhenExpr(e.target.value)} />
         <TextField label={t('modifiers.form.priority')} value={priority} onChange={(e) => setPriority(e.target.value)} />

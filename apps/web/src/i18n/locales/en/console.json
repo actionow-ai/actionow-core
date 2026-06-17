@@ -44,10 +44,20 @@
     "modifiers": "Modifiers",
     "dify": "Dify import"
   },
-  "topbar": { "admin": "Admin", "logout": "Sign out", "backHome": "Website" },
+  "topbar": { "admin": "Admin", "logout": "Sign out", "backHome": "Website", "refresh": "Refresh" },
+  "subtitles": {
+    "dashboard": "Tenants & resources overview, recent jobs",
+    "tenants": "Create and view tenants",
+    "resources": "Models, upstream channels & pricing",
+    "modifiers": "Global and scoped pricing rules",
+    "dify": "Import a Dify workflow as a resource",
+    "accounts": "Account balance & top-up",
+    "apiKeys": "Issue and manage API keys"
+  },
   "dashboard": {
     "stats": { "tenants": "Tenants", "resources": "Resources", "pickTenant": "Select tenant" },
     "recentJobs": "Recent jobs",
+    "noJobs": "No jobs for this tenant yet",
     "pickTenant": "Pick a tenant to view jobs",
     "cols": { "resource": "Resource", "execMode": "Exec mode", "cost": "Cost", "status": "Status" }
   },
@@ -132,7 +142,8 @@
       "addChannel": "Add channel",
       "channelAdded": "Channel added",
       "addPrice": "Add price",
-      "priceAdded": "Price added"
+      "priceAdded": "Price added",
+      "pick": "Select a resource to view details"
     }
   },
   "channels": {

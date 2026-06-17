@@ -2,6 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { Suspense } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 
+import { LoadingScreen } from './components/ui/LoadingScreen';
 import { Toaster } from './components/ui/Toaster';
 import { AuthProvider } from './lib/auth/AuthProvider';
 import { queryClient } from './lib/query';
@@ -14,7 +15,7 @@ export default function App() {
       <AuthProvider>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
-            <Suspense fallback={null}>
+            <Suspense fallback={<LoadingScreen />}>
               <AppRoutes />
             </Suspense>
           </BrowserRouter>

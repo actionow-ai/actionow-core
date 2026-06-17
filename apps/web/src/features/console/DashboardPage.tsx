@@ -1,14 +1,16 @@
+import { CubeIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useSetConsoleFilters } from '../../components/console/ConsoleChrome';
 import { StatCard } from '../../components/console/StatCard';
-import type { Column } from '../../components/data/DataTable';
-import { DataTable } from '../../components/data/DataTable';
+import { CardCollection } from '../../components/data/CardCollection';
+import { EntityCard } from '../../components/data/EntityCard';
 import { Money } from '../../components/data/Money';
 import { StatusBadge } from '../../components/data/StatusBadge';
 import { TenantSelect } from '../../components/data/TenantSelect';
-import type { JobView } from '../../lib/api/types';
+import { SectionHeader } from '../../components/ui/SectionHeader';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
 export function DashboardPage() {
@@ -25,40 +27,53 @@ export function DashboardPage() {
     enabled: tenantId !== '',
   });
 
-  const columns: Column<JobView>[] = [
-    { key: 'resource', header: t('dashboard.cols.resource'), cell: (r) => r.resource_id },
-    { key: 'mode', header: t('dashboard.cols.execMode'), cell: (r) => <span className="tabular">{r.exec_mode}</span> },
-    { key: 'cost', header: t('dashboard.cols.cost'), cell: (r) => (r.cost ? <Money micro={r.cost} /> : '—') },
-    { key: 'status', header: t('dashboard.cols.status'), cell: (r) => <StatusBadge status={r.status} /> },
-  ];
+  const filters = useMemo(
+    () => (
+      <div style={{ width: 200 }}>
+        <TenantSelect value={tenantId} onChange={setTenantId} placeholder={t('dashboard.stats.pickTenant')} />
+      </div>
+    ),
+    [t, tenantId],
+  );
+  useSetConsoleFilters(filters);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--s-3)' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--s-5)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--s-3)' }}>
         <StatCard label={t('dashboard.stats.tenants')} value={tenants.data?.length ?? 0} />
         <StatCard label={t('dashboard.stats.resources')} value={resources.data?.length ?? 0} />
       </div>
 
-      <div style={{ width: 220 }}>
-        <TenantSelect label={t('dashboard.stats.pickTenant')} value={tenantId} onChange={setTenantId} placeholder="—" />
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+        <SectionHeader title={t('dashboard.recentJobs')} />
+        {tenantId === '' ? (
+          <div className="panel" style={{ flex: 1, display: 'grid', placeItems: 'center', borderRadius: 'var(--r-md)', color: 'var(--muted)', fontSize: 'var(--fs-sm)', padding: 'var(--s-6)' }}>
+            {t('dashboard.pickTenant')}
+          </div>
+        ) : (
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 'var(--s-2)' }}>
+            <CardCollection
+              rows={jobs.data?.rows ?? []}
+              loading={jobs.isLoading}
+              empty={t('dashboard.noJobs')}
+              layout="list"
+              renderCard={(r) => (
+                <EntityCard
+                  key={r.job_id}
+                  icon={CubeIcon}
+                  title={r.resource_id}
+                  badge={<StatusBadge status={r.status} />}
+                  chips={[r.exec_mode]}
+                  meta={[
+                    { label: t('dashboard.cols.cost'), value: r.cost !== null ? <Money micro={r.cost} /> : '—' },
+                    { label: t('dashboard.cols.status'), value: new Date(r.created_at).toLocaleTimeString() },
+                  ]}
+                />
+              )}
+            />
+          </div>
+        )}
       </div>
-
-      {tenantId ? (
-        <DataTable
-          columns={columns}
-          rows={jobs.data?.rows ?? []}
-          rowKey={(r) => r.job_id}
-          loading={jobs.isLoading}
-          empty={t('dashboard.recentJobs')}
-        />
-      ) : (
-        <div
-          className="panel"
-          style={{ padding: 'var(--s-6)', textAlign: 'center', color: 'var(--muted)', fontSize: 12, borderRadius: 'var(--r-md)' }}
-        >
-          {t('dashboard.pickTenant')}
-        </div>
-      )}
     </div>
   );
 }

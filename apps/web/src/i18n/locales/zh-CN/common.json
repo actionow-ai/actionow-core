@@ -1,5 +1,6 @@
 {
   "brand": "Actionow",
+  "loading": "加载中",
   "theme": { "toLight": "切换到亮色", "toDark": "切换到暗色" },
   "lang": { "zh": "中文", "en": "English" },
   "comingSoon": "控制台即将上线",

@@ -1,18 +1,17 @@
-import { PlusIcon } from '@phosphor-icons/react';
+import { BuildingsIcon, PlusIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { PageHeader } from '../../components/console/PageHeader';
-import type { Column } from '../../components/data/DataTable';
-import { DataTable } from '../../components/data/DataTable';
+import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
+import { CardCollection } from '../../components/data/CardCollection';
+import { EntityCard } from '../../components/data/EntityCard';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
-import type { TenantView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
 export function TenantsPage() {
@@ -36,29 +35,32 @@ export function TenantsPage() {
     onError: (e) => toast(e instanceof ApiError ? t(`errors.${e.code}`) : t('errors.network'), 'error'),
   });
 
-  const columns: Column<TenantView>[] = [
-    { key: 'name', header: t('tenants.cols.name'), width: 'minmax(160px, 1.4fr)', cell: (r) => r.name },
-    {
-      key: 'isolation',
-      header: t('tenants.cols.isolation'),
-      width: '140px',
-      cell: (r) => t(`tenants.isolation.${r.isolation_mode}`, r.isolation_mode),
-    },
-    { key: 'created', header: t('tenants.cols.created'), width: '180px', cell: (r) => new Date(r.created_at).toLocaleString() },
-  ];
+  const action = useMemo(
+    () => (
+      <Button variant="ghost" onClick={() => setOpen(true)}>
+        <PlusIcon size={14} weight="bold" /> {t('tenants.new')}
+      </Button>
+    ),
+    [t],
+  );
+  useSetConsoleAction(action);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)', height: '100%' }}>
-      <PageHeader
-        title={t('tenants.title')}
-        count={data?.length}
-        action={
-          <Button variant="ghost" onClick={() => setOpen(true)}>
-            <PlusIcon size={14} weight="bold" /> {t('tenants.new')}
-          </Button>
-        }
+    <div style={{ height: '100%' }}>
+      <CardCollection
+        rows={data ?? []}
+        loading={isLoading}
+        empty={t('tenants.empty')}
+        renderCard={(r) => (
+          <EntityCard
+            key={r.id}
+            icon={BuildingsIcon}
+            title={r.name}
+            chips={[t(`tenants.isolation.${r.isolation_mode}`, r.isolation_mode)]}
+            meta={[{ label: t('tenants.cols.created'), value: new Date(r.created_at).toLocaleDateString() }]}
+          />
+        )}
       />
-      <DataTable columns={columns} rows={data ?? []} rowKey={(r) => r.id} loading={isLoading} empty={t('tenants.empty')} fill />
 
       <Modal
         open={open}

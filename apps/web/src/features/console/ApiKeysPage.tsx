@@ -1,11 +1,12 @@
-import { PlusIcon } from '@phosphor-icons/react';
+import { KeyIcon, PlusIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useSetConsoleAction, useSetConsoleFilters } from '../../components/console/ConsoleChrome';
+import { CardCollection } from '../../components/data/CardCollection';
 import { CopyField } from '../../components/data/CopyField';
-import type { Column } from '../../components/data/DataTable';
-import { DataTable } from '../../components/data/DataTable';
+import { EntityCard } from '../../components/data/EntityCard';
 import { StatusBadge } from '../../components/data/StatusBadge';
 import { TenantSelect } from '../../components/data/TenantSelect';
 import { Button } from '../../components/ui/Button';
@@ -13,7 +14,7 @@ import { Modal } from '../../components/ui/Modal';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
-import type { ApiKeyView, CreateApiKeyBody } from '../../lib/api/types';
+import type { CreateApiKeyBody } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
 export function ApiKeysPage() {
@@ -54,26 +55,46 @@ export function ApiKeysPage() {
     onError: (e) => toast(e instanceof ApiError ? t(`errors.${e.code}`) : t('errors.network'), 'error'),
   });
 
-  const columns: Column<ApiKeyView>[] = [
-    { key: 'id', header: t('apiKeys.cols.id'), cell: (r) => <code style={{ fontSize: 11 }}>{r.id}</code> },
-    { key: 'allow', header: t('apiKeys.cols.allowlist'), cell: (r) => (r.resource_allowlist.length ? r.resource_allowlist.join(', ') : '—') },
-    { key: 'rate', header: t('apiKeys.cols.rateLimit'), cell: (r) => r.rate_limit ?? '—' },
-    { key: 'status', header: t('apiKeys.cols.status'), cell: (r) => <StatusBadge status={r.status} /> },
-    { key: 'created', header: t('apiKeys.cols.created'), cell: (r) => new Date(r.created_at).toLocaleDateString() },
-  ];
+  const action = useMemo(
+    () => (
+      <Button variant="ghost" onClick={() => setFormOpen(true)}>
+        <PlusIcon size={14} weight="bold" /> {t('apiKeys.new')}
+      </Button>
+    ),
+    [t],
+  );
+  useSetConsoleAction(action);
+
+  const filters = useMemo(
+    () => (
+      <div style={{ width: 200 }}>
+        <TenantSelect value={tenantId} onChange={setTenantId} placeholder={t('apiKeys.form.tenant')} />
+      </div>
+    ),
+    [t, tenantId],
+  );
+  useSetConsoleFilters(filters);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-      <div style={{ display: 'flex', gap: 'var(--s-3)', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <div style={{ width: 220 }}>
-          <TenantSelect label={t('apiKeys.form.tenant')} value={tenantId} onChange={setTenantId} placeholder="—" />
-        </div>
-        <Button variant="cta" onClick={() => setFormOpen(true)}>
-          <PlusIcon size={14} weight="bold" /> {t('apiKeys.new')}
-        </Button>
-      </div>
-
-      <DataTable columns={columns} rows={data ?? []} rowKey={(r) => r.id} loading={isLoading} empty={t('apiKeys.empty')} />
+    <div style={{ height: '100%' }}>
+      <CardCollection
+        rows={tenantId === '' ? [] : (data ?? [])}
+        loading={tenantId !== '' && isLoading}
+        empty={t('apiKeys.empty')}
+        renderCard={(r) => (
+          <EntityCard
+            key={r.id}
+            icon={KeyIcon}
+            title={<code style={{ fontSize: 'var(--fs-sm)' }}>{r.id}</code>}
+            badge={<StatusBadge status={r.status} />}
+            chips={[
+              ...(r.rate_limit !== null ? [`${String(r.rate_limit)}/min`] : []),
+              ...(r.resource_allowlist.length > 0 ? r.resource_allowlist : []),
+            ]}
+            meta={[{ label: t('apiKeys.cols.created'), value: new Date(r.created_at).toLocaleDateString() }]}
+          />
+        )}
+      />
 
       <Modal
         open={formOpen}
@@ -86,13 +107,7 @@ export function ApiKeysPage() {
         }
       >
         <TextField label={t('apiKeys.form.allowlist')} value={allowlist} onChange={(e) => setAllowlist(e.target.value)} />
-        <TextField
-          label={t('apiKeys.form.rateLimit')}
-          type="number"
-          min="1"
-          value={rateLimit}
-          onChange={(e) => setRateLimit(e.target.value)}
-        />
+        <TextField label={t('apiKeys.form.rateLimit')} type="number" min="1" value={rateLimit} onChange={(e) => setRateLimit(e.target.value)} />
       </Modal>
 
       <Modal
@@ -106,9 +121,7 @@ export function ApiKeysPage() {
         }
       >
         <div style={{ fontSize: 12, color: 'var(--run)' }}>{t('apiKeys.reveal.warn')}</div>
-        {plaintext !== null && (
-          <CopyField value={plaintext} copyLabel={t('apiKeys.reveal.copy')} copiedLabel={t('apiKeys.reveal.copied')} />
-        )}
+        {plaintext !== null && <CopyField value={plaintext} copyLabel={t('apiKeys.reveal.copy')} copiedLabel={t('apiKeys.reveal.copied')} />}
       </Modal>
     </div>
   );

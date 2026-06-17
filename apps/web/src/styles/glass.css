@@ -33,7 +33,7 @@
 }
 
 /* Tactile button feedback (physical push). */
-.btn-tactile:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(255, 176, 10, 0.34); }
+.btn-tactile:hover { transform: translateY(-1px); box-shadow: var(--shadow-cta-hover); }
 .btn-tactile:active { transform: translateY(1px) scale(0.99); }
 
 /* Editorial bento first-screen: a rich left stack + a tall companion code
@@ -61,6 +61,167 @@
     position: sticky;
     top: 88px;
   }
+}
+
+/* "Three steps" flow line: only meaningful when the steps sit in a row. */
+.how-rail { display: none; }
+@media (min-width: 768px) {
+  .how-rail { display: block; }
+}
+
+/* The flip headline must stay on one line on desktop so the swapping word
+   never reflows the line; only a narrow phone is allowed to wrap it. */
+.headline-nowrap { white-space: normal; }
+@media (min-width: 768px) {
+  .headline-nowrap { white-space: nowrap; }
+}
+
+/* Console icon button (rail + topbar). Color/bg live here so the active state
+   and the sliding indicator behind it compose without inline overrides. */
+.ico-btn {
+  position: relative;
+  z-index: 1;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-sm);
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+.ico-btn:hover { color: var(--text); background: var(--hover-bg); }
+.ico-btn.is-active { color: var(--ink); }
+.ico-btn.is-active:hover { color: var(--ink); background: transparent; }
+
+/* Tooltip that slides out to the right of a rail button on hover. */
+.ico-tip {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  padding: 5px 9px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  color: var(--text);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-bd);
+  box-shadow: var(--glass-shadow);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  z-index: 60;
+}
+.ico-btn:hover .ico-tip,
+.ico-btn:focus-visible .ico-tip { opacity: 1; transform: translateY(-50%) translateX(0); }
+
+.select-opt:hover,
+.select-opt:focus-visible { background: var(--hover-bg); }
+
+.dt-row { cursor: pointer; transition: background 0.15s ease; }
+.dt-row:hover { background: var(--hover-bg); }
+
+/* Entity card — the console's primary unit (cards over tables). */
+.entity-card {
+  position: relative;
+  border-radius: var(--r-md);
+  padding: var(--s-5);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-bd);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.entity-card.is-clickable { cursor: pointer; }
+.entity-card.is-clickable:hover { transform: translateY(-2px); border-color: var(--hover-bd); box-shadow: var(--shadow-lift); }
+.entity-card.is-selected { border-color: var(--hover-bd); box-shadow: inset 2px 0 0 var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  .entity-card.is-clickable:hover { transform: none; }
+}
+.card-glyph {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--ink);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+.chip {
+  font-size: var(--fs-caption);
+  color: var(--muted);
+  background: var(--hover-bg);
+  border: 1px solid var(--panel-bd);
+  border-radius: var(--r-pill);
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+
+/* Vendor logo plate — a soft app-tile so brand marks (incl. mono OpenAI) stay
+   legible on both dark and light themes, and the colourful set reads cohesive. */
+.provider-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: var(--r-sm);
+  background: linear-gradient(180deg, #ffffff, #f4efe2);
+  border: 1px solid rgba(28, 21, 0, 0.09);
+  box-shadow: 0 1px 2px rgba(28, 21, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+.provider-tile img { display: block; }
+/* For white-on-dark marks (e.g. Kimi) — a dark plate so the glyph stays visible. */
+.provider-tile--dark {
+  background: linear-gradient(180deg, #2a2a2e, #131316);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Auto-scrolling provider strip — keeps a long vendor list compact in the hero. */
+.logo-marquee {
+  width: min(760px, 90vw);
+  margin-inline: auto;
+  /* clip horizontally only — let the tiles' drop-shadows show vertically */
+  overflow-x: clip;
+  overflow-y: visible;
+  padding-block: var(--s-2);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+.logo-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: logo-marquee 56s linear infinite;
+}
+.logo-marquee:hover .logo-marquee-track { animation-play-state: paused; }
+.logo-marquee-group {
+  display: flex;
+  align-items: center;
+  gap: var(--s-6);
+  padding-inline-end: var(--s-6);
+  flex-shrink: 0;
+}
+@keyframes logo-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo-marquee { overflow-x: auto; overflow-y: hidden; -webkit-mask-image: none; mask-image: none; }
+  .logo-marquee-track { animation: none; }
+  .logo-marquee-dup { display: none; }
+}
+
+@keyframes ano-spin { to { transform: rotate(360deg); } }
+.refresh-spin { animation: ano-spin 0.8s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ico-tip { transition: none; }
+  .refresh-spin { animation: none; }
 }
 
 /* Dot-grid backdrop (Aceternity "grid and dot"), faded to the top via a mask. */

@@ -59,6 +59,12 @@ export function Modal({
         <div
           style={{
             marginTop: 'var(--s-4)',
+            // The scroll container would clip a focused input's outline ring;
+            // pad the scrollport and pull back with a negative margin so the
+            // ring has room without shifting the fields inward.
+            marginInline: 'calc(-1 * var(--s-2))',
+            paddingInline: 'var(--s-2)',
+            paddingBlock: 'var(--s-1)',
             display: 'flex',
             flexDirection: 'column',
             gap: 'var(--s-3)',

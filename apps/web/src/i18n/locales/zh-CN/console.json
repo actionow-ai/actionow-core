@@ -39,10 +39,20 @@
     "modifiers": "调价规则",
     "dify": "Dify 导入"
   },
-  "topbar": { "admin": "管理员", "logout": "退出登录", "backHome": "返回官网" },
+  "topbar": { "admin": "管理员", "logout": "退出登录", "backHome": "返回官网", "refresh": "刷新" },
+  "subtitles": {
+    "dashboard": "租户与资源概览,最近任务",
+    "tenants": "创建与查看租户",
+    "resources": "模型、上游通道与定价",
+    "modifiers": "全局与范围化的调价规则",
+    "dify": "把 Dify 工作流导入为资源",
+    "accounts": "账户余额与充值",
+    "apiKeys": "签发与管理 API Key"
+  },
   "dashboard": {
     "stats": { "tenants": "租户", "resources": "资源", "pickTenant": "选择租户" },
     "recentJobs": "最近任务",
+    "noJobs": "该租户暂无任务",
     "pickTenant": "请选择一个租户以查看任务",
     "cols": { "resource": "资源", "execMode": "执行模式", "cost": "成本", "status": "状态" }
   },
@@ -127,7 +137,8 @@
       "addChannel": "添加通道",
       "channelAdded": "通道已添加",
       "addPrice": "添加定价",
-      "priceAdded": "定价已添加"
+      "priceAdded": "定价已添加",
+      "pick": "从左侧选择一个资源查看详情"
     }
   },
   "channels": {

@@ -1,5 +1,6 @@
 {
   "brand": "Actionow",
+  "loading": "Loading",
   "theme": { "toLight": "Switch to light", "toDark": "Switch to dark" },
   "lang": { "zh": "中文", "en": "English" },
   "comingSoon": "Console coming soon",
