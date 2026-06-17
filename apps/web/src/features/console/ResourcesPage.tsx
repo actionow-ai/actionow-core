@@ -1,6 +1,6 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -70,7 +70,7 @@ export function ResourcesPage() {
     onError: mutationError(t),
   });
 
-  const action = useMemo(
+  useSetConsoleAction(
     () => (
       <Button variant="ghost" onClick={() => setOpen(true)}>
         <PlusIcon size={14} weight="bold" /> {t('resources.new')}
@@ -78,7 +78,6 @@ export function ResourcesPage() {
     ),
     [t],
   );
-  useSetConsoleAction(action);
   // On a narrow viewport the detail replaces the list, so offer a back target.
   useSetConsoleBack(id !== undefined && !isWide ? { to: '/console/resources', label: t('resources.detail.back') } : null);
 

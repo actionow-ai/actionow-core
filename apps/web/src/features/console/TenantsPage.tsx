@@ -1,6 +1,6 @@
 import { BuildingsIcon, PlusIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
@@ -41,7 +41,7 @@ export function TenantsPage() {
     onError: mutationError(t),
   });
 
-  const action = useMemo(
+  useSetConsoleAction(
     () => (
       <Button variant="ghost" onClick={() => setOpen(true)}>
         <PlusIcon size={14} weight="bold" /> {t('tenants.new')}
@@ -49,7 +49,6 @@ export function TenantsPage() {
     ),
     [t],
   );
-  useSetConsoleAction(action);
 
   return (
     <div style={{ height: '100%' }}>

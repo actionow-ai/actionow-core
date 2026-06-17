@@ -1,0 +1,65 @@
+import { useTranslation } from 'react-i18next';
+import { NavLink } from 'react-router-dom';
+
+import { useReducedMotion } from '../../../lib/motion/useReducedMotion';
+import { groupForPath } from '../nav-config';
+
+const SUBNAV_STEP = 38; // 34px item + 4px gap
+const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+
+/** The desktop sub-navigation column for the active nav group, with a sliding highlight behind the current item. */
+export function SubNav({ pathname }: { pathname: string }) {
+  const { t } = useTranslation('console');
+  const reduced = useReducedMotion();
+  const group = groupForPath(pathname);
+  const activeIdx = group.items.findIndex((it) => pathname.startsWith(it.to));
+
+  return (
+    <div className="glass" style={{ width: 200, borderRadius: 'var(--r-lg)', padding: 'var(--s-4) var(--s-3)' }}>
+      <div style={{ fontSize: 'var(--fs-caption)', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', margin: '0 var(--s-2) var(--s-3)' }}>
+        {t(`nav.groups.${group.key}`)}
+      </div>
+      <div style={{ position: 'relative' }}>
+        <span
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            height: 34,
+            boxSizing: 'border-box',
+            borderRadius: 'var(--r-sm)',
+            background: 'var(--hover-bg)',
+            border: '1px solid var(--hover-bd)',
+            opacity: activeIdx >= 0 ? 1 : 0,
+            transform: `translateY(${String(Math.max(activeIdx, 0) * SUBNAV_STEP)}px)`,
+            transition: reduced ? 'none' : `transform 0.26s ${EASE}`,
+          }}
+        />
+        {group.items.map((it, i) => (
+          <NavLink
+            key={it.to}
+            to={it.to}
+            style={{
+              position: 'relative',
+              zIndex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              height: 34,
+              marginBottom: 4,
+              padding: '0 10px',
+              borderRadius: 'var(--r-sm)',
+              fontSize: 'var(--fs-sm)',
+              whiteSpace: 'nowrap',
+              textDecoration: 'none',
+              color: i === activeIdx ? 'var(--text)' : 'var(--muted)',
+            }}
+          >
+            {t(`nav.${it.labelKey}`)}
+          </NavLink>
+        ))}
+      </div>
+    </div>
+  );
+}

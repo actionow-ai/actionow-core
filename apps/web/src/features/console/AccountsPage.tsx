@@ -1,6 +1,6 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useMutation } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
@@ -48,7 +48,7 @@ export function AccountsPage() {
     onError: mutationError(t),
   });
 
-  const action = useMemo(
+  useSetConsoleAction(
     () => (
       <Button variant="ghost" onClick={() => setCreateOpen(true)}>
         <PlusIcon size={14} weight="bold" /> {t('accounts.new')}
@@ -56,7 +56,6 @@ export function AccountsPage() {
     ),
     [t],
   );
-  useSetConsoleAction(action);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>

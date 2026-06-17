@@ -1,6 +1,6 @@
 import { KeyIcon, PlusIcon } from '@phosphor-icons/react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleAction, useSetConsoleFilters } from '../../components/console/ConsoleChrome';
@@ -58,7 +58,7 @@ export function ApiKeysPage() {
     onError: mutationError(t),
   });
 
-  const action = useMemo(
+  useSetConsoleAction(
     () => (
       <Button variant="ghost" onClick={() => setFormOpen(true)}>
         <PlusIcon size={14} weight="bold" /> {t('apiKeys.new')}
@@ -66,17 +66,15 @@ export function ApiKeysPage() {
     ),
     [t],
   );
-  useSetConsoleAction(action);
 
-  const filters = useMemo(
+  useSetConsoleFilters(
     () => (
       <div style={{ width: 200 }}>
         <TenantSelect value={tenantId} onChange={setTenantId} placeholder={t('apiKeys.form.tenant')} />
       </div>
     ),
-    [t, tenantId],
+    [t, tenantId, setTenantId],
   );
-  useSetConsoleFilters(filters);
 
   return (
     <div style={{ height: '100%' }}>

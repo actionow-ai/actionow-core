@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 
 /** Setter the console shell provides so a page can publish its top-bar action. */
 export type SetConsoleAction = (node: ReactNode) => void;
@@ -18,11 +18,13 @@ export const ConsoleBackContext = createContext<SetConsoleBack>(() => undefined)
 
 /**
  * A console page publishes its section action (e.g. a "New …" button) into the
- * shell's TopBar. `node` MUST be memoized (e.g. `useMemo`) so the effect only
- * re-runs when the action actually changes — otherwise it loops.
+ * shell's TopBar. Pass a `render` thunk plus its `deps`; the node is memoized
+ * internally so the publishing effect only re-runs when a dep changes — callers
+ * can never trip the documented infinite loop.
  */
-export function useSetConsoleAction(node: ReactNode): void {
+export function useSetConsoleAction(render: () => ReactNode, deps: unknown[]): void {
   const set = useContext(ConsoleActionContext);
+  const node = useMemo(render, deps);
   useEffect(() => {
     set(node);
     return () => {
@@ -33,11 +35,12 @@ export function useSetConsoleAction(node: ReactNode): void {
 
 /**
  * A console page publishes its filter controls (selects/dropdowns) into the
- * TopBar. `node` MUST be memoized; include any filter value in its deps so the
- * control reflects the current selection.
+ * TopBar. Pass a `render` thunk plus its `deps` (include any filter value so the
+ * control reflects the current selection); memoized internally.
  */
-export function useSetConsoleFilters(node: ReactNode): void {
+export function useSetConsoleFilters(render: () => ReactNode, deps: unknown[]): void {
   const set = useContext(ConsoleFiltersContext);
+  const node = useMemo(render, deps);
   useEffect(() => {
     set(node);
     return () => {

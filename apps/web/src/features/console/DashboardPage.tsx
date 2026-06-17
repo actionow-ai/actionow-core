@@ -1,6 +1,5 @@
 import { CubeIcon } from '@phosphor-icons/react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleFilters } from '../../components/console/ConsoleChrome';
@@ -40,15 +39,14 @@ export function DashboardPage() {
     placeholderData: keepPreviousData,
   });
 
-  const filters = useMemo(
+  useSetConsoleFilters(
     () => (
       <div style={{ width: 200 }}>
         <TenantSelect value={tenantId} onChange={setTenantId} placeholder={t('dashboard.stats.pickTenant')} />
       </div>
     ),
-    [t, tenantId],
+    [t, tenantId, setTenantId],
   );
-  useSetConsoleFilters(filters);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--s-5)' }}>
