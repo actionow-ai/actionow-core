@@ -13,6 +13,7 @@ import {
   listModels,
   listVisibleModels,
   resolveModelForTenant,
+  softDeleteModel,
   upsertModelsFromSync,
 } from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
@@ -195,5 +196,44 @@ describe('upsertModelsFromSync', () => {
     const fresh = await getModelByName(db, 'gpt-5.4');
     expect(fresh?.inputPrice).toBe(30n);
     expect(fresh?.outputPrice).toBe(70n);
+  });
+});
+
+describe('createModel after soft-delete (partial unique on name)', () => {
+  it('re-creates a soft-deleted name as a NEW live row, leaving the old row for audit', async () => {
+    const owner = await makeTenant('owner');
+    const resourceId = await makeChatResource(owner, 'r-reuse');
+
+    // Create + soft-delete a model.
+    const original = await createModel(db, {
+      name: 'gpt-reuse',
+      resourceId,
+      inputPrice: 5n,
+    });
+    const deletedName = await softDeleteModel(db, 'gpt-reuse');
+    expect(deletedName).toBe('gpt-reuse');
+    // The soft-deleted name drops out of the live lookup.
+    expect(await getModelByName(db, 'gpt-reuse')).toBeUndefined();
+
+    // Re-creating with the SAME name succeeds (partial unique frees the name)
+    // and yields a NEW id distinct from the soft-deleted row.
+    const recreated = await createModel(db, {
+      name: 'gpt-reuse',
+      resourceId,
+      inputPrice: 11n,
+    });
+    expect(recreated.id).not.toBe(original.id);
+    expect(recreated.deletedAt).toBeNull();
+
+    // getModelByName returns the LIVE re-created row.
+    const live = await getModelByName(db, 'gpt-reuse');
+    expect(live?.id).toBe(recreated.id);
+    expect(live?.inputPrice).toBe(11n);
+
+    // The old soft-deleted row still exists (audit) — both rows share the name.
+    const allRows = await db.select().from(schema.model).where(eq(schema.model.name, 'gpt-reuse'));
+    expect(allRows).toHaveLength(2);
+    const old = allRows.find((m) => m.id === original.id);
+    expect(old?.deletedAt).not.toBeNull();
   });
 });

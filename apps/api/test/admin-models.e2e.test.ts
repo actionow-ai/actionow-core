@@ -214,6 +214,55 @@ describe('D2: model get / patch / delete', () => {
   });
 });
 
+describe('re-create after soft-delete / conflict', () => {
+  it('re-creates a soft-deleted model name cleanly (201) and GET works on the new row', async () => {
+    // Create → soft-delete (204).
+    const first = await auth(
+      request(app.getHttpServer())
+        .post('/admin/models')
+        .send({ name: 'reuse-me', resourceId: 'gpt4o-res', inputPrice: 5 }),
+    ).expect(201);
+    await auth(request(app.getHttpServer()).delete('/admin/models/reuse-me')).expect(204);
+    await auth(request(app.getHttpServer()).get('/admin/models/reuse-me')).expect(404);
+
+    // POST the SAME name again → 201 (the partial unique index frees the name),
+    // and the new row is a DISTINCT id.
+    const second = await auth(
+      request(app.getHttpServer())
+        .post('/admin/models')
+        .send({ name: 'reuse-me', resourceId: 'gpt4o-res', inputPrice: 9 }),
+    ).expect(201);
+    expect(second.body.id).not.toBe(first.body.id);
+    expect(second.body.input_price).toBe('9');
+
+    // GET-by-name resolves to the new live row.
+    const got = await auth(request(app.getHttpServer()).get('/admin/models/reuse-me')).expect(200);
+    expect(got.body.id).toBe(second.body.id);
+    expect(got.body.input_price).toBe('9');
+  });
+
+  it('re-creating an existing resource id is a clean 400 (not a 500)', async () => {
+    const body = {
+      id: 'dup-res',
+      tenantId,
+      kind: 'model',
+      modality: 'text',
+      providerType: 'openai',
+      execModes: ['blocking'],
+      ioSchema: { inputs: [], outputs: [] },
+    };
+    await auth(request(app.getHttpServer()).post('/admin/resources').send(body)).expect(201);
+
+    // Re-POSTing the same id collides on the resource_version PK → 23505, mapped
+    // to a clean invalid_input 400 instead of a Postgres 500.
+    const conflict = await auth(
+      request(app.getHttpServer()).post('/admin/resources').send(body),
+    ).expect(400);
+    expect(conflict.body.error.code).toBe('invalid_input');
+    expect(conflict.body.error.message).toContain('dup-res');
+  });
+});
+
 describe('D2: model_grant list / revoke', () => {
   it('grant → list shows it → revoke (204) → list empty', async () => {
     await auth(

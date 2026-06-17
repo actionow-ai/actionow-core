@@ -50,7 +50,12 @@ export const model = pgTable(
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (t) => [
-    uniqueIndex('model_name_idx').on(t.name),
+    // PARTIAL unique index: only LIVE rows reserve their `name`. A soft-deleted
+    // model (deleted_at set) frees its name so a fresh `createModel` inserts a
+    // NEW live row, leaving the old soft-deleted row intact for audit.
+    uniqueIndex('model_name_idx')
+      .on(t.name)
+      .where(sql`deleted_at IS NULL`),
     index('model_resource_idx').on(t.resourceId),
     check('model_status_allowed', sql`${t.status} IN ('active', 'disabled')`),
   ],

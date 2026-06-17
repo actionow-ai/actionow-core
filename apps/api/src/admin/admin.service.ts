@@ -127,6 +127,29 @@ import type {
 /** Modifier ops whose `value` is a µcredit amount (vs. a whole-percent int). */
 const CREDIT_VALUE_OPS = new Set(['flat_off', 'override_rate']);
 
+/** Postgres SQLSTATE for a unique-constraint violation (`unique_violation`). */
+const PG_UNIQUE_VIOLATION = '23505';
+
+/**
+ * True iff `err` (or any error in its `cause` chain) is a Postgres
+ * unique-constraint violation (SQLSTATE `23505`). Used to turn a colliding text
+ * PK (`resource.id`, `redemption_code.code`) — which can't be made a partial
+ * unique index — into a clean 4xx instead of a 500. The SQLSTATE `code` lives on
+ * the postgres-js `PostgresError`, but drizzle may wrap that in a
+ * `DrizzleQueryError` (which only exposes it via `.cause`), so we walk the chain.
+ */
+function isUniqueViolation(err: unknown): boolean {
+  let cur: unknown = err;
+  // Bounded walk down the `cause` chain (guards against a self-referential cause).
+  for (let depth = 0; cur !== null && cur !== undefined && depth < 8; depth += 1) {
+    if (typeof cur === 'object' && (cur as { code?: unknown }).code === PG_UNIQUE_VIOLATION) {
+      return true;
+    }
+    cur = typeof cur === 'object' ? (cur as { cause?: unknown }).cause : undefined;
+  }
+  return false;
+}
+
 /** Reject a sealed codex login `state` older than this — the round-trip is prompt. */
 const CODEX_STATE_TTL_MS = 10 * 60_000;
 
@@ -522,17 +545,29 @@ export class AdminService {
 
   // ----- resources -----
 
-  createResource(dto: CreateResourceDto): Promise<Resource> {
-    return createResource(this.db, {
-      id: dto.id,
-      tenantId: dto.tenantId,
-      kind: dto.kind,
-      modality: dto.modality,
-      providerType: dto.providerType,
-      execModes: dto.execModes,
-      ioSchema: dto.ioSchema,
-      version: dto.version ?? 1,
-    });
+  async createResource(dto: CreateResourceDto): Promise<Resource> {
+    try {
+      return await createResource(this.db, {
+        id: dto.id,
+        tenantId: dto.tenantId,
+        kind: dto.kind,
+        modality: dto.modality,
+        providerType: dto.providerType,
+        execModes: dto.execModes,
+        ioSchema: dto.ioSchema,
+        version: dto.version ?? 1,
+      });
+    } catch (err) {
+      // The text PK (`resource.id`) and `(resource_id, version)` can't be partial
+      // unique indexes, so a re-create that collides (e.g. re-POSTing the same id
+      // + version, or an id still occupied by a soft-deleted row) surfaces as a
+      // Postgres 23505. Map it to a clean 400 instead of a 500. We do NOT revive
+      // the soft-deleted row — the operator must pick a fresh id.
+      if (isUniqueViolation(err)) {
+        throw engineInvalidInput(`resource '${dto.id}' already exists`);
+      }
+      throw err;
+    }
   }
 
   listResources(page: PageParams): Promise<KeysetResult<Resource>> {
@@ -1031,11 +1066,21 @@ export class AdminService {
     const codes: string[] = [];
     for (let i = 0; i < dto.count; i += 1) {
       const code = randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase();
-      await createRedemptionCode(this.db, {
-        code,
-        creditAmount,
-        ...(expiresAt !== undefined ? { expiresAt } : {}),
-      });
+      try {
+        await createRedemptionCode(this.db, {
+          code,
+          creditAmount,
+          ...(expiresAt !== undefined ? { expiresAt } : {}),
+        });
+      } catch (err) {
+        // `redemption_code.code` is the text PK (no partial unique possible), so a
+        // collision — including a code still held by a soft-deleted row — is a
+        // Postgres 23505. Map it to a clean 400 rather than a 500.
+        if (isUniqueViolation(err)) {
+          throw engineInvalidInput(`redemption code '${code}' already exists`);
+        }
+        throw err;
+      }
       codes.push(code);
     }
     return { codes, creditAmount };
