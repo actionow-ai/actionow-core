@@ -80,4 +80,46 @@ describe('client verbs', () => {
     expect(data).toEqual([{ id: 'r1' }]);
     expect(headers.get('x-actionow-channel')).toBe('ch-7');
   });
+
+  it('getPage unwraps the {data,next_cursor} envelope into {rows,nextCursor}', async () => {
+    const { client, fetchMock } = setup();
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({ data: [{ id: 'r1' }, { id: 'r2' }], next_cursor: 'c2', has_more: true }),
+    );
+
+    const page = await client.getPage<{ id: string }>('/admin/resources', { limit: 2 });
+
+    expect(page).toEqual({ rows: [{ id: 'r1' }, { id: 'r2' }], nextCursor: 'c2' });
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('limit=2');
+  });
+
+  it('getPage maps a final page (next_cursor null) to nextCursor null', async () => {
+    const { client, fetchMock } = setup();
+    fetchMock.mockResolvedValueOnce(mockResponse({ data: [], next_cursor: null, has_more: false }));
+
+    const page = await client.getPage<{ id: string }>('/admin/jobs');
+
+    expect(page).toEqual({ rows: [], nextCursor: null });
+  });
+
+  it('post with idempotencyKey sends the Idempotency-Key header', async () => {
+    const { client, fetchMock } = setup();
+    fetchMock.mockResolvedValueOnce(mockResponse({ id: 'r1' }));
+
+    await client.post('/admin/resources', { id: 'r1' }, { idempotencyKey: 'idem-123' });
+
+    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((opts.headers as Record<string, string>)['Idempotency-Key']).toBe('idem-123');
+  });
+
+  it('post without opts omits the Idempotency-Key header', async () => {
+    const { client, fetchMock } = setup();
+    fetchMock.mockResolvedValueOnce(mockResponse({ id: 'r1' }));
+
+    await client.post('/admin/resources', { id: 'r1' });
+
+    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((opts.headers as Record<string, string>)['Idempotency-Key']).toBeUndefined();
+  });
 });

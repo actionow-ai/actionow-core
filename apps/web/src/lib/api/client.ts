@@ -1,15 +1,25 @@
 import { config } from '../../config';
 import { ApiError } from './errors';
+import type { Page } from './types';
 
 export interface ClientDeps {
   getToken: () => string | null;
   onUnauthorized: () => void;
 }
 
+/** The uniform list response envelope returned by every backend list route. */
+export interface PageEnvelope<T> {
+  data: T[];
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
 interface RequestInitLite {
   method?: string;
   body?: unknown;
   query?: Record<string, string | number | undefined>;
+  /** Extra request headers merged after the default content-type/auth. */
+  headers?: Record<string, string>;
 }
 
 function buildUrl(path: string, query?: RequestInitLite['query']): string {
@@ -32,6 +42,7 @@ export function createClient(deps: ClientDeps) {
     const token = deps.getToken();
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (token) headers.Authorization = `Bearer ${token}`;
+    if (init.headers) Object.assign(headers, init.headers);
 
     const res = await fetch(buildUrl(path, init.query), {
       method: init.method ?? 'GET',
@@ -58,9 +69,19 @@ export function createClient(deps: ClientDeps) {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T is the caller-asserted response body type.
     getWithHeaders: <T>(path: string, query?: RequestInitLite['query']) =>
       requestWithHeaders<T>(path, { query }),
-    post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
+    post: <T>(path: string, body?: unknown, opts?: { idempotencyKey?: string }) =>
+      request<T>(path, {
+        method: 'POST',
+        body,
+        headers: opts?.idempotencyKey ? { 'Idempotency-Key': opts.idempotencyKey } : undefined,
+      }),
     patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
     delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+    /** Fetch a list route and unwrap the `{data,next_cursor}` envelope into a `Page<T>`. */
+    getPage: async <T>(path: string, query?: RequestInitLite['query']): Promise<Page<T>> => {
+      const env = await request<PageEnvelope<T>>(path, { query });
+      return { rows: env.data, nextCursor: env.next_cursor };
+    },
   };
 }
 
