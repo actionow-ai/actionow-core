@@ -35,12 +35,15 @@ import {
   type ModifierRow,
   type PricebookEntryRow,
   type Resource,
+  rollupUsage,
   type SecretRefRow,
   type TenantRow,
   topUp,
   updateUpstreamChannel,
   type UpstreamChannelRow,
   type UsageLogRow,
+  type UsageRollupQuery,
+  type UsageRollupRow,
 } from '@actionow/db';
 import { creditsToMicro } from '@actionow/domain';
 import type { AppEnv } from '@actionow/infra';
@@ -49,6 +52,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { engineInvalidInput, engineNotFound } from '../common/errors.js';
 import { DB, ENV } from '../common/tokens.js';
 import type {
+  AnalyticsUsageQueryDto,
   CreateAccountDto,
   CreateApiKeyDto,
   CreateChannelDto,
@@ -326,6 +330,22 @@ export class AdminService {
 
   listUsageGlobal(limit: number): Promise<UsageLogRow[]> {
     return listUsageLogsGlobal(this.db, limit);
+  }
+
+  // ----- analytics -----
+
+  /**
+   * GROUP-BY rollup over `usage_log` for the admin analytics endpoint. Optional
+   * `tenantId`/`from`/`to` narrow the scope; ISO-8601 bounds are parsed to
+   * `Date`s here. Conditional assignment keeps `exactOptionalPropertyTypes`
+   * happy — an absent field is never written as `undefined`.
+   */
+  analyticsUsage(q: AnalyticsUsageQueryDto): Promise<UsageRollupRow[]> {
+    const query: UsageRollupQuery = { groupBy: q.groupBy };
+    if (q.tenantId !== undefined) query.tenantId = q.tenantId;
+    if (q.from !== undefined) query.from = new Date(q.from);
+    if (q.to !== undefined) query.to = new Date(q.to);
+    return rollupUsage(this.db, query);
   }
 }
 

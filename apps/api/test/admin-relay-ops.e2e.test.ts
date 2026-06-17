@@ -149,3 +149,37 @@ describe('admin global usage stats', () => {
     expect(res.body.logs[0].input_tokens).toBe(100);
   });
 });
+
+describe('admin analytics usage rollup', () => {
+  it('rolls up usage by model with bigint sums as decimal strings', async () => {
+    // Two gpt-4o rows (one failed) + one claude row → per-model buckets.
+    await client`
+      INSERT INTO usage_log (tenant_id, model, input_tokens, output_tokens, cost, status) VALUES
+        (${tenantId}, ${'gpt-4o'}, 10, 4, 20, ${'succeeded'}),
+        (${tenantId}, ${'gpt-4o'}, 20, 8, 45, ${'failed'}),
+        (${tenantId}, ${'claude-3'}, 5, 2, 10, ${'succeeded'})
+    `;
+    const res = await auth(
+      request(app.getHttpServer()).get('/admin/analytics/usage').query({ groupBy: 'model' }),
+    ).expect(200);
+
+    expect(Array.isArray(res.body)).toBe(true);
+    const gpt = res.body.find((r: { bucket: string }) => r.bucket === 'gpt-4o');
+    expect(gpt).toMatchObject({
+      bucket: 'gpt-4o',
+      requests: 2,
+      input_tokens: '30',
+      output_tokens: '12',
+      cost: '65',
+      errors: 1,
+    });
+    const claude = res.body.find((r: { bucket: string }) => r.bucket === 'claude-3');
+    expect(claude).toMatchObject({ requests: 1, input_tokens: '5', cost: '10', errors: 0 });
+  });
+
+  it('rejects an unknown groupBy with a 400', async () => {
+    await auth(
+      request(app.getHttpServer()).get('/admin/analytics/usage').query({ groupBy: 'bogus' }),
+    ).expect(400);
+  });
+});

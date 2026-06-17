@@ -9,6 +9,7 @@ import type {
   TenantRow,
   UpstreamChannelRow,
   UsageLogRow,
+  UsageRollupRow,
 } from '@actionow/db';
 import {
   Body,
@@ -23,11 +24,14 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { engineInvalidInput } from '../common/errors.js';
 import { ZodBody } from '../common/zod.pipe.js';
 import { AdminService } from './admin.service.js';
 import { AdminGuard } from './auth/admin.guard.js';
 import { Roles } from './auth/roles.decorator.js';
 import {
+  type AnalyticsUsageQueryDto,
+  analyticsUsageQuerySchema,
   type CreateAccountDto,
   createAccountSchema,
   type CreateApiKeyDto,
@@ -200,6 +204,16 @@ interface UsageLogView {
   latency_ms: number | null;
   status: string;
   created_at: string;
+}
+
+/** One aggregated usage bucket. Token/cost sums are bigint → decimal strings. */
+interface UsageRollupView {
+  bucket: string;
+  requests: number;
+  input_tokens: string;
+  output_tokens: string;
+  cost: string;
+  errors: number;
 }
 
 /**
@@ -454,6 +468,33 @@ export class AdminController {
     const rows = await this.admin.listUsageGlobal(parseLimit(limit));
     return { logs: rows.map(toUsageLogView) };
   }
+
+  // ----- analytics -----
+
+  @Get('analytics/usage')
+  @ApiOperation({ summary: 'Usage rollups by day/model/tenant/channel/api-key' })
+  async analyticsUsage(@Query() raw: Record<string, string>): Promise<UsageRollupView[]> {
+    const q = parseAnalyticsUsageQuery(raw);
+    const rows = await this.admin.analyticsUsage(q);
+    return rows.map(toUsageRollupView);
+  }
+}
+
+/**
+ * Validate the analytics-usage query against its zod schema. Query params arrive
+ * as strings; on failure we throw an `invalid_input` engine error so the global
+ * filter renders the §4.7 envelope (400) — mirroring the {@link ZodBody} pipe,
+ * since query params aren't routed through it.
+ */
+function parseAnalyticsUsageQuery(raw: Record<string, string>): AnalyticsUsageQueryDto {
+  const result = analyticsUsageQuerySchema.safeParse(raw);
+  if (!result.success) {
+    const first = result.error.issues[0];
+    const path = first?.path.join('.') ?? '';
+    const detail = first === undefined ? 'invalid query' : `${path}: ${first.message}`;
+    throw engineInvalidInput(detail);
+  }
+  return result.data;
 }
 
 function toTenantView(row: TenantRow): TenantView {
@@ -585,5 +626,16 @@ function toUsageLogView(row: UsageLogRow): UsageLogView {
     latency_ms: row.latencyMs,
     status: row.status,
     created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toUsageRollupView(row: UsageRollupRow): UsageRollupView {
+  return {
+    bucket: row.bucket,
+    requests: row.requests,
+    input_tokens: row.inputTokens.toString(),
+    output_tokens: row.outputTokens.toString(),
+    cost: row.cost.toString(),
+    errors: row.errors,
   };
 }

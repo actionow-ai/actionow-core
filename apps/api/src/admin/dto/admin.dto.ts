@@ -178,6 +178,15 @@ export const createSecretSchema = z.object({
 });
 export type CreateSecretDto = z.infer<typeof createSecretSchema>;
 
+/** `GET /admin/analytics/usage` — usage rollup query. */
+export const analyticsUsageQuerySchema = z.object({
+  groupBy: z.enum(['day', 'model', 'tenant', 'channel', 'api_key']),
+  tenantId: z.string().uuid().optional(),
+  from: z.string().datetime().optional(), // ISO 8601
+  to: z.string().datetime().optional(),
+});
+export type AnalyticsUsageQueryDto = z.infer<typeof analyticsUsageQuerySchema>;
+
 /** `POST /admin/redemption-codes` — batch-mint codes. */
 export const generateCodesSchema = z.object({
   /** How many codes to mint (1..1000). */
