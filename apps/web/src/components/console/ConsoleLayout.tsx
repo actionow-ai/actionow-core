@@ -49,7 +49,7 @@ export function ConsoleLayout() {
             {isDesktop && <SubNav pathname={pathname} />}
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
               <TopBar action={action} filters={filters} back={back} />
-              <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 'var(--s-3)', paddingBottom: isDesktop ? 'var(--s-3)' : 76 }}>
+              <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 0, paddingBottom: isDesktop ? 0 : 76 }}>
                 <div ref={viewRef} style={{ width: '100%', height: '100%' }}>
                   <Outlet />
                 </div>
