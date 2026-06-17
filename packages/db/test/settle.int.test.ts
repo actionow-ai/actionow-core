@@ -125,8 +125,9 @@ describe('createJob / getJob / transitionJob / listJobs', () => {
     await makeHeldJob(s, 100_000n);
     await makeHeldJob(s, 100_000n);
 
-    const jobs = await listJobs(db, s.tenantId, undefined, 10);
+    const { rows: jobs, hasMore } = await listJobs(db, s.tenantId, { limit: 10 });
     expect(jobs).toHaveLength(2);
+    expect(hasMore).toBe(false);
   });
 });
 

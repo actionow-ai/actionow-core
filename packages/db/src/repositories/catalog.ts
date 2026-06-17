@@ -14,6 +14,7 @@ import {
   secretRef,
   upstreamChannel,
 } from '../schema/index.js';
+import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
 export type Resource = InferSelectModel<typeof resource>;
@@ -121,16 +122,22 @@ export async function listChannels(db: DbOrTx, resourceId: string): Promise<Upst
     );
 }
 
-/** List EVERY live upstream channel for a resource (incl. disabled) — operator admin view. */
+/**
+ * List EVERY live upstream channel for a resource (incl. disabled) — operator
+ * admin view — keyset-paginated newest-first on `(created_at, id)`.
+ */
 export async function listChannelsForResource(
   db: DbOrTx,
   resourceId: string,
-): Promise<UpstreamChannelRow[]> {
-  return db
-    .select()
-    .from(upstreamChannel)
-    .where(and(eq(upstreamChannel.resourceId, resourceId), isNull(upstreamChannel.deletedAt)))
-    .orderBy(desc(upstreamChannel.weight));
+  page: PageParams,
+): Promise<KeysetResult<UpstreamChannelRow>> {
+  return keysetPage<UpstreamChannelRow>(db, {
+    table: upstreamChannel,
+    createdAtCol: upstreamChannel.createdAt,
+    idCol: upstreamChannel.id,
+    where: and(eq(upstreamChannel.resourceId, resourceId), isNull(upstreamChannel.deletedAt)),
+    page,
+  });
 }
 
 /** Mutable fields of an `upstream_channel` (admin update); omitted keys are unchanged. */
@@ -450,13 +457,19 @@ export async function getResourceWithSchema(
   return { ...res, ioSchema: version.ioSchema };
 }
 
-/** List all live resources, newest-first (admin catalog view; excludes soft-deleted). */
-export async function listResources(db: DbOrTx): Promise<Resource[]> {
-  return db
-    .select()
-    .from(resource)
-    .where(isNull(resource.deletedAt))
-    .orderBy(desc(resource.createdAt));
+/**
+ * List live resources newest-first (admin catalog view; excludes soft-deleted),
+ * keyset-paginated on `(created_at, id)`. `resource.id` is a `text` slug and is
+ * the keyset tiebreaker.
+ */
+export async function listResources(db: DbOrTx, page: PageParams): Promise<KeysetResult<Resource>> {
+  return keysetPage<Resource>(db, {
+    table: resource,
+    createdAtCol: resource.createdAt,
+    idCol: resource.id,
+    where: isNull(resource.deletedAt),
+    page,
+  });
 }
 
 /**
@@ -465,12 +478,26 @@ export async function listResources(db: DbOrTx): Promise<Resource[]> {
  * own tenant's catalog; the API-key `resourceAllowlist` is applied on top by the
  * controller.
  */
-export async function listResourcesByTenant(db: DbOrTx, tenantId: string): Promise<Resource[]> {
-  return db
-    .select()
-    .from(resource)
-    .where(and(eq(resource.tenantId, tenantId), isNull(resource.deletedAt)))
-    .orderBy(desc(resource.createdAt));
+export async function listResourcesByTenant(
+  db: DbOrTx,
+  tenantId: string,
+  page: PageParams,
+  allowlist?: readonly string[],
+): Promise<KeysetResult<Resource>> {
+  // An optional `resourceAllowlist` (an API key's) narrows the set IN SQL so it
+  // composes with the keyset — filtering after the fetch would break the
+  // page-size/has_more invariant. An empty/omitted allowlist means no restriction.
+  const restrict =
+    allowlist !== undefined && allowlist.length > 0
+      ? inArray(resource.id, [...allowlist])
+      : undefined;
+  return keysetPage<Resource>(db, {
+    table: resource,
+    createdAtCol: resource.createdAt,
+    idCol: resource.id,
+    where: and(eq(resource.tenantId, tenantId), isNull(resource.deletedAt), restrict),
+    page,
+  });
 }
 
 /**
@@ -612,16 +639,22 @@ export async function createPricebookEntry(
   return row;
 }
 
-/** List pricebook entries for a resource, newest `version` first. */
+/**
+ * List a resource's pricebook entries, keyset-paginated newest-first on
+ * `(created_at, id)`. The `resource_id` filter composes with the keyset.
+ */
 export async function listPricebookEntries(
   db: DbOrTx,
   resourceId: string,
-): Promise<PricebookEntryRow[]> {
-  return db
-    .select()
-    .from(pricebookEntry)
-    .where(and(eq(pricebookEntry.resourceId, resourceId), isNull(pricebookEntry.deletedAt)))
-    .orderBy(desc(pricebookEntry.version));
+  page: PageParams,
+): Promise<KeysetResult<PricebookEntryRow>> {
+  return keysetPage<PricebookEntryRow>(db, {
+    table: pricebookEntry,
+    createdAtCol: pricebookEntry.createdAt,
+    idCol: pricebookEntry.id,
+    where: and(eq(pricebookEntry.resourceId, resourceId), isNull(pricebookEntry.deletedAt)),
+    page,
+  });
 }
 
 /** Fields a caller supplies to {@link createModifier}. */
@@ -663,11 +696,19 @@ export async function createModifier(db: DbOrTx, input: CreateModifierInput): Pr
   return row;
 }
 
-/** List all live modifiers, highest `priority` first (admin view, incl. inactive). */
-export async function listModifiers(db: DbOrTx): Promise<ModifierRow[]> {
-  return db
-    .select()
-    .from(modifier)
-    .where(isNull(modifier.deletedAt))
-    .orderBy(desc(modifier.priority));
+/**
+ * List live modifiers (admin view, incl. inactive), keyset-paginated newest-first
+ * on `(created_at, id)`.
+ */
+export async function listModifiers(
+  db: DbOrTx,
+  page: PageParams,
+): Promise<KeysetResult<ModifierRow>> {
+  return keysetPage<ModifierRow>(db, {
+    table: modifier,
+    createdAtCol: modifier.createdAt,
+    idCol: modifier.id,
+    where: isNull(modifier.deletedAt),
+    page,
+  });
 }

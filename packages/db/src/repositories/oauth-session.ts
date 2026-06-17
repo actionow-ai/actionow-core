@@ -1,9 +1,10 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq, isNotNull, isNull, lt, lte, or } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, lt, lte, or } from 'drizzle-orm';
 
 import { decryptSecret, encryptSecret } from '../crypto.js';
 import { oauthSession, secretRef } from '../schema/index.js';
 import type { SecretRefRow } from './catalog.js';
+import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
 /** A raw `oauth_session` row — `accessEnc`/`refreshEnc` are AES-GCM ciphertext. */
@@ -199,18 +200,27 @@ export interface OAuthSessionListRow {
   readonly expiresAt: Date | null;
   readonly lastRefreshAt: Date | null;
   readonly status: string;
+  /** Keyset sort key for the uniform pagination envelope (created_at, secret_ref_id). */
+  readonly createdAt: Date;
   readonly updatedAt: Date;
 }
 
 /**
- * List every registered `oauth_session` for the admin operator view, newest
- * first (`updated_at` DESC). Token-free by construction: the ciphertext columns
- * (`access_enc`/`refresh_enc`) and the internal `refresh_lock_at` are NOT
- * selected, so the tokens never leave the service via this path.
+ * List every registered `oauth_session` for the admin operator view,
+ * keyset-paginated newest-first on `(created_at, secret_ref_id)`. Token-free by
+ * construction: the ciphertext columns (`access_enc`/`refresh_enc`) and the
+ * internal `refresh_lock_at` are NOT selected, so the tokens never leave the
+ * service via this path.
  */
-export async function listOAuthSessions(db: DbOrTx): Promise<OAuthSessionListRow[]> {
-  return db
-    .select({
+export async function listOAuthSessions(
+  db: DbOrTx,
+  page: PageParams,
+): Promise<KeysetResult<OAuthSessionListRow>> {
+  return keysetPage<OAuthSessionListRow>(db, {
+    table: oauthSession,
+    createdAtCol: oauthSession.createdAt,
+    idCol: oauthSession.secretRefId,
+    selection: {
       secretRefId: oauthSession.secretRefId,
       providerKind: oauthSession.providerKind,
       accountLabel: oauthSession.accountLabel,
@@ -218,11 +228,12 @@ export async function listOAuthSessions(db: DbOrTx): Promise<OAuthSessionListRow
       expiresAt: oauthSession.expiresAt,
       lastRefreshAt: oauthSession.lastRefreshAt,
       status: oauthSession.status,
+      createdAt: oauthSession.createdAt,
       updatedAt: oauthSession.updatedAt,
-    })
-    .from(oauthSession)
-    .where(isNull(oauthSession.deletedAt))
-    .orderBy(desc(oauthSession.updatedAt));
+    },
+    where: isNull(oauthSession.deletedAt),
+    page,
+  });
 }
 
 /**

@@ -2,6 +2,7 @@ import type { InferSelectModel } from 'drizzle-orm';
 import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 
 import { model, modelGrant } from '../schema/index.js';
+import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
 export type ModelRow = InferSelectModel<typeof model>;
@@ -225,9 +226,18 @@ export async function listVisibleModels(db: DbOrTx, tenantId: string): Promise<M
   return rows;
 }
 
-/** List EVERY live model newest-first (admin catalog view, incl. disabled; excludes soft-deleted). */
-export async function listModels(db: DbOrTx): Promise<ModelRow[]> {
-  return db.select().from(model).where(isNull(model.deletedAt)).orderBy(desc(model.createdAt));
+/**
+ * List EVERY live model (admin catalog view, incl. disabled; excludes
+ * soft-deleted), keyset-paginated newest-first on `(created_at, id)`.
+ */
+export async function listModels(db: DbOrTx, page: PageParams): Promise<KeysetResult<ModelRow>> {
+  return keysetPage<ModelRow>(db, {
+    table: model,
+    createdAtCol: model.createdAt,
+    idCol: model.id,
+    where: isNull(model.deletedAt),
+    page,
+  });
 }
 
 /** Fetch a live model by `name` (soft-deleted → `undefined`; admin lookups by the unique name). */

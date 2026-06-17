@@ -1,7 +1,8 @@
 import type { InferSelectModel, SQL } from 'drizzle-orm';
-import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
+import { and, eq, gte, lt, sql } from 'drizzle-orm';
 
 import { usageLog } from '../schema/index.js';
+import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
 export type UsageLogRow = InferSelectModel<typeof usageLog>;
@@ -47,23 +48,32 @@ export async function insertUsageLog(db: DbOrTx, input: InsertUsageLogInput): Pr
   return row;
 }
 
-/** List one tenant's call logs, newest-first, capped by `limit`. */
+/** List one tenant's call logs, keyset-paginated newest-first on `(created_at, id)`. */
 export async function listUsageLogsByTenant(
   db: DbOrTx,
   tenantId: string,
-  limit = 50,
-): Promise<UsageLogRow[]> {
-  return db
-    .select()
-    .from(usageLog)
-    .where(eq(usageLog.tenantId, tenantId))
-    .orderBy(desc(usageLog.createdAt))
-    .limit(limit);
+  page: PageParams,
+): Promise<KeysetResult<UsageLogRow>> {
+  return keysetPage<UsageLogRow>(db, {
+    table: usageLog,
+    createdAtCol: usageLog.createdAt,
+    idCol: usageLog.id,
+    where: eq(usageLog.tenantId, tenantId),
+    page,
+  });
 }
 
-/** List every tenant's call logs, newest-first (admin global view). */
-export async function listUsageLogsGlobal(db: DbOrTx, limit = 50): Promise<UsageLogRow[]> {
-  return db.select().from(usageLog).orderBy(desc(usageLog.createdAt)).limit(limit);
+/** List every tenant's call logs (admin global view), keyset-paginated newest-first. */
+export async function listUsageLogsGlobal(
+  db: DbOrTx,
+  page: PageParams,
+): Promise<KeysetResult<UsageLogRow>> {
+  return keysetPage<UsageLogRow>(db, {
+    table: usageLog,
+    createdAtCol: usageLog.createdAt,
+    idCol: usageLog.id,
+    page,
+  });
 }
 
 /** One aggregated `usage_log` bucket (model/day/tenant/channel/api_key). */

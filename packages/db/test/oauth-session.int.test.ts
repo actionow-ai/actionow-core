@@ -149,7 +149,7 @@ describe('oauth_session repos (S1.2)', () => {
       keyB64: KEY,
     });
 
-    const rows = await listOAuthSessions(db);
+    const { rows } = await listOAuthSessions(db, { limit: 200 });
     expect(rows).toHaveLength(2);
     for (const row of rows) {
       // token-free: ciphertext columns are not selected at all.

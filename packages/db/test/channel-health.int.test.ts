@@ -137,11 +137,12 @@ describe('channel admin repos (P0b)', () => {
       weight: 1,
       status: 'disabled',
     });
-    const all = await listChannelsForResource(db, 'chat-res');
+    const { rows: all } = await listChannelsForResource(db, 'chat-res', { limit: 200 });
     const ids = all.map((c) => c.id);
     expect(ids).toContain(activeId);
     expect(ids).toContain(disabled.id);
-    // Ordered by descending weight (active=3 before disabled=1).
-    expect(all[0]?.id).toBe(activeId);
+    // Keyset order is created_at DESC: the disabled channel was inserted last,
+    // so it sorts ahead of the earlier active one.
+    expect(all[0]?.id).toBe(disabled.id);
   });
 });

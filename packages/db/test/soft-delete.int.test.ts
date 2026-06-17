@@ -49,14 +49,14 @@ afterEach(async () => {
 describe('soft-delete: list repos exclude deleted_at rows', () => {
   it('listTenants / getTenant exclude a soft-deleted tenant', async () => {
     const t = await createTenant(db, { name: 'soft-del-tenant' });
-    expect((await listTenants(db)).map((r) => r.id)).toContain(t.id);
+    expect((await listTenants(db, { limit: 200 })).rows.map((r) => r.id)).toContain(t.id);
 
     await db
       .update(tenant)
       .set({ deletedAt: sql`now()` })
       .where(eq(tenant.id, t.id));
 
-    expect((await listTenants(db)).map((r) => r.id)).not.toContain(t.id);
+    expect((await listTenants(db, { limit: 200 })).rows.map((r) => r.id)).not.toContain(t.id);
   });
 
   it('listResources / getResource exclude a soft-deleted resource', async () => {
@@ -72,7 +72,9 @@ describe('soft-delete: list repos exclude deleted_at rows', () => {
       version: 1,
     });
     expect(await getResource(db, 'soft-del-res')).toBeDefined();
-    expect((await listResources(db)).map((r) => r.id)).toContain('soft-del-res');
+    expect((await listResources(db, { limit: 200 })).rows.map((r) => r.id)).toContain(
+      'soft-del-res',
+    );
 
     await db
       .update(resource)
@@ -80,7 +82,9 @@ describe('soft-delete: list repos exclude deleted_at rows', () => {
       .where(eq(resource.id, 'soft-del-res'));
 
     expect(await getResource(db, 'soft-del-res')).toBeUndefined();
-    expect((await listResources(db)).map((r) => r.id)).not.toContain('soft-del-res');
+    expect((await listResources(db, { limit: 200 })).rows.map((r) => r.id)).not.toContain(
+      'soft-del-res',
+    );
   });
 });
 

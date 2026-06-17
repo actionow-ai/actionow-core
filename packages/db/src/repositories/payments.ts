@@ -1,7 +1,8 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { paymentEvent, paymentIntent } from '../schema/index.js';
+import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
 export type PaymentIntentRow = InferSelectModel<typeof paymentIntent>;
@@ -82,18 +83,19 @@ export async function getIntentByIdForTenant(
   return rows[0];
 }
 
-/** List a tenant's payment intents, newest-first, capped by `limit`. */
+/** List a tenant's payment intents, keyset-paginated newest-first on `(created_at, id)`. */
 export async function listIntentsByTenant(
   db: DbOrTx,
   tenantId: string,
-  limit = 50,
-): Promise<PaymentIntentRow[]> {
-  return db
-    .select()
-    .from(paymentIntent)
-    .where(eq(paymentIntent.tenantId, tenantId))
-    .orderBy(desc(paymentIntent.createdAt))
-    .limit(limit);
+  page: PageParams,
+): Promise<KeysetResult<PaymentIntentRow>> {
+  return keysetPage<PaymentIntentRow>(db, {
+    table: paymentIntent,
+    createdAtCol: paymentIntent.createdAt,
+    idCol: paymentIntent.id,
+    where: eq(paymentIntent.tenantId, tenantId),
+    page,
+  });
 }
 
 /** What a caller supplies to {@link insertEventIfNew} (DB-managed fields aside). */

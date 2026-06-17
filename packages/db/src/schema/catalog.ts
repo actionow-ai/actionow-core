@@ -81,6 +81,9 @@ export const upstreamChannel = pgTable(
     weight: integer('weight').notNull().default(1),
     // status allowed values: active | disabled (createUpstreamChannel default + admin update DTO)
     status: text('status').notNull().default('active'),
+    // created_at backfills existing rows to "now" (additive); the uniform keyset
+    // pagination (Track B) orders list endpoints on (created_at, id).
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },

@@ -121,7 +121,7 @@ describe('usage_log repository', () => {
     await insertUsageLog(db, { tenantId: a, model: 'm', cost: 1n, status: 'succeeded' });
     await insertUsageLog(db, { tenantId: b, model: 'm', cost: 2n, status: 'succeeded' });
 
-    const forA = await listUsageLogsByTenant(db, a, 50);
+    const { rows: forA } = await listUsageLogsByTenant(db, a, { limit: 50 });
     expect(forA).toHaveLength(1);
     expect(forA[0]?.tenantId).toBe(a);
   });
@@ -131,7 +131,7 @@ describe('usage_log repository', () => {
     const b = await makeTenant('b');
     await insertUsageLog(db, { tenantId: a, model: 'm', cost: 1n, status: 'succeeded' });
     await insertUsageLog(db, { tenantId: b, model: 'm', cost: 2n, status: 'failed' });
-    const all = await listUsageLogsGlobal(db, 50);
+    const { rows: all } = await listUsageLogsGlobal(db, { limit: 50 });
     expect(all).toHaveLength(2);
   });
 });

@@ -29,6 +29,9 @@ export const pricebookEntry = pgTable(
     spec: jsonb('spec').$type<PriceSpec>().notNull(), // dimensions|table|amount|formula
     markup: jsonb('markup').$type<Markup>(),
     active: boolean('active').notNull().default(true),
+    // created_at backfills existing rows to "now" (additive); Track B keysets list
+    // endpoints on (created_at, id).
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
@@ -46,6 +49,9 @@ export const modifier = pgTable('modifier', {
   priority: integer('priority').notNull().default(0),
   version: integer('version').notNull().default(1),
   active: boolean('active').notNull().default(true),
+  // created_at backfills existing rows to "now" (additive); Track B keysets list
+  // endpoints on (created_at, id).
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });

@@ -132,7 +132,7 @@ describe('admin listModels', () => {
     const r2 = await makeChatResource(owner, 'rb');
     await createModel(db, { name: 'a', resourceId: r1, visibility: 'tenant' });
     await createModel(db, { name: 'b', resourceId: r2, visibility: 'public' });
-    const all = await listModels(db);
+    const { rows: all } = await listModels(db, { limit: 200 });
     expect(all.map((m) => m.name).sort()).toEqual(['a', 'b']);
   });
 });
