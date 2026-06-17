@@ -12,8 +12,7 @@ import { TenantSelect } from '../../components/data/TenantSelect';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { TextField } from '../../components/ui/TextField';
-import { toast } from '../../components/ui/toast';
-import { ApiError } from '../../lib/api/errors';
+import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { CreateApiKeyBody } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
@@ -55,7 +54,7 @@ export function ApiKeysPage() {
       setRateLimit('');
       setPlaintext(r.plaintext);
     },
-    onError: (e) => toast(e instanceof ApiError ? t(`errors.${e.code}`) : t('errors.network'), 'error'),
+    onError: mutationError(t),
   });
 
   const action = useMemo(

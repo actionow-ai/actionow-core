@@ -11,7 +11,7 @@ import { Modal } from '../../components/ui/Modal';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
-import { ApiError } from '../../lib/api/errors';
+import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
@@ -38,7 +38,7 @@ export function TenantsPage() {
       setOpen(false);
       setName('');
     },
-    onError: (e) => toast(e instanceof ApiError ? t(`errors.${e.code}`) : t('errors.network'), 'error'),
+    onError: mutationError(t),
   });
 
   const action = useMemo(

@@ -8,6 +8,7 @@ import { SectionHeader } from '../../components/ui/SectionHeader';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
+import { mutationError } from '../../lib/api/mutationError';
 import type { DifyImportView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
@@ -29,7 +30,7 @@ export function DifyImportPage() {
       return api.difyImport({ tenantId, resourceId, yaml, endpoint, pricingModel: parsed.value });
     },
     onSuccess: (r) => { setReport(r); toast(t('dify.imported')); },
-    onError: (e) => toast(e instanceof ApiError ? t(`errors.${e.code}`, e.message) : t('errors.network'), 'error'),
+    onError: mutationError(t),
   });
 
   return (

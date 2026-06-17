@@ -16,6 +16,7 @@ import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
+import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { BP } from '../../lib/breakpoints';
@@ -65,7 +66,7 @@ export function ResourcesPage() {
       toast(t('resources.created'));
       setOpen(false);
     },
-    onError: (e) => toast(e instanceof ApiError ? t(`errors.${e.code}`, e.message) : t('errors.network'), 'error'),
+    onError: mutationError(t),
   });
 
   const action = useMemo(

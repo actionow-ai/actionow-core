@@ -14,6 +14,7 @@ import { SectionHeader } from '../../components/ui/SectionHeader';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
+import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { PricebookView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
@@ -48,7 +49,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
       toast(t('resources.detail.channelAdded'));
       setChOpen(false);
     },
-    onError: (e) => toast(e instanceof ApiError ? t(`errors.${e.code}`, e.message) : t('errors.network'), 'error'),
+    onError: mutationError(t),
   });
 
   const [pbOpen, setPbOpen] = useState(false);
@@ -75,7 +76,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
       toast(t('resources.detail.priceAdded'));
       setPbOpen(false);
     },
-    onError: (e) => toast(e instanceof ApiError ? t(`errors.${e.code}`, e.message) : t('errors.network'), 'error'),
+    onError: mutationError(t),
   });
 
   const pbCols: Column<PricebookView>[] = [
