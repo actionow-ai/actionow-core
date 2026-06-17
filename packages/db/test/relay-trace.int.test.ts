@@ -8,7 +8,8 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
-import { insertRelayTrace } from '../src/repositories/index.js';
+import { insertRelayTrace, listRelayTraces } from '../src/repositories/index.js';
+import type { PageParams } from '../src/repositories/pagination.js';
 import * as schema from '../src/schema/index.js';
 
 const { relayTrace } = schema;
@@ -103,5 +104,90 @@ describe('relay_trace repository + migration', () => {
     expect(row?.error).toBe('connect ECONNREFUSED');
     expect(row?.isStream).toBe(false);
     expect(row?.truncated).toBe(false);
+  });
+});
+
+describe('listRelayTraces — filter + keyset pagination', () => {
+  const jobA = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  const jobB = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+  const base = Date.UTC(2026, 5, 17, 0, 0, 0);
+
+  /** Seed N traces with distinct created_at, alternating job + provider type. */
+  async function seedTraces(n: number): Promise<void> {
+    for (let i = 0; i < n; i += 1) {
+      await db.insert(relayTrace).values({
+        jobId: i % 2 === 0 ? jobA : jobB,
+        providerType: i % 2 === 0 ? 'codex-oauth' : 'openai',
+        method: 'POST',
+        url: `https://upstream.example/${String(i)}`,
+        // Spread one second apart so DESC ordering is deterministic.
+        createdAt: new Date(base + i * 1000),
+      });
+    }
+  }
+
+  it('filters by job_id AND provider_type and pages created_at DESC with no dupes', async () => {
+    // 6 traces: even idx → jobA/codex-oauth, odd idx → jobB/openai.
+    await seedTraces(6);
+
+    // Filter to jobA + codex-oauth → indices 0,2,4 (3 rows), newest-first 4,2,0.
+    const filter = { jobId: jobA, providerType: 'codex-oauth' };
+
+    const seen: string[] = [];
+    let cursor: PageParams['cursor'];
+    let hasMore = true;
+    let pages = 0;
+    while (hasMore) {
+      pages += 1;
+      if (pages > 10) throw new Error('paging did not terminate');
+      const page = await listRelayTraces(
+        db,
+        filter,
+        cursor === undefined ? { limit: 2 } : { limit: 2, cursor },
+      );
+      for (const r of page.rows) {
+        // Every returned row honours BOTH filter predicates.
+        expect(r.jobId).toBe(jobA);
+        expect(r.providerType).toBe('codex-oauth');
+        seen.push(r.url);
+      }
+      hasMore = page.hasMore;
+      const last = page.rows.at(-1);
+      cursor = last === undefined ? undefined : { createdAt: last.createdAt, id: last.id };
+    }
+
+    // 3 matching rows over pages of 2 → newest-first, no overlap, no gaps.
+    expect(seen).toEqual([
+      'https://upstream.example/4',
+      'https://upstream.example/2',
+      'https://upstream.example/0',
+    ]);
+    expect(new Set(seen).size).toBe(3);
+    expect(pages).toBe(2);
+  });
+
+  it('with no filter pages every trace newest-first', async () => {
+    await seedTraces(3);
+    const page = await listRelayTraces(db, {}, { limit: 2 });
+    expect(page.rows).toHaveLength(2);
+    expect(page.hasMore).toBe(true);
+    expect(page.rows.map((r) => r.url)).toEqual([
+      'https://upstream.example/2',
+      'https://upstream.example/1',
+    ]);
+  });
+
+  it('filters by created_at range (from/to inclusive)', async () => {
+    await seedTraces(5); // created_at base+0..base+4000ms
+    const from = new Date(base + 1000);
+    const to = new Date(base + 3000);
+    const page = await listRelayTraces(db, { from, to }, { limit: 10 });
+    // indices 1,2,3 fall in [from,to]; newest-first 3,2,1.
+    expect(page.rows.map((r) => r.url)).toEqual([
+      'https://upstream.example/3',
+      'https://upstream.example/2',
+      'https://upstream.example/1',
+    ]);
+    expect(page.hasMore).toBe(false);
   });
 });

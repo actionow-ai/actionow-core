@@ -36,6 +36,7 @@ import {
   listModifiers,
   listOAuthSessions,
   listPricebookEntries,
+  listRelayTraces,
   listResources,
   listTenants,
   listUsageLogsGlobal,
@@ -44,6 +45,8 @@ import {
   type OAuthSessionListRow,
   type PageParams,
   type PricebookEntryRow,
+  type RelayTraceFilter,
+  type RelayTraceRow,
   type Resource,
   rollupUsage,
   type SecretRefRow,
@@ -63,6 +66,7 @@ import {
   exchangeCodexCode,
   generateCodexPkce,
   parseChatgptIdentity,
+  redactHeaders,
 } from '@actionow/engine';
 import { type AppEnv, FetchHttpClient } from '@actionow/infra';
 import { Inject, Injectable, Optional } from '@nestjs/common';
@@ -657,6 +661,22 @@ export class AdminService {
     return { codes, creditAmount };
   }
 
+  // ----- relay traces (upstream audit) -----
+
+  /**
+   * List `relay_trace` audit rows for the admin read endpoint, filtered +
+   * keyset-paginated. Returns the RAW {@link KeysetResult} so the controller's
+   * `mapPageEnvelope` derives `next_cursor` from the true `(created_at, id)`
+   * keyset; the view projection (incl. read-side redaction) is applied by
+   * {@link toRelayTraceView}.
+   */
+  listRelayTraces(
+    filter: RelayTraceFilter,
+    page: PageParams,
+  ): Promise<KeysetResult<RelayTraceRow>> {
+    return listRelayTraces(this.db, filter, page);
+  }
+
   // ----- usage stats -----
 
   listUsageGlobal(page: PageParams): Promise<KeysetResult<UsageLogRow>> {
@@ -683,4 +703,56 @@ export class AdminService {
 /** True when `value` is a plain object (used to merge into a pricebook spec). */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * The serialized `relay_trace` audit row returned by `GET /admin/relay-traces`.
+ * snake_case; `created_at` is an ISO string; `request_headers` has had secret
+ * header VALUES redacted a SECOND time on read (see {@link toRelayTraceView}).
+ */
+export interface RelayTraceView {
+  id: string;
+  created_at: string;
+  tenant_id: string | null;
+  job_id: string | null;
+  channel_id: string | null;
+  provider_type: string | null;
+  method: string;
+  url: string;
+  request_headers: Record<string, string> | null;
+  request_body: string | null;
+  response_status: number | null;
+  response_body: string | null;
+  is_stream: boolean;
+  latency_ms: number | null;
+  error: string | null;
+  truncated: boolean;
+}
+
+/**
+ * Project a raw `relay_trace` row to its read view. DEFENSE-IN-DEPTH: re-runs the
+ * SAME header redaction the writer (`TracingHttpClient`) applies, so a credential
+ * can never surface from the read path even if a hypothetical legacy / un-redacted
+ * row slipped past the write-side redaction. Everything else is a verbatim
+ * snake_case projection (bodies are already truncated at the byte cap on write).
+ */
+export function toRelayTraceView(row: RelayTraceRow): RelayTraceView {
+  return {
+    id: row.id,
+    created_at: row.createdAt.toISOString(),
+    tenant_id: row.tenantId,
+    job_id: row.jobId,
+    channel_id: row.channelId,
+    provider_type: row.providerType,
+    method: row.method,
+    url: row.url,
+    request_headers: redactHeaders(row.requestHeaders ?? undefined) ?? null,
+    request_body: row.requestBody,
+    response_status: row.responseStatus,
+    response_body: row.responseBody,
+    is_stream: row.isStream,
+    latency_ms: row.latencyMs,
+    error: row.error,
+    truncated: row.truncated,
+  };
 }

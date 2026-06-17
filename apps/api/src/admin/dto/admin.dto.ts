@@ -258,6 +258,24 @@ export const analyticsUsageQuerySchema = z.object({
 });
 export type AnalyticsUsageQueryDto = z.infer<typeof analyticsUsageQuerySchema>;
 
+/**
+ * `GET /admin/relay-traces` — filter + paginate the upstream audit trace. Every
+ * filter is optional (absent → unconstrained); `from`/`to` are an inclusive
+ * `created_at` range. `limit` is coerced from the query string to an int (the
+ * keyset helper clamps it to `[1,200]`); `cursor` is the opaque keyset token.
+ */
+export const relayTraceQuerySchema = z.object({
+  jobId: z.string().uuid().optional(),
+  tenantId: z.string().uuid().optional(),
+  providerType: z.string().optional(),
+  channelId: z.string().uuid().optional(),
+  from: z.string().datetime().optional(), // ISO 8601
+  to: z.string().datetime().optional(),
+  limit: z.coerce.number().int().positive().optional(),
+  cursor: z.string().optional(),
+});
+export type RelayTraceQueryDto = z.infer<typeof relayTraceQuerySchema>;
+
 /** `POST /admin/redemption-codes` — batch-mint codes. */
 export const generateCodesSchema = z.object({
   /** How many codes to mint (1..1000). */

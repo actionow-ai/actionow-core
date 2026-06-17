@@ -1,4 +1,4 @@
-import { createUser, schema } from '@actionow/db';
+import { createUser, insertRelayTrace, schema } from '@actionow/db';
 import { hashPassword } from '@actionow/infra';
 import type { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -81,7 +81,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE usage_log, redemption_code, model_grant, model, api_key, ledger_txn, pricebook_entry, upstream_channel, resource_version, resource, account, tenant, "user" RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE relay_trace, usage_log, redemption_code, model_grant, model, api_key, ledger_txn, pricebook_entry, upstream_channel, resource_version, resource, account, tenant, "user" RESTART IDENTITY CASCADE`;
 });
 
 function auth(req: request.Test): request.Test {
@@ -182,6 +182,97 @@ describe('admin analytics usage rollup', () => {
   it('rejects an unknown groupBy with a 400', async () => {
     await auth(
       request(app.getHttpServer()).get('/admin/analytics/usage').query({ groupBy: 'bogus' }),
+    ).expect(400);
+  });
+});
+
+describe('admin relay-traces read endpoint', () => {
+  const jobA = '11111111-1111-1111-1111-111111111111';
+  const jobB = '22222222-2222-2222-2222-222222222222';
+
+  /**
+   * Seed 3 relay_trace rows via the real writer: two for jobA (one carrying a
+   * raw bearer token in request_headers to prove READ-SIDE redaction), one for
+   * jobB. Inserted oldest-first so the newest jobA row pages first.
+   */
+  async function seedTraces(): Promise<void> {
+    await insertRelayTrace(db, {
+      jobId: jobA,
+      providerType: 'codex-oauth',
+      method: 'POST',
+      url: 'https://upstream.example/a-old',
+      // A row that slipped past write-side redaction — read-side must scrub it.
+      requestHeaders: { authorization: 'Bearer leak-me-xyz', 'content-type': 'application/json' },
+      requestBody: '{"input":[]}',
+      responseStatus: 200,
+    });
+    await insertRelayTrace(db, {
+      jobId: jobB,
+      providerType: 'openai',
+      method: 'POST',
+      url: 'https://upstream.example/b',
+      responseStatus: 200,
+    });
+    await insertRelayTrace(db, {
+      jobId: jobA,
+      providerType: 'codex-oauth',
+      method: 'POST',
+      url: 'https://upstream.example/a-new',
+      responseStatus: 200,
+    });
+  }
+
+  it('rejects a non-admin (user) JWT', async () => {
+    await request(app.getHttpServer())
+      .get('/admin/relay-traces')
+      .set('authorization', `Bearer ${userToken()}`)
+      .expect((res) => {
+        expect([401, 403]).toContain(res.status);
+      });
+  });
+
+  it('filters by job_id, paginates via cursor, and never leaks a token', async () => {
+    await seedTraces();
+
+    // Page 1: jobA only, limit 1 → newest jobA row, has_more, a cursor.
+    const page1 = await auth(
+      request(app.getHttpServer()).get('/admin/relay-traces').query({ jobId: jobA, limit: 1 }),
+    ).expect(200);
+
+    expect(page1.body.data).toHaveLength(1);
+    expect(page1.body.has_more).toBe(true);
+    expect(typeof page1.body.next_cursor).toBe('string');
+    expect(page1.body.next_cursor.length).toBeGreaterThan(0);
+    // Newest jobA trace first; every row honours the filter.
+    expect(page1.body.data[0].job_id).toBe(jobA);
+    expect(page1.body.data[0].url).toBe('https://upstream.example/a-new');
+    for (const row of page1.body.data) expect(row.job_id).toBe(jobA);
+
+    // Page 2: follow the cursor → the older jobA row, no more.
+    const page2 = await auth(
+      request(app.getHttpServer())
+        .get('/admin/relay-traces')
+        .query({ jobId: jobA, limit: 1, cursor: page1.body.next_cursor }),
+    ).expect(200);
+
+    expect(page2.body.data).toHaveLength(1);
+    expect(page2.body.has_more).toBe(false);
+    expect(page2.body.next_cursor).toBeNull();
+    expect(page2.body.data[0].job_id).toBe(jobA);
+    expect(page2.body.data[0].url).toBe('https://upstream.example/a-old');
+
+    // READ-SIDE REDACTION: the leaked token never surfaces in either page.
+    expect(JSON.stringify(page1.body)).not.toContain('leak-me-xyz');
+    expect(JSON.stringify(page2.body)).not.toContain('leak-me-xyz');
+    // The row that carried it has the authorization header redacted.
+    expect(page2.body.data[0].request_headers.authorization).toBe('[redacted]');
+    // A non-secret header passes through unchanged.
+    expect(page2.body.data[0].request_headers['content-type']).toBe('application/json');
+  });
+
+  it('rejects a malformed cursor with a 400', async () => {
+    await auth(
+      request(app.getHttpServer()).get('/admin/relay-traces').query({ cursor: 'not-a-cursor' }),
     ).expect(400);
   });
 });

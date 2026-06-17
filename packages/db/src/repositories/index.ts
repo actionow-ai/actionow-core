@@ -162,7 +162,13 @@ export {
   getRedemptionCode,
   type RedemptionCodeRow,
 } from './redemption.js';
-export { insertRelayTrace, type InsertRelayTraceInput, type RelayTraceRow } from './relay-trace.js';
+export {
+  insertRelayTrace,
+  type InsertRelayTraceInput,
+  listRelayTraces,
+  type RelayTraceFilter,
+  type RelayTraceRow,
+} from './relay-trace.js';
 export {
   createEncryptedSecret,
   type CreateEncryptedSecretInput,

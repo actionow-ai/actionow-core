@@ -29,7 +29,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { engineInvalidInput } from '../common/errors.js';
 import { mapPageEnvelope, type PageEnvelope, toPageParams } from '../common/pagination.js';
 import { ZodBody } from '../common/zod.pipe.js';
-import { AdminService } from './admin.service.js';
+import { AdminService, type RelayTraceView, toRelayTraceView } from './admin.service.js';
 import { AdminGuard } from './auth/admin.guard.js';
 import { Roles } from './auth/roles.decorator.js';
 import {
@@ -63,6 +63,8 @@ import {
   generateCodesSchema,
   type GrantModelDto,
   grantModelSchema,
+  type RelayTraceQueryDto,
+  relayTraceQuerySchema,
   type SyncChannelModelsDto,
   syncChannelModelsSchema,
   type TopupDto,
@@ -597,6 +599,30 @@ export class AdminController {
     return mapPageEnvelope(result, (r) => r.id, toUsageLogView);
   }
 
+  // ----- relay traces (upstream audit) -----
+
+  @Get('relay-traces')
+  @ApiOperation({ summary: 'Upstream relay audit trace (filtered, paginated, token-redacted)' })
+  async listRelayTraces(
+    @Query() raw: Record<string, string>,
+  ): Promise<PageEnvelope<RelayTraceView>> {
+    const q = parseRelayTraceQuery(raw);
+    const filter = {
+      ...(q.jobId !== undefined ? { jobId: q.jobId } : {}),
+      ...(q.tenantId !== undefined ? { tenantId: q.tenantId } : {}),
+      ...(q.providerType !== undefined ? { providerType: q.providerType } : {}),
+      ...(q.channelId !== undefined ? { channelId: q.channelId } : {}),
+      ...(q.from !== undefined ? { from: new Date(q.from) } : {}),
+      ...(q.to !== undefined ? { to: new Date(q.to) } : {}),
+    };
+    const page = toPageParams({
+      ...(q.limit !== undefined ? { limit: String(q.limit) } : {}),
+      ...(q.cursor !== undefined ? { cursor: q.cursor } : {}),
+    });
+    const result = await this.admin.listRelayTraces(filter, page);
+    return mapPageEnvelope(result, (r) => r.id, toRelayTraceView);
+  }
+
   // ----- analytics -----
 
   @Get('analytics/usage')
@@ -616,6 +642,22 @@ export class AdminController {
  */
 function parseAnalyticsUsageQuery(raw: Record<string, string>): AnalyticsUsageQueryDto {
   const result = analyticsUsageQuerySchema.safeParse(raw);
+  if (!result.success) {
+    const first = result.error.issues[0];
+    const path = first?.path.join('.') ?? '';
+    const detail = first === undefined ? 'invalid query' : `${path}: ${first.message}`;
+    throw engineInvalidInput(detail);
+  }
+  return result.data;
+}
+
+/**
+ * Validate the relay-traces query against its zod schema (same 400-on-failure
+ * contract as {@link parseAnalyticsUsageQuery}, since query params bypass the
+ * {@link ZodBody} pipe). A bad cursor is caught downstream by `toPageParams`.
+ */
+function parseRelayTraceQuery(raw: Record<string, string>): RelayTraceQueryDto {
+  const result = relayTraceQuerySchema.safeParse(raw);
   if (!result.success) {
     const first = result.error.issues[0];
     const path = first?.path.join('.') ?? '';
