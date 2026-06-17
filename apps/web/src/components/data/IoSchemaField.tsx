@@ -1,5 +1,4 @@
 import { PlusIcon, XIcon } from '@phosphor-icons/react';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { EnumOption } from '../../lib/api/enums';
@@ -13,7 +12,7 @@ import { TextField } from '../ui/TextField';
 import { Toggle } from '../ui/Toggle';
 import { Tooltip } from '../ui/Tooltip';
 import type { IoField, IoType } from './ioSchemaShape';
-import { buildIoSchema, emptyIoField, IO_TYPES } from './ioSchemaShape';
+import { emptyIoField, IO_TYPES } from './ioSchemaShape';
 
 const IO_TYPE_OPTIONS: EnumOption<IoType>[] = IO_TYPES.map((v) => ({ value: v, labelKey: `forms.io.type_${v}` }));
 
@@ -23,39 +22,33 @@ interface IoSchemaValue {
 }
 
 /**
- * The structured `ioSchema` builder: two labelled sections (Inputs / Outputs),
- * each an add/remove list of field rows (key + type + required, plus optional
- * label/maxLength and — for `enum` — an options `ChipsField`). Emits the cleaned
- * `{ inputs, outputs }` (blank-key rows dropped) via `buildIoSchema` on every
- * edit. Every field carries an inline hint/tooltip describing the backend shape.
+ * The fully controlled structured `ioSchema` builder: two labelled sections
+ * (Inputs / Outputs), each an add/remove list of field rows (key + type +
+ * required, plus optional label/maxLength and — for `enum` — an options
+ * `ChipsField`). The parent owns `value` (seed e.g.
+ * `{inputs:[emptyIoField()],outputs:[emptyIoField()]}` or from an existing
+ * resource, collapse via `buildIoSchema(value.inputs, value.outputs)` at
+ * submit); this component renders straight from `value` and emits the updated
+ * raw `IoField[]` arrays on every edit (no internal state, no cleaning). Each
+ * field carries an inline hint/tooltip describing the backend shape.
  */
-export function IoSchemaField({ value, onChange }: { value?: IoSchemaValue; onChange: (v: IoSchemaValue) => void }) {
+export function IoSchemaField({ value, onChange }: { value: IoSchemaValue; onChange: (v: IoSchemaValue) => void }) {
   const { t } = useTranslation('console');
-  const [inputs, setInputs] = useState<IoField[]>(() => (value?.inputs && value.inputs.length > 0 ? value.inputs : [emptyIoField()]));
-  const [outputs, setOutputs] = useState<IoField[]>(() =>
-    value?.outputs && value.outputs.length > 0 ? value.outputs : [emptyIoField()],
-  );
-
-  const emit = (nextInputs: IoField[], nextOutputs: IoField[]) => {
-    setInputs(nextInputs);
-    setOutputs(nextOutputs);
-    onChange(buildIoSchema(nextInputs, nextOutputs));
-  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
       <FieldSection
         title={t('forms.io.inputs')}
         tooltip={t('forms.io.inputsHint')}
-        rows={inputs}
-        onRows={(rows) => emit(rows, outputs)}
+        rows={value.inputs}
+        onRows={(rows) => onChange({ inputs: rows, outputs: value.outputs })}
         t={t}
       />
       <FieldSection
         title={t('forms.io.outputs')}
         tooltip={t('forms.io.outputsHint')}
-        rows={outputs}
-        onRows={(rows) => emit(inputs, rows)}
+        rows={value.outputs}
+        onRows={(rows) => onChange({ inputs: value.inputs, outputs: rows })}
         t={t}
       />
     </div>

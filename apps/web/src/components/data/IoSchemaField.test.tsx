@@ -47,32 +47,52 @@ beforeAll(async () => {
   );
 });
 
-function Harness({ onChange }: { onChange: (v: { inputs: IoField[]; outputs: IoField[] }) => void }) {
-  const [value, setValue] = useState<{ inputs: IoField[]; outputs: IoField[] }>({
+interface IoSchemaValue {
+  inputs: IoField[];
+  outputs: IoField[];
+}
+
+function Harness({
+  initial = {
     inputs: [{ key: 'prompt', type: 'string', required: true }],
     outputs: [{ key: 'text', type: 'string' }],
-  });
+  },
+  swapTo,
+  onChange,
+}: {
+  initial?: IoSchemaValue;
+  swapTo?: IoSchemaValue;
+  onChange?: (v: IoSchemaValue) => void;
+}) {
+  const [value, setValue] = useState<IoSchemaValue>(initial);
   return (
-    <IoSchemaField
-      value={value}
-      onChange={(v) => {
-        setValue(v);
-        onChange(v);
-      }}
-    />
+    <>
+      <IoSchemaField
+        value={value}
+        onChange={(v) => {
+          setValue(v);
+          onChange?.(v);
+        }}
+      />
+      {swapTo !== undefined && (
+        <button type="button" onClick={() => setValue(swapTo)}>
+          swap
+        </button>
+      )}
+    </>
   );
 }
 
 describe('IoSchemaField', () => {
   it('renders the inputs/outputs sections seeded from value', () => {
-    render(<Harness onChange={() => {}} />);
+    render(<Harness />);
     expect(screen.getByText('Inputs')).toBeInTheDocument();
     expect(screen.getByText('Outputs')).toBeInTheDocument();
     expect(screen.getByDisplayValue('prompt')).toBeInTheDocument();
     expect(screen.getByDisplayValue('text')).toBeInTheDocument();
   });
 
-  it('typing a new key emits a cleaned schema', async () => {
+  it('typing a new key emits the updated raw field arrays', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
@@ -82,7 +102,8 @@ describe('IoSchemaField', () => {
 
     const last = onChange.mock.calls.at(-1)?.[0];
     expect(last.inputs[0].key).toBe('prompt2');
-    expect(last.outputs[0]).toEqual({ key: 'text', type: 'string', required: false });
+    // raw (uncleaned) arrays — the untouched output row passes straight through
+    expect(last.outputs[0]).toEqual({ key: 'text', type: 'string' });
   });
 
   it('adds a field row when "add field" is clicked', async () => {
@@ -95,5 +116,28 @@ describe('IoSchemaField', () => {
     await user.click(addButtons[0]); // inputs section
     const after = screen.getAllByDisplayValue('').length;
     expect(after).toBeGreaterThan(before);
+  });
+
+  it('re-renders new rows when the controlled value changes (regression)', async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        swapTo={{
+          inputs: [{ key: 'query', type: 'string', required: false }],
+          outputs: [{ key: 'answer', type: 'string' }],
+        }}
+      />,
+    );
+
+    // Seeded from the first resource.
+    expect(screen.getByDisplayValue('prompt')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('text')).toBeInTheDocument();
+
+    // Parent swaps the value to a different resource's schema.
+    await user.click(screen.getByRole('button', { name: 'swap' }));
+
+    expect(screen.getByDisplayValue('query')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('answer')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('prompt')).not.toBeInTheDocument();
   });
 });

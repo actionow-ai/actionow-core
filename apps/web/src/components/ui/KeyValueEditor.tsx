@@ -1,12 +1,11 @@
 import { PlusIcon, XIcon } from '@phosphor-icons/react';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from './Button';
 import { FormField, useFieldId } from './FormField';
 import { IconButton } from './IconButton';
 import type { KvRow } from './kvRows';
-import { objectFromRows, rowsFromObject } from './kvRows';
+import { rowsFromObject } from './kvRows';
 
 const inputStyle = {
   flex: 1,
@@ -18,13 +17,17 @@ const inputStyle = {
   outline: 'none',
 } as const;
 
+const BLANK_ROW: KvRow = { key: '', value: '' };
+
 /**
- * An add/remove key→value row editor producing a `Record<string,string>` — the
- * structured replacement for raw-JSON record fields (e.g. a channel `config`).
- * Holds an ordered `KvRow[]` seeded from `value`; every edit emits
- * `onChange(objectFromRows(rows))` (blank keys dropped, last-wins on dup).
- * Optional `presets` are ghost buttons that swap in a preset record. Wrapped in
- * `FormField` for label/tooltip; each input carries an indexed `aria-label`.
+ * A fully controlled add/remove key→value row editor — the structured
+ * replacement for raw-JSON record fields (e.g. a channel `config`). The parent
+ * owns the ordered `KvRow[]` (seed via `rowsFromObject(existing)`, collapse via
+ * `objectFromRows(rows)` at submit); this component renders straight from
+ * `value` and emits a fresh `KvRow[]` on every edit (no internal state). An
+ * empty `value` still shows one editable blank row; the first edit emits the
+ * full array. Optional `presets` are ghost buttons that swap in a preset
+ * record. Wrapped in `FormField`; each input carries an indexed `aria-label`.
  */
 export function KeyValueEditor({
   label,
@@ -37,31 +40,26 @@ export function KeyValueEditor({
   label?: string;
   tooltip?: string;
   hint?: string;
-  value: Record<string, unknown> | undefined;
-  onChange: (o: Record<string, string>) => void;
+  value: KvRow[];
+  onChange: (rows: KvRow[]) => void;
   presets?: { label: string; value: Record<string, string> }[];
 }) {
   const { t } = useTranslation('console');
   const fieldId = useFieldId();
-  const [rows, setRows] = useState<KvRow[]>(() => rowsFromObject(value));
-
-  const apply = (next: KvRow[]) => {
-    setRows(next);
-    onChange(objectFromRows(next));
-  };
+  const rows = value.length > 0 ? value : [BLANK_ROW];
 
   const setRow = (index: number, patch: Partial<KvRow>) => {
-    apply(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+    onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
   };
 
-  const addRow = () => apply([...rows, { key: '', value: '' }]);
+  const addRow = () => onChange([...rows, { key: '', value: '' }]);
 
   const removeRow = (index: number) => {
     const next = rows.filter((_, i) => i !== index);
-    apply(next.length > 0 ? next : [{ key: '', value: '' }]);
+    onChange(next.length > 0 ? next : [{ key: '', value: '' }]);
   };
 
-  const usePreset = (preset: Record<string, string>) => apply(rowsFromObject(preset));
+  const usePreset = (preset: Record<string, string>) => onChange(rowsFromObject(preset));
 
   return (
     <FormField id={fieldId} label={label} tooltip={tooltip} hint={hint}>
