@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { decryptSecret, encryptSecret } from '../crypto.js';
 import { secretMaterial, secretRef } from '../schema/index.js';
 import { getSecretRef, type SecretRefRow } from './catalog.js';
+import { getDecryptedOAuthSession } from './oauth-session.js';
 import type { DbOrTx } from './types.js';
 
 /**
@@ -35,8 +36,12 @@ function fromEnv(locator: string): string | undefined {
  *   `<locator>` in `process.env`; `provider === 'enc'` → AES-GCM-decrypt the
  *   1:1 `secret_material` ciphertext with the `SECRET_ENCRYPTION_KEY` master
  *   key (a missing key, missing material, bad key, or tampered ciphertext all
- *   resolve to `undefined` — never a throw). Other providers (e.g. `vault`)
- *   return `undefined` — vault-backed resolution lands in Phase 5 (TODO).
+ *   resolve to `undefined` — never a throw); `provider === 'oauth'` →
+ *   AES-GCM-decrypt the 1:1 `oauth_session` and return the LIVE access token
+ *   (freshness is kept by the refresh sweep; a non-`active` status, missing
+ *   key, or any decrypt error resolves to `undefined` — never a throw, no
+ *   network/refresh happens here). Other providers (e.g. `vault`) return
+ *   `undefined` — vault-backed resolution lands in Phase 5 (TODO).
  * - Otherwise (`ref` is not uuid-shaped — e.g. a literal proxy locator like
  *   `upstream_proxy` — or is a uuid with no matching row) fall back to reading
  *   `SECRET_<ref>` then `<ref>` from `process.env`. A uuid with no row yields
@@ -66,6 +71,17 @@ export async function resolveSecretRef(db: DbOrTx, ref: string): Promise<string 
           return decryptSecret(mat.material, keyB64);
         } catch {
           return undefined; // bad key / tampered → unresolved, never throw to callers
+        }
+      }
+      if (row.provider === 'oauth') {
+        const keyB64 = process.env.SECRET_ENCRYPTION_KEY;
+        if (keyB64 === undefined || keyB64 === '') return undefined; // misconfig → unresolved
+        try {
+          const session = await getDecryptedOAuthSession(db, row.id, keyB64);
+          if (session?.status !== 'active') return undefined;
+          return session.accessToken; // live access token; freshness via the refresh sweep
+        } catch {
+          return undefined; // never throw to callers (mirrors the enc branch)
         }
       }
       // TODO(Phase 5): vault-backed (`provider === 'vault'`) resolution.

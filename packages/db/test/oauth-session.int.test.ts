@@ -11,6 +11,7 @@ import {
   getOAuthSession,
   listRefreshableSessions,
   markNeedsReauth,
+  resolveSecretRef,
   updateOAuthTokens,
 } from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
@@ -174,5 +175,46 @@ describe('oauth_session repos (S1.2)', () => {
     expect(ids).not.toContain(refLocked.id);
     expect(ids).not.toContain(refReauth.id);
     expect(rows.length).toBe(1);
+  });
+});
+
+describe('resolveSecretRef provider=oauth (S1.3)', () => {
+  afterEach(() => {
+    // Never leak the master key across cases.
+    delete process.env.SECRET_ENCRYPTION_KEY;
+  });
+
+  it('resolves a valid active oauth session to its decrypted access token', async () => {
+    const ref = await createOAuthSession(db, {
+      providerKind: 'codex',
+      accessToken: 'live-access-token',
+      refreshToken: 'live-refresh-token',
+      keyB64: KEY,
+    });
+    process.env.SECRET_ENCRYPTION_KEY = KEY;
+    expect(await resolveSecretRef(db, ref.id)).toBe('live-access-token');
+  });
+
+  it('resolves to undefined once the session needs re-auth', async () => {
+    const ref = await createOAuthSession(db, {
+      providerKind: 'codex',
+      accessToken: 'live-access-token',
+      refreshToken: 'live-refresh-token',
+      keyB64: KEY,
+    });
+    await markNeedsReauth(db, ref.id);
+    process.env.SECRET_ENCRYPTION_KEY = KEY;
+    expect(await resolveSecretRef(db, ref.id)).toBeUndefined();
+  });
+
+  it('resolves to undefined (no throw) when SECRET_ENCRYPTION_KEY is absent', async () => {
+    const ref = await createOAuthSession(db, {
+      providerKind: 'codex',
+      accessToken: 'live-access-token',
+      refreshToken: 'live-refresh-token',
+      keyB64: KEY,
+    });
+    delete process.env.SECRET_ENCRYPTION_KEY;
+    await expect(resolveSecretRef(db, ref.id)).resolves.toBeUndefined();
   });
 });
