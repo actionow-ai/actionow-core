@@ -136,7 +136,11 @@ export {
   getRedemptionCode,
   type RedemptionCodeRow,
 } from './redemption.js';
-export { resolveSecretRef } from './secret-resolver.js';
+export {
+  createEncryptedSecret,
+  type CreateEncryptedSecretInput,
+  resolveSecretRef,
+} from './secret-resolver.js';
 export {
   failJob,
   type FailJobInput,

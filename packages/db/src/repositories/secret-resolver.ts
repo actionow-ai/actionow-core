@@ -1,4 +1,8 @@
-import { getSecretRef } from './catalog.js';
+import { eq } from 'drizzle-orm';
+
+import { decryptSecret, encryptSecret } from '../crypto.js';
+import { secretMaterial, secretRef } from '../schema/index.js';
+import { getSecretRef, type SecretRefRow } from './catalog.js';
 import type { DbOrTx } from './types.js';
 
 /**
@@ -28,8 +32,11 @@ function fromEnv(locator: string): string | undefined {
  * Logic (backward-compatible):
  * - When `ref` is uuid-shaped AND a `secret_ref` row exists with `id === ref`,
  *   resolve via that row: `provider === 'env'` → from `SECRET_<locator>` then
- *   `<locator>` in `process.env`. Other providers (e.g. `vault`) return
- *   `undefined` — vault-backed resolution lands in Phase 5 (TODO).
+ *   `<locator>` in `process.env`; `provider === 'enc'` → AES-GCM-decrypt the
+ *   1:1 `secret_material` ciphertext with the `SECRET_ENCRYPTION_KEY` master
+ *   key (a missing key, missing material, bad key, or tampered ciphertext all
+ *   resolve to `undefined` — never a throw). Other providers (e.g. `vault`)
+ *   return `undefined` — vault-backed resolution lands in Phase 5 (TODO).
  * - Otherwise (`ref` is not uuid-shaped — e.g. a literal proxy locator like
  *   `upstream_proxy` — or is a uuid with no matching row) fall back to reading
  *   `SECRET_<ref>` then `<ref>` from `process.env`. A uuid with no row yields
@@ -46,6 +53,21 @@ export async function resolveSecretRef(db: DbOrTx, ref: string): Promise<string 
     const row = await getSecretRef(db, ref);
     if (row !== undefined) {
       if (row.provider === 'env') return fromEnv(row.locator);
+      if (row.provider === 'enc') {
+        const keyB64 = process.env.SECRET_ENCRYPTION_KEY;
+        if (keyB64 === undefined || keyB64 === '') return undefined; // misconfig → unresolved
+        const [mat] = await db
+          .select()
+          .from(secretMaterial)
+          .where(eq(secretMaterial.secretRefId, row.id))
+          .limit(1);
+        if (mat === undefined) return undefined;
+        try {
+          return decryptSecret(mat.material, keyB64);
+        } catch {
+          return undefined; // bad key / tampered → unresolved, never throw to callers
+        }
+      }
       // TODO(Phase 5): vault-backed (`provider === 'vault'`) resolution.
       return undefined;
     }
@@ -53,4 +75,34 @@ export async function resolveSecretRef(db: DbOrTx, ref: string): Promise<string 
     // which will not match (the formatted uuid is not an env key) → undefined.
   }
   return fromEnv(ref);
+}
+
+/** Fields a caller supplies to {@link createEncryptedSecret}. */
+export interface CreateEncryptedSecretInput {
+  /** The plaintext secret to encrypt at rest. Never persisted in the clear. */
+  readonly value: string;
+  /** Optional human label, stored as the `secret_ref` locator (defaults to `''`). */
+  readonly label?: string | undefined;
+  /** Base64 AES-256 master key used to encrypt the value. */
+  readonly keyB64: string;
+}
+
+/**
+ * Create a `provider='enc'` secret_ref + its AES-GCM material in one transaction.
+ * The plaintext is encrypted before insert; only the ciphertext is persisted.
+ */
+export async function createEncryptedSecret(
+  db: DbOrTx,
+  input: CreateEncryptedSecretInput,
+): Promise<SecretRefRow> {
+  const material = encryptSecret(input.value, input.keyB64);
+  return db.transaction(async (tx) => {
+    const [ref] = await tx
+      .insert(secretRef)
+      .values({ provider: 'enc', locator: input.label ?? '' })
+      .returning();
+    if (!ref) throw new Error('createEncryptedSecret: secret_ref insert returned no row');
+    await tx.insert(secretMaterial).values({ secretRefId: ref.id, material });
+    return ref;
+  });
 }
