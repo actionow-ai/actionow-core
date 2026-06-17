@@ -45,9 +45,9 @@ export function DifyImportPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)', maxWidth: 640 }}>
       <SectionHeader title={t('dify.title')} />
-      <TextField label={t('dify.form.tenant')} value={tenantId} onChange={(e) => setTenantId(e.target.value)} />
-      <TextField label={t('dify.form.resourceId')} value={resourceId} onChange={(e) => setResourceId(e.target.value)} />
-      <TextField label={t('dify.form.endpoint')} value={endpoint} onChange={(e) => setEndpoint(e.target.value)} />
+      <TextField label={t('dify.form.tenant')} value={tenantId} onChange={setTenantId} />
+      <TextField label={t('dify.form.resourceId')} value={resourceId} onChange={setResourceId} />
+      <TextField label={t('dify.form.endpoint')} value={endpoint} onChange={setEndpoint} />
       <JsonField label={t('dify.form.yaml')} value={yaml} onChange={(v) => setYaml(v)} placeholder="app: ..." />
       <JsonField label={t('dify.form.pricingModel')} value={pricing}
         onChange={(v) => { setPricing(v); setPErr(validateJson(v).ok ? undefined : 'invalid JSON'); }} error={pErr} />

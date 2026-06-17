@@ -108,8 +108,8 @@ export function ApiKeysPage() {
           </Button>
         }
       >
-        <TextField label={t('apiKeys.form.allowlist')} value={allowlist} onChange={(e) => setAllowlist(e.target.value)} />
-        <TextField label={t('apiKeys.form.rateLimit')} type="number" min="1" value={rateLimit} onChange={(e) => setRateLimit(e.target.value)} />
+        <TextField label={t('apiKeys.form.allowlist')} value={allowlist} onChange={setAllowlist} />
+        <TextField label={t('apiKeys.form.rateLimit')} value={rateLimit} onChange={setRateLimit} />
       </Modal>
 
       <Modal

@@ -122,8 +122,8 @@ export function ResourcesPage() {
         </Button>
       }
     >
-      <TextField label={t('resources.form.id')} value={rid} onChange={(e) => setRid(e.target.value)} />
-      <TextField label={t('resources.form.tenant')} value={tenantId} onChange={(e) => setTenantId(e.target.value)} />
+      <TextField label={t('resources.form.id')} value={rid} onChange={setRid} />
+      <TextField label={t('resources.form.tenant')} value={tenantId} onChange={setTenantId} />
       <SelectField
         label={t('resources.form.kind')}
         value={kind}
@@ -133,9 +133,9 @@ export function ResourcesPage() {
           { value: 'workflow', label: t('resources.kind.workflow') },
         ]}
       />
-      <TextField label={t('resources.form.modality')} value={modality} onChange={(e) => setModality(e.target.value)} />
-      <TextField label={t('resources.form.provider')} value={provider} onChange={(e) => setProvider(e.target.value)} />
-      <TextField label={t('resources.form.execModes')} value={execModes} onChange={(e) => setExecModes(e.target.value)} />
+      <TextField label={t('resources.form.modality')} value={modality} onChange={setModality} />
+      <TextField label={t('resources.form.provider')} value={provider} onChange={setProvider} />
+      <TextField label={t('resources.form.execModes')} value={execModes} onChange={setExecModes} />
       <JsonField
         label={t('resources.form.ioSchema')}
         value={ioSchema}

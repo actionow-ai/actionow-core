@@ -169,13 +169,13 @@ export function AuthPage() {
           ))}
         </div>
 
-        <TextField label={t('auth.email')} type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <TextField label={t('auth.email')} type="email" autoComplete="username" value={email} onChange={setEmail} required />
         <TextField
           label={t('auth.password')}
           type="password"
           autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={setPassword}
           required
         />
 

@@ -78,7 +78,7 @@ export function TenantsPage() {
           </Button>
         }
       >
-        <TextField label={t('tenants.form.name')} value={name} onChange={(e) => setName(e.target.value)} />
+        <TextField label={t('tenants.form.name')} value={name} onChange={setName} />
         <SelectField
           label={t('tenants.form.isolation')}
           value={isolation}

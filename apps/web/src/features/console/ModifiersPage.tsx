@@ -90,11 +90,11 @@ export function ModifiersPage() {
           </Button>
         }
       >
-        <TextField label={t('modifiers.form.scope')} value={scope} onChange={(e) => setScope(e.target.value)} />
+        <TextField label={t('modifiers.form.scope')} value={scope} onChange={setScope} />
         <SelectField label={t('modifiers.form.op')} value={op} onChange={(v) => setOp(v as ModifierOp)} options={OPS.map((o) => ({ value: o, label: o }))} />
-        <TextField label={t('modifiers.form.value')} value={value} onChange={(e) => setValue(e.target.value)} />
-        <TextField label={t('modifiers.form.whenExpr')} value={whenExpr} onChange={(e) => setWhenExpr(e.target.value)} />
-        <TextField label={t('modifiers.form.priority')} value={priority} onChange={(e) => setPriority(e.target.value)} />
+        <TextField label={t('modifiers.form.value')} value={value} onChange={setValue} />
+        <TextField label={t('modifiers.form.whenExpr')} value={whenExpr} onChange={setWhenExpr} />
+        <TextField label={t('modifiers.form.priority')} value={priority} onChange={setPriority} />
       </Modal>
     </div>
   );

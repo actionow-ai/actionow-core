@@ -96,13 +96,7 @@ export function AccountsPage() {
         }
       >
         <TenantSelect label={t('accounts.form.tenant')} value={tenantId} onChange={setTenantId} placeholder="—" />
-        <TextField
-          label={t('accounts.form.credits')}
-          type="number"
-          min="0"
-          value={credits}
-          onChange={(e) => setCredits(e.target.value)}
-        />
+        <TextField label={t('accounts.form.credits')} value={credits} onChange={setCredits} />
       </Modal>
 
       <Modal
@@ -115,13 +109,7 @@ export function AccountsPage() {
           </Button>
         }
       >
-        <TextField
-          label={t('accounts.topup.credits')}
-          type="number"
-          min="0"
-          value={topupCredits}
-          onChange={(e) => setTopupCredits(e.target.value)}
-        />
+        <TextField label={t('accounts.topup.credits')} value={topupCredits} onChange={setTopupCredits} />
       </Modal>
     </div>
   );

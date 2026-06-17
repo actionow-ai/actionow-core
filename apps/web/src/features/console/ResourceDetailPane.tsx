@@ -147,9 +147,9 @@ export function ResourceDetailPane({ id }: { id: string }) {
           </Button>
         }
       >
-        <TextField label={t('channels.form.provider')} value={chProvider} onChange={(e) => setChProvider(e.target.value)} />
-        <TextField label={t('channels.form.credentialRef')} value={chCred} onChange={(e) => setChCred(e.target.value)} />
-        <TextField label={t('channels.form.weight')} value={chWeight} onChange={(e) => setChWeight(e.target.value)} />
+        <TextField label={t('channels.form.provider')} value={chProvider} onChange={setChProvider} />
+        <TextField label={t('channels.form.credentialRef')} value={chCred} onChange={setChCred} />
+        <TextField label={t('channels.form.weight')} value={chWeight} onChange={setChWeight} />
       </Modal>
 
       <Modal
@@ -162,8 +162,8 @@ export function ResourceDetailPane({ id }: { id: string }) {
           </Button>
         }
       >
-        <TextField label={t('pricebook.form.method')} value={method} onChange={(e) => setMethod(e.target.value)} />
-        <TextField label={t('pricebook.form.timing')} value={timing} onChange={(e) => setTiming(e.target.value)} />
+        <TextField label={t('pricebook.form.method')} value={method} onChange={setMethod} />
+        <TextField label={t('pricebook.form.timing')} value={timing} onChange={setTiming} />
         <JsonField
           label={t('pricebook.form.spec')}
           value={spec}
