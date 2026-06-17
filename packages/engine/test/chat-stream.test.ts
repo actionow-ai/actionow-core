@@ -17,6 +17,9 @@ import { createChatSettlingStream } from '../src/stream.js';
 // Record settle/fail/usage-log calls without a DB: the chat settling stream
 // calls these module-level repo functions, so we replace them with fakes here.
 const settleCalls: { usage: unknown; finalCost: bigint }[] = [];
+
+/** Captured AdapterContext from {@link captureAdapter} — reset in beforeEach. */
+let capturedCtx: AdapterContext | undefined;
 const failCalls: { error: unknown }[] = [];
 const usageLogCalls: {
   model: string;
@@ -78,6 +81,7 @@ beforeEach(() => {
   settleCalls.length = 0;
   failCalls.length = 0;
   usageLogCalls.length = 0;
+  capturedCtx = undefined;
 });
 
 const FAKE_DB = {} as DbOrTx;
@@ -170,6 +174,25 @@ function fakeFailoverChatAdapter(): ProviderAdapter {
       yield { type: 'usage', usage: { inputTokens: 3, outputTokens: 2 } };
       yield { type: 'stop', stopReason: 'stop' };
       yield { type: 'done' };
+    },
+  };
+}
+
+/**
+ * A capture adapter (providerType `capture`) whose `chat` records the
+ * {@link AdapterContext} it receives so callers can assert on it.
+ */
+function captureAdapter(): ProviderAdapter {
+  return {
+    ...fakeChatAdapter(),
+    providerType: 'capture',
+    chat: (ir: ChatRequest, ctx: AdapterContext): Promise<ChatResponse> => {
+      capturedCtx = ctx;
+      return Promise.resolve({
+        message: { role: 'assistant', content: [{ kind: 'text', text: 'ok' }] },
+        stopReason: 'stop',
+        usage: { inputTokens: 1, outputTokens: 1 },
+      });
     },
   };
 }
@@ -495,5 +518,37 @@ describe('ExecutionService.runChatStream / runChat', () => {
     expect(response.message.content[0]).toMatchObject({ kind: 'text' });
     expect(servedBy).toMatchObject({ channelId: 'c2', providerType: 'mock-chat' });
     expect(usageLogCalls[0]).toMatchObject({ channelId: 'c2', providerType: 'mock-chat' });
+  });
+
+  it('buildContext sets ctx.providerType from the channel, not the resource', async () => {
+    // A channel with providerType 'capture' under a resource whose providerType
+    // is 'mock-chat'. The AdapterContext passed to the adapter must carry the
+    // CHANNEL's providerType ('capture'), not the resource's ('mock-chat').
+    // Also verifies ctx.config carries the channel's config (chatgptAccountId).
+    const adapters = new AdapterRegistry();
+    adapters.register(captureAdapter());
+    const svc = new ExecutionService({
+      db: FAKE_DB,
+      adapters,
+      resolveSecret: () => Promise.resolve('sk-secret'),
+      http: FAKE_HTTP,
+      now: () => new Date('2026-06-16T00:00:00.000Z'),
+      enqueue: vi.fn<(jobId: string) => Promise<void>>(() => Promise.resolve()),
+    });
+    await svc.runChat(
+      chatReq({
+        channels: [
+          {
+            id: 'c1',
+            weight: 1,
+            providerType: 'capture',
+            config: { chatgptAccountId: 'acct_x' },
+          },
+        ],
+      }),
+    );
+    expect(capturedCtx).toBeDefined();
+    expect(capturedCtx?.providerType).toBe('capture');
+    expect(capturedCtx?.config?.chatgptAccountId).toBe('acct_x');
   });
 });

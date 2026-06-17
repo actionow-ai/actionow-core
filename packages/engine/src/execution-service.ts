@@ -627,7 +627,7 @@ export class ExecutionService {
         ? undefined
         : await this.deps.resolveSecret(channel.credentialRef);
     const ctx: AdapterContext = {
-      providerType: req.resource.providerType,
+      providerType: channel.providerType ?? req.resource.providerType,
       http: this.deps.http,
     };
     if (channel.model !== undefined) ctx.model = channel.model;
