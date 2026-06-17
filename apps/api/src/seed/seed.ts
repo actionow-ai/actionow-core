@@ -19,6 +19,7 @@ import {
 import { creditsToMicro } from '@actionow/domain';
 import { hashPassword } from '@actionow/infra';
 
+import { OFFICIAL_PRICE_SEED_KEYS, seedOfficialPrices } from './seed-official-prices.js';
 import { PROVIDER_SEED_IDS, seedProviders } from './seed-providers.js';
 
 /**
@@ -194,6 +195,9 @@ async function main(): Promise<void> {
   // DATA. Idempotent + network-free; the channels' credentials/proxies resolve
   // from env at run time.
   await seedProviders(db, { tenantId: result.tenantId });
+  // Track 2: a small DRAFT official-price catalog (cost basis; verify before
+  // billing). Idempotent + network-free.
+  await seedOfficialPrices(db);
 
   const log = console.log.bind(console);
   log('seed complete');
@@ -202,6 +206,7 @@ async function main(): Promise<void> {
   log(`  admin     : ${result.adminEmail} (password: ${SEED_ADMIN_PASSWORD})`);
   log(`  resource  : ${result.resourceId}`);
   log(`  providers : ${PROVIDER_SEED_IDS.join(', ')}`);
+  log(`  prices(draft): ${OFFICIAL_PRICE_SEED_KEYS.join(', ')}`);
 
   if (result.apiKey === null) {
     log('  api_key   : (already provisioned; the plaintext is unrecoverable)');
