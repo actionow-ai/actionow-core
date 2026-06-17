@@ -62,6 +62,7 @@ beforeAll(async () => {
       RATE_LIMIT_RESOURCE_PER_MIN: 120,
       ADMIN_JWT_SECRET: ADMIN_SECRET,
       SECRET_ENCRYPTION_KEY: SECRET_KEY_B64,
+      ENABLE_OAUTH_CHANNELS: true,
     })
     .compile();
 
@@ -92,7 +93,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE api_key, ledger_txn, dify_binding, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, secret_material, secret_ref, "user" RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE api_key, ledger_txn, dify_binding, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, oauth_session, secret_material, secret_ref, "user" RESTART IDENTITY CASCADE`;
 });
 
 function auth(req: request.Test): request.Test {
@@ -309,6 +310,70 @@ describe('admin CRUD flow', () => {
   it('rejects a malformed body with 400 invalid_input', async () => {
     const res = await auth(
       request(app.getHttpServer()).post('/admin/tenants').send({ name: '' }),
+    ).expect(400);
+    expect(res.body.error.code).toBe('invalid_input');
+  });
+});
+
+/**
+ * Craft a (NOT verified) ChatGPT id_token: `header.<base64url(claims)>.sig`.
+ * The service reads `chatgpt_account_id` under the `https://api.openai.com/auth`
+ * claim and the top-level `email` via `parseChatgptIdentity`.
+ */
+function craftIdToken(claims: Record<string, unknown>): string {
+  const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify(claims)).toString('base64url');
+  return `${header}.${payload}.sig`;
+}
+
+describe('POST /admin/oauth-sessions (paste-auth, ToS-gated)', () => {
+  const idToken = craftIdToken({
+    'https://api.openai.com/auth': { chatgpt_account_id: 'acct_codex_1' },
+    email: 'op@example.com',
+  });
+
+  it('registers a codex oauth session, derives the account id, never echoes tokens', async () => {
+    const res = await auth(
+      request(app.getHttpServer())
+        .post('/admin/oauth-sessions')
+        .send({
+          providerKind: 'codex-oauth',
+          authJson: {
+            access_token: 'oat-acc',
+            refresh_token: 'oat-ref',
+            id_token: idToken,
+            expires_in: 3600,
+          },
+          acknowledgeUpstreamTos: true,
+        }),
+    ).expect(201);
+
+    expect(res.body.provider_kind).toBe('codex-oauth');
+    expect(res.body.account_id).toBe('acct_codex_1'); // derived from the id_token
+    expect(res.body.account_label).toBe('op@example.com');
+    expect(JSON.stringify(res.body)).not.toContain('oat-acc'); // tokens never returned
+    expect(JSON.stringify(res.body)).not.toContain('oat-ref');
+    expect(res.body.id).toMatch(/^[0-9a-f-]{36}$/); // a secret_ref id usable as a credentialRef
+
+    // persisted: an encrypted oauth_session with a derived account id + an expiry
+    // the refresh sweep can pick up (expires_in → expires_at).
+    const [row] = await db.select().from(schema.oauthSession);
+    expect(row?.providerKind).toBe('codex-oauth');
+    expect(row?.accountId).toBe('acct_codex_1');
+    expect(row?.expiresAt).toBeInstanceOf(Date);
+    // ciphertext only — neither plaintext token is persisted in the clear.
+    expect(row?.accessEnc).not.toContain('oat-acc');
+    expect(row?.refreshEnc).not.toContain('oat-ref');
+  });
+
+  it('rejects a missing ToS acknowledgement with 400 invalid_input', async () => {
+    const res = await auth(
+      request(app.getHttpServer())
+        .post('/admin/oauth-sessions')
+        .send({
+          providerKind: 'codex-oauth',
+          authJson: { access_token: 'oat-acc', refresh_token: 'oat-ref', expires_in: 3600 },
+        }),
     ).expect(400);
     expect(res.body.error.code).toBe('invalid_input');
   });

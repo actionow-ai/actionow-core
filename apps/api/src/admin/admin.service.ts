@@ -10,6 +10,8 @@ import {
   createModel,
   type CreateModelInput,
   createModifier,
+  createOAuthSession,
+  type CreateOAuthSessionInput,
   createPricebookEntry,
   createRedemptionCode,
   createResource,
@@ -46,6 +48,7 @@ import {
   type UsageRollupRow,
 } from '@actionow/db';
 import { creditsToMicro } from '@actionow/domain';
+import { parseChatgptIdentity } from '@actionow/engine';
 import type { AppEnv } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
 
@@ -58,6 +61,7 @@ import type {
   CreateChannelDto,
   CreateModelDto,
   CreateModifierDto,
+  CreateOAuthSessionDto,
   CreatePricebookDto,
   CreateResourceDto,
   CreateSecretDto,
@@ -146,6 +150,58 @@ export class AdminService {
       throw engineInvalidInput('SECRET_ENCRYPTION_KEY must be a base64-encoded 32-byte key');
     }
     return createEncryptedSecret(this.db, { value: dto.value, label: dto.label, keyB64 });
+  }
+
+  // ----- oauth sessions (BYO subscription) -----
+
+  /**
+   * Register a BYO OAuth-subscription session from a pasted provider auth-json
+   * (the operator ran the provider's OAuth on their own machine, opt-in). Gated
+   * behind `ENABLE_OAUTH_CHANNELS` + the DTO's explicit ToS acknowledgement (the
+   * `z.literal(true)` already rejects a missing/false ack as `invalid_input`).
+   *
+   * Both tokens are encrypted at rest by {@link createOAuthSession} and NEVER
+   * returned or logged. The account id is derived from the `id_token` claims
+   * (falling back to an explicit `account_id`); the label falls back to the
+   * exported `email`. An `expiresAt` is computed from `expires_in` (or the
+   * RFC3339 `expired` string) so the refresh sweep can pick the session up.
+   */
+  async createOAuthSession(
+    dto: CreateOAuthSessionDto,
+  ): Promise<{ id: string; providerKind: string; accountLabel?: string; accountId?: string }> {
+    if (this.env.ENABLE_OAUTH_CHANNELS !== true) {
+      throw engineInvalidInput('oauth channels are disabled (set ENABLE_OAUTH_CHANNELS)');
+    }
+    const keyB64 = this.env.SECRET_ENCRYPTION_KEY;
+    if (keyB64 === undefined || keyB64 === '') {
+      throw engineInvalidInput('SECRET_ENCRYPTION_KEY is not configured');
+    }
+    const a = dto.authJson;
+    const identity = a.id_token !== undefined ? parseChatgptIdentity(a.id_token) : {};
+    const accountId = a.account_id ?? identity.accountId;
+    const accountLabel = a.account_label ?? a.email ?? identity.email;
+    const expiresAt =
+      a.expires_in !== undefined
+        ? new Date(Date.now() + a.expires_in * 1000)
+        : a.expired !== undefined
+          ? new Date(a.expired)
+          : undefined;
+    const input: CreateOAuthSessionInput = {
+      providerKind: dto.providerKind,
+      accessToken: a.access_token,
+      refreshToken: a.refresh_token,
+      keyB64,
+      ...(accountId !== undefined ? { accountId } : {}),
+      ...(accountLabel !== undefined ? { accountLabel } : {}),
+      ...(expiresAt !== undefined ? { expiresAt } : {}),
+    };
+    const row = await createOAuthSession(this.db, input);
+    return {
+      id: row.id,
+      providerKind: dto.providerKind,
+      ...(accountLabel !== undefined ? { accountLabel } : {}),
+      ...(accountId !== undefined ? { accountId } : {}),
+    };
   }
 
   // ----- resources -----

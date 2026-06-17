@@ -70,6 +70,11 @@ const EnvSchema = z
     // the per-provider callback path is appended. Optional; required only to use
     // OAuth.
     OAUTH_REDIRECT_BASE: z.string().url().optional(),
+    // Opt-in gate for the BYO OAuth-subscription channels (Phase 1a codex-oauth).
+    // Default falsy: the operator-facing `POST /admin/oauth-sessions` acquisition
+    // endpoint is disabled unless this is explicitly set (operator uses THEIR OWN
+    // paid subscription, ToS-acknowledged).
+    ENABLE_OAUTH_CHANNELS: z.coerce.boolean().optional(),
     // Payment provider credentials (Phase 10). All optional so the API boots
     // without payments configured; a provider whose creds are unset is simply
     // not registered and its `/v1/payments` routes return `invalid_input`.

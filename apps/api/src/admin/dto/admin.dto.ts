@@ -178,6 +178,32 @@ export const createSecretSchema = z.object({
 });
 export type CreateSecretDto = z.infer<typeof createSecretSchema>;
 
+/**
+ * `POST /admin/oauth-sessions` — register a BYO OAuth-subscription session by
+ * pasting the auth-json the operator exported after running the provider's OAuth
+ * on their own machine. Gated by `ENABLE_OAUTH_CHANNELS` + an explicit ToS ack
+ * (`acknowledgeUpstreamTos: true`). The tokens are encrypted at rest and never
+ * returned. `.passthrough()` keeps any extra export fields without rejecting.
+ */
+export const createOAuthSessionSchema = z.object({
+  providerKind: z.enum(['codex-oauth']),
+  authJson: z
+    .object({
+      access_token: z.string().min(1),
+      refresh_token: z.string().min(1),
+      id_token: z.string().optional(),
+      expires_in: z.number().optional(),
+      expired: z.string().optional(), // some exports store an RFC3339 expiry string
+      account_id: z.string().optional(),
+      account_label: z.string().optional(),
+      email: z.string().optional(),
+    })
+    .passthrough(),
+  /** Must be exactly `true`: an explicit acknowledgement of the upstream ToS. */
+  acknowledgeUpstreamTos: z.literal(true),
+});
+export type CreateOAuthSessionDto = z.infer<typeof createOAuthSessionSchema>;
+
 /** `GET /admin/analytics/usage` — usage rollup query. */
 export const analyticsUsageQuerySchema = z.object({
   groupBy: z.enum(['day', 'model', 'tenant', 'channel', 'api_key']),

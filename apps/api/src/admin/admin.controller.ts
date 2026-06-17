@@ -42,6 +42,8 @@ import {
   createModelSchema,
   type CreateModifierDto,
   createModifierSchema,
+  type CreateOAuthSessionDto,
+  createOAuthSessionSchema,
   type CreatePricebookDto,
   createPricebookSchema,
   type CreateResourceDto,
@@ -106,6 +108,18 @@ interface SecretView {
   id: string;
   provider: string;
   created_at: string;
+}
+
+/**
+ * A registered OAuth-subscription session. EXCLUDES the access/refresh tokens by
+ * construction (they are encrypted at rest and never leave the service). `id` is
+ * the `secret_ref` id usable as a channel `credentialRef`.
+ */
+interface OAuthSessionView {
+  id: string;
+  provider_kind: string;
+  account_label: string | null;
+  account_id: string | null;
 }
 
 interface ResourceView {
@@ -306,6 +320,25 @@ export class AdminController {
   ): Promise<SecretView> {
     const row = await this.admin.createSecret(dto);
     return { id: row.id, provider: row.provider, created_at: row.createdAt.toISOString() };
+  }
+
+  // ----- oauth sessions (BYO subscription) -----
+
+  @Post('oauth-sessions')
+  @HttpCode(201)
+  @ApiOperation({
+    summary: 'Register an OAuth subscription session (paste-auth; operator BYO, ToS-acknowledged)',
+  })
+  async createOAuthSession(
+    @Body(new ZodBody(createOAuthSessionSchema)) dto: CreateOAuthSessionDto,
+  ): Promise<OAuthSessionView> {
+    const session = await this.admin.createOAuthSession(dto);
+    return {
+      id: session.id,
+      provider_kind: session.providerKind,
+      account_label: session.accountLabel ?? null,
+      account_id: session.accountId ?? null,
+    };
   }
 
   // ----- resources -----
