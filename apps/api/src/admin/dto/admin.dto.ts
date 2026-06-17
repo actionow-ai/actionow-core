@@ -111,10 +111,13 @@ export type UpdateChannelDto = z.infer<typeof updateChannelSchema>;
 
 /**
  * `POST /admin/resources/:id/channels/:channelId/sync-models` — sync a provider's
- * available models into `model` rows. The two prices are µcredit-PER-TOKEN
- * integers (NOT human credits — this is the same convention as the model catalog),
- * applied ONLY to newly-created models; existing models keep their price. Both
- * default in the controller (3 input / 7 output) when omitted.
+ * available models into `model` rows, auto-priced against the official catalog
+ * (Track 2). The two prices are µUSD-per-1M-token integers (NOT human credits —
+ * the same convention as the model catalog), applied ONLY to a NEWLY-discovered
+ * model that found NO official price: an explicit OPERATOR OVERRIDE that creates
+ * the unmatched model `active` at these prices. When BOTH are omitted, an
+ * unmatched model is created `disabled` + `needs_pricing` (never billed at 0).
+ * Existing models always keep their price.
  */
 export const syncChannelModelsSchema = z.object({
   defaultInputPrice: z.number().int().nonnegative().optional(),
@@ -385,3 +388,57 @@ export const redemptionCodesQuerySchema = z.object({
   cursor: z.string().optional(),
 });
 export type RedemptionCodesQueryDto = z.infer<typeof redemptionCodesQuerySchema>;
+
+/**
+ * `POST /admin/official-prices` — add a row to the official model price catalog
+ * (Track 2; spec D7). The three price fields are HUMAN USD-per-1M-tokens (e.g.
+ * `1.25` = $1.25 per 1M tokens, like the provider's published list price); the
+ * service converts each to integer µUSD/1M = `round(usd × 1_000_000)` before
+ * persisting (the boundary conversion mirrors `creditsToMicro`). `modelSlug` is
+ * normalized to the catalog's canonical form by the service. `provider` is the
+ * catalog provider key (`openai`/`anthropic`/`google`/…).
+ */
+export const createOfficialPriceSchema = z.object({
+  provider: z.string().min(1),
+  modelSlug: z.string().min(1),
+  displayName: z.string().min(1).optional(),
+  /** HUMAN USD per 1M input tokens (e.g. 1.25) → µUSD/1M in the service. */
+  inputUsdPer1m: z.number().positive(),
+  /** HUMAN USD per 1M output tokens. */
+  outputUsdPer1m: z.number().positive(),
+  /** Optional HUMAN USD per 1M cached-input tokens. */
+  cachedInputUsdPer1m: z.number().positive().optional(),
+  sourceUrl: z.string().url().optional(),
+  effectiveAt: z.string().datetime().optional(), // ISO 8601
+  notes: z.string().optional(),
+});
+export type CreateOfficialPriceDto = z.infer<typeof createOfficialPriceSchema>;
+
+/**
+ * `PATCH /admin/official-prices/:id` — update a catalog row. Every field is
+ * optional (omitted = unchanged). The USD-per-1M price fields are converted to
+ * µUSD/1M by the service (same convention as create). `cachedInputUsdPer1m` /
+ * `displayName` / `sourceUrl` / `effectiveAt` / `notes` may be cleared with
+ * `null`. `provider`/`modelSlug` are NOT patchable (a re-slug is a new row).
+ */
+export const updateOfficialPriceSchema = z.object({
+  displayName: z.string().min(1).nullable().optional(),
+  inputUsdPer1m: z.number().positive().optional(),
+  outputUsdPer1m: z.number().positive().optional(),
+  cachedInputUsdPer1m: z.number().positive().nullable().optional(),
+  sourceUrl: z.string().url().nullable().optional(),
+  effectiveAt: z.string().datetime().nullable().optional(),
+  notes: z.string().nullable().optional(),
+});
+export type UpdateOfficialPriceDto = z.infer<typeof updateOfficialPriceSchema>;
+
+/**
+ * `GET /admin/official-prices` — list catalog rows. Optional `provider` filter;
+ * `limit`/`cursor` are the keyset paging params.
+ */
+export const officialPricesQuerySchema = z.object({
+  provider: z.string().min(1).optional(),
+  limit: z.coerce.number().int().positive().optional(),
+  cursor: z.string().optional(),
+});
+export type OfficialPricesQueryDto = z.infer<typeof officialPricesQuerySchema>;

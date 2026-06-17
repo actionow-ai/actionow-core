@@ -7,6 +7,7 @@ import type {
   ModelRow,
   ModifierRow,
   OAuthSessionListRow,
+  OfficialModelPriceRow,
   PricebookEntryRow,
   RedemptionCodeRow,
   Resource,
@@ -58,6 +59,8 @@ import {
   createModifierSchema,
   type CreateOAuthSessionDto,
   createOAuthSessionSchema,
+  type CreateOfficialPriceDto,
+  createOfficialPriceSchema,
   type CreatePricebookDto,
   createPricebookSchema,
   type CreateResourceDto,
@@ -70,6 +73,8 @@ import {
   generateCodesSchema,
   type GrantModelDto,
   grantModelSchema,
+  type OfficialPricesQueryDto,
+  officialPricesQuerySchema,
   type RedemptionCodesQueryDto,
   redemptionCodesQuerySchema,
   type RelayTraceQueryDto,
@@ -84,6 +89,8 @@ import {
   updateModelSchema,
   type UpdateModifierDto,
   updateModifierSchema,
+  type UpdateOfficialPriceDto,
+  updateOfficialPriceSchema,
   type UpdatePricebookDto,
   updatePricebookSchema,
   type UpdateResourceDto,
@@ -297,6 +304,27 @@ interface ModelGrantView {
   model_id: string;
   tenant_id: string;
   created_at: string;
+}
+
+/**
+ * One official model price (Track 2 catalog). The stored µUSD/1M integers are
+ * serialized as decimal strings (never coerced through a float) — the
+ * `*_price_per_1m` fields are µUSD per 1M tokens.
+ */
+interface OfficialPriceView {
+  id: string;
+  provider: string;
+  model_slug: string;
+  display_name: string | null;
+  input_price_per_1m: string;
+  output_price_per_1m: string;
+  cached_input_price_per_1m: string | null;
+  source_url: string | null;
+  effective_at: string | null;
+  notes: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -638,7 +666,13 @@ export class AdminController {
     @Param('id') id: string,
     @Param('channelId') channelId: string,
     @Body(new ZodBody(syncChannelModelsSchema)) dto: SyncChannelModelsDto,
-  ): Promise<{ resource_id: string; created: string[]; updated: string[]; total: number }> {
+  ): Promise<{
+    resource_id: string;
+    created: string[];
+    updated: string[];
+    total: number;
+    summary: { name: string; priced: string }[];
+  }> {
     return this.admin.syncChannelModels(id, channelId, dto);
   }
 
@@ -861,6 +895,57 @@ export class AdminController {
     return mapPageEnvelope(result, (r) => r.code, toRedemptionCodeView);
   }
 
+  // ----- official model price catalog (Track 2) -----
+
+  @Post('official-prices')
+  @HttpCode(201)
+  @Idempotent()
+  @ApiOperation({
+    summary: 'Add an official model price (USD/1M → µUSD/1M); (provider,slug) unique',
+  })
+  async createOfficialPrice(
+    @Body(new ZodBody(createOfficialPriceSchema)) dto: CreateOfficialPriceDto,
+  ): Promise<OfficialPriceView> {
+    return toOfficialPriceView(await this.admin.createOfficialPrice(dto));
+  }
+
+  @Get('official-prices')
+  @ApiOperation({ summary: 'List the official price catalog (optional ?provider=, paginated)' })
+  async listOfficialPrices(
+    @Query() raw: Record<string, string>,
+  ): Promise<PageEnvelope<OfficialPriceView>> {
+    const q = parseOfficialPricesQuery(raw);
+    const filter = q.provider !== undefined ? { provider: q.provider } : {};
+    const page = toPageParams({
+      ...(q.limit !== undefined ? { limit: String(q.limit) } : {}),
+      ...(q.cursor !== undefined ? { cursor: q.cursor } : {}),
+    });
+    const result = await this.admin.listOfficialPrices(filter, page);
+    return mapPageEnvelope(result, (r) => r.id, toOfficialPriceView);
+  }
+
+  @Get('official-prices/:id')
+  @ApiOperation({ summary: 'Get one official price by id or 404' })
+  async getOfficialPrice(@Param('id') id: string): Promise<OfficialPriceView> {
+    return toOfficialPriceView(await this.admin.getOfficialPrice(id));
+  }
+
+  @Patch('official-prices/:id')
+  @ApiOperation({ summary: 'Update an official price (USD/1M → µUSD/1M)' })
+  async updateOfficialPrice(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateOfficialPriceSchema)) dto: UpdateOfficialPriceDto,
+  ): Promise<OfficialPriceView> {
+    return toOfficialPriceView(await this.admin.updateOfficialPrice(id, dto));
+  }
+
+  @Delete('official-prices/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete an official price (frees the (provider,slug) pair)' })
+  async deleteOfficialPrice(@Param('id') id: string): Promise<void> {
+    await this.admin.deleteOfficialPrice(id);
+  }
+
   // ----- usage stats -----
 
   @Get('usage')
@@ -948,6 +1033,22 @@ function parseRelayTraceQuery(raw: Record<string, string>): RelayTraceQueryDto {
  */
 function parseRedemptionCodesQuery(raw: Record<string, string>): RedemptionCodesQueryDto {
   const result = redemptionCodesQuerySchema.safeParse(raw);
+  if (!result.success) {
+    const first = result.error.issues[0];
+    const path = first?.path.join('.') ?? '';
+    const detail = first === undefined ? 'invalid query' : `${path}: ${first.message}`;
+    throw engineInvalidInput(detail);
+  }
+  return result.data;
+}
+
+/**
+ * Validate the official-prices query against its zod schema (same 400-on-failure
+ * contract as {@link parseRedemptionCodesQuery}, since query params bypass the
+ * {@link ZodBody} pipe).
+ */
+function parseOfficialPricesQuery(raw: Record<string, string>): OfficialPricesQueryDto {
+  const result = officialPricesQuerySchema.safeParse(raw);
   if (!result.success) {
     const first = result.error.issues[0];
     const path = first?.path.join('.') ?? '';
@@ -1114,6 +1215,25 @@ function toModelGrantView(row: ModelGrantRow): ModelGrantView {
     model_id: row.modelId,
     tenant_id: row.tenantId,
     created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toOfficialPriceView(row: OfficialModelPriceRow): OfficialPriceView {
+  return {
+    id: row.id,
+    provider: row.provider,
+    model_slug: row.modelSlug,
+    display_name: row.displayName,
+    input_price_per_1m: row.inputPricePer1m.toString(),
+    output_price_per_1m: row.outputPricePer1m.toString(),
+    cached_input_price_per_1m:
+      row.cachedInputPricePer1m === null ? null : row.cachedInputPricePer1m.toString(),
+    source_url: row.sourceUrl,
+    effective_at: row.effectiveAt === null ? null : row.effectiveAt.toISOString(),
+    notes: row.notes,
+    updated_by: row.updatedBy,
+    created_at: row.createdAt.toISOString(),
+    updated_at: row.updatedAt.toISOString(),
   };
 }
 

@@ -14,6 +14,8 @@ import {
   createModifier,
   createOAuthSession,
   type CreateOAuthSessionInput,
+  createOfficialPrice,
+  type CreateOfficialPriceInput,
   createPricebookEntry,
   createRedemptionCode,
   createResource,
@@ -27,6 +29,7 @@ import {
   getChannelById,
   getModelByName,
   getModifierById,
+  getOfficialPriceById,
   getPricebookEntryById,
   getResource,
   getSecretRefById,
@@ -43,6 +46,7 @@ import {
   listModels,
   listModifiers,
   listOAuthSessions,
+  listOfficialPrices,
   listPricebookEntries,
   listRedemptionCodes,
   listRelayTraces,
@@ -53,7 +57,9 @@ import {
   type ModelGrantRow,
   type ModelRow,
   type ModifierRow,
+  normalizeModelSlug,
   type OAuthSessionListRow,
+  type OfficialModelPriceRow,
   type PageParams,
   type PricebookEntryRow,
   type RedemptionCodeRow,
@@ -68,12 +74,14 @@ import {
   softDeleteModel,
   softDeleteModifier,
   softDeleteOAuthSession,
+  softDeleteOfficialPrice,
   softDeletePricebookEntry,
   softDeleteSecretRef,
   type TenantRow,
   topUp,
   updateModel,
   updateModifier,
+  updateOfficialPrice,
   updatePricebookEntry,
   updateResource,
   updateTenant,
@@ -108,6 +116,7 @@ import type {
   CreateModelDto,
   CreateModifierDto,
   CreateOAuthSessionDto,
+  CreateOfficialPriceDto,
   CreatePricebookDto,
   CreateResourceDto,
   CreateSecretDto,
@@ -119,6 +128,7 @@ import type {
   UpdateChannelDto,
   UpdateModelDto,
   UpdateModifierDto,
+  UpdateOfficialPriceDto,
   UpdatePricebookDto,
   UpdateResourceDto,
   UpdateTenantDto,
@@ -126,6 +136,33 @@ import type {
 
 /** Modifier ops whose `value` is a µcredit amount (vs. a whole-percent int). */
 const CREDIT_VALUE_OPS = new Set(['flat_off', 'override_rate']);
+
+/**
+ * Map a channel's `provider_type` onto the official-catalog `provider` key the
+ * sync matcher looks up against (Track 2; spec D7). Subscription/relay
+ * provider-types resolve to their underlying API provider so codex/openai both
+ * price off the `openai` catalog. An unlisted provider_type is used verbatim.
+ */
+const PROVIDER_TYPE_TO_CATALOG: Readonly<Record<string, string>> = {
+  'codex-oauth': 'openai',
+  openai: 'openai',
+  anthropic: 'anthropic',
+  gemini: 'google',
+};
+
+/** Resolve the official-catalog provider for a channel `provider_type` (default = verbatim). */
+function catalogProviderFor(providerType: string): string {
+  return PROVIDER_TYPE_TO_CATALOG[providerType] ?? providerType;
+}
+
+/**
+ * Convert a HUMAN USD-per-1M-tokens amount (e.g. `1.25`) to an integer µUSD/1M
+ * = `round(usd × 1_000_000)` (the official-price boundary conversion; mirrors
+ * `creditsToMicro`'s `round(x × 1e6)` style — `1 USD = 1_000_000 µUSD`).
+ */
+function usdPer1mToMicro(usd: number): bigint {
+  return BigInt(Math.round(usd * 1_000_000));
+}
 
 /** Postgres SQLSTATE for a unique-constraint violation (`unique_violation`). */
 const PG_UNIQUE_VIOLATION = '23505';
@@ -659,23 +696,37 @@ export class AdminService {
 
   /**
    * Sync the upstream models a channel's provider exposes into `model` rows
-   * (multi-model routing). Loads the channel (verifying it belongs to
-   * `resourceId`), resolves the provider adapter, and — if it supports model
-   * discovery (`listModels`) — calls it with an {@link AdapterContext} built the
-   * SAME way the chat relay/engine does (per-channel model/endpoint/config, the
+   * (multi-model routing + Track 2 auto-pricing). Loads the channel (verifying it
+   * belongs to `resourceId`), resolves the provider adapter, and — if it supports
+   * model discovery (`listModels`) — calls it with an {@link AdapterContext} built
+   * the SAME way the chat relay/engine does (per-channel model/endpoint/config, the
    * credential resolved via the shared {@link SecretResolver} incl. its `oauth`
    * branch, the egress proxy resolved from `proxyRef` with the global
-   * `UPSTREAM_PROXY_URL` fallback). Each upstream slug becomes a `model` row via
-   * {@link upsertModelsFromSync}: a new model gets the request's µUSD-per-1M
-   * default prices ($1.25/1M in, $10/1M out when omitted), an existing one keeps
-   * its price (display + capabilities are refreshed). Returns the created/updated
-   * names + total.
+   * `UPSTREAM_PROXY_URL` fallback).
+   *
+   * Each upstream slug becomes a `model` row via {@link upsertModelsFromSync},
+   * AUTO-PRICED against the {@link officialModelPrice} catalog under the
+   * channel's catalog provider ({@link catalogProviderFor}):
+   * - matched → priced from the official µUSD/1M row, `active`;
+   * - unmatched → `disabled` + `needs_pricing` (NEVER billable at 0) — UNLESS the
+   *   request supplies explicit `defaultInputPrice`/`defaultOutputPrice` (µUSD/1M),
+   *   in which case the unmatched model is created `active` at those prices;
+   * - existing → price/status preserved (display + capabilities refreshed).
+   *
+   * Returns the created/updated names, the total, and a per-model
+   * `priced: official|default|needs_pricing|existing` summary.
    */
   async syncChannelModels(
     resourceId: string,
     channelId: string,
     dto: SyncChannelModelsDto,
-  ): Promise<{ resource_id: string; created: string[]; updated: string[]; total: number }> {
+  ): Promise<{
+    resource_id: string;
+    created: string[];
+    updated: string[];
+    total: number;
+    summary: { name: string; priced: string }[];
+  }> {
     // Load the channel and verify it belongs to this resource (else not_found).
     // A resource has few channels; a generous page bounds the scan without a
     // dedicated single-channel getter (a Track D concern).
@@ -696,15 +747,20 @@ export class AdminService {
 
     const result = await upsertModelsFromSync(this.db, {
       resourceId,
+      provider: catalogProviderFor(channel.providerType),
       models: models.map((m) => ({
         name: m.id,
         display: m.displayName,
         capabilities: m.capabilities,
       })),
-      // µUSD per 1M tokens (Track 1). Sane placeholder when the request omits a
-      // default: $1.25/1M input, $10/1M output (admin should tune per provider).
-      defaultInputPrice: BigInt(dto.defaultInputPrice ?? 1_250_000),
-      defaultOutputPrice: BigInt(dto.defaultOutputPrice ?? 10_000_000),
+      // Explicit unmatched-default override (µUSD/1M). When omitted, an unmatched
+      // model becomes `needs_pricing`+disabled rather than billing at 0.
+      ...(dto.defaultInputPrice !== undefined
+        ? { defaultInputPrice: BigInt(dto.defaultInputPrice) }
+        : {}),
+      ...(dto.defaultOutputPrice !== undefined
+        ? { defaultOutputPrice: BigInt(dto.defaultOutputPrice) }
+        : {}),
     });
 
     return {
@@ -712,6 +768,7 @@ export class AdminService {
       created: result.created,
       updated: result.updated,
       total: result.created.length + result.updated.length,
+      summary: result.summary.map((s) => ({ name: s.name, priced: s.priced })),
     };
   }
 
@@ -1100,6 +1157,104 @@ export class AdminService {
   ): Promise<KeysetResult<RedemptionCodeRow>> {
     const f = filter.status !== undefined ? { status: filter.status } : {};
     return listRedemptionCodes(this.db, f, page);
+  }
+
+  // ----- official model price catalog (Track 2) -----
+
+  /**
+   * Add an official-price catalog row (cost basis). The DTO carries HUMAN
+   * USD-per-1M-tokens (e.g. `1.25`); each is converted to integer µUSD/1M via
+   * {@link usdPer1mToMicro} here at the boundary (the db only stores µUSD). The
+   * `modelSlug` is normalized to the catalog's canonical form so it matches the
+   * sync matcher. A `(provider, slug)` collision (incl. a pair still held by a
+   * soft-deleted row) is mapped to a clean 400.
+   */
+  async createOfficialPrice(dto: CreateOfficialPriceDto): Promise<OfficialModelPriceRow> {
+    const input: CreateOfficialPriceInput = {
+      provider: dto.provider,
+      modelSlug: normalizeModelSlug(dto.modelSlug),
+      inputPricePer1m: usdPer1mToMicro(dto.inputUsdPer1m),
+      outputPricePer1m: usdPer1mToMicro(dto.outputUsdPer1m),
+      ...(dto.displayName !== undefined ? { displayName: dto.displayName } : {}),
+      ...(dto.cachedInputUsdPer1m !== undefined
+        ? { cachedInputPricePer1m: usdPer1mToMicro(dto.cachedInputUsdPer1m) }
+        : {}),
+      ...(dto.sourceUrl !== undefined ? { sourceUrl: dto.sourceUrl } : {}),
+      ...(dto.effectiveAt !== undefined ? { effectiveAt: new Date(dto.effectiveAt) } : {}),
+      ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+    };
+    try {
+      return await createOfficialPrice(this.db, input);
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw engineInvalidInput(
+          `official price for '${input.provider}/${input.modelSlug}' already exists`,
+        );
+      }
+      throw err;
+    }
+  }
+
+  listOfficialPrices(
+    filter: { provider?: string | undefined },
+    page: PageParams,
+  ): Promise<KeysetResult<OfficialModelPriceRow>> {
+    const f = filter.provider !== undefined ? { provider: filter.provider } : {};
+    return listOfficialPrices(this.db, f, page);
+  }
+
+  /** Fetch one catalog row by id, or `resource_not_found` (404) when absent/soft-deleted. */
+  async getOfficialPrice(id: string): Promise<OfficialModelPriceRow> {
+    const row = await getOfficialPriceById(this.db, id);
+    if (row === undefined) {
+      throw engineNotFound(`official price ${id} not found`);
+    }
+    return row;
+  }
+
+  /**
+   * Patch a catalog row (by id). The USD-per-1M price fields are converted to
+   * µUSD/1M (same convention as create); the nullable metadata fields may be set
+   * to `null` to clear them. 404 when the row is absent / soft-deleted.
+   */
+  async updateOfficialPrice(
+    id: string,
+    dto: UpdateOfficialPriceDto,
+  ): Promise<OfficialModelPriceRow> {
+    const patch: {
+      displayName?: string | null;
+      inputPricePer1m?: bigint;
+      outputPricePer1m?: bigint;
+      cachedInputPricePer1m?: bigint | null;
+      sourceUrl?: string | null;
+      effectiveAt?: Date | null;
+      notes?: string | null;
+    } = {};
+    if (dto.displayName !== undefined) patch.displayName = dto.displayName;
+    if (dto.inputUsdPer1m !== undefined) patch.inputPricePer1m = usdPer1mToMicro(dto.inputUsdPer1m);
+    if (dto.outputUsdPer1m !== undefined)
+      patch.outputPricePer1m = usdPer1mToMicro(dto.outputUsdPer1m);
+    if (dto.cachedInputUsdPer1m !== undefined)
+      patch.cachedInputPricePer1m =
+        dto.cachedInputUsdPer1m === null ? null : usdPer1mToMicro(dto.cachedInputUsdPer1m);
+    if (dto.sourceUrl !== undefined) patch.sourceUrl = dto.sourceUrl;
+    if (dto.effectiveAt !== undefined)
+      patch.effectiveAt = dto.effectiveAt === null ? null : new Date(dto.effectiveAt);
+    if (dto.notes !== undefined) patch.notes = dto.notes;
+    const row = await updateOfficialPrice(this.db, id, patch);
+    if (row === undefined) {
+      throw engineNotFound(`official price ${id} not found`);
+    }
+    return row;
+  }
+
+  /** Revoke (soft-delete) a catalog row; 404 when no live row matched. */
+  async deleteOfficialPrice(id: string): Promise<{ id: string }> {
+    const deleted = await softDeleteOfficialPrice(this.db, id);
+    if (deleted === undefined) {
+      throw engineNotFound(`official price ${id} not found`);
+    }
+    return { id: deleted };
   }
 
   // ----- relay traces (upstream audit) -----

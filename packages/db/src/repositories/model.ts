@@ -2,6 +2,7 @@ import type { InferSelectModel } from 'drizzle-orm';
 import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 
 import { model, modelGrant } from '../schema/index.js';
+import { matchOfficialPrice } from './official-price.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
@@ -59,32 +60,70 @@ export interface SyncModelInput {
 export interface UpsertModelsFromSyncInput {
   /** The chat resource every synced model points at (the codex resource). */
   readonly resourceId: string;
+  /**
+   * The official-catalog provider key the discovered slugs are matched against
+   * (`openai` | `anthropic` | `google` | …; mapped from the channel's
+   * `providerType` by the caller). Drives {@link matchOfficialPrice}.
+   */
+  readonly provider: string;
   readonly models: readonly SyncModelInput[];
-  /** µUSD per 1M input tokens applied ONLY to newly-inserted models. */
-  readonly defaultInputPrice: bigint;
-  /** µUSD per 1M output tokens applied ONLY to newly-inserted models. */
-  readonly defaultOutputPrice: bigint;
+  /**
+   * OPTIONAL explicit fallback for an UNMATCHED slug (µUSD per 1M input tokens).
+   * When supplied (with {@link defaultOutputPrice}), an unmatched model is created
+   * `active` with this price instead of `needs_pricing`+disabled. Default
+   * (omitted) = `needs_pricing` (never bill 0).
+   */
+  readonly defaultInputPrice?: bigint | undefined;
+  /** OPTIONAL explicit fallback for an unmatched slug (µUSD per 1M output tokens). */
+  readonly defaultOutputPrice?: bigint | undefined;
 }
 
-/** Names partitioned by what {@link upsertModelsFromSync} did to each. */
+/** How {@link upsertModelsFromSync} priced one synced model. */
+export type SyncPricedKind =
+  /** Matched the official catalog → priced from it, active. */
+  | 'official'
+  /** Unmatched but the request supplied explicit default prices → active. */
+  | 'default'
+  /** Unmatched, no default → created `disabled` + `needs_pricing` (never bill 0). */
+  | 'needs_pricing'
+  /** Already existed → price/status preserved (only discovery fields refreshed). */
+  | 'existing';
+
+/** Per-model outcome of a sync batch. */
+export interface SyncModelSummary {
+  readonly name: string;
+  readonly priced: SyncPricedKind;
+}
+
+/** Names partitioned by what {@link upsertModelsFromSync} did to each, plus a per-model summary. */
 export interface UpsertModelsFromSyncResult {
-  /** Names that did not exist and were inserted with the default prices. */
+  /** Names that did not exist and were inserted. */
   readonly created: string[];
   /** Names that already existed and were refreshed (display/capabilities/resource). */
   readonly updated: string[];
+  /** One {@link SyncModelSummary} per model in the batch (matched/default/needs_pricing/existing). */
+  readonly summary: SyncModelSummary[];
 }
 
 /**
  * Sync a provider's catalog into `model` rows (one row per upstream slug, all
- * pointing at `resourceId`). Matched by the unique `name`:
+ * pointing at `resourceId`), AUTO-PRICING from the official catalog (Track 2;
+ * spec D7). Matched by the unique `name`:
  * - EXISTING name → UPDATE `display`/`capabilities`/`resourceId` ONLY. The price
- *   (`input_price`/`output_price`), `status`, and `visibility` are PRESERVED —
- *   sync never overwrites an operator's resale price.
- * - NEW name → INSERT with `resourceId`, `display`, `capabilities`,
- *   `visibility='public'`, `status='active'`, and the batch's
- *   `defaultInputPrice`/`defaultOutputPrice`.
+ *   (`input_price`/`output_price`), `status`, `needs_pricing`, and `visibility`
+ *   are PRESERVED — sync never downgrades an operator-priced model (`existing`).
+ * - NEW name, MATCHED against `official_model_price` (`(provider, normalize(slug))`)
+ *   → INSERT `active` with the official µUSD/1M prices, `needs_pricing=false`
+ *   (`official`).
+ * - NEW name, UNMATCHED, request supplied `default{Input,Output}Price` → INSERT
+ *   `active` with those prices, `needs_pricing=false` (`default` — an explicit
+ *   operator override).
+ * - NEW name, UNMATCHED, NO defaults → INSERT `disabled` with `needs_pricing=true`
+ *   and prices 0 (`needs_pricing`). NEVER active-with-0 — such a model stays out
+ *   of routing until an admin prices it.
  *
- * Returns the created/updated names. Money is bigint µcredits throughout.
+ * Returns the created/updated names + a per-model {@link SyncModelSummary}. Money
+ * is bigint µUSD/1M throughout.
  */
 export async function upsertModelsFromSync(
   db: DbOrTx,
@@ -92,6 +131,12 @@ export async function upsertModelsFromSync(
 ): Promise<UpsertModelsFromSyncResult> {
   const created: string[] = [];
   const updated: string[] = [];
+  const summary: SyncModelSummary[] = [];
+  // Capture into locals so TS narrows `undefined` away inside the loop branch
+  // (an explicit operator override applies the SAME default price to every
+  // unmatched slug in the batch).
+  const defInput = input.defaultInputPrice;
+  const defOutput = input.defaultOutputPrice;
   for (const m of input.models) {
     // deletedAt-agnostic probe: a soft-deleted model still occupies the unique name,
     // so re-syncing it must UPDATE (not INSERT a duplicate-name row).
@@ -102,7 +147,7 @@ export async function upsertModelsFromSync(
       .limit(1);
     const existing = existingRows[0];
     if (existing !== undefined) {
-      // Refresh discovery fields only; the price/status/visibility are preserved.
+      // Refresh discovery fields only; price/status/needs_pricing/visibility preserved.
       await db
         .update(model)
         .set({
@@ -112,21 +157,54 @@ export async function upsertModelsFromSync(
         })
         .where(eq(model.id, existing.id));
       updated.push(m.name);
-    } else {
-      await db.insert(model).values({
-        name: m.name,
-        resourceId: input.resourceId,
-        ...(m.display !== undefined ? { display: m.display } : {}),
-        ...(m.capabilities !== undefined ? { capabilities: m.capabilities } : {}),
-        visibility: 'public',
-        status: 'active',
-        inputPrice: input.defaultInputPrice,
-        outputPrice: input.defaultOutputPrice,
-      });
-      created.push(m.name);
+      summary.push({ name: m.name, priced: 'existing' });
+      continue;
     }
+
+    // NEW model: try the official catalog (auto-price), else default/needs_pricing.
+    const official = await matchOfficialPrice(db, input.provider, m.name);
+    let inputPrice: bigint;
+    let outputPrice: bigint;
+    let status: string;
+    let needsPricing: boolean;
+    let priced: SyncPricedKind;
+    if (official !== undefined) {
+      inputPrice = official.inputPricePer1m;
+      outputPrice = official.outputPricePer1m;
+      status = 'active';
+      needsPricing = false;
+      priced = 'official';
+    } else if (defInput !== undefined && defOutput !== undefined) {
+      // An explicit operator override: create the unmatched model active at the
+      // supplied default prices (rather than needs_pricing).
+      inputPrice = defInput;
+      outputPrice = defOutput;
+      status = 'active';
+      needsPricing = false;
+      priced = 'default';
+    } else {
+      // NEVER bill 0: created disabled + needs_pricing until an admin prices it.
+      inputPrice = 0n;
+      outputPrice = 0n;
+      status = 'disabled';
+      needsPricing = true;
+      priced = 'needs_pricing';
+    }
+    await db.insert(model).values({
+      name: m.name,
+      resourceId: input.resourceId,
+      ...(m.display !== undefined ? { display: m.display } : {}),
+      ...(m.capabilities !== undefined ? { capabilities: m.capabilities } : {}),
+      visibility: 'public',
+      status,
+      needsPricing,
+      inputPrice,
+      outputPrice,
+    });
+    created.push(m.name);
+    summary.push({ name: m.name, priced });
   }
-  return { created, updated };
+  return { created, updated, summary };
 }
 
 /** The shape Track A's relay needs to route + price a resolved model. */

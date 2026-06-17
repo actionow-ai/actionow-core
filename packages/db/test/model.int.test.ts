@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   createModel,
+  createOfficialPrice,
   createResource,
   getModelByName,
   grantModel,
@@ -37,7 +38,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE model_grant, model, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE model_grant, model, official_model_price, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
 });
 
 async function makeTenant(name = 'acme'): Promise<string> {
@@ -138,64 +139,107 @@ describe('admin listModels', () => {
   });
 });
 
-describe('upsertModelsFromSync', () => {
-  it('inserts new models with the default prices, then NEVER overwrites an existing price on re-sync', async () => {
+describe('upsertModelsFromSync (Track 2 auto-pricing)', () => {
+  it('auto-prices a matched slug active, leaves an unmatched slug needs_pricing+disabled, preserves an existing model', async () => {
     const owner = await makeTenant('owner');
     const resourceId = await makeChatResource(owner, 'r-sync');
 
-    // First sync: both models are new → inserted with default prices 3/7.
+    // The official catalog has gpt-4o (the matched slug).
+    await createOfficialPrice(db, {
+      provider: 'openai',
+      modelSlug: 'gpt-4o',
+      inputPricePer1m: 2_500_000n,
+      outputPricePer1m: 10_000_000n,
+    });
+
     const first = await upsertModelsFromSync(db, {
       resourceId,
+      provider: 'openai',
       models: [
-        { name: 'gpt-5.5', display: 'GPT-5.5', capabilities: { vision: true, tools: true } },
-        { name: 'gpt-5.4-mini', display: 'GPT-5.4 mini', capabilities: { vision: false } },
+        // matches the catalog (case + date suffix normalized away).
+        { name: 'GPT-4o-2024-05-13', display: 'GPT-4o', capabilities: { vision: true } },
+        // no catalog row → never billable at 0.
+        { name: 'gpt-unknown', display: 'Mystery' },
       ],
-      defaultInputPrice: 3n,
-      defaultOutputPrice: 7n,
     });
-    expect(first.created.sort()).toEqual(['gpt-5.4-mini', 'gpt-5.5']);
-    expect(first.updated).toEqual([]);
+    expect(first.created.sort()).toEqual(['GPT-4o-2024-05-13', 'gpt-unknown']);
+    expect(first.summary).toContainEqual({ name: 'GPT-4o-2024-05-13', priced: 'official' });
+    expect(first.summary).toContainEqual({ name: 'gpt-unknown', priced: 'needs_pricing' });
 
-    const inserted = await getModelByName(db, 'gpt-5.5');
-    expect(inserted?.resourceId).toBe(resourceId);
-    expect(inserted?.inputPrice).toBe(3n);
-    expect(inserted?.outputPrice).toBe(7n);
-    expect(inserted?.display).toBe('GPT-5.5');
-    expect(inserted?.capabilities).toEqual({ vision: true, tools: true });
-    expect(inserted?.visibility).toBe('public');
-    expect(inserted?.status).toBe('active');
+    // matched → official µUSD/1M, active, needs_pricing=false.
+    const matched = await getModelByName(db, 'GPT-4o-2024-05-13');
+    expect(matched?.inputPrice).toBe(2_500_000n);
+    expect(matched?.outputPrice).toBe(10_000_000n);
+    expect(matched?.status).toBe('active');
+    expect(matched?.needsPricing).toBe(false);
 
-    // An operator hand-edits one model's price to 99/99 (the resale price).
+    // unmatched → disabled + needs_pricing, prices 0 (NEVER active-with-0).
+    const unmatched = await getModelByName(db, 'gpt-unknown');
+    expect(unmatched?.inputPrice).toBe(0n);
+    expect(unmatched?.outputPrice).toBe(0n);
+    expect(unmatched?.status).toBe('disabled');
+    expect(unmatched?.needsPricing).toBe(true);
+
+    // An operator hand-prices the matched model differently (the resale price).
     await db
       .update(schema.model)
       .set({ inputPrice: 99n, outputPrice: 99n })
-      .where(eq(schema.model.name, 'gpt-5.5'));
+      .where(eq(schema.model.name, 'GPT-4o-2024-05-13'));
 
-    // Second sync with DIFFERENT defaults + one brand-new model.
+    // Re-sync: the existing model is preserved (price/status untouched), display refreshed.
     const second = await upsertModelsFromSync(db, {
       resourceId,
+      provider: 'openai',
       models: [
-        { name: 'gpt-5.5', display: 'GPT-5.5 v2', capabilities: { vision: true, tools: false } },
-        { name: 'gpt-5.4', display: 'GPT-5.4' },
+        { name: 'GPT-4o-2024-05-13', display: 'GPT-4o v2', capabilities: { vision: false } },
       ],
-      defaultInputPrice: 30n,
-      defaultOutputPrice: 70n,
     });
-    expect(second.created).toEqual(['gpt-5.4']);
-    expect(second.updated).toEqual(['gpt-5.5']);
+    expect(second.created).toEqual([]);
+    expect(second.updated).toEqual(['GPT-4o-2024-05-13']);
+    const preserved = await getModelByName(db, 'GPT-4o-2024-05-13');
+    expect(preserved?.inputPrice).toBe(99n); // never overwritten
+    expect(preserved?.outputPrice).toBe(99n);
+    expect(preserved?.display).toBe('GPT-4o v2'); // refreshed
+    expect(preserved?.capabilities).toEqual({ vision: false });
+  });
 
-    // The EXISTING model keeps its hand-edited 99/99 price — sync never overwrites it —
-    // but its display + capabilities are refreshed.
-    const existing = await getModelByName(db, 'gpt-5.5');
-    expect(existing?.inputPrice).toBe(99n);
-    expect(existing?.outputPrice).toBe(99n);
-    expect(existing?.display).toBe('GPT-5.5 v2');
-    expect(existing?.capabilities).toEqual({ vision: true, tools: false });
+  it('uses explicit default prices for an unmatched slug and keeps it active (operator override)', async () => {
+    const owner = await makeTenant('owner');
+    const resourceId = await makeChatResource(owner, 'r-default');
 
-    // The NEW model got the SECOND sync's defaults (30/70).
-    const fresh = await getModelByName(db, 'gpt-5.4');
-    expect(fresh?.inputPrice).toBe(30n);
-    expect(fresh?.outputPrice).toBe(70n);
+    const result = await upsertModelsFromSync(db, {
+      resourceId,
+      provider: 'openai',
+      models: [{ name: 'gpt-unmatched', display: 'X' }],
+      defaultInputPrice: 3n,
+      defaultOutputPrice: 7n,
+    });
+    expect(result.summary).toContainEqual({ name: 'gpt-unmatched', priced: 'default' });
+
+    const m = await getModelByName(db, 'gpt-unmatched');
+    expect(m?.inputPrice).toBe(3n);
+    expect(m?.outputPrice).toBe(7n);
+    expect(m?.status).toBe('active');
+    expect(m?.needsPricing).toBe(false);
+  });
+
+  it('never bills 0: a needs_pricing/disabled synced model is not resolvable or visible', async () => {
+    const owner = await makeTenant('owner');
+    const resourceId = await makeChatResource(owner, 'r-never0');
+
+    await upsertModelsFromSync(db, {
+      resourceId,
+      provider: 'openai',
+      models: [{ name: 'gpt-needs-pricing' }],
+    });
+    const m = await getModelByName(db, 'gpt-needs-pricing');
+    expect(m?.needsPricing).toBe(true);
+    expect(m?.status).toBe('disabled');
+
+    // status='active' filter keeps a disabled/needs_pricing model out of chat routing + listing.
+    expect(await resolveModelForTenant(db, 'gpt-needs-pricing', owner)).toBeUndefined();
+    const views = await listVisibleModels(db, owner);
+    expect(views.map((v) => v.name)).not.toContain('gpt-needs-pricing');
   });
 });
 
