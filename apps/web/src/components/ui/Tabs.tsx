@@ -1,5 +1,5 @@
 import type { KeyboardEvent, ReactNode } from 'react';
-import { useId } from 'react';
+import { useId, useRef } from 'react';
 
 import { useReducedMotion } from '../../lib/motion/useReducedMotion';
 
@@ -29,6 +29,7 @@ export function Tabs({
 }) {
   const reduced = useReducedMotion();
   const base = useId();
+  const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const activeIdx = Math.max(
     tabs.findIndex((tb) => tb.value === value),
     0,
@@ -45,6 +46,10 @@ export function Tabs({
     else return;
     e.preventDefault();
     onChange(tabs[next].value);
+    // Carry DOM focus to the newly-selected tab. After the re-render it becomes
+    // the only tab stop (tabIndex=0); without this, focus is stranded on the
+    // now-tabIndex=-1 tab. Focusing by index here never fires on mouse clicks.
+    btnRefs.current[next]?.focus();
   };
 
   return (
@@ -63,6 +68,9 @@ export function Tabs({
           return (
             <button
               key={tb.value}
+              ref={(el) => {
+                btnRefs.current[i] = el;
+              }}
               type="button"
               role="tab"
               id={tabId(tb.value)}
