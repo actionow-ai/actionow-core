@@ -36,15 +36,31 @@
 - 数据层：集中 `qk`（`lib/api/queryKeys`）；目录/参考类 `STALE_REFERENCE`，易变类 `STALE_VOLATILE`；过滤/分页列表用 `keepPreviousData`；mutation 统一 `mutationError(t)` + 失效相关 key。
 - 过滤/标签/选择以 URL 为真源（`useUrlState` / 路由参数）。
 - 字段统一 `onChange(value)` + `FormField`；枚举字段用 `SelectField`（不再自由文本强转）。
+- **不写原始 JSON**：所有对象/数组字段用结构化表单（`KeyValueEditor` / `ChipsField` / 行编辑器 / 按 method 分支的 mini-form）。仅 3 类机器生成 blob 保留引导式文本框：Dify `yaml`、modifier `whenExpr`（后端目前不解析，纯注释）、OAuth `authJson`。
+- **每个字段都有清晰描述**：行内 `hint` 小字 + 可选 `Tooltip`（标签旁 ⓘ 悬浮）。涉及单位/格式必须标注：**µcredits（1 credit = 1,000,000 µcredits）**、UUID、逗号分隔等。`fixedCredits` 与 modifier 的 credit-value 输入「人类 credit」；但 pricebook `spec` 内（rate/table/amount）与 model inputPrice/outputPrice 是「µcredits 原值」。
 - 表格用增强版 `DataTable`（分页/搜索/排序/选择/批量/sticky/列显隐）；卡片用 `EntityCard`/`CardCollection`。
 - 设计规则：无蓝、无 emoji（Phosphor）、深/浅双主题、按钮不换行、i18n zh-CN|en 双份、token 化、无障碍、reduced-motion。
 - 真实 API：所有数据来自后端；空/错/加载态完整。**注意运行的后端需为最新**（含 channels/models/usage/analytics 等近期路由）。
 
-## 4. 需要新封装的组件（按出现顺序，YAGNI）
+## 4. 需要新封装的组件
 
-- **`Drawer`**（本页）：右侧滑出面板，比 Modal 更重，承载通道编辑器等较长表单。复用 `useFocusTrap` + `--overlay-bg` + motion token；reduced-motion 即时；Escape/遮罩关闭。
-- **枚举选项集 `lib/api/enums.ts`**（本页）：集中导出各枚举的选项数组 + i18n label key（modality / pricebook method / pricebook timing / channel status / resource kind / model visibility 等），让 `SelectField` 选项与 `types.ts` 的联合类型共用单一来源。
-- **`ConfirmDialog`**（延后到「API Keys」页，那里有 DELETE）：破坏性操作确认，基于 Modal。
+**表单工具（Page 1a，跨页复用）**
+
+- **`Tooltip`** + `FormField` 增 `tooltip` 属性：标签旁 ⓘ，悬浮/聚焦显示说明；reduced-motion 即时；无蓝。任意字段据此可加悬浮描述。
+- **`KeyValueEditor`**：增删「键→值」行 → `Record<string,string>`（用于通道 `config` 等任意 record）。
+- **`ChipsField`**：自由增删字符串列表 + 可选建议项 → `string[]`（用于 `execModes`、enum `options`、matrix `key`、资源白名单）。
+- **`Drawer`**：右侧滑出面板（比 Modal 重），承载通道编辑器等长表单。复用 `useFocusTrap` + `--overlay-bg` + motion token；reduced-motion 即时；Escape/遮罩关闭。
+- **枚举选项集 `lib/api/enums.ts`**：集中导出各枚举选项数组 + i18n label key（modality/method/timing/channelStatus/kind/…）+ `COMMON_PROVIDERS`、`EXEC_MODES` 建议；`toOptions(opts,t)` 映射为 `SelectField` 选项，让选项与 `types.ts` 联合类型共用单一来源。
+
+**结构化字段编辑器（Page 1a，按真实后端结构）**
+
+- **`IoSchemaField`**：`ioSchema` 的 inputs/outputs 两组行编辑器。每行 `key` + 类型下拉(`string/number/boolean/enum/file/file_list`) + `required` 开关 + 可选 `label`/`default`/`maxLength`；`enum` 时出现 options（`ChipsField`）。产出 `{inputs:IoField[],outputs:IoField[]}`（见 `packages/contracts/io-schema`）。
+- **`PricebookSpecForm`**：按 `method` 分支产出 `spec`。`unit`=维度/费率行（µcredits 整数）；`fixed`=仅填 `fixedCredits`（人类 credit，后端换算）；`passthrough`=markup `{type,value}`；`formula`=单行表达式 + 实时校验（仅 `+ - * ( )`/整数/变量名）+ 变量提示；`matrix`=`key`(ChipsField)+ 组合键→µcredits 行(+可选 multiplier/perItem)。顶层 `markup` 同 `{type:percent|flat, value}` mini-form。
+
+**延后**
+
+- **`ConfirmDialog`**（「API Keys」页有 DELETE 时）：破坏性操作确认，基于 Modal。
+- model `capabilities` → 4 个开关（tools/vision/audio/json）；`resourceAllowlist` → 资源多选 —— 各在其页用 `ChipsField`/多选实现。
 
 ## 5. 第 1 页规格 —— 资源 / 目录（运营端）
 
