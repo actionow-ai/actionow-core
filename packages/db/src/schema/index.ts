@@ -3,6 +3,7 @@ export * from './catalog.js';
 export * from './execution.js';
 export * from './identity.js';
 export * from './model.js';
+export * from './oauth.js';
 export * from './payment.js';
 export * from './pricing.js';
 export * from './redemption.js';
