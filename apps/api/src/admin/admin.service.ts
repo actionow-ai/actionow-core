@@ -974,7 +974,7 @@ export class AdminService {
   }
 
   /**
-   * Patch a relay model (by `name`). `inputPrice`/`outputPrice` stay µcredit
+   * Patch a relay model (by `name`). `inputPrice`/`outputPrice` are µUSD-per-1M-token
    * integers (passed through unchanged, same convention as create). `display`
    * may be set to `null`. 404 when the model is absent / soft-deleted.
    */
