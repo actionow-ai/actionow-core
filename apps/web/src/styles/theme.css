@@ -7,11 +7,20 @@
   /* spacing (8px grid) */
   --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-16: 64px;
   /* radii */
+  --r-xs: 8px;
   --r-sm: 11px; --r-md: 14px; --r-lg: 18px; --r-pill: 999px;
   /* type scale */
-  --fs-caption: 11px; --fs-sm: 13px; --fs-base: 15px; --fs-lg: 18px;
+  --fs-nano: 9px; --fs-micro: 10px;
+  --fs-caption: 11px; --fs-sm: 13px; --fs-base: 15px; --fs-md: 16px; --fs-lg: 18px;
   --fs-h2: clamp(26px, 3.4vw, 40px); --fs-h1: clamp(28px, 3.4vw, 46px); --fs-display: clamp(40px, 8vw, 104px);
+  --fs-xl: 24px; --fs-2xl: 30px;
   --fw-medium: 600; --fw-semibold: 700; --fw-bold: 800;
+  /* motion */
+  --dur-instant: 0.12s; --dur-fast: 0.18s; --dur-base: 0.26s; --dur-slow: 0.42s; --dur-slower: 0.7s;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  /* accent gradient (accent vars are brand-constant across themes) */
+  --grad-accent: linear-gradient(135deg, var(--accent), var(--accent-2));
   --track-tight: -0.03em; --track-snug: -0.015em;
   /* layout + accent fx */
   --content-max: 1200px;
@@ -19,6 +28,11 @@
   --shadow-cta: 0 1px 2px rgba(0, 0, 0, 0.22), 0 8px 20px rgba(255, 176, 10, 0.26);
   --shadow-cta-hover: 0 2px 4px rgba(0, 0, 0, 0.24), 0 12px 26px rgba(255, 176, 10, 0.32);
   --glow-accent: 0 0 6px rgba(255, 176, 10, 0.35);
+  --shadow-accent-sm: 0 4px 14px rgba(255, 176, 10, 0.4);
+  --shadow-accent-md: 0 6px 16px rgba(255, 176, 10, 0.35);
+  --shadow-accent-card: 0 12px 30px rgba(255, 176, 10, 0.18);
+  --glow-accent-strong: 0 0 14px rgba(255, 176, 10, 0.55);
+  --scrim: rgba(0, 0, 0, 0.45);
   --log-ok: #9bdcb0;
 
   /* dark (default) */
@@ -83,6 +97,11 @@
   --log-ok: #2f7d4f;
   --shadow-cta: 0 1px 2px rgba(120, 90, 20, 0.18), 0 8px 20px rgba(255, 159, 10, 0.22);
   --shadow-cta-hover: 0 2px 5px rgba(120, 90, 20, 0.2), 0 12px 26px rgba(255, 159, 10, 0.28);
+  --shadow-accent-sm: 0 4px 14px rgba(245, 158, 11, 0.28);
+  --shadow-accent-md: 0 6px 16px rgba(245, 158, 11, 0.22);
+  --shadow-accent-card: 0 12px 30px rgba(245, 158, 11, 0.16);
+  --glow-accent-strong: 0 0 14px rgba(245, 158, 11, 0.4);
+  --scrim: rgba(40, 30, 5, 0.32);
 }
 
 * { box-sizing: border-box; }
