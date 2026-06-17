@@ -34,6 +34,12 @@ export function SecretSelect({
     staleTime: STALE_REFERENCE,
   });
   const options = (data ?? []).map((s) => ({ value: s.id, label: `${s.id} · ${s.provider}` }));
+  // Always surface the currently-set credential even if it's not in the loaded
+  // page (beyond the first page, or since-revoked) so editing never hides what's
+  // actually set — otherwise the picker would render an empty placeholder.
+  if (value !== '' && !options.some((o) => o.value === value)) {
+    options.unshift({ value, label: value });
+  }
   if (label === undefined) {
     return (
       <Select

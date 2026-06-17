@@ -153,7 +153,7 @@ export function ComboboxField({
           type="text"
           role="combobox"
           aria-expanded={open}
-          aria-controls={open ? listId : undefined}
+          aria-controls={open && filtered.length > 0 ? listId : undefined}
           aria-autocomplete="list"
           aria-activedescendant={open && activeIndex >= 0 ? optionId(activeIndex) : undefined}
           value={value}
