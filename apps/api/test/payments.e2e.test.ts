@@ -20,7 +20,7 @@ import { DB, ENV, JOB_QUEUE, PAYMENTS, RATE_LIMITER } from '../src/common/tokens
 
 const { account, ledgerTxn, paymentEvent, paymentIntent, tenant } = schema;
 
-const CREDIT_RATE = 1000n;
+const CREDIT_RATE = 10_000n; // µUSD per cent (1 cent → 10_000 µUSD; $1 → 1e6 µUSD)
 const PROVIDER_REF = 'sess_e2e_123';
 const EVENT_ID = 'evt_e2e_abc';
 
@@ -107,7 +107,7 @@ beforeAll(async () => {
       RATE_LIMIT_RESOURCE_PER_MIN: 600,
       ADMIN_JWT_SECRET: ADMIN_SECRET,
       STORAGE_MAX_UPLOAD_BYTES: 100 * 1024 * 1024,
-      CREDIT_RATE: 1000,
+      CREDIT_RATE: 10000,
     })
     .compile();
 
@@ -179,7 +179,8 @@ describe('/v1/payments', () => {
       .where(eq(paymentIntent.id, String(res.body.intent_id)));
     expect(intent?.status).toBe('created');
     expect(intent?.amountMinor).toBe(1000n);
-    expect(intent?.creditAmount).toBe(1_000_000n);
+    // 1000 cents ($10) × 10_000 µUSD = 10_000_000 µUSD.
+    expect(intent?.creditAmount).toBe(10_000_000n);
   });
 
   it('POST /v1/payments/webhooks/stripe (valid) credits the account by credit_amount, once', async () => {
@@ -199,12 +200,12 @@ describe('/v1/payments', () => {
       .expect(200);
     expect(webhook.body).toEqual({ status: 'ok', fulfilled: true });
 
-    // Account credited by 1000 × 1000 = 1_000_000 µcredits, one topup ledger row.
-    expect(await accountBalance(tenantId)).toBe(1_000_000n);
+    // Account credited by 1000 cents × 10_000 = 10_000_000 µUSD, one topup row.
+    expect(await accountBalance(tenantId)).toBe(10_000_000n);
     const ledger = await db.select().from(ledgerTxn);
     expect(ledger).toHaveLength(1);
     expect(ledger[0]?.type).toBe('topup');
-    expect(ledger[0]?.creditsDelta).toBe(1_000_000n);
+    expect(ledger[0]?.creditsDelta).toBe(10_000_000n);
 
     const [intent] = await db
       .select()
@@ -237,7 +238,7 @@ describe('/v1/payments', () => {
     expect(dup.body).toEqual({ status: 'ok', fulfilled: false });
 
     // Still credited exactly once; only one event row across both deliveries.
-    expect(await accountBalance(tenantId)).toBe(1_000_000n);
+    expect(await accountBalance(tenantId)).toBe(10_000_000n);
     expect(await db.select().from(ledgerTxn)).toHaveLength(1);
     expect(await db.select().from(paymentEvent)).toHaveLength(1);
   });
@@ -289,7 +290,7 @@ describe('/v1/payments', () => {
       .set('authorization', `Bearer ${keyA}`)
       .expect(200);
     expect(ownerRead.body.id).toBe(intentId);
-    expect(ownerRead.body.credit_amount).toBe('1000000');
+    expect(ownerRead.body.credit_amount).toBe('10000000');
 
     // Other tenant gets a 404 (indistinguishable from missing).
     const crossRead = await request(server())
@@ -318,7 +319,7 @@ describe('/v1/payments', () => {
     expect(res.body.data).toHaveLength(1);
     expect(res.body.has_more).toBe(false);
     expect(res.body.data[0].provider).toBe('stripe');
-    expect(res.body.data[0].credit_amount).toBe('1000000');
+    expect(res.body.data[0].credit_amount).toBe('10000000');
 
     // No admin token → 401.
     await request(server()).get(`/admin/payments?tenantId=${tenantId}`).expect(401);

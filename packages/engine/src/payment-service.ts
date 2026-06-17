@@ -23,9 +23,11 @@ export interface PaymentServiceDeps {
   /** Resolved set of configured payment providers (Stripe real + stubs). */
   providers: PaymentRegistry;
   /**
-   * µcredits granted per one currency *minor unit* (e.g. 1000 → 1 USD cent buys
-   * 1000 µcredits). Fixed at intent creation and persisted on the intent so a
-   * later rate change never re-prices an in-flight topup.
+   * µUSD granted per one currency *minor unit*. Under the µUSD doctrine (1
+   * credit = $1 = 1_000_000 µUSD) this is 10_000 (1 USD cent buys 10_000 µUSD,
+   * so `$1 = 100 cents × 10_000 = 1_000_000 µUSD`). Fixed at intent creation and
+   * persisted on the intent so a later rate change never re-prices an in-flight
+   * topup.
    */
   creditRate: bigint;
 }

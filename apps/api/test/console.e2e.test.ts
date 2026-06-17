@@ -20,7 +20,7 @@ import { DB, ENV, JOB_QUEUE, PAYMENTS, RATE_LIMITER } from '../src/common/tokens
 
 const { paymentIntent } = schema;
 
-const CREDIT_RATE = 1000n;
+const CREDIT_RATE = 10_000n; // µUSD per cent (1 cent → 10_000 µUSD; $1 → 1e6 µUSD)
 const PROVIDER_REF = 'sess_console_e2e';
 const EVENT_ID = 'evt_console_e2e';
 const ADMIN_SECRET = 'console-e2e-secret';
@@ -106,7 +106,7 @@ beforeAll(async () => {
       RATE_LIMIT_RESOURCE_PER_MIN: 600,
       ADMIN_JWT_SECRET: ADMIN_SECRET,
       STORAGE_MAX_UPLOAD_BYTES: 100 * 1024 * 1024,
-      CREDIT_RATE: 1000,
+      CREDIT_RATE: 10000,
     })
     .compile();
 
@@ -226,7 +226,8 @@ describe('/console', () => {
     expect(intent?.purpose).toBe('topup');
     expect(intent?.status).toBe('created');
     expect(intent?.amountMinor).toBe(1000n);
-    expect(intent?.creditAmount).toBe(1_000_000n);
+    // 1000 cents ($10) × 10_000 µUSD = 10_000_000 µUSD.
+    expect(intent?.creditAmount).toBe(10_000_000n);
   });
 
   it('usage returns tenant-scoped jobs + ledger and models is an array', async () => {

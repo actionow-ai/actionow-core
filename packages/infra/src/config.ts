@@ -99,11 +99,13 @@ const EnvSchema = z
     WECHAT_PUBLIC_KEY: z.string().min(1).optional(),
     WECHAT_PUBLIC_KEY_ID: z.string().min(1).optional(),
     CRYPTO_WEBHOOK_SECRET: z.string().min(1).optional(),
-    // µcredits granted per one currency *minor unit* (e.g. 1 USD cent). Frozen
-    // onto each topup intent at creation, so a later change never re-prices an
-    // in-flight intent. Carried as a bigint downstream; coerced from the string
-    // env here.
-    CREDIT_RATE: z.coerce.number().int().positive().default(1000),
+    // µUSD granted per one currency *minor unit* (e.g. 1 USD cent). Under the
+    // µUSD doctrine (1 credit = $1 = 1_000_000 µUSD) a USD payment must yield
+    // 1e6 µUSD per dollar, i.e. 10_000 µUSD per cent — so the default is 10_000
+    // (`$1 = 100 cents × 10_000 = 1_000_000 µUSD`). Frozen onto each topup intent
+    // at creation, so a later change never re-prices an in-flight intent.
+    // Carried as a bigint downstream; coerced from the string env here.
+    CREDIT_RATE: z.coerce.number().int().positive().default(10000),
     // Global egress-proxy URL applied to upstream provider calls when a channel
     // carries no per-channel `proxy_ref`. Optional. May embed credentials, so it
     // is treated as a secret: never logged and never returned to clients.

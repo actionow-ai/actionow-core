@@ -33,7 +33,7 @@ afterEach(async () => {
   await client`TRUNCATE TABLE payment_event, payment_intent, ledger_txn, account, tenant RESTART IDENTITY CASCADE`;
 });
 
-const CREDIT_RATE = 1000n; // µcredits per currency-minor-unit
+const CREDIT_RATE = 10_000n; // µUSD per currency-minor-unit (1 cent → 10_000 µUSD)
 
 const PROVIDER_REF = 'sess_test_123';
 const EVENT_ID = 'evt_test_abc';
@@ -118,8 +118,31 @@ describe('PaymentService', () => {
     expect(intent?.id).toBe(result.intentId);
     expect(intent?.status).toBe('created');
     expect(intent?.amountMinor).toBe(1000n);
-    // 1000 minor units × 1000 µcredits = 1_000_000 µcredits.
+    // 1000 cents ($10) × 10_000 µUSD = 10_000_000 µUSD.
+    expect(intent?.creditAmount).toBe(10_000_000n);
+  });
+
+  it('topup doctrine: 100 cents ($1) → 1_000_000 µUSD (1 credit)', async () => {
+    const { tenantId, accountId } = await seedTenantAccount(0n);
+    const svc = buildService(fakeProvider());
+
+    const result = await svc.createIntent({
+      tenantId,
+      provider: 'stripe',
+      purpose: 'topup',
+      amountMinor: 100n, // $1
+      currency: 'usd',
+    });
+
+    // $1 freezes 1_000_000 µUSD on the intent (the µUSD anchor: 1 credit = $1).
+    const intent = await getIntentByProviderRef(db, 'stripe', PROVIDER_REF);
+    expect(intent?.id).toBe(result.intentId);
     expect(intent?.creditAmount).toBe(1_000_000n);
+
+    // …and a succeeded webhook credits exactly that.
+    await svc.handleWebhook('stripe', Buffer.from('{}'), {});
+    const acct = await getAccount(db, accountId);
+    expect(acct?.creditBalance).toBe(1_000_000n);
   });
 
   it('credits the account exactly once on a succeeded topup webhook', async () => {
@@ -137,15 +160,15 @@ describe('PaymentService', () => {
     const out = await svc.handleWebhook('stripe', Buffer.from('{}'), {});
     expect(out).toEqual({ fulfilled: true });
 
-    // Balance up by credit_amount (1000 × 1000 = 1_000_000).
+    // Balance up by credit_amount (1000 cents × 10_000 = 10_000_000 µUSD).
     const acct = await getAccount(db, accountId);
-    expect(acct?.creditBalance).toBe(1_000_000n);
+    expect(acct?.creditBalance).toBe(10_000_000n);
 
     // Exactly one `topup` ledger row.
     const ledger = await db.select().from(ledgerTxn).where(eq(ledgerTxn.accountId, accountId));
     expect(ledger).toHaveLength(1);
     expect(ledger[0]?.type).toBe('topup');
-    expect(ledger[0]?.creditsDelta).toBe(1_000_000n);
+    expect(ledger[0]?.creditsDelta).toBe(10_000_000n);
 
     // Intent transitioned to succeeded; the event row is marked processed.
     const intent = await getIntentByProviderRef(db, 'stripe', PROVIDER_REF);
@@ -176,9 +199,9 @@ describe('PaymentService', () => {
     const second = await svc.handleWebhook('stripe', Buffer.from('{}'), {});
     expect(second).toEqual({ duplicate: true });
 
-    // Still credited exactly once.
+    // Still credited exactly once (1000 cents × 10_000 = 10_000_000 µUSD).
     const acct = await getAccount(db, accountId);
-    expect(acct?.creditBalance).toBe(1_000_000n);
+    expect(acct?.creditBalance).toBe(10_000_000n);
 
     const ledger = await db.select().from(ledgerTxn).where(eq(ledgerTxn.accountId, accountId));
     expect(ledger).toHaveLength(1);
