@@ -1,10 +1,10 @@
 import type { Icon } from '@phosphor-icons/react';
 import {
   BuildingsIcon,
+  CoinsIcon,
   KeyIcon,
   SquaresFourIcon,
   StackIcon,
-  WalletIcon,
 } from '@phosphor-icons/react';
 
 export interface NavItem {
@@ -17,34 +17,48 @@ export interface NavGroup {
   items: NavItem[];
 }
 
+/**
+ * Nav grouped by responsibility (职责分组):
+ * - ops: dashboard
+ * - catalog (目录): the unified 模型|资源 catalog page + Dify import
+ * - billing (计费与路由): groups / official prices / pricing modifiers
+ * - tenants (租户): tenants / accounts / API keys
+ *
+ * The catalog page owns its own 模型|资源 tabs, so the nav holds a single
+ * `/console/catalog` leaf. `分组`/`官方价格` are pre-backend placeholder routes
+ * (see routes.tsx `ComingSoon`) so the billing group reads as complete.
+ */
 export const NAV: NavGroup[] = [
   {
     key: 'ops',
     icon: SquaresFourIcon,
-    items: [
-      { to: '/console/dashboard', labelKey: 'dashboard' },
-      { to: '/console/tenants', labelKey: 'tenants' },
-    ],
+    items: [{ to: '/console/dashboard', labelKey: 'dashboard' }],
   },
   {
     key: 'catalog',
     icon: StackIcon,
     items: [
-      { to: '/console/resources', labelKey: 'resources' },
-      { to: '/console/models', labelKey: 'models' },
-      { to: '/console/modifiers', labelKey: 'modifiers' },
+      { to: '/console/catalog', labelKey: 'catalog' },
       { to: '/console/dify', labelKey: 'dify' },
     ],
   },
   {
     key: 'billing',
-    icon: WalletIcon,
-    items: [{ to: '/console/accounts', labelKey: 'accounts' }],
+    icon: CoinsIcon,
+    items: [
+      { to: '/console/groups', labelKey: 'groups' },
+      { to: '/console/official-prices', labelKey: 'officialPrices' },
+      { to: '/console/modifiers', labelKey: 'modifiers' },
+    ],
   },
   {
-    key: 'access',
-    icon: KeyIcon,
-    items: [{ to: '/console/api-keys', labelKey: 'apiKeys' }],
+    key: 'tenants',
+    icon: BuildingsIcon,
+    items: [
+      { to: '/console/tenants', labelKey: 'tenants' },
+      { to: '/console/accounts', labelKey: 'accounts' },
+      { to: '/console/api-keys', labelKey: 'apiKeys' },
+    ],
   },
 ];
 
@@ -65,7 +79,7 @@ export interface MobileTab {
 }
 export const MOBILE_TABS: MobileTab[] = [
   { to: '/console/dashboard', labelKey: 'dashboard', icon: SquaresFourIcon },
-  { to: '/console/resources', labelKey: 'resources', icon: StackIcon },
+  { to: '/console/catalog', labelKey: 'catalog', icon: StackIcon },
   { to: '/console/tenants', labelKey: 'tenants', icon: BuildingsIcon },
   { to: '/console/api-keys', labelKey: 'apiKeys', icon: KeyIcon },
 ];

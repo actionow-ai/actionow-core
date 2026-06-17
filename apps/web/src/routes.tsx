@@ -6,6 +6,7 @@ import { AuthPage } from './features/auth/AuthPage';
 import { AccountsPage } from './features/console/AccountsPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { CatalogPage } from './features/console/CatalogPage';
+import { ComingSoon } from './features/console/ComingSoon';
 import { DashboardPage } from './features/console/DashboardPage';
 import { DifyImportPage } from './features/console/DifyImportPage';
 import { ModifiersPage } from './features/console/ModifiersPage';
@@ -46,6 +47,9 @@ export function AppRoutes() {
           <Route path="resources/:id" element={<ResourceRedirect />} />
           <Route path="models" element={<Navigate to="/console/catalog?tab=models" replace />} />
           <Route path="modifiers" element={<ModifiersPage />} />
+          {/* Billing & routing: pre-backend placeholders (mock pages land in Phase 2). */}
+          <Route path="groups" element={<ComingSoon />} />
+          <Route path="official-prices" element={<ComingSoon />} />
           <Route path="dify" element={<DifyImportPage />} />
           <Route path="tenants" element={<TenantsPage />} />
           <Route path="accounts" element={<AccountsPage />} />

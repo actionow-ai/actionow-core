@@ -32,9 +32,9 @@
   "nav": {
     "groups": {
       "ops": "Operations",
-      "billing": "Billing",
-      "access": "Access",
-      "catalog": "Catalog"
+      "catalog": "Catalog",
+      "billing": "Billing & Routing",
+      "tenants": "Tenants"
     },
     "dashboard": "Dashboard",
     "tenants": "Tenants",
@@ -44,15 +44,24 @@
     "resources": "Resources",
     "models": "Models",
     "modifiers": "Modifiers",
+    "groups": "Groups",
+    "officialPrices": "Official prices",
     "dify": "Dify import"
   },
   "topbar": { "admin": "Admin", "logout": "Sign out", "backHome": "Website", "refresh": "Refresh" },
+  "comingSoon": {
+    "title": "Coming soon",
+    "body": "This page lands in the next wave once its backend track ships."
+  },
   "subtitles": {
     "dashboard": "Tenants & resources overview, recent jobs",
     "tenants": "Create and view tenants",
+    "catalog": "Models & resources — channels and pricing",
     "resources": "Models, upstream channels & pricing",
     "models": "Relay models, tenant grants & token pricing",
     "modifiers": "Global and scoped pricing rules",
+    "groups": "Route groups & channel membership",
+    "officialPrices": "Reference model prices",
     "dify": "Import a Dify workflow as a resource",
     "accounts": "Account balance & top-up",
     "apiKeys": "Issue and manage API keys"

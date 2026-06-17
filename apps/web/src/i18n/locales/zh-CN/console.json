@@ -30,7 +30,7 @@
     "backHome": "返回官网"
   },
   "nav": {
-    "groups": { "ops": "运营", "billing": "计费", "access": "访问", "catalog": "目录" },
+    "groups": { "ops": "运营", "catalog": "目录", "billing": "计费与路由", "tenants": "租户" },
     "dashboard": "仪表盘",
     "tenants": "租户",
     "accounts": "账户 / 充值",
@@ -39,15 +39,24 @@
     "resources": "资源",
     "models": "模型",
     "modifiers": "调价规则",
+    "groups": "分组",
+    "officialPrices": "官方价格",
     "dify": "Dify 导入"
   },
   "topbar": { "admin": "管理员", "logout": "退出登录", "backHome": "返回官网", "refresh": "刷新" },
+  "comingSoon": {
+    "title": "即将上线",
+    "body": "该页面将在对应后端能力就绪后于下一波次开放。"
+  },
   "subtitles": {
     "dashboard": "租户与资源概览,最近任务",
     "tenants": "创建与查看租户",
+    "catalog": "模型与资源——通道与定价",
     "resources": "模型、上游通道与定价",
     "models": "中转模型、租户授权与 token 计价",
     "modifiers": "全局与范围化的调价规则",
+    "groups": "路由分组与渠道成员",
+    "officialPrices": "模型参考价格",
     "dify": "把 Dify 工作流导入为资源",
     "accounts": "账户余额与充值",
     "apiKeys": "签发与管理 API Key"
