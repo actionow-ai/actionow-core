@@ -1,4 +1,5 @@
 import type { AdapterRegistry } from '@actionow/adapters';
+import { isRetryableAdapterError, orderForFailover } from '@actionow/adapters';
 import type {
   AdapterContext,
   ChatRequest,
@@ -9,9 +10,16 @@ import type {
   UnifiedError,
   UsageVector,
 } from '@actionow/contracts';
-import { type DbOrTx, failJob, insertUsageLog, settleJob } from '@actionow/db';
+import {
+  type DbOrTx,
+  failJob,
+  insertUsageLog,
+  recordChannelFailure,
+  settleJob,
+} from '@actionow/db';
 import type { MicroCredits } from '@actionow/domain';
 
+import { availableChannels } from './channel-routing.js';
 import { EngineError } from './errors.js';
 import type { RunChannel, RunRequest } from './execution-service.js';
 import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
@@ -32,6 +40,10 @@ export interface SettlingStreamDeps {
   req: RunRequest;
   /** Global egress proxy fallback (UPSTREAM_PROXY_URL) when a channel has no proxyRef. */
   proxyUrlEnv?: string | undefined;
+  /** Clock for cooldown timestamps (chat channel failover); defaults to wall-clock. */
+  now?: (() => Date) | undefined;
+  /** RNG for weighted channel selection (chat channel failover); defaults to Math.random. */
+  rng?: (() => number) | undefined;
 }
 
 /**
@@ -217,9 +229,102 @@ export async function* createChatSettlingStream(
     await mirrorChatUsageLog(deps, usage, finalCost);
   };
 
+  const rng = deps.rng ?? Math.random;
+  const now = deps.now ?? ((): Date => new Date());
+  const recordFailureSafe = async (channelId: string): Promise<void> => {
+    try {
+      await recordChannelFailure(deps.db, channelId, now());
+    } catch {
+      // Best-effort cooldown write; never block the stream.
+    }
+  };
+
   try {
-    const ctx = await buildContext(deps, deps.req.channels[0]);
-    for await (const ev of adapter.streamChat(ir, ctx)) {
+    // Phase 1 — pick a LIVE channel (pre-first-event failover). We may switch
+    // channels ONLY before forwarding any frame: a retryable error on the first
+    // event (or a thrown connection) cools that channel down and advances to the
+    // next. Once the upstream yields a non-error first event, the channel is
+    // committed — the client has begun receiving that stream and we cannot
+    // restart elsewhere; a later error is handled in-band in Phase 2.
+    const available = await availableChannels({ db: deps.db, now, rng }, deps.req.channels);
+    if (available.length === 0) {
+      failure = {
+        code: 'internal_error',
+        message: 'no upstream channel to route to',
+        retryable: false,
+      };
+      yield { type: 'error', error: failure };
+      return;
+    }
+    const ordered = orderForFailover(
+      available.map((c) => ({ id: c.id, weight: c.weight, value: c })),
+      rng,
+    );
+
+    let committed:
+      | { iterator: AsyncIterator<ChatStreamEvent>; first: ChatStreamEvent | undefined }
+      | undefined;
+    let lastError: UnifiedError | undefined;
+    for (let i = 0; i < ordered.length; i += 1) {
+      const channel = ordered[i]?.value;
+      if (channel === undefined) continue;
+      const isLast = i === ordered.length - 1;
+      const ctx = await buildContext(deps, channel);
+      try {
+        const iterator = adapter.streamChat(ir, ctx)[Symbol.asyncIterator]();
+        const first = await iterator.next();
+        if (first.done === true) {
+          // Empty stream (no frames): commit; `finally` settles a measured 0.
+          committed = { iterator, first: undefined };
+          break;
+        }
+        if (first.value.type === 'error') {
+          const e = first.value.error;
+          if (e.retryable && !isLast) {
+            await recordFailureSafe(channel.id);
+            lastError = e;
+            continue;
+          }
+          // Non-retryable, or the last channel: surface in-band + fail.
+          failure = e;
+          yield first.value;
+          return;
+        }
+        committed = { iterator, first: first.value };
+        break;
+      } catch (err) {
+        if (isRetryableAdapterError(err) && !isLast) {
+          await recordFailureSafe(channel.id);
+          lastError = toUnified(err);
+          continue;
+        }
+        throw err; // → outer catch yields an in-band error frame + fails
+      }
+    }
+
+    if (committed === undefined) {
+      // Every channel failed retryably and the list is exhausted.
+      failure = lastError ?? {
+        code: 'upstream_error',
+        message: 'all channels failed',
+        retryable: false,
+      };
+      yield { type: 'error', error: failure };
+      return;
+    }
+
+    // Phase 2 — drain the committed channel (the first event, then the rest),
+    // tallying usage/streamed-bytes and forwarding any mid-stream error in-band.
+    const live = committed;
+    const drain = async function* (): AsyncGenerator<ChatStreamEvent> {
+      if (live.first !== undefined) yield live.first;
+      for (;;) {
+        const next = await live.iterator.next();
+        if (next.done === true) break;
+        yield next.value;
+      }
+    };
+    for await (const ev of drain()) {
       if (ev.type === 'usage') {
         // camelCase IR → snake_case engine UsageVector at the boundary.
         latestUsage = { input_tokens: ev.usage.inputTokens, output_tokens: ev.usage.outputTokens };

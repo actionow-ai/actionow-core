@@ -1,6 +1,7 @@
 import type { ProviderAdapter } from '@actionow/adapters';
 import { AdapterRegistry } from '@actionow/adapters';
 import type {
+  AdapterContext,
   ChatRequest,
   ChatResponse,
   ChatStreamEvent,
@@ -127,6 +128,29 @@ function fakeChatAdapterError(): ProviderAdapter {
   };
 }
 
+/**
+ * A chat adapter whose streamChat fails with a RETRYABLE first-frame error for a
+ * channel routed with model 'bad', and streams a normal completion otherwise —
+ * exercises pre-first-event channel failover (the channel is chosen by ctx.model).
+ */
+function fakeFailoverChatAdapter(): ProviderAdapter {
+  return {
+    ...fakeChatAdapter(),
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async *streamChat(_ir: ChatRequest, ctx: AdapterContext): AsyncIterable<ChatStreamEvent> {
+      if (ctx.model === 'bad') {
+        yield { type: 'error', error: { code: 'rate_limited', message: '429', retryable: true } };
+        return;
+      }
+      yield { type: 'message_start' };
+      yield { type: 'content_delta', text: 'ok' };
+      yield { type: 'usage', usage: { inputTokens: 3, outputTokens: 2 } };
+      yield { type: 'stop', stopReason: 'stop' };
+      yield { type: 'done' };
+    },
+  };
+}
+
 function deps(
   overrides: Partial<RunRequest> = {},
   adapter: ProviderAdapter = fakeChatAdapter(),
@@ -247,6 +271,52 @@ describe('createChatSettlingStream', () => {
     // The error event is DELIVERED to the consumer (so the dialect renderer can
     // frame it), never thrown — and the job fails/releases the hold (no charge).
     expect(events.map((e) => e.type)).toEqual(['message_start', 'content_delta', 'error']);
+    expect(failCalls).toHaveLength(1);
+    expect(settleCalls).toHaveLength(0);
+  });
+
+  it('fails over to a healthy channel BEFORE the first frame (retryable first-event)', async () => {
+    const d = deps(
+      {
+        channels: [
+          { id: 'c1', weight: 2, credentialRef: 'r1', model: 'bad' },
+          { id: 'c2', weight: 1, credentialRef: 'r2', model: 'good' },
+        ],
+      },
+      fakeFailoverChatAdapter(),
+    );
+    d.rng = () => 0; // weighted pick lands on c1 ('bad') first → fail over to c2
+    const events: ChatStreamEvent[] = [];
+    for await (const ev of createChatSettlingStream(d)) events.push(ev);
+
+    // c1's retryable first-frame error is NOT forwarded; c2's full stream is.
+    expect(events.map((e) => e.type)).toEqual([
+      'message_start',
+      'content_delta',
+      'usage',
+      'stop',
+      'done',
+    ]);
+    expect(settleCalls).toHaveLength(1);
+    expect(settleCalls[0]?.usage).toEqual({ input_tokens: 3, output_tokens: 2 });
+    expect(failCalls).toHaveLength(0);
+  });
+
+  it('every channel errors on the first frame → in-band error, fail, no settle', async () => {
+    const d = deps(
+      {
+        channels: [
+          { id: 'c1', weight: 1, credentialRef: 'r1', model: 'bad' },
+          { id: 'c2', weight: 1, credentialRef: 'r2', model: 'bad' },
+        ],
+      },
+      fakeFailoverChatAdapter(),
+    );
+    d.rng = () => 0;
+    const events: ChatStreamEvent[] = [];
+    for await (const ev of createChatSettlingStream(d)) events.push(ev);
+
+    expect(events.map((e) => e.type)).toEqual(['error']);
     expect(failCalls).toHaveLength(1);
     expect(settleCalls).toHaveLength(0);
   });

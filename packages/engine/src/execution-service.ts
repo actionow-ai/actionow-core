@@ -278,6 +278,8 @@ export class ExecutionService {
       holdAmount,
       req,
       proxyUrlEnv: this.deps.proxyUrlEnv,
+      now: this.deps.now,
+      rng: this.deps.rng,
     });
     return { jobId, events };
   }
