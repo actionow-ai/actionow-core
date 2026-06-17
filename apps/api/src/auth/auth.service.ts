@@ -8,6 +8,8 @@ import type { AuthedRequest } from './api-key.guard.js';
 export interface TenantContext {
   tenantId: string;
   accountId: string;
+  /** The api_key that authenticated this request; absent on the dev fallback. */
+  apiKeyId?: string;
 }
 
 /**
@@ -27,6 +29,10 @@ export class AuthService {
     if (auth === undefined) {
       throw engineUnauthorized('request is not authenticated');
     }
-    return { tenantId: auth.tenantId, accountId: auth.accountId };
+    const ctx: TenantContext = { tenantId: auth.tenantId, accountId: auth.accountId };
+    // `apiKeyId` is null on the `x-tenant-id` dev fallback (no key presented);
+    // omit it then so the optional field stays absent (exactOptionalPropertyTypes).
+    if (auth.apiKeyId !== null) ctx.apiKeyId = auth.apiKeyId;
+    return ctx;
   }
 }

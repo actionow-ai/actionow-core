@@ -21,6 +21,8 @@ export interface InsertUsageLogInput {
   readonly channelId?: string | undefined;
   /** That channel's provider/adapter type (P1b); omit or pass undefined for unknown. */
   readonly providerType?: string | undefined;
+  /** The api_key that made this call (P1c); omit or pass undefined when no key. */
+  readonly apiKeyId?: string | undefined;
 }
 
 /** Insert one per-call `usage_log` row and return it. */
@@ -37,6 +39,7 @@ export async function insertUsageLog(db: DbOrTx, input: InsertUsageLogInput): Pr
       status: input.status,
       channelId: input.channelId ?? null,
       providerType: input.providerType ?? null,
+      apiKeyId: input.apiKeyId ?? null,
     })
     .returning();
   const row = rows[0];

@@ -87,6 +87,8 @@ export interface RunRequest {
    * failure never fails the settle (the ledger settle is the source of truth).
    */
   usageLogModel?: string | undefined;
+  /** Attributes the usage_log row to the calling api key (P1c). Absent → null. */
+  usageLogApiKeyId?: string | undefined;
   /**
    * Upper-bound usage for a `post`-timed pricebook entry; priced via `settle`
    * to size the hold. When absent, `holdFloor` is used.
@@ -592,6 +594,7 @@ export class ExecutionService {
         ...(served !== undefined
           ? { channelId: served.channelId, providerType: served.providerType }
           : {}),
+        ...(req.usageLogApiKeyId !== undefined ? { apiKeyId: req.usageLogApiKeyId } : {}),
       });
     } catch {
       // Best-effort observability: never fail a settled run on a usage-log error.

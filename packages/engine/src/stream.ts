@@ -411,6 +411,7 @@ async function mirrorChatUsageLog(
       ...(served !== undefined
         ? { channelId: served.channelId, providerType: served.providerType }
         : {}),
+      ...(deps.req.usageLogApiKeyId !== undefined ? { apiKeyId: deps.req.usageLogApiKeyId } : {}),
     });
   } catch {
     // Best-effort observability: never fail a settled run on a usage-log error.

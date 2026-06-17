@@ -167,6 +167,9 @@ export class ChatRelayService {
       // Mirror a usage_log row on settle (§C.4) keyed to the resolved model.
       usageLogModel: modelName,
     };
+    // Attribute the mirrored usage_log row to the calling api key when present
+    // (absent on the dev `x-tenant-id` fallback) — exactOptionalPropertyTypes.
+    if (ctx.apiKeyId !== undefined) req.usageLogApiKeyId = ctx.apiKeyId;
     if (execMode === 'stream') {
       // STREAMING needs a NON-ZERO hold (§C1): `settleStream` caps the final
       // charge at `min(computed, holdAmount)`, so a 0 hold would clamp every

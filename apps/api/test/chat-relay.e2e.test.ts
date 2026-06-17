@@ -51,6 +51,7 @@ let app: INestApplication | undefined;
 let baseUrl: string;
 let tenantId: string;
 let apiKey: string;
+let apiKeyId: string;
 
 /** A no-op queue: chat paths run blocking/stream, never enqueue. */
 const noopQueue = {
@@ -147,6 +148,7 @@ beforeAll(async () => {
     .values({ tenantId, creditBalance: creditsToMicro(100), creditHeld: 0n });
   const key = await createApiKey(db, { tenantId });
   apiKey = key.plaintext;
+  apiKeyId = key.id;
 
   // Chat resource: provider `mock-chat`, stream + blocking, io_schema with NO
   // required inputs so the `__ir` passthrough (stripped before validation) is a
@@ -264,6 +266,8 @@ describe('OpenAI dialect (/v1/chat/completions)', () => {
     expect(log?.inputTokens).toBe(Number(MOCK_INPUT_TOKENS));
     expect(log?.outputTokens).toBe(Number(MOCK_OUTPUT_TOKENS));
     expect(log?.cost).toBe(EXPECTED_COST);
+    // P1c.1: the row is attributed to the calling api key (auth → relay → mirror).
+    expect(log?.apiKeyId).toBe(apiKeyId);
   });
 
   it('stream:true → chat.completion.chunk frames ending data: [DONE], settle-once', async () => {

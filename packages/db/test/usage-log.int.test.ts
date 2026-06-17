@@ -70,6 +70,34 @@ describe('usage_log served-channel columns (P1b.4)', () => {
   });
 });
 
+describe('usage_log api_key_id column (P1c.1)', () => {
+  it('persists apiKeyId when supplied', async () => {
+    const tenantId = await makeTenant('p1c');
+    const apiKeyId = '22222222-2222-2222-2222-222222222222';
+    const row = await insertUsageLog(db, {
+      tenantId,
+      model: 'gpt-4o',
+      inputTokens: 10,
+      outputTokens: 5,
+      cost: 65n,
+      status: 'succeeded',
+      apiKeyId,
+    });
+    expect(row.apiKeyId).toBe(apiKeyId);
+  });
+
+  it('leaves apiKeyId null when omitted', async () => {
+    const tenantId = await makeTenant('p1c-null');
+    const row = await insertUsageLog(db, {
+      tenantId,
+      model: 'gpt-4o',
+      cost: 1n,
+      status: 'succeeded',
+    });
+    expect(row.apiKeyId).toBeNull();
+  });
+});
+
 describe('usage_log repository', () => {
   it('inserts a call log with bigint cost preserved', async () => {
     const tenantId = await makeTenant('acme');

@@ -29,6 +29,8 @@ export const usageLog = pgTable(
     channelId: uuid('channel_id'),
     /** That channel's provider/adapter type (P1b); null if unknown/pre-P1b. */
     providerType: text('provider_type'),
+    /** The api_key that made this call (P1c); null when no key was presented. */
+    apiKeyId: uuid('api_key_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
