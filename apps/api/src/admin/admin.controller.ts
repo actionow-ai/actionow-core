@@ -129,6 +129,22 @@ interface OAuthSessionView {
 }
 
 /**
+ * A row of the token-free OAuth-session listing. EXCLUDES the access/refresh
+ * tokens by construction (they never leave the service); `id` is the
+ * `secret_ref` id usable as a channel `credentialRef`. Timestamps are ISO-8601
+ * strings (or `null` when unset).
+ */
+interface OAuthSessionListView {
+  id: string;
+  provider_kind: string;
+  account_label: string | null;
+  account_id: string | null;
+  status: string;
+  expires_at: string | null;
+  last_refresh_at: string | null;
+}
+
+/**
  * The turnkey codex login-start response: the `authorize_url` the operator opens
  * and the sealed `state` (the PKCE verifier, encrypted) to echo back to
  * `.../complete`. Carries NO secret material in the clear.
@@ -355,6 +371,12 @@ export class AdminController {
       account_label: session.accountLabel ?? null,
       account_id: session.accountId ?? null,
     };
+  }
+
+  @Get('oauth-sessions')
+  @ApiOperation({ summary: 'List registered OAuth subscription sessions (token-free)' })
+  async listOAuthSessions(): Promise<OAuthSessionListView[]> {
+    return this.admin.listOAuthSessions();
   }
 
   @Post('oauth-sessions/codex/login/start')

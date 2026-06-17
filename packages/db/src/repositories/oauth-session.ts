@@ -1,5 +1,5 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, eq, isNotNull, isNull, lt, lte, or } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull, lt, lte, or } from 'drizzle-orm';
 
 import { decryptSecret, encryptSecret } from '../crypto.js';
 import { oauthSession, secretRef } from '../schema/index.js';
@@ -184,6 +184,44 @@ export async function markNeedsReauth(db: DbOrTx, secretRefId: string): Promise<
     .update(oauthSession)
     .set({ status: 'needs_reauth', refreshLockAt: null })
     .where(eq(oauthSession.secretRefId, secretRefId));
+}
+
+/**
+ * A token-free `oauth_session` row for the admin listing — selects every column
+ * EXCEPT the AES-GCM ciphertext (`access_enc`/`refresh_enc`) and the internal
+ * `refresh_lock_at` singleflight stamp. Carries NO secret material.
+ */
+export interface OAuthSessionListRow {
+  readonly secretRefId: string;
+  readonly providerKind: string;
+  readonly accountLabel: string | null;
+  readonly accountId: string | null;
+  readonly expiresAt: Date | null;
+  readonly lastRefreshAt: Date | null;
+  readonly status: string;
+  readonly updatedAt: Date;
+}
+
+/**
+ * List every registered `oauth_session` for the admin operator view, newest
+ * first (`updated_at` DESC). Token-free by construction: the ciphertext columns
+ * (`access_enc`/`refresh_enc`) and the internal `refresh_lock_at` are NOT
+ * selected, so the tokens never leave the service via this path.
+ */
+export async function listOAuthSessions(db: DbOrTx): Promise<OAuthSessionListRow[]> {
+  return db
+    .select({
+      secretRefId: oauthSession.secretRefId,
+      providerKind: oauthSession.providerKind,
+      accountLabel: oauthSession.accountLabel,
+      accountId: oauthSession.accountId,
+      expiresAt: oauthSession.expiresAt,
+      lastRefreshAt: oauthSession.lastRefreshAt,
+      status: oauthSession.status,
+      updatedAt: oauthSession.updatedAt,
+    })
+    .from(oauthSession)
+    .orderBy(desc(oauthSession.updatedAt));
 }
 
 /**

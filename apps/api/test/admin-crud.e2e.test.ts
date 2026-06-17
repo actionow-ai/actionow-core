@@ -1,5 +1,6 @@
 import type { HttpClient, HttpRequest, HttpResponse } from '@actionow/contracts';
 import {
+  createOAuthSession,
   createUser,
   getDecryptedOAuthSession,
   listRefreshableSessions,
@@ -494,6 +495,56 @@ async function buildDisabledApp(): Promise<{ app: INestApplication; token: strin
     .expect(200);
   return { app: disabledApp, token: res.body.token as string };
 }
+
+describe('GET /admin/oauth-sessions (token-free listing, gated)', () => {
+  it('lists registered sessions token-free and never leaks the tokens', async () => {
+    await createOAuthSession(db, {
+      providerKind: 'codex-oauth',
+      accessToken: 'list-at-1',
+      refreshToken: 'list-rt-1',
+      accountLabel: 'work',
+      accountId: 'acct_list_1',
+      keyB64: SECRET_KEY_B64,
+      expiresAt: new Date('2026-06-17T01:00:00.000Z'),
+    });
+    await createOAuthSession(db, {
+      providerKind: 'codex',
+      accessToken: 'list-at-2',
+      refreshToken: 'list-rt-2',
+      accountLabel: 'home',
+      accountId: 'acct_list_2',
+      keyB64: SECRET_KEY_B64,
+    });
+
+    const res = await auth(request(app.getHttpServer()).get('/admin/oauth-sessions')).expect(200);
+    expect(res.body).toHaveLength(2);
+    for (const item of res.body) {
+      expect(item.id).toMatch(/^[0-9a-f-]{36}$/); // the secret_ref id usable as a credentialRef
+      expect(item.provider_kind).toBeTypeOf('string');
+      expect(item.account_id).toBeTypeOf('string');
+      expect(item.status).toBe('active');
+    }
+    // NEITHER access nor refresh plaintext leaks anywhere in the response body.
+    const serialized = JSON.stringify(res.body);
+    expect(serialized).not.toContain('list-at-1');
+    expect(serialized).not.toContain('list-at-2');
+    expect(serialized).not.toContain('list-rt-1');
+    expect(serialized).not.toContain('list-rt-2');
+  });
+
+  it('refuses when ENABLE_OAUTH_CHANNELS is off (same 400 invalid_input as the create path)', async () => {
+    const disabled = await buildDisabledApp();
+    try {
+      const res = await request(disabled.app.getHttpServer())
+        .get('/admin/oauth-sessions')
+        .set('authorization', `Bearer ${disabled.token}`)
+        .expect(400);
+      expect(res.body.error.code).toBe('invalid_input');
+    } finally {
+      await disabled.app.close();
+    }
+  });
+});
 
 describe('POST /admin/oauth-sessions/codex/login/start (turnkey, ToS-gated)', () => {
   beforeEach(() => {

@@ -33,6 +33,7 @@ import {
   listLedger,
   listModels,
   listModifiers,
+  listOAuthSessions,
   listPricebookEntries,
   listResources,
   listTenants,
@@ -98,6 +99,21 @@ interface OAuthSessionView {
   providerKind: string;
   accountLabel?: string;
   accountId?: string;
+}
+
+/**
+ * A snake_case row of the token-free admin OAuth-session listing. EXCLUDES the
+ * access/refresh tokens by construction (the repo never selects the ciphertext);
+ * timestamps are ISO-8601 strings (or `null` when unset).
+ */
+interface OAuthSessionListView {
+  id: string;
+  provider_kind: string;
+  account_label: string | null;
+  account_id: string | null;
+  status: string;
+  expires_at: string | null;
+  last_refresh_at: string | null;
 }
 
 /** The fields a successful token acquisition contributes to a persisted session. */
@@ -242,6 +258,30 @@ export class AdminService {
       accountId: a.account_id,
       accountLabel: a.account_label ?? a.email,
     });
+  }
+
+  /**
+   * List every registered OAuth-subscription session for the operator view,
+   * token-free. Gated behind `ENABLE_OAUTH_CHANNELS` (mirroring the create
+   * path), but does NOT require `SECRET_ENCRYPTION_KEY` — nothing is decrypted.
+   * The {@link listOAuthSessions} repo never selects the ciphertext columns, so
+   * the access/refresh tokens NEVER reach this layer; the snake_case view maps
+   * only the metadata fields.
+   */
+  async listOAuthSessions(): Promise<OAuthSessionListView[]> {
+    if (this.env.ENABLE_OAUTH_CHANNELS !== true) {
+      throw engineInvalidInput('oauth channels are disabled (set ENABLE_OAUTH_CHANNELS)');
+    }
+    const rows = await listOAuthSessions(this.db);
+    return rows.map((row) => ({
+      id: row.secretRefId,
+      provider_kind: row.providerKind,
+      account_label: row.accountLabel,
+      account_id: row.accountId,
+      status: row.status,
+      expires_at: row.expiresAt === null ? null : row.expiresAt.toISOString(),
+      last_refresh_at: row.lastRefreshAt === null ? null : row.lastRefreshAt.toISOString(),
+    }));
   }
 
   /**

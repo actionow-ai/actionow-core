@@ -9,6 +9,7 @@ import {
   createOAuthSession,
   getDecryptedOAuthSession,
   getOAuthSession,
+  listOAuthSessions,
   listRefreshableSessions,
   markNeedsReauth,
   resolveSecretRef,
@@ -127,6 +128,42 @@ describe('oauth_session repos (S1.2)', () => {
     await markNeedsReauth(db, ref.id);
     const raw = await getOAuthSession(db, ref.id);
     expect(raw?.status).toBe('needs_reauth');
+  });
+
+  it('listOAuthSessions returns every session token-free (no access/refresh enc keys)', async () => {
+    await createOAuthSession(db, {
+      providerKind: 'codex',
+      accessToken: 'access-plain-1',
+      refreshToken: 'refresh-plain-1',
+      accountLabel: 'work',
+      accountId: 'acct-1',
+      keyB64: KEY,
+      expiresAt: new Date('2026-06-17T01:00:00.000Z'),
+    });
+    await createOAuthSession(db, {
+      providerKind: 'codex-oauth',
+      accessToken: 'access-plain-2',
+      refreshToken: 'refresh-plain-2',
+      accountLabel: 'home',
+      accountId: 'acct-2',
+      keyB64: KEY,
+    });
+
+    const rows = await listOAuthSessions(db);
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      // token-free: ciphertext columns are not selected at all.
+      expect(row).not.toHaveProperty('accessEnc');
+      expect(row).not.toHaveProperty('refreshEnc');
+      expect(row).not.toHaveProperty('refreshLockAt');
+      // the metadata columns the admin view maps from ARE present.
+      expect(row.secretRefId).toBeTypeOf('string');
+      expect(row.providerKind).toBeTypeOf('string');
+      expect(row.status).toBe('active');
+    }
+    // no plaintext token ever leaks into the listing.
+    expect(JSON.stringify(rows)).not.toContain('access-plain-1');
+    expect(JSON.stringify(rows)).not.toContain('refresh-plain-2');
   });
 
   it('listRefreshableSessions returns due+unlocked+active, excluding locked and needs_reauth', async () => {
