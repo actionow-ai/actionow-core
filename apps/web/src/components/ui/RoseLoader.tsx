@@ -108,7 +108,7 @@ export function RoseLoader({ size = 96, speed = 1, label, style }: { size?: numb
         height="100%"
         fill="none"
         aria-hidden="true"
-        style={{ overflow: 'visible', filter: 'drop-shadow(var(--glow-accent-strong))' }}
+        style={{ overflow: 'visible', filter: 'drop-shadow(var(--glow-accent))' }}
       >
         <g ref={groupRef}>
           <path
