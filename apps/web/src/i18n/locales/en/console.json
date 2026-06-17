@@ -153,7 +153,14 @@
       "weight": "Weight",
       "status": "Status"
     },
-    "note": "Endpoint/model/proxy/config are maintained as backend seed data for now and not in this form."
+    "cols": {
+      "provider": "Provider",
+      "endpoint": "Endpoint",
+      "model": "Model",
+      "weight": "Weight",
+      "status": "Status"
+    },
+    "empty": "No upstream channels yet"
   },
   "pricebook": {
     "empty": "No pricing yet",

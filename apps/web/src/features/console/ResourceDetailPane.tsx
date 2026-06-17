@@ -16,7 +16,7 @@ import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
-import type { PricebookMethod, PricebookTiming, PricebookView } from '../../lib/api/types';
+import type { ChannelView, PricebookMethod, PricebookTiming, PricebookView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
 
@@ -32,6 +32,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
     staleTime: STALE_REFERENCE,
   });
   const resource = (resources.data ?? []).find((r) => r.id === id);
+  const channels = useQuery({ queryKey: qk.channels(id), queryFn: () => api.listChannels(id), enabled: id !== '' });
   const pricebook = useQuery({ queryKey: qk.pricebook(id), queryFn: () => api.listPricebook(id), enabled: id !== '' });
 
   const [chOpen, setChOpen] = useState(false);
@@ -45,7 +46,8 @@ export function ResourceDetailPane({ id }: { id: string }) {
         credentialRef: chCred.trim() === '' ? undefined : chCred.trim(),
         weight: Number(chWeight) || 1,
       }),
-    onSuccess: () => {
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.channels(id) });
       toast(t('resources.detail.channelAdded'));
       setChOpen(false);
     },
@@ -78,6 +80,14 @@ export function ResourceDetailPane({ id }: { id: string }) {
     },
     onError: mutationError(t),
   });
+
+  const chCols: Column<ChannelView>[] = [
+    { key: 'provider', header: t('channels.cols.provider'), cell: (r) => r.provider_type },
+    { key: 'endpoint', header: t('channels.cols.endpoint'), cell: (r) => r.endpoint ?? '—' },
+    { key: 'model', header: t('channels.cols.model'), cell: (r) => r.model ?? '—' },
+    { key: 'weight', header: t('channels.cols.weight'), cell: (r) => String(r.weight), width: '64px' },
+    { key: 'status', header: t('channels.cols.status'), cell: (r) => <StatusBadge status={r.status} />, width: '96px' },
+  ];
 
   const pbCols: Column<PricebookView>[] = [
     { key: 'method', header: t('pricebook.cols.method'), cell: (r) => r.method },
@@ -112,7 +122,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
             </Button>
           }
         />
-        <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>{t('channels.note')}</div>
+        <DataTable columns={chCols} rows={channels.data ?? []} rowKey={(r) => r.id} loading={channels.isLoading} empty={t('channels.empty')} />
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>

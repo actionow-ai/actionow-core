@@ -148,7 +148,14 @@
       "weight": "权重",
       "status": "状态"
     },
-    "note": "端点/模型/代理/配置目前由后端 seed 数据维护,暂不在此表单中。"
+    "cols": {
+      "provider": "Provider",
+      "endpoint": "端点",
+      "model": "模型",
+      "weight": "权重",
+      "status": "状态"
+    },
+    "empty": "暂无上游通道"
   },
   "pricebook": {
     "empty": "暂无定价",
