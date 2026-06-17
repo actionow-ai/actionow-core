@@ -222,8 +222,8 @@ export class ExecutionService {
       return {
         jobId: job.id,
         status: 'succeeded',
-        output: (job.output ?? {}) as Record<string, unknown>,
-        usage: (job.usage ?? {}) as UsageVector,
+        output: job.output ?? {},
+        usage: job.usage ?? {},
         cost: { credits: job.costCredits ?? 0n },
       };
     }

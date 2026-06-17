@@ -1,5 +1,5 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq, lt } from 'drizzle-orm';
+import { and, desc, eq, isNull, lt } from 'drizzle-orm';
 
 import { account, apiKey, ledgerTxn, tenant } from '../schema/index.js';
 import type { DbOrTx } from './types.js';
@@ -30,14 +30,18 @@ export async function createTenant(db: DbOrTx, input: CreateTenantInput): Promis
   return row;
 }
 
-/** List all tenants, newest-first. */
+/** List all live tenants (excludes soft-deleted), newest-first. */
 export async function listTenants(db: DbOrTx): Promise<TenantRow[]> {
-  return db.select().from(tenant).orderBy(desc(tenant.createdAt));
+  return db.select().from(tenant).where(isNull(tenant.deletedAt)).orderBy(desc(tenant.createdAt));
 }
 
-/** Fetch a tenant by id, or `undefined`. */
+/** Fetch a live tenant by id (soft-deleted → `undefined`). */
 export async function getTenant(db: DbOrTx, tenantId: string): Promise<TenantRow | undefined> {
-  const rows = await db.select().from(tenant).where(eq(tenant.id, tenantId)).limit(1);
+  const rows = await db
+    .select()
+    .from(tenant)
+    .where(and(eq(tenant.id, tenantId), isNull(tenant.deletedAt)))
+    .limit(1);
   return rows[0];
 }
 
@@ -62,9 +66,13 @@ export async function createAccount(db: DbOrTx, input: CreateAccountInput): Prom
   return row;
 }
 
-/** Fetch an account by id, or `undefined`. */
+/** Fetch a live account by id (soft-deleted → `undefined`). */
 export async function getAccount(db: DbOrTx, accountId: string): Promise<AccountRow | undefined> {
-  const rows = await db.select().from(account).where(eq(account.id, accountId)).limit(1);
+  const rows = await db
+    .select()
+    .from(account)
+    .where(and(eq(account.id, accountId), isNull(account.deletedAt)))
+    .limit(1);
   return rows[0];
 }
 
@@ -84,9 +92,11 @@ export async function listApiKeys(
       rateLimit: apiKey.rateLimit,
       status: apiKey.status,
       createdAt: apiKey.createdAt,
+      updatedAt: apiKey.updatedAt,
+      deletedAt: apiKey.deletedAt,
     })
     .from(apiKey)
-    .where(eq(apiKey.tenantId, tenantId))
+    .where(and(eq(apiKey.tenantId, tenantId), isNull(apiKey.deletedAt)))
     .orderBy(desc(apiKey.createdAt));
 }
 

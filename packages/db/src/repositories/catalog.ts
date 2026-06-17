@@ -1,5 +1,6 @@
+import type { Markup, PriceSpec } from '@actionow/contracts';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq, gt, inArray } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull } from 'drizzle-orm';
 import { PgTransaction } from 'drizzle-orm/pg-core';
 
 import {
@@ -23,13 +24,17 @@ export type ModifierRow = InferSelectModel<typeof modifier>;
 export type UpstreamChannelRow = InferSelectModel<typeof upstreamChannel>;
 export type DifyBindingRow = InferSelectModel<typeof difyBinding>;
 
-/** Fetch a resource row by id, or `undefined`. */
+/** Fetch a live resource row by id (soft-deleted → `undefined`). */
 export async function getResource(db: DbOrTx, resourceId: string): Promise<Resource | undefined> {
-  const rows = await db.select().from(resource).where(eq(resource.id, resourceId)).limit(1);
+  const rows = await db
+    .select()
+    .from(resource)
+    .where(and(eq(resource.id, resourceId), isNull(resource.deletedAt)))
+    .limit(1);
   return rows[0];
 }
 
-/** Fetch a resource by id scoped to a tenant (tenant predicate in SQL), or `undefined`. */
+/** Fetch a live resource by id scoped to a tenant (soft-deleted/other-tenant → `undefined`). */
 export async function getResourceForTenant(
   db: DbOrTx,
   resourceId: string,
@@ -38,7 +43,9 @@ export async function getResourceForTenant(
   const rows = await db
     .select()
     .from(resource)
-    .where(and(eq(resource.id, resourceId), eq(resource.tenantId, tenantId)))
+    .where(
+      and(eq(resource.id, resourceId), eq(resource.tenantId, tenantId), isNull(resource.deletedAt)),
+    )
     .limit(1);
   return rows[0];
 }
@@ -69,7 +76,7 @@ export async function getDifyBinding(
   const rows = await db
     .select()
     .from(difyBinding)
-    .where(eq(difyBinding.resourceId, resourceId))
+    .where(and(eq(difyBinding.resourceId, resourceId), isNull(difyBinding.deletedAt)))
     .orderBy(desc(difyBinding.resourceVersion))
     .limit(1);
   return rows[0];
@@ -92,6 +99,7 @@ export async function getActivePricebookEntry(
         eq(pricebookEntry.resourceId, resourceId),
         eq(pricebookEntry.resourceVersion, resourceVersionNumber),
         eq(pricebookEntry.active, true),
+        isNull(pricebookEntry.deletedAt),
       ),
     )
     .orderBy(desc(pricebookEntry.version))
@@ -99,15 +107,21 @@ export async function getActivePricebookEntry(
   return rows[0];
 }
 
-/** List the active upstream channels for a resource (routing candidates). */
+/** List the active, live upstream channels for a resource (routing candidates). */
 export async function listChannels(db: DbOrTx, resourceId: string): Promise<UpstreamChannelRow[]> {
   return db
     .select()
     .from(upstreamChannel)
-    .where(and(eq(upstreamChannel.resourceId, resourceId), eq(upstreamChannel.status, 'active')));
+    .where(
+      and(
+        eq(upstreamChannel.resourceId, resourceId),
+        eq(upstreamChannel.status, 'active'),
+        isNull(upstreamChannel.deletedAt),
+      ),
+    );
 }
 
-/** List EVERY upstream channel for a resource (incl. disabled) — operator admin view. */
+/** List EVERY live upstream channel for a resource (incl. disabled) — operator admin view. */
 export async function listChannelsForResource(
   db: DbOrTx,
   resourceId: string,
@@ -115,7 +129,7 @@ export async function listChannelsForResource(
   return db
     .select()
     .from(upstreamChannel)
-    .where(eq(upstreamChannel.resourceId, resourceId))
+    .where(and(eq(upstreamChannel.resourceId, resourceId), isNull(upstreamChannel.deletedAt)))
     .orderBy(desc(upstreamChannel.weight));
 }
 
@@ -148,14 +162,15 @@ export async function updateUpstreamChannel(
     const rows = await db
       .select()
       .from(upstreamChannel)
-      .where(eq(upstreamChannel.id, channelId))
+      .where(and(eq(upstreamChannel.id, channelId), isNull(upstreamChannel.deletedAt)))
       .limit(1);
     return rows[0];
   }
+  set.updatedAt = new Date();
   const rows = await db
     .update(upstreamChannel)
     .set(set)
-    .where(eq(upstreamChannel.id, channelId))
+    .where(and(eq(upstreamChannel.id, channelId), isNull(upstreamChannel.deletedAt)))
     .returning();
   return rows[0];
 }
@@ -239,7 +254,7 @@ export async function listActiveModifiers(db: DbOrTx): Promise<ModifierRow[]> {
   return db
     .select()
     .from(modifier)
-    .where(eq(modifier.active, true))
+    .where(and(eq(modifier.active, true), isNull(modifier.deletedAt)))
     .orderBy(desc(modifier.priority));
 }
 
@@ -281,7 +296,13 @@ export async function listApplicableModifiers(
   return db
     .select()
     .from(modifier)
-    .where(and(eq(modifier.active, true), inArray(modifier.scope, applicableScopes(target))))
+    .where(
+      and(
+        eq(modifier.active, true),
+        inArray(modifier.scope, applicableScopes(target)),
+        isNull(modifier.deletedAt),
+      ),
+    )
     .orderBy(desc(modifier.priority));
 }
 
@@ -297,7 +318,7 @@ export async function getAccountByTenant(
   const rows = await db
     .select({ id: account.id })
     .from(account)
-    .where(eq(account.tenantId, tenantId))
+    .where(and(eq(account.tenantId, tenantId), isNull(account.deletedAt)))
     .limit(1);
   return rows[0];
 }
@@ -321,7 +342,14 @@ export interface CreateResourceInput {
 
 /** The `resource` (+ `resource_version`) writes, run against an open handle. */
 async function writeResource(tx: DbOrTx, input: CreateResourceInput): Promise<Resource> {
-  const existing = await getResource(tx, input.id);
+  // Existence probe is deletedAt-agnostic (unlike getResource): a re-import of a
+  // soft-deleted resource must UPDATE the existing PK, not INSERT a conflicting row.
+  const existingRows = await tx
+    .select({ id: resource.id })
+    .from(resource)
+    .where(eq(resource.id, input.id))
+    .limit(1);
+  const existing = existingRows[0];
 
   let row: Resource | undefined;
   if (existing === undefined) {
@@ -422,9 +450,13 @@ export async function getResourceWithSchema(
   return { ...res, ioSchema: version.ioSchema };
 }
 
-/** List all resources, newest-first (admin catalog view). */
+/** List all live resources, newest-first (admin catalog view; excludes soft-deleted). */
 export async function listResources(db: DbOrTx): Promise<Resource[]> {
-  return db.select().from(resource).orderBy(desc(resource.createdAt));
+  return db
+    .select()
+    .from(resource)
+    .where(isNull(resource.deletedAt))
+    .orderBy(desc(resource.createdAt));
 }
 
 /**
@@ -437,13 +469,13 @@ export async function listResourcesByTenant(db: DbOrTx, tenantId: string): Promi
   return db
     .select()
     .from(resource)
-    .where(eq(resource.tenantId, tenantId))
+    .where(and(eq(resource.tenantId, tenantId), isNull(resource.deletedAt)))
     .orderBy(desc(resource.createdAt));
 }
 
 /**
- * Set a resource's `status` (e.g. `active` | `disabled`). Returns the updated
- * row, or `undefined` when the resource does not exist.
+ * Set a resource's `status` (e.g. `active` | `disabled`) and bump `updated_at`.
+ * Returns the updated row, or `undefined` when the resource does not exist.
  */
 export async function updateResourceStatus(
   db: DbOrTx,
@@ -452,15 +484,19 @@ export async function updateResourceStatus(
 ): Promise<Resource | undefined> {
   const rows = await db
     .update(resource)
-    .set({ status })
+    .set({ status, updatedAt: new Date() })
     .where(eq(resource.id, resourceId))
     .returning();
   return rows[0];
 }
 
-/** Fetch a `secret_ref` row by id, or `undefined`. */
+/** Fetch a live `secret_ref` row by id (soft-deleted → `undefined`). */
 export async function getSecretRef(db: DbOrTx, id: string): Promise<SecretRefRow | undefined> {
-  const rows = await db.select().from(secretRef).where(eq(secretRef.id, id)).limit(1);
+  const rows = await db
+    .select()
+    .from(secretRef)
+    .where(and(eq(secretRef.id, id), isNull(secretRef.deletedAt)))
+    .limit(1);
   return rows[0];
 }
 
@@ -565,8 +601,9 @@ export async function createPricebookEntry(
       version: input.version,
       method: input.method,
       timing: input.timing,
-      spec: input.spec,
-      markup: input.markup ?? null,
+      // `spec`/`markup` are validated at the admin boundary; the columns are typed.
+      spec: input.spec as PriceSpec,
+      markup: (input.markup ?? null) as Markup | null,
       active: input.active ?? true,
     })
     .returning();
@@ -583,7 +620,7 @@ export async function listPricebookEntries(
   return db
     .select()
     .from(pricebookEntry)
-    .where(eq(pricebookEntry.resourceId, resourceId))
+    .where(and(eq(pricebookEntry.resourceId, resourceId), isNull(pricebookEntry.deletedAt)))
     .orderBy(desc(pricebookEntry.version));
 }
 
@@ -626,7 +663,11 @@ export async function createModifier(db: DbOrTx, input: CreateModifierInput): Pr
   return row;
 }
 
-/** List all modifiers, highest `priority` first (admin view, incl. inactive). */
+/** List all live modifiers, highest `priority` first (admin view, incl. inactive). */
 export async function listModifiers(db: DbOrTx): Promise<ModifierRow[]> {
-  return db.select().from(modifier).orderBy(desc(modifier.priority));
+  return db
+    .select()
+    .from(modifier)
+    .where(isNull(modifier.deletedAt))
+    .orderBy(desc(modifier.priority));
 }

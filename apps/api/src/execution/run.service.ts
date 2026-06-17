@@ -190,9 +190,9 @@ function toPricebookEntry(row: PricebookEntryRow): PricebookEntry {
     version: row.version,
     method: row.method as PricebookEntry['method'],
     timing: row.timing as PricebookEntry['timing'],
-    spec: row.spec as PricebookEntry['spec'],
+    spec: row.spec,
   };
-  if (row.markup !== null) entry.markup = row.markup as PricebookEntry['markup'];
+  if (row.markup !== null) entry.markup = row.markup;
   return entry;
 }
 

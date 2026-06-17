@@ -1,5 +1,5 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { redemptionCode } from '../schema/index.js';
 import type { DbOrTx } from './types.js';
@@ -32,12 +32,16 @@ export async function createRedemptionCode(
   return row;
 }
 
-/** Fetch a redemption code by its `code` PK, or `undefined`. */
+/** Fetch a live redemption code by its `code` PK (soft-deleted → `undefined`). */
 export async function getRedemptionCode(
   db: DbOrTx,
   code: string,
 ): Promise<RedemptionCodeRow | undefined> {
-  const rows = await db.select().from(redemptionCode).where(eq(redemptionCode.code, code)).limit(1);
+  const rows = await db
+    .select()
+    .from(redemptionCode)
+    .where(and(eq(redemptionCode.code, code), isNull(redemptionCode.deletedAt)))
+    .limit(1);
   return rows[0];
 }
 
@@ -75,6 +79,7 @@ export async function claimRedemptionCode(
       and(
         eq(redemptionCode.code, code),
         eq(redemptionCode.status, 'unused'),
+        isNull(redemptionCode.deletedAt),
         sql`(${redemptionCode.expiresAt} IS NULL OR ${redemptionCode.expiresAt} > now())`,
       ),
     )

@@ -1,5 +1,5 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq, inArray, or } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 
 import { model, modelGrant } from '../schema/index.js';
 import type { DbOrTx } from './types.js';
@@ -92,7 +92,14 @@ export async function upsertModelsFromSync(
   const created: string[] = [];
   const updated: string[] = [];
   for (const m of input.models) {
-    const existing = await getModelByName(db, m.name);
+    // deletedAt-agnostic probe: a soft-deleted model still occupies the unique name,
+    // so re-syncing it must UPDATE (not INSERT a duplicate-name row).
+    const existingRows = await db
+      .select({ id: model.id })
+      .from(model)
+      .where(eq(model.name, m.name))
+      .limit(1);
+    const existing = existingRows[0];
     if (existing !== undefined) {
       // Refresh discovery fields only; the price/status/visibility are preserved.
       await db
@@ -154,7 +161,7 @@ export async function resolveModelForTenant(
     })
     .from(model)
     .leftJoin(modelGrant, and(eq(modelGrant.modelId, model.id), eq(modelGrant.tenantId, tenantId)))
-    .where(and(eq(model.name, modelName), eq(model.status, 'active')))
+    .where(and(eq(model.name, modelName), eq(model.status, 'active'), isNull(model.deletedAt)))
     .limit(1);
 
   const row = rows[0];
@@ -212,20 +219,24 @@ export async function listVisibleModels(db: DbOrTx, tenantId: string): Promise<M
       outputPrice: model.outputPrice,
     })
     .from(model)
-    .where(and(eq(model.status, 'active'), visibility))
+    .where(and(eq(model.status, 'active'), visibility, isNull(model.deletedAt)))
     .orderBy(desc(model.createdAt));
 
   return rows;
 }
 
-/** List EVERY model newest-first (admin catalog view, incl. disabled). */
+/** List EVERY live model newest-first (admin catalog view, incl. disabled; excludes soft-deleted). */
 export async function listModels(db: DbOrTx): Promise<ModelRow[]> {
-  return db.select().from(model).orderBy(desc(model.createdAt));
+  return db.select().from(model).where(isNull(model.deletedAt)).orderBy(desc(model.createdAt));
 }
 
-/** Fetch a model by `name`, or `undefined` (admin lookups by the unique name). */
+/** Fetch a live model by `name` (soft-deleted → `undefined`; admin lookups by the unique name). */
 export async function getModelByName(db: DbOrTx, name: string): Promise<ModelRow | undefined> {
-  const rows = await db.select().from(model).where(eq(model.name, name)).limit(1);
+  const rows = await db
+    .select()
+    .from(model)
+    .where(and(eq(model.name, name), isNull(model.deletedAt)))
+    .limit(1);
   return rows[0];
 }
 

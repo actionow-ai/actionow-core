@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 import { apiKey, user, userIdentity } from '../schema/index.js';
 import type { DbOrTx } from './types.js';
@@ -59,7 +59,11 @@ export async function createApiKey(db: DbOrTx, input: CreateApiKeyInput): Promis
   return { id: row.id, plaintext };
 }
 
-/** Look an API key up by its sha256 hex hash, or `undefined` when absent. */
+/**
+ * Look a LIVE API key up by its sha256 hex hash, or `undefined` when absent or
+ * soft-deleted (revoked). The `deleted_at IS NULL` predicate means a revoked key
+ * authenticates as absent — the auth guard sees no record and rejects (Track D).
+ */
 export async function findApiKeyByHash(
   db: DbOrTx,
   hash: string,
@@ -73,7 +77,7 @@ export async function findApiKeyByHash(
       status: apiKey.status,
     })
     .from(apiKey)
-    .where(eq(apiKey.hash, hash))
+    .where(and(eq(apiKey.hash, hash), isNull(apiKey.deletedAt)))
     .limit(1);
   return rows[0];
 }
@@ -110,14 +114,15 @@ export async function getApiKeyForTenant(
   const rows = await db
     .select(API_KEY_VIEW_COLUMNS)
     .from(apiKey)
-    .where(and(eq(apiKey.id, keyId), eq(apiKey.tenantId, tenantId)))
+    .where(and(eq(apiKey.id, keyId), eq(apiKey.tenantId, tenantId), isNull(apiKey.deletedAt)))
     .limit(1);
   return rows[0];
 }
 
 /**
- * Flip a tenant's key to `status='disabled'`. Tenant-predicated in SQL, so a
- * cross-tenant id updates no rows and returns `false`; `true` on success.
+ * Flip a tenant's key to `status='disabled'` and bump `updated_at`. Tenant-
+ * predicated in SQL, so a cross-tenant id updates no rows and returns `false`;
+ * `true` on success. Skips already-soft-deleted rows.
  */
 export async function disableApiKeyForTenant(
   db: DbOrTx,
@@ -126,8 +131,8 @@ export async function disableApiKeyForTenant(
 ): Promise<boolean> {
   const rows = await db
     .update(apiKey)
-    .set({ status: 'disabled' })
-    .where(and(eq(apiKey.id, keyId), eq(apiKey.tenantId, tenantId)))
+    .set({ status: 'disabled', updatedAt: new Date() })
+    .where(and(eq(apiKey.id, keyId), eq(apiKey.tenantId, tenantId), isNull(apiKey.deletedAt)))
     .returning({ id: apiKey.id });
   return rows.length === 1;
 }

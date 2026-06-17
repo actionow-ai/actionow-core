@@ -61,7 +61,9 @@ async function seed(balance: bigint): Promise<Seed> {
     providerType: 'openai',
     execModes: ['blocking'],
   });
-  await db.insert(resourceVersion).values({ resourceId, version: 1, ioSchema: { type: 'object' } });
+  await db
+    .insert(resourceVersion)
+    .values({ resourceId, version: 1, ioSchema: { inputs: [], outputs: [] } });
   return { tenantId: t.id, accountId: a.id, resourceId };
 }
 

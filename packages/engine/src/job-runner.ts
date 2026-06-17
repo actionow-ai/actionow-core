@@ -146,7 +146,7 @@ export class JobRunner {
         return adapter.submit({
           resourceId: job.resourceId,
           modality: ctx.modality,
-          inputs: job.inputs as Record<string, unknown>,
+          inputs: job.inputs,
           execMode: job.execMode as ExecMode,
           ctx: adapterCtx,
         });
@@ -230,7 +230,7 @@ export class JobRunner {
     const { credits: finalCost, applied } = computeFinalCost(
       ctx.pricebookEntry,
       usage,
-      job.inputs as Record<string, unknown>,
+      job.inputs,
       ctx.modifiers,
     );
     return settleJob(this.deps.db, {

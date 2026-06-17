@@ -72,7 +72,7 @@ export async function getOAuthSession(
   const rows = await db
     .select()
     .from(oauthSession)
-    .where(eq(oauthSession.secretRefId, secretRefId))
+    .where(and(eq(oauthSession.secretRefId, secretRefId), isNull(oauthSession.deletedAt)))
     .limit(1);
   return rows[0];
 }
@@ -221,6 +221,7 @@ export async function listOAuthSessions(db: DbOrTx): Promise<OAuthSessionListRow
       updatedAt: oauthSession.updatedAt,
     })
     .from(oauthSession)
+    .where(isNull(oauthSession.deletedAt))
     .orderBy(desc(oauthSession.updatedAt));
 }
 
@@ -244,6 +245,7 @@ export async function listRefreshableSessions(
     .where(
       and(
         eq(oauthSession.status, 'active'),
+        isNull(oauthSession.deletedAt),
         isNotNull(oauthSession.expiresAt),
         lte(oauthSession.expiresAt, dueBy),
         or(isNull(oauthSession.refreshLockAt), lt(oauthSession.refreshLockAt, staleBefore)),
