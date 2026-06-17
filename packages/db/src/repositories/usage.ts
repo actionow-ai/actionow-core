@@ -17,6 +17,10 @@ export interface InsertUsageLogInput {
   readonly latencyMs?: number | null | undefined;
   /** `succeeded` | `failed` | `canceled`. */
   readonly status: string;
+  /** The upstream_channel id that served this request (P1b); omit or pass undefined for unknown. */
+  readonly channelId?: string | undefined;
+  /** That channel's provider/adapter type (P1b); omit or pass undefined for unknown. */
+  readonly providerType?: string | undefined;
 }
 
 /** Insert one per-call `usage_log` row and return it. */
@@ -31,6 +35,8 @@ export async function insertUsageLog(db: DbOrTx, input: InsertUsageLogInput): Pr
       ...(input.cost !== undefined ? { cost: input.cost } : {}),
       ...(input.latencyMs !== undefined ? { latencyMs: input.latencyMs } : {}),
       status: input.status,
+      channelId: input.channelId ?? null,
+      providerType: input.providerType ?? null,
     })
     .returning();
   const row = rows[0];

@@ -25,6 +25,10 @@ export const usageLog = pgTable(
       .default(sql`0`),
     latencyMs: bigint('latency_ms', { mode: 'number' }),
     status: text('status').notNull(), // succeeded | failed | canceled
+    /** The upstream_channel that served this request (P1b); null if unknown/pre-P1b. */
+    channelId: uuid('channel_id'),
+    /** That channel's provider/adapter type (P1b); null if unknown/pre-P1b. */
+    providerType: text('provider_type'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

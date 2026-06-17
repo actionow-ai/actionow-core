@@ -39,6 +39,37 @@ async function makeTenant(name: string): Promise<string> {
   return t.id;
 }
 
+describe('usage_log served-channel columns (P1b.4)', () => {
+  it('persists channelId and providerType when supplied', async () => {
+    const tenantId = await makeTenant('p1b');
+    const channelId = '11111111-1111-1111-1111-111111111111';
+    const row = await insertUsageLog(db, {
+      tenantId,
+      model: 'gpt-4o',
+      inputTokens: 10,
+      outputTokens: 5,
+      cost: 65n,
+      status: 'succeeded',
+      channelId,
+      providerType: 'openai',
+    });
+    expect(row.channelId).toBe(channelId);
+    expect(row.providerType).toBe('openai');
+  });
+
+  it('leaves channelId and providerType null when omitted', async () => {
+    const tenantId = await makeTenant('p1b-null');
+    const row = await insertUsageLog(db, {
+      tenantId,
+      model: 'gpt-4o',
+      cost: 1n,
+      status: 'succeeded',
+    });
+    expect(row.channelId).toBeNull();
+    expect(row.providerType).toBeNull();
+  });
+});
+
 describe('usage_log repository', () => {
   it('inserts a call log with bigint cost preserved', async () => {
     const tenantId = await makeTenant('acme');
