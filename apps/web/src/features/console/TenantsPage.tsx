@@ -14,12 +14,17 @@ import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
 import { qk } from '../../lib/api/queryKeys';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { STALE_REFERENCE } from '../../lib/query';
 
 export function TenantsPage() {
   const { t } = useTranslation('console');
   const api = useAdminApi();
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({ queryKey: qk.tenants(), queryFn: () => api.listTenants() });
+  const { data, isLoading } = useQuery({
+    queryKey: qk.tenants(),
+    queryFn: () => api.listTenants(),
+    staleTime: STALE_REFERENCE,
+  });
 
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');

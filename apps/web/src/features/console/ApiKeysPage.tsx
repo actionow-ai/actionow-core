@@ -1,5 +1,5 @@
 import { KeyIcon, PlusIcon } from '@phosphor-icons/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -28,6 +28,7 @@ export function ApiKeysPage() {
     queryKey: qk.apiKeys(tenantId),
     queryFn: () => api.listApiKeys(tenantId),
     enabled: tenantId !== '',
+    placeholderData: keepPreviousData,
   });
 
   const [formOpen, setFormOpen] = useState(false);

@@ -7,6 +7,11 @@ export const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 15_000, retry: 1, refetchOnWindowFocus: false } },
 });
 
+/** Catalog/reference data changes rarely → cache longer. */
+export const STALE_REFERENCE = 60_000;
+/** Volatile operational data (jobs/usage/ledger) → short. */
+export const STALE_VOLATILE = 10_000;
+
 /** Keyset-paginated list backed by useInfiniteQuery; flattens loaded pages into `rows`. */
 export function useKeyset<T>(key: QueryKey, fetchPage: (cursor?: string) => Promise<Page<T>>) {
   const q = useInfiniteQuery({

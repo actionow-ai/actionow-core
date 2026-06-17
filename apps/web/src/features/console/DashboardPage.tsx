@@ -1,5 +1,5 @@
 import { CubeIcon } from '@phosphor-icons/react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,19 +13,30 @@ import { TenantSelect } from '../../components/data/TenantSelect';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { qk } from '../../lib/api/queryKeys';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { STALE_REFERENCE, STALE_VOLATILE } from '../../lib/query';
 
 export function DashboardPage() {
   const { t } = useTranslation('console');
   const api = useAdminApi();
 
-  const tenants = useQuery({ queryKey: qk.tenants(), queryFn: () => api.listTenants() });
-  const resources = useQuery({ queryKey: qk.resources(), queryFn: () => api.listResources() });
+  const tenants = useQuery({
+    queryKey: qk.tenants(),
+    queryFn: () => api.listTenants(),
+    staleTime: STALE_REFERENCE,
+  });
+  const resources = useQuery({
+    queryKey: qk.resources(),
+    queryFn: () => api.listResources(),
+    staleTime: STALE_REFERENCE,
+  });
 
   const [tenantId, setTenantId] = useState('');
   const jobs = useQuery({
     queryKey: qk.jobs(tenantId),
     queryFn: () => api.listJobs({ tenantId, limit: 8 }),
     enabled: tenantId !== '',
+    staleTime: STALE_VOLATILE,
+    placeholderData: keepPreviousData,
   });
 
   const filters = useMemo(

@@ -17,6 +17,7 @@ import { ApiError } from '../../lib/api/errors';
 import { qk } from '../../lib/api/queryKeys';
 import type { PricebookView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { STALE_REFERENCE } from '../../lib/query';
 
 /** The right pane of the Resources master-detail: a resource's channels + pricebook. */
 export function ResourceDetailPane({ id }: { id: string }) {
@@ -24,7 +25,11 @@ export function ResourceDetailPane({ id }: { id: string }) {
   const api = useAdminApi();
   const qc = useQueryClient();
 
-  const resources = useQuery({ queryKey: qk.resources(), queryFn: () => api.listResources() });
+  const resources = useQuery({
+    queryKey: qk.resources(),
+    queryFn: () => api.listResources(),
+    staleTime: STALE_REFERENCE,
+  });
   const resource = (resources.data ?? []).find((r) => r.id === id);
   const pricebook = useQuery({ queryKey: qk.pricebook(id), queryFn: () => api.listPricebook(id), enabled: id !== '' });
 

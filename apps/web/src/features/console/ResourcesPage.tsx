@@ -19,6 +19,7 @@ import { ApiError } from '../../lib/api/errors';
 import { qk } from '../../lib/api/queryKeys';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { BP } from '../../lib/breakpoints';
+import { STALE_REFERENCE } from '../../lib/query';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 import { ResourceDetailPane } from './ResourceDetailPane';
 
@@ -29,7 +30,11 @@ export function ResourcesPage() {
   const api = useAdminApi();
   const qc = useQueryClient();
   const isWide = useMediaQuery(BP.xl);
-  const { data, isLoading } = useQuery({ queryKey: qk.resources(), queryFn: () => api.listResources() });
+  const { data, isLoading } = useQuery({
+    queryKey: qk.resources(),
+    queryFn: () => api.listResources(),
+    staleTime: STALE_REFERENCE,
+  });
 
   const [open, setOpen] = useState(false);
   const [rid, setRid] = useState('');
