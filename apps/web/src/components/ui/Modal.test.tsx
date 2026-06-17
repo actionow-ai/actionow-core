@@ -37,3 +37,31 @@ describe('Modal focus trap', () => {
     });
   });
 });
+
+/** Drives `open` from the outside so a test can flip it faster than any animation. */
+function ControlledHarness({ open }: { open: boolean }) {
+  return (
+    <Modal open={open} title="Dialog" onClose={() => {}} footer={<button>save</button>}>
+      <input aria-label="name" />
+    </Modal>
+  );
+}
+
+describe('Modal rapid reopen race', () => {
+  it('stays mounted when reopened within the exit-animation window', async () => {
+    // open
+    const { rerender } = render(<ControlledHarness open />);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    // close → builds the exit timeline (its onComplete would unmount)…
+    rerender(<ControlledHarness open={false} />);
+    // …then reopen before the exit (DUR.fast = 180ms) completes.
+    rerender(<ControlledHarness open />);
+
+    // The stale exit-complete must NOT unmount the just-reopened dialog. Give
+    // the exit timeline well past its duration to have fired its onComplete.
+    await new Promise((r) => setTimeout(r, 350));
+
+    expect(screen.queryByRole('dialog')).toBeInTheDocument();
+  });
+});

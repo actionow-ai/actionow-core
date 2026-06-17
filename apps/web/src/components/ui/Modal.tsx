@@ -25,6 +25,11 @@ export function Modal({
   const backdropRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  // Mirror the latest `open` so the exit timeline's deferred onComplete reads the
+  // current value, not the (stale) one captured when the timeline was built.
+  const openRef = useRef(open);
+  openRef.current = open;
+
   // Focus-trap only while actually open (not during the exit animation), so the
   // trigger regains focus the moment a close is requested.
   useFocusTrap(dialogRef, open && mounted);
@@ -65,7 +70,13 @@ export function Modal({
         setMounted(false);
         return;
       }
-      const tl = gsap.timeline({ onComplete: () => setMounted(false) });
+      // Guard the unmount: a rapid close→reopen within the exit window flips
+      // `open` back to true before this completes, so only unmount if still closed.
+      const tl = gsap.timeline({
+        onComplete: () => {
+          if (!openRef.current) setMounted(false);
+        },
+      });
       tl.to(dialog, { opacity: 0, scale: 0.96, y: 8, duration: DUR.fast, ease: EASE.in }, 0);
       tl.to(backdrop, { opacity: 0, duration: DUR.fast, ease: EASE.in }, 0);
     },
