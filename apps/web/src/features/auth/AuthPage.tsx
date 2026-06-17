@@ -96,6 +96,10 @@ export function AuthPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLFormElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const submitRef = useRef<HTMLDivElement>(null);
+  const isFirstMode = useRef(true);
 
   useGSAP(
     () => {
@@ -120,13 +124,57 @@ export function AuthPage() {
     { scope: root, dependencies: [] },
   );
 
+  // Mode cross-fade: the differing body (autoComplete + submit label + footer)
+  // settles in when login↔register toggles. Skips the very first render so the
+  // initial page reveal (above) owns the entrance.
+  useGSAP(
+    () => {
+      if (isFirstMode.current) {
+        isFirstMode.current = false;
+        return;
+      }
+      const body = bodyRef.current;
+      if (!body) return;
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        gsap.fromTo(body, { opacity: 0.4, y: 6 }, { opacity: 1, y: 0, duration: DUR.base, ease: EASE.out });
+      });
+    },
+    { scope: cardRef, dependencies: [mode] },
+  );
+
+  const shake = () => {
+    const card = cardRef.current;
+    if (!card || !window.matchMedia('(prefers-reduced-motion: no-preference)').matches) return;
+    gsap.fromTo(card, { x: -8 }, { x: 0, duration: DUR.slow, ease: 'elastic.out(1, 0.4)' });
+    // Brief fail-border pulse, then settle back to the glass border. Resolve the
+    // tokens to concrete colors so GSAP can interpolate between them.
+    const styles = getComputedStyle(card);
+    const fail = styles.getPropertyValue('--fail').trim();
+    const rest = styles.getPropertyValue('--glass-bd').trim();
+    gsap.fromTo(card, { borderColor: fail }, { borderColor: rest, duration: DUR.slower, ease: EASE.out });
+  };
+
+  // Brief success scale on the submit button before navigating. Resolves when
+  // the cue finishes (≤ DUR.base) so it's perceptible without delaying nav; a
+  // no-op (instant resolve) under reduced-motion.
+  const successCue = (): Promise<void> => {
+    const btn = submitRef.current;
+    if (!btn || !window.matchMedia('(prefers-reduced-motion: no-preference)').matches) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      gsap.fromTo(btn, { scale: 1 }, { scale: 1.04, duration: DUR.instant, ease: EASE.out, yoyo: true, repeat: 1, onComplete: resolve });
+    });
+  };
+
   const submit = async () => {
     setBusy(true);
     try {
       const user = mode === 'login' ? await login(email, password) : await register(email, password);
       toast(mode === 'register' ? t('auth.registered') : t('auth.loggedIn'));
+      await successCue();
       void navigate(user.role === 'admin' ? '/console/dashboard' : '/app', { replace: true });
     } catch (err) {
+      shake();
       if (err instanceof ApiError) toast(t(`errors.${err.code}`, t('auth.failed')), 'error');
       else toast(t('errors.network'), 'error');
     } finally {
@@ -137,11 +185,12 @@ export function AuthPage() {
   const card = (
     <div data-reveal style={{ width: 'min(400px, 92vw)' }}>
       <form
+        ref={cardRef}
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
         }}
-        className="glass"
+        className="glass auth-form"
         style={{ padding: 'var(--s-6)', borderRadius: 'var(--r-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}
       >
         {!isDesktop && <Logo size={28} />}
@@ -156,41 +205,46 @@ export function AuthPage() {
           ]}
         />
 
-        <TextField label={t('auth.email')} type="email" autoComplete="username" value={email} onChange={setEmail} required />
-        <TextField
-          label={t('auth.password')}
-          type="password"
-          autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-          value={password}
-          onChange={setPassword}
-          required
-        />
+        {/* mode-dependent body: cross-fades when login↔register toggles */}
+        <div ref={bodyRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
+          <TextField label={t('auth.email')} type="email" autoComplete="username" value={email} onChange={setEmail} required />
+          <TextField
+            label={t('auth.password')}
+            type="password"
+            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+            value={password}
+            onChange={setPassword}
+            required
+          />
 
-        <Button variant="cta" size="lg" type="submit" loading={busy}>
-          {t(mode === 'login' ? 'auth.loginSubmit' : 'auth.registerSubmit')} <ArrowRightIcon size={16} weight="bold" />
-        </Button>
-
-        {config.oauthEnabled && (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)', color: 'var(--faint)', fontSize: 'var(--fs-caption)' }}>
-              <span style={{ flex: 1, height: 1, background: 'var(--panel-bd)' }} />
-              {t('auth.or')}
-              <span style={{ flex: 1, height: 1, background: 'var(--panel-bd)' }} />
-            </div>
-            <Button href={`${config.authBase}/oauth/google`} variant="ghost" size="lg">
-              {t('auth.oauthGoogle')}
+          <div ref={submitRef} style={{ display: 'flex', flexDirection: 'column' }}>
+            <Button variant="cta" size="lg" type="submit" loading={busy}>
+              {t(mode === 'login' ? 'auth.loginSubmit' : 'auth.registerSubmit')} <ArrowRightIcon size={16} weight="bold" />
             </Button>
-            <Button href={`${config.authBase}/oauth/github`} variant="ghost" size="lg">
-              {t('auth.oauthGithub')}
-            </Button>
-          </>
-        )}
+          </div>
 
-        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', textAlign: 'center' }}>
-          {mode === 'login' ? t('auth.toRegister') : t('auth.toLogin')}{' '}
-          <Button variant="link" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
-            {mode === 'login' ? t('auth.toRegisterCta') : t('auth.toLoginCta')}
-          </Button>
+          {config.oauthEnabled && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)', color: 'var(--faint)', fontSize: 'var(--fs-caption)' }}>
+                <span style={{ flex: 1, height: 1, background: 'var(--panel-bd)' }} />
+                {t('auth.or')}
+                <span style={{ flex: 1, height: 1, background: 'var(--panel-bd)' }} />
+              </div>
+              <Button href={`${config.authBase}/oauth/google`} variant="ghost" size="lg">
+                {t('auth.oauthGoogle')}
+              </Button>
+              <Button href={`${config.authBase}/oauth/github`} variant="ghost" size="lg">
+                {t('auth.oauthGithub')}
+              </Button>
+            </>
+          )}
+
+          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', textAlign: 'center' }}>
+            {mode === 'login' ? t('auth.toRegister') : t('auth.toLogin')}{' '}
+            <Button variant="link" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
+              {mode === 'login' ? t('auth.toRegisterCta') : t('auth.toLoginCta')}
+            </Button>
+          </div>
         </div>
       </form>
     </div>

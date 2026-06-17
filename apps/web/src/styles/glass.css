@@ -123,6 +123,16 @@
 .select-opt:hover,
 .select-opt:focus-visible { background: var(--hover-bg); }
 
+/* Auth field focus accent: a warm border lift on the focused input (no blue).
+   The :focus-visible ring (theme.css) still draws on keyboard focus. */
+.auth-form input {
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.auth-form input:focus {
+  border-color: var(--hover-bd);
+  box-shadow: 0 0 0 1px var(--hover-bd);
+}
+
 .dt-row { cursor: pointer; transition: background 0.15s ease; }
 .dt-row:hover { background: var(--hover-bg); }
 
