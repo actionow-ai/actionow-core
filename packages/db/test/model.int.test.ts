@@ -1,4 +1,5 @@
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import { eq } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
@@ -7,10 +8,12 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   createModel,
   createResource,
+  getModelByName,
   grantModel,
   listModels,
   listVisibleModels,
   resolveModelForTenant,
+  upsertModelsFromSync,
 } from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
 
@@ -131,5 +134,66 @@ describe('admin listModels', () => {
     await createModel(db, { name: 'b', resourceId: r2, visibility: 'public' });
     const all = await listModels(db);
     expect(all.map((m) => m.name).sort()).toEqual(['a', 'b']);
+  });
+});
+
+describe('upsertModelsFromSync', () => {
+  it('inserts new models with the default prices, then NEVER overwrites an existing price on re-sync', async () => {
+    const owner = await makeTenant('owner');
+    const resourceId = await makeChatResource(owner, 'r-sync');
+
+    // First sync: both models are new → inserted with default prices 3/7.
+    const first = await upsertModelsFromSync(db, {
+      resourceId,
+      models: [
+        { name: 'gpt-5.5', display: 'GPT-5.5', capabilities: { vision: true, tools: true } },
+        { name: 'gpt-5.4-mini', display: 'GPT-5.4 mini', capabilities: { vision: false } },
+      ],
+      defaultInputPrice: 3n,
+      defaultOutputPrice: 7n,
+    });
+    expect(first.created.sort()).toEqual(['gpt-5.4-mini', 'gpt-5.5']);
+    expect(first.updated).toEqual([]);
+
+    const inserted = await getModelByName(db, 'gpt-5.5');
+    expect(inserted?.resourceId).toBe(resourceId);
+    expect(inserted?.inputPrice).toBe(3n);
+    expect(inserted?.outputPrice).toBe(7n);
+    expect(inserted?.display).toBe('GPT-5.5');
+    expect(inserted?.capabilities).toEqual({ vision: true, tools: true });
+    expect(inserted?.visibility).toBe('public');
+    expect(inserted?.status).toBe('active');
+
+    // An operator hand-edits one model's price to 99/99 (the resale price).
+    await db
+      .update(schema.model)
+      .set({ inputPrice: 99n, outputPrice: 99n })
+      .where(eq(schema.model.name, 'gpt-5.5'));
+
+    // Second sync with DIFFERENT defaults + one brand-new model.
+    const second = await upsertModelsFromSync(db, {
+      resourceId,
+      models: [
+        { name: 'gpt-5.5', display: 'GPT-5.5 v2', capabilities: { vision: true, tools: false } },
+        { name: 'gpt-5.4', display: 'GPT-5.4' },
+      ],
+      defaultInputPrice: 30n,
+      defaultOutputPrice: 70n,
+    });
+    expect(second.created).toEqual(['gpt-5.4']);
+    expect(second.updated).toEqual(['gpt-5.5']);
+
+    // The EXISTING model keeps its hand-edited 99/99 price — sync never overwrites it —
+    // but its display + capabilities are refreshed.
+    const existing = await getModelByName(db, 'gpt-5.5');
+    expect(existing?.inputPrice).toBe(99n);
+    expect(existing?.outputPrice).toBe(99n);
+    expect(existing?.display).toBe('GPT-5.5 v2');
+    expect(existing?.capabilities).toEqual({ vision: true, tools: false });
+
+    // The NEW model got the SECOND sync's defaults (30/70).
+    const fresh = await getModelByName(db, 'gpt-5.4');
+    expect(fresh?.inputPrice).toBe(30n);
+    expect(fresh?.outputPrice).toBe(70n);
   });
 });

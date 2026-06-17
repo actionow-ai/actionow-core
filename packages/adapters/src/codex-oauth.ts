@@ -18,6 +18,7 @@ import type {
   ChatUsage,
   ContentPart,
   Message,
+  ProviderModel,
   StopReason,
   ToolCall,
   ToolDef,
@@ -552,6 +553,71 @@ function mapErrorBody(status: number, raw: unknown): UnifiedError {
 }
 
 /**
+ * Map one `GET /models` catalog entry to a provider-neutral {@link ProviderModel},
+ * or `undefined` when it has no `slug` (the slug is the routing key the relay
+ * stores as the `model` row `name`). `capabilities` mirror the codex backend's
+ * declared shape: `vision` from `input_modalities` containing `'image'`, `tools`
+ * from `supports_parallel_tool_calls === true`; codex always speaks JSON + SSE
+ * and has no audio modality, so `json`/`stream` are always true and `audio` false.
+ */
+function mapCatalogModel(raw: unknown): ProviderModel | undefined {
+  const entry = asRecord(raw);
+  const id = asString(entry?.slug);
+  if (id === undefined) {
+    return undefined;
+  }
+  const modalities = asArray(entry?.input_modalities) ?? [];
+  const model: ProviderModel = {
+    id,
+    capabilities: {
+      vision: modalities.includes('image'),
+      tools: entry?.supports_parallel_tool_calls === true,
+      json: true,
+      stream: true,
+      audio: false,
+    },
+  };
+  const displayName = asString(entry?.display_name);
+  if (displayName !== undefined) {
+    model.displayName = displayName;
+  }
+  const description = asString(entry?.description);
+  if (description !== undefined) {
+    model.description = description;
+  }
+  const contextWindow = asNumber(entry?.context_window);
+  if (contextWindow !== undefined) {
+    model.contextWindow = contextWindow;
+  }
+  return model;
+}
+
+/**
+ * Discover the account's available models from the codex backend's official
+ * catalog endpoint: `GET ${endpoint}/models?client_version=${CODEX_VERSION}` with
+ * the same cli-impersonation headers + per-channel proxy as the chat path. Egress
+ * for this provider runs through a loopback sidecar (the channel `endpoint` is a
+ * `http://127.0.0.1:.../backend-api/codex`), so we always derive the URL from
+ * `ctx.endpoint ?? CODEX_DEFAULT_ENDPOINT`. A non-ok reply throws an
+ * {@link AdapterError}; the `models` array is mapped to {@link ProviderModel}s
+ * (slug-less entries skipped).
+ */
+async function listModels(ctx: AdapterContext): Promise<ProviderModel[]> {
+  const endpoint = ctx.endpoint ?? CODEX_DEFAULT_ENDPOINT;
+  const res = await ctx.http.request({
+    method: 'GET',
+    url: `${endpoint}/models?client_version=${CODEX_VERSION}`,
+    headers: codexHeaders(ctx, 'application/json'),
+    ...withProxy(ctx),
+  });
+  if (!res.ok) {
+    throw new AdapterError(mapErrorBody(res.status, res.body));
+  }
+  const models = asArray(asRecord(res.body)?.models) ?? [];
+  return models.map(mapCatalogModel).filter((m): m is ProviderModel => m !== undefined);
+}
+
+/**
  * The single transport for the codex backend: POST a `stream:true` Responses
  * body with `Accept: text/event-stream` and parse the SSE reply into IR
  * {@link ChatStreamEvent}s. Both `chat()` (which then aggregates) and
@@ -613,6 +679,8 @@ export const codexOAuthAdapter: ProviderAdapter = {
   streamChat(ir: ChatRequest, ctx: AdapterContext): AsyncIterable<ChatStreamEvent> {
     return streamResponses(ir, ctx);
   },
+
+  listModels,
 
   extractUsage,
 

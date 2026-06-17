@@ -2,6 +2,7 @@ import type { ChatRequest, ChatStreamEvent, HttpClient, HttpRequest } from '@act
 import { describe, expect, it } from 'vitest';
 
 import { codexOAuthAdapter } from '../src/codex-oauth.js';
+import { AdapterError } from '../src/errors.js';
 
 const fakeHttp = (
   resp: { status: number; body: unknown },
@@ -163,6 +164,127 @@ describe('codexOAuthAdapter.chat', () => {
       http,
     });
     expect(seen?.proxyUrl).toBe('http://proxy.local:8080');
+  });
+});
+
+describe('codexOAuthAdapter.listModels', () => {
+  /** The canned `GET /models` reply shape the codex backend returns. */
+  const modelsBody = {
+    models: [
+      {
+        slug: 'gpt-5.5',
+        display_name: 'GPT-5.5',
+        description: 'flagship',
+        context_window: 272000,
+        max_context_window: 272000,
+        input_modalities: ['text', 'image'],
+        supports_parallel_tool_calls: true,
+        visibility: 'list',
+        priority: 9,
+      },
+      {
+        slug: 'gpt-5.4-mini',
+        display_name: 'GPT-5.4 mini',
+        input_modalities: ['text'],
+        supports_parallel_tool_calls: false,
+      },
+    ],
+  };
+
+  it('GETs /models with the client_version + cli-impersonation headers and maps the reply', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp({ status: 200, body: modelsBody }, (r) => {
+      seen = r;
+    });
+    const models = await codexOAuthAdapter.listModels?.({
+      providerType: 'codex-oauth',
+      apiKey: 'oat-tok',
+      config: { chatgptAccountId: 'acct_1' },
+      http,
+    });
+    if (models === undefined) {
+      throw new Error('codex-oauth adapter has no listModels()');
+    }
+
+    // GET the official catalog endpoint with the impersonated client version.
+    expect(seen?.method).toBe('GET');
+    expect(seen?.url).toBe('https://chatgpt.com/backend-api/codex/models?client_version=0.125.0');
+    const headers = seen?.headers ?? {};
+    expect(headers.Authorization).toBe('Bearer oat-tok');
+    expect(headers.Originator).toBe('codex_cli_rs');
+    expect(headers['Chatgpt-Account-Id']).toBe('acct_1');
+    expect(headers['OpenAI-Beta']).toBe('responses=experimental');
+    expect(String(headers['User-Agent'])).toContain('codex_cli_rs');
+    expect(headers.version).toBe('0.125.0');
+    expect(headers.Accept).toBe('application/json');
+
+    // Mapped ProviderModel[]: id=slug, capabilities derived from modalities + parallel flag.
+    expect(models).toEqual([
+      {
+        id: 'gpt-5.5',
+        displayName: 'GPT-5.5',
+        description: 'flagship',
+        contextWindow: 272000,
+        capabilities: { vision: true, tools: true, json: true, stream: true, audio: false },
+      },
+      {
+        id: 'gpt-5.4-mini',
+        displayName: 'GPT-5.4 mini',
+        capabilities: { vision: false, tools: false, json: true, stream: true, audio: false },
+      },
+    ]);
+  });
+
+  it('hits ctx.endpoint/models when a per-channel endpoint is set (loopback sidecar)', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp({ status: 200, body: { models: [] } }, (r) => {
+      seen = r;
+    });
+    await codexOAuthAdapter.listModels?.({
+      providerType: 'codex-oauth',
+      apiKey: 'oat-tok',
+      endpoint: 'http://127.0.0.1:8787/backend-api/codex',
+      http,
+    });
+    expect(seen?.url).toBe('http://127.0.0.1:8787/backend-api/codex/models?client_version=0.125.0');
+  });
+
+  it('skips entries with no slug', async () => {
+    const http = fakeHttp({
+      status: 200,
+      body: { models: [{ display_name: 'no slug' }, { slug: 'keep' }] },
+    });
+    const models = await codexOAuthAdapter.listModels?.({
+      providerType: 'codex-oauth',
+      apiKey: 'oat-tok',
+      http,
+    });
+    expect(models?.map((m) => m.id)).toEqual(['keep']);
+  });
+
+  it('forwards ctx.proxyUrl onto the http request', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp({ status: 200, body: { models: [] } }, (r) => {
+      seen = r;
+    });
+    await codexOAuthAdapter.listModels?.({
+      providerType: 'codex-oauth',
+      apiKey: 'oat-tok',
+      proxyUrl: 'http://proxy.local:8080',
+      http,
+    });
+    expect(seen?.proxyUrl).toBe('http://proxy.local:8080');
+  });
+
+  it('throws an AdapterError on a non-ok status', async () => {
+    const http = fakeHttp({ status: 401, body: { error: { code: 'unauthorized' } } });
+    await expect(
+      codexOAuthAdapter.listModels?.({
+        providerType: 'codex-oauth',
+        apiKey: 'bad',
+        http,
+      }),
+    ).rejects.toThrow(AdapterError);
   });
 });
 

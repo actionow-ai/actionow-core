@@ -44,6 +44,83 @@ export async function createModel(db: DbOrTx, input: CreateModelInput): Promise<
   return row;
 }
 
+/** One upstream model in a {@link upsertModelsFromSync} batch (from an adapter's `listModels`). */
+export interface SyncModelInput {
+  /** The upstream slug — the public model `name` the relay routes on (the unique key). */
+  readonly name: string;
+  /** Optional human display name (refreshed on an existing model). */
+  readonly display?: string | undefined;
+  /** Optional feature-flag map (refreshed on an existing model). */
+  readonly capabilities?: Record<string, boolean> | undefined;
+}
+
+/** Inputs for {@link upsertModelsFromSync}. */
+export interface UpsertModelsFromSyncInput {
+  /** The chat resource every synced model points at (the codex resource). */
+  readonly resourceId: string;
+  readonly models: readonly SyncModelInput[];
+  /** µcredit-per-input-token applied ONLY to newly-inserted models. */
+  readonly defaultInputPrice: bigint;
+  /** µcredit-per-output-token applied ONLY to newly-inserted models. */
+  readonly defaultOutputPrice: bigint;
+}
+
+/** Names partitioned by what {@link upsertModelsFromSync} did to each. */
+export interface UpsertModelsFromSyncResult {
+  /** Names that did not exist and were inserted with the default prices. */
+  readonly created: string[];
+  /** Names that already existed and were refreshed (display/capabilities/resource). */
+  readonly updated: string[];
+}
+
+/**
+ * Sync a provider's catalog into `model` rows (one row per upstream slug, all
+ * pointing at `resourceId`). Matched by the unique `name`:
+ * - EXISTING name → UPDATE `display`/`capabilities`/`resourceId` ONLY. The price
+ *   (`input_price`/`output_price`), `status`, and `visibility` are PRESERVED —
+ *   sync never overwrites an operator's resale price.
+ * - NEW name → INSERT with `resourceId`, `display`, `capabilities`,
+ *   `visibility='public'`, `status='active'`, and the batch's
+ *   `defaultInputPrice`/`defaultOutputPrice`.
+ *
+ * Returns the created/updated names. Money is bigint µcredits throughout.
+ */
+export async function upsertModelsFromSync(
+  db: DbOrTx,
+  input: UpsertModelsFromSyncInput,
+): Promise<UpsertModelsFromSyncResult> {
+  const created: string[] = [];
+  const updated: string[] = [];
+  for (const m of input.models) {
+    const existing = await getModelByName(db, m.name);
+    if (existing !== undefined) {
+      // Refresh discovery fields only; the price/status/visibility are preserved.
+      await db
+        .update(model)
+        .set({
+          resourceId: input.resourceId,
+          ...(m.display !== undefined ? { display: m.display } : {}),
+          ...(m.capabilities !== undefined ? { capabilities: m.capabilities } : {}),
+        })
+        .where(eq(model.id, existing.id));
+      updated.push(m.name);
+    } else {
+      await db.insert(model).values({
+        name: m.name,
+        resourceId: input.resourceId,
+        ...(m.display !== undefined ? { display: m.display } : {}),
+        ...(m.capabilities !== undefined ? { capabilities: m.capabilities } : {}),
+        visibility: 'public',
+        status: 'active',
+        inputPrice: input.defaultInputPrice,
+        outputPrice: input.defaultOutputPrice,
+      });
+      created.push(m.name);
+    }
+  }
+  return { created, updated };
+}
+
 /** The shape Track A's relay needs to route + price a resolved model. */
 export interface ResolvedModel {
   readonly modelId: string;

@@ -5,6 +5,7 @@ import type {
   ChatResponse,
   ChatStreamEvent,
   PollResult,
+  ProviderModel,
   StreamEvent,
   SubmitInput,
   SubmitResult,
@@ -38,6 +39,12 @@ export interface ProviderAdapter {
   /** IR-level streaming chat: yields {@link ChatStreamEvent}s. */
   streamChat?(ir: ChatRequest, ctx: AdapterContext): AsyncIterable<ChatStreamEvent>;
   parseCallback?(payload: unknown): CallbackResult;
+  /**
+   * Optional model discovery: query the provider's official catalog endpoint and
+   * return its available models as provider-neutral {@link ProviderModel}s. Absent
+   * → the provider does not support model sync (the admin sync endpoint rejects).
+   */
+  listModels?(ctx: AdapterContext): Promise<ProviderModel[]>;
   extractUsage(raw: unknown): UsageVector;
   mapError(raw: unknown): UnifiedError;
 }

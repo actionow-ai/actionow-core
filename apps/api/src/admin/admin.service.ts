@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
-import type { HttpClient } from '@actionow/contracts';
+import type { AdapterRegistry } from '@actionow/adapters';
+import type { AdapterContext, HttpClient } from '@actionow/contracts';
 import {
   type AccountRow,
   type ApiKeyRow,
@@ -45,6 +46,7 @@ import {
   type TenantRow,
   topUp,
   updateUpstreamChannel,
+  upsertModelsFromSync,
   type UpstreamChannelRow,
   type UsageLogRow,
   type UsageRollupQuery,
@@ -62,7 +64,8 @@ import { type AppEnv, FetchHttpClient } from '@actionow/infra';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { engineInvalidInput, engineNotFound } from '../common/errors.js';
-import { DB, ENV, HTTP } from '../common/tokens.js';
+import { SecretResolver } from '../common/secret-resolver.js';
+import { ADAPTERS, DB, ENV, HTTP } from '../common/tokens.js';
 import type {
   AnalyticsUsageQueryDto,
   CodexLoginComplete,
@@ -78,6 +81,7 @@ import type {
   CreateTenantDto,
   GenerateCodesDto,
   GrantModelDto,
+  SyncChannelModelsDto,
   TopupDto,
   UpdateChannelDto,
 } from './dto/admin.dto.js';
@@ -122,6 +126,11 @@ export class AdminService {
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(ENV) private readonly env: AppEnv,
+    // The engine's adapter registry + the chat relay's credential resolver, both
+    // exported by the global DbModule — needed by the model-sync endpoint to call
+    // the provider's `listModels` with a resolved per-channel credential/proxy.
+    @Inject(ADAPTERS) private readonly adapters: AdapterRegistry,
+    private readonly secrets: SecretResolver,
     @Optional() @Inject(HTTP) http?: HttpClient,
   ) {
     // Default to a real fetch client so existing constructions/tests that don't
@@ -403,6 +412,90 @@ export class AdminService {
       throw engineNotFound(`channel ${channelId} not found`);
     }
     return row;
+  }
+
+  /**
+   * Sync the upstream models a channel's provider exposes into `model` rows
+   * (multi-model routing). Loads the channel (verifying it belongs to
+   * `resourceId`), resolves the provider adapter, and — if it supports model
+   * discovery (`listModels`) — calls it with an {@link AdapterContext} built the
+   * SAME way the chat relay/engine does (per-channel model/endpoint/config, the
+   * credential resolved via the shared {@link SecretResolver} incl. its `oauth`
+   * branch, the egress proxy resolved from `proxyRef` with the global
+   * `UPSTREAM_PROXY_URL` fallback). Each upstream slug becomes a `model` row via
+   * {@link upsertModelsFromSync}: a new model gets the request's per-token default
+   * prices (3/7 when omitted), an existing one keeps its price (display +
+   * capabilities are refreshed). Returns the created/updated names + total.
+   */
+  async syncChannelModels(
+    resourceId: string,
+    channelId: string,
+    dto: SyncChannelModelsDto,
+  ): Promise<{ resource_id: string; created: string[]; updated: string[]; total: number }> {
+    // Load the channel and verify it belongs to this resource (else not_found).
+    const channels = await listChannelsForResource(this.db, resourceId);
+    const channel = channels.find((c) => c.id === channelId);
+    if (channel === undefined) {
+      throw engineNotFound(`channel ${channelId} not found for resource ${resourceId}`);
+    }
+
+    // Resolve the provider adapter; reject providers without model discovery.
+    const adapter = this.adapters.get(channel.providerType);
+    if (adapter.listModels === undefined) {
+      throw engineInvalidInput(`provider ${channel.providerType} does not support model sync`);
+    }
+
+    const ctx = await this.buildSyncContext(channel);
+    const models = await adapter.listModels(ctx);
+
+    const result = await upsertModelsFromSync(this.db, {
+      resourceId,
+      models: models.map((m) => ({
+        name: m.id,
+        display: m.displayName,
+        capabilities: m.capabilities,
+      })),
+      defaultInputPrice: BigInt(dto.defaultInputPrice ?? 3),
+      defaultOutputPrice: BigInt(dto.defaultOutputPrice ?? 7),
+    });
+
+    return {
+      resource_id: resourceId,
+      created: result.created,
+      updated: result.updated,
+      total: result.created.length + result.updated.length,
+    };
+  }
+
+  /**
+   * Build the {@link AdapterContext} for a channel's `listModels` call, mirroring
+   * the engine's `buildContext`/`resolveProxy`: the credential is resolved via the
+   * shared {@link SecretResolver} (so the `oauth` branch returns the live access
+   * token), the egress proxy comes from `proxyRef` (falling back to the global
+   * `UPSTREAM_PROXY_URL`), and each optional field is assigned only when present
+   * (exactOptionalPropertyTypes).
+   */
+  private async buildSyncContext(channel: UpstreamChannelRow): Promise<AdapterContext> {
+    const ctx: AdapterContext = { providerType: channel.providerType, http: this.http };
+    if (channel.model !== null) ctx.model = channel.model;
+    if (channel.endpoint !== null) ctx.endpoint = channel.endpoint;
+    if (channel.config !== null) ctx.config = channel.config;
+    if (channel.credentialRef !== null) {
+      const apiKey = await this.secrets.resolve(channel.credentialRef);
+      if (apiKey !== undefined) ctx.apiKey = apiKey;
+    }
+    const proxyUrl = await this.resolveChannelProxy(channel);
+    if (proxyUrl !== undefined) ctx.proxyUrl = proxyUrl;
+    return ctx;
+  }
+
+  /** Resolve a channel's egress proxy: its `proxyRef` (via the resolver), else `UPSTREAM_PROXY_URL`. */
+  private async resolveChannelProxy(channel: UpstreamChannelRow): Promise<string | undefined> {
+    if (channel.proxyRef !== null) {
+      const url = await this.secrets.resolve(channel.proxyRef);
+      if (url !== undefined) return url;
+    }
+    return this.env.UPSTREAM_PROXY_URL;
   }
 
   // ----- pricebook -----

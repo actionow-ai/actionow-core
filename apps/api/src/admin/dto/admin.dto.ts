@@ -88,6 +88,19 @@ export const updateChannelSchema = z.object({
 });
 export type UpdateChannelDto = z.infer<typeof updateChannelSchema>;
 
+/**
+ * `POST /admin/resources/:id/channels/:channelId/sync-models` — sync a provider's
+ * available models into `model` rows. The two prices are µcredit-PER-TOKEN
+ * integers (NOT human credits — this is the same convention as the model catalog),
+ * applied ONLY to newly-created models; existing models keep their price. Both
+ * default in the controller (3 input / 7 output) when omitted.
+ */
+export const syncChannelModelsSchema = z.object({
+  defaultInputPrice: z.number().int().nonnegative().optional(),
+  defaultOutputPrice: z.number().int().nonnegative().optional(),
+});
+export type SyncChannelModelsDto = z.infer<typeof syncChannelModelsSchema>;
+
 /** `POST /admin/pricebook` — add a pricebook entry. */
 export const createPricebookSchema = z.object({
   resourceId: z.string().min(1),

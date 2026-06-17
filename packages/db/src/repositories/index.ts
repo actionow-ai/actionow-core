@@ -112,6 +112,10 @@ export {
   type ModelView,
   type ResolvedModel,
   resolveModelForTenant,
+  type SyncModelInput,
+  upsertModelsFromSync,
+  type UpsertModelsFromSyncInput,
+  type UpsertModelsFromSyncResult,
 } from './model.js';
 export {
   claimRefreshLock,

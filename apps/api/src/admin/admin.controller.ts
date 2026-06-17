@@ -60,6 +60,8 @@ import {
   generateCodesSchema,
   type GrantModelDto,
   grantModelSchema,
+  type SyncChannelModelsDto,
+  syncChannelModelsSchema,
   type TopupDto,
   topupSchema,
   type UpdateChannelDto,
@@ -427,6 +429,19 @@ export class AdminController {
     @Body(new ZodBody(updateChannelSchema)) dto: UpdateChannelDto,
   ): Promise<ChannelView> {
     return toChannelView(await this.admin.updateChannel(channelId, dto));
+  }
+
+  @Post('resources/:id/channels/:channelId/sync-models')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "Sync a channel provider's available models into model rows (multi-model routing)",
+  })
+  async syncChannelModels(
+    @Param('id') id: string,
+    @Param('channelId') channelId: string,
+    @Body(new ZodBody(syncChannelModelsSchema)) dto: SyncChannelModelsDto,
+  ): Promise<{ resource_id: string; created: string[]; updated: string[]; total: number }> {
+    return this.admin.syncChannelModels(id, channelId, dto);
   }
 
   // ----- pricebook -----

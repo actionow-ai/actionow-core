@@ -50,6 +50,23 @@ export interface SubmitInput {
   ctx: AdapterContext;
 }
 
+/**
+ * A provider-neutral description of one upstream model, returned by the optional
+ * `ProviderAdapter.listModels` (the adapter discovers them from the provider's
+ * official catalog endpoint). `id` is the upstream slug the relay sends in the
+ * request body and stores as a `model` row `name`. `capabilities` is a feature
+ * flag map (tools/vision/audio/json/stream) — a `Record<string, boolean>` rather
+ * than the adapters-package `AdapterCapabilities`, since contracts may not import
+ * the adapters package (the dependency runs the other way).
+ */
+export interface ProviderModel {
+  id: string;
+  displayName?: string;
+  description?: string;
+  contextWindow?: number;
+  capabilities?: Record<string, boolean>;
+}
+
 export interface SyncResult {
   kind: 'sync';
   output: Record<string, unknown>;
