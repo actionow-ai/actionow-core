@@ -48,6 +48,13 @@ export function ResourcesPage() {
   });
 
   const [open, setOpen] = useState(false);
+  // A fresh idempotency key per open of the create modal, so a double-submit of
+  // one resource replays, but distinct resources never share a key.
+  const [idemKey, setIdemKey] = useState(() => crypto.randomUUID());
+  const openCreate = () => {
+    setIdemKey(crypto.randomUUID());
+    setOpen(true);
+  };
   const [rid, setRid] = useState('');
   const [tenantId, setTenantId] = useState('');
   const [kind, setKind] = useState<'model' | 'workflow'>('model');
@@ -61,15 +68,18 @@ export function ResourcesPage() {
 
   const create = useMutation({
     mutationFn: () =>
-      api.createResource({
-        id: rid,
-        tenantId,
-        kind,
-        modality,
-        providerType: provider,
-        execModes,
-        ioSchema: buildIoSchema(ioForm.inputs, ioForm.outputs),
-      }),
+      api.createResource(
+        {
+          id: rid,
+          tenantId,
+          kind,
+          modality,
+          providerType: provider,
+          execModes,
+          ioSchema: buildIoSchema(ioForm.inputs, ioForm.outputs),
+        },
+        idemKey,
+      ),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: qk.resources() });
       toast(t('resources.created'));
@@ -80,7 +90,7 @@ export function ResourcesPage() {
 
   useSetConsoleAction(
     () => (
-      <Button variant="ghost" onClick={() => setOpen(true)}>
+      <Button variant="ghost" onClick={openCreate}>
         <PlusIcon size={14} weight="bold" /> {t('resources.new')}
       </Button>
     ),

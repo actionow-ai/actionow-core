@@ -57,6 +57,9 @@ export function ChannelEditor({
     (channel?.status as ChannelStatus | undefined) ?? 'active',
   );
   const [configRows, setConfigRows] = useState<KvRow[]>(rowsFromObject(channel?.config));
+  // A stable idempotency key for this editor instance (remounted per open via
+  // `key`), so an accidental double-submit of a create replays instead of dupes.
+  const [idemKey] = useState(() => crypto.randomUUID());
 
   const [credOpen, setCredOpen] = useState(false);
   const [credValue, setCredValue] = useState('');
@@ -93,7 +96,7 @@ export function ChannelEditor({
       };
       return editing
         ? api.updateChannel(resourceId, channel.id, base)
-        : api.createChannel(resourceId, { ...base, providerType });
+        : api.createChannel(resourceId, { ...base, providerType }, idemKey);
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: qk.channels(resourceId) });

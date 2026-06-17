@@ -1,4 +1,4 @@
-import { PlusIcon } from '@phosphor-icons/react';
+import { ArrowsClockwiseIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,11 @@ import { DataTable } from '../../components/data/DataTable';
 import { ProviderIcon } from '../../components/data/ProviderIcon';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { SelectField } from '../../components/ui/SelectField';
 import { Tabs } from '../../components/ui/Tabs';
+import { toast } from '../../components/ui/toast';
+import { CHANNEL_STATUSES, toOptions } from '../../lib/api/enums';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ChannelStatus, ChannelView, PricebookView } from '../../lib/api/types';
@@ -46,6 +50,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
   const [chOpen, setChOpen] = useState(false);
   const [editing, setEditing] = useState<ChannelView | undefined>(undefined);
   const [pbOpen, setPbOpen] = useState(false);
+  const [delTarget, setDelTarget] = useState<ChannelView | undefined>(undefined);
 
   const toggleStatus = useMutation({
     mutationFn: (c: ChannelView) =>
@@ -61,6 +66,31 @@ export function ResourceDetailPane({ id }: { id: string }) {
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: qk.channels(id) });
+    },
+    onError: mutationError(t),
+  });
+  const deleteChannel = useMutation({
+    mutationFn: (c: ChannelView) => api.deleteChannel(id, c.id),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.channels(id) });
+      toast(t('channels.deleted'));
+      setDelTarget(undefined);
+    },
+    onError: mutationError(t),
+  });
+  const syncModels = useMutation({
+    mutationFn: (c: ChannelView) => api.syncChannelModels(id, c.id, {}),
+    onSuccess: async (res) => {
+      await qc.invalidateQueries({ queryKey: qk.models() });
+      toast(t('channels.synced', { total: res.total }));
+    },
+    onError: mutationError(t),
+  });
+  const setResourceStatus = useMutation({
+    mutationFn: (status: ChannelStatus) => api.updateResource(id, { status }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.resources() });
+      toast(t('resources.statusUpdated'));
     },
     onError: mutationError(t),
   });
@@ -154,6 +184,16 @@ export function ResourceDetailPane({ id }: { id: string }) {
             <span style={{ color: 'var(--faint)' }}>v{resource.current_version}</span>
           </div>
         )}
+        {resource && (
+          <div style={{ marginTop: 'var(--s-3)', maxWidth: 220 }}>
+            <SelectField
+              label={t('resources.actions.setStatus')}
+              value={resource.status === 'active' ? 'active' : 'disabled'}
+              onChange={(v) => setResourceStatus.mutate(v as ChannelStatus)}
+              options={toOptions(CHANNEL_STATUSES, t)}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -192,6 +232,18 @@ export function ResourceDetailPane({ id }: { id: string }) {
             </Button>
             <Button variant="ghost" size="sm" onClick={() => toggleStatus.mutate(r)}>
               {r.status === 'active' ? t('channels.actions.disable') : t('channels.actions.enable')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => syncModels.mutate(r)}
+              loading={syncModels.isPending && syncModels.variables.id === r.id}
+            >
+              <ArrowsClockwiseIcon size={14} weight="bold" aria-hidden="true" />{' '}
+              {t('channels.actions.syncModels')}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setDelTarget(r)}>
+              <TrashIcon size={14} weight="bold" aria-hidden="true" /> {t('channels.actions.delete')}
             </Button>
           </div>
         )}
@@ -270,6 +322,21 @@ export function ResourceDetailPane({ id }: { id: string }) {
         resourceCurrentVersion={resource?.current_version ?? 1}
         open={pbOpen}
         onClose={() => setPbOpen(false)}
+      />
+      <ConfirmDialog
+        open={delTarget !== undefined}
+        title={t('confirm.deleteChannelTitle')}
+        message={t('confirm.deleteChannelMsg', {
+          provider: delTarget?.provider_type ?? '',
+        })}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        danger
+        loading={deleteChannel.isPending}
+        onConfirm={() => {
+          if (delTarget) deleteChannel.mutate(delTarget);
+        }}
+        onClose={() => setDelTarget(undefined)}
       />
     </div>
   );

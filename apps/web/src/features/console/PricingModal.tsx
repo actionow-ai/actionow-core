@@ -45,19 +45,25 @@ export function PricingModal({
   const [fixedCredits, setFixedCredits] = useState(0);
   const [active, setActive] = useState(true);
   const [specForm, setSpecForm] = useState<SpecFormState>(emptySpecForm());
+  // Stable idempotency key for this modal instance (remounted per open via
+  // `key`), so a double-submit of the add-price replays instead of dupes.
+  const [idemKey] = useState(() => crypto.randomUUID());
 
   const create = useMutation({
     mutationFn: () =>
-      api.createPricebook({
-        resourceId,
-        resourceVersion,
-        version,
-        method,
-        timing,
-        spec: buildSpec(method, specForm),
-        fixedCredits: method === 'fixed' ? fixedCredits : undefined,
-        active,
-      }),
+      api.createPricebook(
+        {
+          resourceId,
+          resourceVersion,
+          version,
+          method,
+          timing,
+          spec: buildSpec(method, specForm),
+          fixedCredits: method === 'fixed' ? fixedCredits : undefined,
+          active,
+        },
+        idemKey,
+      ),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: qk.pricebook(resourceId) });
       toast(t('resources.detail.priceAdded'));
