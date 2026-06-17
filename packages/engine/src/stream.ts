@@ -13,6 +13,7 @@ import type {
 import {
   type DbOrTx,
   failJob,
+  insertRelayTrace,
   insertUsageLog,
   recordChannelFailure,
   settleJob,
@@ -23,6 +24,10 @@ import { availableChannels } from './channel-routing.js';
 import { EngineError } from './errors.js';
 import type { RunChannel, RunRequest } from './execution-service.js';
 import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
+import { type TraceContext, TracingHttpClient } from './relay-trace.js';
+
+/** Default per-body byte cap when the stream deps carry no `traceMaxBytes`. */
+const DEFAULT_TRACE_MAX_BYTES = 1_000_000;
 
 /** Everything the settling stream generator needs, frozen at hold time. */
 export interface SettlingStreamDeps {
@@ -44,6 +49,10 @@ export interface SettlingStreamDeps {
   now?: (() => Date) | undefined;
   /** RNG for weighted channel selection (chat channel failover); defaults to Math.random. */
   rng?: (() => number) | undefined;
+  /** When true (`RELAY_TRACE=full`), wrap `ctx.http` in a {@link TracingHttpClient}. */
+  traceUpstream?: boolean | undefined;
+  /** Per-body byte cap for the trace (RELAY_TRACE_MAX_BYTES). Default 1MB. */
+  traceMaxBytes?: number | undefined;
 }
 
 /**
@@ -474,14 +483,37 @@ async function failStream(deps: SettlingStreamDeps, error: UnifiedError): Promis
   });
 }
 
+/**
+ * Wrap the stream's `http` in a {@link TracingHttpClient} when tracing is on,
+ * else return it unwrapped. Best-effort `insertRelayTrace` sink — a trace-write
+ * failure never affects the relayed stream.
+ */
+function maybeTrace(deps: SettlingStreamDeps, trace: TraceContext): HttpClient {
+  if (deps.traceUpstream !== true) return deps.http;
+  return new TracingHttpClient(
+    deps.http,
+    async (row) => {
+      await insertRelayTrace(deps.db, row);
+    },
+    trace,
+    deps.traceMaxBytes ?? DEFAULT_TRACE_MAX_BYTES,
+  );
+}
+
 /** Build the streaming adapter context, resolving the channel secret. */
 async function buildContext(
   deps: SettlingStreamDeps,
   channel: RunChannel | undefined,
 ): Promise<AdapterContext> {
+  const providerType = channel?.providerType ?? deps.req.resource.providerType;
   const ctx: AdapterContext = {
     providerType: deps.req.resource.providerType,
-    http: deps.http,
+    http: maybeTrace(deps, {
+      tenantId: deps.req.tenantId,
+      jobId: deps.jobId,
+      providerType,
+      ...(channel !== undefined ? { channelId: channel.id } : {}),
+    }),
   };
   if (channel === undefined) {
     // No channel: the global egress proxy fallback still applies.

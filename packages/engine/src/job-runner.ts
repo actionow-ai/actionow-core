@@ -17,6 +17,7 @@ import {
   failJob,
   getJob,
   getJobByUpstreamHandle,
+  insertRelayTrace,
   type Job,
   settleJob,
   setUpstreamHandle,
@@ -27,6 +28,10 @@ import { EngineError } from './errors.js';
 import type { RunChannel } from './execution-service.js';
 import type { PersistMediaResult } from './media-persistence.js';
 import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
+import { type TraceContext, TracingHttpClient } from './relay-trace.js';
+
+/** Default per-body byte cap when the runner deps carry no `traceMaxBytes`. */
+const DEFAULT_TRACE_MAX_BYTES = 1_000_000;
 
 /**
  * The frozen execution context a {@link JobRunner} needs to drive a job that
@@ -75,6 +80,14 @@ export interface JobRunnerDeps {
   proxyUrlEnv?: string | undefined;
   /** Persist media outputs before settle (rewrites temp upstream URLs to durable ones). */
   persistMedia?: PersistMediaFn | undefined;
+  /**
+   * When true (`RELAY_TRACE=full`), wrap `ctx.http` in a {@link TracingHttpClient}
+   * so the async media submit/poll upstream calls are captured to `relay_trace`
+   * (best-effort; secrets redacted; bodies capped). Default off.
+   */
+  traceUpstream?: boolean | undefined;
+  /** Per-body byte cap for the trace (RELAY_TRACE_MAX_BYTES). Default 1MB. */
+  traceMaxBytes?: number | undefined;
 }
 
 const DEFAULT_MAX_POLLS = 30;
@@ -129,7 +142,7 @@ export class JobRunner {
       ctx.channels.map((c) => ({ id: c.id, weight: c.weight, value: c })),
       rng,
       async (channel) => {
-        const adapterCtx = await this.buildContext(ctx.providerType, channel);
+        const adapterCtx = await this.buildContext(ctx.providerType, channel, job);
         return adapter.submit({
           resourceId: job.resourceId,
           modality: ctx.modality,
@@ -167,7 +180,7 @@ export class JobRunner {
     const maxPolls = this.deps.maxPolls ?? DEFAULT_MAX_POLLS;
     const intervalMs = this.deps.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
     const sleep = this.deps.sleep ?? defaultSleep;
-    const adapterCtx = await this.buildContext(ctx.providerType, ctx.channels[0]);
+    const adapterCtx = await this.buildContext(ctx.providerType, ctx.channels[0], job);
 
     for (let i = 0; i < maxPolls; i += 1) {
       const result = await adapter.poll(handle.upstreamJobId, adapterCtx);
@@ -293,8 +306,17 @@ export class JobRunner {
   private async buildContext(
     providerType: string,
     channel: RunChannel | undefined,
+    job: Job,
   ): Promise<AdapterContext> {
-    const ctx: AdapterContext = { providerType, http: this.deps.http };
+    const ctx: AdapterContext = {
+      providerType,
+      http: this.maybeTrace({
+        tenantId: job.tenantId,
+        jobId: job.id,
+        providerType,
+        ...(channel !== undefined ? { channelId: channel.id } : {}),
+      }),
+    };
     if (channel === undefined) {
       // No channel: the global egress proxy fallback still applies.
       if (this.deps.proxyUrlEnv !== undefined) ctx.proxyUrl = this.deps.proxyUrlEnv;
@@ -319,5 +341,22 @@ export class JobRunner {
       if (url !== undefined) return url;
     }
     return this.deps.proxyUrlEnv;
+  }
+
+  /**
+   * Wrap the shared `http` in a {@link TracingHttpClient} when tracing is on,
+   * else return it unwrapped. Best-effort `insertRelayTrace` sink.
+   */
+  private maybeTrace(trace: TraceContext): HttpClient {
+    if (this.deps.traceUpstream !== true) return this.deps.http;
+    const db = this.deps.db;
+    return new TracingHttpClient(
+      this.deps.http,
+      async (row) => {
+        await insertRelayTrace(db, row);
+      },
+      trace,
+      this.deps.traceMaxBytes ?? DEFAULT_TRACE_MAX_BYTES,
+    );
   }
 }

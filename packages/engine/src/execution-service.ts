@@ -28,6 +28,7 @@ import {
   type Job,
   settleJob,
 } from '@actionow/db';
+import { insertRelayTrace } from '@actionow/db';
 import {
   applyModifiers,
   DomainError,
@@ -40,7 +41,11 @@ import {
 import { routeBlocking } from './channel-routing.js';
 import { EngineError, engineError } from './errors.js';
 import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
+import { type TraceContext, TracingHttpClient } from './relay-trace.js';
 import { createChatSettlingStream, createSettlingStream } from './stream.js';
+
+/** Default per-body byte cap when the engine deps carry no `traceMaxBytes`. */
+const DEFAULT_TRACE_MAX_BYTES = 1_000_000;
 
 /** A routed upstream channel: how to reach one provider endpoint/credential. */
 export interface RunChannel {
@@ -160,6 +165,14 @@ export interface ExecutionServiceDeps {
   holdTtlMs?: number;
   /** Global egress proxy fallback (UPSTREAM_PROXY_URL) when a channel has no proxyRef. */
   proxyUrlEnv?: string | undefined;
+  /**
+   * When true (`RELAY_TRACE=full`), wrap `ctx.http` in a {@link TracingHttpClient}
+   * so every upstream call's full request+response (incl. raw SSE) is captured to
+   * `relay_trace` (best-effort; secrets redacted; bodies capped). Default off.
+   */
+  traceUpstream?: boolean | undefined;
+  /** Per-body byte cap for the trace (RELAY_TRACE_MAX_BYTES). Default 1MB. */
+  traceMaxBytes?: number | undefined;
 }
 
 const DEFAULT_HOLD_TTL_MS = 15 * 60_000;
@@ -254,6 +267,7 @@ export class ExecutionService {
       holdAmount,
       req,
       proxyUrlEnv: this.deps.proxyUrlEnv,
+      ...this.traceStreamDeps(),
     });
     return { jobId, events };
   }
@@ -286,8 +300,22 @@ export class ExecutionService {
       proxyUrlEnv: this.deps.proxyUrlEnv,
       now: this.deps.now,
       rng: this.deps.rng,
+      ...this.traceStreamDeps(),
     });
     return { jobId, events };
+  }
+
+  /**
+   * The trace knobs the settling streams need to wrap `ctx.http` (the streams
+   * own their buildContext; we hand them the flag + cap, not a wrapped client,
+   * because the channel/jobId are known only inside the stream). Spread into the
+   * stream deps so absence leaves the existing behavior unchanged.
+   */
+  private traceStreamDeps(): { traceUpstream?: boolean; traceMaxBytes?: number } {
+    const out: { traceUpstream?: boolean; traceMaxBytes?: number } = {};
+    if (this.deps.traceUpstream !== undefined) out.traceUpstream = this.deps.traceUpstream;
+    if (this.deps.traceMaxBytes !== undefined) out.traceMaxBytes = this.deps.traceMaxBytes;
+    return out;
   }
 
   /**
@@ -320,7 +348,10 @@ export class ExecutionService {
               `channel adapter ${adapter.providerType} cannot chat`,
             );
           }
-          const r = await adapter.chat.bind(adapter)(ir, await this.buildContext(req, channel));
+          const r = await adapter.chat.bind(adapter)(
+            ir,
+            await this.buildContext(req, channel, jobId),
+          );
           served = channel;
           return r;
         },
@@ -497,7 +528,7 @@ export class ExecutionService {
             modality: req.resource.modality,
             inputs,
             execMode: req.execMode,
-            ctx: await this.buildContext(req, channel),
+            ctx: await this.buildContext(req, channel, jobId),
           });
         },
       );
@@ -621,14 +652,24 @@ export class ExecutionService {
   }
 
   /** Build the per-attempt adapter context, resolving the channel secret. */
-  private async buildContext(req: RunRequest, channel: RunChannel): Promise<AdapterContext> {
+  private async buildContext(
+    req: RunRequest,
+    channel: RunChannel,
+    jobId: string,
+  ): Promise<AdapterContext> {
     const apiKey =
       channel.credentialRef === undefined
         ? undefined
         : await this.deps.resolveSecret(channel.credentialRef);
+    const providerType = channel.providerType ?? req.resource.providerType;
     const ctx: AdapterContext = {
-      providerType: channel.providerType ?? req.resource.providerType,
-      http: this.deps.http,
+      providerType,
+      http: this.maybeTrace({
+        tenantId: req.tenantId,
+        jobId,
+        channelId: channel.id,
+        providerType,
+      }),
     };
     if (channel.model !== undefined) ctx.model = channel.model;
     if (channel.endpoint !== undefined) ctx.endpoint = channel.endpoint;
@@ -637,6 +678,23 @@ export class ExecutionService {
     if (proxyUrl !== undefined) ctx.proxyUrl = proxyUrl;
     if (channel.config !== undefined) ctx.config = channel.config;
     return ctx;
+  }
+
+  /**
+   * Wrap the shared `http` in a {@link TracingHttpClient} when tracing is on,
+   * else return it unwrapped. The sink is a best-effort `insertRelayTrace`.
+   */
+  private maybeTrace(trace: TraceContext): HttpClient {
+    if (this.deps.traceUpstream !== true) return this.deps.http;
+    const db = this.deps.db;
+    return new TracingHttpClient(
+      this.deps.http,
+      async (row) => {
+        await insertRelayTrace(db, row);
+      },
+      trace,
+      this.deps.traceMaxBytes ?? DEFAULT_TRACE_MAX_BYTES,
+    );
   }
 
   /** Resolve a channel's egress proxy URL: its proxyRef (via resolveSecret), else the global env fallback. */
