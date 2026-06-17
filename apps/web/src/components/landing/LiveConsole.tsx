@@ -41,14 +41,19 @@ export function LiveConsole() {
       const mm = gsap.matchMedia();
 
       mm.add('(prefers-reduced-motion: no-preference)', () => {
-        gsap.from(el.querySelectorAll('[data-r]'), {
-          opacity: 0,
-          y: 28,
-          duration: DUR.slow,
-          ease: EASE.out,
-          stagger: 0.08,
-          scrollTrigger: { trigger: el, start: 'top 78%' },
-        });
+        // fromTo (explicit start+end) so a re-run can't strand the reveal.
+        gsap.fromTo(
+          el.querySelectorAll('[data-r]'),
+          { opacity: 0, y: 28 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: DUR.slow,
+            ease: EASE.out,
+            stagger: 0.08,
+            scrollTrigger: { trigger: el, start: 'top 78%' },
+          },
+        );
 
         // Count-up runs once, when the console scrolls into view.
         ScrollTrigger.create({

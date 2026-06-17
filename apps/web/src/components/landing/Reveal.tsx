@@ -30,14 +30,19 @@ export function Reveal({
       if (!el) return;
       const mm = gsap.matchMedia();
       mm.add('(prefers-reduced-motion: no-preference)', () => {
-        gsap.from(el, {
-          opacity: 0,
-          y,
-          duration: DUR.slower,
-          delay,
-          ease: EASE.out,
-          scrollTrigger: { trigger: el, start: 'top 86%', once: true },
-        });
+        // fromTo (explicit start+end) so a re-run can't leave content hidden.
+        gsap.fromTo(
+          el,
+          { opacity: 0, y },
+          {
+            opacity: 1,
+            y: 0,
+            duration: DUR.slower,
+            delay,
+            ease: EASE.out,
+            scrollTrigger: { trigger: el, start: 'top 86%', once: true },
+          },
+        );
       });
     },
     { scope: ref, dependencies: [y, delay] },

@@ -17,7 +17,7 @@ import { ApiError } from '../../lib/api/errors';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { BP } from '../../lib/breakpoints';
 import { gsap, useGSAP } from '../../lib/motion/gsap';
-import { useReducedMotion } from '../../lib/motion/useReducedMotion';
+import { DUR, EASE } from '../../lib/motion/tokens';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 
 type Mode = 'login' | 'register';
@@ -96,26 +96,28 @@ export function AuthPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const root = useRef<HTMLDivElement>(null);
-  const reduced = useReducedMotion();
 
   useGSAP(
     () => {
-      if (reduced || !root.current) return;
-      gsap.from(root.current.querySelectorAll('[data-reveal]'), {
-        opacity: 0,
-        y: 24,
-        duration: 0.55,
-        ease: 'power3.out',
-        stagger: 0.07,
+      const el = root.current;
+      if (!el) return;
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        // fromTo (explicit start+end) so a re-run can't strand the reveal.
+        gsap.fromTo(
+          el.querySelectorAll('[data-reveal]'),
+          { opacity: 0, y: 24 },
+          { opacity: 1, y: 0, duration: DUR.slow, ease: EASE.out, stagger: 0.07 },
+        );
+        // live tail in the brand panel
+        gsap.fromTo(
+          el.querySelectorAll('[data-log]'),
+          { opacity: 0.25 },
+          { opacity: 1, duration: DUR.base, ease: 'none', delay: 0.5, stagger: { each: 0.45, repeat: -1, yoyo: true, repeatDelay: 1.4 } },
+        );
       });
-      // live tail in the brand panel
-      gsap.fromTo(
-        root.current.querySelectorAll('[data-log]'),
-        { opacity: 0.25 },
-        { opacity: 1, duration: 0.3, ease: 'none', delay: 0.5, stagger: { each: 0.45, repeat: -1, yoyo: true, repeatDelay: 1.4 } },
-      );
     },
-    { scope: root, dependencies: [reduced] },
+    { scope: root, dependencies: [] },
   );
 
   const submit = async () => {

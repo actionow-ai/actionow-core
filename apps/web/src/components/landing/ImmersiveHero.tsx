@@ -18,7 +18,9 @@ export function ImmersiveHero() {
       const targets = root.current.querySelectorAll('[data-r]');
       const mm = gsap.matchMedia();
       mm.add('(prefers-reduced-motion: no-preference)', () => {
-        gsap.from(targets, { opacity: 0, y: 32, duration: DUR.slower, ease: EASE.out, stagger: 0.1 });
+        // fromTo (explicit start+end) so a re-run on lang/theme change can't
+        // strand an element mid-reveal at partial opacity.
+        gsap.fromTo(targets, { opacity: 0, y: 32 }, { opacity: 1, y: 0, duration: DUR.slower, ease: EASE.out, stagger: 0.1 });
       });
     },
     { scope: root, dependencies: [] },
