@@ -9,6 +9,7 @@ import { FlipWords } from '../../components/landing/FlipWords';
 import { LanguageSwitch } from '../../components/layout/LanguageSwitch';
 import { ThemeToggle } from '../../components/layout/ThemeToggle';
 import { Button } from '../../components/ui/Button';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { config } from '../../config';
@@ -144,30 +145,14 @@ export function AuthPage() {
         {!isDesktop && <Logo size={28} />}
 
         {/* segmented login / register switch */}
-        <div className="panel" style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 'var(--r-pill)' }}>
-          {(['login', 'register'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              style={{
-                flex: 1,
-                padding: '8px 0',
-                borderRadius: 'var(--r-pill)',
-                fontSize: 'var(--fs-sm)',
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'color 0.2s, background 0.2s',
-                color: mode === m ? 'var(--ink)' : 'var(--muted)',
-                background: mode === m ? 'var(--grad-accent)' : 'transparent',
-              }}
-            >
-              {t(m === 'login' ? 'auth.loginTab' : 'auth.registerTab')}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          value={mode}
+          onChange={(v) => setMode(v as Mode)}
+          options={[
+            { value: 'login', label: t('auth.loginTab') },
+            { value: 'register', label: t('auth.registerTab') },
+          ]}
+        />
 
         <TextField label={t('auth.email')} type="email" autoComplete="username" value={email} onChange={setEmail} required />
         <TextField
