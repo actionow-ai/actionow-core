@@ -96,6 +96,7 @@ export function makeAdminApi(client: ApiClient) {
       client.getPage<JobView>('/admin/jobs', { tenantId, cursor, limit }),
 
     createSecret: (body: CreateSecretBody) => client.post<SecretView>('/admin/secrets', body),
+    listSecrets: async () => (await client.getPage<SecretView>('/admin/secrets')).rows,
 
     listModels: async () => (await client.getPage<ModelView>('/admin/models')).rows,
     createModel: (body: CreateModelBody, idempotencyKey?: string) =>
