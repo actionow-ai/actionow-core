@@ -33,6 +33,7 @@ export function cleanField(f: IoField): IoField {
   ) {
     out.maxLength = f.maxLength;
   }
+  if (f.default !== undefined) out.default = f.default;
   return out;
 }
 

@@ -44,6 +44,11 @@ describe('ioSchemaShape', () => {
     });
   });
 
+  it('cleanField carries a present default through and leaves an absent one absent', () => {
+    expect(cleanField({ key: 'x', type: 'string', default: 'hi' }).default).toBe('hi');
+    expect(cleanField({ key: 'x', type: 'string' })).not.toHaveProperty('default');
+  });
+
   it('buildIoSchema filters blank-key rows and cleans the rest', () => {
     expect(
       buildIoSchema(
