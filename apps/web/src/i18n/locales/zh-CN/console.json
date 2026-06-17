@@ -131,6 +131,7 @@
     },
     "tip": {
       "id": "该资源的唯一标识（如 gpt-4o 或 my-workflow）。用于 API 调用,且不能与其它资源重复。",
+      "tenant": "该资源归属的租户（按其额度计费）。",
       "kind": "模型 = 单个上游模型;工作流 = 多步流水线（如 Dify 应用）。",
       "modality": "该资源处理的主要数据类型:文本、图像、视频、音频或复合。",
       "providerType": "上游 Provider(自由文本,如 openai、anthropic)。Logo 据此解析。",
@@ -172,10 +173,12 @@
     },
     "tip": {
       "provider": "该通道的上游 Provider(自由文本,如 openai、anthropic)。Logo 据此解析。",
+      "providerFixed": "Provider 创建后不可更改。",
       "endpoint": "该通道的 Base URL 覆盖。留空则使用 Provider 默认值。",
       "model": "要调用的上游模型名(如 gpt-4o)。留空则使用资源默认值。",
       "proxyRef": "可选:出站代理配置的引用。",
       "weight": "路由权重——值越大,在各启用通道中分到的流量越多。",
+      "status": "停用的通道不参与路由。",
       "credentialRef": "保存该通道 API Key 的加密密文 id。可用「新建凭证」创建。",
       "config": "该通道的 Provider 专属键值配置(如异步提交/轮询路径)。"
     },

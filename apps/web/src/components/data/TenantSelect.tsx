@@ -15,11 +15,13 @@ export function TenantSelect({
   value,
   onChange,
   placeholder,
+  tooltip,
 }: {
   label?: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  tooltip?: string;
 }) {
   const api = useAdminApi();
   const { data } = useQuery({
@@ -31,5 +33,5 @@ export function TenantSelect({
   if (label === undefined) {
     return <Select value={value} onChange={onChange} options={options} placeholder={placeholder} ariaLabel={placeholder} />;
   }
-  return <SelectField label={label} value={value} onChange={onChange} options={options} placeholder={placeholder} />;
+  return <SelectField label={label} value={value} onChange={onChange} options={options} placeholder={placeholder} tooltip={tooltip} />;
 }

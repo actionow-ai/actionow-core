@@ -136,6 +136,7 @@
     },
     "tip": {
       "id": "A unique identifier for this resource (e.g. gpt-4o or my-workflow). Used in API calls and must not collide with another resource.",
+      "tenant": "Which tenant owns this resource (its credits are charged).",
       "kind": "Model = a single upstream model; Workflow = a multi-step pipeline (e.g. a Dify app).",
       "modality": "The primary data type this resource handles: text, image, video, audio, or composite.",
       "providerType": "Free-text upstream provider (e.g. openai, anthropic). The logo resolves from this value.",
@@ -177,10 +178,12 @@
     },
     "tip": {
       "provider": "Free-text upstream provider for this channel (e.g. openai, anthropic). The logo resolves from this value.",
+      "providerFixed": "Provider is fixed after creation.",
       "endpoint": "Override base URL for this channel. Leave empty to use the provider default.",
       "model": "Upstream model name to call (e.g. gpt-4o). Leave empty to use the resource default.",
       "proxyRef": "Optional reference to an outbound proxy configuration.",
       "weight": "Routing weight — higher values receive a larger share of traffic across active channels.",
+      "status": "Disabled channels are skipped by routing.",
       "credentialRef": "Id of the encrypted secret holding this channel's API key. Use \"New credential\" to create one.",
       "config": "Provider-specific key/value settings for this channel (e.g. async submit/poll paths)."
     },

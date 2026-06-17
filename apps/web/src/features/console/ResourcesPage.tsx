@@ -152,7 +152,12 @@ export function ResourcesPage() {
         value={rid}
         onChange={setRid}
       />
-      <TenantSelect label={t('resources.form.tenant')} value={tenantId} onChange={setTenantId} />
+      <TenantSelect
+        label={t('resources.form.tenant')}
+        tooltip={t('resources.tip.tenant')}
+        value={tenantId}
+        onChange={setTenantId}
+      />
       <SelectField
         label={t('resources.form.kind')}
         tooltip={t('resources.tip.kind')}

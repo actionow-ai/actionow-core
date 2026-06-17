@@ -80,8 +80,9 @@ export function ChannelEditor({
   const save = useMutation({
     mutationFn: () => {
       const cfg = objectFromRows(configRows);
-      const body = {
-        providerType,
+      // `providerType` is immutable after creation (the backend strips it from a
+      // PATCH), so it lives only on the create branch — never in the shared body.
+      const base = {
         endpoint: endpoint.trim() === '' ? undefined : endpoint.trim(),
         model: model.trim() === '' ? undefined : model.trim(),
         proxyRef: proxyRef.trim() === '' ? undefined : proxyRef.trim(),
@@ -91,8 +92,8 @@ export function ChannelEditor({
         config: Object.keys(cfg).length > 0 ? cfg : undefined,
       };
       return editing
-        ? api.updateChannel(resourceId, channel.id, body)
-        : api.createChannel(resourceId, body);
+        ? api.updateChannel(resourceId, channel.id, base)
+        : api.createChannel(resourceId, { ...base, providerType });
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: qk.channels(resourceId) });
@@ -116,9 +117,10 @@ export function ChannelEditor({
       <TextField
         label={t('channels.form.provider')}
         tooltip={t('channels.tip.provider')}
-        hint={COMMON_PROVIDERS.join(' · ')}
+        hint={editing ? t('channels.tip.providerFixed') : COMMON_PROVIDERS.join(' · ')}
         value={providerType}
         onChange={setProviderType}
+        disabled={editing}
       />
       <TextField
         label={t('channels.form.endpoint')}
@@ -147,6 +149,7 @@ export function ChannelEditor({
       />
       <SelectField
         label={t('channels.form.status')}
+        tooltip={t('channels.tip.status')}
         value={status}
         onChange={(v) => setStatus(v as ChannelStatus)}
         options={toOptions(CHANNEL_STATUSES, t)}
