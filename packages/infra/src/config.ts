@@ -35,6 +35,10 @@ const EnvSchema = z
     // HMAC secret for admin JWTs. Required in production; outside production a
     // well-known dev default is filled in below. Never logged.
     ADMIN_JWT_SECRET: z.string().min(1).optional(),
+    // AES-256-GCM key for secret-at-rest encryption (Track F0). Optional — the
+    // enc path uses it; absence does NOT crash boot (unencrypted refs still work).
+    // Must be 64 hex chars (32 bytes). Never logged, never returned to clients.
+    SECRET_ENCRYPTION_KEY: z.string().optional(),
     // Default S3-compatible object-storage provider. All STORAGE_* fields are
     // optional so the API boots without storage configured; the /v1/files
     // endpoints guard usage and fail with `invalid_input` when unconfigured.
