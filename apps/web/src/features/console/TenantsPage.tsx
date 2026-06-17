@@ -73,7 +73,7 @@ export function TenantsPage() {
         title={t('tenants.new')}
         onClose={() => setOpen(false)}
         footer={
-          <Button variant="cta" onClick={() => create.mutate()}>
+          <Button variant="cta" onClick={() => create.mutate()} loading={create.isPending}>
             {t('tenants.submit')}
           </Button>
         }

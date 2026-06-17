@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
 import { CardCollection } from '../../components/data/CardCollection';
 import { EntityCard } from '../../components/data/EntityCard';
-import { StatusBadge } from '../../components/data/StatusBadge';
+import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { SelectField } from '../../components/ui/SelectField';
@@ -65,19 +65,22 @@ export function ModifiersPage() {
         rows={data ?? []}
         loading={isLoading}
         empty={t('modifiers.empty')}
-        renderCard={(r) => (
-          <EntityCard
-            key={r.id}
-            icon={SlidersHorizontalIcon}
-            title={r.scope}
-            badge={<StatusBadge status={r.active ? 'active' : 'inactive'} />}
-            chips={[r.op]}
-            meta={[
-              { label: t('modifiers.cols.value'), value: r.value ?? '—' },
-              { label: t('modifiers.cols.priority'), value: String(r.priority) },
-            ]}
-          />
-        )}
+        renderCard={(r) => {
+          const s = r.active ? 'active' : 'inactive';
+          return (
+            <EntityCard
+              key={r.id}
+              icon={SlidersHorizontalIcon}
+              title={r.scope}
+              badge={<StatusBadge tone={statusTone(s)} label={t('status.' + s, s)} />}
+              chips={[r.op]}
+              meta={[
+                { label: t('modifiers.cols.value'), value: r.value ?? '—' },
+                { label: t('modifiers.cols.priority'), value: String(r.priority) },
+              ]}
+            />
+          );
+        }}
       />
 
       <Modal
@@ -85,7 +88,7 @@ export function ModifiersPage() {
         title={t('modifiers.new')}
         onClose={() => setOpen(false)}
         footer={
-          <Button variant="cta" onClick={() => create.mutate()}>
+          <Button variant="cta" onClick={() => create.mutate()} loading={create.isPending}>
             {t('modifiers.submit')}
           </Button>
         }

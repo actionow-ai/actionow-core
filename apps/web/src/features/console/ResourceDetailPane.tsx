@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { ProviderIcon } from '../../components/data/ProviderIcon';
-import { StatusBadge } from '../../components/data/StatusBadge';
+import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { JsonField, validateJson } from '../../components/ui/JsonField';
 import { Modal } from '../../components/ui/Modal';
@@ -86,14 +86,21 @@ export function ResourceDetailPane({ id }: { id: string }) {
     { key: 'endpoint', header: t('channels.cols.endpoint'), cell: (r) => r.endpoint ?? '—' },
     { key: 'model', header: t('channels.cols.model'), cell: (r) => r.model ?? '—' },
     { key: 'weight', header: t('channels.cols.weight'), cell: (r) => String(r.weight), width: '64px' },
-    { key: 'status', header: t('channels.cols.status'), cell: (r) => <StatusBadge status={r.status} />, width: '96px' },
+    { key: 'status', header: t('channels.cols.status'), cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />, width: '96px' },
   ];
 
   const pbCols: Column<PricebookView>[] = [
     { key: 'method', header: t('pricebook.cols.method'), cell: (r) => r.method },
     { key: 'timing', header: t('pricebook.cols.timing'), cell: (r) => r.timing },
     { key: 'version', header: t('pricebook.cols.version'), cell: (r) => String(r.version) },
-    { key: 'active', header: t('pricebook.cols.active'), cell: (r) => <StatusBadge status={r.active ? 'active' : 'inactive'} /> },
+    {
+      key: 'active',
+      header: t('pricebook.cols.active'),
+      cell: (r) => {
+        const s = r.active ? 'active' : 'inactive';
+        return <StatusBadge tone={statusTone(s)} label={t('status.' + s, s)} />;
+      },
+    },
   ];
 
   return (
@@ -107,7 +114,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
               <span>
                 {resource.modality} · {resource.provider_type} · {resource.exec_modes.join(', ')}
               </span>
-              <StatusBadge status={resource.status} />
+              <StatusBadge tone={statusTone(resource.status)} label={t('status.' + resource.status, resource.status)} />
             </div>
           )}
         </div>
@@ -142,7 +149,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
         title={t('resources.detail.addChannel')}
         onClose={() => setChOpen(false)}
         footer={
-          <Button variant="cta" onClick={() => addChannel.mutate()}>
+          <Button variant="cta" onClick={() => addChannel.mutate()} loading={addChannel.isPending}>
             {t('resources.detail.addChannel')}
           </Button>
         }
@@ -157,7 +164,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
         title={t('resources.detail.addPrice')}
         onClose={() => setPbOpen(false)}
         footer={
-          <Button variant="cta" onClick={() => addPrice.mutate()}>
+          <Button variant="cta" onClick={() => addPrice.mutate()} loading={addPrice.isPending}>
             {t('resources.detail.addPrice')}
           </Button>
         }

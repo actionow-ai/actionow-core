@@ -8,7 +8,7 @@ import { useSetConsoleAction, useSetConsoleBack } from '../../components/console
 import { CardCollection } from '../../components/data/CardCollection';
 import { EntityCard } from '../../components/data/EntityCard';
 import { ProviderIcon } from '../../components/data/ProviderIcon';
-import { StatusBadge } from '../../components/data/StatusBadge';
+import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { JsonField, validateJson } from '../../components/ui/JsonField';
 import { Modal } from '../../components/ui/Modal';
@@ -93,7 +93,7 @@ export function ResourcesPage() {
           key={r.id}
           glyph={<ProviderIcon provider={r.provider_type} size={22} />}
           title={r.id}
-          badge={<StatusBadge status={r.status} />}
+          badge={<StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />}
           chips={[r.modality, r.provider_type, ...r.exec_modes]}
           onClick={() => void navigate(`/console/resources/${r.id}`)}
           selected={r.id === id}
@@ -117,7 +117,7 @@ export function ResourcesPage() {
       title={t('resources.new')}
       onClose={() => setOpen(false)}
       footer={
-        <Button variant="cta" onClick={() => create.mutate()}>
+        <Button variant="cta" onClick={() => create.mutate()} loading={create.isPending}>
           {t('resources.submit')}
         </Button>
       }

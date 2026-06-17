@@ -205,10 +205,23 @@
       "resourceId": "Resource ID",
       "endpoint": "Dify endpoint",
       "yaml": "Workflow YAML",
-      "pricingModel": "Pricing model (JSON)",
+      "pricingModel": "Pricing model",
       "allowBlockers": "Allow blocking nodes"
     },
+    "pricing": { "fixed": "Fixed", "matrix": "Matrix", "metered": "Metered" },
     "report": "Compatibility report"
+  },
+  "status": {
+    "succeeded": "Succeeded",
+    "active": "Active",
+    "ready": "Ready",
+    "running": "Running",
+    "queued": "Queued",
+    "pending": "Pending",
+    "failed": "Failed",
+    "disabled": "Disabled",
+    "inactive": "Inactive",
+    "canceled": "Canceled"
   },
   "errors": {
     "invalid_input": "Invalid request",

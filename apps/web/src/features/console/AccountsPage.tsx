@@ -90,7 +90,7 @@ export function AccountsPage() {
         title={t('accounts.new')}
         onClose={() => setCreateOpen(false)}
         footer={
-          <Button variant="cta" onClick={() => create.mutate()}>
+          <Button variant="cta" onClick={() => create.mutate()} loading={create.isPending}>
             {t('accounts.submit')}
           </Button>
         }
@@ -104,7 +104,7 @@ export function AccountsPage() {
         title={t('accounts.topup.title')}
         onClose={() => setTopupOpen(false)}
         footer={
-          <Button variant="cta" onClick={() => topup.mutate()}>
+          <Button variant="cta" onClick={() => topup.mutate()} loading={topup.isPending}>
             {t('accounts.topup.submit')}
           </Button>
         }

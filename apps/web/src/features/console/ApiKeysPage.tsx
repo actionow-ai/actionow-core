@@ -7,7 +7,7 @@ import { useSetConsoleAction, useSetConsoleFilters } from '../../components/cons
 import { CardCollection } from '../../components/data/CardCollection';
 import { CopyField } from '../../components/data/CopyField';
 import { EntityCard } from '../../components/data/EntityCard';
-import { StatusBadge } from '../../components/data/StatusBadge';
+import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { TenantSelect } from '../../components/data/TenantSelect';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -89,7 +89,7 @@ export function ApiKeysPage() {
             key={r.id}
             icon={KeyIcon}
             title={<code style={{ fontSize: 'var(--fs-sm)' }}>{r.id}</code>}
-            badge={<StatusBadge status={r.status} />}
+            badge={<StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />}
             chips={[
               ...(r.rate_limit !== null ? [`${String(r.rate_limit)}/min`] : []),
               ...(r.resource_allowlist.length > 0 ? r.resource_allowlist : []),
@@ -104,7 +104,7 @@ export function ApiKeysPage() {
         title={t('apiKeys.new')}
         onClose={() => setFormOpen(false)}
         footer={
-          <Button variant="cta" onClick={() => create.mutate()}>
+          <Button variant="cta" onClick={() => create.mutate()} loading={create.isPending}>
             {t('apiKeys.submit')}
           </Button>
         }

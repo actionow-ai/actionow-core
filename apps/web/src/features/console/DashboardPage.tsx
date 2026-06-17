@@ -8,7 +8,7 @@ import { StatCard } from '../../components/console/StatCard';
 import { CardCollection } from '../../components/data/CardCollection';
 import { EntityCard } from '../../components/data/EntityCard';
 import { Money } from '../../components/data/Money';
-import { StatusBadge } from '../../components/data/StatusBadge';
+import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { TenantSelect } from '../../components/data/TenantSelect';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { qk } from '../../lib/api/queryKeys';
@@ -75,7 +75,7 @@ export function DashboardPage() {
                   key={r.job_id}
                   icon={CubeIcon}
                   title={r.resource_id}
-                  badge={<StatusBadge status={r.status} />}
+                  badge={<StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />}
                   chips={[r.exec_mode]}
                   meta={[
                     { label: t('dashboard.cols.cost'), value: r.cost !== null ? <Money micro={r.cost} /> : '—' },

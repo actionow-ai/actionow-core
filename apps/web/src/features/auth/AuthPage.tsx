@@ -164,7 +164,7 @@ export function AuthPage() {
           required
         />
 
-        <Button variant="cta" size="lg" type="submit" disabled={busy}>
+        <Button variant="cta" size="lg" type="submit" loading={busy}>
           {t(mode === 'login' ? 'auth.loginSubmit' : 'auth.registerSubmit')} <ArrowRightIcon size={16} weight="bold" />
         </Button>
 
@@ -186,13 +186,9 @@ export function AuthPage() {
 
         <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', textAlign: 'center' }}>
           {mode === 'login' ? t('auth.toRegister') : t('auth.toLogin')}{' '}
-          <button
-            type="button"
-            onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-            style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 'var(--fs-sm)', padding: 0, whiteSpace: 'nowrap' }}
-          >
+          <Button variant="link" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
             {mode === 'login' ? t('auth.toRegisterCta') : t('auth.toLoginCta')}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

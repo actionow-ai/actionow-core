@@ -200,10 +200,23 @@
       "resourceId": "资源 ID",
       "endpoint": "Dify Endpoint",
       "yaml": "Workflow YAML",
-      "pricingModel": "定价模型 (JSON)",
+      "pricingModel": "定价模型",
       "allowBlockers": "允许阻塞节点"
     },
+    "pricing": { "fixed": "固定", "matrix": "矩阵", "metered": "按量计费" },
     "report": "兼容性报告"
+  },
+  "status": {
+    "succeeded": "成功",
+    "active": "启用",
+    "ready": "就绪",
+    "running": "运行中",
+    "queued": "排队中",
+    "pending": "待处理",
+    "failed": "失败",
+    "disabled": "已停用",
+    "inactive": "未启用",
+    "canceled": "已取消"
   },
   "errors": {
     "invalid_input": "请求参数有误",
