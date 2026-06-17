@@ -37,7 +37,7 @@ const EnvSchema = z
     ADMIN_JWT_SECRET: z.string().min(1).optional(),
     // AES-256-GCM key for secret-at-rest encryption (Track F0). Optional — the
     // enc path uses it; absence does NOT crash boot (unencrypted refs still work).
-    // Must be 64 hex chars (32 bytes). Never logged, never returned to clients.
+    // Must be a base64-encoded 32-byte key (44 chars). Never logged or returned.
     SECRET_ENCRYPTION_KEY: z.string().optional(),
     // Default S3-compatible object-storage provider. All STORAGE_* fields are
     // optional so the API boots without storage configured; the /v1/files

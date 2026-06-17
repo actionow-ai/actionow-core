@@ -140,6 +140,11 @@ export class AdminService {
     if (keyB64 === undefined || keyB64 === '') {
       throw engineInvalidInput('SECRET_ENCRYPTION_KEY is not configured');
     }
+    // Validate the key length here so a misconfigured key fails as a clear 400
+    // rather than an opaque 500 from the crypto layer (the value never reaches it).
+    if (Buffer.from(keyB64, 'base64').length !== 32) {
+      throw engineInvalidInput('SECRET_ENCRYPTION_KEY must be a base64-encoded 32-byte key');
+    }
     return createEncryptedSecret(this.db, { value: dto.value, label: dto.label, keyB64 });
   }
 
