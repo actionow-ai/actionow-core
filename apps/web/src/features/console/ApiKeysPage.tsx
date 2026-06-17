@@ -17,13 +17,14 @@ import { ApiError } from '../../lib/api/errors';
 import { qk } from '../../lib/api/queryKeys';
 import type { CreateApiKeyBody } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { useUrlState } from '../../lib/useUrlState';
 
 export function ApiKeysPage() {
   const { t } = useTranslation('console');
   const api = useAdminApi();
   const qc = useQueryClient();
 
-  const [tenantId, setTenantId] = useState('');
+  const [tenantId, setTenantId] = useUrlState('tenant');
   const { data, isLoading } = useQuery({
     queryKey: qk.apiKeys(tenantId),
     queryFn: () => api.listApiKeys(tenantId),

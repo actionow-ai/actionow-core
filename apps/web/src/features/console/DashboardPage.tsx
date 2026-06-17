@@ -1,6 +1,6 @@
 import { CubeIcon } from '@phosphor-icons/react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleFilters } from '../../components/console/ConsoleChrome';
@@ -14,6 +14,7 @@ import { SectionHeader } from '../../components/ui/SectionHeader';
 import { qk } from '../../lib/api/queryKeys';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE, STALE_VOLATILE } from '../../lib/query';
+import { useUrlState } from '../../lib/useUrlState';
 
 export function DashboardPage() {
   const { t } = useTranslation('console');
@@ -30,7 +31,7 @@ export function DashboardPage() {
     staleTime: STALE_REFERENCE,
   });
 
-  const [tenantId, setTenantId] = useState('');
+  const [tenantId, setTenantId] = useUrlState('tenant');
   const jobs = useQuery({
     queryKey: qk.jobs(tenantId),
     queryFn: () => api.listJobs({ tenantId, limit: 8 }),
