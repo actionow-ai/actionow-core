@@ -4,6 +4,7 @@ import type { AdapterRegistry } from '@actionow/adapters';
 import type { AdapterContext, HttpClient } from '@actionow/contracts';
 import {
   type AccountRow,
+  addChannelToGroup,
   type ApiKeyRow,
   createAccount,
   createApiKey,
@@ -19,6 +20,8 @@ import {
   createPricebookEntry,
   createRedemptionCode,
   createResource,
+  createRouteGroup,
+  type CreateRouteGroupInput,
   createTenant,
   createUpstreamChannel,
   type Database,
@@ -32,6 +35,7 @@ import {
   getOfficialPriceById,
   getPricebookEntryById,
   getResource,
+  getRouteGroupById,
   getSecretRefById,
   getTenant,
   grantModel,
@@ -40,6 +44,7 @@ import {
   type LedgerRow,
   listApiKeys,
   listChannelsForResource,
+  listGroupChannels,
   listJobs,
   listLedger,
   listModelGrants,
@@ -51,6 +56,7 @@ import {
   listRedemptionCodes,
   listRelayTraces,
   listResources,
+  listRouteGroups,
   listSecretRefs,
   listTenants,
   listUsageLogsGlobal,
@@ -65,10 +71,14 @@ import {
   type RedemptionCodeRow,
   type RelayTraceFilter,
   type RelayTraceRow,
+  removeChannelFromGroup,
   type Resource,
   rollupUsage,
+  type RouteGroupChannelRow,
+  type RouteGroupRow,
   type SecretRefRow,
   type SecretRefView,
+  setApiKeyGroup,
   softDeleteApiKey,
   softDeleteChannel,
   softDeleteModel,
@@ -76,6 +86,7 @@ import {
   softDeleteOAuthSession,
   softDeleteOfficialPrice,
   softDeletePricebookEntry,
+  softDeleteRouteGroup,
   softDeleteSecretRef,
   type TenantRow,
   topUp,
@@ -84,6 +95,7 @@ import {
   updateOfficialPrice,
   updatePricebookEntry,
   updateResource,
+  updateRouteGroup,
   updateTenant,
   updateUpstreamChannel,
   upsertModelsFromSync,
@@ -108,6 +120,7 @@ import { engineInvalidInput, engineNotFound } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
 import { ADAPTERS, DB, ENV, HTTP } from '../common/tokens.js';
 import type {
+  AddGroupChannelDto,
   AnalyticsUsageQueryDto,
   CodexLoginComplete,
   CreateAccountDto,
@@ -119,18 +132,21 @@ import type {
   CreateOfficialPriceDto,
   CreatePricebookDto,
   CreateResourceDto,
+  CreateRouteGroupDto,
   CreateSecretDto,
   CreateTenantDto,
   GenerateCodesDto,
   GrantModelDto,
   SyncChannelModelsDto,
   TopupDto,
+  UpdateApiKeyGroupDto,
   UpdateChannelDto,
   UpdateModelDto,
   UpdateModifierDto,
   UpdateOfficialPriceDto,
   UpdatePricebookDto,
   UpdateResourceDto,
+  UpdateRouteGroupDto,
   UpdateTenantDto,
 } from './dto/admin.dto.js';
 
@@ -297,13 +313,52 @@ export class AdminService {
 
   // ----- api keys -----
 
-  /** Mint a key; the plaintext is returned ONCE (only its hash is stored). */
-  createApiKey(dto: CreateApiKeyDto): Promise<CreatedApiKey> {
-    return createApiKey(this.db, {
+  /**
+   * Mint a key; the plaintext is returned ONCE (only its hash is stored). An
+   * optional `routeGroupId` binds the key to a route group (Track 3) — validated
+   * to exist (a non-existent group → 404), then set in a follow-up
+   * {@link setApiKeyGroup} (the mint repo does not take a group). Omitted → the
+   * key is unbound (the `default` group resolves at routing time).
+   */
+  async createApiKey(dto: CreateApiKeyDto): Promise<CreatedApiKey> {
+    if (dto.routeGroupId !== undefined) {
+      await this.requireRouteGroup(dto.routeGroupId);
+    }
+    const created = await createApiKey(this.db, {
       tenantId: dto.tenantId,
       resourceAllowlist: dto.resourceAllowlist,
       rateLimit: dto.rateLimit,
     });
+    if (dto.routeGroupId !== undefined) {
+      await setApiKeyGroup(this.db, created.id, dto.routeGroupId);
+    }
+    return created;
+  }
+
+  /**
+   * (Re)bind an API key to a route group (Track 3). A non-null `routeGroupId` is
+   * validated to exist FIRST (→ 404 when unknown), then bound; `null` unbinds the
+   * key (→ the `default` group resolves at routing time). Throws
+   * `resource_not_found` (404) when the key id matches no live key.
+   */
+  async setApiKeyGroup(keyId: string, dto: UpdateApiKeyGroupDto): Promise<{ id: string }> {
+    if (dto.routeGroupId !== null) {
+      await this.requireRouteGroup(dto.routeGroupId);
+    }
+    const ok = await setApiKeyGroup(this.db, keyId, dto.routeGroupId);
+    if (!ok) {
+      throw engineNotFound(`api key ${keyId} not found`);
+    }
+    return { id: keyId };
+  }
+
+  /** Ensure a route group exists (live), or throw `resource_not_found` (404). */
+  private async requireRouteGroup(groupId: string): Promise<RouteGroupRow> {
+    const group = await getRouteGroupById(this.db, groupId);
+    if (group === undefined) {
+      throw engineNotFound(`route group ${groupId} not found`);
+    }
+    return group;
   }
 
   /** List a tenant's keys WITHOUT the hash (the plaintext is unrecoverable). */
@@ -1255,6 +1310,133 @@ export class AdminService {
       throw engineNotFound(`official price ${id} not found`);
     }
     return { id: deleted };
+  }
+
+  // ----- route groups (分组; Track 3) -----
+
+  /**
+   * Create a route group. `groupRatioBps` is integer basis points (`10000 =
+   * 1.0×`) — passed through unchanged (NOT a credit/USD conversion). A `(name)`
+   * collision among LIVE groups (the partial-unique index, incl. a name still
+   * held by a soft-deleted row) is mapped to a clean 400 via the shared
+   * {@link isUniqueViolation} 23505 walk.
+   */
+  async createRouteGroup(dto: CreateRouteGroupDto): Promise<RouteGroupRow> {
+    const input: CreateRouteGroupInput = {
+      name: dto.name,
+      ...(dto.groupRatioBps !== undefined ? { groupRatioBps: dto.groupRatioBps } : {}),
+      ...(dto.description !== undefined ? { description: dto.description } : {}),
+      ...(dto.status !== undefined ? { status: dto.status } : {}),
+    };
+    try {
+      return await createRouteGroup(this.db, input);
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw engineInvalidInput(`route group '${dto.name}' already exists`);
+      }
+      throw err;
+    }
+  }
+
+  listRouteGroups(page: PageParams): Promise<KeysetResult<RouteGroupRow>> {
+    return listRouteGroups(this.db, page);
+  }
+
+  /** Fetch one route group by id, or `resource_not_found` (404) when absent/soft-deleted. */
+  getRouteGroup(id: string): Promise<RouteGroupRow> {
+    return this.requireRouteGroup(id);
+  }
+
+  /**
+   * Patch a route group (name/group_ratio_bps/status/description). A `(name)`
+   * collision is mapped to a clean 400 (same partial-unique 23505 walk as create);
+   * `description` may be set to `null`. 404 when the group is absent / soft-deleted.
+   */
+  async updateRouteGroup(id: string, dto: UpdateRouteGroupDto): Promise<RouteGroupRow> {
+    const patch: {
+      name?: string;
+      groupRatioBps?: number;
+      status?: string;
+      description?: string | null;
+    } = {};
+    if (dto.name !== undefined) patch.name = dto.name;
+    if (dto.groupRatioBps !== undefined) patch.groupRatioBps = dto.groupRatioBps;
+    if (dto.status !== undefined) patch.status = dto.status;
+    if (dto.description !== undefined) patch.description = dto.description;
+    let row: RouteGroupRow | undefined;
+    try {
+      row = await updateRouteGroup(this.db, id, patch);
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw engineInvalidInput(`route group '${dto.name ?? ''}' already exists`);
+      }
+      throw err;
+    }
+    if (row === undefined) {
+      throw engineNotFound(`route group ${id} not found`);
+    }
+    return row;
+  }
+
+  /**
+   * Revoke (soft-delete) a route group. `listRouteGroups`/`getRouteGroup` and
+   * the Track-4 router (`listGroupChannelsForResource`) all filter soft-deleted,
+   * so the group drops out immediately; the partial unique frees its name. 404
+   * when no live group matched.
+   */
+  async deleteRouteGroup(id: string): Promise<{ id: string }> {
+    const deleted = await softDeleteRouteGroup(this.db, id);
+    if (deleted === undefined) {
+      throw engineNotFound(`route group ${id} not found`);
+    }
+    return { id: deleted };
+  }
+
+  /**
+   * Add a channel to a route group (UPSERTS priority/weight on re-add). Validates
+   * both the group (404 when unknown) and the channel (404 when absent /
+   * soft-deleted) exist first. `priority` (HIGHER = tried first) and `weight`
+   * default to 0/1.
+   */
+  async addChannelToGroup(groupId: string, dto: AddGroupChannelDto): Promise<RouteGroupChannelRow> {
+    await this.requireRouteGroup(groupId);
+    const channel = await getChannelById(this.db, dto.channelId);
+    if (channel === undefined) {
+      throw engineNotFound(`channel ${dto.channelId} not found`);
+    }
+    return addChannelToGroup(this.db, {
+      groupId,
+      channelId: dto.channelId,
+      ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
+      ...(dto.weight !== undefined ? { weight: dto.weight } : {}),
+    });
+  }
+
+  /**
+   * List a group's channel memberships (with their per-(group,channel)
+   * priority/weight), keyset-paginated. 404 when the group itself is absent /
+   * soft-deleted (so an operator can tell a missing group from an empty one).
+   */
+  async listGroupChannels(
+    groupId: string,
+    page: PageParams,
+  ): Promise<KeysetResult<RouteGroupChannelRow>> {
+    await this.requireRouteGroup(groupId);
+    return listGroupChannels(this.db, groupId, page);
+  }
+
+  /**
+   * Remove a channel from a route group (HARD-deletes the membership row).
+   * Validates the group exists (404), then removes; a channel that was not a
+   * member yields a 404 (so the DELETE is observably idempotent on a known group).
+   */
+  async removeChannelFromGroup(groupId: string, channelId: string): Promise<{ channelId: string }> {
+    await this.requireRouteGroup(groupId);
+    const removed = await removeChannelFromGroup(this.db, groupId, channelId);
+    if (!removed) {
+      throw engineNotFound(`channel ${channelId} not a member of route group ${groupId}`);
+    }
+    return { channelId };
   }
 
   // ----- relay traces (upstream audit) -----

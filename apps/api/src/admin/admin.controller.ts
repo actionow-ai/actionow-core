@@ -11,6 +11,8 @@ import type {
   PricebookEntryRow,
   RedemptionCodeRow,
   Resource,
+  RouteGroupChannelRow,
+  RouteGroupRow,
   SecretRefView,
   TenantRow,
   UpstreamChannelRow,
@@ -41,6 +43,8 @@ import { AdminService, type RelayTraceView, toRelayTraceView } from './admin.ser
 import { AdminGuard } from './auth/admin.guard.js';
 import { Roles } from './auth/roles.decorator.js';
 import {
+  type AddGroupChannelDto,
+  addGroupChannelSchema,
   type AnalyticsUsageQueryDto,
   analyticsUsageQuerySchema,
   type CodexLoginComplete,
@@ -65,6 +69,8 @@ import {
   createPricebookSchema,
   type CreateResourceDto,
   createResourceSchema,
+  type CreateRouteGroupDto,
+  createRouteGroupSchema,
   type CreateSecretDto,
   createSecretSchema,
   type CreateTenantDto,
@@ -83,6 +89,8 @@ import {
   syncChannelModelsSchema,
   type TopupDto,
   topupSchema,
+  type UpdateApiKeyGroupDto,
+  updateApiKeyGroupSchema,
   type UpdateChannelDto,
   updateChannelSchema,
   type UpdateModelDto,
@@ -95,6 +103,8 @@ import {
   updatePricebookSchema,
   type UpdateResourceDto,
   updateResourceSchema,
+  type UpdateRouteGroupDto,
+  updateRouteGroupSchema,
   type UpdateTenantDto,
   updateTenantSchema,
 } from './dto/admin.dto.js';
@@ -128,6 +138,8 @@ interface ApiKeyView {
   resource_allowlist: string[];
   rate_limit: number | null;
   status: string;
+  /** The bound route group (Track 3); `null` → the `default` group at routing time. */
+  route_group_id: string | null;
   created_at: string;
 }
 
@@ -328,6 +340,33 @@ interface OfficialPriceView {
 }
 
 /**
+ * A route group (分组; Track 3). `group_ratio_bps` is the customer-price ratio in
+ * integer basis points (`10000 = 1.0×`) — returned as a number (it is a plain
+ * int32, not bigint money).
+ */
+interface RouteGroupView {
+  id: string;
+  name: string;
+  group_ratio_bps: number;
+  status: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One channel membership of a route group (Track 3): the `channel_id` plus its
+ * per-(group,channel) routing knobs `priority` (HIGHER = tried first) + `weight`.
+ */
+interface RouteGroupChannelView {
+  group_id: string;
+  channel_id: string;
+  priority: number;
+  weight: number;
+  created_at: string;
+}
+
+/**
  * A minted redemption code (admin mint listing). The `code` value IS the row's
  * identity on this admin-only surface, so it is returned; no unrelated secret is
  * exposed. `credit_amount` is the bigint µcredit grant as a decimal string.
@@ -453,6 +492,16 @@ export class AdminController {
   ): Promise<PageEnvelope<ApiKeyView>> {
     const result = await this.admin.listApiKeys(tenantId, toPageParams({ cursor, limit }));
     return mapPageEnvelope(result, (r) => r.id, toApiKeyView);
+  }
+
+  @Patch('api-keys/:id')
+  @ApiOperation({ summary: "(Re)bind an API key's route group (routeGroupId: uuid | null)" })
+  async bindApiKeyGroup(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateApiKeyGroupSchema)) dto: UpdateApiKeyGroupDto,
+  ): Promise<{ id: string; route_group_id: string | null }> {
+    await this.admin.setApiKeyGroup(id, dto);
+    return { id, route_group_id: dto.routeGroupId };
   }
 
   @Delete('api-keys/:id')
@@ -946,6 +995,82 @@ export class AdminController {
     await this.admin.deleteOfficialPrice(id);
   }
 
+  // ----- route groups (分组; Track 3) -----
+
+  @Post('route-groups')
+  @HttpCode(201)
+  @Idempotent()
+  @ApiOperation({ summary: 'Create a route group (group_ratio_bps in basis points; name unique)' })
+  async createRouteGroup(
+    @Body(new ZodBody(createRouteGroupSchema)) dto: CreateRouteGroupDto,
+  ): Promise<RouteGroupView> {
+    return toRouteGroupView(await this.admin.createRouteGroup(dto));
+  }
+
+  @Get('route-groups')
+  @ApiOperation({ summary: 'List route groups (paginated)' })
+  async listRouteGroups(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<RouteGroupView>> {
+    const result = await this.admin.listRouteGroups(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toRouteGroupView);
+  }
+
+  @Get('route-groups/:id')
+  @ApiOperation({ summary: 'Get one route group by id or 404' })
+  async getRouteGroup(@Param('id') id: string): Promise<RouteGroupView> {
+    return toRouteGroupView(await this.admin.getRouteGroup(id));
+  }
+
+  @Patch('route-groups/:id')
+  @ApiOperation({ summary: 'Update a route group (name/group_ratio_bps/status/description)' })
+  async updateRouteGroup(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateRouteGroupSchema)) dto: UpdateRouteGroupDto,
+  ): Promise<RouteGroupView> {
+    return toRouteGroupView(await this.admin.updateRouteGroup(id, dto));
+  }
+
+  @Delete('route-groups/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete a route group (frees the name; drops from routing)' })
+  async deleteRouteGroup(@Param('id') id: string): Promise<void> {
+    await this.admin.deleteRouteGroup(id);
+  }
+
+  @Post('route-groups/:id/channels')
+  @HttpCode(201)
+  @Idempotent()
+  @ApiOperation({ summary: 'Add a channel to a route group (with priority/weight; upserts)' })
+  async addGroupChannel(
+    @Param('id') id: string,
+    @Body(new ZodBody(addGroupChannelSchema)) dto: AddGroupChannelDto,
+  ): Promise<RouteGroupChannelView> {
+    return toRouteGroupChannelView(await this.admin.addChannelToGroup(id, dto));
+  }
+
+  @Get('route-groups/:id/channels')
+  @ApiOperation({ summary: "List a group's channel memberships (with priority/weight, paginated)" })
+  async listGroupChannels(
+    @Param('id') id: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<RouteGroupChannelView>> {
+    const result = await this.admin.listGroupChannels(id, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.channelId, toRouteGroupChannelView);
+  }
+
+  @Delete('route-groups/:id/channels/:channelId')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Remove a channel from a route group (hard-deletes the membership)' })
+  async removeGroupChannel(
+    @Param('id') id: string,
+    @Param('channelId') channelId: string,
+  ): Promise<void> {
+    await this.admin.removeChannelFromGroup(id, channelId);
+  }
+
   // ----- usage stats -----
 
   @Get('usage')
@@ -1074,6 +1199,29 @@ function toApiKeyView(row: Omit<ApiKeyRow, 'hash'>): ApiKeyView {
     resource_allowlist: row.resourceAllowlist,
     rate_limit: row.rateLimit,
     status: row.status,
+    route_group_id: row.routeGroupId,
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toRouteGroupView(row: RouteGroupRow): RouteGroupView {
+  return {
+    id: row.id,
+    name: row.name,
+    group_ratio_bps: row.groupRatioBps,
+    status: row.status,
+    description: row.description,
+    created_at: row.createdAt.toISOString(),
+    updated_at: row.updatedAt.toISOString(),
+  };
+}
+
+function toRouteGroupChannelView(row: RouteGroupChannelRow): RouteGroupChannelView {
+  return {
+    group_id: row.groupId,
+    channel_id: row.channelId,
+    priority: row.priority,
+    weight: row.weight,
     created_at: row.createdAt.toISOString(),
   };
 }

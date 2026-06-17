@@ -27,6 +27,7 @@ function repoWithKey(record: Partial<ApiKeyRecord> = {}): ApiKeyRepo {
     resourceAllowlist: [],
     rateLimit: null,
     status: 'active',
+    routeGroupId: null,
     ...record,
   };
   return {
@@ -128,6 +129,7 @@ describe('ApiKeyGuard', () => {
           resourceAllowlist: [],
           rateLimit: null,
           status: 'active',
+          routeGroupId: null,
         }),
       getAccountByTenant: (): Promise<{ id: string } | undefined> => Promise.resolve(undefined),
     } as unknown as ApiKeyRepo;

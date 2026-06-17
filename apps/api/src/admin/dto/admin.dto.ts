@@ -48,8 +48,25 @@ export const createApiKeySchema = z.object({
   resourceAllowlist: z.array(z.string()).optional(),
   /** Per-(tenant,resource) requests-per-minute cap; omitted → default. */
   rateLimit: z.number().int().positive().optional(),
+  /**
+   * The route group (分组; Track 3) to bind this key to; omitted → null (the key
+   * falls back to the `default` group at routing time). The service validates
+   * the group exists.
+   */
+  routeGroupId: z.string().uuid().optional(),
 });
 export type CreateApiKeyDto = z.infer<typeof createApiKeySchema>;
+
+/**
+ * `PATCH /admin/api-keys/:id` — (re)bind a key's route group (Track 3). The
+ * `routeGroupId` is REQUIRED on the body but nullable: a uuid binds the key,
+ * `null` unbinds it (→ the `default` group resolves at routing time). The
+ * service validates a non-null group exists.
+ */
+export const updateApiKeyGroupSchema = z.object({
+  routeGroupId: z.string().uuid().nullable(),
+});
+export type UpdateApiKeyGroupDto = z.infer<typeof updateApiKeyGroupSchema>;
 
 /** `POST /admin/resources` — register a catalog resource (+ its io_schema). */
 export const createResourceSchema = z.object({
@@ -442,3 +459,46 @@ export const officialPricesQuerySchema = z.object({
   cursor: z.string().optional(),
 });
 export type OfficialPricesQueryDto = z.infer<typeof officialPricesQuerySchema>;
+
+/**
+ * `POST /admin/route-groups` — create a route group (分组; Track 3). `groupRatioBps`
+ * is the customer-price ratio in integer BASIS POINTS (`10000 = 1.0×`); entered
+ * directly as bps (NOT a float), defaults to 10000. `(name)` is unique among LIVE
+ * groups (the service maps a collision to a clean 400).
+ */
+export const createRouteGroupSchema = z.object({
+  name: z.string().min(1),
+  /** Customer-price ratio in basis points (`10000 = 1.0×`). Defaults to 10000. */
+  groupRatioBps: z.number().int().positive().optional(),
+  description: z.string().optional(),
+  status: z.enum(['active', 'disabled']).optional(),
+});
+export type CreateRouteGroupDto = z.infer<typeof createRouteGroupSchema>;
+
+/**
+ * `PATCH /admin/route-groups/:id` — update a route group. Every field is optional
+ * (omitted = unchanged). `groupRatioBps` stays integer basis points (same
+ * convention as create). `description` may be set to `null` to clear it.
+ */
+export const updateRouteGroupSchema = z.object({
+  name: z.string().min(1).optional(),
+  groupRatioBps: z.number().int().positive().optional(),
+  status: z.enum(['active', 'disabled']).optional(),
+  description: z.string().nullable().optional(),
+});
+export type UpdateRouteGroupDto = z.infer<typeof updateRouteGroupSchema>;
+
+/**
+ * `POST /admin/route-groups/:id/channels` — add a channel to a group with its
+ * per-(group,channel) routing knobs. `priority` (HIGHER = tried first) and
+ * `weight` (weighted-random within a tier) default to 0/1. An add of an
+ * already-member channel upserts (updates priority/weight).
+ */
+export const addGroupChannelSchema = z.object({
+  channelId: z.string().uuid(),
+  /** HIGHER = tried first (fallback tier). Defaults to 0. */
+  priority: z.number().int().optional(),
+  /** Weighted-random weight within a priority tier. Defaults to 1. */
+  weight: z.number().int().positive().optional(),
+});
+export type AddGroupChannelDto = z.infer<typeof addGroupChannelSchema>;
