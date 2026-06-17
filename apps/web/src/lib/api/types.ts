@@ -184,6 +184,26 @@ export type ModifierOp = 'override_rate' | 'percent_off' | 'flat_off' | 'percent
 export type DifyPricingModel = 'fixed' | 'matrix' | 'metered';
 export type ChannelStatus = 'active' | 'disabled';
 
+/** PATCH a resource — only `status` is mutable (key fields are immutable). */
+export interface UpdateResourceBody {
+  status?: 'active' | 'disabled';
+}
+/**
+ * POST channel sync-models body. Prices are µcredit-PER-TOKEN integers (same
+ * convention as the model catalog), applied only to newly-created models.
+ */
+export interface SyncChannelModelsBody {
+  defaultInputPrice?: number;
+  defaultOutputPrice?: number;
+}
+/** Result of a channel sync-models run: the model names created/updated. */
+export interface SyncChannelModelsResult {
+  resource_id: string;
+  created: string[];
+  updated: string[];
+  total: number;
+}
+
 export interface CreateResourceBody {
   id: string;
   tenantId: string;
