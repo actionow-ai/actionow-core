@@ -15,6 +15,7 @@ export function NumberField({
   step,
   error,
   hint,
+  tooltip,
   required,
   disabled,
   id,
@@ -27,13 +28,14 @@ export function NumberField({
   step?: number;
   error?: string;
   hint?: string;
+  tooltip?: string;
   required?: boolean;
   disabled?: boolean;
   id?: string;
 }) {
   const fieldId = useFieldId(id);
   return (
-    <FormField id={fieldId} label={label} error={error} hint={hint} required={required}>
+    <FormField id={fieldId} label={label} error={error} hint={hint} tooltip={tooltip} required={required}>
       <input
         id={fieldId}
         type="number"

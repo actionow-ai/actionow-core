@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { useId } from 'react';
 
+import { Tooltip } from './Tooltip';
+
 /**
  * Resolve a stable field id: the explicit one if given, otherwise a generated
  * id that survives re-renders (so labels stay associated with their controls).
@@ -23,6 +25,7 @@ export function FormField({
   error,
   hint,
   required,
+  tooltip,
   children,
 }: {
   id: string;
@@ -30,14 +33,26 @@ export function FormField({
   error?: string;
   hint?: string;
   required?: boolean;
+  /** When set, renders a ⓘ Tooltip next to the label text with this description. */
+  tooltip?: string;
   children: ReactNode;
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {label !== undefined && (
-        <label htmlFor={id} style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>
+        <label
+          htmlFor={id}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 'var(--s-1)',
+            fontSize: 'var(--fs-sm)',
+            color: 'var(--muted)',
+          }}
+        >
           {label}
           {required === true && <span style={{ color: 'var(--fail)' }}> *</span>}
+          {tooltip !== undefined && <Tooltip text={tooltip} />}
         </label>
       )}
       {children}

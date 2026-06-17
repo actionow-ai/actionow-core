@@ -18,6 +18,7 @@ export function SelectField({
   placeholder,
   error,
   hint,
+  tooltip,
 }: {
   label: string;
   value: string;
@@ -26,10 +27,11 @@ export function SelectField({
   placeholder?: string;
   error?: string;
   hint?: string;
+  tooltip?: string;
 }) {
   const fieldId = useFieldId();
   return (
-    <FormField id={fieldId} label={label} error={error} hint={hint}>
+    <FormField id={fieldId} label={label} error={error} hint={hint} tooltip={tooltip}>
       <Select id={fieldId} value={value} onChange={onChange} options={options} placeholder={placeholder} ariaLabel={label} />
     </FormField>
   );

@@ -12,6 +12,7 @@ export function TextField({
   onChange,
   error,
   hint,
+  tooltip,
   required,
   type = 'text',
   placeholder,
@@ -24,6 +25,7 @@ export function TextField({
   onChange: (value: string) => void;
   error?: string;
   hint?: string;
+  tooltip?: string;
   required?: boolean;
   type?: 'text' | 'email' | 'password' | 'url' | 'tel' | 'search';
   placeholder?: string;
@@ -33,7 +35,7 @@ export function TextField({
 }) {
   const fieldId = useFieldId(id);
   return (
-    <FormField id={fieldId} label={label} error={error} hint={hint} required={required}>
+    <FormField id={fieldId} label={label} error={error} hint={hint} tooltip={tooltip} required={required}>
       <input
         id={fieldId}
         type={type}
