@@ -99,6 +99,13 @@
       "when": 1781677922253,
       "tag": "0013_cultured_ben_grimm",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1781694156361,
+      "tag": "0014_clammy_rockslide",
+      "breakpoints": true
     }
   ]
 }

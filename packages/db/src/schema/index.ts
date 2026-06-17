@@ -7,5 +7,6 @@ export * from './oauth.js';
 export * from './payment.js';
 export * from './pricing.js';
 export * from './redemption.js';
+export * from './relay-trace.js';
 export * from './storage.js';
 export * from './usage.js';
