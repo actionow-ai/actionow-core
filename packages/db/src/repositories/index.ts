@@ -34,6 +34,7 @@ export {
   type LinkIdentityInput,
   linkIdentityTx,
   rotateApiKeyForTenant,
+  softDeleteApiKey,
   type UserRecord,
 } from './auth.js';
 export {
@@ -58,6 +59,7 @@ export {
   getResourceVersion,
   getResourceWithSchema,
   getSecretRef,
+  getSecretRefById,
   listActiveModifiers,
   listApplicableModifiers,
   listChannels,
@@ -67,6 +69,7 @@ export {
   listPricebookEntries,
   listResources,
   listResourcesByTenant,
+  listSecretRefs,
   type ModifierRow,
   type ModifierScopeTarget,
   type PricebookEntryRow,
@@ -75,6 +78,8 @@ export {
   type ResourceVersionRow,
   type ResourceWithSchema,
   type SecretRefRow,
+  type SecretRefView,
+  softDeleteSecretRef,
   updateResourceStatus,
   updateUpstreamChannel,
   type UpdateUpstreamChannelInput,
@@ -129,6 +134,7 @@ export {
   markNeedsReauth,
   type OAuthSessionListRow,
   type OAuthSessionRow,
+  softDeleteOAuthSession,
   updateOAuthTokens,
   type UpdateOAuthTokensInput,
 } from './oauth-session.js';

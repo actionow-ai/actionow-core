@@ -24,6 +24,7 @@ import {
   encryptSecret,
   getAccount,
   getResource,
+  getSecretRefById,
   grantModel,
   type Job,
   type KeysetResult,
@@ -38,6 +39,7 @@ import {
   listPricebookEntries,
   listRelayTraces,
   listResources,
+  listSecretRefs,
   listTenants,
   listUsageLogsGlobal,
   type ModelRow,
@@ -50,6 +52,10 @@ import {
   type Resource,
   rollupUsage,
   type SecretRefRow,
+  type SecretRefView,
+  softDeleteApiKey,
+  softDeleteOAuthSession,
+  softDeleteSecretRef,
   type TenantRow,
   topUp,
   updateUpstreamChannel,
@@ -189,6 +195,20 @@ export class AdminService {
     return listApiKeys(this.db, tenantId, page);
   }
 
+  /**
+   * Revoke (soft-delete) an API key by id. The {@link ApiKeyGuard} treats a
+   * soft-deleted key as absent (its lookup filters `deleted_at IS NULL`), so the
+   * SAME key is rejected with 401 afterwards. Throws `resource_not_found` (404)
+   * when the id does not match a live key (already revoked / unknown).
+   */
+  async revokeApiKey(keyId: string): Promise<{ id: string }> {
+    const id = await softDeleteApiKey(this.db, keyId);
+    if (id === undefined) {
+      throw engineNotFound(`api key ${keyId} not found`);
+    }
+    return { id };
+  }
+
   // ----- secrets -----
 
   /**
@@ -207,6 +227,43 @@ export class AdminService {
       throw engineInvalidInput('SECRET_ENCRYPTION_KEY must be a base64-encoded 32-byte key');
     }
     return createEncryptedSecret(this.db, { value: dto.value, label: dto.label, keyB64 });
+  }
+
+  /**
+   * List credentials (secret_refs) for the operator view, METADATA ONLY. The
+   * {@link listSecretRefs} repo selects only id/provider/locator/timestamps —
+   * the `enc` ciphertext (in `secret_material`) is never joined — so a secret
+   * VALUE can never leave the service via this path.
+   */
+  listSecrets(page: PageParams): Promise<KeysetResult<SecretRefView>> {
+    return listSecretRefs(this.db, page);
+  }
+
+  /**
+   * Fetch one credential's METADATA by id (never the material). Throws
+   * `resource_not_found` (404) when the id does not match a live secret
+   * (soft-deleted / unknown).
+   */
+  async getSecret(id: string): Promise<SecretRefView> {
+    const row = await getSecretRefById(this.db, id);
+    if (row === undefined) {
+      throw engineNotFound(`secret ${id} not found`);
+    }
+    return row;
+  }
+
+  /**
+   * Revoke (soft-delete) a credential by id. {@link resolveSecretRef} treats a
+   * soft-deleted secret as absent (its `getSecretRef` deref filters
+   * `deleted_at IS NULL`), so resolution returns `undefined` afterwards. Throws
+   * `resource_not_found` (404) when the id does not match a live secret.
+   */
+  async revokeSecret(id: string): Promise<{ id: string }> {
+    const deleted = await softDeleteSecretRef(this.db, id);
+    if (deleted === undefined) {
+      throw engineNotFound(`secret ${id} not found`);
+    }
+    return { id: deleted };
   }
 
   // ----- oauth sessions (BYO subscription) -----
@@ -265,6 +322,24 @@ export class AdminService {
       throw engineInvalidInput('oauth channels are disabled (set ENABLE_OAUTH_CHANNELS)');
     }
     return listOAuthSessions(this.db, page);
+  }
+
+  /**
+   * Revoke (soft-delete) a registered OAuth-subscription session by its
+   * `secret_ref` id. Soft-deletes both the `oauth_session` and its owning
+   * `secret_ref` so {@link resolveSecretRef} returns `undefined` (the oauth
+   * branch derefs through {@link getOAuthSession}, which filters `deleted_at`)
+   * and the credential drops out of every listing. NOT gated on
+   * `ENABLE_OAUTH_CHANNELS` — revoking a credential must always be possible
+   * (a security operation), even if the feature was later disabled. Throws
+   * `resource_not_found` (404) when the id does not match a live session.
+   */
+  async revokeOAuthSession(secretRefId: string): Promise<{ id: string }> {
+    const id = await softDeleteOAuthSession(this.db, secretRefId);
+    if (id === undefined) {
+      throw engineNotFound(`oauth session ${secretRefId} not found`);
+    }
+    return { id };
   }
 
   /**

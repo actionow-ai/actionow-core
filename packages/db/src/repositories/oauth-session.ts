@@ -188,6 +188,45 @@ export async function markNeedsReauth(db: DbOrTx, secretRefId: string): Promise<
 }
 
 /**
+ * Revoke a BYO OAuth-subscription session by SOFT-DELETING it: stamps
+ * `deleted_at`/`updated_at` (`now()`) on the `oauth_session` AND its owning
+ * `secret_ref`, in one transaction, only when the session is still live.
+ *
+ * Soft-deleting the `oauth_session` alone already makes resolution fail —
+ * {@link resolveSecretRef}'s oauth branch goes through
+ * {@link getDecryptedOAuthSession} → {@link getOAuthSession}, which filters
+ * `deleted_at IS NULL` (so a decrypted session is never returned and the
+ * `status !== 'active'` guard yields `undefined`). The owning `secret_ref` is
+ * stamped too so the revoked credential also disappears from the secret
+ * listing/get path (`getSecretRef` filters `deleted_at`) — a single revoke
+ * leaves no live trace of the credential anywhere.
+ *
+ * Returns the `secret_ref` id (the session pk + the channel `credentialRef`), or
+ * `undefined` when nothing matched (not found / already revoked) — a second
+ * revoke is a safe no-op, never a throw.
+ */
+export async function softDeleteOAuthSession(
+  db: DbOrTx,
+  secretRefId: string,
+): Promise<string | undefined> {
+  const now = new Date();
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .update(oauthSession)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(and(eq(oauthSession.secretRefId, secretRefId), isNull(oauthSession.deletedAt)))
+      .returning({ secretRefId: oauthSession.secretRefId });
+    const hit = rows[0]?.secretRefId;
+    if (hit === undefined) return undefined;
+    await tx
+      .update(secretRef)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(and(eq(secretRef.id, secretRefId), isNull(secretRef.deletedAt)));
+    return hit;
+  });
+}
+
+/**
  * A token-free `oauth_session` row for the admin listing — selects every column
  * EXCEPT the AES-GCM ciphertext (`access_enc`/`refresh_enc`) and the internal
  * `refresh_lock_at` singleflight stamp. Carries NO secret material.

@@ -8,6 +8,7 @@ import type {
   OAuthSessionListRow,
   PricebookEntryRow,
   Resource,
+  SecretRefView,
   TenantRow,
   UpstreamChannelRow,
   UsageLogRow,
@@ -16,6 +17,7 @@ import type {
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -110,6 +112,20 @@ interface SecretView {
   id: string;
   provider: string;
   created_at: string;
+}
+
+/**
+ * A credential's metadata for the list/get-by-id surface. EXCLUDES the secret
+ * material by construction: only the locator/provider/timestamps are projected
+ * (the `enc` ciphertext lives in `secret_material` and is never selected). `id`
+ * is usable as a channel `credentialRef`.
+ */
+interface SecretMetadataView {
+  id: string;
+  provider: string;
+  locator: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -339,6 +355,13 @@ export class AdminController {
     return mapPageEnvelope(result, (r) => r.id, toApiKeyView);
   }
 
+  @Delete('api-keys/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Revoke (soft-delete) an API key — the key is rejected with 401 after' })
+  async revokeApiKey(@Param('id') id: string): Promise<void> {
+    await this.admin.revokeApiKey(id);
+  }
+
   // ----- secrets -----
 
   @Post('secrets')
@@ -349,6 +372,31 @@ export class AdminController {
   ): Promise<SecretView> {
     const row = await this.admin.createSecret(dto);
     return { id: row.id, provider: row.provider, created_at: row.createdAt.toISOString() };
+  }
+
+  @Get('secrets')
+  @ApiOperation({ summary: 'List credentials (metadata only, NO material, paginated)' })
+  async listSecrets(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<SecretMetadataView>> {
+    const result = await this.admin.listSecrets(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toSecretMetadataView);
+  }
+
+  @Get('secrets/:id')
+  @ApiOperation({ summary: 'Get one credential (metadata only, NO material) or 404' })
+  async getSecret(@Param('id') id: string): Promise<SecretMetadataView> {
+    return toSecretMetadataView(await this.admin.getSecret(id));
+  }
+
+  @Delete('secrets/:id')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: 'Revoke (soft-delete) a credential — resolution returns undefined after',
+  })
+  async revokeSecret(@Param('id') id: string): Promise<void> {
+    await this.admin.revokeSecret(id);
   }
 
   // ----- oauth sessions (BYO subscription) -----
@@ -378,6 +426,15 @@ export class AdminController {
   ): Promise<PageEnvelope<OAuthSessionListView>> {
     const result = await this.admin.listOAuthSessions(toPageParams({ cursor, limit }));
     return mapPageEnvelope(result, (r) => r.secretRefId, toOAuthSessionListView);
+  }
+
+  @Delete('oauth-sessions/:id')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: 'Revoke (soft-delete) an OAuth session — channel resolution returns undefined after',
+  })
+  async revokeOAuthSession(@Param('id') id: string): Promise<void> {
+    await this.admin.revokeOAuthSession(id);
   }
 
   @Post('oauth-sessions/codex/login/start')
@@ -684,6 +741,16 @@ function toApiKeyView(row: Omit<ApiKeyRow, 'hash'>): ApiKeyView {
     rate_limit: row.rateLimit,
     status: row.status,
     created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toSecretMetadataView(row: SecretRefView): SecretMetadataView {
+  return {
+    id: row.id,
+    provider: row.provider,
+    locator: row.locator,
+    created_at: row.createdAt.toISOString(),
+    updated_at: row.updatedAt.toISOString(),
   };
 }
 

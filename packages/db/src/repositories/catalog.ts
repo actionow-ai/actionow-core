@@ -527,6 +527,84 @@ export async function getSecretRef(db: DbOrTx, id: string): Promise<SecretRefRow
   return rows[0];
 }
 
+/**
+ * Metadata-only view of a `secret_ref` — id/provider/locator/timestamps. NEVER
+ * carries the secret material: for `enc` secrets the AES-GCM ciphertext lives in
+ * the separate `secret_material` table (not selected here), and `env`/`oauth`
+ * locators reference a value resolved at run time. Used by the admin
+ * list/get-by-id surface so the operator never sees a credential value.
+ */
+export interface SecretRefView {
+  readonly id: string;
+  readonly provider: string;
+  readonly locator: string;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+}
+
+/** The metadata columns selected for a {@link SecretRefView} (no material). */
+const SECRET_REF_VIEW_COLUMNS = {
+  id: secretRef.id,
+  provider: secretRef.provider,
+  locator: secretRef.locator,
+  createdAt: secretRef.createdAt,
+  updatedAt: secretRef.updatedAt,
+} as const;
+
+/**
+ * Alias for {@link getSecretRef} that returns the metadata-only {@link SecretRefView}
+ * (no material) for the admin `GET /admin/secrets/:id` route. Soft-deleted →
+ * `undefined`. The full {@link getSecretRef} row carries no material either (the
+ * ciphertext lives in `secret_material`), so this is purely a typed projection.
+ */
+export async function getSecretRefById(db: DbOrTx, id: string): Promise<SecretRefView | undefined> {
+  const rows = await db
+    .select(SECRET_REF_VIEW_COLUMNS)
+    .from(secretRef)
+    .where(and(eq(secretRef.id, id), isNull(secretRef.deletedAt)))
+    .limit(1);
+  return rows[0];
+}
+
+/**
+ * List live `secret_ref` rows (excludes soft-deleted), newest-first,
+ * keyset-paginated on `(created_at, id)`. METADATA ONLY: the projection omits any
+ * material — the `enc` ciphertext (in `secret_material`) is never joined — so the
+ * secret value can never leave the service via this path.
+ */
+export async function listSecretRefs(
+  db: DbOrTx,
+  page: PageParams,
+): Promise<KeysetResult<SecretRefView>> {
+  return keysetPage<SecretRefView>(db, {
+    table: secretRef,
+    createdAtCol: secretRef.createdAt,
+    idCol: secretRef.id,
+    selection: SECRET_REF_VIEW_COLUMNS,
+    where: isNull(secretRef.deletedAt),
+    page,
+  });
+}
+
+/**
+ * Revoke a `secret_ref` by SOFT-DELETING it: stamps `deleted_at`/`updated_at`
+ * (`now()`) only when the row is still live. Resolution fails afterwards because
+ * {@link getSecretRef} filters `deleted_at IS NULL` (the `enc`/`env` branches of
+ * {@link resolveSecretRef} both deref through it); the 1:1 `secret_material`
+ * ciphertext is intentionally LEFT in place (orphaned but unreachable). Returns
+ * the deleted id, or `undefined` when nothing matched (not found / already
+ * revoked) — a second revoke is a safe no-op, never a throw.
+ */
+export async function softDeleteSecretRef(db: DbOrTx, id: string): Promise<string | undefined> {
+  const now = new Date();
+  const rows = await db
+    .update(secretRef)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(and(eq(secretRef.id, id), isNull(secretRef.deletedAt)))
+    .returning({ id: secretRef.id });
+  return rows[0]?.id;
+}
+
 /** Fields a caller supplies to {@link createSecretRef}. */
 export interface CreateSecretRefInput {
   /** `env` | `vault` — where the secret is materialized from. */

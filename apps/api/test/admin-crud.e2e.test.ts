@@ -4,6 +4,7 @@ import {
   createUser,
   getDecryptedOAuthSession,
   listRefreshableSessions,
+  resolveSecretRef,
   schema,
 } from '@actionow/db';
 import { hashPassword } from '@actionow/infra';
@@ -697,6 +698,176 @@ describe('POST /admin/oauth-sessions/codex/login/complete (turnkey, ToS-gated)',
     } finally {
       await disabled.app.close();
     }
+  });
+});
+
+describe('Track D1: credential revocation (soft-delete) denies access', () => {
+  it('a revoked api_key is rejected with 401 on /v1/* (guard treats soft-deleted as absent)', async () => {
+    // a tenant WITH an account — the ApiKeyGuard resolves the account on success.
+    const tenantRes = await auth(
+      request(app.getHttpServer()).post('/admin/tenants').send({ name: 'revoke-key' }),
+    ).expect(201);
+    const tenantId = tenantRes.body.id as string;
+    await auth(
+      request(app.getHttpServer()).post('/admin/accounts').send({ tenantId, credits: 10 }),
+    ).expect(201);
+
+    // mint a key (no allowlist → may run any resource, incl. /v1/models discovery)
+    const keyRes = await auth(
+      request(app.getHttpServer()).post('/admin/api-keys').send({ tenantId }),
+    ).expect(201);
+    const keyId = keyRes.body.id as string;
+    const plaintext = keyRes.body.plaintext as string;
+
+    // the LIVE key authenticates on a guarded /v1/* route.
+    await request(app.getHttpServer())
+      .get('/v1/models')
+      .set('authorization', `Bearer ${plaintext}`)
+      .expect(200);
+
+    // revoke = soft-delete → 204.
+    await auth(request(app.getHttpServer()).delete(`/admin/api-keys/${keyId}`)).expect(204);
+
+    // the SAME key is now rejected — the guard's lookup filters deleted_at, so a
+    // revoked key authenticates as absent (401 unauthorized), proving revocation
+    // actually denies access.
+    const denied = await request(app.getHttpServer())
+      .get('/v1/models')
+      .set('authorization', `Bearer ${plaintext}`)
+      .expect(401);
+    expect(denied.body.error.code).toBe('unauthorized');
+
+    // it also drops out of the tenant's key listing.
+    const list = await auth(
+      request(app.getHttpServer()).get('/admin/api-keys').query({ tenantId }),
+    ).expect(200);
+    expect(list.body.data.map((k: { id: string }) => k.id)).not.toContain(keyId);
+
+    // a second revoke is a 404 (no live row to delete).
+    await auth(request(app.getHttpServer()).delete(`/admin/api-keys/${keyId}`)).expect(404);
+  });
+
+  it('a revoked oauth_session no longer resolves and is delisted', async () => {
+    // seed an oauth session directly (the same path the relay resolves against).
+    const ref = await createOAuthSession(db, {
+      providerKind: 'codex-oauth',
+      accessToken: 'revoke-oauth-at',
+      refreshToken: 'revoke-oauth-rt',
+      accountLabel: 'to-revoke',
+      keyB64: SECRET_KEY_B64,
+      expiresAt: new Date('2026-06-17T01:00:00.000Z'),
+    });
+
+    // BEFORE: the credential resolver returns the live access token, and the
+    // session is listed.
+    process.env.SECRET_ENCRYPTION_KEY = SECRET_KEY_B64;
+    await expect(resolveSecretRef(db, ref.id)).resolves.toBe('revoke-oauth-at');
+    await expect(getDecryptedOAuthSession(db, ref.id, SECRET_KEY_B64)).resolves.toMatchObject({
+      accessToken: 'revoke-oauth-at',
+    });
+    const before = await auth(request(app.getHttpServer()).get('/admin/oauth-sessions')).expect(
+      200,
+    );
+    expect(before.body.data.map((s: { id: string }) => s.id)).toContain(ref.id);
+
+    // revoke via the admin endpoint → 204.
+    await auth(request(app.getHttpServer()).delete(`/admin/oauth-sessions/${ref.id}`)).expect(204);
+
+    // AFTER: channel resolution now returns undefined (the access token is no
+    // longer reachable), and the session is gone from the listing.
+    await expect(resolveSecretRef(db, ref.id)).resolves.toBeUndefined();
+    const after = await auth(request(app.getHttpServer()).get('/admin/oauth-sessions')).expect(200);
+    expect(after.body.data.map((s: { id: string }) => s.id)).not.toContain(ref.id);
+
+    // a second revoke is a 404.
+    await auth(request(app.getHttpServer()).delete(`/admin/oauth-sessions/${ref.id}`)).expect(404);
+  });
+
+  it('a revoked secret no longer resolves and is delisted', async () => {
+    process.env.SECRET_ENCRYPTION_KEY = SECRET_KEY_B64;
+    const created = await auth(
+      request(app.getHttpServer())
+        .post('/admin/secrets')
+        .send({ value: 'sk-revoke-secret', label: 'revoke' }),
+    ).expect(201);
+    const id = created.body.id as string;
+
+    // BEFORE: resolves to the encrypted-then-decrypted plaintext, and is listed.
+    await expect(resolveSecretRef(db, id)).resolves.toBe('sk-revoke-secret');
+    const before = await auth(request(app.getHttpServer()).get('/admin/secrets')).expect(200);
+    expect(before.body.data.map((s: { id: string }) => s.id)).toContain(id);
+
+    // revoke → 204.
+    await auth(request(app.getHttpServer()).delete(`/admin/secrets/${id}`)).expect(204);
+
+    // AFTER: resolution returns undefined and the secret is delisted.
+    await expect(resolveSecretRef(db, id)).resolves.toBeUndefined();
+    const after = await auth(request(app.getHttpServer()).get('/admin/secrets')).expect(200);
+    expect(after.body.data.map((s: { id: string }) => s.id)).not.toContain(id);
+    await auth(request(app.getHttpServer()).get(`/admin/secrets/${id}`)).expect(404);
+
+    // a second revoke is a 404.
+    await auth(request(app.getHttpServer()).delete(`/admin/secrets/${id}`)).expect(404);
+  });
+});
+
+describe('Track D1: secrets list / get (metadata only, never the material)', () => {
+  it('paginates the list, exposes only metadata, and gets one by id', async () => {
+    const s1 = await auth(
+      request(app.getHttpServer())
+        .post('/admin/secrets')
+        .send({ value: 'sk-list-1', label: 'one' }),
+    ).expect(201);
+    const s2 = await auth(
+      request(app.getHttpServer())
+        .post('/admin/secrets')
+        .send({ value: 'sk-list-2', label: 'two' }),
+    ).expect(201);
+    const id1 = s1.body.id as string;
+    const id2 = s2.body.id as string;
+
+    // page 1 of size 1 → has_more=true, a non-null next_cursor, and NO material.
+    const page1 = await auth(
+      request(app.getHttpServer()).get('/admin/secrets').query({ limit: 1 }),
+    ).expect(200);
+    expect(page1.body.data).toHaveLength(1);
+    expect(page1.body.has_more).toBe(true);
+    expect(page1.body.next_cursor).toBeTypeOf('string');
+    const serialized1 = JSON.stringify(page1.body);
+    expect(serialized1).not.toContain('sk-list-1');
+    expect(serialized1).not.toContain('sk-list-2');
+    // metadata-only shape: id/provider/locator/timestamps, no `value`/`material`.
+    const item = page1.body.data[0];
+    expect(item).toHaveProperty('id');
+    expect(item).toHaveProperty('provider', 'enc');
+    expect(item).toHaveProperty('locator');
+    expect(item).toHaveProperty('created_at');
+    expect(item).not.toHaveProperty('value');
+    expect(item).not.toHaveProperty('material');
+
+    // page 2 via the cursor → the remaining secret, has_more=false.
+    const page2 = await auth(
+      request(app.getHttpServer())
+        .get('/admin/secrets')
+        .query({ limit: 1, cursor: page1.body.next_cursor }),
+    ).expect(200);
+    expect(page2.body.data).toHaveLength(1);
+    expect(page2.body.has_more).toBe(false);
+    const seen = [page1.body.data[0].id, page2.body.data[0].id];
+    expect(new Set(seen)).toEqual(new Set([id1, id2]));
+
+    // get-by-id returns metadata only.
+    const got = await auth(request(app.getHttpServer()).get(`/admin/secrets/${id1}`)).expect(200);
+    expect(got.body.id).toBe(id1);
+    expect(got.body.provider).toBe('enc');
+    expect(JSON.stringify(got.body)).not.toContain('sk-list-1');
+    expect(got.body).not.toHaveProperty('value');
+
+    // a missing id → 404.
+    const missing = await auth(
+      request(app.getHttpServer()).get('/admin/secrets/00000000-0000-0000-0000-000000000000'),
+    ).expect(404);
+    expect(missing.body.error.code).toBe('resource_not_found');
   });
 });
 

@@ -138,6 +138,39 @@ export async function disableApiKeyForTenant(
 }
 
 /**
+ * Revoke an API key by SOFT-DELETING it: stamps `deleted_at`/`updated_at`
+ * (`now()`) only when the row is still live. A revoked key authenticates as
+ * absent — {@link findApiKeyByHash} filters `deleted_at IS NULL`, so the auth
+ * guard sees no record and rejects with 401 (Track D revoke).
+ *
+ * `tenantId` is OPTIONAL: when supplied the delete is tenant-predicated in SQL
+ * (a cross-tenant id matches no row), matching the tenant-scoped read repos
+ * (`getApiKeyForTenant`/`disableApiKeyForTenant`); when omitted the admin
+ * operator revokes by `:id` across tenants. Returns the deleted key's `id`, or
+ * `undefined` when nothing matched (not found / already revoked / wrong tenant)
+ * — a second revoke is a safe no-op, never a throw.
+ */
+export async function softDeleteApiKey(
+  db: DbOrTx,
+  keyId: string,
+  tenantId?: string,
+): Promise<string | undefined> {
+  const now = new Date();
+  const rows = await db
+    .update(apiKey)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(apiKey.id, keyId),
+        ...(tenantId !== undefined ? [eq(apiKey.tenantId, tenantId)] : []),
+        isNull(apiKey.deletedAt),
+      ),
+    )
+    .returning({ id: apiKey.id });
+  return rows[0]?.id;
+}
+
+/**
  * Rotate a tenant's key in one transaction: mint a fresh plaintext that inherits
  * the old key's `resourceAllowlist`/`rateLimit`, then disable the old row. The
  * tenant predicate is in SQL — a cross-tenant id is a no-op returning `undefined`
