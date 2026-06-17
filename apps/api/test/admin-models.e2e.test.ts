@@ -163,3 +163,90 @@ describe('admin model catalog', () => {
     ).expect(201);
   });
 });
+
+describe('D2: model get / patch / delete', () => {
+  it('creates → GET-by-name → PATCH (fields change) → DELETE (204) → 404 + delisted', async () => {
+    await auth(
+      request(app.getHttpServer())
+        .post('/admin/models')
+        .send({ name: 'gpt-d2', resourceId: 'gpt4o-res', inputPrice: 3, outputPrice: 7 }),
+    ).expect(201);
+
+    // GET-by-name
+    const got = await auth(request(app.getHttpServer()).get('/admin/models/gpt-d2')).expect(200);
+    expect(got.body.name).toBe('gpt-d2');
+    expect(got.body.input_price).toBe('3');
+    expect(got.body.visibility).toBe('public');
+
+    // PATCH — display/prices (µcredit ints stay ints)/visibility/status all change.
+    const patched = await auth(
+      request(app.getHttpServer()).patch('/admin/models/gpt-d2').send({
+        display: 'GPT D2',
+        inputPrice: 30,
+        visibility: 'tenant',
+        status: 'disabled',
+      }),
+    ).expect(200);
+    expect(patched.body.display).toBe('GPT D2');
+    expect(patched.body.input_price).toBe('30');
+    expect(patched.body.output_price).toBe('7'); // untouched
+    expect(patched.body.visibility).toBe('tenant');
+    expect(patched.body.status).toBe('disabled');
+
+    // DELETE → 204
+    await auth(request(app.getHttpServer()).delete('/admin/models/gpt-d2')).expect(204);
+
+    // GET-by-name now 404 AND the catalog list excludes it.
+    await auth(request(app.getHttpServer()).get('/admin/models/gpt-d2')).expect(404);
+    const list = await auth(request(app.getHttpServer()).get('/admin/models')).expect(200);
+    expect(list.body.data.map((m: { name: string }) => m.name)).not.toContain('gpt-d2');
+
+    // second delete is a 404 (idempotent soft-delete).
+    await auth(request(app.getHttpServer()).delete('/admin/models/gpt-d2')).expect(404);
+  });
+
+  it('GET/PATCH/DELETE an unknown model → 404', async () => {
+    await auth(request(app.getHttpServer()).get('/admin/models/nope')).expect(404);
+    await auth(
+      request(app.getHttpServer()).patch('/admin/models/nope').send({ status: 'active' }),
+    ).expect(404);
+    await auth(request(app.getHttpServer()).delete('/admin/models/nope')).expect(404);
+  });
+});
+
+describe('D2: model_grant list / revoke', () => {
+  it('grant → list shows it → revoke (204) → list empty', async () => {
+    await auth(
+      request(app.getHttpServer())
+        .post('/admin/models')
+        .send({ name: 'grant-m', resourceId: 'gpt4o-res', visibility: 'tenant' }),
+    ).expect(201);
+    await auth(
+      request(app.getHttpServer()).post('/admin/models/grant-m/grants').send({ tenantId }),
+    ).expect(201);
+
+    const before = await auth(
+      request(app.getHttpServer()).get('/admin/models/grant-m/grants'),
+    ).expect(200);
+    expect(before.body.data.map((g: { tenant_id: string }) => g.tenant_id)).toContain(tenantId);
+
+    // revoke = HARD delete (model_grant has no deleted_at) → 204.
+    await auth(
+      request(app.getHttpServer()).delete(`/admin/models/grant-m/grants/${tenantId}`),
+    ).expect(204);
+
+    const after = await auth(
+      request(app.getHttpServer()).get('/admin/models/grant-m/grants'),
+    ).expect(200);
+    expect(after.body.data).toHaveLength(0);
+
+    // a second revoke is a 404 (no such grant).
+    await auth(
+      request(app.getHttpServer()).delete(`/admin/models/grant-m/grants/${tenantId}`),
+    ).expect(404);
+  });
+
+  it('lists grants of an unknown model → 404', async () => {
+    await auth(request(app.getHttpServer()).get('/admin/models/nope/grants')).expect(404);
+  });
+});

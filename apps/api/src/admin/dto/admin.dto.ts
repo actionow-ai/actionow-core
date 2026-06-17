@@ -17,6 +17,16 @@ export const createTenantSchema = z.object({
 });
 export type CreateTenantDto = z.infer<typeof createTenantSchema>;
 
+/**
+ * `PATCH /admin/tenants/:id` — update a tenant. Only `isolationMode` is mutable
+ * here (the tenant name/id are not). There is intentionally NO tenant DELETE —
+ * cascading a tenant removal from an admin route is too destructive.
+ */
+export const updateTenantSchema = z.object({
+  isolationMode: z.enum(['field', 'schema', 'db']).optional(),
+});
+export type UpdateTenantDto = z.infer<typeof updateTenantSchema>;
+
 /** `POST /admin/accounts` — create an account (opening balance in credits). */
 export const createAccountSchema = z.object({
   tenantId: z.string().uuid(),
@@ -54,6 +64,17 @@ export const createResourceSchema = z.object({
   version: z.number().int().positive().optional(),
 });
 export type CreateResourceDto = z.infer<typeof createResourceSchema>;
+
+/**
+ * `PATCH /admin/resources/:id` — update a resource. Limited to SAFE fields:
+ * only `status` (`active`/`disabled`) is mutable. The key fields
+ * (`id`/`kind`/`modality`/`providerType`) are immutable here — changing them
+ * would silently corrupt the routing/pricing a frozen resource version assumes.
+ */
+export const updateResourceSchema = z.object({
+  status: z.enum(['active', 'disabled']).optional(),
+});
+export type UpdateResourceDto = z.infer<typeof updateResourceSchema>;
 
 /** `POST /admin/resources/:id/channels` — add an upstream routing channel. */
 export const createChannelSchema = z.object({
@@ -125,6 +146,23 @@ export const createPricebookSchema = z.object({
 });
 export type CreatePricebookDto = z.infer<typeof createPricebookSchema>;
 
+/**
+ * `PATCH /admin/pricebook/:id` — update a pricebook entry. Every field is
+ * optional (omitted = unchanged). `fixedCredits` mirrors the create path: a
+ * HUMAN-credit amount the controller converts to a µcredit `spec.amount` (only
+ * valid when the effective `method` is `fixed`).
+ */
+export const updatePricebookSchema = z.object({
+  method: z.enum(['unit', 'matrix', 'fixed', 'formula', 'passthrough']).optional(),
+  timing: z.enum(['pre', 'post']).optional(),
+  spec: z.unknown().optional(),
+  /** HUMAN-credit amount → µcredit `spec.amount` (only for `method: 'fixed'`). */
+  fixedCredits: z.number().nonnegative().optional(),
+  markup: z.unknown().optional(),
+  active: z.boolean().optional(),
+});
+export type UpdatePricebookDto = z.infer<typeof updatePricebookSchema>;
+
 /** `POST /admin/modifiers` — add a pricing modifier (§9.2 scope). */
 export const createModifierSchema = z.object({
   /** `global` | `tenant:<id>` | `capability:<id>` | `resource:<id>`. */
@@ -144,6 +182,24 @@ export const createModifierSchema = z.object({
 });
 export type CreateModifierDto = z.infer<typeof createModifierSchema>;
 
+/**
+ * `PATCH /admin/modifiers/:id` — update a pricing modifier. Every field is
+ * optional (omitted = unchanged). `value` mirrors create: a whole-percent int
+ * for percent ops, a HUMAN-credit amount the controller converts to µcredits for
+ * credit ops (`flat_off`/`override_rate`). The conversion uses the EFFECTIVE op
+ * (the patched `op` if present, else the stored one). `whenExpr` may be cleared
+ * with `null`. `scope` is NOT patchable (a re-scope is a new modifier).
+ */
+export const updateModifierSchema = z.object({
+  whenExpr: z.string().nullable().optional(),
+  op: z.enum(['override_rate', 'percent_off', 'flat_off', 'percent_add']).optional(),
+  value: z.number().optional(),
+  stackable: z.boolean().optional(),
+  priority: z.number().int().optional(),
+  active: z.boolean().optional(),
+});
+export type UpdateModifierDto = z.infer<typeof updateModifierSchema>;
+
 /** `POST /admin/dify/import` — register a BYO Dify workflow. */
 export const difyImportSchema = z.object({
   tenantId: z.string().uuid(),
@@ -155,6 +211,18 @@ export const difyImportSchema = z.object({
   allowBlockers: z.boolean().optional(),
 });
 export type DifyImportDto = z.infer<typeof difyImportSchema>;
+
+/**
+ * `PATCH /admin/dify/:resourceId` — update the current dify binding. Every field
+ * is optional (omitted = unchanged). `serviceKeyRef` may be set to `null` to
+ * clear it. Operates on the resource's highest-version live binding.
+ */
+export const updateDifySchema = z.object({
+  endpoint: z.string().url().optional(),
+  serviceKeyRef: z.string().uuid().nullable().optional(),
+  pricingModel: z.enum(['fixed', 'matrix', 'metered']).optional(),
+});
+export type UpdateDifyDto = z.infer<typeof updateDifySchema>;
 
 /** `POST /admin/models` — register a relay model (name → chat resource). */
 export const createModelSchema = z.object({
@@ -177,6 +245,22 @@ export const createModelSchema = z.object({
   status: z.enum(['active', 'disabled']).optional(),
 });
 export type CreateModelDto = z.infer<typeof createModelSchema>;
+
+/**
+ * `PATCH /admin/models/:name` — update a relay model. Every field is optional
+ * (omitted = unchanged). `inputPrice`/`outputPrice` stay µcredit-per-token
+ * integers (NOT human credits, same convention as create). `display` may be set
+ * to `null` to clear it.
+ */
+export const updateModelSchema = z.object({
+  display: z.string().nullable().optional(),
+  capabilities: z.record(z.string(), z.boolean()).optional(),
+  inputPrice: z.number().int().nonnegative().optional(),
+  outputPrice: z.number().int().nonnegative().optional(),
+  visibility: z.enum(['public', 'tenant']).optional(),
+  status: z.enum(['active', 'disabled']).optional(),
+});
+export type UpdateModelDto = z.infer<typeof updateModelSchema>;
 
 /** `POST /admin/models/:name/grants` — grant a tenant-visibility model. */
 export const grantModelSchema = z.object({
@@ -286,3 +370,18 @@ export const generateCodesSchema = z.object({
   expiresAt: z.string().datetime().optional(),
 });
 export type GenerateCodesDto = z.infer<typeof generateCodesSchema>;
+
+/**
+ * `GET /admin/redemption-codes` — list minted codes. Optional `status`
+ * (`unused`/`redeemed`) filter; `limit`/`cursor` are the keyset paging params.
+ *
+ * NOTE: `redemption_code` has no `resource_id` — codes are tenant-agnostic credit
+ * grants — so the plan's `resourceId` filter has no column to bind to and is not
+ * accepted (an unknown query field is silently ignored by the schema).
+ */
+export const redemptionCodesQuerySchema = z.object({
+  status: z.enum(['unused', 'redeemed']).optional(),
+  limit: z.coerce.number().int().positive().optional(),
+  cursor: z.string().optional(),
+});
+export type RedemptionCodesQueryDto = z.infer<typeof redemptionCodesQuerySchema>;

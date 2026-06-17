@@ -21,10 +21,16 @@ import {
   createUpstreamChannel,
   type Database,
   decryptSecret,
+  deleteModelGrant,
   encryptSecret,
   getAccount,
+  getChannelById,
+  getModelByName,
+  getModifierById,
+  getPricebookEntryById,
   getResource,
   getSecretRefById,
+  getTenant,
   grantModel,
   type Job,
   type KeysetResult,
@@ -33,20 +39,24 @@ import {
   listChannelsForResource,
   listJobs,
   listLedger,
+  listModelGrants,
   listModels,
   listModifiers,
   listOAuthSessions,
   listPricebookEntries,
+  listRedemptionCodes,
   listRelayTraces,
   listResources,
   listSecretRefs,
   listTenants,
   listUsageLogsGlobal,
+  type ModelGrantRow,
   type ModelRow,
   type ModifierRow,
   type OAuthSessionListRow,
   type PageParams,
   type PricebookEntryRow,
+  type RedemptionCodeRow,
   type RelayTraceFilter,
   type RelayTraceRow,
   type Resource,
@@ -54,10 +64,19 @@ import {
   type SecretRefRow,
   type SecretRefView,
   softDeleteApiKey,
+  softDeleteChannel,
+  softDeleteModel,
+  softDeleteModifier,
   softDeleteOAuthSession,
+  softDeletePricebookEntry,
   softDeleteSecretRef,
   type TenantRow,
   topUp,
+  updateModel,
+  updateModifier,
+  updatePricebookEntry,
+  updateResource,
+  updateTenant,
   updateUpstreamChannel,
   upsertModelsFromSync,
   type UpstreamChannelRow,
@@ -98,6 +117,11 @@ import type {
   SyncChannelModelsDto,
   TopupDto,
   UpdateChannelDto,
+  UpdateModelDto,
+  UpdateModifierDto,
+  UpdatePricebookDto,
+  UpdateResourceDto,
+  UpdateTenantDto,
 } from './dto/admin.dto.js';
 
 /** Modifier ops whose `value` is a µcredit amount (vs. a whole-percent int). */
@@ -162,11 +186,43 @@ export class AdminService {
     return listTenants(this.db, page);
   }
 
+  /** Fetch one tenant by id, or `resource_not_found` (404) when absent/soft-deleted. */
+  async getTenant(tenantId: string): Promise<TenantRow> {
+    const row = await getTenant(this.db, tenantId);
+    if (row === undefined) {
+      throw engineNotFound(`tenant ${tenantId} not found`);
+    }
+    return row;
+  }
+
+  /** Patch a tenant's `isolationMode` (the only mutable field); 404 when absent. */
+  async updateTenant(tenantId: string, dto: UpdateTenantDto): Promise<TenantRow> {
+    const row = await updateTenant(this.db, tenantId, { isolationMode: dto.isolationMode });
+    if (row === undefined) {
+      throw engineNotFound(`tenant ${tenantId} not found`);
+    }
+    return row;
+  }
+
   // ----- accounts -----
 
   createAccount(dto: CreateAccountDto): Promise<AccountRow> {
     const creditBalance = dto.credits === undefined ? undefined : creditsToMicro(dto.credits);
     return createAccount(this.db, { tenantId: dto.tenantId, creditBalance });
+  }
+
+  /**
+   * Fetch one account's balance/held view by id, or `resource_not_found` (404).
+   * There is intentionally NO account PATCH/DELETE: the balance/held only move via
+   * the topup + ledger paths (`topUp`/`holdCredits`/`settle`), never a direct
+   * write — an admin must not be able to set a balance out from under the ledger.
+   */
+  async getAccountById(accountId: string): Promise<AccountRow> {
+    const row = await getAccount(this.db, accountId);
+    if (row === undefined) {
+      throw engineNotFound(`account ${accountId} not found`);
+    }
+    return row;
   }
 
   /** Top up an account; `credits` (human) is converted to µcredits here. */
@@ -483,6 +539,27 @@ export class AdminService {
     return listResources(this.db, page);
   }
 
+  /** Fetch one resource by id, or `resource_not_found` (404) when absent/soft-deleted. */
+  async getResource(resourceId: string): Promise<Resource> {
+    const row = await getResource(this.db, resourceId);
+    if (row === undefined) {
+      throw engineNotFound(`resource ${resourceId} not found`);
+    }
+    return row;
+  }
+
+  /**
+   * Patch a resource's SAFE fields (only `status`). The key fields
+   * (`id`/`kind`/`modality`/`providerType`) are immutable. 404 when absent.
+   */
+  async updateResource(resourceId: string, dto: UpdateResourceDto): Promise<Resource> {
+    const row = await updateResource(this.db, resourceId, { status: dto.status });
+    if (row === undefined) {
+      throw engineNotFound(`resource ${resourceId} not found`);
+    }
+    return row;
+  }
+
   async createChannel(resourceId: string, dto: CreateChannelDto): Promise<UpstreamChannelRow> {
     const resource = await getResource(this.db, resourceId);
     if (resource === undefined) {
@@ -516,6 +593,33 @@ export class AdminService {
       throw engineNotFound(`channel ${channelId} not found`);
     }
     return row;
+  }
+
+  /**
+   * Fetch one channel scoped to its resource (the nested route), or
+   * `resource_not_found` (404) when the channel is absent / soft-deleted / does
+   * not belong to `resourceId`.
+   */
+  async getChannel(resourceId: string, channelId: string): Promise<UpstreamChannelRow> {
+    const row = await getChannelById(this.db, channelId, resourceId);
+    if (row === undefined) {
+      throw engineNotFound(`channel ${channelId} not found for resource ${resourceId}`);
+    }
+    return row;
+  }
+
+  /**
+   * Revoke (soft-delete) a channel scoped to its resource. Routing
+   * (`listChannels`) and the operator listing both filter soft-deleted, so the
+   * channel drops out immediately. 404 when no live channel matched (already
+   * deleted / wrong resource / unknown).
+   */
+  async deleteChannel(resourceId: string, channelId: string): Promise<{ id: string }> {
+    const id = await softDeleteChannel(this.db, channelId, resourceId);
+    if (id === undefined) {
+      throw engineNotFound(`channel ${channelId} not found for resource ${resourceId}`);
+    }
+    return { id };
   }
 
   /**
@@ -640,6 +744,76 @@ export class AdminService {
     return listPricebookEntries(this.db, resourceId, page);
   }
 
+  /** Fetch one pricebook entry by id, or `resource_not_found` (404) when absent. */
+  async getPricebook(id: string): Promise<PricebookEntryRow> {
+    const row = await getPricebookEntryById(this.db, id);
+    if (row === undefined) {
+      throw engineNotFound(`pricebook entry ${id} not found`);
+    }
+    return row;
+  }
+
+  /**
+   * Patch a pricebook entry. Mirrors the create path's credit→µcredit conversion:
+   * a human-credit `fixedCredits` is converted and merged into the persisted
+   * `spec` as a µcredit `amount`. The EFFECTIVE method (the patched `method` if
+   * present, else the entry's stored one) decides whether `fixedCredits` is
+   * valid (`fixed` only). 404 when the entry is absent / soft-deleted.
+   */
+  async updatePricebook(id: string, dto: UpdatePricebookDto): Promise<PricebookEntryRow> {
+    const existing = await getPricebookEntryById(this.db, id);
+    if (existing === undefined) {
+      throw engineNotFound(`pricebook entry ${id} not found`);
+    }
+    const patch: {
+      method?: string;
+      timing?: string;
+      spec?: unknown;
+      markup?: unknown;
+      active?: boolean;
+    } = {};
+    if (dto.method !== undefined) patch.method = dto.method;
+    if (dto.timing !== undefined) patch.timing = dto.timing;
+    if (dto.markup !== undefined) patch.markup = dto.markup;
+    if (dto.active !== undefined) patch.active = dto.active;
+    // The spec is rebuilt only when the caller sends a `spec` or a `fixedCredits`;
+    // an omitted-both PATCH leaves the stored spec untouched.
+    if (dto.spec !== undefined || dto.fixedCredits !== undefined) {
+      patch.spec = this.buildUpdatePricebookSpec(dto, existing.method);
+    }
+    const row = await updatePricebookEntry(this.db, id, patch);
+    if (row === undefined) {
+      throw engineNotFound(`pricebook entry ${id} not found`);
+    }
+    return row;
+  }
+
+  /**
+   * Build the patched `spec`, applying the SAME credit→µcredit conversion as
+   * {@link buildPricebookSpec}. Validates `fixedCredits` against the EFFECTIVE
+   * method (the patched one, else the stored `currentMethod`).
+   */
+  private buildUpdatePricebookSpec(dto: UpdatePricebookDto, currentMethod: string): unknown {
+    if (dto.fixedCredits === undefined) {
+      return dto.spec ?? {};
+    }
+    const effectiveMethod = dto.method ?? currentMethod;
+    if (effectiveMethod !== 'fixed') {
+      throw engineInvalidInput('fixedCredits is only valid for method "fixed"');
+    }
+    const base = isRecord(dto.spec) ? dto.spec : {};
+    return { method: 'fixed', ...base, amount: creditsToMicro(dto.fixedCredits).toString() };
+  }
+
+  /** Revoke (soft-delete) a pricebook entry; 404 when no live entry matched. */
+  async deletePricebook(id: string): Promise<{ id: string }> {
+    const deleted = await softDeletePricebookEntry(this.db, id);
+    if (deleted === undefined) {
+      throw engineNotFound(`pricebook entry ${id} not found`);
+    }
+    return { id: deleted };
+  }
+
   // ----- modifiers -----
 
   /**
@@ -670,6 +844,62 @@ export class AdminService {
     return listModifiers(this.db, page);
   }
 
+  /** Fetch one modifier by id, or `resource_not_found` (404) when absent. */
+  async getModifier(id: string): Promise<ModifierRow> {
+    const row = await getModifierById(this.db, id);
+    if (row === undefined) {
+      throw engineNotFound(`modifier ${id} not found`);
+    }
+    return row;
+  }
+
+  /**
+   * Patch a modifier. Mirrors the create path's credit conversion: when the
+   * patch carries a `value`, it is converted to µcredits for credit ops
+   * (`flat_off`/`override_rate`) and kept as a whole-percent int otherwise. The
+   * EFFECTIVE op (the patched `op` if present, else the stored one) drives the
+   * conversion — so changing op + value together is consistent. 404 when absent.
+   */
+  async updateModifier(id: string, dto: UpdateModifierDto): Promise<ModifierRow> {
+    const existing = await getModifierById(this.db, id);
+    if (existing === undefined) {
+      throw engineNotFound(`modifier ${id} not found`);
+    }
+    const effectiveOp = dto.op ?? existing.op;
+    const patch: {
+      whenExpr?: string | null;
+      op?: string;
+      value?: bigint;
+      stackable?: boolean;
+      priority?: number;
+      active?: boolean;
+    } = {};
+    if (dto.whenExpr !== undefined) patch.whenExpr = dto.whenExpr;
+    if (dto.op !== undefined) patch.op = dto.op;
+    if (dto.value !== undefined) {
+      patch.value = CREDIT_VALUE_OPS.has(effectiveOp)
+        ? creditsToMicro(dto.value)
+        : BigInt(Math.round(dto.value));
+    }
+    if (dto.stackable !== undefined) patch.stackable = dto.stackable;
+    if (dto.priority !== undefined) patch.priority = dto.priority;
+    if (dto.active !== undefined) patch.active = dto.active;
+    const row = await updateModifier(this.db, id, patch);
+    if (row === undefined) {
+      throw engineNotFound(`modifier ${id} not found`);
+    }
+    return row;
+  }
+
+  /** Revoke (soft-delete) a modifier; 404 when no live modifier matched. */
+  async deleteModifier(id: string): Promise<{ id: string }> {
+    const deleted = await softDeleteModifier(this.db, id);
+    if (deleted === undefined) {
+      throw engineNotFound(`modifier ${id} not found`);
+    }
+    return { id: deleted };
+  }
+
   // ----- models -----
 
   /**
@@ -696,9 +926,84 @@ export class AdminService {
     return listModels(this.db, page);
   }
 
+  /** Fetch one model by its unique `name`, or `resource_not_found` (404) when absent. */
+  async getModel(name: string): Promise<ModelRow> {
+    const row = await getModelByName(this.db, name);
+    if (row === undefined) {
+      throw engineNotFound(`model ${name} not found`);
+    }
+    return row;
+  }
+
+  /**
+   * Patch a relay model (by `name`). `inputPrice`/`outputPrice` stay µcredit
+   * integers (passed through unchanged, same convention as create). `display`
+   * may be set to `null`. 404 when the model is absent / soft-deleted.
+   */
+  async updateModel(name: string, dto: UpdateModelDto): Promise<ModelRow> {
+    const patch: {
+      display?: string | null;
+      capabilities?: Record<string, boolean>;
+      inputPrice?: bigint;
+      outputPrice?: bigint;
+      visibility?: string;
+      status?: string;
+    } = {};
+    if (dto.display !== undefined) patch.display = dto.display;
+    if (dto.capabilities !== undefined) patch.capabilities = dto.capabilities;
+    if (dto.inputPrice !== undefined) patch.inputPrice = BigInt(dto.inputPrice);
+    if (dto.outputPrice !== undefined) patch.outputPrice = BigInt(dto.outputPrice);
+    if (dto.visibility !== undefined) patch.visibility = dto.visibility;
+    if (dto.status !== undefined) patch.status = dto.status;
+    const row = await updateModel(this.db, name, patch);
+    if (row === undefined) {
+      throw engineNotFound(`model ${name} not found`);
+    }
+    return row;
+  }
+
+  /**
+   * Revoke (soft-delete) a model (by `name`). `resolveModelForTenant` filters
+   * soft-deleted, so the model stops routing immediately. 404 when no live model
+   * matched (already deleted / unknown).
+   */
+  async deleteModel(name: string): Promise<{ name: string }> {
+    const deleted = await softDeleteModel(this.db, name);
+    if (deleted === undefined) {
+      throw engineNotFound(`model ${name} not found`);
+    }
+    return { name: deleted };
+  }
+
   /** Grant a tenant-visibility model (by name) to a tenant. */
   async grantModel(modelName: string, dto: GrantModelDto): Promise<void> {
     await grantModel(this.db, modelName, dto.tenantId);
+  }
+
+  /**
+   * List a model's tenant grants (by model `name`), paginated. 404 when the
+   * model itself is absent / soft-deleted (so an operator can tell a missing
+   * model from one with zero grants).
+   */
+  async listModelGrants(modelName: string, page: PageParams): Promise<KeysetResult<ModelGrantRow>> {
+    const m = await getModelByName(this.db, modelName);
+    if (m === undefined) {
+      throw engineNotFound(`model ${modelName} not found`);
+    }
+    return listModelGrants(this.db, modelName, page);
+  }
+
+  /**
+   * Revoke a tenant's grant of a model: HARD-deletes the `model_grant` row
+   * (`model_grant` has no `deleted_at`). 404 when the model is absent or the
+   * tenant has no grant on it.
+   */
+  async deleteModelGrant(modelName: string, tenantId: string): Promise<{ id: string }> {
+    const id = await deleteModelGrant(this.db, modelName, tenantId);
+    if (id === undefined) {
+      throw engineNotFound(`grant for tenant ${tenantId} on model ${modelName} not found`);
+    }
+    return { id };
   }
 
   // ----- jobs -----
@@ -734,6 +1039,19 @@ export class AdminService {
       codes.push(code);
     }
     return { codes, creditAmount };
+  }
+
+  /**
+   * List minted redemption codes (admin mint view), keyset-paginated. An optional
+   * `status` filter (`unused`/`redeemed`) narrows the set. Returning the `code`
+   * value is acceptable — it IS the row's identity on an admin-only listing.
+   */
+  listRedemptionCodes(
+    filter: { status?: string | undefined },
+    page: PageParams,
+  ): Promise<KeysetResult<RedemptionCodeRow>> {
+    const f = filter.status !== undefined ? { status: filter.status } : {};
+    return listRedemptionCodes(this.db, f, page);
   }
 
   // ----- relay traces (upstream audit) -----

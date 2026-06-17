@@ -128,7 +128,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE api_key, ledger_txn, dify_binding, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, oauth_session, secret_material, secret_ref, "user" RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE api_key, ledger_txn, dify_binding, redemption_code, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, oauth_session, secret_material, secret_ref, "user" RESTART IDENTITY CASCADE`;
 });
 
 function auth(req: request.Test): request.Test {
@@ -926,5 +926,280 @@ describe('POST /admin/dify/import', () => {
     // nothing persisted
     const resources = await db.select().from(schema.resource);
     expect(resources).toHaveLength(0);
+  });
+});
+
+/** Create a tenant + a chat resource the catalog rows can attach to. */
+async function seedTenantResource(name: string, resourceId: string): Promise<string> {
+  const t = await auth(request(app.getHttpServer()).post('/admin/tenants').send({ name })).expect(
+    201,
+  );
+  const tenantId = t.body.id as string;
+  await auth(
+    request(app.getHttpServer())
+      .post('/admin/resources')
+      .send({
+        id: resourceId,
+        tenantId,
+        kind: 'model',
+        modality: 'text',
+        providerType: 'openai',
+        execModes: ['blocking'],
+        ioSchema: { inputs: [], outputs: [] },
+      }),
+  ).expect(201);
+  return tenantId;
+}
+
+describe('D3: tenant get / patch', () => {
+  it('GET-by-id → PATCH isolationMode → GET reflects it', async () => {
+    const tenantId = await seedTenantResource('tn-d3', 'tn-d3-res');
+
+    const got = await auth(request(app.getHttpServer()).get(`/admin/tenants/${tenantId}`)).expect(
+      200,
+    );
+    expect(got.body.id).toBe(tenantId);
+    expect(got.body.isolation_mode).toBe('field');
+
+    const patched = await auth(
+      request(app.getHttpServer())
+        .patch(`/admin/tenants/${tenantId}`)
+        .send({ isolationMode: 'schema' }),
+    ).expect(200);
+    expect(patched.body.isolation_mode).toBe('schema');
+
+    await auth(
+      request(app.getHttpServer()).get('/admin/tenants/00000000-0000-0000-0000-000000000000'),
+    ).expect(404);
+  });
+});
+
+describe('D3: account get (no PATCH/DELETE — balance is ledger-owned)', () => {
+  it('GET returns the balance/held view; topup is the only mover', async () => {
+    const tenantId = await seedTenantResource('acct-d3', 'acct-d3-res');
+    const acct = await auth(
+      request(app.getHttpServer()).post('/admin/accounts').send({ tenantId, credits: 10 }),
+    ).expect(201);
+    const accountId = acct.body.id as string;
+
+    const got = await auth(request(app.getHttpServer()).get(`/admin/accounts/${accountId}`)).expect(
+      200,
+    );
+    expect(got.body.credit_balance).toBe('10000000');
+    expect(got.body.credit_held).toBe('0');
+
+    await auth(
+      request(app.getHttpServer()).get('/admin/accounts/00000000-0000-0000-0000-000000000000'),
+    ).expect(404);
+  });
+});
+
+describe('D3: resource get / patch (status only)', () => {
+  it('GET → PATCH status → GET reflects it; key fields untouched', async () => {
+    await seedTenantResource('res-d3', 'res-d3');
+
+    const got = await auth(request(app.getHttpServer()).get('/admin/resources/res-d3')).expect(200);
+    expect(got.body.status).toBe('active');
+    expect(got.body.kind).toBe('model');
+
+    const patched = await auth(
+      request(app.getHttpServer()).patch('/admin/resources/res-d3').send({ status: 'disabled' }),
+    ).expect(200);
+    expect(patched.body.status).toBe('disabled');
+    expect(patched.body.kind).toBe('model'); // immutable key field
+
+    await auth(request(app.getHttpServer()).get('/admin/resources/nope')).expect(404);
+  });
+});
+
+describe('D3: channel get / soft-delete (nested under resource)', () => {
+  it('create → GET-by-id → DELETE (204) → GET 404 + list excludes; channel ∉ resource → 404', async () => {
+    await seedTenantResource('ch-d3', 'ch-d3-res');
+    const created = await auth(
+      request(app.getHttpServer())
+        .post('/admin/resources/ch-d3-res/channels')
+        .send({ providerType: 'openai', weight: 1 }),
+    ).expect(201);
+    const channelId = created.body.id as string;
+
+    // GET-by-id within its resource.
+    const got = await auth(
+      request(app.getHttpServer()).get(`/admin/resources/ch-d3-res/channels/${channelId}`),
+    ).expect(200);
+    expect(got.body.id).toBe(channelId);
+
+    // a channel queried under the WRONG resource → 404.
+    await auth(
+      request(app.getHttpServer()).get(`/admin/resources/other-res/channels/${channelId}`),
+    ).expect(404);
+
+    // DELETE → 204
+    await auth(
+      request(app.getHttpServer()).delete(`/admin/resources/ch-d3-res/channels/${channelId}`),
+    ).expect(204);
+
+    // GET now 404 AND the list excludes it.
+    await auth(
+      request(app.getHttpServer()).get(`/admin/resources/ch-d3-res/channels/${channelId}`),
+    ).expect(404);
+    const list = await auth(
+      request(app.getHttpServer()).get('/admin/resources/ch-d3-res/channels'),
+    ).expect(200);
+    expect(list.body.data).toHaveLength(0);
+
+    // second delete → 404 (idempotent).
+    await auth(
+      request(app.getHttpServer()).delete(`/admin/resources/ch-d3-res/channels/${channelId}`),
+    ).expect(404);
+  });
+});
+
+describe('D3: pricebook get / patch / delete', () => {
+  it('create → GET → PATCH (µcredit conversion) → DELETE (204) → 404 + delisted', async () => {
+    await seedTenantResource('pb-d3', 'pb-d3-res');
+    const created = await auth(
+      request(app.getHttpServer()).post('/admin/pricebook').send({
+        resourceId: 'pb-d3-res',
+        resourceVersion: 1,
+        version: 1,
+        method: 'fixed',
+        timing: 'pre',
+        spec: {},
+        fixedCredits: 2,
+      }),
+    ).expect(201);
+    const id = created.body.id as string;
+    expect(created.body.spec.amount).toBe('2000000');
+
+    await auth(request(app.getHttpServer()).get(`/admin/pricebook/${id}`)).expect(200);
+
+    // PATCH fixedCredits 5 → µcredit spec.amount 5_000_000 + timing flips.
+    const patched = await auth(
+      request(app.getHttpServer())
+        .patch(`/admin/pricebook/${id}`)
+        .send({ timing: 'post', fixedCredits: 5, active: false }),
+    ).expect(200);
+    expect(patched.body.timing).toBe('post');
+    expect(patched.body.spec.amount).toBe('5000000');
+    expect(patched.body.active).toBe(false);
+
+    await auth(request(app.getHttpServer()).delete(`/admin/pricebook/${id}`)).expect(204);
+    await auth(request(app.getHttpServer()).get(`/admin/pricebook/${id}`)).expect(404);
+    const list = await auth(
+      request(app.getHttpServer()).get('/admin/pricebook').query({ resourceId: 'pb-d3-res' }),
+    ).expect(200);
+    expect(list.body.data).toHaveLength(0);
+    await auth(request(app.getHttpServer()).delete(`/admin/pricebook/${id}`)).expect(404);
+  });
+});
+
+describe('D3: modifier get / patch / delete', () => {
+  it('create → GET → PATCH (credit-op value → µcredits) → DELETE (204) → 404 + delisted', async () => {
+    const created = await auth(
+      request(app.getHttpServer())
+        .post('/admin/modifiers')
+        .send({ scope: 'global', op: 'flat_off', value: 3, priority: 1 }),
+    ).expect(201);
+    const id = created.body.id as string;
+    expect(created.body.value).toBe('3000000');
+
+    await auth(request(app.getHttpServer()).get(`/admin/modifiers/${id}`)).expect(200);
+
+    // PATCH a credit op value 5 credits → 5_000_000 µcredits; priority bumps.
+    const patched = await auth(
+      request(app.getHttpServer())
+        .patch(`/admin/modifiers/${id}`)
+        .send({ value: 5, priority: 9, active: false }),
+    ).expect(200);
+    expect(patched.body.value).toBe('5000000');
+    expect(patched.body.priority).toBe(9);
+    expect(patched.body.active).toBe(false);
+
+    // switching to a percent op keeps the raw whole-percent int.
+    const pct = await auth(
+      request(app.getHttpServer())
+        .patch(`/admin/modifiers/${id}`)
+        .send({ op: 'percent_off', value: 15 }),
+    ).expect(200);
+    expect(pct.body.op).toBe('percent_off');
+    expect(pct.body.value).toBe('15');
+
+    await auth(request(app.getHttpServer()).delete(`/admin/modifiers/${id}`)).expect(204);
+    await auth(request(app.getHttpServer()).get(`/admin/modifiers/${id}`)).expect(404);
+    const list = await auth(request(app.getHttpServer()).get('/admin/modifiers')).expect(200);
+    expect(list.body.data.map((m: { id: string }) => m.id)).not.toContain(id);
+    await auth(request(app.getHttpServer()).delete(`/admin/modifiers/${id}`)).expect(404);
+  });
+});
+
+describe('D4: redemption-code list (status filter, paginated)', () => {
+  it('mints codes then lists them filtered by status', async () => {
+    await auth(
+      request(app.getHttpServer())
+        .post('/admin/redemption-codes')
+        .send({ count: 2, creditsPerCode: 5 }),
+    ).expect(201);
+
+    const all = await auth(request(app.getHttpServer()).get('/admin/redemption-codes')).expect(200);
+    expect(all.body.data).toHaveLength(2);
+    expect(all.body.data[0].credit_amount).toBe('5000000');
+    expect(all.body.data[0].status).toBe('unused');
+    expect(all.body.data[0]).toHaveProperty('code'); // admin mint listing returns the code
+
+    // a status filter that matches nothing returns an empty page.
+    const redeemed = await auth(
+      request(app.getHttpServer()).get('/admin/redemption-codes').query({ status: 'redeemed' }),
+    ).expect(200);
+    expect(redeemed.body.data).toHaveLength(0);
+
+    // a bad status enum → 400 invalid_input.
+    const bad = await auth(
+      request(app.getHttpServer()).get('/admin/redemption-codes').query({ status: 'bogus' }),
+    ).expect(400);
+    expect(bad.body.error.code).toBe('invalid_input');
+  });
+});
+
+describe('D4: dify list / patch / delete', () => {
+  it('import → list → PATCH (endpoint/pricing) → DELETE (204) → list empty', async () => {
+    const tenantRes = await auth(
+      request(app.getHttpServer()).post('/admin/tenants').send({ name: 'dify-d4' }),
+    ).expect(201);
+    const tenantId = tenantRes.body.id as string;
+
+    await auth(
+      request(app.getHttpServer()).post('/admin/dify/import').send({
+        tenantId,
+        resourceId: 'dify-d4-res',
+        yaml: WORKFLOW_DSL,
+        endpoint: 'https://dify.example/v1',
+        pricingModel: 'fixed',
+      }),
+    ).expect(200);
+
+    const list = await auth(request(app.getHttpServer()).get('/admin/dify')).expect(200);
+    expect(list.body.data.map((b: { resource_id: string }) => b.resource_id)).toContain(
+      'dify-d4-res',
+    );
+
+    const patched = await auth(
+      request(app.getHttpServer())
+        .patch('/admin/dify/dify-d4-res')
+        .send({ endpoint: 'https://dify.example/v2', pricingModel: 'matrix' }),
+    ).expect(200);
+    expect(patched.body.endpoint).toBe('https://dify.example/v2');
+    expect(patched.body.pricing_model).toBe('matrix');
+
+    await auth(request(app.getHttpServer()).delete('/admin/dify/dify-d4-res')).expect(204);
+    const after = await auth(request(app.getHttpServer()).get('/admin/dify')).expect(200);
+    expect(after.body.data.map((b: { resource_id: string }) => b.resource_id)).not.toContain(
+      'dify-d4-res',
+    );
+
+    // PATCH/DELETE of an unknown binding → 404.
+    await auth(
+      request(app.getHttpServer()).patch('/admin/dify/nope').send({ pricingModel: 'fixed' }),
+    ).expect(404);
+    await auth(request(app.getHttpServer()).delete('/admin/dify/dify-d4-res')).expect(404);
   });
 });

@@ -3,10 +3,12 @@ import type {
   ApiKeyRow,
   Job,
   LedgerRow,
+  ModelGrantRow,
   ModelRow,
   ModifierRow,
   OAuthSessionListRow,
   PricebookEntryRow,
+  RedemptionCodeRow,
   Resource,
   SecretRefView,
   TenantRow,
@@ -65,6 +67,8 @@ import {
   generateCodesSchema,
   type GrantModelDto,
   grantModelSchema,
+  type RedemptionCodesQueryDto,
+  redemptionCodesQuerySchema,
   type RelayTraceQueryDto,
   relayTraceQuerySchema,
   type SyncChannelModelsDto,
@@ -73,6 +77,16 @@ import {
   topupSchema,
   type UpdateChannelDto,
   updateChannelSchema,
+  type UpdateModelDto,
+  updateModelSchema,
+  type UpdateModifierDto,
+  updateModifierSchema,
+  type UpdatePricebookDto,
+  updatePricebookSchema,
+  type UpdateResourceDto,
+  updateResourceSchema,
+  type UpdateTenantDto,
+  updateTenantSchema,
 } from './dto/admin.dto.js';
 
 // ----- JSON views (bigint money serialized as decimal µcredit strings) -----
@@ -274,6 +288,29 @@ interface UsageRollupView {
   errors: number;
 }
 
+/** One tenant grant of a model (model-grants listing). */
+interface ModelGrantView {
+  id: string;
+  model_id: string;
+  tenant_id: string;
+  created_at: string;
+}
+
+/**
+ * A minted redemption code (admin mint listing). The `code` value IS the row's
+ * identity on this admin-only surface, so it is returned; no unrelated secret is
+ * exposed. `credit_amount` is the bigint µcredit grant as a decimal string.
+ */
+interface RedemptionCodeView {
+  code: string;
+  credit_amount: string;
+  status: string;
+  redeemed_by_tenant: string | null;
+  redeemed_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+}
+
 /**
  * Admin CRUD over the catalog/pricing/tenants/keys (Phase 5, Task 4). Every
  * route requires an admin JWT with the `admin` role (the {@link AdminGuard} +
@@ -310,6 +347,21 @@ export class AdminController {
     return mapPageEnvelope(result, (r) => r.id, toTenantView);
   }
 
+  @Get('tenants/:id')
+  @ApiOperation({ summary: 'Get one tenant by id or 404' })
+  async getTenant(@Param('id') id: string): Promise<TenantView> {
+    return toTenantView(await this.admin.getTenant(id));
+  }
+
+  @Patch('tenants/:id')
+  @ApiOperation({ summary: 'Update a tenant (isolation mode)' })
+  async updateTenant(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateTenantSchema)) dto: UpdateTenantDto,
+  ): Promise<TenantView> {
+    return toTenantView(await this.admin.updateTenant(id, dto));
+  }
+
   // ----- accounts -----
 
   @Post('accounts')
@@ -330,6 +382,16 @@ export class AdminController {
   ): Promise<{ account_id: string; balance: string }> {
     const { balanceMicro } = await this.admin.topup(id, dto);
     return { account_id: id, balance: balanceMicro };
+  }
+
+  @Get('accounts/:id')
+  @ApiOperation({
+    summary: 'Get one account (balance/held view) or 404 — balance moves only via topup/ledger',
+  })
+  async getAccount(@Param('id') id: string): Promise<AccountView> {
+    // No PATCH/DELETE for accounts: the balance/held are ledger-owned and only
+    // move through topup + the settle/hold paths, never a direct admin write.
+    return toAccountView(await this.admin.getAccountById(id));
   }
 
   // ----- api keys -----
@@ -490,6 +552,21 @@ export class AdminController {
     return mapPageEnvelope(result, (r) => r.id, toResourceView);
   }
 
+  @Get('resources/:id')
+  @ApiOperation({ summary: 'Get one catalog resource by id or 404' })
+  async getResource(@Param('id') id: string): Promise<ResourceView> {
+    return toResourceView(await this.admin.getResource(id));
+  }
+
+  @Patch('resources/:id')
+  @ApiOperation({ summary: 'Update a resource (status only — key fields are immutable)' })
+  async updateResource(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateResourceSchema)) dto: UpdateResourceDto,
+  ): Promise<ResourceView> {
+    return toResourceView(await this.admin.updateResource(id, dto));
+  }
+
   @Post('resources/:id/channels')
   @HttpCode(201)
   @ApiOperation({ summary: 'Add an upstream channel to a resource' })
@@ -511,6 +588,15 @@ export class AdminController {
     return mapPageEnvelope(result, (r) => r.id, toChannelView);
   }
 
+  @Get('resources/:id/channels/:channelId')
+  @ApiOperation({ summary: 'Get one channel of a resource or 404 (channel ∉ resource → 404)' })
+  async getChannel(
+    @Param('id') id: string,
+    @Param('channelId') channelId: string,
+  ): Promise<ChannelView> {
+    return toChannelView(await this.admin.getChannel(id, channelId));
+  }
+
   @Patch('resources/:id/channels/:channelId')
   @ApiOperation({ summary: 'Update an upstream channel (weight/status/endpoint/model/...)' })
   async updateChannel(
@@ -518,6 +604,16 @@ export class AdminController {
     @Body(new ZodBody(updateChannelSchema)) dto: UpdateChannelDto,
   ): Promise<ChannelView> {
     return toChannelView(await this.admin.updateChannel(channelId, dto));
+  }
+
+  @Delete('resources/:id/channels/:channelId')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete an upstream channel (channel ∉ resource → 404)' })
+  async deleteChannel(
+    @Param('id') id: string,
+    @Param('channelId') channelId: string,
+  ): Promise<void> {
+    await this.admin.deleteChannel(id, channelId);
   }
 
   @Post('resources/:id/channels/:channelId/sync-models')
@@ -555,6 +651,28 @@ export class AdminController {
     return mapPageEnvelope(result, (r) => r.id, toPricebookView);
   }
 
+  @Get('pricebook/:id')
+  @ApiOperation({ summary: 'Get one pricebook entry by id or 404' })
+  async getPricebook(@Param('id') id: string): Promise<PricebookView> {
+    return toPricebookView(await this.admin.getPricebook(id));
+  }
+
+  @Patch('pricebook/:id')
+  @ApiOperation({ summary: 'Update a pricebook entry (fixedCredits → µcredit spec.amount)' })
+  async updatePricebook(
+    @Param('id') id: string,
+    @Body(new ZodBody(updatePricebookSchema)) dto: UpdatePricebookDto,
+  ): Promise<PricebookView> {
+    return toPricebookView(await this.admin.updatePricebook(id, dto));
+  }
+
+  @Delete('pricebook/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete a pricebook entry' })
+  async deletePricebook(@Param('id') id: string): Promise<void> {
+    await this.admin.deletePricebook(id);
+  }
+
   // ----- modifiers -----
 
   @Post('modifiers')
@@ -576,6 +694,28 @@ export class AdminController {
     return mapPageEnvelope(result, (r) => r.id, toModifierView);
   }
 
+  @Get('modifiers/:id')
+  @ApiOperation({ summary: 'Get one pricing modifier by id or 404' })
+  async getModifier(@Param('id') id: string): Promise<ModifierView> {
+    return toModifierView(await this.admin.getModifier(id));
+  }
+
+  @Patch('modifiers/:id')
+  @ApiOperation({ summary: 'Update a pricing modifier (credit-op value → µcredits)' })
+  async updateModifier(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateModifierSchema)) dto: UpdateModifierDto,
+  ): Promise<ModifierView> {
+    return toModifierView(await this.admin.updateModifier(id, dto));
+  }
+
+  @Delete('modifiers/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete a pricing modifier' })
+  async deleteModifier(@Param('id') id: string): Promise<void> {
+    await this.admin.deleteModifier(id);
+  }
+
   // ----- models -----
 
   @Post('models')
@@ -595,6 +735,28 @@ export class AdminController {
     return mapPageEnvelope(result, (r) => r.id, toModelView);
   }
 
+  @Get('models/:name')
+  @ApiOperation({ summary: 'Get one relay model by name or 404' })
+  async getModel(@Param('name') name: string): Promise<ModelView> {
+    return toModelView(await this.admin.getModel(name));
+  }
+
+  @Patch('models/:name')
+  @ApiOperation({ summary: 'Update a relay model (display/capabilities/prices/visibility/status)' })
+  async updateModel(
+    @Param('name') name: string,
+    @Body(new ZodBody(updateModelSchema)) dto: UpdateModelDto,
+  ): Promise<ModelView> {
+    return toModelView(await this.admin.updateModel(name, dto));
+  }
+
+  @Delete('models/:name')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete a relay model — it stops routing after' })
+  async deleteModel(@Param('name') name: string): Promise<void> {
+    await this.admin.deleteModel(name);
+  }
+
   @Post('models/:name/grants')
   @HttpCode(201)
   @ApiOperation({ summary: 'Grant a tenant-visibility model to a tenant' })
@@ -604,6 +766,29 @@ export class AdminController {
   ): Promise<{ ok: true }> {
     await this.admin.grantModel(name, dto);
     return { ok: true };
+  }
+
+  @Get('models/:name/grants')
+  @ApiOperation({
+    summary: "List a model's tenant grants (paginated); 404 if the model is unknown",
+  })
+  async listModelGrants(
+    @Param('name') name: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ModelGrantView>> {
+    const result = await this.admin.listModelGrants(name, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toModelGrantView);
+  }
+
+  @Delete('models/:name/grants/:tenantId')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Revoke (hard-delete) a tenant grant of a model' })
+  async deleteModelGrant(
+    @Param('name') name: string,
+    @Param('tenantId') tenantId: string,
+  ): Promise<void> {
+    await this.admin.deleteModelGrant(name, tenantId);
   }
 
   // ----- jobs -----
@@ -642,6 +827,21 @@ export class AdminController {
   ): Promise<{ codes: string[]; credit_amount: string }> {
     const { codes, creditAmount } = await this.admin.generateCodes(dto);
     return { codes, credit_amount: creditAmount.toString() };
+  }
+
+  @Get('redemption-codes')
+  @ApiOperation({ summary: 'List minted redemption codes (status filter, paginated)' })
+  async listRedemptionCodes(
+    @Query() raw: Record<string, string>,
+  ): Promise<PageEnvelope<RedemptionCodeView>> {
+    const q = parseRedemptionCodesQuery(raw);
+    const filter = q.status !== undefined ? { status: q.status } : {};
+    const page = toPageParams({
+      ...(q.limit !== undefined ? { limit: String(q.limit) } : {}),
+      ...(q.cursor !== undefined ? { cursor: q.cursor } : {}),
+    });
+    const result = await this.admin.listRedemptionCodes(filter, page);
+    return mapPageEnvelope(result, (r) => r.code, toRedemptionCodeView);
   }
 
   // ----- usage stats -----
@@ -715,6 +915,22 @@ function parseAnalyticsUsageQuery(raw: Record<string, string>): AnalyticsUsageQu
  */
 function parseRelayTraceQuery(raw: Record<string, string>): RelayTraceQueryDto {
   const result = relayTraceQuerySchema.safeParse(raw);
+  if (!result.success) {
+    const first = result.error.issues[0];
+    const path = first?.path.join('.') ?? '';
+    const detail = first === undefined ? 'invalid query' : `${path}: ${first.message}`;
+    throw engineInvalidInput(detail);
+  }
+  return result.data;
+}
+
+/**
+ * Validate the redemption-codes query against its zod schema (same 400-on-failure
+ * contract as {@link parseRelayTraceQuery}, since query params bypass the
+ * {@link ZodBody} pipe).
+ */
+function parseRedemptionCodesQuery(raw: Record<string, string>): RedemptionCodesQueryDto {
+  const result = redemptionCodesQuerySchema.safeParse(raw);
   if (!result.success) {
     const first = result.error.issues[0];
     const path = first?.path.join('.') ?? '';
@@ -871,6 +1087,27 @@ function toModelView(row: ModelRow): ModelView {
     input_price: row.inputPrice.toString(),
     output_price: row.outputPrice.toString(),
     status: row.status,
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toModelGrantView(row: ModelGrantRow): ModelGrantView {
+  return {
+    id: row.id,
+    model_id: row.modelId,
+    tenant_id: row.tenantId,
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toRedemptionCodeView(row: RedemptionCodeRow): RedemptionCodeView {
+  return {
+    code: row.code,
+    credit_amount: row.creditAmount.toString(),
+    status: row.status,
+    redeemed_by_tenant: row.redeemedByTenant,
+    redeemed_at: row.redeemedAt === null ? null : row.redeemedAt.toISOString(),
+    expires_at: row.expiresAt === null ? null : row.expiresAt.toISOString(),
     created_at: row.createdAt.toISOString(),
   };
 }
