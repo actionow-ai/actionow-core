@@ -1,5 +1,6 @@
 import { CaretDownIcon, CheckIcon } from '@phosphor-icons/react';
-import { useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 export interface Option {
@@ -12,6 +13,11 @@ export interface Option {
  * native OS dropdown, which renders a blue selection off-palette and is clipped
  * inside scrollable modals). Portaled + fixed-positioned so it escapes modal
  * overflow. Closes on outside-click, Escape, or scroll.
+ *
+ * Keyboard (focus stays on the trigger; the active option is tracked with
+ * `aria-activedescendant`): ArrowDown/Enter/Space open; ArrowUp/Down move the
+ * active option; Home/End jump; Enter selects + closes; Escape closes;
+ * printable keys type-ahead to the next matching label.
  */
 export function Select({
   value,
@@ -28,11 +34,28 @@ export function Select({
 }) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<{ left: number; top: number; width: number } | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const typeahead = useRef<{ buffer: string; at: number }>({ buffer: '', at: 0 });
+  const listId = useId();
 
   const all = placeholder !== undefined ? [{ value: '', label: placeholder }, ...options] : options;
   const selected = all.find((o) => o.value === value);
+  const optionId = (i: number) => `${listId}-opt-${String(i)}`;
+
+  const openMenu = (index?: number) => {
+    const start = index ?? Math.max(all.findIndex((o) => o.value === value), 0);
+    setActiveIndex(start);
+    setOpen(true);
+  };
+
+  const commit = (index: number) => {
+    const opt = all[index] as Option | undefined;
+    if (opt !== undefined) onChange(opt.value);
+    setOpen(false);
+    btnRef.current?.focus();
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -45,21 +68,76 @@ export function Select({
       const t = e.target as Node;
       if (btnRef.current?.contains(t) !== true && menuRef.current?.contains(t) !== true) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
     const close = () => setOpen(false);
     document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
     window.addEventListener('resize', place);
     window.addEventListener('scroll', close, true);
     return () => {
       document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
       window.removeEventListener('resize', place);
       window.removeEventListener('scroll', close, true);
     };
   }, [open]);
+
+  // Keep the active option scrolled into view.
+  useEffect(() => {
+    if (!open) return;
+    const el = menuRef.current?.querySelector(`#${CSS.escape(`${listId}-opt-${String(activeIndex)}`)}`);
+    if (el instanceof HTMLElement && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' });
+  }, [open, activeIndex, listId]);
+
+  const typeAhead = (key: string) => {
+    const now = Date.now();
+    const buffer = now - typeahead.current.at > 600 ? key : typeahead.current.buffer + key;
+    typeahead.current = { buffer, at: now };
+    const match = all.findIndex((o) => o.label.toLowerCase().startsWith(buffer.toLowerCase()));
+    if (match >= 0) setActiveIndex(match);
+  };
+
+  const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (!open) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openMenu();
+      }
+      return;
+    }
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setActiveIndex((i) => Math.min(i + 1, all.length - 1));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setActiveIndex((i) => Math.max(i - 1, 0));
+        break;
+      case 'Home':
+        e.preventDefault();
+        setActiveIndex(0);
+        break;
+      case 'End':
+        e.preventDefault();
+        setActiveIndex(all.length - 1);
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        commit(activeIndex);
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setOpen(false);
+        break;
+      case 'Tab':
+        setOpen(false);
+        break;
+      default:
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault();
+          typeAhead(e.key);
+        }
+    }
+  };
 
   return (
     <>
@@ -69,7 +147,10 @@ export function Select({
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        aria-controls={open ? listId : undefined}
+        aria-activedescendant={open ? optionId(activeIndex) : undefined}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        onKeyDown={onKeyDown}
         className="panel"
         style={{
           display: 'flex',
@@ -99,6 +180,7 @@ export function Select({
         createPortal(
           <div
             ref={menuRef}
+            id={listId}
             role="listbox"
             className="glass"
             style={{
@@ -113,18 +195,19 @@ export function Select({
               borderRadius: 'var(--r-md)',
             }}
           >
-            {all.map((o) => {
+            {all.map((o, i) => {
               const on = o.value === value;
+              const active = i === activeIndex;
               return (
                 <button
                   key={o.value}
+                  id={optionId(i)}
                   type="button"
                   role="option"
                   aria-selected={on}
-                  onClick={() => {
-                    onChange(o.value);
-                    setOpen(false);
-                  }}
+                  tabIndex={-1}
+                  onClick={() => commit(i)}
+                  onMouseEnter={() => setActiveIndex(i)}
                   className="select-opt"
                   style={{
                     display: 'flex',
@@ -134,7 +217,7 @@ export function Select({
                     width: '100%',
                     textAlign: 'left',
                     border: 'none',
-                    background: 'transparent',
+                    background: active ? 'var(--hover-bg)' : 'transparent',
                     cursor: 'pointer',
                     padding: 'var(--s-2) var(--s-3)',
                     borderRadius: 'var(--r-sm)',
