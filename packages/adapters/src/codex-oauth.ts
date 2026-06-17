@@ -313,6 +313,9 @@ export async function* parseResponsesSse(
     }
 
     if (type === 'response.output_item.added') {
+      // VERIFY: correlation assumes output_item.added's item.id == the later
+      // function_call_arguments.delta's item_id (per the Responses spec); confirm
+      // against a real multi-tool stream on the live-token pass.
       const item = asRecord(obj.item);
       if (asString(item?.type) === 'function_call') {
         sawToolCall = true;

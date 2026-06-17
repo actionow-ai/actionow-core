@@ -215,6 +215,24 @@ describe('parseResponsesSse', () => {
     });
   });
 
+  it('assigns distinct indices to two parallel function_call items', async () => {
+    const lines = gen([
+      'event: response.created\ndata: {"type":"response.created"}\n\n',
+      'event: response.output_item.added\ndata: {"type":"response.output_item.added","output_index":0,"item":{"type":"function_call","id":"item_0","call_id":"call_a","name":"fa"}}\n\n',
+      'event: response.output_item.added\ndata: {"type":"response.output_item.added","output_index":1,"item":{"type":"function_call","id":"item_1","call_id":"call_b","name":"fb"}}\n\n',
+      'event: response.function_call_arguments.delta\ndata: {"type":"response.function_call_arguments.delta","item_id":"item_0","output_index":0,"delta":"{\\"a\\":1}"}\n\n',
+      'event: response.function_call_arguments.delta\ndata: {"type":"response.function_call_arguments.delta","item_id":"item_1","output_index":1,"delta":"{\\"b\\":2}"}\n\n',
+      'event: response.completed\ndata: {"type":"response.completed","response":{"status":"completed","usage":{"input_tokens":1,"output_tokens":1}}}\n\n',
+    ]);
+    const events = await drain(parseResponsesSse(lines));
+    const toolDeltas = events.filter((e) => e.type === 'tool_call_delta');
+    // The two items get DISTINCT indices keyed by item_id (not both 0).
+    expect(toolDeltas).toEqual([
+      { type: 'tool_call_delta', index: 0, id: 'call_a', name: 'fa', argumentsDelta: '{"a":1}' },
+      { type: 'tool_call_delta', index: 1, id: 'call_b', name: 'fb', argumentsDelta: '{"b":2}' },
+    ]);
+  });
+
   it('maps response.failed to an error event', async () => {
     const lines = gen([
       'event: response.created\ndata: {"type":"response.created"}\n\n',
