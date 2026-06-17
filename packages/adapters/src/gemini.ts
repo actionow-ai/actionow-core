@@ -360,6 +360,11 @@ export const geminiAdapter: ProviderAdapter = {
     let started = false;
     let usage: { inputTokens: number; outputTokens: number } | undefined;
     let stopReason: StopReason = 'stop';
+    // Stream-global tool-call counter: Gemini streams each functionCall in its
+    // own SSE frame, so a per-frame index would reset to 0 and collide parallel
+    // calls. Hoisted here so every functionCall across the whole stream gets a
+    // distinct IR `tool_call_delta.index` (downstream renderers key on it).
+    let toolIndex = 0;
 
     for await (const frame of parseSse(res.lines)) {
       const obj = parseJsonRecord(frame.data);
@@ -374,7 +379,6 @@ export const geminiAdapter: ProviderAdapter = {
 
       const candidate = asRecord(asArray(obj.candidates)?.[0]);
       const parts = asArray(asRecord(candidate?.content)?.parts) ?? [];
-      let toolIndex = 0;
       for (const part of parts) {
         const rec = asRecord(part);
         const text = asString(rec?.text);

@@ -42,7 +42,14 @@ function irPartToOpenAi(part: ContentPart): Record<string, unknown> {
     return { type: 'text', text: part.text };
   }
   if (part.kind === 'image') {
-    return { type: 'image_url', image_url: { url: part.data } };
+    // OpenAI's image_url accepts an https URL or a `data:<mime>;base64,<payload>`
+    // data URI — a raw base64 payload is rejected. A `base64` source carries the
+    // bare payload, so wrap it; `url`/`file_id` pass their value through.
+    const url =
+      part.source === 'base64'
+        ? `data:${part.mime ?? 'application/octet-stream'};base64,${part.data}`
+        : part.data;
+    return { type: 'image_url', image_url: { url } };
   }
   // audio/file have no first-class OpenAI chat representation; pass text through.
   return { type: 'text', text: part.data };

@@ -69,6 +69,55 @@ describe('openaiAdapter.chat', () => {
     expect(res.stopReason).toBe('tool_calls');
     expect(res.usage).toEqual({ inputTokens: 7, outputTokens: 3 });
   });
+
+  it('renders a base64 image part as a data: URI image_url (not a raw payload)', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp(
+      {
+        status: 200,
+        body: {
+          choices: [{ message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+          usage: { prompt_tokens: 1, completion_tokens: 1 },
+        },
+      },
+      (r) => {
+        seen = r;
+      },
+    );
+    const imageIr: ChatRequest = {
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { kind: 'text', text: 'what is this' },
+            { kind: 'image', source: 'base64', data: 'aGk=', mime: 'image/png' },
+          ],
+        },
+      ],
+    };
+    const res = await openaiAdapter.chat?.(imageIr, {
+      providerType: 'openai',
+      model: 'gpt-4o',
+      apiKey: 'sk',
+      http,
+    });
+    if (res === undefined) {
+      throw new Error('openai adapter has no chat()');
+    }
+    // A raw base64 payload (`aGk=`) would be rejected by OpenAI — it must be a
+    // `data:<mime>;base64,<payload>` data URI.
+    expect(seen?.body).toMatchObject({
+      messages: [
+        {
+          content: [
+            { type: 'text', text: 'what is this' },
+            { type: 'image_url', image_url: { url: 'data:image/png;base64,aGk=' } },
+          ],
+        },
+      ],
+    });
+  });
 });
 
 async function drainChat(it: AsyncIterable<ChatStreamEvent>): Promise<ChatStreamEvent[]> {

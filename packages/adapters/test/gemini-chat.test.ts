@@ -123,4 +123,34 @@ describe('geminiAdapter.streamChat', () => {
     const usage = events.find((e) => e.type === 'usage');
     expect(usage).toEqual({ type: 'usage', usage: { inputTokens: 3, outputTokens: 2 } });
   });
+
+  it('assigns distinct IR indices to parallel functionCalls across frames', async () => {
+    // Gemini streams each functionCall in its own SSE frame.
+    // eslint-disable-next-line @typescript-eslint/require-await
+    const lines = (async function* g(): AsyncIterable<string> {
+      yield 'data: {"candidates":[{"content":{"parts":[{"functionCall":{"name":"fa","args":{"a":1}}}]}}]}\n\n';
+      yield 'data: {"candidates":[{"content":{"parts":[{"functionCall":{"name":"fb","args":{"b":2}}}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":1,"candidatesTokenCount":1}}\n\n';
+    })();
+    const http: HttpClient = {
+      request: () => Promise.reject(new Error('unused')),
+      stream: () => Promise.resolve({ status: 200, ok: true, lines }),
+    };
+    const stream = geminiAdapter.streamChat?.(ir, {
+      providerType: 'gemini',
+      model: 'gemini-1.5-pro',
+      apiKey: 'k',
+      http,
+    });
+    if (stream === undefined) {
+      throw new Error('gemini adapter has no streamChat()');
+    }
+    const events = await drainChat(stream);
+    const toolDeltas = events.filter((e) => e.type === 'tool_call_delta');
+    // Two functionCalls in two frames must get DISTINCT indices (0, 1) — a
+    // per-frame counter would emit index 0 twice and collapse them downstream.
+    expect(toolDeltas).toEqual([
+      { type: 'tool_call_delta', index: 0, id: 'fa', name: 'fa', argumentsDelta: '{"a":1}' },
+      { type: 'tool_call_delta', index: 1, id: 'fb', name: 'fb', argumentsDelta: '{"b":2}' },
+    ]);
+  });
 });
