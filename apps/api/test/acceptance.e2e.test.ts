@@ -388,6 +388,6 @@ describe('§12 acceptance', () => {
 
     // And it appears in the tenant-scoped list view.
     const list = await bearer(request(app.getHttpServer()).get('/v1/resources')).expect(200);
-    expect(list.body.map((r: { id: string }) => r.id)).toContain(difyResourceId);
+    expect(list.body.data.map((r: { id: string }) => r.id)).toContain(difyResourceId);
   });
 });

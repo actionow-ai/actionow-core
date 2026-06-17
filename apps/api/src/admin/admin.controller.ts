@@ -1,9 +1,11 @@
 import type {
   AccountRow,
+  ApiKeyRow,
   Job,
   LedgerRow,
   ModelRow,
   ModifierRow,
+  OAuthSessionListRow,
   PricebookEntryRow,
   Resource,
   TenantRow,
@@ -25,6 +27,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { engineInvalidInput } from '../common/errors.js';
+import { mapPageEnvelope, type PageEnvelope, toPageParams } from '../common/pagination.js';
 import { ZodBody } from '../common/zod.pipe.js';
 import { AdminService } from './admin.service.js';
 import { AdminGuard } from './auth/admin.guard.js';
@@ -67,15 +70,6 @@ import {
   type UpdateChannelDto,
   updateChannelSchema,
 } from './dto/admin.dto.js';
-
-const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 200;
-
-/** Clamp a `limit` query param to `[1, MAX_LIMIT]`, defaulting when absent/NaN. */
-function parseLimit(limit: string | undefined): number {
-  const parsed = limit === undefined ? DEFAULT_LIMIT : Number.parseInt(limit, 10);
-  return Number.isNaN(parsed) ? DEFAULT_LIMIT : Math.min(Math.max(1, parsed), MAX_LIMIT);
-}
 
 // ----- JSON views (bigint money serialized as decimal µcredit strings) -----
 
@@ -289,9 +283,13 @@ export class AdminController {
   }
 
   @Get('tenants')
-  @ApiOperation({ summary: 'List tenants' })
-  async listTenants(): Promise<TenantView[]> {
-    return (await this.admin.listTenants()).map(toTenantView);
+  @ApiOperation({ summary: 'List tenants (paginated)' })
+  async listTenants(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<TenantView>> {
+    const result = await this.admin.listTenants(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toTenantView);
   }
 
   // ----- accounts -----
@@ -329,17 +327,14 @@ export class AdminController {
   }
 
   @Get('api-keys')
-  @ApiOperation({ summary: 'List a tenant’s API keys (no hashes)' })
-  async listApiKeys(@Query('tenantId') tenantId: string): Promise<ApiKeyView[]> {
-    const rows = await this.admin.listApiKeys(tenantId);
-    return rows.map((r) => ({
-      id: r.id,
-      tenant_id: r.tenantId,
-      resource_allowlist: r.resourceAllowlist,
-      rate_limit: r.rateLimit,
-      status: r.status,
-      created_at: r.createdAt.toISOString(),
-    }));
+  @ApiOperation({ summary: 'List a tenant’s API keys (no hashes, paginated)' })
+  async listApiKeys(
+    @Query('tenantId') tenantId: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ApiKeyView>> {
+    const result = await this.admin.listApiKeys(tenantId, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toApiKeyView);
   }
 
   // ----- secrets -----
@@ -374,9 +369,13 @@ export class AdminController {
   }
 
   @Get('oauth-sessions')
-  @ApiOperation({ summary: 'List registered OAuth subscription sessions (token-free)' })
-  async listOAuthSessions(): Promise<OAuthSessionListView[]> {
-    return this.admin.listOAuthSessions();
+  @ApiOperation({ summary: 'List registered OAuth subscription sessions (token-free, paginated)' })
+  async listOAuthSessions(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<OAuthSessionListView>> {
+    const result = await this.admin.listOAuthSessions(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.secretRefId, toOAuthSessionListView);
   }
 
   @Post('oauth-sessions/codex/login/start')
@@ -423,9 +422,13 @@ export class AdminController {
   }
 
   @Get('resources')
-  @ApiOperation({ summary: 'List catalog resources' })
-  async listResources(): Promise<ResourceView[]> {
-    return (await this.admin.listResources()).map(toResourceView);
+  @ApiOperation({ summary: 'List catalog resources (paginated)' })
+  async listResources(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ResourceView>> {
+    const result = await this.admin.listResources(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toResourceView);
   }
 
   @Post('resources/:id/channels')
@@ -439,9 +442,14 @@ export class AdminController {
   }
 
   @Get('resources/:id/channels')
-  @ApiOperation({ summary: "List a resource's upstream channels (incl. disabled)" })
-  async listChannels(@Param('id') id: string): Promise<ChannelView[]> {
-    return (await this.admin.listResourceChannels(id)).map(toChannelView);
+  @ApiOperation({ summary: "List a resource's upstream channels (incl. disabled, paginated)" })
+  async listChannels(
+    @Param('id') id: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ChannelView>> {
+    const result = await this.admin.listResourceChannels(id, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toChannelView);
   }
 
   @Patch('resources/:id/channels/:channelId')
@@ -478,9 +486,14 @@ export class AdminController {
   }
 
   @Get('pricebook')
-  @ApiOperation({ summary: 'List a resource’s pricebook entries' })
-  async listPricebook(@Query('resourceId') resourceId: string): Promise<PricebookView[]> {
-    return (await this.admin.listPricebook(resourceId)).map(toPricebookView);
+  @ApiOperation({ summary: 'List a resource’s pricebook entries (paginated)' })
+  async listPricebook(
+    @Query('resourceId') resourceId: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<PricebookView>> {
+    const result = await this.admin.listPricebook(resourceId, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toPricebookView);
   }
 
   // ----- modifiers -----
@@ -495,9 +508,13 @@ export class AdminController {
   }
 
   @Get('modifiers')
-  @ApiOperation({ summary: 'List pricing modifiers' })
-  async listModifiers(): Promise<ModifierView[]> {
-    return (await this.admin.listModifiers()).map(toModifierView);
+  @ApiOperation({ summary: 'List pricing modifiers (paginated)' })
+  async listModifiers(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ModifierView>> {
+    const result = await this.admin.listModifiers(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toModifierView);
   }
 
   // ----- models -----
@@ -510,9 +527,13 @@ export class AdminController {
   }
 
   @Get('models')
-  @ApiOperation({ summary: 'List the relay model catalog' })
-  async listModels(): Promise<ModelView[]> {
-    return (await this.admin.listModels()).map(toModelView);
+  @ApiOperation({ summary: 'List the relay model catalog (paginated)' })
+  async listModels(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ModelView>> {
+    const result = await this.admin.listModels(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toModelView);
   }
 
   @Post('models/:name/grants')
@@ -529,39 +550,27 @@ export class AdminController {
   // ----- jobs -----
 
   @Get('jobs')
-  @ApiOperation({ summary: 'List a tenant’s jobs (keyset)' })
+  @ApiOperation({ summary: 'List a tenant’s jobs (keyset, paginated)' })
   async listJobs(
     @Query('tenantId') tenantId: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
-  ): Promise<{ jobs: JobView[]; next_cursor: string | null }> {
-    const effective = parseLimit(limit);
-    const rows = await this.admin.listJobs(tenantId, cursor, effective);
-    const last = rows.at(-1);
-    return {
-      jobs: rows.map(toJobView),
-      next_cursor:
-        rows.length === effective && last !== undefined ? last.createdAt.toISOString() : null,
-    };
+  ): Promise<PageEnvelope<JobView>> {
+    const result = await this.admin.listJobs(tenantId, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toJobView);
   }
 
   // ----- ledger -----
 
   @Get('ledger')
-  @ApiOperation({ summary: 'List a tenant’s ledger transactions (keyset)' })
+  @ApiOperation({ summary: 'List a tenant’s ledger transactions (keyset, paginated)' })
   async listLedger(
     @Query('tenantId') tenantId: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
-  ): Promise<{ transactions: LedgerView[]; next_cursor: string | null }> {
-    const effective = parseLimit(limit);
-    const rows = await this.admin.listLedger(tenantId, cursor, effective);
-    const last = rows.at(-1);
-    return {
-      transactions: rows.map(toLedgerView),
-      next_cursor:
-        rows.length === effective && last !== undefined ? last.createdAt.toISOString() : null,
-    };
+  ): Promise<PageEnvelope<LedgerView>> {
+    const result = await this.admin.listLedger(tenantId, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toLedgerView);
   }
 
   // ----- redemption codes -----
@@ -579,10 +588,13 @@ export class AdminController {
   // ----- usage stats -----
 
   @Get('usage')
-  @ApiOperation({ summary: 'Global per-call usage log (all tenants)' })
-  async listUsage(@Query('limit') limit?: string): Promise<{ logs: UsageLogView[] }> {
-    const rows = await this.admin.listUsageGlobal(parseLimit(limit));
-    return { logs: rows.map(toUsageLogView) };
+  @ApiOperation({ summary: 'Global per-call usage log (all tenants, paginated)' })
+  async listUsage(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<UsageLogView>> {
+    const result = await this.admin.listUsageGlobal(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toUsageLogView);
   }
 
   // ----- analytics -----
@@ -619,6 +631,29 @@ function toTenantView(row: TenantRow): TenantView {
     name: row.name,
     isolation_mode: row.isolationMode,
     created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toApiKeyView(row: Omit<ApiKeyRow, 'hash'>): ApiKeyView {
+  return {
+    id: row.id,
+    tenant_id: row.tenantId,
+    resource_allowlist: row.resourceAllowlist,
+    rate_limit: row.rateLimit,
+    status: row.status,
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toOAuthSessionListView(row: OAuthSessionListRow): OAuthSessionListView {
+  return {
+    id: row.secretRefId,
+    provider_kind: row.providerKind,
+    account_label: row.accountLabel,
+    account_id: row.accountId,
+    status: row.status,
+    expires_at: row.expiresAt === null ? null : row.expiresAt.toISOString(),
+    last_refresh_at: row.lastRefreshAt === null ? null : row.lastRefreshAt.toISOString(),
   };
 }
 

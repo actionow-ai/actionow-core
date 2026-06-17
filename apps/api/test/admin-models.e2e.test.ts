@@ -148,7 +148,7 @@ describe('admin model catalog', () => {
     expect(created.body.visibility).toBe('public');
 
     const list = await auth(request(app.getHttpServer()).get('/admin/models')).expect(200);
-    expect(list.body.map((m: { name: string }) => m.name)).toContain('gpt-4o');
+    expect(list.body.data.map((m: { name: string }) => m.name)).toContain('gpt-4o');
   });
 
   it('grants a tenant-visibility model to a tenant', async () => {

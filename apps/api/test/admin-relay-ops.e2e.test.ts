@@ -133,8 +133,10 @@ describe('admin redemption codes', () => {
 describe('admin global usage stats', () => {
   it('returns the global usage log (empty initially)', async () => {
     const res = await auth(request(app.getHttpServer()).get('/admin/usage')).expect(200);
-    expect(Array.isArray(res.body.logs)).toBe(true);
-    expect(res.body.logs).toHaveLength(0);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data).toHaveLength(0);
+    expect(res.body.has_more).toBe(false);
+    expect(res.body.next_cursor).toBeNull();
   });
 
   it('reflects an inserted usage_log row in the global view', async () => {
@@ -143,10 +145,10 @@ describe('admin global usage stats', () => {
       VALUES (${tenantId}, ${'gpt-4o'}, 100, 50, 6000, ${'succeeded'})
     `;
     const res = await auth(request(app.getHttpServer()).get('/admin/usage')).expect(200);
-    expect(res.body.logs).toHaveLength(1);
-    expect(res.body.logs[0].model).toBe('gpt-4o');
-    expect(res.body.logs[0].cost).toBe('6000');
-    expect(res.body.logs[0].input_tokens).toBe(100);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].model).toBe('gpt-4o');
+    expect(res.body.data[0].cost).toBe('6000');
+    expect(res.body.data[0].input_tokens).toBe(100);
   });
 });
 

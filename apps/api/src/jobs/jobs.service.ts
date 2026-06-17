@@ -1,8 +1,17 @@
-import { type Database, failJob, getJob, getJobForTenant, type Job, listJobs } from '@actionow/db';
+import {
+  type Database,
+  failJob,
+  getJob,
+  getJobForTenant,
+  type Job,
+  listJobs,
+  type PageParams,
+} from '@actionow/db';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { TenantContext } from '../auth/auth.service.js';
 import { engineNotFound } from '../common/errors.js';
+import { mapPageEnvelope, type PageEnvelope } from '../common/pagination.js';
 import { DB } from '../common/tokens.js';
 
 /** The JSON view of a job (bigint money fields serialized as decimal strings). */
@@ -20,15 +29,6 @@ export interface JobView {
   updated_at: string;
 }
 
-/** A cursor-paginated page of jobs. */
-export interface JobsPage {
-  jobs: JobView[];
-  /** `created_at` ISO of the last row, to pass back as `cursor`; null at end. */
-  next_cursor: string | null;
-}
-
-const MAX_LIMIT = 100;
-
 /** Read/cancel a tenant's jobs. Tenant scoping is enforced on every read. */
 @Injectable()
 export class JobsService {
@@ -39,15 +39,9 @@ export class JobsService {
     return toJobView(job);
   }
 
-  async list(ctx: TenantContext, cursor: string | undefined, limit: number): Promise<JobsPage> {
-    const capped = Math.min(Math.max(1, limit), MAX_LIMIT);
-    const rows = await listJobs(this.db, ctx.tenantId, cursor, capped);
-    const last = rows.at(-1);
-    return {
-      jobs: rows.map(toJobView),
-      next_cursor:
-        rows.length === capped && last !== undefined ? last.createdAt.toISOString() : null,
-    };
+  async list(ctx: TenantContext, page: PageParams): Promise<PageEnvelope<JobView>> {
+    const result = await listJobs(this.db, ctx.tenantId, page);
+    return mapPageEnvelope(result, (r) => r.id, toJobView);
   }
 
   /**

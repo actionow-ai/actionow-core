@@ -195,12 +195,12 @@ describe('seedProviders (real-provider catalog as DATA)', () => {
     const { tenantId } = await seedAll(db, { providerType: 'stub' });
     await seedProviders(db, { tenantId });
 
-    const resourcesAfterFirst = (await listResources(db)).length;
+    const resourcesAfterFirst = (await listResources(db, { limit: 200 })).rows.length;
     const imageChannelsAfterFirst = (await listChannels(db, 'image-relay')).length;
 
     await seedProviders(db, { tenantId });
 
-    expect((await listResources(db)).length).toBe(resourcesAfterFirst);
+    expect((await listResources(db, { limit: 200 })).rows.length).toBe(resourcesAfterFirst);
     expect((await listChannels(db, 'image-relay')).length).toBe(imageChannelsAfterFirst);
   });
 });

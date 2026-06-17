@@ -152,7 +152,7 @@ describe('admin CRUD flow', () => {
     expect(tenantId).toBeTypeOf('string');
 
     const tenantsList = await auth(request(app.getHttpServer()).get('/admin/tenants')).expect(200);
-    expect(tenantsList.body.map((t: { id: string }) => t.id)).toContain(tenantId);
+    expect(tenantsList.body.data.map((t: { id: string }) => t.id)).toContain(tenantId);
 
     // 2. account with a 50-credit opening balance → stored as 50_000_000 µcredits
     const acctRes = await auth(
@@ -188,9 +188,11 @@ describe('admin CRUD flow', () => {
     const keyList = await auth(
       request(app.getHttpServer()).get('/admin/api-keys').query({ tenantId }),
     ).expect(200);
-    expect(keyList.body).toHaveLength(1);
-    expect(keyList.body[0]).not.toHaveProperty('hash');
-    expect(keyList.body[0].resource_allowlist).toEqual(['xhs']);
+    expect(keyList.body.data).toHaveLength(1);
+    expect(keyList.body.has_more).toBe(false);
+    expect(keyList.body.next_cursor).toBeNull();
+    expect(keyList.body.data[0]).not.toHaveProperty('hash');
+    expect(keyList.body.data[0].resource_allowlist).toEqual(['xhs']);
 
     // 5. resource
     const resourceRes = await auth(
@@ -236,14 +238,14 @@ describe('admin CRUD flow', () => {
     const pbList = await auth(
       request(app.getHttpServer()).get('/admin/pricebook').query({ resourceId: 'gpt' }),
     ).expect(200);
-    expect(pbList.body).toHaveLength(1);
+    expect(pbList.body.data).toHaveLength(1);
 
     // ledger endpoint returns the topup row
     const ledgerView = await auth(
       request(app.getHttpServer()).get('/admin/ledger').query({ tenantId }),
     ).expect(200);
-    expect(ledgerView.body.transactions[0].type).toBe('topup');
-    expect(ledgerView.body.transactions[0].credits_delta).toBe('100000000');
+    expect(ledgerView.body.data[0].type).toBe('topup');
+    expect(ledgerView.body.data[0].credits_delta).toBe('100000000');
   });
 
   it('manages channels: create with routing fields, patch, and list (P0b)', async () => {
@@ -299,9 +301,9 @@ describe('admin CRUD flow', () => {
     const list = await auth(
       request(app.getHttpServer()).get('/admin/resources/chat-res/channels'),
     ).expect(200);
-    expect(list.body).toHaveLength(1);
-    expect(list.body[0].id).toBe(channelId);
-    expect(list.body[0].status).toBe('disabled');
+    expect(list.body.data).toHaveLength(1);
+    expect(list.body.data[0].id).toBe(channelId);
+    expect(list.body.data[0].status).toBe('disabled');
   });
 
   it('creates a scope-aware modifier with a µcredit value', async () => {
@@ -327,7 +329,7 @@ describe('admin CRUD flow', () => {
     expect(pctRes.body.value).toBe('10');
 
     const list = await auth(request(app.getHttpServer()).get('/admin/modifiers')).expect(200);
-    expect(list.body).toHaveLength(2);
+    expect(list.body.data).toHaveLength(2);
   });
 
   it('creates an encrypted secret and never echoes the plaintext (F0)', async () => {
@@ -517,8 +519,9 @@ describe('GET /admin/oauth-sessions (token-free listing, gated)', () => {
     });
 
     const res = await auth(request(app.getHttpServer()).get('/admin/oauth-sessions')).expect(200);
-    expect(res.body).toHaveLength(2);
-    for (const item of res.body) {
+    expect(res.body.data).toHaveLength(2);
+    expect(res.body.has_more).toBe(false);
+    for (const item of res.body.data) {
       expect(item.id).toMatch(/^[0-9a-f-]{36}$/); // the secret_ref id usable as a credentialRef
       expect(item.provider_kind).toBeTypeOf('string');
       expect(item.account_id).toBeTypeOf('string');

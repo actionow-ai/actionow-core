@@ -89,7 +89,7 @@ export interface SeedResult {
 
 /** Find the seed tenant by its well-known name, or `undefined`. */
 async function findSeedTenant(db: Database): Promise<{ id: string } | undefined> {
-  const tenants = await listTenants(db);
+  const { rows: tenants } = await listTenants(db, { limit: 200 });
   return tenants.find((t) => t.name === SEED_TENANT_NAME);
 }
 
@@ -164,7 +164,7 @@ export async function seedAll(db: Database, options: SeedOptions = {}): Promise<
   }
 
   // 5. API key — minted only when the tenant has none (plaintext is one-time).
-  const existingKeys = await listApiKeys(db, tenantId);
+  const { rows: existingKeys } = await listApiKeys(db, tenantId, { limit: 1 });
   let apiKey: string | null = null;
   if (existingKeys.length === 0) {
     const created = await createApiKey(db, { tenantId });

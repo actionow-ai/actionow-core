@@ -1,5 +1,5 @@
 import type { PaymentProviderKind } from '@actionow/contracts';
-import type { Database, PaymentIntentRow } from '@actionow/db';
+import type { Database, PageParams, PaymentIntentRow } from '@actionow/db';
 import { getIntentByIdForTenant, listIntentsByTenant } from '@actionow/db';
 import type { HandleWebhookResult, PaymentService } from '@actionow/engine';
 import type { WebhookHeaders } from '@actionow/payments';
@@ -7,6 +7,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { TenantContext } from '../auth/auth.service.js';
 import { engineNotFound } from '../common/errors.js';
+import { mapPageEnvelope, type PageEnvelope } from '../common/pagination.js';
 import { DB, PAYMENTS } from '../common/tokens.js';
 import type { CreateIntentBodyDto } from './dto/payments.dto.js';
 
@@ -87,10 +88,10 @@ export class PaymentsService {
     return toIntentView(intent);
   }
 
-  /** List a tenant's intents (admin view). */
-  async listIntents(tenantId: string, limit: number): Promise<PaymentIntentView[]> {
-    const rows = await listIntentsByTenant(this.db, tenantId, limit);
-    return rows.map(toIntentView);
+  /** List a tenant's intents (admin view), keyset-paginated into the uniform envelope. */
+  async listIntents(tenantId: string, page: PageParams): Promise<PageEnvelope<PaymentIntentView>> {
+    const result = await listIntentsByTenant(this.db, tenantId, page);
+    return mapPageEnvelope(result, (r) => r.id, toIntentView);
   }
 }
 

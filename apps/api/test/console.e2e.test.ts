@@ -155,17 +155,18 @@ describe('/console', () => {
       .get('/v1/jobs')
       .set('authorization', `Bearer ${key}`)
       .expect(200);
-    expect(Array.isArray(jobs.body.jobs)).toBe(true);
+    expect(Array.isArray(jobs.body.data)).toBe(true);
 
     // Listing returns the key WITHOUT a hash (the plaintext is unrecoverable).
     const listed = await request(server())
       .get('/console/api-keys')
       .set('authorization', `Bearer ${token}`)
       .expect(200);
-    expect(listed.body).toHaveLength(1);
-    expect(listed.body[0].id).toBe(minted.body.id);
-    expect(listed.body[0].status).toBe('active');
-    expect(listed.body[0]).not.toHaveProperty('hash');
+    expect(listed.body.data).toHaveLength(1);
+    expect(listed.body.has_more).toBe(false);
+    expect(listed.body.data[0].id).toBe(minted.body.id);
+    expect(listed.body.data[0].status).toBe('active');
+    expect(listed.body.data[0]).not.toHaveProperty('hash');
 
     // Rotate mints a fresh plaintext (and a new id) and disables the old key.
     const rotated = await request(server())
@@ -235,13 +236,18 @@ describe('/console', () => {
       .get('/console/usage')
       .set('authorization', `Bearer ${token}`)
       .expect(200);
-    expect(Array.isArray(usage.body.jobs)).toBe(true);
-    expect(Array.isArray(usage.body.ledger)).toBe(true);
+    // /console/usage returns TWO envelopes: { jobs: <envelope>, ledger: <envelope> }.
+    expect(Array.isArray(usage.body.jobs.data)).toBe(true);
+    expect(usage.body.jobs).toHaveProperty('next_cursor');
+    expect(usage.body.jobs).toHaveProperty('has_more');
+    expect(Array.isArray(usage.body.ledger.data)).toBe(true);
+    expect(usage.body.ledger).toHaveProperty('next_cursor');
 
     const models = await request(server())
       .get('/console/models')
       .set('authorization', `Bearer ${token}`)
       .expect(200);
-    expect(Array.isArray(models.body)).toBe(true);
+    expect(Array.isArray(models.body.data)).toBe(true);
+    expect(models.body.has_more).toBe(false);
   });
 });

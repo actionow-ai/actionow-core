@@ -5,10 +5,12 @@ import {
   type Database,
   disableApiKeyForTenant,
   type Job,
+  type KeysetResult,
   type LedgerRow,
   listApiKeys,
   listJobs,
   listLedger,
+  type PageParams,
   rotateApiKeyForTenant,
 } from '@actionow/db';
 import type { PaymentService } from '@actionow/engine';
@@ -56,8 +58,8 @@ export class ConsoleService {
   }
 
   /** List the caller-tenant's keys WITHOUT the hash (the plaintext is unrecoverable). */
-  listApiKeys(tenantId: string): Promise<Omit<ApiKeyRow, 'hash'>[]> {
-    return listApiKeys(this.db, tenantId);
+  listApiKeys(tenantId: string, page: PageParams): Promise<KeysetResult<Omit<ApiKeyRow, 'hash'>>> {
+    return listApiKeys(this.db, tenantId, page);
   }
 
   /** Disable one of the caller-tenant's keys, or 404 (cross-tenant → 404). */
@@ -82,12 +84,12 @@ export class ConsoleService {
 
   // ----- usage -----
 
-  listJobs(tenantId: string, cursor: string | undefined, limit: number): Promise<Job[]> {
-    return listJobs(this.db, tenantId, cursor, limit);
+  listJobs(tenantId: string, page: PageParams): Promise<KeysetResult<Job>> {
+    return listJobs(this.db, tenantId, page);
   }
 
-  listLedger(tenantId: string, cursor: string | undefined, limit: number): Promise<LedgerRow[]> {
-    return listLedger(this.db, tenantId, cursor, limit);
+  listLedger(tenantId: string, page: PageParams): Promise<KeysetResult<LedgerRow>> {
+    return listLedger(this.db, tenantId, page);
   }
 
   // ----- models -----

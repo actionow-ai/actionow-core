@@ -315,9 +315,10 @@ describe('/v1/payments', () => {
       .get(`/admin/payments?tenantId=${tenantId}`)
       .set('authorization', `Bearer ${token}`)
       .expect(200);
-    expect(res.body.intents).toHaveLength(1);
-    expect(res.body.intents[0].provider).toBe('stripe');
-    expect(res.body.intents[0].credit_amount).toBe('1000000');
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.has_more).toBe(false);
+    expect(res.body.data[0].provider).toBe('stripe');
+    expect(res.body.data[0].credit_amount).toBe('1000000');
 
     // No admin token → 401.
     await request(server()).get(`/admin/payments?tenantId=${tenantId}`).expect(401);

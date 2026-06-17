@@ -1,3 +1,4 @@
+import type { ApiKeyRow, Job, LedgerRow } from '@actionow/db';
 import {
   Body,
   Controller,
@@ -13,6 +14,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { engineUnauthorized } from '../common/errors.js';
+import { mapPageEnvelope, type PageEnvelope, toPageParams } from '../common/pagination.js';
 import { ZodBody } from '../common/zod.pipe.js';
 import { type ConsoleContext, ConsoleGuard, type ConsoleRequest } from './console.guard.js';
 import type { ConsoleCreateIntentResponse } from './console.service.js';
@@ -24,15 +26,6 @@ import {
   consoleCreateIntentSchema,
 } from './dto/console.dto.js';
 import type { ModelView } from './models.port.js';
-
-const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 200;
-
-/** Clamp a `limit` query param to `[1, MAX_LIMIT]`, defaulting when absent/NaN. */
-function parseLimit(limit: string | undefined): number {
-  const parsed = limit === undefined ? DEFAULT_LIMIT : Number.parseInt(limit, 10);
-  return Number.isNaN(parsed) ? DEFAULT_LIMIT : Math.min(Math.max(1, parsed), MAX_LIMIT);
-}
 
 /** Read the guard-populated console context, or fail closed with `unauthorized`. */
 function ctxOf(req: ConsoleRequest): ConsoleContext {
@@ -75,6 +68,41 @@ interface ModelListItem {
   visibility: string;
 }
 
+/** Project a tenant api-key row to its console view (no hash). */
+function toApiKeyView(r: Omit<ApiKeyRow, 'hash'>): ApiKeyView {
+  return {
+    id: r.id,
+    resource_allowlist: r.resourceAllowlist,
+    rate_limit: r.rateLimit,
+    status: r.status,
+    created_at: r.createdAt.toISOString(),
+  };
+}
+
+/** Project a job row to the console job view (money as decimal strings). */
+function toConsoleJobView(j: Job): JobView {
+  return {
+    job_id: j.id,
+    resource_id: j.resourceId,
+    status: j.status,
+    exec_mode: j.execMode,
+    cost: j.costCredits === null ? null : j.costCredits.toString(),
+    created_at: j.createdAt.toISOString(),
+  };
+}
+
+/** Project a ledger row to the console ledger view (money as decimal strings). */
+function toConsoleLedgerView(l: LedgerRow): LedgerView {
+  return {
+    id: l.id,
+    type: l.type,
+    credits_delta: l.creditsDelta.toString(),
+    balance_after: l.balanceAfter.toString(),
+    job_id: l.jobId,
+    created_at: l.createdAt.toISOString(),
+  };
+}
+
 /**
  * The tenant self-service console (`/console`, Track B capstone). Every route is
  * gated by the {@link ConsoleGuard} (USER JWT → `{userId, tenantId, accountId}`)
@@ -104,17 +132,15 @@ export class ConsoleController {
   }
 
   @Get('api-keys')
-  @ApiOperation({ summary: 'List your tenant API keys (no hashes)' })
-  async listApiKeys(@Req() req: ConsoleRequest): Promise<ApiKeyView[]> {
+  @ApiOperation({ summary: 'List your tenant API keys (no hashes, paginated)' })
+  async listApiKeys(
+    @Req() req: ConsoleRequest,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ApiKeyView>> {
     const ctx = ctxOf(req);
-    const rows = await this.console.listApiKeys(ctx.tenantId);
-    return rows.map((r) => ({
-      id: r.id,
-      resource_allowlist: r.resourceAllowlist,
-      rate_limit: r.rateLimit,
-      status: r.status,
-      created_at: r.createdAt.toISOString(),
-    }));
+    const result = await this.console.listApiKeys(ctx.tenantId, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toApiKeyView);
   }
 
   @Post('api-keys/:id/rotate')
@@ -141,49 +167,57 @@ export class ConsoleController {
     return { id, status: 'disabled' };
   }
 
+  /**
+   * Your tenant's jobs AND ledger in ONE response. Since the two are independent
+   * keysets, each gets its OWN envelope under `jobs`/`ledger`, paged by its own
+   * cursor query param (`jobs_cursor` / `ledger_cursor`) with a shared `limit`.
+   * A single shared cursor cannot drive two distinct keysets, so they are split.
+   */
   @Get('usage')
-  @ApiOperation({ summary: 'Your tenant jobs + ledger (keyset)' })
+  @ApiOperation({ summary: 'Your tenant jobs + ledger (two keyset envelopes)' })
   async usage(
     @Req() req: ConsoleRequest,
-    @Query('cursor') cursor?: string,
+    @Query('jobs_cursor') jobsCursor?: string,
+    @Query('ledger_cursor') ledgerCursor?: string,
     @Query('limit') limit?: string,
-  ): Promise<{ jobs: JobView[]; ledger: LedgerView[] }> {
+  ): Promise<{ jobs: PageEnvelope<JobView>; ledger: PageEnvelope<LedgerView> }> {
     const ctx = ctxOf(req);
-    const effective = parseLimit(limit);
-    const jobs = await this.console.listJobs(ctx.tenantId, cursor, effective);
-    const ledger = await this.console.listLedger(ctx.tenantId, cursor, effective);
+    const jobs = await this.console.listJobs(
+      ctx.tenantId,
+      toPageParams({ cursor: jobsCursor, limit }),
+    );
+    const ledger = await this.console.listLedger(
+      ctx.tenantId,
+      toPageParams({ cursor: ledgerCursor, limit }),
+    );
     return {
-      jobs: jobs.map((j) => ({
-        job_id: j.id,
-        resource_id: j.resourceId,
-        status: j.status,
-        exec_mode: j.execMode,
-        cost: j.costCredits === null ? null : j.costCredits.toString(),
-        created_at: j.createdAt.toISOString(),
-      })),
-      ledger: ledger.map((l) => ({
-        id: l.id,
-        type: l.type,
-        credits_delta: l.creditsDelta.toString(),
-        balance_after: l.balanceAfter.toString(),
-        job_id: l.jobId,
-        created_at: l.createdAt.toISOString(),
-      })),
+      jobs: mapPageEnvelope(jobs, (j) => j.id, toConsoleJobView),
+      ledger: mapPageEnvelope(ledger, (l) => l.id, toConsoleLedgerView),
     };
   }
 
+  /**
+   * Models visible to your tenant, in the uniform envelope. The visible-models
+   * port returns the full visibility-filtered set (small, public + granted), so
+   * this is a single non-cursored page: `has_more` is always `false` and
+   * `next_cursor` is always `null` (the set is bounded by the catalog size).
+   */
   @Get('models')
-  @ApiOperation({ summary: 'Models visible to your tenant' })
-  async models(@Req() req: ConsoleRequest): Promise<ModelListItem[]> {
+  @ApiOperation({ summary: 'Models visible to your tenant (single-page envelope)' })
+  async models(@Req() req: ConsoleRequest): Promise<PageEnvelope<ModelListItem>> {
     const ctx = ctxOf(req);
     const rows: ModelView[] = await this.console.listModels(ctx.tenantId);
-    return rows.map((m) => ({
-      name: m.name,
-      display: m.display,
-      modality: m.modality,
-      capabilities: m.capabilities,
-      visibility: m.visibility,
-    }));
+    return {
+      data: rows.map((m) => ({
+        name: m.name,
+        display: m.display,
+        modality: m.modality,
+        capabilities: m.capabilities,
+        visibility: m.visibility,
+      })),
+      next_cursor: null,
+      has_more: false,
+    };
   }
 
   @Post('payments/intents')

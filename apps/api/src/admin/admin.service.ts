@@ -26,6 +26,7 @@ import {
   getResource,
   grantModel,
   type Job,
+  type KeysetResult,
   type LedgerRow,
   listApiKeys,
   listChannelsForResource,
@@ -40,6 +41,8 @@ import {
   listUsageLogsGlobal,
   type ModelRow,
   type ModifierRow,
+  type OAuthSessionListRow,
+  type PageParams,
   type PricebookEntryRow,
   type Resource,
   rollupUsage,
@@ -101,21 +104,6 @@ interface OAuthSessionView {
   accountId?: string;
 }
 
-/**
- * A snake_case row of the token-free admin OAuth-session listing. EXCLUDES the
- * access/refresh tokens by construction (the repo never selects the ciphertext);
- * timestamps are ISO-8601 strings (or `null` when unset).
- */
-interface OAuthSessionListView {
-  id: string;
-  provider_kind: string;
-  account_label: string | null;
-  account_id: string | null;
-  status: string;
-  expires_at: string | null;
-  last_refresh_at: string | null;
-}
-
 /** The fields a successful token acquisition contributes to a persisted session. */
 interface OAuthSessionInputs {
   accessToken: string;
@@ -160,8 +148,8 @@ export class AdminService {
     return createTenant(this.db, { name: dto.name, isolationMode: dto.isolationMode });
   }
 
-  listTenants(): Promise<TenantRow[]> {
-    return listTenants(this.db);
+  listTenants(page: PageParams): Promise<KeysetResult<TenantRow>> {
+    return listTenants(this.db, page);
   }
 
   // ----- accounts -----
@@ -193,8 +181,8 @@ export class AdminService {
   }
 
   /** List a tenant's keys WITHOUT the hash (the plaintext is unrecoverable). */
-  listApiKeys(tenantId: string): Promise<Omit<ApiKeyRow, 'hash'>[]> {
-    return listApiKeys(this.db, tenantId);
+  listApiKeys(tenantId: string, page: PageParams): Promise<KeysetResult<Omit<ApiKeyRow, 'hash'>>> {
+    return listApiKeys(this.db, tenantId, page);
   }
 
   // ----- secrets -----
@@ -268,20 +256,11 @@ export class AdminService {
    * the access/refresh tokens NEVER reach this layer; the snake_case view maps
    * only the metadata fields.
    */
-  async listOAuthSessions(): Promise<OAuthSessionListView[]> {
+  listOAuthSessions(page: PageParams): Promise<KeysetResult<OAuthSessionListRow>> {
     if (this.env.ENABLE_OAUTH_CHANNELS !== true) {
       throw engineInvalidInput('oauth channels are disabled (set ENABLE_OAUTH_CHANNELS)');
     }
-    const rows = await listOAuthSessions(this.db);
-    return rows.map((row) => ({
-      id: row.secretRefId,
-      provider_kind: row.providerKind,
-      account_label: row.accountLabel,
-      account_id: row.accountId,
-      status: row.status,
-      expires_at: row.expiresAt === null ? null : row.expiresAt.toISOString(),
-      last_refresh_at: row.lastRefreshAt === null ? null : row.lastRefreshAt.toISOString(),
-    }));
+    return listOAuthSessions(this.db, page);
   }
 
   /**
@@ -421,8 +400,8 @@ export class AdminService {
     });
   }
 
-  listResources(): Promise<Resource[]> {
-    return listResources(this.db);
+  listResources(page: PageParams): Promise<KeysetResult<Resource>> {
+    return listResources(this.db, page);
   }
 
   async createChannel(resourceId: string, dto: CreateChannelDto): Promise<UpstreamChannelRow> {
@@ -444,8 +423,11 @@ export class AdminService {
   }
 
   /** List every channel of a resource (incl. disabled) — operator routing view. */
-  listResourceChannels(resourceId: string): Promise<UpstreamChannelRow[]> {
-    return listChannelsForResource(this.db, resourceId);
+  listResourceChannels(
+    resourceId: string,
+    page: PageParams,
+  ): Promise<KeysetResult<UpstreamChannelRow>> {
+    return listChannelsForResource(this.db, resourceId, page);
   }
 
   /** Patch an upstream channel's routing fields (weight/status/endpoint/model/...). */
@@ -476,7 +458,9 @@ export class AdminService {
     dto: SyncChannelModelsDto,
   ): Promise<{ resource_id: string; created: string[]; updated: string[]; total: number }> {
     // Load the channel and verify it belongs to this resource (else not_found).
-    const channels = await listChannelsForResource(this.db, resourceId);
+    // A resource has few channels; a generous page bounds the scan without a
+    // dedicated single-channel getter (a Track D concern).
+    const { rows: channels } = await listChannelsForResource(this.db, resourceId, { limit: 200 });
     const channel = channels.find((c) => c.id === channelId);
     if (channel === undefined) {
       throw engineNotFound(`channel ${channelId} not found for resource ${resourceId}`);
@@ -573,8 +557,8 @@ export class AdminService {
     return { method: 'fixed', ...base, amount: creditsToMicro(dto.fixedCredits).toString() };
   }
 
-  listPricebook(resourceId: string): Promise<PricebookEntryRow[]> {
-    return listPricebookEntries(this.db, resourceId);
+  listPricebook(resourceId: string, page: PageParams): Promise<KeysetResult<PricebookEntryRow>> {
+    return listPricebookEntries(this.db, resourceId, page);
   }
 
   // ----- modifiers -----
@@ -603,8 +587,8 @@ export class AdminService {
     return CREDIT_VALUE_OPS.has(dto.op) ? creditsToMicro(dto.value) : BigInt(Math.round(dto.value));
   }
 
-  listModifiers(): Promise<ModifierRow[]> {
-    return listModifiers(this.db);
+  listModifiers(page: PageParams): Promise<KeysetResult<ModifierRow>> {
+    return listModifiers(this.db, page);
   }
 
   // ----- models -----
@@ -629,8 +613,8 @@ export class AdminService {
     return createModel(this.db, input);
   }
 
-  listModels(): Promise<ModelRow[]> {
-    return listModels(this.db);
+  listModels(page: PageParams): Promise<KeysetResult<ModelRow>> {
+    return listModels(this.db, page);
   }
 
   /** Grant a tenant-visibility model (by name) to a tenant. */
@@ -640,14 +624,14 @@ export class AdminService {
 
   // ----- jobs -----
 
-  listJobs(tenantId: string, cursor: string | undefined, limit: number): Promise<Job[]> {
-    return listJobs(this.db, tenantId, cursor, limit);
+  listJobs(tenantId: string, page: PageParams): Promise<KeysetResult<Job>> {
+    return listJobs(this.db, tenantId, page);
   }
 
   // ----- ledger -----
 
-  listLedger(tenantId: string, cursor: string | undefined, limit: number): Promise<LedgerRow[]> {
-    return listLedger(this.db, tenantId, cursor, limit);
+  listLedger(tenantId: string, page: PageParams): Promise<KeysetResult<LedgerRow>> {
+    return listLedger(this.db, tenantId, page);
   }
 
   // ----- redemption codes -----
@@ -675,8 +659,8 @@ export class AdminService {
 
   // ----- usage stats -----
 
-  listUsageGlobal(limit: number): Promise<UsageLogRow[]> {
-    return listUsageLogsGlobal(this.db, limit);
+  listUsageGlobal(page: PageParams): Promise<KeysetResult<UsageLogRow>> {
+    return listUsageLogsGlobal(this.db, page);
   }
 
   // ----- analytics -----

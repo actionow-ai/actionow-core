@@ -161,7 +161,8 @@ describe('GET /console/models honors the bound ModelsPort (Track C seam)', () =>
       .get('/console/models')
       .set('authorization', `Bearer ${token}`)
       .expect(200);
-    expect(res.body).toHaveLength(1);
-    expect(res.body[0]).toMatchObject({ name: 'gpt-4o', visibility: 'public' });
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.has_more).toBe(false);
+    expect(res.body.data[0]).toMatchObject({ name: 'gpt-4o', visibility: 'public' });
   });
 });
