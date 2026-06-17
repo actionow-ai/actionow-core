@@ -2,6 +2,7 @@ import { ListIcon, XIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { BP } from '../../lib/breakpoints';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 import { Logo } from '../brand/Logo';
 import { LanguageSwitch } from '../layout/LanguageSwitch';
@@ -10,7 +11,7 @@ import { Button } from '../ui/Button';
 
 export function Nav() {
   const { t } = useTranslation('landing');
-  const isDesktop = useMediaQuery('(min-width: 768px)');
+  const isDesktop = useMediaQuery(BP.md);
   const [open, setOpen] = useState(false);
   const links = [
     { href: '#scenarios', label: t('nav.scenarios') },

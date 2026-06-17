@@ -1,11 +1,12 @@
 import { TranslateIcon } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 
+import { BP } from '../../lib/breakpoints';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 
 export function LanguageSwitch() {
   const { i18n, t } = useTranslation();
-  const isDesktop = useMediaQuery('(min-width: 768px)');
+  const isDesktop = useMediaQuery(BP.md);
   const isZh = i18n.language.startsWith('zh');
   const next = isZh ? 'en' : 'zh-CN';
   const label = isZh ? t('lang.en') : t('lang.zh');

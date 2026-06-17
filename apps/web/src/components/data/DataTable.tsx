@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 
+import { BP } from '../../lib/breakpoints';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 import { RoseLoader } from '../ui/RoseLoader';
 
@@ -29,7 +30,7 @@ export function DataTable<T>({
   onRowClick?: (row: T) => void;
   selectedKey?: string;
 }) {
-  const isDesktop = useMediaQuery('(min-width: 768px)');
+  const isDesktop = useMediaQuery(BP.md);
   const grid = columns.map((c) => c.width ?? '1fr').join(' ');
   const clickable = onRowClick !== undefined;
 

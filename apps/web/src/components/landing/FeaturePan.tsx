@@ -10,6 +10,7 @@ import {
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { BP } from '../../lib/breakpoints';
 import { gsap, ScrollTrigger, useGSAP } from '../../lib/motion/gsap';
 import { useReducedMotion } from '../../lib/motion/useReducedMotion';
 import { useMediaQuery } from '../../lib/useMediaQuery';
@@ -65,7 +66,7 @@ function Panel({ index, k, Glyph, wide }: { index: number; k: string; Glyph: Ico
 export function FeaturePan() {
   const { t } = useTranslation('landing');
   const reduced = useReducedMotion();
-  const isDesktop = useMediaQuery('(min-width: 880px)');
+  const isDesktop = useMediaQuery(BP.wide);
   const wrap = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
   const panned = isDesktop && !reduced;

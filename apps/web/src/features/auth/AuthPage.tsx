@@ -14,6 +14,7 @@ import { toast } from '../../components/ui/toast';
 import { config } from '../../config';
 import { ApiError } from '../../lib/api/errors';
 import { useAuth } from '../../lib/auth/AuthProvider';
+import { BP } from '../../lib/breakpoints';
 import { gsap, useGSAP } from '../../lib/motion/gsap';
 import { useReducedMotion } from '../../lib/motion/useReducedMotion';
 import { useMediaQuery } from '../../lib/useMediaQuery';
@@ -88,7 +89,7 @@ export function AuthPage() {
   const { t } = useTranslation('console');
   const { login, register } = useAuth();
   const navigate = useNavigate();
-  const isDesktop = useMediaQuery('(min-width: 880px)');
+  const isDesktop = useMediaQuery(BP.wide);
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

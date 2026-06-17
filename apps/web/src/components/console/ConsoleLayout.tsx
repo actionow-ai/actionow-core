@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../lib/auth/AuthProvider';
+import { BP } from '../../lib/breakpoints';
 import { useReducedMotion } from '../../lib/motion/useReducedMotion';
 import { useTheme } from '../../lib/theme/ThemeProvider';
 import { useMediaQuery } from '../../lib/useMediaQuery';
@@ -189,7 +190,7 @@ function TopBar({ action, filters, back }: { action: ReactNode; filters: ReactNo
   const qc = useQueryClient();
   const fetching = useIsFetching();
   const reduced = useReducedMotion();
-  const isDesktop = useMediaQuery('(min-width: 768px)');
+  const isDesktop = useMediaQuery(BP.md);
 
   const item = activeItem(pathname);
   const subtitle = t(`subtitles.${item.labelKey}`, '');
@@ -303,7 +304,7 @@ function BottomTabs({ pathname }: { pathname: string }) {
 
 export function ConsoleLayout() {
   const { pathname } = useLocation();
-  const isDesktop = useMediaQuery('(min-width: 768px)');
+  const isDesktop = useMediaQuery(BP.md);
   const [action, setAction] = useState<ReactNode>(null);
   const [filters, setFilters] = useState<ReactNode>(null);
   const [back, setBack] = useState<ConsoleBack | null>(null);

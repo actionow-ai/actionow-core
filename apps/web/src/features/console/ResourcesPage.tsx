@@ -17,6 +17,7 @@ import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { BP } from '../../lib/breakpoints';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 import { ResourceDetailPane } from './ResourceDetailPane';
 
@@ -26,7 +27,7 @@ export function ResourcesPage() {
   const navigate = useNavigate();
   const api = useAdminApi();
   const qc = useQueryClient();
-  const isWide = useMediaQuery('(min-width: 1100px)');
+  const isWide = useMediaQuery(BP.xl);
   const { data, isLoading } = useQuery({ queryKey: ['admin', 'resources'], queryFn: () => api.listResources() });
 
   const [open, setOpen] = useState(false);
