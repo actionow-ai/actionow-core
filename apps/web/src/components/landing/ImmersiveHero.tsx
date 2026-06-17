@@ -70,7 +70,7 @@ export function ImmersiveHero() {
       </p>
 
       <div data-r style={{ display: 'flex', gap: 'var(--s-3)', marginTop: 'var(--s-6)', flexWrap: 'wrap', justifyContent: 'center' }}>
-        <Button to="/login" variant="cta" size="lg" className="cta-shine">
+        <Button to="/login" variant="cta" size="lg">
           {t('hero.ctaPrimary')} <ArrowRightIcon size={16} weight="bold" />
         </Button>
         <Button href="#features" variant="ghost" size="lg">

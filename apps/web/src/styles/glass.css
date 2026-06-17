@@ -252,27 +252,6 @@
 }
 .spotlight-card:hover .spotlight-glow { opacity: 1; }
 
-/* Shimmer sweep for primary CTAs (a subtle moving highlight). */
-.cta-shine { position: relative; overflow: hidden; }
-.cta-shine::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -160%;
-  width: 55%;
-  height: 100%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-  transform: skewX(-18deg);
-  animation: cta-sweep 4s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes cta-sweep {
-  0% { left: -160%; }
-  55%, 100% { left: 160%; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .cta-shine::after { animation: none; display: none; }
-}
 
 /* Accessibility: reduce transparency → near-opaque surfaces. */
 @media (prefers-reduced-transparency: reduce) {

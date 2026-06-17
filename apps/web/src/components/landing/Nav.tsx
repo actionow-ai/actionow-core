@@ -1,5 +1,5 @@
 import { ListIcon, XIcon } from '@phosphor-icons/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { BP } from '../../lib/breakpoints';
@@ -13,6 +13,14 @@ export function Nav() {
   const { t } = useTranslation('landing');
   const isDesktop = useMediaQuery(BP.md);
   const [open, setOpen] = useState(false);
+  // Airy glass over the hero; once scrolled, go opaque so content doesn't bleed through.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   const links = [
     { href: '#scenarios', label: t('nav.scenarios') },
     { href: '#features', label: t('nav.features') },
@@ -32,6 +40,8 @@ export function Nav() {
           justifyContent: 'space-between',
           padding: '0 var(--s-4)',
           position: 'relative',
+          background: scrolled ? 'var(--nav-bg)' : 'var(--glass-bg)',
+          transition: 'background 0.25s ease',
         }}
       >
         <Logo />

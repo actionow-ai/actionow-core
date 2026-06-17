@@ -179,7 +179,7 @@ export function AuthPage() {
           required
         />
 
-        <Button variant="cta" size="lg" type="submit" disabled={busy} className="cta-shine">
+        <Button variant="cta" size="lg" type="submit" disabled={busy}>
           {t(mode === 'login' ? 'auth.loginSubmit' : 'auth.registerSubmit')} <ArrowRightIcon size={16} weight="bold" />
         </Button>
 
