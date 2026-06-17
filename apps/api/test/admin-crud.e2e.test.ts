@@ -128,7 +128,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE api_key, ledger_txn, dify_binding, redemption_code, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, oauth_session, secret_material, secret_ref, "user" RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE request_idempotency, api_key, ledger_txn, dify_binding, redemption_code, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, oauth_session, secret_material, secret_ref, "user" RESTART IDENTITY CASCADE`;
 });
 
 function auth(req: request.Test): request.Test {

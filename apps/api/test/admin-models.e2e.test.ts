@@ -96,7 +96,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE model_grant, model, api_key, ledger_txn, pricebook_entry, upstream_channel, resource_version, resource, account, tenant, "user" RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE request_idempotency, model_grant, model, api_key, ledger_txn, pricebook_entry, upstream_channel, resource_version, resource, account, tenant, "user" RESTART IDENTITY CASCADE`;
 });
 
 function auth(req: request.Test): request.Test {

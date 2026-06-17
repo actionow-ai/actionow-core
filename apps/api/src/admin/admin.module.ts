@@ -2,6 +2,7 @@ import { type AppEnv, FetchHttpClient } from '@actionow/infra';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 
+import { IdempotencyInterceptor } from '../common/idempotency.interceptor.js';
 import { ENV, HTTP, KNOWN_MODELS } from '../common/tokens.js';
 import { AdminController } from './admin.controller.js';
 import { AdminService } from './admin.service.js';
@@ -36,6 +37,9 @@ import {
     AdminService,
     AdminDifyService,
     AdminGuard,
+    // Track D5: resolved by `@UseInterceptors(IdempotencyInterceptor)` on the
+    // admin controllers; injects the global DB handle + Reflector.
+    IdempotencyInterceptor,
     { provide: ADMIN_AUTH_REPO, useValue: defaultAdminAuthRepo },
     { provide: KNOWN_MODELS, useValue: new Set<string>() },
     // The shared HttpClient for the codex OAuth code-exchange; overridable in

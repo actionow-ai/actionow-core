@@ -4,8 +4,10 @@ import {
   bigint,
   check,
   index,
+  integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -105,6 +107,37 @@ export const idempotencyKey = pgTable(
   },
   // `idempotency_tenant_key` on (tenant_id, key) also serves as the FK index on tenant_id.
   (t) => [uniqueIndex('idempotency_tenant_key').on(t.tenantId, t.key)],
+);
+
+/**
+ * Track D5 — admin POST idempotency replay store. One row per
+ * `(Idempotency-Key, scope)` where `scope` is the `METHOD path` of the route
+ * (e.g. `POST /admin/tenants`). The interceptor persists the first successful
+ * response `{status, body}` here and, on a duplicate POST carrying the SAME
+ * key+scope, replays it verbatim instead of re-running the handler. The
+ * composite PK makes the same key on a DIFFERENT route independent, and the
+ * `INSERT … ON CONFLICT DO NOTHING` write makes a concurrent in-flight
+ * duplicate safe (the racing writer just keeps its own freshly-computed result).
+ *
+ * SECURITY: this table caches response BODIES at rest, so it is ONLY ever
+ * written for an ALLOWLIST of NON-secret-returning admin POSTs (gated by the
+ * `@Idempotent()` decorator). Endpoints that return one-time secrets
+ * (`POST /admin/api-keys`, `/secrets`, `/oauth-sessions(+codex login)`,
+ * `/redemption-codes`) are deliberately NOT decorated, so no plaintext secret
+ * is ever stored here.
+ */
+// immutable: no updated_at (a captured response is replayed verbatim, never mutated)
+export const requestIdempotency = pgTable(
+  'request_idempotency',
+  {
+    idKey: text('id_key').notNull(),
+    /** The `METHOD path` of the route the key was used against. */
+    scope: text('scope').notNull(),
+    responseStatus: integer('response_status').notNull(),
+    responseBody: jsonb('response_body'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.idKey, t.scope] })],
 );
 
 // immutable: no updated_at (status moves pending→sent/dead but the row is otherwise append-only)

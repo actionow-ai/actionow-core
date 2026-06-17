@@ -27,10 +27,13 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { engineInvalidInput } from '../common/errors.js';
+import { IdempotencyInterceptor } from '../common/idempotency.interceptor.js';
+import { Idempotent } from '../common/idempotent.decorator.js';
 import { mapPageEnvelope, type PageEnvelope, toPageParams } from '../common/pagination.js';
 import { ZodBody } from '../common/zod.pipe.js';
 import { AdminService, type RelayTraceView, toRelayTraceView } from './admin.service.js';
@@ -322,6 +325,10 @@ interface RedemptionCodeView {
 @ApiBearerAuth('jwt')
 @UseGuards(AdminGuard)
 @Roles('admin')
+// Track D5: `Idempotency-Key` replay. The interceptor acts ONLY on POSTs marked
+// with `@Idempotent()` (the non-secret allowlist below); every other route is
+// untouched. Secret-returning POSTs are deliberately left undecorated.
+@UseInterceptors(IdempotencyInterceptor)
 @Controller('admin')
 export class AdminController {
   constructor(private readonly admin: AdminService) {}
@@ -330,6 +337,7 @@ export class AdminController {
 
   @Post('tenants')
   @HttpCode(201)
+  @Idempotent()
   @ApiOperation({ summary: 'Create a tenant' })
   async createTenant(
     @Body(new ZodBody(createTenantSchema)) dto: CreateTenantDto,
@@ -366,6 +374,7 @@ export class AdminController {
 
   @Post('accounts')
   @HttpCode(201)
+  @Idempotent()
   @ApiOperation({ summary: 'Create an account (opening balance in credits)' })
   async createAccount(
     @Body(new ZodBody(createAccountSchema)) dto: CreateAccountDto,
@@ -375,6 +384,7 @@ export class AdminController {
 
   @Post('accounts/:id/topup')
   @HttpCode(200)
+  @Idempotent()
   @ApiOperation({ summary: 'Top up an account (amount in credits → µcredits)' })
   async topup(
     @Param('id') id: string,
@@ -535,6 +545,7 @@ export class AdminController {
 
   @Post('resources')
   @HttpCode(201)
+  @Idempotent()
   @ApiOperation({ summary: 'Register a catalog resource (+ io_schema)' })
   async createResource(
     @Body(new ZodBody(createResourceSchema)) dto: CreateResourceDto,
@@ -569,6 +580,7 @@ export class AdminController {
 
   @Post('resources/:id/channels')
   @HttpCode(201)
+  @Idempotent()
   @ApiOperation({ summary: 'Add an upstream channel to a resource' })
   async createChannel(
     @Param('id') id: string,
@@ -618,6 +630,7 @@ export class AdminController {
 
   @Post('resources/:id/channels/:channelId/sync-models')
   @HttpCode(200)
+  @Idempotent()
   @ApiOperation({
     summary: "Sync a channel provider's available models into model rows (multi-model routing)",
   })
@@ -633,6 +646,7 @@ export class AdminController {
 
   @Post('pricebook')
   @HttpCode(201)
+  @Idempotent()
   @ApiOperation({ summary: 'Add a pricebook entry (fixed amount in credits)' })
   async createPricebook(
     @Body(new ZodBody(createPricebookSchema)) dto: CreatePricebookDto,
@@ -677,6 +691,7 @@ export class AdminController {
 
   @Post('modifiers')
   @HttpCode(201)
+  @Idempotent()
   @ApiOperation({ summary: 'Add a pricing modifier (scope-aware, §9.2)' })
   async createModifier(
     @Body(new ZodBody(createModifierSchema)) dto: CreateModifierDto,
@@ -720,6 +735,7 @@ export class AdminController {
 
   @Post('models')
   @HttpCode(201)
+  @Idempotent()
   @ApiOperation({ summary: 'Register a relay model (name → chat resource)' })
   async createModel(@Body(new ZodBody(createModelSchema)) dto: CreateModelDto): Promise<ModelView> {
     return toModelView(await this.admin.createModel(dto));
@@ -759,6 +775,7 @@ export class AdminController {
 
   @Post('models/:name/grants')
   @HttpCode(201)
+  @Idempotent()
   @ApiOperation({ summary: 'Grant a tenant-visibility model to a tenant' })
   async grantModel(
     @Param('name') name: string,

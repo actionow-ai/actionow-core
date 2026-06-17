@@ -10,9 +10,12 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { IdempotencyInterceptor } from '../common/idempotency.interceptor.js';
+import { Idempotent } from '../common/idempotent.decorator.js';
 import { mapPageEnvelope, type PageEnvelope, toPageParams } from '../common/pagination.js';
 import { ZodBody } from '../common/zod.pipe.js';
 import { AdminDifyService } from './admin-dify.service.js';
@@ -68,12 +71,15 @@ function toDifyBindingView(row: DifyBindingRow): DifyBindingView {
 @ApiBearerAuth('jwt')
 @UseGuards(AdminGuard)
 @Roles('admin')
+// Track D5: `Idempotency-Key` replay for the `@Idempotent()` import POST.
+@UseInterceptors(IdempotencyInterceptor)
 @Controller('admin/dify')
 export class AdminDifyController {
   constructor(private readonly dify: AdminDifyService) {}
 
   @Post('import')
   @HttpCode(200)
+  @Idempotent()
   @ApiOperation({ summary: 'Register a BYO Dify workflow → returns io_schema' })
   async import(@Body(new ZodBody(difyImportSchema)) dto: DifyImportDto): Promise<DifyImportView> {
     const result = await this.dify.import(dto);

@@ -112,6 +112,12 @@ export {
 } from './files.js';
 export { claimIdempotency, type ClaimResult } from './idempotency.js';
 export {
+  getIdempotentResponse,
+  type IdempotentResponse,
+  putIdempotentResponse,
+  type PutIdempotentResponseInput,
+} from './idempotency-admin.js';
+export {
   createJob,
   type CreateJobInput,
   getJob,
