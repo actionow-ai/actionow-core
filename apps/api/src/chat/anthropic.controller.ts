@@ -44,7 +44,8 @@ export class AnthropicChatController {
       await pipeSse(res, renderAnthropicMessagesStream(events, ir.model));
       return undefined;
     }
-    const { response } = await this.relay.chat(ir.model, ir, ctx);
+    const { response, servedBy } = await this.relay.chat(ir.model, ir, ctx);
+    if (servedBy !== undefined) res.setHeader('x-actionow-channel', servedBy.providerType);
     return renderAnthropicChat(response, ir.model);
   }
 }

@@ -238,6 +238,7 @@ describe('OpenAI dialect (/v1/chat/completions)', () => {
       }),
     });
     expect(res.status).toBe(200);
+    expect(res.headers.get('x-actionow-channel')).toBe('mock-chat');
     const body = asRecord(await res.json());
     expect(body.object).toBe('chat.completion');
     const choice = asRecord((body.choices as unknown[])[0]);

@@ -41,7 +41,8 @@ export class OpenAIChatController {
       await pipeSse(res, renderOpenAIChatStream(events, ir.model));
       return undefined;
     }
-    const { response } = await this.relay.chat(ir.model, ir, ctx);
+    const { response, servedBy } = await this.relay.chat(ir.model, ir, ctx);
+    if (servedBy !== undefined) res.setHeader('x-actionow-channel', servedBy.providerType);
     return renderOpenAIChat(response, ir.model);
   }
 }

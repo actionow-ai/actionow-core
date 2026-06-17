@@ -38,10 +38,12 @@ export class GeminiChatController {
     @Param('model') model: string,
     @Body() body: Record<string, unknown>,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<Record<string, unknown>> {
     const ctx = this.auth.resolve(req);
     const ir = parseGeminiChat(body, model);
-    const { response } = await this.relay.chat(ir.model, ir, ctx);
+    const { response, servedBy } = await this.relay.chat(ir.model, ir, ctx);
+    if (servedBy !== undefined) res.setHeader('x-actionow-channel', servedBy.providerType);
     return renderGeminiChat(response);
   }
 
