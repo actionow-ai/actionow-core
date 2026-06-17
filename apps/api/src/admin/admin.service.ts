@@ -164,7 +164,8 @@ export class AdminService {
    * returned or logged. The account id is derived from the `id_token` claims
    * (falling back to an explicit `account_id`); the label falls back to the
    * exported `email`. An `expiresAt` is computed from `expires_in` (or the
-   * RFC3339 `expired` string) so the refresh sweep can pick the session up.
+   * RFC3339 `expired` string), falling back to an already-expired timestamp when
+   * both are absent so the refresh sweep always picks the session up.
    */
   async createOAuthSession(
     dto: CreateOAuthSessionDto,
@@ -180,20 +181,29 @@ export class AdminService {
     const identity = a.id_token !== undefined ? parseChatgptIdentity(a.id_token) : {};
     const accountId = a.account_id ?? identity.accountId;
     const accountLabel = a.account_label ?? a.email ?? identity.email;
+    // `expiresAt` is UNCONDITIONAL: when both `expires_in` and the RFC3339
+    // `expired` are absent we fall back to an already-expired timestamp so the
+    // refresh sweep claims the session on its next tick (a NULL `expires_at` is
+    // filtered out by `listRefreshableSessions`, leaving the token unrecoverable).
     const expiresAt =
       a.expires_in !== undefined
         ? new Date(Date.now() + a.expires_in * 1000)
         : a.expired !== undefined
           ? new Date(a.expired)
-          : undefined;
+          : new Date(0);
+    // A malformed `expired` paste yields an `Invalid Date`; reject it cleanly as
+    // `invalid_input` (400) rather than letting Drizzle's `.toISOString()` throw a 500.
+    if (Number.isNaN(expiresAt.getTime())) {
+      throw engineInvalidInput('authJson.expired is not a valid date');
+    }
     const input: CreateOAuthSessionInput = {
       providerKind: dto.providerKind,
       accessToken: a.access_token,
       refreshToken: a.refresh_token,
       keyB64,
+      expiresAt,
       ...(accountId !== undefined ? { accountId } : {}),
       ...(accountLabel !== undefined ? { accountLabel } : {}),
-      ...(expiresAt !== undefined ? { expiresAt } : {}),
     };
     const row = await createOAuthSession(this.db, input);
     return {

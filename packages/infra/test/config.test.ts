@@ -83,3 +83,20 @@ describe('ALLOW_DEV_TENANT_HEADER (Track B Task 5)', () => {
     );
   });
 });
+
+describe('ENABLE_OAUTH_CHANNELS (Phase 1a codex-oauth gate)', () => {
+  const base = {
+    DATABASE_URL: 'postgres://u:p@localhost:5432/d',
+    REDIS_URL: 'redis://localhost:6379',
+    ADMIN_JWT_SECRET: 'x',
+  };
+  it('is undefined when unset', () => {
+    expect(loadEnv({ ...base }).ENABLE_OAUTH_CHANNELS).toBeUndefined();
+  });
+  it('resolves the string "true" to boolean true', () => {
+    expect(loadEnv({ ...base, ENABLE_OAUTH_CHANNELS: 'true' }).ENABLE_OAUTH_CHANNELS).toBe(true);
+  });
+  it('resolves the string "false" to boolean false (NOT JS-truthy true)', () => {
+    expect(loadEnv({ ...base, ENABLE_OAUTH_CHANNELS: 'false' }).ENABLE_OAUTH_CHANNELS).toBe(false);
+  });
+});

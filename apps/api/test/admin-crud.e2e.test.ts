@@ -1,4 +1,4 @@
-import { createUser, schema } from '@actionow/db';
+import { createUser, listRefreshableSessions, schema } from '@actionow/db';
 import { hashPassword } from '@actionow/infra';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -376,6 +376,53 @@ describe('POST /admin/oauth-sessions (paste-auth, ToS-gated)', () => {
         }),
     ).expect(400);
     expect(res.body.error.code).toBe('invalid_input');
+  });
+
+  it('persists an already-expired session when expiry is absent (refresh sweep claims it)', async () => {
+    await auth(
+      request(app.getHttpServer())
+        .post('/admin/oauth-sessions')
+        .send({
+          providerKind: 'codex-oauth',
+          // NO expires_in AND NO expired → an absent expiry.
+          authJson: { access_token: 'oat-acc', refresh_token: 'oat-ref', id_token: idToken },
+          acknowledgeUpstreamTos: true,
+        }),
+    ).expect(201);
+
+    // expires_at must be UNCONDITIONAL: an absent expiry falls back to an
+    // already-expired timestamp so the next sweep tick refreshes it.
+    const now = new Date();
+    const [row] = await db.select().from(schema.oauthSession);
+    expect(row?.expiresAt).toBeInstanceOf(Date);
+    expect(row?.expiresAt?.getTime()).toBeLessThanOrEqual(now.getTime());
+
+    // and the refresh sweep actually picks it up (the bug was a NULL expires_at
+    // filtered out by listRefreshableSessions' isNotNull guard).
+    const refreshable = await listRefreshableSessions(db, now, 0);
+    expect(refreshable.map((r) => r.secretRefId)).toContain(row?.secretRefId);
+  });
+
+  it('rejects a malformed `expired` with 400 invalid_input and persists nothing', async () => {
+    const res = await auth(
+      request(app.getHttpServer())
+        .post('/admin/oauth-sessions')
+        .send({
+          providerKind: 'codex-oauth',
+          authJson: {
+            access_token: 'oat-acc',
+            refresh_token: 'oat-ref',
+            id_token: idToken,
+            expired: 'not-a-date',
+          },
+          acknowledgeUpstreamTos: true,
+        }),
+    ).expect(400);
+    expect(res.body.error.code).toBe('invalid_input');
+
+    // a bad paste must NOT leave a half-written session/secret_ref behind.
+    const rows = await db.select().from(schema.oauthSession);
+    expect(rows).toHaveLength(0);
   });
 });
 
