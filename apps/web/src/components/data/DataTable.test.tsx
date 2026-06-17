@@ -132,6 +132,64 @@ describe('DataTable selection + bulk actions', () => {
   });
 });
 
+describe('DataTable selection across pagination', () => {
+  // The Set-keyed selection is keyed by rowKey, not by page index, so a
+  // selection made on one page must survive paging away and back.
+  it('keeps a row selected after paging away and back', async () => {
+    const user = userEvent.setup();
+    render(
+      <DataTable
+        columns={COLS}
+        rows={ROWS}
+        rowKey={rowKey}
+        selectable
+        pageSize={2}
+        bulkActions={(selected) => <span>bulk:{selected.length}</span>}
+      />,
+    );
+
+    // page 1: Alpha, Bravo — select Alpha's row checkbox.
+    const alphaRow = screen.getByText('Alpha').closest('tr');
+    expect(alphaRow).not.toBeNull();
+    await user.click(within(alphaRow as HTMLElement).getByRole('checkbox', { name: /select row/i }));
+
+    // bulk bar reflects exactly one selection
+    expect(screen.getByText('bulk:1')).toBeInTheDocument();
+    expect(screen.getByText(/1 selected/i)).toBeInTheDocument();
+
+    // advance to page 2, then back to page 1
+    await user.click(screen.getByRole('button', { name: /next page/i }));
+    expect(screen.queryByText('Alpha')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /previous page/i }));
+
+    // Alpha is back and still checked; the bulk count is unchanged
+    const alphaRowAgain = screen.getByText('Alpha').closest('tr');
+    expect(alphaRowAgain).not.toBeNull();
+    expect(within(alphaRowAgain as HTMLElement).getByRole('checkbox', { name: /select row/i })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByText('bulk:1')).toBeInTheDocument();
+    expect(screen.getByText(/1 selected/i)).toBeInTheDocument();
+  });
+});
+
+describe('DataTable select-all indeterminate state', () => {
+  it('reports aria-checked="mixed" on the select-all when only some rows are selected', async () => {
+    const user = userEvent.setup();
+    render(<DataTable columns={COLS} rows={ROWS} rowKey={rowKey} selectable />);
+
+    const selectAll = screen.getByRole('checkbox', { name: /select all/i });
+    expect(selectAll).toHaveAttribute('aria-checked', 'false');
+
+    // select a single row out of several
+    const rowChecks = screen.getAllByRole('checkbox', { name: /select row/i });
+    await user.click(rowChecks[0]);
+
+    expect(selectAll).toHaveAttribute('aria-checked', 'mixed');
+  });
+});
+
 describe('DataTable row actions', () => {
   it('renders per-row actions and a click does not trigger onRowClick', async () => {
     const user = userEvent.setup();
@@ -172,7 +230,9 @@ describe('DataTable column visibility', () => {
     expect(screen.getByText('3')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /columns/i }));
-    const menu = screen.getByRole('menu');
+    // The popover is a labeled group of checkboxes (not a role="menu"): no
+    // arrow-key roving focus, just Tab between the native Checkbox buttons.
+    const menu = screen.getByRole('group', { name: /columns/i });
     await user.click(within(menu).getByRole('checkbox', { name: 'Weight' }));
 
     expect(screen.queryByRole('columnheader', { name: 'Weight' })).not.toBeInTheDocument();

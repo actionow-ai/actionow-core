@@ -75,7 +75,9 @@ function stickyCellStyle(sticky: Column<unknown>['sticky'], header: boolean): CS
     left: sticky === 'left' ? 0 : undefined,
     right: sticky === 'right' ? 0 : undefined,
     zIndex: header ? 3 : 1,
-    background: 'var(--panel-bg)',
+    // Near-opaque (not the semi-transparent --panel-bg) so a pinned column/header
+    // can't faintly show scrolled content through its edge.
+    background: 'var(--overlay-bg)',
     boxShadow: sticky === 'left' ? STICKY_LEFT_SHADOW : STICKY_RIGHT_SHADOW,
   };
 }
@@ -100,6 +102,14 @@ export function DataTable<T>({
   const { t } = useTranslation('console');
   const isDesktop = useMediaQuery(BP.md);
   const clickable = onRowClick !== undefined;
+  // A row may only adopt role="button" (with tabIndex/aria-pressed/keydown) when
+  // it has no nested interactive controls. role="button" can't contain
+  // interactive descendants (invalid ARIA) and it clobbers the implicit row
+  // role, so row-as-button is mutually exclusive with selection + row-actions.
+  // When clickable AND (selectable | rowActions), the row stays a plain
+  // clickable row (onClick + pointer/hover only); interact via the
+  // checkbox/action cells instead.
+  const rowAsButton = clickable && selectable !== true && rowActions === undefined;
 
   // --- Local view state ---------------------------------------------------
   const [query, setQuery] = useState('');
@@ -181,6 +191,19 @@ export function DataTable<T>({
   const rowInteraction = (r: T) => {
     const selectedRow = selectedKey !== undefined && rowKey(r) === selectedKey;
     if (!clickable) return { selectedRow, handlers: {} as const };
+    // Plain clickable row (has selection/row-actions): keep onClick + the
+    // pointer/hover affordance via .dt-row, but NOT role="button"/tabIndex/
+    // aria-pressed/keydown — those would nest interactive controls inside a
+    // button (invalid ARIA) and override the implicit row role.
+    if (!rowAsButton) {
+      return {
+        selectedRow,
+        handlers: {
+          className: 'dt-row',
+          onClick: () => onRowClick(r),
+        },
+      };
+    }
     return {
       selectedRow,
       handlers: {
@@ -244,7 +267,6 @@ export function DataTable<T>({
         <button
           type="button"
           onClick={clearSelection}
-          className="dt-textbtn"
           style={{
             background: 'transparent',
             border: 'none',
@@ -439,7 +461,7 @@ export function DataTable<T>({
                     }}
                   >
                     {selectable === true && (
-                      <td style={{ ...bodyCellStyle, ...stickyCellStyle('left', false), background: rowBg ?? 'var(--panel-bg)' }}>
+                      <td style={{ ...bodyCellStyle, ...stickyCellStyle('left', false), background: rowBg ?? 'var(--overlay-bg)' }}>
                         <span onClick={stop} onKeyDown={stopKey} role="presentation">
                           <Checkbox checked={selected.has(key)} onChange={() => toggleRow(key)} label={t('table.selectRow')} />
                         </span>
@@ -451,7 +473,7 @@ export function DataTable<T>({
                         style={{
                           ...bodyCellStyle,
                           ...stickyCellStyle(c.sticky, false),
-                          ...(c.sticky !== undefined ? { background: rowBg ?? 'var(--panel-bg)' } : null),
+                          ...(c.sticky !== undefined ? { background: rowBg ?? 'var(--overlay-bg)' } : null),
                         }}
                       >
                         <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.cell(r)}</div>
@@ -462,7 +484,7 @@ export function DataTable<T>({
                         style={{
                           ...bodyCellStyle,
                           ...stickyCellStyle('right', false),
-                          background: rowBg ?? 'var(--panel-bg)',
+                          background: rowBg ?? 'var(--overlay-bg)',
                           whiteSpace: 'nowrap',
                           width: 1,
                         }}
@@ -496,7 +518,9 @@ const headerCellStyle: CSSProperties = {
   borderBottom: '1px solid var(--row-bd)',
   position: 'sticky',
   top: 0,
-  background: 'var(--panel-bg)',
+  // Sticky header sits over scrolled rows: use the near-opaque overlay token
+  // (not the semi-transparent --panel-bg) so content can't show through.
+  background: 'var(--overlay-bg)',
   zIndex: 2,
 };
 
@@ -628,7 +652,10 @@ function ColumnsMenu<T>({
           <div
             ref={menuRef}
             id={menuId}
-            role="menu"
+            // A labeled group of checkboxes, not a menu: there's no arrow-key
+            // roving focus, only Tab between the native Checkbox buttons. Using
+            // role="group" keeps the keyboard contract honest.
+            role="group"
             aria-label={label}
             className="glass"
             style={{
@@ -649,7 +676,7 @@ function ColumnsMenu<T>({
             }}
           >
             {columns.map((c) => (
-              <div key={c.key} role="menuitemcheckbox" aria-checked={!hidden.has(c.key)} style={{ padding: 'var(--s-1) var(--s-2)' }}>
+              <div key={c.key} style={{ padding: 'var(--s-1) var(--s-2)' }}>
                 <Checkbox checked={!hidden.has(c.key)} onChange={() => onToggle(c.key)} label={headerText(c.header)} />
               </div>
             ))}
