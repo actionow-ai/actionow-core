@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { gsap, useGSAP } from '../../lib/motion/gsap';
-import { useReducedMotion } from '../../lib/motion/useReducedMotion';
+import { DUR, EASE } from '../../lib/motion/tokens';
 import { Button } from '../ui/Button';
 import { FlipWords } from './FlipWords';
 import { ProviderLogos } from './ProviderLogos';
@@ -11,20 +11,17 @@ import { ProviderLogos } from './ProviderLogos';
 export function ImmersiveHero() {
   const { t } = useTranslation('landing');
   const root = useRef<HTMLElement>(null);
-  const reduced = useReducedMotion();
 
   useGSAP(
     () => {
-      if (reduced || !root.current) return;
-      gsap.from(root.current.querySelectorAll('[data-r]'), {
-        opacity: 0,
-        y: 32,
-        duration: 0.7,
-        ease: 'power3.out',
-        stagger: 0.1,
+      if (!root.current) return;
+      const targets = root.current.querySelectorAll('[data-r]');
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        gsap.from(targets, { opacity: 0, y: 32, duration: DUR.slower, ease: EASE.out, stagger: 0.1 });
       });
     },
-    { scope: root, dependencies: [reduced] },
+    { scope: root, dependencies: [] },
   );
 
   return (

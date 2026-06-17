@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 
 import { gsap, useGSAP } from '../../lib/motion/gsap';
-import { useReducedMotion } from '../../lib/motion/useReducedMotion';
+import { EASE } from '../../lib/motion/tokens';
 
 /**
  * Ambient aurora background: three warm blurred radial gradients that drift on
@@ -18,7 +18,6 @@ const BLOBS = [
 
 export function AppBackground({ grid = false }: { grid?: boolean }) {
   const root = useRef<HTMLDivElement>(null);
-  const reduced = useReducedMotion();
 
   useGSAP(
     () => {
@@ -27,35 +26,39 @@ export function AppBackground({ grid = false }: { grid?: boolean }) {
       const blobs = BLOBS.map((b) => el.querySelector<HTMLElement>(`[data-blob="${b.key}"]`));
       const spot = el.querySelector<HTMLElement>('[data-spot]');
 
-      if (!reduced) {
+      // All ambient motion (idle drift, pointer parallax, cursor spotlight) is
+      // user-irrelevant decoration — gate the entire branch on no-preference so
+      // nothing moves under reduced-motion.
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
         BLOBS.forEach((b, i) => {
           const inner = blobs[i]?.firstElementChild;
           if (inner) {
             gsap.to(inner, { x: b.idle[0], y: b.idle[1], duration: b.idle[2], ease: 'sine.inOut', yoyo: true, repeat: -1 });
           }
         });
-      }
 
-      const qx = blobs.map((b) => (b ? gsap.quickTo(b, 'x', { duration: 1.1, ease: 'power3.out' }) : null));
-      const qy = blobs.map((b) => (b ? gsap.quickTo(b, 'y', { duration: 1.1, ease: 'power3.out' }) : null));
-      const sx = spot ? gsap.quickTo(spot, 'x', { duration: 0.6, ease: 'power3.out' }) : null;
-      const sy = spot ? gsap.quickTo(spot, 'y', { duration: 0.6, ease: 'power3.out' }) : null;
+        const qx = blobs.map((b) => (b ? gsap.quickTo(b, 'x', { duration: 1.1, ease: EASE.out }) : null));
+        const qy = blobs.map((b) => (b ? gsap.quickTo(b, 'y', { duration: 1.1, ease: EASE.out }) : null));
+        const sx = spot ? gsap.quickTo(spot, 'x', { duration: 0.6, ease: EASE.out }) : null;
+        const sy = spot ? gsap.quickTo(spot, 'y', { duration: 0.6, ease: EASE.out }) : null;
 
-      const onMove = (e: PointerEvent) => {
-        if (spot) gsap.to(spot, { opacity: 1, duration: 0.4 });
-        sx?.(e.clientX - 260);
-        sy?.(e.clientY - 260);
-        const dx = e.clientX - window.innerWidth / 2;
-        const dy = e.clientY - window.innerHeight / 2;
-        BLOBS.forEach((b, i) => {
-          qx[i]?.(dx * b.depth);
-          qy[i]?.(dy * b.depth);
-        });
-      };
-      document.addEventListener('pointermove', onMove);
-      return () => document.removeEventListener('pointermove', onMove);
+        const onMove = (e: PointerEvent) => {
+          if (spot) gsap.to(spot, { opacity: 1, duration: 0.4 });
+          sx?.(e.clientX - 260);
+          sy?.(e.clientY - 260);
+          const dx = e.clientX - window.innerWidth / 2;
+          const dy = e.clientY - window.innerHeight / 2;
+          BLOBS.forEach((b, i) => {
+            qx[i]?.(dx * b.depth);
+            qy[i]?.(dy * b.depth);
+          });
+        };
+        document.addEventListener('pointermove', onMove);
+        return () => document.removeEventListener('pointermove', onMove);
+      });
     },
-    { scope: root, dependencies: [reduced] },
+    { scope: root, dependencies: [] },
   );
 
   return (

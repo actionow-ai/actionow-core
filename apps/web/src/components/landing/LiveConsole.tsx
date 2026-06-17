@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { gsap, ScrollTrigger, useGSAP } from '../../lib/motion/gsap';
-import { useReducedMotion } from '../../lib/motion/useReducedMotion';
+import { DUR, EASE } from '../../lib/motion/tokens';
 
 const STATS = [
   { key: 'tenants', to: 128, suffix: '' },
@@ -23,7 +23,6 @@ const LOG = [
 
 export function LiveConsole() {
   const { t } = useTranslation('landing');
-  const reduced = useReducedMotion();
   const root = useRef<HTMLDivElement>(null);
 
   useGSAP(
@@ -39,51 +38,55 @@ export function LiveConsole() {
         });
       };
 
-      if (reduced) {
-        setFinal();
-        return;
-      }
+      const mm = gsap.matchMedia();
 
-      gsap.from(el.querySelectorAll('[data-r]'), {
-        opacity: 0,
-        y: 28,
-        duration: 0.6,
-        ease: 'power3.out',
-        stagger: 0.08,
-        scrollTrigger: { trigger: el, start: 'top 78%' },
-      });
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        gsap.from(el.querySelectorAll('[data-r]'), {
+          opacity: 0,
+          y: 28,
+          duration: DUR.slow,
+          ease: EASE.out,
+          stagger: 0.08,
+          scrollTrigger: { trigger: el, start: 'top 78%' },
+        });
 
-      // Count-up runs once, when the console scrolls into view.
-      ScrollTrigger.create({
-        trigger: el,
-        start: 'top 70%',
-        once: true,
-        onEnter: () => {
-          el.querySelectorAll<HTMLElement>('[data-num]').forEach((n) => {
-            const to = Number(n.dataset.num);
-            const dec = to % 1 !== 0;
-            const suf = n.dataset.suffix ?? '';
-            const o = { v: 0 };
-            gsap.to(o, {
-              v: to,
-              duration: 1.4,
-              ease: 'power2.out',
-              onUpdate: () => {
-                n.textContent = (dec ? o.v.toFixed(1) : Math.round(o.v).toLocaleString()) + suf;
-              },
+        // Count-up runs once, when the console scrolls into view.
+        ScrollTrigger.create({
+          trigger: el,
+          start: 'top 70%',
+          once: true,
+          onEnter: () => {
+            el.querySelectorAll<HTMLElement>('[data-num]').forEach((n) => {
+              const to = Number(n.dataset.num);
+              const dec = to % 1 !== 0;
+              const suf = n.dataset.suffix ?? '';
+              const o = { v: 0 };
+              gsap.to(o, {
+                v: to,
+                duration: 1.4,
+                ease: EASE.out,
+                onUpdate: () => {
+                  n.textContent = (dec ? o.v.toFixed(1) : Math.round(o.v).toLocaleString()) + suf;
+                },
+              });
             });
-          });
-        },
+          },
+        });
+
+        // Endlessly cycle highlight down the log lines, like a live tail.
+        gsap.fromTo(
+          el.querySelectorAll('[data-log]'),
+          { opacity: 0.2 },
+          { opacity: 1, duration: DUR.base, ease: 'none', stagger: { each: 0.5, repeat: -1, yoyo: true, repeatDelay: 1.6 } },
+        );
       });
 
-      // Endlessly cycle highlight down the log lines, like a live tail.
-      gsap.fromTo(
-        el.querySelectorAll('[data-log]'),
-        { opacity: 0.2 },
-        { opacity: 1, duration: 0.3, ease: 'none', stagger: { each: 0.5, repeat: -1, yoyo: true, repeatDelay: 1.6 } },
-      );
+      // Reduced motion: show final counts immediately, no reveal/loop.
+      mm.add('(prefers-reduced-motion: reduce)', () => {
+        setFinal();
+      });
     },
-    { scope: root, dependencies: [reduced] },
+    { scope: root, dependencies: [] },
   );
 
   return (

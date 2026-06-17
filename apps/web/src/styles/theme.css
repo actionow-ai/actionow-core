@@ -114,7 +114,6 @@ html, body, #root { margin: 0; }
    which listens on the window by default, receives scroll. min-height keeps
    short pages full-viewport; full-height app shells use their own 100dvh. */
 body, #root { min-height: 100dvh; }
-html { scroll-behavior: smooth; }
 body {
   background: var(--bg);
   color: var(--text);
@@ -138,3 +137,20 @@ a { color: inherit; text-decoration: none; }
 
 .tabular { font-variant-numeric: tabular-nums; }
 .mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
+
+/* Motion: smooth scroll only when the user hasn't asked to reduce motion. */
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+/* Reduced-motion safety net: collapse any CSS animation/transition/smooth-scroll
+   we (or a dependency) might miss. GSAP is handled per-component via matchMedia. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
