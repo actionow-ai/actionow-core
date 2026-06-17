@@ -118,6 +118,8 @@ beforeAll(async () => {
     STORAGE_MAX_UPLOAD_BYTES: 100 * 1024 * 1024,
     CREDIT_RATE: 1000,
     ALLOW_DEV_TENANT_HEADER: false,
+    RELAY_TRACE: 'off',
+    RELAY_TRACE_MAX_BYTES: 1_000_000,
   };
 
   const adapters = createDefaultRegistry();

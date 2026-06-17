@@ -91,6 +91,8 @@ export class RunService {
       now: () => new Date(),
       enqueue: (jobId: string): Promise<void> => this.queue.enqueueExec(jobId),
       proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
+      traceUpstream: this.env.RELAY_TRACE === 'full',
+      traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
     });
   }
 

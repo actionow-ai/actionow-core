@@ -223,6 +223,8 @@ beforeAll(async () => {
     // This suite authenticates over real Bearer API keys (NODE_ENV=production
     // already disables the fallback), so the dev tenant header stays off.
     ALLOW_DEV_TENANT_HEADER: false,
+    RELAY_TRACE: 'off',
+    RELAY_TRACE_MAX_BYTES: 1_000_000,
   };
 
   // 4. API adapter registry: the real default registry (async-media-mock ready

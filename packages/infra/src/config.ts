@@ -108,6 +108,17 @@ const EnvSchema = z
     // carries no per-channel `proxy_ref`. Optional. May embed credentials, so it
     // is treated as a secret: never logged and never returned to clients.
     UPSTREAM_PROXY_URL: z.string().url().optional(),
+    // Upstream request/response AUDIT TRACE gate. Default `off`. When `full`, the
+    // engine wraps `ctx.http` in a TracingHttpClient that stores each upstream
+    // call's FULL request+response bodies (INCLUDING raw streaming SSE bytes) in
+    // the `relay_trace` table. Secrets in headers are redacted (`[redacted]`) and
+    // never stored; secret-looking url query params are redacted; large bodies
+    // are truncated at `RELAY_TRACE_MAX_BYTES` with a `truncated` flag.
+    RELAY_TRACE: z.enum(['off', 'full']).default('off'),
+    // Byte cap per captured body (request and response each). A body over this is
+    // sliced to the cap and the row's `truncated` flag is set — a safety valve so
+    // a pathological payload can't bloat a `relay_trace` row unbounded.
+    RELAY_TRACE_MAX_BYTES: z.coerce.number().int().positive().default(1_000_000),
   })
   .transform((env) => ({
     ...env,

@@ -176,6 +176,8 @@ export class CallbacksService {
       resolveSecret: (ref: string): Promise<string | undefined> => this.secrets.resolve(ref),
       http: this.http,
       proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
+      traceUpstream: this.env.RELAY_TRACE === 'full',
+      traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
       ...(persistMedia !== undefined ? { persistMedia } : {}),
     });
   }

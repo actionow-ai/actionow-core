@@ -197,6 +197,11 @@ beforeAll(async () => {
     CREDIT_RATE: 1000,
     ALLOW_DEV_TENANT_HEADER: false,
     SECRET_ENCRYPTION_KEY: KEY,
+    // Turn the upstream AUDIT TRACE ON for this suite so the relay captures the
+    // codex Responses request/response into `relay_trace` (and we can prove the
+    // oauth token is redacted, never persisted).
+    RELAY_TRACE: 'full',
+    RELAY_TRACE_MAX_BYTES: 1_000_000,
   };
 
   // The default registry now includes the REAL `codex-oauth` adapter (S2.6b).
@@ -371,5 +376,41 @@ describe('codex-oauth relay e2e (OpenAI dialect over a fake upstream)', () => {
     expect(log?.inputTokens).toBe(Number(UPSTREAM_INPUT_TOKENS));
     expect(log?.outputTokens).toBe(Number(UPSTREAM_OUTPUT_TOKENS));
     expect(log?.cost).toBe(EXPECTED_COST);
+
+    // ── RELAY_TRACE=full captured the upstream wire into `relay_trace`. The
+    //    codex backend is stream-only, so the blocking chat path streams the
+    //    Responses SSE — the trace row is the streaming variant.
+    const traces = await db
+      .select()
+      .from(schema.relayTrace)
+      .where(eq(schema.relayTrace.tenantId, tenantId));
+    expect(traces.length).toBeGreaterThanOrEqual(1);
+    const trace = traces.find((t) => t.providerType === 'codex-oauth');
+    expect(trace).toBeDefined();
+    if (trace === undefined) throw new Error('no codex-oauth relay_trace row');
+
+    // The captured method/url/job correlation.
+    expect(trace.method).toBe('POST');
+    expect(trace.url).toContain('/responses');
+    expect(trace.jobId).toBe(job?.id);
+    expect(trace.channelId).toBeDefined();
+    expect(trace.isStream).toBe(true);
+
+    // The request body is the Responses shape (system hoisted to instructions,
+    // a non-system `input` array) — the FULL upstream wire payload was stored.
+    expect(trace.requestBody).toBeDefined();
+    const reqWire = asRecord(JSON.parse(trace.requestBody ?? '{}'));
+    expect(reqWire.instructions).toBe('be brief');
+    expect(Array.isArray(reqWire.input)).toBe(true);
+    expect(reqWire.store).toBe(false);
+
+    // The response (assembled raw SSE) was captured.
+    expect(trace.responseStatus).toBe(200);
+    expect(trace.responseBody ?? '').toContain('response.completed');
+
+    // ── SECURITY: the authorization header was redacted, and the real oauth
+    //    access token appears NOWHERE in the persisted row.
+    expect(trace.requestHeaders?.authorization).toBe('[redacted]');
+    expect(JSON.stringify(trace)).not.toContain(OAUTH_ACCESS);
   });
 });

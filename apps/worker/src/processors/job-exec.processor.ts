@@ -26,6 +26,8 @@ export function createJobExecProcessor(
     resolveSecret: runtime.resolveSecret,
     http: runtime.http,
     proxyUrlEnv: runtime.env.UPSTREAM_PROXY_URL,
+    traceUpstream: runtime.env.RELAY_TRACE === 'full',
+    traceMaxBytes: runtime.env.RELAY_TRACE_MAX_BYTES,
     ...(persistMedia !== undefined ? { persistMedia } : {}),
   });
 

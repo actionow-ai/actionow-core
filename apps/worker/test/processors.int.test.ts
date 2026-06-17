@@ -82,6 +82,8 @@ function runtimeWith(adapters: AdapterRegistry, http: HttpClient = noHttp): Work
       CREDIT_RATE: 1000,
       ALLOW_DEV_TENANT_HEADER: false,
       SECRET_ENCRYPTION_KEY: KEY,
+      RELAY_TRACE: 'off',
+      RELAY_TRACE_MAX_BYTES: 1_000_000,
     },
     db,
     adapters,
