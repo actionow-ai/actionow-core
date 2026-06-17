@@ -107,6 +107,76 @@ export interface DifyImportView {
   compat_report: unknown;
 }
 
+/** A created encrypted secret. Excludes the plaintext value by construction. */
+export interface SecretView {
+  id: string;
+  provider: string;
+  created_at: string;
+}
+
+export interface ModelView {
+  id: string;
+  name: string;
+  display: string | null;
+  modality: string;
+  capabilities: Record<string, boolean>;
+  visibility: string;
+  resource_id: string;
+  input_price: string;
+  output_price: string;
+  status: string;
+  created_at: string;
+}
+
+export interface UsageLogView {
+  id: string;
+  tenant_id: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost: string;
+  latency_ms: number | null;
+  status: string;
+  created_at: string;
+}
+
+/** One aggregated usage bucket; token/cost sums are decimal strings. */
+export interface UsageRollupView {
+  bucket: string;
+  requests: number;
+  input_tokens: string;
+  output_tokens: string;
+  cost: string;
+  errors: number;
+}
+
+export interface LedgerView {
+  id: string;
+  tenant_id: string;
+  account_id: string;
+  type: string;
+  credits_delta: string;
+  balance_after: string;
+  resource_id: string | null;
+  job_id: string | null;
+  created_at: string;
+}
+
+export interface PaymentIntentView {
+  id: string;
+  tenant_id: string;
+  provider: string;
+  provider_ref: string;
+  purpose: string;
+  target_ref: string | null;
+  amount_minor: string;
+  currency: string;
+  credit_amount: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export type Modality = 'text' | 'image' | 'video' | 'audio' | 'composite';
 export type PricebookMethod = 'unit' | 'matrix' | 'fixed' | 'formula' | 'passthrough';
 export type PricebookTiming = 'pre' | 'post';
@@ -174,4 +244,32 @@ export interface DifyImportBody {
   serviceKeyRef?: string;
   pricingModel: DifyPricingModel;
   allowBlockers?: boolean;
+}
+export interface CreateSecretBody {
+  value: string;
+  label?: string;
+}
+export interface CreateModelBody {
+  name: string;
+  resourceId: string;
+  display?: string;
+  modality?: string;
+  capabilities?: Record<string, boolean>;
+  visibility?: 'public' | 'tenant';
+  /** µcredit-per-INPUT-token (integer). */
+  inputPrice?: number;
+  /** µcredit-per-OUTPUT-token (integer). */
+  outputPrice?: number;
+  status?: 'active' | 'disabled';
+}
+export interface GenerateCodesBody {
+  count: number;
+  creditsPerCode: number;
+  expiresAt?: string;
+}
+export interface AnalyticsUsageQuery {
+  groupBy: 'day' | 'model' | 'tenant' | 'channel' | 'api_key';
+  tenantId?: string;
+  from?: string;
+  to?: string;
 }
