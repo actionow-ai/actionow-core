@@ -2,6 +2,7 @@ import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { redemptionCode } from '../schema/index.js';
+import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
 export type RedemptionCodeRow = InferSelectModel<typeof redemptionCode>;
@@ -43,6 +44,39 @@ export async function getRedemptionCode(
     .where(and(eq(redemptionCode.code, code), isNull(redemptionCode.deletedAt)))
     .limit(1);
   return rows[0];
+}
+
+/** Optional filters for {@link listRedemptionCodes}. */
+export interface ListRedemptionCodesFilter {
+  /** `unused` | `redeemed`. */
+  readonly status?: string | undefined;
+}
+
+/**
+ * List live redemption codes (admin mint view; excludes soft-deleted),
+ * keyset-paginated newest-first on `(created_at, code)`. The `code` PK is the
+ * keyset tiebreaker. Returning the `code` value is acceptable here — this is an
+ * admin-only mint listing, and the code IS the row's identity (no unrelated
+ * secret is exposed). An optional `status` filter (`unused`/`redeemed`) composes
+ * with the keyset IN SQL.
+ *
+ * NOTE: `redemption_code` carries no `resource_id` — codes are tenant-agnostic
+ * credit grants, not resource-scoped — so only a `status` filter is supported.
+ */
+export function listRedemptionCodes(
+  db: DbOrTx,
+  filter: ListRedemptionCodesFilter,
+  page: PageParams,
+): Promise<KeysetResult<RedemptionCodeRow>> {
+  const statusFilter =
+    filter.status !== undefined ? eq(redemptionCode.status, filter.status) : undefined;
+  return keysetPage<RedemptionCodeRow>(db, {
+    table: redemptionCode,
+    createdAtCol: redemptionCode.createdAt,
+    idCol: redemptionCode.code,
+    where: and(isNull(redemptionCode.deletedAt), statusFilter),
+    page,
+  });
 }
 
 /** The disjoint outcomes of {@link claimRedemptionCode}. */

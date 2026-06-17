@@ -52,6 +52,35 @@ export async function getTenant(db: DbOrTx, tenantId: string): Promise<TenantRow
   return rows[0];
 }
 
+/** Mutable fields of a `tenant` (admin PATCH); omitted keys are unchanged. */
+export interface UpdateTenantInput {
+  /** `field` | `schema` | `db` (§8). */
+  readonly isolationMode?: string | undefined;
+}
+
+/**
+ * Patch a live `tenant` (only the supplied fields), bumping `updated_at`,
+ * returning the new row. Limited to `isolation_mode` — the tenant name/id are not
+ * mutated here. Soft-deleted / unknown → `undefined`; an empty patch reads the
+ * current live row back. (There is intentionally NO tenant DELETE — too
+ * destructive to cascade from an admin route.)
+ */
+export async function updateTenant(
+  db: DbOrTx,
+  tenantId: string,
+  patch: UpdateTenantInput,
+): Promise<TenantRow | undefined> {
+  if (patch.isolationMode === undefined) {
+    return getTenant(db, tenantId);
+  }
+  const rows = await db
+    .update(tenant)
+    .set({ isolationMode: patch.isolationMode, updatedAt: new Date() })
+    .where(and(eq(tenant.id, tenantId), isNull(tenant.deletedAt)))
+    .returning();
+  return rows[0];
+}
+
 /** Fields a caller supplies to {@link createAccount}. */
 export interface CreateAccountInput {
   readonly tenantId: string;

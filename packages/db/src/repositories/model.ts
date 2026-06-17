@@ -250,6 +250,130 @@ export async function getModelByName(db: DbOrTx, name: string): Promise<ModelRow
   return rows[0];
 }
 
+/** Mutable fields of a {@link model} (admin PATCH); omitted keys are unchanged. */
+export interface UpdateModelInput {
+  readonly display?: string | null | undefined;
+  readonly capabilities?: Record<string, boolean> | undefined;
+  /** µcredit-per-input-token integer (resale price). */
+  readonly inputPrice?: bigint | undefined;
+  /** µcredit-per-output-token integer. */
+  readonly outputPrice?: bigint | undefined;
+  /** `public` | `tenant`. */
+  readonly visibility?: string | undefined;
+  /** `active` | `disabled`. */
+  readonly status?: string | undefined;
+}
+
+/**
+ * Patch a live `model` (looked up by the unique `name`), returning the new row.
+ * Only the supplied fields change; the µcredit prices stay integers (`bigint`).
+ * The `model` table has NO `updated_at` column (it carries only `created_at` +
+ * `deleted_at`), so nothing is stamped. Soft-deleted / unknown → `undefined`. An
+ * empty patch is a read-back of the current live row.
+ */
+export async function updateModel(
+  db: DbOrTx,
+  name: string,
+  patch: UpdateModelInput,
+): Promise<ModelRow | undefined> {
+  const set: Partial<InferSelectModel<typeof model>> = {};
+  if (patch.display !== undefined) set.display = patch.display;
+  if (patch.capabilities !== undefined) set.capabilities = patch.capabilities;
+  if (patch.inputPrice !== undefined) set.inputPrice = patch.inputPrice;
+  if (patch.outputPrice !== undefined) set.outputPrice = patch.outputPrice;
+  if (patch.visibility !== undefined) set.visibility = patch.visibility;
+  if (patch.status !== undefined) set.status = patch.status;
+  if (Object.keys(set).length === 0) {
+    return getModelByName(db, name);
+  }
+  const rows = await db
+    .update(model)
+    .set(set)
+    .where(and(eq(model.name, name), isNull(model.deletedAt)))
+    .returning();
+  return rows[0];
+}
+
+/**
+ * Revoke a model by SOFT-DELETING it (looked up by the unique `name`): stamps
+ * `deleted_at` (`now()`) only when the row is still live — the `model` table has
+ * no `updated_at`, so only `deleted_at` is set. `getModelByName` /
+ * `listModels` / `resolveModelForTenant` all filter `deleted_at IS NULL`, so the
+ * model drops out of routing + every listing. Returns the deleted name, or
+ * `undefined` when nothing matched (not found / already deleted) — idempotent.
+ */
+export async function softDeleteModel(db: DbOrTx, name: string): Promise<string | undefined> {
+  const rows = await db
+    .update(model)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(model.name, name), isNull(model.deletedAt)))
+    .returning({ name: model.name });
+  return rows[0]?.name;
+}
+
+/** One tenant grant of a {@link model} (admin grant-listing view). */
+export interface ModelGrantRow {
+  readonly id: string;
+  readonly modelId: string;
+  readonly tenantId: string;
+  readonly createdAt: Date;
+}
+
+/** Columns selected for a {@link ModelGrantRow}. */
+const MODEL_GRANT_COLUMNS = {
+  id: modelGrant.id,
+  modelId: modelGrant.modelId,
+  tenantId: modelGrant.tenantId,
+  createdAt: modelGrant.createdAt,
+} as const;
+
+/**
+ * List the tenant grants of a model (looked up by the unique `name`),
+ * keyset-paginated newest-first on `(created_at, id)`. Returns an empty page when
+ * the model is unknown / soft-deleted (the grant `model_id` filter resolves to a
+ * non-matching id). `model_grant` has NO `deleted_at` — grants are hard-deleted.
+ */
+export async function listModelGrants(
+  db: DbOrTx,
+  modelName: string,
+  page: PageParams,
+): Promise<KeysetResult<ModelGrantRow>> {
+  const m = await getModelByName(db, modelName);
+  // An absent model yields an impossible filter so the keyset returns an empty
+  // page (rather than every grant) — the controller maps that to a 404 separately.
+  const modelIdFilter = m === undefined ? '00000000-0000-0000-0000-000000000000' : m.id;
+  return keysetPage<ModelGrantRow>(db, {
+    table: modelGrant,
+    createdAtCol: modelGrant.createdAt,
+    idCol: modelGrant.id,
+    selection: MODEL_GRANT_COLUMNS,
+    where: eq(modelGrant.modelId, modelIdFilter),
+    page,
+  });
+}
+
+/**
+ * Revoke a tenant's grant of a model: HARD-deletes the `model_grant` row for
+ * `(model.name, tenantId)`. `model_grant` has no `deleted_at`, so this is a true
+ * DELETE (an ungranted tenant is indistinguishable from one whose grant never
+ * existed — `resolveModelForTenant` left-joins on the live grant). Returns the
+ * deleted grant id, or `undefined` when nothing matched (model unknown / no such
+ * grant) — idempotent revoke, never a throw.
+ */
+export async function deleteModelGrant(
+  db: DbOrTx,
+  modelName: string,
+  tenantId: string,
+): Promise<string | undefined> {
+  const m = await getModelByName(db, modelName);
+  if (m === undefined) return undefined;
+  const rows = await db
+    .delete(modelGrant)
+    .where(and(eq(modelGrant.modelId, m.id), eq(modelGrant.tenantId, tenantId)))
+    .returning({ id: modelGrant.id });
+  return rows[0]?.id;
+}
+
 /**
  * Grant a `tenant`-visibility model (looked up by `name`) to `tenantId`.
  * Idempotent on `(model_id, tenant_id)` (a duplicate grant is a no-op). Throws

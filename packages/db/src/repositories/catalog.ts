@@ -84,6 +84,94 @@ export async function getDifyBinding(
 }
 
 /**
+ * List live dify bindings (admin view; excludes soft-deleted), keyset-paginated
+ * newest-first on `(created_at, resource_id)`. A dify resource has one live
+ * binding (the current version), so `resource_id` is a stable keyset tiebreaker.
+ */
+export async function listDifyBindings(
+  db: DbOrTx,
+  page: PageParams,
+): Promise<KeysetResult<DifyBindingRow>> {
+  return keysetPage<DifyBindingRow>(db, {
+    table: difyBinding,
+    createdAtCol: difyBinding.createdAt,
+    idCol: difyBinding.resourceId,
+    where: isNull(difyBinding.deletedAt),
+    page,
+  });
+}
+
+/** Mutable fields of a `dify_binding` (admin PATCH); omitted keys are unchanged. */
+export interface UpdateDifyBindingInput {
+  /** The dify app endpoint URL. */
+  readonly endpoint?: string | undefined;
+  /** A `secret_ref` id for the dify service key, or `null` to clear. */
+  readonly serviceKeyRef?: string | null | undefined;
+  /** `metered` | `fixed` | `matrix`. */
+  readonly pricingModel?: string | undefined;
+}
+
+/**
+ * Patch the CURRENT live dify binding for a resource (the highest
+ * `resource_version`, mirroring {@link getDifyBinding}), returning the new row.
+ * Only the supplied fields change. The `dify_binding` table has NO `updated_at`
+ * column, so nothing is stamped. Soft-deleted / unknown → `undefined`; an empty
+ * patch reads the current live binding back.
+ */
+export async function updateDifyBinding(
+  db: DbOrTx,
+  resourceId: string,
+  patch: UpdateDifyBindingInput,
+): Promise<DifyBindingRow | undefined> {
+  const current = await getDifyBinding(db, resourceId);
+  if (current === undefined) return undefined;
+  const set: Partial<InferInsertModel<typeof difyBinding>> = {};
+  if (patch.endpoint !== undefined) set.difyAppEndpoint = patch.endpoint;
+  if (patch.serviceKeyRef !== undefined) set.difyServiceKeyRef = patch.serviceKeyRef;
+  if (patch.pricingModel !== undefined) set.pricingModel = patch.pricingModel;
+  if (Object.keys(set).length === 0) return current;
+  const rows = await db
+    .update(difyBinding)
+    .set(set)
+    .where(
+      and(
+        eq(difyBinding.resourceId, resourceId),
+        eq(difyBinding.resourceVersion, current.resourceVersion),
+        isNull(difyBinding.deletedAt),
+      ),
+    )
+    .returning();
+  return rows[0];
+}
+
+/**
+ * Revoke a dify binding by SOFT-DELETING the CURRENT live binding for a resource
+ * (the highest `resource_version`). `getDifyBinding` / `listDifyBindings` filter
+ * `deleted_at IS NULL`, so the binding drops out of resolution + the listing. The
+ * `dify_binding` table has no `updated_at`, so only `deleted_at` is set. Returns
+ * the resource id, or `undefined` when nothing matched — idempotent.
+ */
+export async function softDeleteDifyBinding(
+  db: DbOrTx,
+  resourceId: string,
+): Promise<string | undefined> {
+  const current = await getDifyBinding(db, resourceId);
+  if (current === undefined) return undefined;
+  const rows = await db
+    .update(difyBinding)
+    .set({ deletedAt: new Date() })
+    .where(
+      and(
+        eq(difyBinding.resourceId, resourceId),
+        eq(difyBinding.resourceVersion, current.resourceVersion),
+        isNull(difyBinding.deletedAt),
+      ),
+    )
+    .returning({ resourceId: difyBinding.resourceId });
+  return rows[0]?.resourceId;
+}
+
+/**
  * Fetch the active pricebook entry for a resource version, newest `version`
  * first. Returns `undefined` when no active entry exists.
  */
@@ -106,6 +194,60 @@ export async function getActivePricebookEntry(
     .orderBy(desc(pricebookEntry.version))
     .limit(1);
   return rows[0];
+}
+
+/**
+ * Fetch a single live upstream channel by id, optionally scoped to a resource
+ * (soft-deleted / wrong-resource → `undefined`). The `resourceId` predicate is
+ * in SQL so a channel that belongs to another resource is indistinguishable from
+ * a missing one — the admin nested route (`/resources/:id/channels/:channelId`)
+ * passes it so a 404 covers both.
+ */
+export async function getChannelById(
+  db: DbOrTx,
+  channelId: string,
+  resourceId?: string,
+): Promise<UpstreamChannelRow | undefined> {
+  const rows = await db
+    .select()
+    .from(upstreamChannel)
+    .where(
+      and(
+        eq(upstreamChannel.id, channelId),
+        isNull(upstreamChannel.deletedAt),
+        resourceId !== undefined ? eq(upstreamChannel.resourceId, resourceId) : undefined,
+      ),
+    )
+    .limit(1);
+  return rows[0];
+}
+
+/**
+ * Revoke an upstream channel by SOFT-DELETING it: stamps `deleted_at`/`updated_at`
+ * (`now()`) only when the row is still live AND (when given) belongs to
+ * `resourceId`. `listChannels`/`listChannelsForResource`/`getChannelById` all
+ * filter `deleted_at IS NULL`, so the channel drops out of routing + the operator
+ * listing. Returns the deleted id, or `undefined` when nothing matched (not found
+ * / wrong resource / already deleted) — idempotent.
+ */
+export async function softDeleteChannel(
+  db: DbOrTx,
+  channelId: string,
+  resourceId?: string,
+): Promise<string | undefined> {
+  const now = new Date();
+  const rows = await db
+    .update(upstreamChannel)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(upstreamChannel.id, channelId),
+        isNull(upstreamChannel.deletedAt),
+        resourceId !== undefined ? eq(upstreamChannel.resourceId, resourceId) : undefined,
+      ),
+    )
+    .returning({ id: upstreamChannel.id });
+  return rows[0]?.id;
 }
 
 /** List the active, live upstream channels for a resource (routing candidates). */
@@ -517,6 +659,29 @@ export async function updateResourceStatus(
   return rows[0];
 }
 
+/**
+ * Safe-field patch of a live `resource` (admin PATCH), bumping `updated_at`.
+ * Limited to `status` ON PURPOSE — the key fields (`id`/`kind`/`modality`/
+ * `provider_type`) are immutable here so a re-point can't silently corrupt the
+ * routing/pricing a resource version froze. Soft-deleted / unknown → `undefined`;
+ * an empty patch reads the current live row back.
+ */
+export async function updateResource(
+  db: DbOrTx,
+  resourceId: string,
+  patch: { readonly status?: string | undefined },
+): Promise<Resource | undefined> {
+  if (patch.status === undefined) {
+    return getResource(db, resourceId);
+  }
+  const rows = await db
+    .update(resource)
+    .set({ status: patch.status, updatedAt: new Date() })
+    .where(and(eq(resource.id, resourceId), isNull(resource.deletedAt)))
+    .returning();
+  return rows[0];
+}
+
 /** Fetch a live `secret_ref` row by id (soft-deleted → `undefined`). */
 export async function getSecretRef(db: DbOrTx, id: string): Promise<SecretRefRow | undefined> {
   const rows = await db
@@ -735,6 +900,80 @@ export async function listPricebookEntries(
   });
 }
 
+/** Fetch a live pricebook entry by id (soft-deleted → `undefined`). */
+export async function getPricebookEntryById(
+  db: DbOrTx,
+  id: string,
+): Promise<PricebookEntryRow | undefined> {
+  const rows = await db
+    .select()
+    .from(pricebookEntry)
+    .where(and(eq(pricebookEntry.id, id), isNull(pricebookEntry.deletedAt)))
+    .limit(1);
+  return rows[0];
+}
+
+/** Mutable fields of a `pricebook_entry` (admin PATCH); omitted keys are unchanged. */
+export interface UpdatePricebookEntryInput {
+  readonly method?: string | undefined;
+  readonly timing?: string | undefined;
+  /** Any credit `amount` inside MUST already be µcredits (controller converts). */
+  readonly spec?: unknown;
+  readonly markup?: unknown;
+  readonly active?: boolean | undefined;
+}
+
+/**
+ * Patch a live `pricebook_entry` (only the supplied fields), bumping `updated_at`,
+ * returning the new row. Like {@link createPricebookEntry}, any credit `amount`
+ * inside `spec` MUST already be in µcredits — the controller converts a human
+ * `fixedCredits` via `creditsToMicro` before calling this repo. Soft-deleted /
+ * unknown → `undefined`; an empty patch reads the current live row back.
+ */
+export async function updatePricebookEntry(
+  db: DbOrTx,
+  id: string,
+  patch: UpdatePricebookEntryInput,
+): Promise<PricebookEntryRow | undefined> {
+  const set: Partial<InferInsertModel<typeof pricebookEntry>> = {};
+  if (patch.method !== undefined) set.method = patch.method;
+  if (patch.timing !== undefined) set.timing = patch.timing;
+  // `spec`/`markup` are validated at the admin boundary; the columns are typed.
+  if (patch.spec !== undefined) set.spec = patch.spec as PriceSpec;
+  if (patch.markup !== undefined) set.markup = patch.markup as Markup | null;
+  if (patch.active !== undefined) set.active = patch.active;
+  if (Object.keys(set).length === 0) {
+    return getPricebookEntryById(db, id);
+  }
+  set.updatedAt = new Date();
+  const rows = await db
+    .update(pricebookEntry)
+    .set(set)
+    .where(and(eq(pricebookEntry.id, id), isNull(pricebookEntry.deletedAt)))
+    .returning();
+  return rows[0];
+}
+
+/**
+ * Revoke a pricebook entry by SOFT-DELETING it: stamps `deleted_at`/`updated_at`
+ * (`now()`) only when the row is still live. `getActivePricebookEntry` /
+ * `listPricebookEntries` / `getPricebookEntryById` all filter `deleted_at IS
+ * NULL`, so the entry stops pricing runs + drops from the listing. Returns the
+ * deleted id, or `undefined` when nothing matched — idempotent.
+ */
+export async function softDeletePricebookEntry(
+  db: DbOrTx,
+  id: string,
+): Promise<string | undefined> {
+  const now = new Date();
+  const rows = await db
+    .update(pricebookEntry)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(and(eq(pricebookEntry.id, id), isNull(pricebookEntry.deletedAt)))
+    .returning({ id: pricebookEntry.id });
+  return rows[0]?.id;
+}
+
 /** Fields a caller supplies to {@link createModifier}. */
 export interface CreateModifierInput {
   /** `global` | `tenant:<id>` | `capability:<id>` | `resource:<id>` (§9.2). */
@@ -789,4 +1028,78 @@ export async function listModifiers(
     where: isNull(modifier.deletedAt),
     page,
   });
+}
+
+/** Fetch a live modifier by id (soft-deleted → `undefined`). */
+export async function getModifierById(db: DbOrTx, id: string): Promise<ModifierRow | undefined> {
+  const rows = await db
+    .select()
+    .from(modifier)
+    .where(and(eq(modifier.id, id), isNull(modifier.deletedAt)))
+    .limit(1);
+  return rows[0];
+}
+
+/** Mutable fields of a `modifier` (admin PATCH); omitted keys are unchanged. */
+export interface UpdateModifierInput {
+  readonly whenExpr?: string | null | undefined;
+  readonly op?: string | undefined;
+  /**
+   * The modifier value: a µcredit amount for credit ops (`flat_off`/
+   * `override_rate`), a whole-percent int for percent ops. The controller
+   * applies `creditsToMicro` for credit ops before calling this repo.
+   */
+  readonly value?: bigint | null | undefined;
+  readonly stackable?: boolean | undefined;
+  readonly priority?: number | undefined;
+  readonly active?: boolean | undefined;
+}
+
+/**
+ * Patch a live `modifier` (only the supplied fields), bumping `updated_at`,
+ * returning the new row. The `value` is stored verbatim — credit-denominated ops
+ * arrive already converted to µcredits by the controller (mirroring
+ * {@link createModifier}). Soft-deleted / unknown → `undefined`; an empty patch
+ * reads the current live row back.
+ */
+export async function updateModifier(
+  db: DbOrTx,
+  id: string,
+  patch: UpdateModifierInput,
+): Promise<ModifierRow | undefined> {
+  const set: Partial<InferInsertModel<typeof modifier>> = {};
+  if (patch.whenExpr !== undefined) set.whenExpr = patch.whenExpr;
+  if (patch.op !== undefined) set.op = patch.op;
+  if (patch.value !== undefined) set.value = patch.value;
+  if (patch.stackable !== undefined) set.stackable = patch.stackable;
+  if (patch.priority !== undefined) set.priority = patch.priority;
+  if (patch.active !== undefined) set.active = patch.active;
+  if (Object.keys(set).length === 0) {
+    return getModifierById(db, id);
+  }
+  set.updatedAt = new Date();
+  const rows = await db
+    .update(modifier)
+    .set(set)
+    .where(and(eq(modifier.id, id), isNull(modifier.deletedAt)))
+    .returning();
+  return rows[0];
+}
+
+/**
+ * Revoke a modifier by SOFT-DELETING it: stamps `deleted_at`/`updated_at`
+ * (`now()`) only when the row is still live. `listActiveModifiers` /
+ * `listApplicableModifiers` / `listModifiers` / `getModifierById` all filter
+ * `deleted_at IS NULL`, so the modifier stops affecting pricing + drops from the
+ * listing. Returns the deleted id, or `undefined` when nothing matched —
+ * idempotent.
+ */
+export async function softDeleteModifier(db: DbOrTx, id: string): Promise<string | undefined> {
+  const now = new Date();
+  const rows = await db
+    .update(modifier)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(and(eq(modifier.id, id), isNull(modifier.deletedAt)))
+    .returning({ id: modifier.id });
+  return rows[0]?.id;
 }
