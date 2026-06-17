@@ -131,12 +131,25 @@
       "kind": "Kind",
       "modality": "Modality",
       "provider": "Provider type",
-      "execModes": "Exec modes (comma-separated)",
-      "ioSchema": "IO schema (JSON)"
+      "execModes": "Exec modes",
+      "ioSchema": "IO schema"
+    },
+    "tip": {
+      "id": "A unique identifier for this resource (e.g. gpt-4o or my-workflow). Used in API calls and must not collide with another resource.",
+      "kind": "Model = a single upstream model; Workflow = a multi-step pipeline (e.g. a Dify app).",
+      "modality": "The primary data type this resource handles: text, image, video, audio, or composite.",
+      "providerType": "Free-text upstream provider (e.g. openai, anthropic). The logo resolves from this value.",
+      "execModes": "How callers may invoke this resource: blocking, stream, async-poll or async-callback. Press Enter to add."
     },
     "kind": { "model": "Model", "workflow": "Workflow" },
+    "tabs": {
+      "overview": "Overview",
+      "channels": "Channels",
+      "pricing": "Pricing"
+    },
     "detail": {
       "back": "Back to resources",
+      "tabsLabel": "Resource detail sections",
       "channels": "Upstream channels",
       "pricebook": "Pricing",
       "addChannel": "Add channel",
@@ -147,12 +160,32 @@
     }
   },
   "channels": {
+    "addTitle": "Add channel",
+    "editTitle": "Edit channel",
+    "save": "Save channel",
+    "created": "Channel created",
+    "updated": "Channel updated",
     "form": {
       "provider": "Provider type",
-      "credentialRef": "Credential ref (UUID, optional)",
+      "endpoint": "Endpoint",
+      "model": "Model",
+      "proxyRef": "Proxy ref",
+      "credentialRef": "Credential ref",
       "weight": "Weight",
-      "status": "Status"
+      "status": "Status",
+      "config": "Config"
     },
+    "tip": {
+      "provider": "Free-text upstream provider for this channel (e.g. openai, anthropic). The logo resolves from this value.",
+      "endpoint": "Override base URL for this channel. Leave empty to use the provider default.",
+      "model": "Upstream model name to call (e.g. gpt-4o). Leave empty to use the resource default.",
+      "proxyRef": "Optional reference to an outbound proxy configuration.",
+      "weight": "Routing weight — higher values receive a larger share of traffic across active channels.",
+      "credentialRef": "Id of the encrypted secret holding this channel's API key. Use \"New credential\" to create one.",
+      "config": "Provider-specific key/value settings for this channel (e.g. async submit/poll paths)."
+    },
+    "actions": { "enable": "Enable", "disable": "Disable" },
+    "preset": { "asyncMedia": "Async media preset" },
     "cols": {
       "provider": "Provider",
       "endpoint": "Endpoint",
@@ -162,6 +195,16 @@
     },
     "empty": "No upstream channels yet"
   },
+  "credentials": {
+    "new": "New credential",
+    "value": "Secret value",
+    "label": "Label (optional)",
+    "save": "Create credential",
+    "created": "Credential created",
+    "tip": {
+      "value": "The plaintext API key or secret. It is encrypted on save and never shown again — only its id is kept as a reference."
+    }
+  },
   "pricebook": {
     "empty": "No pricing yet",
     "cols": { "method": "Method", "timing": "Timing", "version": "Version", "active": "Active" },
@@ -170,10 +213,20 @@
       "version": "Price version",
       "method": "Method",
       "timing": "Timing",
-      "spec": "Spec (JSON)",
+      "fixedCredits": "Fixed credits",
+      "active": "Active",
+      "spec": "Spec",
       "markup": "Markup (optional)"
+    },
+    "tip": {
+      "method": "How the price is computed: unit rate, matrix table, fixed amount, formula, or pass-through of upstream cost.",
+      "timing": "Pre = charge an estimate before the call; Post = charge the actual usage after the call completes.",
+      "fixedCredits": "The flat price in human credits (1 credit = 1,000,000 µcredits). The backend converts it to µcredits.",
+      "resourceVersion": "The resource version this price applies to. Defaults to the resource's current version.",
+      "version": "Version number for this price entry; bump it to supersede an earlier price."
     }
   },
+  "common": { "edit": "Edit" },
   "table": {
     "search": "Search",
     "selected": "{{n}} selected",

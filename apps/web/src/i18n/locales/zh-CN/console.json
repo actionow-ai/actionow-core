@@ -126,12 +126,25 @@
       "kind": "类型",
       "modality": "模态",
       "provider": "Provider 类型",
-      "execModes": "执行模式(逗号分隔)",
-      "ioSchema": "IO Schema (JSON)"
+      "execModes": "执行模式",
+      "ioSchema": "IO Schema"
+    },
+    "tip": {
+      "id": "该资源的唯一标识（如 gpt-4o 或 my-workflow）。用于 API 调用,且不能与其它资源重复。",
+      "kind": "模型 = 单个上游模型;工作流 = 多步流水线（如 Dify 应用）。",
+      "modality": "该资源处理的主要数据类型:文本、图像、视频、音频或复合。",
+      "providerType": "上游 Provider(自由文本,如 openai、anthropic)。Logo 据此解析。",
+      "execModes": "调用方可使用的执行方式:blocking、stream、async-poll 或 async-callback。按回车添加。"
     },
     "kind": { "model": "模型", "workflow": "工作流" },
+    "tabs": {
+      "overview": "概览",
+      "channels": "通道",
+      "pricing": "定价"
+    },
     "detail": {
       "back": "返回资源",
+      "tabsLabel": "资源详情分区",
       "channels": "上游通道",
       "pricebook": "定价",
       "addChannel": "添加通道",
@@ -142,12 +155,32 @@
     }
   },
   "channels": {
+    "addTitle": "添加通道",
+    "editTitle": "编辑通道",
+    "save": "保存通道",
+    "created": "通道已创建",
+    "updated": "通道已更新",
     "form": {
       "provider": "Provider 类型",
-      "credentialRef": "凭证 Ref (UUID,可空)",
+      "endpoint": "端点",
+      "model": "模型",
+      "proxyRef": "代理 Ref",
+      "credentialRef": "凭证 Ref",
       "weight": "权重",
-      "status": "状态"
+      "status": "状态",
+      "config": "配置"
     },
+    "tip": {
+      "provider": "该通道的上游 Provider(自由文本,如 openai、anthropic)。Logo 据此解析。",
+      "endpoint": "该通道的 Base URL 覆盖。留空则使用 Provider 默认值。",
+      "model": "要调用的上游模型名(如 gpt-4o)。留空则使用资源默认值。",
+      "proxyRef": "可选:出站代理配置的引用。",
+      "weight": "路由权重——值越大,在各启用通道中分到的流量越多。",
+      "credentialRef": "保存该通道 API Key 的加密密文 id。可用「新建凭证」创建。",
+      "config": "该通道的 Provider 专属键值配置(如异步提交/轮询路径)。"
+    },
+    "actions": { "enable": "启用", "disable": "停用" },
+    "preset": { "asyncMedia": "异步媒体预设" },
     "cols": {
       "provider": "Provider",
       "endpoint": "端点",
@@ -157,6 +190,16 @@
     },
     "empty": "暂无上游通道"
   },
+  "credentials": {
+    "new": "新建凭证",
+    "value": "密文值",
+    "label": "标签(可空)",
+    "save": "创建凭证",
+    "created": "凭证已创建",
+    "tip": {
+      "value": "明文 API Key 或密钥。保存时即加密,之后不再回显——仅保留其 id 作为引用。"
+    }
+  },
   "pricebook": {
     "empty": "暂无定价",
     "cols": { "method": "方式", "timing": "时机", "version": "版本", "active": "启用" },
@@ -165,10 +208,20 @@
       "version": "定价版本",
       "method": "计价方式",
       "timing": "时机",
-      "spec": "Spec (JSON)",
+      "fixedCredits": "固定 credit",
+      "active": "启用",
+      "spec": "Spec",
       "markup": "加价(可空)"
+    },
+    "tip": {
+      "method": "价格的计算方式:单位计价、矩阵计价、固定计价、公式计价,或透传上游成本。",
+      "timing": "预计费 = 调用前先按预估扣费;后计费 = 调用完成后按实际用量扣费。",
+      "fixedCredits": "以「人类 credit」表示的固定价格(1 credit = 1,000,000 µcredits)。后端会换算为 µcredits。",
+      "resourceVersion": "该定价适用的资源版本。默认取资源的当前版本。",
+      "version": "该定价条目的版本号;调高它可覆盖更早的定价。"
     }
   },
+  "common": { "edit": "编辑" },
   "table": {
     "search": "搜索",
     "selected": "已选 {{n}} 项",
