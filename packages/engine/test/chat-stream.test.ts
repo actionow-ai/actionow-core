@@ -201,6 +201,14 @@ function deps(
 ): Parameters<typeof createChatSettlingStream>[0] {
   const adapters = new AdapterRegistry();
   adapters.register(adapter);
+  return depsWith(adapters, overrides);
+}
+
+/** Same as {@link deps} but with a caller-supplied registry (multi-adapter). */
+function depsWith(
+  adapters: AdapterRegistry,
+  overrides: Partial<RunRequest> = {},
+): Parameters<typeof createChatSettlingStream>[0] {
   const req: RunRequest = {
     resource: {
       id: 'chat-resource',
@@ -258,7 +266,15 @@ describe('createChatSettlingStream', () => {
 
     expect(settleCalls).toHaveLength(1);
     expect(usageLogCalls).toHaveLength(1);
-    expect(usageLogCalls[0]).toEqual({ model: 'gpt-4o', inputTokens: 3, outputTokens: 2 });
+    // The served channel (`c1`, no per-channel providerType → resource's
+    // `mock-chat`) is recorded alongside the snake_case token usage.
+    expect(usageLogCalls[0]).toEqual({
+      model: 'gpt-4o',
+      inputTokens: 3,
+      outputTokens: 2,
+      channelId: 'c1',
+      providerType: 'mock-chat',
+    });
   });
 
   it('does NOT mirror usage_log when usageLogModel is unset', async () => {
@@ -363,6 +379,36 @@ describe('createChatSettlingStream', () => {
     expect(events.map((e) => e.type)).toEqual(['error']);
     expect(failCalls).toHaveLength(1);
     expect(settleCalls).toHaveLength(0);
+  });
+
+  it('selects the adapter PER CHANNEL and fails over cross-provider on the first frame', async () => {
+    // Two adapters under one resource: c1 → openai-fail (retryable first-frame
+    // error), c2 → mock-chat (normal stream). rng→0 tries c1 first → fail over
+    // to c2; the consumer sees c2's full stream and usage_log records c2/mock-chat.
+    const adapters = new AdapterRegistry();
+    adapters.register(fakeChatAdapter());
+    adapters.register(failingChatAdapter());
+    const d = depsWith(adapters, {
+      channels: [
+        { id: 'c1', weight: 2, credentialRef: 'r1', providerType: 'openai-fail' },
+        { id: 'c2', weight: 1, credentialRef: 'r2', providerType: 'mock-chat' },
+      ],
+      usageLogModel: 'gpt-4o',
+    });
+    d.rng = () => 0;
+    const events: ChatStreamEvent[] = [];
+    for await (const ev of createChatSettlingStream(d)) events.push(ev);
+
+    expect(events.map((e) => e.type)).toEqual([
+      'message_start',
+      'content_delta',
+      'usage',
+      'stop',
+      'done',
+    ]);
+    expect(settleCalls).toHaveLength(1);
+    expect(failCalls).toHaveLength(0);
+    expect(usageLogCalls[0]).toMatchObject({ channelId: 'c2', providerType: 'mock-chat' });
   });
 });
 

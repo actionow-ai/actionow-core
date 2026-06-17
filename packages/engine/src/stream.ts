@@ -171,14 +171,6 @@ export async function* createSettlingStream(deps: SettlingStreamDeps): AsyncGene
 export async function* createChatSettlingStream(
   deps: SettlingStreamDeps,
 ): AsyncGenerator<ChatStreamEvent> {
-  const adapter = deps.adapters.get(deps.req.resource.providerType);
-  if (adapter.streamChat === undefined) {
-    throw new EngineError({
-      code: 'internal_error',
-      message: `adapter ${deps.req.resource.providerType} cannot streamChat`,
-      retryable: false,
-    });
-  }
   const ir = deps.inputs.__ir as ChatRequest | undefined;
   if (ir === undefined) {
     throw new EngineError({
@@ -191,6 +183,10 @@ export async function* createChatSettlingStream(
   let latestUsage: UsageVector | undefined;
   let failure: UnifiedError | undefined;
   let settled = false;
+  // The channel whose stream committed (its first event was non-error), threaded
+  // into the usage_log mirror so a streamed chat records which channel/provider
+  // ultimately served — matching the blocking `runChat` path (cross-provider).
+  let servedChannel: RunChannel | undefined;
   // Output bytes actually streamed to the consumer. When a stream ends WITHOUT a
   // usage frame — a clean disconnect BEFORE the trailing usage event (every real
   // adapter emits usage last), or a provider that never reports usage — this
@@ -226,7 +222,15 @@ export async function* createChatSettlingStream(
     }
     const usage = latestUsage ?? measuredUsage();
     const finalCost = await settleStream(deps, usage);
-    await mirrorChatUsageLog(deps, usage, finalCost);
+    await mirrorChatUsageLog(
+      deps,
+      usage,
+      finalCost,
+      servedChannel && {
+        channelId: servedChannel.id,
+        providerType: servedChannel.providerType ?? deps.req.resource.providerType,
+      },
+    );
   };
 
   const rng = deps.rng ?? Math.random;
@@ -269,6 +273,24 @@ export async function* createChatSettlingStream(
       const channel = ordered[i]?.value;
       if (channel === undefined) continue;
       const isLast = i === ordered.length - 1;
+      // Select the adapter PER CHANNEL so channels under one resource can target
+      // different providers (cross-provider failover) — mirroring the blocking
+      // `runChat` path. Falls back to the resource provider for single-provider
+      // channels with no per-channel `providerType`.
+      const adapter = deps.adapters.get(channel.providerType ?? deps.req.resource.providerType);
+      if (adapter.streamChat === undefined) {
+        // This channel's adapter cannot stream: record the failure and advance,
+        // or surface an in-band error + fail if this was the last channel.
+        lastError = {
+          code: 'internal_error',
+          message: `adapter ${adapter.providerType} cannot streamChat`,
+          retryable: false,
+        };
+        if (!isLast) continue;
+        failure = lastError;
+        yield { type: 'error', error: failure };
+        return;
+      }
       const ctx = await buildContext(deps, channel);
       try {
         const iterator = adapter.streamChat(ir, ctx)[Symbol.asyncIterator]();
@@ -276,6 +298,7 @@ export async function* createChatSettlingStream(
         if (first.done === true) {
           // Empty stream (no frames): commit; `finally` settles a measured 0.
           committed = { iterator, first: undefined };
+          servedChannel = channel;
           break;
         }
         if (first.value.type === 'error') {
@@ -291,6 +314,7 @@ export async function* createChatSettlingStream(
           return;
         }
         committed = { iterator, first: first.value };
+        servedChannel = channel;
         break;
       } catch (err) {
         if (isRetryableAdapterError(err) && !isLast) {
@@ -372,6 +396,7 @@ async function mirrorChatUsageLog(
   deps: SettlingStreamDeps,
   usage: UsageVector | undefined,
   finalCost: MicroCredits,
+  served?: { channelId: string; providerType: string },
 ): Promise<void> {
   const model = deps.req.usageLogModel;
   if (model === undefined) return;
@@ -383,6 +408,9 @@ async function mirrorChatUsageLog(
       outputTokens: usage?.output_tokens ?? 0,
       cost: finalCost,
       status: 'succeeded',
+      ...(served !== undefined
+        ? { channelId: served.channelId, providerType: served.providerType }
+        : {}),
     });
   } catch {
     // Best-effort observability: never fail a settled run on a usage-log error.
