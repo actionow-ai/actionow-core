@@ -44,7 +44,7 @@ export function Scenarios() {
           {t('scenarios.lead')}
         </p>
       </Reveal>
-      <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 'var(--s-4)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 'var(--s-4)' }}>
         <ScenarioTile k="ootb" GlyphIcon={StackIcon} index={0} />
         <ScenarioTile k="relay" GlyphIcon={ArrowsLeftRightIcon} index={1} />
       </div>

@@ -29,7 +29,7 @@ export function HowItWorks() {
             opacity: 0.4,
           }}
         />
-        <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: 'var(--s-5)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--s-5)' }}>
           {STEPS.map((s, i) => (
             <Reveal key={s} delay={i * 0.1}>
               <div
