@@ -66,11 +66,11 @@ export function AccountsPage() {
           style={{ padding: 'var(--s-5)', borderRadius: 'var(--r-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
         >
           <div>
-            <div style={{ fontSize: 9.5, textTransform: 'uppercase', color: 'var(--muted)' }}>{t('accounts.cols.balance')}</div>
-            <div style={{ fontSize: 24, fontWeight: 700, marginTop: 6 }}>
+            <div style={{ fontSize: 'var(--fs-nano)', textTransform: 'uppercase', color: 'var(--muted)' }}>{t('accounts.cols.balance')}</div>
+            <div style={{ fontSize: 'var(--fs-xl)', fontWeight: 700, marginTop: 6 }}>
               <Money micro={account.credit_balance} />
             </div>
-            <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 4 }}>{account.id}</div>
+            <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)', marginTop: 4 }}>{account.id}</div>
           </div>
           <Button variant="ghost" onClick={() => setTopupOpen(true)}>
             {t('accounts.topup.action')}
@@ -79,7 +79,7 @@ export function AccountsPage() {
       ) : (
         <div
           className="panel"
-          style={{ padding: 'var(--s-6)', textAlign: 'center', color: 'var(--muted)', fontSize: 12, borderRadius: 'var(--r-md)' }}
+          style={{ padding: 'var(--s-6)', textAlign: 'center', color: 'var(--muted)', fontSize: 'var(--fs-sm)', borderRadius: 'var(--r-md)' }}
         >
           {t('accounts.empty')}
         </div>

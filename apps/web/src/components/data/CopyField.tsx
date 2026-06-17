@@ -25,7 +25,7 @@ export function CopyField({
         className="panel"
         style={{
           flex: 1,
-          fontSize: 12,
+          fontSize: 'var(--fs-sm)',
           padding: '8px 10px',
           borderRadius: 'var(--r-sm)',
           overflow: 'auto',

@@ -286,7 +286,7 @@ function BottomTabs({ pathname }: { pathname: string }) {
               flexDirection: 'column',
               alignItems: 'center',
               gap: 3,
-              fontSize: 10,
+              fontSize: 'var(--fs-micro)',
               padding: '6px 12px',
               borderRadius: 'var(--r-sm)',
               whiteSpace: 'nowrap',

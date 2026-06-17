@@ -85,7 +85,7 @@ export function ImmersiveHero() {
       <div
         data-r
         aria-hidden="true"
-        style={{ position: 'absolute', bottom: 'var(--s-5)', fontSize: 11, letterSpacing: '0.14em', color: 'var(--faint)', whiteSpace: 'nowrap' }}
+        style={{ position: 'absolute', bottom: 'var(--s-5)', fontSize: 'var(--fs-caption)', letterSpacing: '0.14em', color: 'var(--faint)', whiteSpace: 'nowrap' }}
       >
         ↓ {t('live.title')}
       </div>

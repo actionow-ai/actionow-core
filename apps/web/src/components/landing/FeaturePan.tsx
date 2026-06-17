@@ -53,12 +53,12 @@ function Panel({ index, k, Glyph, wide }: { index: number; k: string; Glyph: Ico
         >
           <Glyph size={23} weight="duotone" />
         </span>
-        <span className="mono" style={{ fontSize: 13, color: 'var(--faint)' }}>{`0${String(index + 1)}`}</span>
+        <span className="mono" style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}>{`0${String(index + 1)}`}</span>
       </div>
       <div style={{ fontSize: 'clamp(22px, 2.6vw, 30px)', fontWeight: 760, letterSpacing: '-0.02em', marginTop: 'var(--s-5)' }}>
         {t(`features.items.${k}.t`)}
       </div>
-      <p style={{ fontSize: 15, lineHeight: 1.65, color: 'var(--muted)', marginTop: 'var(--s-3)' }}>{t(`features.items.${k}.d`)}</p>
+      <p style={{ fontSize: 'var(--fs-base)', lineHeight: 1.65, color: 'var(--muted)', marginTop: 'var(--s-3)' }}>{t(`features.items.${k}.d`)}</p>
     </div>
   );
 }

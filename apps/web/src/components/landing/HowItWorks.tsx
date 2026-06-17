@@ -44,7 +44,7 @@ export function HowItWorks() {
                     borderRadius: '50%',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: 17,
+                    fontSize: 'var(--fs-lg)',
                     fontWeight: 800,
                     color: 'var(--ink)',
                     background: 'var(--grad-accent)',
@@ -53,10 +53,10 @@ export function HowItWorks() {
                 >
                   {i + 1}
                 </span>
-                <div style={{ fontSize: 18, fontWeight: 680, letterSpacing: '-0.01em', marginTop: 'var(--s-4)' }}>
+                <div style={{ fontSize: 'var(--fs-lg)', fontWeight: 680, letterSpacing: '-0.01em', marginTop: 'var(--s-4)' }}>
                   {t(`how.steps.${s}.t`)}
                 </div>
-                <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-2)' }}>
+                <p style={{ fontSize: 'var(--fs-base)', lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-2)' }}>
                   {t(`how.steps.${s}.d`)}
                 </p>
               </div>

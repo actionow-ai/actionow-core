@@ -15,7 +15,7 @@ export function Pricing() {
         <h2 style={{ fontSize: 'var(--fs-h2)', fontWeight: 780, letterSpacing: '-0.02em', margin: 0 }}>
           {t('pricing.title')}
         </h2>
-        <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--muted)', margin: 'var(--s-3) auto 0', maxWidth: 520 }}>
+        <p style={{ fontSize: 'var(--fs-base)', lineHeight: 1.6, color: 'var(--muted)', margin: 'var(--s-3) auto 0', maxWidth: 520 }}>
           {t('pricing.lead')}
         </p>
       </Reveal>
@@ -32,11 +32,11 @@ export function Pricing() {
                 boxShadow: c.featured ? 'var(--shadow-accent-card)' : undefined,
               }}
             >
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)' }}>{t(`pricing.cards.${c.key}.t`)}</div>
-              <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.02em', margin: 'var(--s-2) 0' }}>
+              <div style={{ fontSize: 'var(--fs-base)', fontWeight: 600, color: 'var(--muted)' }}>{t(`pricing.cards.${c.key}.t`)}</div>
+              <div style={{ fontSize: 'var(--fs-2xl)', fontWeight: 800, letterSpacing: '-0.02em', margin: 'var(--s-2) 0' }}>
                 {t(`pricing.cards.${c.key}.p`)}
               </div>
-              <p style={{ fontSize: 13.5, lineHeight: 1.55, color: 'var(--muted)', minHeight: 42 }}>
+              <p style={{ fontSize: 'var(--fs-sm)', lineHeight: 1.55, color: 'var(--muted)', minHeight: 42 }}>
                 {t(`pricing.cards.${c.key}.d`)}
               </p>
               <div style={{ marginTop: 'var(--s-5)' }}>

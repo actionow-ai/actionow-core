@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 export function Logo({ size = 26 }: { size?: number }) {
   const { t } = useTranslation();
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontWeight: 700, fontSize: 'var(--fs-md)', letterSpacing: '-0.01em' }}>
       <span
         style={{
           width: size,

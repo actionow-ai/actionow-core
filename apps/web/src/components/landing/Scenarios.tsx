@@ -25,8 +25,8 @@ function ScenarioTile({ k, GlyphIcon, index }: { k: string; GlyphIcon: Icon; ind
         >
           <GlyphIcon size={21} weight="duotone" />
         </span>
-        <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.01em' }}>{t(`scenarios.${k}.t`)}</div>
-        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-3)' }}>{t(`scenarios.${k}.d`)}</p>
+        <div style={{ fontSize: 'var(--fs-lg)', fontWeight: 700, letterSpacing: '-0.01em' }}>{t(`scenarios.${k}.t`)}</div>
+        <p style={{ fontSize: 'var(--fs-base)', lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-3)' }}>{t(`scenarios.${k}.d`)}</p>
       </SpotlightCard>
     </Reveal>
   );
@@ -40,7 +40,7 @@ export function Scenarios() {
         <h2 style={{ fontSize: 'var(--fs-h2)', fontWeight: 780, letterSpacing: '-0.02em', margin: 0 }}>
           {t('scenarios.title')}
         </h2>
-        <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--muted)', margin: 'var(--s-3) auto 0', maxWidth: 520 }}>
+        <p style={{ fontSize: 'var(--fs-base)', lineHeight: 1.6, color: 'var(--muted)', margin: 'var(--s-3) auto 0', maxWidth: 520 }}>
           {t('scenarios.lead')}
         </p>
       </Reveal>

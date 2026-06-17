@@ -32,7 +32,7 @@ export function CTASection() {
             <h2 style={{ fontSize: 'var(--fs-h2)', fontWeight: 780, letterSpacing: '-0.02em', margin: 0 }}>
               {t('cta.title')}
             </h2>
-            <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--muted)', margin: 'var(--s-3) auto 0', maxWidth: 460 }}>
+            <p style={{ fontSize: 'var(--fs-base)', lineHeight: 1.6, color: 'var(--muted)', margin: 'var(--s-3) auto 0', maxWidth: 460 }}>
               {t('cta.lead')}
             </p>
             <div style={{ marginTop: 'var(--s-6)', display: 'flex', justifyContent: 'center' }}>

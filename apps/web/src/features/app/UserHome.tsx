@@ -25,8 +25,8 @@ export function UserHome() {
       </div>
       <div style={{ position: 'relative', zIndex: 1, minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--s-4)' }}>
         <div className="glass" style={{ borderRadius: 'var(--r-lg)', padding: 'var(--s-8)', textAlign: 'center', maxWidth: 460 }}>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>{t('app.soon')}</div>
-          <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-3)' }}>{t('app.hint')}</p>
+          <div style={{ fontSize: 'var(--fs-lg)', fontWeight: 700 }}>{t('app.soon')}</div>
+          <p style={{ fontSize: 'var(--fs-base)', lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-3)' }}>{t('app.hint')}</p>
           <div style={{ marginTop: 'var(--s-5)', display: 'flex', justifyContent: 'center', gap: 'var(--s-2)' }}>
             <Button href="/" variant="ghost">
               {t('app.backHome')}

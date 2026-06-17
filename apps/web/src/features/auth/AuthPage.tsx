@@ -54,13 +54,13 @@ function BrandPanel() {
         />
         {t('landing:hero.title2')}
       </h1>
-      <p data-reveal style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--muted)', margin: 0, maxWidth: 440 }}>
+      <p data-reveal style={{ fontSize: 'var(--fs-base)', lineHeight: 1.6, color: 'var(--muted)', margin: 0, maxWidth: 440 }}>
         {t('auth.brandLead')}
       </p>
 
       <ul data-reveal style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
         {bullets.map((b) => (
-          <li key={b} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: 'var(--text)' }}>
+          <li key={b} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 'var(--fs-sm)', color: 'var(--text)' }}>
             <CheckCircleIcon size={17} weight="fill" style={{ color: 'var(--accent)', flexShrink: 0 }} />
             {t(b)}
           </li>
@@ -69,10 +69,10 @@ function BrandPanel() {
 
       {/* live mini console — what you're signing into */}
       <div data-reveal className="glass" style={{ borderRadius: 'var(--r-lg)', padding: 'var(--s-4) var(--s-5)', maxWidth: 420 }}>
-        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--faint)', marginBottom: 'var(--s-3)' }}>
+        <div style={{ fontSize: 'var(--fs-micro)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--faint)', marginBottom: 'var(--s-3)' }}>
           {t('landing:live.logTitle')}
         </div>
-        <div className="mono" style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, lineHeight: 1.5, color: 'var(--log-ok)' }}>
+        <div className="mono" style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 'var(--fs-sm)', lineHeight: 1.5, color: 'var(--log-ok)' }}>
           {LOG.map((l) => (
             <span data-log key={l} style={{ whiteSpace: 'nowrap' }}>
               <span style={{ color: 'var(--faint)' }}>POST </span>
@@ -154,7 +154,7 @@ export function AuthPage() {
                 flex: 1,
                 padding: '8px 0',
                 borderRadius: 'var(--r-pill)',
-                fontSize: 13,
+                fontSize: 'var(--fs-sm)',
                 fontWeight: 600,
                 border: 'none',
                 cursor: 'pointer',
@@ -185,7 +185,7 @@ export function AuthPage() {
 
         {config.oauthEnabled && (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)', color: 'var(--faint)', fontSize: 11 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)', color: 'var(--faint)', fontSize: 'var(--fs-caption)' }}>
               <span style={{ flex: 1, height: 1, background: 'var(--panel-bd)' }} />
               {t('auth.or')}
               <span style={{ flex: 1, height: 1, background: 'var(--panel-bd)' }} />
@@ -199,12 +199,12 @@ export function AuthPage() {
           </>
         )}
 
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', textAlign: 'center' }}>
+        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', textAlign: 'center' }}>
           {mode === 'login' ? t('auth.toRegister') : t('auth.toLogin')}{' '}
           <button
             type="button"
             onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-            style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12.5, padding: 0, whiteSpace: 'nowrap' }}
+            style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 'var(--fs-sm)', padding: 0, whiteSpace: 'nowrap' }}
           >
             {mode === 'login' ? t('auth.toRegisterCta') : t('auth.toLoginCta')}
           </button>

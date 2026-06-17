@@ -21,7 +21,7 @@ export function LanguageSwitch() {
         alignItems: 'center',
         justifyContent: 'center',
         gap: isDesktop ? 7 : 0,
-        fontSize: 12.5,
+        fontSize: 'var(--fs-sm)',
         color: 'var(--text)',
         cursor: 'pointer',
         padding: isDesktop ? '8px 13px' : 0,

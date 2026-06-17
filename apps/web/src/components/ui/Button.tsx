@@ -5,8 +5,8 @@ type Variant = 'cta' | 'ghost';
 type Size = 'md' | 'lg';
 
 const sizes: Record<Size, CSSProperties> = {
-  md: { fontSize: 13, padding: '9px 16px' },
-  lg: { fontSize: 14, padding: '12px 22px' },
+  md: { fontSize: 'var(--fs-sm)', padding: '9px 16px' },
+  lg: { fontSize: 'var(--fs-base)', padding: '12px 22px' },
 };
 
 function styleFor(variant: Variant, size: Size): CSSProperties {

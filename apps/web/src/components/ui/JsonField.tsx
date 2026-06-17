@@ -17,7 +17,7 @@ const taStyle: CSSProperties = {
   width: '100%',
   minHeight: 120,
   resize: 'vertical',
-  fontSize: 12,
+  fontSize: 'var(--fs-sm)',
   lineHeight: 1.6,
   fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
   color: 'var(--text)',
@@ -41,7 +41,7 @@ export function JsonField({
   placeholder?: string;
 }) {
   return (
-    <label style={{ display: 'block', fontSize: 12.5 }}>
+    <label style={{ display: 'block', fontSize: 'var(--fs-sm)' }}>
       <span style={{ display: 'block', color: 'var(--muted)', marginBottom: 6 }}>{label}</span>
       <textarea
         value={value}
@@ -51,7 +51,7 @@ export function JsonField({
         style={error !== undefined ? { ...taStyle, borderColor: 'var(--accent-2)' } : taStyle}
       />
       {error !== undefined && (
-        <span style={{ display: 'block', color: 'var(--accent-2)', fontSize: 11, marginTop: 4 }}>{error}</span>
+        <span style={{ display: 'block', color: 'var(--accent-2)', fontSize: 'var(--fs-caption)', marginTop: 4 }}>{error}</span>
       )}
     </label>
   );

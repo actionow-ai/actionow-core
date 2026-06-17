@@ -42,7 +42,7 @@ export function Nav() {
               <a
                 key={l.label}
                 href={l.href}
-                style={{ fontSize: 13.5, color: 'var(--muted)', transition: 'color 0.2s' }}
+                style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', transition: 'color 0.2s' }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--muted)')}
               >
@@ -102,7 +102,7 @@ export function Nav() {
                 key={l.label}
                 href={l.href}
                 onClick={() => setOpen(false)}
-                style={{ fontSize: 14, color: 'var(--text)', padding: '8px 6px' }}
+                style={{ fontSize: 'var(--fs-base)', color: 'var(--text)', padding: '8px 6px' }}
               >
                 {l.label}
               </a>

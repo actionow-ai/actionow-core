@@ -44,8 +44,8 @@ export function DifyImportPage() {
       <div><Button variant="cta" onClick={() => submit.mutate()}>{t('dify.submit')}</Button></div>
       {report && (
         <div className="panel" style={{ borderRadius: 'var(--r-md)', padding: 'var(--s-4)' }}>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>{t('dify.report')}</div>
-          <pre className="mono" style={{ margin: 0, fontSize: 11.5, whiteSpace: 'pre-wrap', color: 'var(--text)' }}>
+          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', marginBottom: 6 }}>{t('dify.report')}</div>
+          <pre className="mono" style={{ margin: 0, fontSize: 'var(--fs-sm)', whiteSpace: 'pre-wrap', color: 'var(--text)' }}>
             {JSON.stringify(report.compat_report, null, 2)}
           </pre>
         </div>

@@ -120,7 +120,7 @@ export function ApiKeysPage() {
           </Button>
         }
       >
-        <div style={{ fontSize: 12, color: 'var(--run)' }}>{t('apiKeys.reveal.warn')}</div>
+        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--run)' }}>{t('apiKeys.reveal.warn')}</div>
         {plaintext !== null && <CopyField value={plaintext} copyLabel={t('apiKeys.reveal.copy')} copiedLabel={t('apiKeys.reveal.copied')} />}
       </Modal>
     </div>

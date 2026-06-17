@@ -35,7 +35,7 @@ export function Toaster() {
           style={{
             padding: '10px 14px',
             borderRadius: 'var(--r-md)',
-            fontSize: 12.5,
+            fontSize: 'var(--fs-sm)',
             color: m.tone === 'error' ? 'var(--fail)' : 'var(--text)',
           }}
         >

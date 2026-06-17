@@ -109,7 +109,7 @@ export function ProviderIcon({
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, ...style }}>
       {glyph}
-      <span style={{ fontSize: 14, fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 'var(--fs-base)', fontWeight: 500 }}>{label}</span>
     </span>
   );
 }

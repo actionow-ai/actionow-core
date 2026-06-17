@@ -29,7 +29,7 @@ export function Footer() {
     },
   ];
 
-  const linkStyle = { fontSize: 13, color: 'var(--muted)', transition: 'color 0.2s', whiteSpace: 'nowrap' as const };
+  const linkStyle = { fontSize: 'var(--fs-sm)', color: 'var(--muted)', transition: 'color 0.2s', whiteSpace: 'nowrap' as const };
 
   return (
     <footer style={{ borderTop: '1px solid var(--panel-bd)', marginTop: 'var(--s-8)' }}>
@@ -46,12 +46,12 @@ export function Footer() {
       >
         <div style={{ maxWidth: 300 }}>
           <Logo />
-          <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-3)' }}>{t('footer.tagline')}</p>
+          <p style={{ fontSize: 'var(--fs-sm)', lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-3)' }}>{t('footer.tagline')}</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--s-16)', flexWrap: 'wrap' }}>
           {columns.map((col) => (
             <nav key={col.heading} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-              <span style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--faint)' }}>{col.heading}</span>
+              <span style={{ fontSize: 'var(--fs-caption)', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--faint)' }}>{col.heading}</span>
               {col.links.map((l) =>
                 l.to ? (
                   <Link key={l.label} to={l.to} style={linkStyle}>
@@ -67,7 +67,7 @@ export function Footer() {
           ))}
         </div>
       </div>
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 var(--s-4) var(--s-8)', fontSize: 12, color: 'var(--faint)' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 var(--s-4) var(--s-8)', fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}>
         © {year} {t('common:brand')}. {t('footer.rights')}
       </div>
     </footer>

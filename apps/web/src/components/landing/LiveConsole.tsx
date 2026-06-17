@@ -90,13 +90,13 @@ export function LiveConsole() {
     <section style={{ maxWidth: 1080, margin: '0 auto', padding: 'var(--s-16) var(--s-4)' }}>
       <div ref={root}>
         <div data-r style={{ textAlign: 'center', maxWidth: 600, margin: '0 auto var(--s-8)' }}>
-          <span className="mono" style={{ fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--accent)' }}>
+          <span className="mono" style={{ fontSize: 'var(--fs-sm)', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--accent)' }}>
             {t('live.eyebrow')}
           </span>
           <h2 style={{ fontSize: 'var(--fs-h2)', fontWeight: 780, letterSpacing: '-0.02em', margin: 'var(--s-3) 0 0' }}>
             {t('live.title')}
           </h2>
-          <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-3)' }}>{t('live.lead')}</p>
+          <p style={{ fontSize: 'var(--fs-base)', lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-3)' }}>{t('live.lead')}</p>
         </div>
 
         {/* console window: icon rail · stat tiles · live log */}
@@ -137,7 +137,7 @@ export function LiveConsole() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--s-3)' }}>
               {STATS.map((s) => (
                 <div key={s.key} className="panel" style={{ borderRadius: 'var(--r-md)', padding: 'var(--s-4)' }}>
-                  <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: 'var(--fs-micro)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
                     {t(`live.stats.${s.key}`)}
                   </div>
                   <div data-num={s.to} data-suffix={s.suffix} className="tabular" style={{ fontSize: 'clamp(20px, 3vw, 26px)', fontWeight: 700, marginTop: 6 }}>
@@ -147,7 +147,7 @@ export function LiveConsole() {
               ))}
             </div>
 
-            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--faint)', margin: 'var(--s-4) 0 var(--s-2)' }}>
+            <div style={{ fontSize: 'var(--fs-micro)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--faint)', margin: 'var(--s-4) 0 var(--s-2)' }}>
               {t('live.logTitle')}
             </div>
             <div
@@ -156,7 +156,7 @@ export function LiveConsole() {
                 background: 'rgba(0, 0, 0, 0.28)',
                 borderRadius: 'var(--r-md)',
                 padding: 'var(--s-4)',
-                fontSize: 12,
+                fontSize: 'var(--fs-sm)',
                 lineHeight: 2,
                 color: 'var(--log-ok)',
                 overflowX: 'auto',

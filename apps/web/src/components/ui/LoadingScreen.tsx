@@ -10,7 +10,7 @@ export function LoadingScreen({ label }: { label?: string }) {
     <div style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', background: 'var(--bg)', color: 'var(--text)' }}>
       <div style={{ display: 'grid', gap: 'var(--s-5)', justifyItems: 'center' }}>
         <RoseLoader size={132} label={text} />
-        <span style={{ fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--faint)', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 'var(--fs-sm)', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--faint)', whiteSpace: 'nowrap' }}>
           {text}
         </span>
       </div>
