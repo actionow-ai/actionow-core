@@ -313,6 +313,9 @@ export class AdminService {
     const codeVerifier = this.unsealCodexState(dto.state, keyB64);
     let tokens;
     try {
+      // SECURITY: `this.http` MUST stay an untraced FetchHttpClient — the code-exchange
+      // response carries access/refresh tokens; a RELAY_TRACE-wrapped client would
+      // persist them at rest in relay_trace.
       tokens = await exchangeCodexCode(this.http, { code: dto.code, codeVerifier }, new Date());
     } catch (err) {
       if (err instanceof CodexAuthError) {

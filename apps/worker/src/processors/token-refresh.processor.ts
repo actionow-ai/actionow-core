@@ -59,6 +59,9 @@ export function createTokenRefreshProcessor(runtime: WorkerRuntime): () => Promi
       try {
         const session = await getDecryptedOAuthSession(runtime.db, s.secretRefId, keyB64);
         if (session === undefined) continue;
+        // SECURITY: `runtime.http` MUST stay an untraced FetchHttpClient — the refresh
+        // response carries rotated access/refresh tokens; routing it through a
+        // RELAY_TRACE-wrapped client would persist those tokens at rest in relay_trace.
         const next = await refreshForKind(s.providerKind, runtime.http, session.refreshToken, now);
         await updateOAuthTokens(runtime.db, s.secretRefId, {
           accessToken: next.accessToken,
