@@ -196,6 +196,8 @@ export function Select({
               overflowY: 'auto',
               padding: 'var(--s-1)',
               borderRadius: 'var(--r-md)',
+              // near-opaque so option text stays legible over any underlying content
+              background: 'var(--overlay-bg)',
             }}
           >
             {all.map((o, i) => {

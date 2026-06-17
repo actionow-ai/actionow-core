@@ -114,6 +114,8 @@ export function Modal({
           flexDirection: 'column',
           borderRadius: 'var(--r-lg)',
           padding: 'var(--s-5)',
+          // near-opaque dialog so form text/fields stay legible over page content
+          background: 'var(--overlay-bg)',
         }}
       >
         <h2 style={{ margin: 0, fontSize: 'var(--fs-md)', fontWeight: 700 }}>{title}</h2>

@@ -50,6 +50,8 @@
   --panel-bg: rgba(18, 16, 12, 0.82);
   /* Sticky landing header once scrolled — near-opaque so content can't bleed through. */
   --nav-bg: rgba(14, 12, 9, 0.94);
+  /* Floating overlays (dropdown menus, modals) — near-opaque so text stays legible over any content. */
+  --overlay-bg: rgba(28, 25, 19, 0.97);
   --panel-bd: rgba(255, 255, 255, 0.08);
   --hover-bg: rgba(255, 214, 10, 0.08);
   --hover-bd: rgba(255, 214, 10, 0.28);
@@ -82,6 +84,7 @@
   --shadow-lift: 0 5px 14px rgba(120, 90, 20, 0.16);
   --panel-bg: rgba(255, 255, 255, 0.72);
   --nav-bg: rgba(245, 242, 233, 0.93);
+  --overlay-bg: rgba(252, 250, 245, 0.98);
   --panel-bd: rgba(0, 0, 0, 0.06);
   --hover-bg: rgba(245, 158, 11, 0.1);
   --hover-bd: rgba(245, 158, 11, 0.35);
