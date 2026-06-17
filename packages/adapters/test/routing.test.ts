@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { AdapterError } from '../src/errors.js';
 import type { WeightedChannel } from '../src/routing.js';
-import { isRetryableAdapterError, routeWithFailover, selectWeighted } from '../src/routing.js';
+import {
+  isRetryableAdapterError,
+  orderForFailover,
+  routeWithFailover,
+  selectWeighted,
+} from '../src/routing.js';
 
 const channels = (): WeightedChannel<string>[] => [
   { id: 'a', weight: 1, value: 'a' },
@@ -36,6 +41,24 @@ describe('selectWeighted', () => {
 
   it('throws for an empty channel list', () => {
     expect(() => selectWeighted<string>([], () => 0.0)).toThrow();
+  });
+});
+
+describe('orderForFailover', () => {
+  it('puts the weighted pick first, then the rest by descending weight', () => {
+    const order = orderForFailover(channels(), () => 0.0); // pick 'a'
+    expect(order.map((c) => c.id)).toEqual(['a', 'b']);
+  });
+
+  it('when the high-weight channel is picked, the rest follow by descending weight', () => {
+    const three: WeightedChannel<string>[] = [
+      { id: 'a', weight: 1, value: 'a' },
+      { id: 'b', weight: 5, value: 'b' },
+      { id: 'c', weight: 2, value: 'c' },
+    ];
+    // total weight 8; rng 0.5 → target 4 lands in b's band [1,6) → pick 'b'.
+    const order = orderForFailover(three, () => 0.5);
+    expect(order.map((c) => c.id)).toEqual(['b', 'c', 'a']);
   });
 });
 

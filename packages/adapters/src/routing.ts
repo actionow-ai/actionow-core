@@ -47,8 +47,12 @@ export function selectWeighted<T>(
 /**
  * Order channels for a failover attempt: the weighted pick first, then the
  * remaining channels by descending weight (ties keep list order).
+ *
+ * Exported for callers (e.g. the engine's streaming chat path) that must drive
+ * the failover loop themselves — `routeWithFailover` returns a value, but a
+ * stream has to commit to a channel mid-attempt (after the first frame).
  */
-function orderForFailover<T>(
+export function orderForFailover<T>(
   channels: readonly WeightedChannel<T>[],
   rng: () => number,
 ): WeightedChannel<T>[] {
