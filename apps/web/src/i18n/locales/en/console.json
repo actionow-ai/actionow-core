@@ -320,6 +320,54 @@
       "version": "Version number for this price entry; bump it to supersede an earlier price."
     }
   },
+  "mock": {
+    "badge": "Demo data (mock)",
+    "note": "This page runs on in-memory demo data until its billing backend ships. Edits are not saved."
+  },
+  "officialPrices": {
+    "title": "Official prices",
+    "new": "New official price",
+    "editTitle": "Edit official price",
+    "save": "Save",
+    "empty": "No official prices yet",
+    "created": "Official price created",
+    "updated": "Official price updated",
+    "deleted": "Official price deleted",
+    "source": "Source",
+    "cols": {
+      "provider": "Provider",
+      "modelSlug": "Model slug",
+      "displayName": "Display name",
+      "inputPrice": "Input price",
+      "outputPrice": "Output price",
+      "effectiveAt": "Effective",
+      "source": "Source"
+    },
+    "form": {
+      "provider": "Provider",
+      "modelSlug": "Model slug",
+      "displayName": "Display name",
+      "inputPrice": "Input price",
+      "outputPrice": "Output price",
+      "cachedInputPrice": "Cached input price",
+      "effectiveAt": "Effective date",
+      "sourceUrl": "Source URL",
+      "notes": "Notes"
+    },
+    "tip": {
+      "provider": "Upstream provider this price is published by (e.g. openai, anthropic). The logo resolves from this value.",
+      "modelSlug": "The provider's model identifier (e.g. gpt-4o or claude-3-5-sonnet).",
+      "price": "Price in US dollars per 1M tokens. Stored as integer µUSD ($1 = 1,000,000 µUSD).",
+      "cachedInputPrice": "Optional discounted rate for cached input tokens, per 1M.",
+      "effectiveAt": "The date this published price takes effect.",
+      "sourceUrl": "Link to the provider's pricing page this figure was taken from."
+    },
+    "priceEquiv": "= ${{usd}} / 1M tokens",
+    "confirm": {
+      "deleteTitle": "Delete official price?",
+      "deleteMsg": "Permanently delete the price for {{model}}? This cannot be undone."
+    }
+  },
   "common": { "edit": "Edit", "delete": "Delete", "confirm": "Confirm", "cancel": "Cancel" },
   "confirm": {
     "deleteChannelTitle": "Delete channel?",

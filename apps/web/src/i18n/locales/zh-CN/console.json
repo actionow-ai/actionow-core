@@ -315,6 +315,54 @@
       "version": "该定价条目的版本号;调高它可覆盖更早的定价。"
     }
   },
+  "mock": {
+    "badge": "演示数据 (mock)",
+    "note": "该页面在计费后端就绪前使用内存中的演示数据,所做修改不会保存。"
+  },
+  "officialPrices": {
+    "title": "官方价格",
+    "new": "新建官方价",
+    "editTitle": "编辑官方价",
+    "save": "保存",
+    "empty": "暂无官方价格",
+    "created": "官方价已创建",
+    "updated": "官方价已更新",
+    "deleted": "官方价已删除",
+    "source": "来源",
+    "cols": {
+      "provider": "Provider",
+      "modelSlug": "模型标识",
+      "displayName": "显示名",
+      "inputPrice": "输入价",
+      "outputPrice": "输出价",
+      "effectiveAt": "生效日期",
+      "source": "来源"
+    },
+    "form": {
+      "provider": "Provider",
+      "modelSlug": "模型标识",
+      "displayName": "显示名",
+      "inputPrice": "输入价",
+      "outputPrice": "输出价",
+      "cachedInputPrice": "缓存输入价",
+      "effectiveAt": "生效日期",
+      "sourceUrl": "来源链接",
+      "notes": "备注"
+    },
+    "tip": {
+      "provider": "该价格所属的上游 Provider(如 openai、anthropic)。Logo 据此解析。",
+      "modelSlug": "Provider 的模型标识(如 gpt-4o 或 claude-3-5-sonnet)。",
+      "price": "价格,单位为每 100 万 token 的美元。以整数 µUSD 存储($1 = 1,000,000 µUSD)。",
+      "cachedInputPrice": "可选:缓存输入 token 的优惠价,每 100 万 token。",
+      "effectiveAt": "该公布价格的生效日期。",
+      "sourceUrl": "该数值取自的 Provider 定价页链接。"
+    },
+    "priceEquiv": "= ${{usd}} / 1M tokens",
+    "confirm": {
+      "deleteTitle": "删除官方价?",
+      "deleteMsg": "确定永久删除 {{model}} 的价格吗?此操作不可撤销。"
+    }
+  },
   "common": { "edit": "编辑", "delete": "删除", "confirm": "确认", "cancel": "取消" },
   "confirm": {
     "deleteChannelTitle": "删除通道?",

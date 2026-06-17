@@ -10,6 +10,7 @@ import { ComingSoon } from './features/console/ComingSoon';
 import { DashboardPage } from './features/console/DashboardPage';
 import { DifyImportPage } from './features/console/DifyImportPage';
 import { ModifiersPage } from './features/console/ModifiersPage';
+import { OfficialPricesPage } from './features/console/OfficialPricesPage';
 import { TenantsPage } from './features/console/TenantsPage';
 import { LandingPage } from './features/landing/LandingPage';
 import { ProtectedRoute } from './lib/auth/ProtectedRoute';
@@ -47,9 +48,10 @@ export function AppRoutes() {
           <Route path="resources/:id" element={<ResourceRedirect />} />
           <Route path="models" element={<Navigate to="/console/catalog?tab=models" replace />} />
           <Route path="modifiers" element={<ModifiersPage />} />
-          {/* Billing & routing: pre-backend placeholders (mock pages land in Phase 2). */}
+          {/* Billing & routing: official prices is a mock-skeleton page; groups
+              lands next (still a pre-backend placeholder until then). */}
           <Route path="groups" element={<ComingSoon />} />
-          <Route path="official-prices" element={<ComingSoon />} />
+          <Route path="official-prices" element={<OfficialPricesPage />} />
           <Route path="dify" element={<DifyImportPage />} />
           <Route path="tenants" element={<TenantsPage />} />
           <Route path="accounts" element={<AccountsPage />} />
