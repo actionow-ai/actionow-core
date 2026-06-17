@@ -259,6 +259,7 @@ export class CallbacksService {
       channels: channelRows.map((c) => ({
         id: c.id,
         weight: c.weight,
+        providerType: c.providerType,
         credentialRef: c.credentialRef ?? undefined,
         endpoint: c.endpoint ?? undefined,
         model: c.model ?? undefined,

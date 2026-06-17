@@ -1,5 +1,5 @@
 import type { ProviderAdapter } from '@actionow/adapters';
-import { AdapterRegistry } from '@actionow/adapters';
+import { AdapterError, AdapterRegistry } from '@actionow/adapters';
 import type {
   AdapterContext,
   ChatRequest,
@@ -18,7 +18,13 @@ import { createChatSettlingStream } from '../src/stream.js';
 // calls these module-level repo functions, so we replace them with fakes here.
 const settleCalls: { usage: unknown; finalCost: bigint }[] = [];
 const failCalls: { error: unknown }[] = [];
-const usageLogCalls: { model: string; inputTokens?: number; outputTokens?: number }[] = [];
+const usageLogCalls: {
+  model: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  channelId?: string;
+  providerType?: string;
+}[] = [];
 
 vi.mock('@actionow/db', () => ({
   settleJob: vi.fn((_db: unknown, p: { usage: unknown; finalCost: bigint }) => {
@@ -30,12 +36,29 @@ vi.mock('@actionow/db', () => ({
     return Promise.resolve({ settled: true });
   }),
   insertUsageLog: vi.fn(
-    (_db: unknown, p: { model: string; inputTokens?: number; outputTokens?: number }) => {
-      const entry: { model: string; inputTokens?: number; outputTokens?: number } = {
+    (
+      _db: unknown,
+      p: {
+        model: string;
+        inputTokens?: number;
+        outputTokens?: number;
+        channelId?: string;
+        providerType?: string;
+      },
+    ) => {
+      const entry: {
+        model: string;
+        inputTokens?: number;
+        outputTokens?: number;
+        channelId?: string;
+        providerType?: string;
+      } = {
         model: p.model,
       };
       if (p.inputTokens !== undefined) entry.inputTokens = p.inputTokens;
       if (p.outputTokens !== undefined) entry.outputTokens = p.outputTokens;
+      if (p.channelId !== undefined) entry.channelId = p.channelId;
+      if (p.providerType !== undefined) entry.providerType = p.providerType;
       usageLogCalls.push(entry);
       return Promise.resolve({});
     },
@@ -148,6 +171,27 @@ function fakeFailoverChatAdapter(): ProviderAdapter {
       yield { type: 'stop', stopReason: 'stop' };
       yield { type: 'done' };
     },
+  };
+}
+
+/**
+ * A second chat adapter (providerType `openai-fail`) whose blocking `chat`
+ * always throws a RETRYABLE {@link AdapterError} — used to prove per-channel
+ * adapter selection + cross-provider failover on the blocking `runChat` path.
+ */
+function failingChatAdapter(): ProviderAdapter {
+  return {
+    providerType: 'openai-fail',
+    submit: () => Promise.resolve({ kind: 'sync', output: {}, usage: {} }),
+    chat: (): Promise<ChatResponse> => {
+      throw new AdapterError({ code: 'rate_limited', message: 'x', retryable: true });
+    },
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async *streamChat(): AsyncIterable<ChatStreamEvent> {
+      yield { type: 'error', error: { code: 'rate_limited', message: 'x', retryable: true } };
+    },
+    extractUsage: () => ({}),
+    mapError: () => ({ code: 'upstream_error', message: 'mock', retryable: false }),
   };
 }
 
@@ -322,9 +366,10 @@ describe('createChatSettlingStream', () => {
   });
 });
 
-function buildService(): InstanceType<typeof ExecutionService> {
+function buildService(rng?: () => number): InstanceType<typeof ExecutionService> {
   const adapters = new AdapterRegistry();
   adapters.register(fakeChatAdapter());
+  adapters.register(failingChatAdapter());
   return new ExecutionService({
     db: FAKE_DB,
     adapters,
@@ -332,6 +377,7 @@ function buildService(): InstanceType<typeof ExecutionService> {
     http: FAKE_HTTP,
     now: () => new Date('2026-06-16T00:00:00.000Z'),
     enqueue: vi.fn<(jobId: string) => Promise<void>>(() => Promise.resolve()),
+    ...(rng !== undefined ? { rng } : {}),
   });
 }
 
@@ -385,5 +431,23 @@ describe('ExecutionService.runChatStream / runChat', () => {
     expect(cost.credits).toBe(2n);
     expect(settleCalls).toHaveLength(1);
     expect(settleCalls[0]?.usage).toEqual({ input_tokens: 3, output_tokens: 2 });
+  });
+
+  it('runChat selects the adapter PER CHANNEL and fails over cross-provider', async () => {
+    // rng → 0 picks c1 (openai-fail) first; its chat throws a retryable
+    // AdapterError, so routing fails over to c2 (mock-chat) and that serves.
+    const svc = buildService(() => 0);
+    const { response, servedBy } = await svc.runChat(
+      chatReq({
+        channels: [
+          { id: 'c1', weight: 2, providerType: 'openai-fail', model: 'm' },
+          { id: 'c2', weight: 1, providerType: 'mock-chat', model: 'm' },
+        ],
+        usageLogModel: 'gpt-4o',
+      }),
+    );
+    expect(response.message.content[0]).toMatchObject({ kind: 'text' });
+    expect(servedBy).toMatchObject({ channelId: 'c2', providerType: 'mock-chat' });
+    expect(usageLogCalls[0]).toMatchObject({ channelId: 'c2', providerType: 'mock-chat' });
   });
 });

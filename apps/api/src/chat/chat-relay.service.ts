@@ -246,6 +246,7 @@ function toRunChannel(row: UpstreamChannelRow): RunChannel {
   return {
     id: row.id,
     weight: row.weight,
+    providerType: row.providerType,
     credentialRef: row.credentialRef ?? undefined,
     endpoint: row.endpoint ?? undefined,
     model: row.model ?? undefined,

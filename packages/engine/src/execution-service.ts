@@ -46,6 +46,8 @@ import { createChatSettlingStream, createSettlingStream } from './stream.js';
 export interface RunChannel {
   id: string;
   weight: number;
+  /** Per-channel provider/adapter; overrides resource.providerType for routing — cross-provider fallback. */
+  providerType?: string | undefined;
   /** Opaque secret locator resolved via `resolveSecret`; never logged. */
   credentialRef?: string | undefined;
   model?: string | undefined;
@@ -137,6 +139,8 @@ export interface ChatRunOutcome {
   jobId: string;
   response: ChatResponse;
   cost: RunCost;
+  /** The channel/provider that ultimately served (after any cross-provider failover). */
+  servedBy?: { channelId: string; providerType: string; model?: string };
 }
 
 export interface ExecutionServiceDeps {
@@ -296,24 +300,28 @@ export class ExecutionService {
     const { inputs, holdAmount } = await this.validateAndHold(stripIr(req), jobId);
     const ir = readIr(inputs, req.inputs);
 
-    const adapter = this.deps.adapters.get(req.resource.providerType);
-    if (adapter.chat === undefined) {
-      await this.failBlocking(
-        req,
-        jobId,
-        holdAmount,
-        engineError('internal_error', `adapter ${req.resource.providerType} cannot chat`),
-      );
-      throw engineError('internal_error', `adapter ${req.resource.providerType} cannot chat`);
-    }
-
-    const chat = adapter.chat.bind(adapter);
+    // Select the adapter PER CHANNEL inside the routing attempt so an openai
+    // channel and an anthropic channel under one resource each render the
+    // dialect-neutral IR to their own wire (cross-provider failover). `served`
+    // captures the channel that ultimately returned, for the usage_log mirror.
+    let served: RunChannel | undefined;
     let response: ChatResponse;
     try {
       response = await routeBlocking(
         { db: this.deps.db, now: this.deps.now, rng: this.deps.rng ?? Math.random },
         req.channels,
-        async (channel) => chat(ir, await this.buildContext(req, channel)),
+        async (channel) => {
+          const adapter = this.deps.adapters.get(channel.providerType ?? req.resource.providerType);
+          if (adapter.chat === undefined) {
+            throw engineError(
+              'internal_error',
+              `channel adapter ${adapter.providerType} cannot chat`,
+            );
+          }
+          const r = await adapter.chat.bind(adapter)(ir, await this.buildContext(req, channel));
+          served = channel;
+          return r;
+        },
       );
     } catch (err) {
       await this.failBlocking(req, jobId, holdAmount, err);
@@ -325,13 +333,27 @@ export class ExecutionService {
       input_tokens: response.usage.inputTokens,
       output_tokens: response.usage.outputTokens,
     };
-    const outcome = await this.settleSync(req, jobId, holdAmount, {
-      kind: 'sync',
-      output: { __ir: response },
-      usage,
-    });
+    const outcome = await this.settleSync(
+      req,
+      jobId,
+      holdAmount,
+      { kind: 'sync', output: { __ir: response }, usage },
+      served && {
+        channelId: served.id,
+        providerType: served.providerType ?? req.resource.providerType,
+      },
+    );
     const cost = outcome.status === 'succeeded' ? outcome.cost : { credits: 0n };
-    return { jobId, response, cost };
+    const result: ChatRunOutcome = { jobId, response, cost };
+    if (served !== undefined) {
+      const servedBy: ChatRunOutcome['servedBy'] = {
+        channelId: served.id,
+        providerType: served.providerType ?? req.resource.providerType,
+      };
+      if (served.model !== undefined) servedBy.model = served.model;
+      result.servedBy = servedBy;
+    }
+    return result;
   }
 
   private async execute(req: RunRequest, jobId: string): Promise<RunOutcome> {
@@ -457,7 +479,6 @@ export class ExecutionService {
     jobId: string,
     holdAmount: MicroCredits,
   ): Promise<RunOutcome> {
-    const adapter = this.deps.adapters.get(req.resource.providerType);
     const rng = this.deps.rng ?? Math.random;
 
     let result: SubmitResult;
@@ -465,14 +486,18 @@ export class ExecutionService {
       result = await routeBlocking(
         { db: this.deps.db, now: this.deps.now, rng },
         req.channels,
-        async (channel) =>
-          adapter.submit({
+        async (channel) => {
+          // Select the adapter per channel so channels under one resource can
+          // target different providers (cross-provider failover).
+          const adapter = this.deps.adapters.get(channel.providerType ?? req.resource.providerType);
+          return adapter.submit({
             resourceId: req.resource.id,
             modality: req.resource.modality,
             inputs,
             execMode: req.execMode,
             ctx: await this.buildContext(req, channel),
-          }),
+          });
+        },
       );
     } catch (err) {
       await this.failBlocking(req, jobId, holdAmount, err);
@@ -501,6 +526,7 @@ export class ExecutionService {
     jobId: string,
     holdAmount: MicroCredits,
     result: SyncResult,
+    served?: { channelId: string; providerType: string },
   ): Promise<RunOutcome> {
     const entry = req.pricebookEntry;
     const { credits: finalCost, applied } = computeFinalCost(
@@ -530,7 +556,7 @@ export class ExecutionService {
     // non-relay runs (media/dify) write no row. The settle already committed in
     // its own transaction above; a log-insert failure is swallowed so a usage
     // observability hiccup never fails (or rolls back) a settled run.
-    await this.mirrorUsageLog(req, finalCost, result.usage);
+    await this.mirrorUsageLog(req, finalCost, result.usage, served);
 
     return {
       jobId,
@@ -552,6 +578,7 @@ export class ExecutionService {
     req: RunRequest,
     finalCost: MicroCredits,
     usage: UsageVector,
+    served?: { channelId: string; providerType: string },
   ): Promise<void> {
     if (req.usageLogModel === undefined) return;
     try {
@@ -562,6 +589,9 @@ export class ExecutionService {
         outputTokens: usage.output_tokens ?? 0,
         cost: finalCost,
         status: 'succeeded',
+        ...(served !== undefined
+          ? { channelId: served.channelId, providerType: served.providerType }
+          : {}),
       });
     } catch {
       // Best-effort observability: never fail a settled run on a usage-log error.
