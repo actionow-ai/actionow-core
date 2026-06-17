@@ -23,7 +23,12 @@ function buildUrl(path: string, query?: RequestInitLite['query']): string {
 }
 
 export function createClient(deps: ClientDeps) {
-  async function request<T>(path: string, init: RequestInitLite = {}): Promise<T> {
+  /** Issue a request and return the parsed body together with the response headers. */
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T is the caller-asserted response body type for this typed-fetch helper.
+  async function requestWithHeaders<T>(
+    path: string,
+    init: RequestInitLite = {},
+  ): Promise<{ data: T; headers: Headers }> {
     const token = deps.getToken();
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -39,13 +44,23 @@ export function createClient(deps: ClientDeps) {
       if (res.status === 401) deps.onUnauthorized();
       throw err;
     }
-    if (res.status === 204) return undefined as T;
-    return (await res.json()) as T;
+    if (res.status === 204) return { data: undefined as T, headers: res.headers };
+    return { data: (await res.json()) as T, headers: res.headers };
+  }
+
+  async function request<T>(path: string, init: RequestInitLite = {}): Promise<T> {
+    return (await requestWithHeaders<T>(path, init)).data;
   }
 
   return {
     get: <T>(path: string, query?: RequestInitLite['query']) => request<T>(path, { query }),
+    /** Like `get`, but also exposes the response headers (e.g. `x-actionow-channel`). */
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T is the caller-asserted response body type.
+    getWithHeaders: <T>(path: string, query?: RequestInitLite['query']) =>
+      requestWithHeaders<T>(path, { query }),
     post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
+    patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
+    delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
   };
 }
 
