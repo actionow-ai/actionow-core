@@ -1,6 +1,14 @@
 import { AdapterRegistry, createAsyncMediaMock } from '@actionow/adapters';
 import type { HttpClient, StorageProvider } from '@actionow/contracts';
-import { createJob, getJob, holdCredits, type Job, schema } from '@actionow/db';
+import {
+  createJob,
+  createOAuthSession,
+  getDecryptedOAuthSession,
+  getJob,
+  holdCredits,
+  type Job,
+  schema,
+} from '@actionow/db';
 import type { FetchBytes, PutBytes } from '@actionow/engine';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { eq } from 'drizzle-orm';
@@ -12,6 +20,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   createHoldReaperProcessor,
   createJobExecProcessor,
+  createTokenRefreshProcessor,
   createWebhookOutboxProcessor,
 } from '../src/processors/index.js';
 import type { WorkerRuntime } from '../src/runtime.js';
@@ -20,6 +29,7 @@ const {
   account,
   fileObject,
   ledgerTxn,
+  oauthSession,
   pricebookEntry,
   resource,
   resourceVersion,
@@ -27,6 +37,9 @@ const {
   upstreamChannel,
   webhookOutbox,
 } = schema;
+
+/** Base64 AES-256 master key the token-refresh sweep encrypts/decrypts with. */
+const KEY = Buffer.alloc(32, 9).toString('base64');
 
 let container: StartedPostgreSqlContainer;
 let client: ReturnType<typeof postgres>;
@@ -45,7 +58,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE file_object, webhook_outbox, ledger_txn, idempotency_key, job, pricebook_entry, upstream_channel, account, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE oauth_session, secret_ref, file_object, webhook_outbox, ledger_txn, idempotency_key, job, pricebook_entry, upstream_channel, account, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
 });
 
 const noHttp: HttpClient = { request: () => Promise.reject(new Error('no http')) };
@@ -68,6 +81,7 @@ function runtimeWith(adapters: AdapterRegistry, http: HttpClient = noHttp): Work
       STORAGE_MAX_UPLOAD_BYTES: 100 * 1024 * 1024,
       CREDIT_RATE: 1000,
       ALLOW_DEV_TENANT_HEADER: false,
+      SECRET_ENCRYPTION_KEY: KEY,
     },
     db,
     adapters,
@@ -317,5 +331,102 @@ describe('webhook-outbox processor', () => {
     expect(calls).toEqual([{ url: 'https://hook.example/cb' }]);
     const [row] = await db.select().from(webhookOutbox).where(eq(webhookOutbox.jobId, job.id));
     expect(row?.status).toBe('sent');
+  });
+});
+
+/** A mock http that returns a Codex token response for the codex token endpoint. */
+function codexTokenHttp(res: { status: number; ok: boolean; body: unknown; text: string }): {
+  http: HttpClient;
+  calls: { url: string }[];
+} {
+  const calls: { url: string }[] = [];
+  const http: HttpClient = {
+    request: (req) => {
+      calls.push({ url: req.url });
+      return Promise.resolve(res);
+    },
+  };
+  return { http, calls };
+}
+
+describe('token-refresh processor', () => {
+  it('rotates a near-expiry codex session, advances expiry, clears the lock', async () => {
+    const ref = await createOAuthSession(db, {
+      providerKind: 'codex-oauth',
+      accessToken: 'old',
+      refreshToken: 'rt-1',
+      keyB64: KEY,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    const { http, calls } = codexTokenHttp({
+      status: 200,
+      ok: true,
+      body: { access_token: 'new', refresh_token: 'rt-2', id_token: 'id.jwt.x', expires_in: 3600 },
+      text: 'ok',
+    });
+    const process = createTokenRefreshProcessor(runtimeWith(new AdapterRegistry(), http));
+
+    const refreshed = await process();
+
+    expect(refreshed).toBe(1);
+    expect(calls).toHaveLength(1);
+    const after = await getDecryptedOAuthSession(db, ref.id, KEY);
+    expect(after?.accessToken).toBe('new');
+    expect(after?.refreshToken).toBe('rt-2');
+    // Expiry advanced to ~now + 3600s, well past the original now+60s.
+    expect(after?.expiresAt?.getTime() ?? 0).toBeGreaterThan(Date.now() + 60 * 60_000 - 60_000);
+    const [row] = await db.select().from(oauthSession).where(eq(oauthSession.secretRefId, ref.id));
+    expect(row?.refreshLockAt).toBeNull();
+  });
+
+  it('does NOT refresh a session whose expiry is far in the future', async () => {
+    const ref = await createOAuthSession(db, {
+      providerKind: 'codex-oauth',
+      accessToken: 'old',
+      refreshToken: 'rt-1',
+      keyB64: KEY,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60_000),
+    });
+    const { http, calls } = codexTokenHttp({
+      status: 200,
+      ok: true,
+      body: { access_token: 'new', refresh_token: 'rt-2', expires_in: 3600 },
+      text: 'ok',
+    });
+    const process = createTokenRefreshProcessor(runtimeWith(new AdapterRegistry(), http));
+
+    const refreshed = await process();
+
+    expect(refreshed).toBe(0);
+    expect(calls).toHaveLength(0);
+    const after = await getDecryptedOAuthSession(db, ref.id, KEY);
+    expect(after?.accessToken).toBe('old');
+  });
+
+  it('marks a session needs_reauth when the refresh token was reused', async () => {
+    const ref = await createOAuthSession(db, {
+      providerKind: 'codex-oauth',
+      accessToken: 'old',
+      refreshToken: 'rt-1',
+      keyB64: KEY,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    const { http } = codexTokenHttp({
+      status: 400,
+      ok: false,
+      body: { error: 'invalid_grant', error_description: 'refresh_token_reused' },
+      text: 'refresh_token_reused',
+    });
+    const process = createTokenRefreshProcessor(runtimeWith(new AdapterRegistry(), http));
+
+    const refreshed = await process();
+
+    expect(refreshed).toBe(0);
+    const [row] = await db.select().from(oauthSession).where(eq(oauthSession.secretRefId, ref.id));
+    expect(row?.status).toBe('needs_reauth');
+    expect(row?.refreshLockAt).toBeNull();
+    // Tokens untouched (still decrypts to the original).
+    const after = await getDecryptedOAuthSession(db, ref.id, KEY);
+    expect(after?.accessToken).toBe('old');
   });
 });
