@@ -114,6 +114,19 @@ export {
   resolveModelForTenant,
 } from './model.js';
 export {
+  claimRefreshLock,
+  createOAuthSession,
+  type CreateOAuthSessionInput,
+  type DecryptedOAuthSession,
+  getDecryptedOAuthSession,
+  getOAuthSession,
+  listRefreshableSessions,
+  markNeedsReauth,
+  type OAuthSessionRow,
+  updateOAuthTokens,
+  type UpdateOAuthTokensInput,
+} from './oauth-session.js';
+export {
   createIntent,
   type CreateIntentInput as CreatePaymentIntentInput,
   getIntentByIdForTenant,
