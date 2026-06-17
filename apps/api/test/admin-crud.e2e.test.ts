@@ -208,6 +208,64 @@ describe('admin CRUD flow', () => {
     expect(ledgerView.body.transactions[0].credits_delta).toBe('100000000');
   });
 
+  it('manages channels: create with routing fields, patch, and list (P0b)', async () => {
+    const tenantRes = await auth(
+      request(app.getHttpServer()).post('/admin/tenants').send({ name: 'chan' }),
+    ).expect(201);
+    const tenantId = tenantRes.body.id as string;
+    await auth(
+      request(app.getHttpServer())
+        .post('/admin/resources')
+        .send({
+          id: 'chat-res',
+          tenantId,
+          kind: 'model',
+          modality: 'text',
+          providerType: 'openai',
+          execModes: ['stream'],
+          ioSchema: { inputs: [], outputs: [] },
+        }),
+    ).expect(201);
+
+    // create with the full routing field set the engine honors
+    const created = await auth(
+      request(app.getHttpServer())
+        .post('/admin/resources/chat-res/channels')
+        .send({
+          providerType: 'openai',
+          endpoint: 'https://api.deepseek.com/v1',
+          model: 'deepseek-chat',
+          proxyRef: 'upstream_proxy',
+          config: { region: 'us' },
+          weight: 2,
+        }),
+    ).expect(201);
+    expect(created.body.endpoint).toBe('https://api.deepseek.com/v1');
+    expect(created.body.model).toBe('deepseek-chat');
+    expect(created.body.proxy_ref).toBe('upstream_proxy');
+    expect(created.body.config).toEqual({ region: 'us' });
+    const channelId = created.body.id as string;
+
+    // patch weight + status + endpoint; other fields untouched
+    const patched = await auth(
+      request(app.getHttpServer())
+        .patch(`/admin/resources/chat-res/channels/${channelId}`)
+        .send({ weight: 5, status: 'disabled', endpoint: 'https://api.openai.com/v1' }),
+    ).expect(200);
+    expect(patched.body.weight).toBe(5);
+    expect(patched.body.status).toBe('disabled');
+    expect(patched.body.endpoint).toBe('https://api.openai.com/v1');
+    expect(patched.body.model).toBe('deepseek-chat');
+
+    // list includes the now-disabled channel (operator view)
+    const list = await auth(
+      request(app.getHttpServer()).get('/admin/resources/chat-res/channels'),
+    ).expect(200);
+    expect(list.body).toHaveLength(1);
+    expect(list.body[0].id).toBe(channelId);
+    expect(list.body[0].status).toBe('disabled');
+  });
+
   it('creates a scope-aware modifier with a µcredit value', async () => {
     const tenantRes = await auth(
       request(app.getHttpServer()).post('/admin/tenants').send({ name: 'mod' }),

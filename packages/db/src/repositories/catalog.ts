@@ -121,13 +121,13 @@ export async function listChannelsForResource(
 
 /** Mutable fields of an `upstream_channel` (admin update); omitted keys are unchanged. */
 export interface UpdateUpstreamChannelInput {
-  readonly credentialRef?: string | null;
-  readonly endpoint?: string | null;
-  readonly model?: string | null;
-  readonly proxyRef?: string | null;
-  readonly config?: Record<string, unknown> | null;
-  readonly weight?: number;
-  readonly status?: string;
+  readonly credentialRef?: string | null | undefined;
+  readonly endpoint?: string | null | undefined;
+  readonly model?: string | null | undefined;
+  readonly proxyRef?: string | null | undefined;
+  readonly config?: Record<string, unknown> | null | undefined;
+  readonly weight?: number | undefined;
+  readonly status?: string | undefined;
 }
 
 /** Patch an `upstream_channel` row (only the supplied fields), returning the new row. */

@@ -21,6 +21,7 @@ import {
   type Job,
   type LedgerRow,
   listApiKeys,
+  listChannelsForResource,
   listJobs,
   listLedger,
   listModels,
@@ -35,6 +36,7 @@ import {
   type Resource,
   type TenantRow,
   topUp,
+  updateUpstreamChannel,
   type UpstreamChannelRow,
   type UsageLogRow,
 } from '@actionow/db';
@@ -55,6 +57,7 @@ import type {
   GenerateCodesDto,
   GrantModelDto,
   TopupDto,
+  UpdateChannelDto,
 } from './dto/admin.dto.js';
 
 /** Modifier ops whose `value` is a µcredit amount (vs. a whole-percent int). */
@@ -142,9 +145,27 @@ export class AdminService {
       resourceId,
       providerType: dto.providerType,
       credentialRef: dto.credentialRef ?? null,
+      endpoint: dto.endpoint ?? null,
+      model: dto.model ?? null,
+      proxyRef: dto.proxyRef ?? null,
+      config: dto.config ?? null,
       weight: dto.weight,
       status: dto.status,
     });
+  }
+
+  /** List every channel of a resource (incl. disabled) — operator routing view. */
+  listResourceChannels(resourceId: string): Promise<UpstreamChannelRow[]> {
+    return listChannelsForResource(this.db, resourceId);
+  }
+
+  /** Patch an upstream channel's routing fields (weight/status/endpoint/model/...). */
+  async updateChannel(channelId: string, dto: UpdateChannelDto): Promise<UpstreamChannelRow> {
+    const row = await updateUpstreamChannel(this.db, channelId, dto);
+    if (row === undefined) {
+      throw engineNotFound(`channel ${channelId} not found`);
+    }
+    return row;
   }
 
   // ----- pricebook -----

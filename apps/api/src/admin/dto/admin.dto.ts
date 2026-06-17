@@ -59,10 +59,34 @@ export type CreateResourceDto = z.infer<typeof createResourceSchema>;
 export const createChannelSchema = z.object({
   providerType: z.string().min(1),
   credentialRef: z.string().uuid().optional(),
+  /** Per-channel upstream base URL (e.g. https://api.deepseek.com/v1). */
+  endpoint: z.string().min(1).optional(),
+  /** Per-channel upstream model id (overrides the resource default). */
+  model: z.string().min(1).optional(),
+  /** Env-key locator for this channel's egress proxy URL. */
+  proxyRef: z.string().min(1).optional(),
+  /** Generic relay protocol config forwarded verbatim to the adapter. */
+  config: z.record(z.unknown()).optional(),
   weight: z.number().int().positive().optional(),
   status: z.enum(['active', 'disabled']).optional(),
 });
 export type CreateChannelDto = z.infer<typeof createChannelSchema>;
+
+/**
+ * `PATCH /admin/resources/:id/channels/:channelId` — patch a channel. Every
+ * field is optional (omitted = unchanged); a nullable field may be set to `null`
+ * to clear it.
+ */
+export const updateChannelSchema = z.object({
+  credentialRef: z.string().uuid().nullable().optional(),
+  endpoint: z.string().min(1).nullable().optional(),
+  model: z.string().min(1).nullable().optional(),
+  proxyRef: z.string().min(1).nullable().optional(),
+  config: z.record(z.unknown()).nullable().optional(),
+  weight: z.number().int().positive().optional(),
+  status: z.enum(['active', 'disabled']).optional(),
+});
+export type UpdateChannelDto = z.infer<typeof updateChannelSchema>;
 
 /** `POST /admin/pricebook` — add a pricebook entry. */
 export const createPricebookSchema = z.object({

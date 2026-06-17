@@ -10,7 +10,17 @@ import type {
   UpstreamChannelRow,
   UsageLogRow,
 } from '@actionow/db';
-import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { ZodBody } from '../common/zod.pipe.js';
@@ -40,6 +50,8 @@ import {
   grantModelSchema,
   type TopupDto,
   topupSchema,
+  type UpdateChannelDto,
+  updateChannelSchema,
 } from './dto/admin.dto.js';
 
 const DEFAULT_LIMIT = 50;
@@ -100,6 +112,10 @@ interface ChannelView {
   resource_id: string;
   provider_type: string;
   credential_ref: string | null;
+  endpoint: string | null;
+  model: string | null;
+  proxy_ref: string | null;
+  config: Record<string, unknown> | null;
   weight: number;
   status: string;
 }
@@ -284,6 +300,21 @@ export class AdminController {
     return toChannelView(await this.admin.createChannel(id, dto));
   }
 
+  @Get('resources/:id/channels')
+  @ApiOperation({ summary: "List a resource's upstream channels (incl. disabled)" })
+  async listChannels(@Param('id') id: string): Promise<ChannelView[]> {
+    return (await this.admin.listResourceChannels(id)).map(toChannelView);
+  }
+
+  @Patch('resources/:id/channels/:channelId')
+  @ApiOperation({ summary: 'Update an upstream channel (weight/status/endpoint/model/...)' })
+  async updateChannel(
+    @Param('channelId') channelId: string,
+    @Body(new ZodBody(updateChannelSchema)) dto: UpdateChannelDto,
+  ): Promise<ChannelView> {
+    return toChannelView(await this.admin.updateChannel(channelId, dto));
+  }
+
   // ----- pricebook -----
 
   @Post('pricebook')
@@ -443,6 +474,10 @@ function toChannelView(row: UpstreamChannelRow): ChannelView {
     resource_id: row.resourceId,
     provider_type: row.providerType,
     credential_ref: row.credentialRef,
+    endpoint: row.endpoint,
+    model: row.model,
+    proxy_ref: row.proxyRef,
+    config: row.config,
     weight: row.weight,
     status: row.status,
   };
