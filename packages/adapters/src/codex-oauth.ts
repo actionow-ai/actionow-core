@@ -11,6 +11,7 @@
  * carry a `// VERIFY` note for the real-token / e2e pass to confirm.
  */
 import type {
+  AdapterContext,
   ChatRequest,
   ChatResponse,
   ChatStreamEvent,
@@ -21,10 +22,14 @@ import type {
   ToolCall,
   ToolDef,
   UnifiedError,
+  UsageVector,
 } from '@actionow/contracts';
 
+import { AdapterError, httpStatusToUnified } from './errors.js';
 import { asArray, asNumber, asRecord, asString, parseJsonRecord } from './internal/json.js';
 import { parseSse } from './internal/sse.js';
+import { openStream } from './internal/stream.js';
+import type { AdapterCapabilities, ProviderAdapter } from './types.js';
 
 /** Options for {@link irToResponsesBody}. */
 export interface ResponsesBodyOpts {
@@ -381,3 +386,136 @@ export async function* parseResponsesSse(
   yield { type: 'stop', stopReason: sawToolCall ? 'tool_calls' : 'stop' };
   yield { type: 'done' };
 }
+
+const PROVIDER = 'codex-oauth';
+
+/** The default ChatGPT private Codex backend base (overridable per channel). */
+const CODEX_DEFAULT_ENDPOINT = 'https://chatgpt.com/backend-api/codex';
+
+/** First-party Codex CLI version impersonated on every request. */
+const CODEX_VERSION = '0.125.0';
+
+/** Codex CLI User-Agent string the private backend expects. */
+const CODEX_USER_AGENT = `codex_cli_rs/${CODEX_VERSION} (Ubuntu 22.4.0; x86_64) xterm-256color`;
+
+/** Originator header value identifying the request as the Codex CLI. */
+const CODEX_ORIGINATOR = 'codex_cli_rs';
+
+const CAPABILITIES: AdapterCapabilities = {
+  tools: true,
+  vision: true,
+  audio: false,
+  json: true,
+  stream: true,
+};
+
+/** Spread `proxyUrl` into a request when the channel set one. */
+function withProxy(ctx: AdapterContext): { proxyUrl?: string } {
+  return ctx.proxyUrl === undefined ? {} : { proxyUrl: ctx.proxyUrl };
+}
+
+/**
+ * Build the first-party Codex CLI impersonation headers.
+ *
+ * The private Codex backend only accepts requests that present themselves as
+ * the real `codex_cli_rs` client driving the operator's OWN paid ChatGPT
+ * account (the OAuth access token in `ctx.apiKey`). `Chatgpt-Account-Id` comes
+ * from `ctx.config.chatgptAccountId` and is set only when present
+ * (exactOptionalPropertyTypes).
+ */
+function codexHeaders(ctx: AdapterContext, accept: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${ctx.apiKey ?? ''}`,
+    'User-Agent': CODEX_USER_AGENT,
+    Originator: CODEX_ORIGINATOR,
+    'OpenAI-Beta': 'responses=experimental',
+    version: CODEX_VERSION,
+    Accept: accept,
+    'Content-Type': 'application/json',
+  };
+  const accountId = asString(asRecord(ctx.config)?.chatgptAccountId);
+  if (accountId !== undefined) {
+    headers['Chatgpt-Account-Id'] = accountId;
+  }
+  return headers;
+}
+
+/** Extract `{input_tokens, output_tokens}` from a Responses `usage` block. */
+function extractUsage(raw: unknown): UsageVector {
+  const usage = asRecord(asRecord(raw)?.usage);
+  return {
+    input_tokens: asNumber(usage?.input_tokens) ?? 0,
+    output_tokens: asNumber(usage?.output_tokens) ?? 0,
+  };
+}
+
+/** Map a Codex Responses error body to a {@link UnifiedError}. Falls back by status. */
+function mapErrorBody(status: number, raw: unknown): UnifiedError {
+  const error = asRecord(asRecord(raw)?.error);
+  const rawCode = asString(error?.code) ?? asString(error?.type);
+  return httpStatusToUnified(PROVIDER, status, rawCode);
+}
+
+/**
+ * Adapter for the ChatGPT private Codex backend over OAuth (provider type
+ * `codex-oauth`). It speaks the OpenAI **Responses** API and impersonates the
+ * first-party `codex_cli_rs` CLI so the operator can relay through their own
+ * paid account. Pure IR<->wire translation lives in the helpers above; this
+ * object only adds transport + impersonation. Chat-only — `submit` rejects.
+ */
+export const codexOAuthAdapter: ProviderAdapter = {
+  providerType: PROVIDER,
+  capabilities: CAPABILITIES,
+
+  submit(): Promise<never> {
+    return Promise.reject(
+      new AdapterError({
+        code: 'invalid_input',
+        message: 'codex-oauth is chat-only; use the IR chat path',
+        upstream: { provider: PROVIDER },
+        retryable: false,
+      }),
+    );
+  },
+
+  async chat(ir: ChatRequest, ctx: AdapterContext): Promise<ChatResponse> {
+    const endpoint = ctx.endpoint ?? CODEX_DEFAULT_ENDPOINT;
+    const res = await ctx.http.request({
+      method: 'POST',
+      url: `${endpoint}/responses`,
+      headers: codexHeaders(ctx, 'application/json'),
+      body: irToResponsesBody(ir, { stream: false }),
+      ...withProxy(ctx),
+    });
+
+    if (!res.ok) {
+      throw new AdapterError(mapErrorBody(res.status, res.body));
+    }
+
+    return parseResponsesResponse(res.body);
+  },
+
+  async *streamChat(ir: ChatRequest, ctx: AdapterContext): AsyncIterable<ChatStreamEvent> {
+    const endpoint = ctx.endpoint ?? CODEX_DEFAULT_ENDPOINT;
+    const res = await openStream(ctx, PROVIDER, {
+      method: 'POST',
+      url: `${endpoint}/responses`,
+      headers: codexHeaders(ctx, 'text/event-stream'),
+      body: irToResponsesBody(ir, { stream: true }),
+      ...withProxy(ctx),
+    });
+
+    if (!res.ok) {
+      yield { type: 'error', error: httpStatusToUnified(PROVIDER, res.status) };
+      return;
+    }
+
+    yield* parseResponsesSse(res.lines);
+  },
+
+  extractUsage,
+
+  mapError(raw: unknown): UnifiedError {
+    return mapErrorBody(500, raw);
+  },
+};
