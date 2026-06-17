@@ -1,27 +1,31 @@
-import { CheckIcon } from '@phosphor-icons/react';
+import { CheckIcon, MinusIcon } from '@phosphor-icons/react';
 
 /**
  * A checkbox on the unified contract: `onChange(boolean)`. Rendered as a
  * `role="checkbox"` button so it is keyboard-operable (Space/Enter toggle via
  * the native button), shows the global accent focus ring, and stays on-palette
- * (warm `--accent` fill when checked — never blue).
+ * (warm `--accent` fill when checked — never blue). `indeterminate` paints a
+ * dash and reports `aria-checked="mixed"` (used by select-all headers).
  */
 export function Checkbox({
   checked,
   onChange,
   label,
   disabled,
+  indeterminate,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label?: string;
   disabled?: boolean;
+  indeterminate?: boolean;
 }) {
+  const filled = checked || indeterminate === true;
   return (
     <button
       type="button"
       role="checkbox"
-      aria-checked={checked}
+      aria-checked={indeterminate === true ? 'mixed' : checked}
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
@@ -49,12 +53,12 @@ export function Checkbox({
           alignItems: 'center',
           justifyContent: 'center',
           color: 'var(--ink)',
-          background: checked ? 'var(--grad-accent)' : 'transparent',
-          border: checked ? '1px solid transparent' : '1px solid var(--panel-bd)',
+          background: filled ? 'var(--grad-accent)' : 'transparent',
+          border: filled ? '1px solid transparent' : '1px solid var(--panel-bd)',
           transition: 'background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out)',
         }}
       >
-        {checked && <CheckIcon size={13} weight="bold" />}
+        {checked ? <CheckIcon size={13} weight="bold" /> : indeterminate === true ? <MinusIcon size={13} weight="bold" /> : null}
       </span>
       {label !== undefined && <span>{label}</span>}
     </button>

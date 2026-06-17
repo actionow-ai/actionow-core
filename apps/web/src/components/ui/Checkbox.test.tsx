@@ -36,4 +36,9 @@ describe('Checkbox', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Accept' }));
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('reports aria-checked="mixed" when indeterminate', () => {
+    render(<Checkbox checked={false} label="Accept" onChange={() => undefined} indeterminate />);
+    expect(screen.getByRole('checkbox', { name: 'Accept' })).toHaveAttribute('aria-checked', 'mixed');
+  });
 });
