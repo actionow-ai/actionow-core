@@ -141,7 +141,15 @@ export function ResourceDetailPane({ id }: { id: string }) {
             </Button>
           }
         />
-        <DataTable columns={pbCols} rows={pricebook.data ?? []} rowKey={(r) => r.id} loading={pricebook.isLoading} empty={t('pricebook.empty')} />
+        <DataTable
+          columns={pbCols}
+          rows={pricebook.data ?? []}
+          rowKey={(r) => r.id}
+          loading={pricebook.isLoading}
+          empty={t('pricebook.empty')}
+          searchable
+          pageSize={10}
+        />
       </div>
 
       <Modal

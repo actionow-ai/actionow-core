@@ -169,6 +169,20 @@
       "markup": "加价(可空)"
     }
   },
+  "table": {
+    "search": "搜索",
+    "selected": "已选 {{n}} 项",
+    "clear": "清除",
+    "columns": "列",
+    "page": "第 {{page}} / {{pages}} 页",
+    "totalRows": "共 {{n}} 条",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
+    "sortBy": "按 {{column}} 排序",
+    "noMatches": "没有匹配的行",
+    "selectRow": "选择该行",
+    "selectAll": "全选"
+  },
   "modifiers": {
     "title": "调价规则",
     "new": "新建规则",
