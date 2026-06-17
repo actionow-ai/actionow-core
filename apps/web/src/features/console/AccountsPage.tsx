@@ -8,7 +8,7 @@ import { Money } from '../../components/data/Money';
 import { TenantSelect } from '../../components/data/TenantSelect';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { TextField } from '../../components/ui/TextField';
+import { NumberField } from '../../components/ui/NumberField';
 import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
 import type { AccountView } from '../../lib/api/types';
@@ -20,30 +20,30 @@ export function AccountsPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [tenantId, setTenantId] = useState('');
-  const [credits, setCredits] = useState('');
+  const [credits, setCredits] = useState(0);
   const [account, setAccount] = useState<AccountView | null>(null);
 
   const [topupOpen, setTopupOpen] = useState(false);
-  const [topupCredits, setTopupCredits] = useState('');
+  const [topupCredits, setTopupCredits] = useState(0);
 
   const create = useMutation({
-    mutationFn: () => api.createAccount({ tenantId, credits: credits ? Number(credits) : undefined }),
+    mutationFn: () => api.createAccount({ tenantId, credits: credits > 0 ? credits : undefined }),
     onSuccess: (acc) => {
       setAccount(acc);
       toast(t('accounts.created'));
       setCreateOpen(false);
-      setCredits('');
+      setCredits(0);
     },
     onError: mutationError(t),
   });
 
   const topup = useMutation({
-    mutationFn: () => api.topup(account?.id ?? '', { credits: Number(topupCredits) }),
+    mutationFn: () => api.topup(account?.id ?? '', { credits: topupCredits }),
     onSuccess: (r) => {
       setAccount((a) => (a ? { ...a, credit_balance: r.balance } : a));
       toast(t('accounts.topup.done'));
       setTopupOpen(false);
-      setTopupCredits('');
+      setTopupCredits(0);
     },
     onError: mutationError(t),
   });
@@ -96,7 +96,7 @@ export function AccountsPage() {
         }
       >
         <TenantSelect label={t('accounts.form.tenant')} value={tenantId} onChange={setTenantId} placeholder="—" />
-        <TextField label={t('accounts.form.credits')} value={credits} onChange={setCredits} />
+        <NumberField label={t('accounts.form.credits')} value={credits} onChange={setCredits} min={0} />
       </Modal>
 
       <Modal
@@ -109,7 +109,7 @@ export function AccountsPage() {
           </Button>
         }
       >
-        <TextField label={t('accounts.topup.credits')} value={topupCredits} onChange={setTopupCredits} />
+        <NumberField label={t('accounts.topup.credits')} value={topupCredits} onChange={setTopupCredits} min={0} />
       </Modal>
     </div>
   );

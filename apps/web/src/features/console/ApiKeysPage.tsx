@@ -11,6 +11,7 @@ import { StatusBadge } from '../../components/data/StatusBadge';
 import { TenantSelect } from '../../components/data/TenantSelect';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
+import { NumberField } from '../../components/ui/NumberField';
 import { TextField } from '../../components/ui/TextField';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
@@ -33,7 +34,7 @@ export function ApiKeysPage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [allowlist, setAllowlist] = useState('');
-  const [rateLimit, setRateLimit] = useState('');
+  const [rateLimit, setRateLimit] = useState(0);
   const [plaintext, setPlaintext] = useState<string | null>(null);
 
   const create = useMutation({
@@ -44,14 +45,14 @@ export function ApiKeysPage() {
         .map((s) => s.trim())
         .filter(Boolean);
       if (allow.length) body.resourceAllowlist = allow;
-      if (rateLimit) body.rateLimit = Number(rateLimit);
+      if (rateLimit > 0) body.rateLimit = rateLimit;
       return api.createApiKey(body);
     },
     onSuccess: async (r) => {
       await qc.invalidateQueries({ queryKey: qk.apiKeys(tenantId) });
       setFormOpen(false);
       setAllowlist('');
-      setRateLimit('');
+      setRateLimit(0);
       setPlaintext(r.plaintext);
     },
     onError: mutationError(t),
@@ -109,7 +110,7 @@ export function ApiKeysPage() {
         }
       >
         <TextField label={t('apiKeys.form.allowlist')} value={allowlist} onChange={setAllowlist} />
-        <TextField label={t('apiKeys.form.rateLimit')} value={rateLimit} onChange={setRateLimit} />
+        <NumberField label={t('apiKeys.form.rateLimit')} value={rateLimit} onChange={setRateLimit} min={1} />
       </Modal>
 
       <Modal
