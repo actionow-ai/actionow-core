@@ -6,6 +6,7 @@ import {
   createAccount,
   createApiKey,
   type CreatedApiKey,
+  createEncryptedSecret,
   createModel,
   type CreateModelInput,
   createModifier,
@@ -34,6 +35,7 @@ import {
   type ModifierRow,
   type PricebookEntryRow,
   type Resource,
+  type SecretRefRow,
   type TenantRow,
   topUp,
   updateUpstreamChannel,
@@ -41,10 +43,11 @@ import {
   type UsageLogRow,
 } from '@actionow/db';
 import { creditsToMicro } from '@actionow/domain';
+import type { AppEnv } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { engineInvalidInput, engineNotFound } from '../common/errors.js';
-import { DB } from '../common/tokens.js';
+import { DB, ENV } from '../common/tokens.js';
 import type {
   CreateAccountDto,
   CreateApiKeyDto,
@@ -53,6 +56,7 @@ import type {
   CreateModifierDto,
   CreatePricebookDto,
   CreateResourceDto,
+  CreateSecretDto,
   CreateTenantDto,
   GenerateCodesDto,
   GrantModelDto,
@@ -72,7 +76,10 @@ const CREDIT_VALUE_OPS = new Set(['flat_off', 'override_rate']);
  */
 @Injectable()
 export class AdminService {
-  constructor(@Inject(DB) private readonly db: Database) {}
+  constructor(
+    @Inject(DB) private readonly db: Database,
+    @Inject(ENV) private readonly env: AppEnv,
+  ) {}
 
   // ----- tenants -----
 
@@ -115,6 +122,21 @@ export class AdminService {
   /** List a tenant's keys WITHOUT the hash (the plaintext is unrecoverable). */
   listApiKeys(tenantId: string): Promise<Omit<ApiKeyRow, 'hash'>[]> {
     return listApiKeys(this.db, tenantId);
+  }
+
+  // ----- secrets -----
+
+  /**
+   * Encrypt-at-rest a credential and return its `secret_ref` row. The plaintext
+   * is encrypted with the configured master key before insert and is NEVER
+   * returned or logged; the row's id is usable as a channel `credentialRef`.
+   */
+  async createSecret(dto: CreateSecretDto): Promise<SecretRefRow> {
+    const keyB64 = this.env.SECRET_ENCRYPTION_KEY;
+    if (keyB64 === undefined || keyB64 === '') {
+      throw engineInvalidInput('SECRET_ENCRYPTION_KEY is not configured');
+    }
+    return createEncryptedSecret(this.db, { value: dto.value, label: dto.label, keyB64 });
   }
 
   // ----- resources -----

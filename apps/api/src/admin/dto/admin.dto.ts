@@ -171,6 +171,13 @@ export const grantModelSchema = z.object({
 });
 export type GrantModelDto = z.infer<typeof grantModelSchema>;
 
+/** `POST /admin/secrets` — create an encrypted-at-rest credential. */
+export const createSecretSchema = z.object({
+  value: z.string().min(1),
+  label: z.string().optional(),
+});
+export type CreateSecretDto = z.infer<typeof createSecretSchema>;
+
 /** `POST /admin/redemption-codes` — batch-mint codes. */
 export const generateCodesSchema = z.object({
   /** How many codes to mint (1..1000). */

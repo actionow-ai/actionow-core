@@ -42,6 +42,8 @@ import {
   createPricebookSchema,
   type CreateResourceDto,
   createResourceSchema,
+  type CreateSecretDto,
+  createSecretSchema,
   type CreateTenantDto,
   createTenantSchema,
   type GenerateCodesDto,
@@ -92,6 +94,13 @@ interface ApiKeyView {
   resource_allowlist: string[];
   rate_limit: number | null;
   status: string;
+  created_at: string;
+}
+
+/** A created encrypted secret. EXCLUDES the plaintext value by construction. */
+interface SecretView {
+  id: string;
+  provider: string;
   created_at: string;
 }
 
@@ -271,6 +280,18 @@ export class AdminController {
       status: r.status,
       created_at: r.createdAt.toISOString(),
     }));
+  }
+
+  // ----- secrets -----
+
+  @Post('secrets')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Create an encrypted-at-rest credential (returns its ref id)' })
+  async createSecret(
+    @Body(new ZodBody(createSecretSchema)) dto: CreateSecretDto,
+  ): Promise<SecretView> {
+    const row = await this.admin.createSecret(dto);
+    return { id: row.id, provider: row.provider, created_at: row.createdAt.toISOString() };
   }
 
   // ----- resources -----

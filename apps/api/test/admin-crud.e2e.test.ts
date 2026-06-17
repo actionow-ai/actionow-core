@@ -15,6 +15,8 @@ import { DB, ENV } from '../src/common/tokens.js';
 const ADMIN_SECRET = 'e2e-admin-secret';
 const ADMIN_EMAIL = 'admin@actionow.local';
 const ADMIN_PASSWORD = 'hunter2';
+/** A deterministic 32-byte base64 AES-256 master key for the secrets endpoint. */
+const SECRET_KEY_B64 = Buffer.alloc(32, 3).toString('base64');
 
 let container: StartedPostgreSqlContainer;
 let client: ReturnType<typeof postgres>;
@@ -59,6 +61,7 @@ beforeAll(async () => {
       RATE_LIMIT_TENANT_PER_MIN: 600,
       RATE_LIMIT_RESOURCE_PER_MIN: 120,
       ADMIN_JWT_SECRET: ADMIN_SECRET,
+      SECRET_ENCRYPTION_KEY: SECRET_KEY_B64,
     })
     .compile();
 
@@ -89,7 +92,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE api_key, ledger_txn, dify_binding, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, "user" RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE api_key, ledger_txn, dify_binding, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, secret_material, secret_ref, "user" RESTART IDENTITY CASCADE`;
 });
 
 function auth(req: request.Test): request.Test {
@@ -290,6 +293,17 @@ describe('admin CRUD flow', () => {
 
     const list = await auth(request(app.getHttpServer()).get('/admin/modifiers')).expect(200);
     expect(list.body).toHaveLength(2);
+  });
+
+  it('creates an encrypted secret and never echoes the plaintext (F0)', async () => {
+    const secret = await auth(
+      request(app.getHttpServer())
+        .post('/admin/secrets')
+        .send({ value: 'sk-live-xyz', label: 'openai' }),
+    ).expect(201);
+    expect(secret.body.provider).toBe('enc');
+    expect(secret.body.id).toMatch(/^[0-9a-f-]{36}$/); // a uuid usable as a channel credentialRef
+    expect(JSON.stringify(secret.body)).not.toContain('sk-live-xyz'); // plaintext never returned
   });
 
   it('rejects a malformed body with 400 invalid_input', async () => {
