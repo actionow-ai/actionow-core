@@ -53,9 +53,9 @@ export type PassthroughSpec = z.infer<typeof passthroughSpecSchema>;
 
 export const modelTokenSpecSchema = z.object({
   method: z.literal('model_token'),
-  /** µcredit-per-input-token (frozen from the model's `input_price`). */
+  /** µUSD per 1M input tokens (frozen from the model's `input_price`). */
   inputPrice: z.number().int().nonnegative(),
-  /** µcredit-per-output-token (frozen from the model's `output_price`). */
+  /** µUSD per 1M output tokens (frozen from the model's `output_price`). */
   outputPrice: z.number().int().nonnegative(),
 });
 export type ModelTokenSpec = z.infer<typeof modelTokenSpecSchema>;

@@ -35,15 +35,23 @@ const CHAT_RESOURCE = 'chat-mock-resource';
 const MODEL_NAME = 'mock-model';
 /** A capability-restricted public model (no tools/vision/audio/json). */
 const NO_CAPS_MODEL = 'mock-model-no-caps';
-/** µcredit-per-input-token (resale price) seeded on the model. */
-const INPUT_PRICE = 3n;
-/** µcredit-per-output-token (resale price) seeded on the model. */
-const OUTPUT_PRICE = 7n;
+/** µUSD per 1M input tokens (resale price; $1.25/1M) seeded on the model. */
+const INPUT_PRICE = 1_250_000n;
+/** µUSD per 1M output tokens (resale price; $10/1M) seeded on the model. */
+const OUTPUT_PRICE = 10_000_000n;
+/** µUSD per 1M tokens denominator (Track 1). */
+const PER_1M = 1_000_000n;
 /** The mock-chat fixed usage (camelCase IR). */
 const MOCK_INPUT_TOKENS = 10n;
 const MOCK_OUTPUT_TOKENS = 5n;
-/** Expected model_token settle cost: input*inputPrice + output*outputPrice. */
-const EXPECTED_COST = MOCK_INPUT_TOKENS * INPUT_PRICE + MOCK_OUTPUT_TOKENS * OUTPUT_PRICE;
+/**
+ * Expected model_token settle cost in µUSD (round-half-up):
+ *   roundHalfUp((in*inputPrice + out*outputPrice) / 1_000_000)
+ * = roundHalfUp((10*1_250_000 + 5*10_000_000) / 1e6)
+ * = roundHalfUp(62_500_000 / 1e6) = roundHalfUp(62.5) = 63.
+ */
+const EXPECTED_COST =
+  (MOCK_INPUT_TOKENS * INPUT_PRICE + MOCK_OUTPUT_TOKENS * OUTPUT_PRICE + PER_1M / 2n) / PER_1M;
 
 let pg: StartedPostgreSqlContainer | undefined;
 let db: Database;
@@ -172,11 +180,11 @@ beforeAll(async () => {
     ioSchema: { inputs: [], outputs: [{ key: '__ir', type: 'json' }] },
   });
   // A DECOY DB pricebook entry priced DIFFERENTLY from the relay's in-process
-  // model_token book (999/999 vs the model's 3/7). The relay ignores the DB
-  // pricebook for chat and prices the settle off the model catalog, so every
-  // settle must land at the 3/7 EXPECTED_COST (-65µ). If the engine ever priced
-  // from this row instead, the settle would be 10*999 + 5*999 = 14985µ and the
-  // -65n assertions below would fail — pinning M1 (the relay path priced it).
+  // model_token book (999/999 vs the model's µUSD/1M catalog rate). The relay
+  // ignores the DB pricebook for chat and prices the settle off the model
+  // catalog, so every settle must land at EXPECTED_COST (63 µUSD). If the engine
+  // ever priced from this 999/999 row instead, the settle would differ and the
+  // -EXPECTED_COST assertions below would fail — pinning M1 (relay path priced).
   await db.insert(schema.pricebookEntry).values({
     resourceId: CHAT_RESOURCE,
     resourceVersion: 1,
@@ -305,7 +313,7 @@ describe('OpenAI dialect (/v1/chat/completions)', () => {
 
     // C1 (revenue leak): the STREAM path must settle the true model_token cost,
     // not 0. Poll briefly for the generator's `finally` settle to commit, then
-    // assert the newest succeeded chat job settled exactly -EXPECTED_COST (-65µ)
+    // assert the newest succeeded chat job settled exactly -EXPECTED_COST (63 µUSD)
     // — proving the stream hold was sized big enough that the settle cap never
     // clamped the charge to the (formerly 0) hold.
     let job: typeof schema.job.$inferSelect | undefined;

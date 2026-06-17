@@ -72,14 +72,14 @@ async function seed(balance: bigint): Promise<Seed> {
   return { tenantId: t.id, accountId: a.id, resourceId };
 }
 
-/** A `model_token` post-timed pricebook entry: 30 µcredits/in-tok, 60 µcredits/out-tok. */
+/** A `model_token` post-timed pricebook entry: µUSD per 1M tokens ($1.25/1M in, $10/1M out). */
 const MODEL_TOKEN_PRICEBOOK: PricebookEntry = {
   resourceId: 'openai',
   resourceVersion: 1,
   version: 1,
   method: 'model_token',
   timing: 'post',
-  spec: { method: 'model_token', inputPrice: 30, outputPrice: 60 },
+  spec: { method: 'model_token', inputPrice: 1_250_000, outputPrice: 10_000_000 },
 };
 
 /** A `unit` post-timed pricebook entry: 1 µcredit per token (non-relay shape). */
@@ -167,7 +167,8 @@ describe('ExecutionService.settleSync — usage_log mirror', () => {
     expect(logs[0]?.model).toBe('gpt-4o');
     expect(Number(logs[0]?.input_tokens)).toBe(100);
     expect(Number(logs[0]?.output_tokens)).toBe(50);
-    expect(BigInt(logs[0]?.cost as string)).toBe(6000n); // 100*30 + 50*60
+    // roundHalfUp((100*1_250_000 + 50*10_000_000)/1e6) = roundHalfUp(625) = 625 µUSD.
+    expect(BigInt(logs[0]?.cost as string)).toBe(625n);
     expect(logs[0]?.status).toBe('succeeded');
   });
 

@@ -40,10 +40,14 @@ const IR_KEY = '__ir';
 /**
  * Placeholder ceiling for `output_tokens` when the IR carries no explicit
  * `maxOutputTokens`. The streaming hold is a `model_token` settle of the
- * estimate (§C1), so this must over-estimate the largest realistic completion
- * — the over-hold is fully refunded at settle when the true usage is observed.
- * Chosen large enough that a normal completion's true cost never exceeds the
- * priced hold (which would otherwise let `settleStream`'s cap clamp the charge).
+ * estimate (§C1) — the same `roundHalfUp(tokens × ratePer1M / 1e6)` µUSD math
+ * as the eventual settle — so this must over-estimate the largest realistic
+ * completion; the over-hold is fully refunded at settle when the true usage is
+ * observed. Because the estimate's token counts are an upper bound and the
+ * per-1M math is monotonic, the hold is always >= the eventual settle for the
+ * same usage (never under-holds). Chosen large enough that a normal completion's
+ * true cost never exceeds the priced hold (which would otherwise let
+ * `settleStream`'s cap clamp the charge).
  */
 const ESTIMATE_OUTPUT_TOKENS_CEILING = 32_768;
 
@@ -115,9 +119,9 @@ export class ChatRelayService {
    * Resolve the model → chat resource, gate the IR against the model's declared
    * capabilities, and load the resource catalog into a {@link RunRequest} that
    * carries the IR at `inputs.__ir`. Pricing is a `model_token` pricebook built
-   * from the resolved model's `inputPrice`/`outputPrice` (NOT the resource's own
-   * pricebook), and `usageLogModel` is set so the engine mirrors a `usage_log`
-   * row on settle.
+   * from the resolved model's `inputPrice`/`outputPrice` (µUSD per 1M tokens —
+   * NOT the resource's own pricebook), and `usageLogModel` is set so the engine
+   * mirrors a `usage_log` row on settle.
    */
   private async buildChatRunRequest(
     modelName: string,
@@ -191,10 +195,11 @@ export class ChatRelayService {
 
   /**
    * Build the `model_token` {@link PricebookEntry} for a resolved model: prices
-   * the run at `input_tokens*inputPrice + output_tokens*outputPrice` µcredits,
-   * frozen from the model catalog's resale prices (`post`-timed; settled off the
-   * adapter's observed token usage). The resource's own DB pricebook is ignored
-   * for chat — the model catalog is the source of truth for token pricing.
+   * the run at `roundHalfUp((in*inputPrice + out*outputPrice) / 1_000_000)` µUSD
+   * — `inputPrice`/`outputPrice` are µUSD per 1M tokens, frozen from the model
+   * catalog's resale prices (`post`-timed; settled off the adapter's observed
+   * token usage). The resource's own DB pricebook is ignored for chat — the
+   * model catalog is the source of truth for token pricing.
    */
   private modelTokenPricebook(resolved: ResolvedModel, resourceVersion: number): PricebookEntry {
     return {

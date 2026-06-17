@@ -54,15 +54,24 @@ import { UnifiedErrorFilter } from '../src/common/unified-error.filter.js';
 const CHAT_RESOURCE = 'chat-codex-resource';
 /** The seeded public model name the caller sends in the request body. */
 const MODEL_NAME = 'my-codex';
-/** µcredit-per-input-token (resale price) seeded on the model. */
-const INPUT_PRICE = 3n;
-/** µcredit-per-output-token (resale price) seeded on the model. */
-const OUTPUT_PRICE = 7n;
+/** µUSD per 1M input tokens (resale price; $1.25/1M) seeded on the model. */
+const INPUT_PRICE = 1_250_000n;
+/** µUSD per 1M output tokens (resale price; $10/1M) seeded on the model. */
+const OUTPUT_PRICE = 10_000_000n;
+/** µUSD per 1M tokens denominator (Track 1). */
+const PER_1M = 1_000_000n;
 /** The canned fake-upstream usage (Responses `usage` block). */
 const UPSTREAM_INPUT_TOKENS = 11n;
 const UPSTREAM_OUTPUT_TOKENS = 4n;
-/** Expected model_token settle cost: input*inputPrice + output*outputPrice. */
-const EXPECTED_COST = UPSTREAM_INPUT_TOKENS * INPUT_PRICE + UPSTREAM_OUTPUT_TOKENS * OUTPUT_PRICE;
+/**
+ * Expected model_token settle cost in µUSD (round-half-up):
+ *   roundHalfUp((in*inputPrice + out*outputPrice) / 1_000_000)
+ * = roundHalfUp((11*1_250_000 + 4*10_000_000) / 1e6)
+ * = roundHalfUp(53_750_000 / 1e6) = roundHalfUp(53.75) = 54.
+ */
+const EXPECTED_COST =
+  (UPSTREAM_INPUT_TOKENS * INPUT_PRICE + UPSTREAM_OUTPUT_TOKENS * OUTPUT_PRICE + PER_1M / 2n) /
+  PER_1M;
 /** The live oauth access token the fake upstream must see attached. */
 const OAUTH_ACCESS = 'oat-live';
 /** The ChatGPT account id the channel impersonates. */
@@ -356,12 +365,12 @@ describe('codex-oauth relay e2e (OpenAI dialect over a fake upstream)', () => {
     const userItem = input.find((item) => asRecord(item).role === 'user');
     expect(userItem).toBeDefined();
 
-    // ── Exactly one settle ledger row, priced off the model's 3/7 catalog.
+    // ── Exactly one settle ledger row, priced off the model's µUSD/1M catalog.
     const job = await latestChatJob();
     expect(job).toBeDefined();
     const rows = await settleRows(job?.id ?? '');
     expect(rows).toHaveLength(1);
-    // model_token cost: 11*3 + 4*7 = 61µ.
+    // model_token cost (µUSD): roundHalfUp((11*1_250_000 + 4*10_000_000)/1e6) = 54.
     expect(rows[0]?.creditsDelta).toBe(-EXPECTED_COST);
     expect(job?.costCredits).toBe(EXPECTED_COST);
 

@@ -17,9 +17,9 @@ export interface CreateModelInput {
   readonly capabilities?: Record<string, boolean> | undefined;
   /** `public` | `tenant`. Defaults to `public` (db default). */
   readonly visibility?: string | undefined;
-  /** µcredit-per-input-token integer (resale price). Defaults to 0. */
+  /** µUSD per 1M input tokens integer (resale price; `$X/1M → X×1e6`). Defaults to 0. */
   readonly inputPrice?: bigint | undefined;
-  /** µcredit-per-output-token integer. Defaults to 0. */
+  /** µUSD per 1M output tokens integer. Defaults to 0. */
   readonly outputPrice?: bigint | undefined;
   readonly status?: string | undefined;
 }
@@ -60,9 +60,9 @@ export interface UpsertModelsFromSyncInput {
   /** The chat resource every synced model points at (the codex resource). */
   readonly resourceId: string;
   readonly models: readonly SyncModelInput[];
-  /** µcredit-per-input-token applied ONLY to newly-inserted models. */
+  /** µUSD per 1M input tokens applied ONLY to newly-inserted models. */
   readonly defaultInputPrice: bigint;
-  /** µcredit-per-output-token applied ONLY to newly-inserted models. */
+  /** µUSD per 1M output tokens applied ONLY to newly-inserted models. */
   readonly defaultOutputPrice: bigint;
 }
 
@@ -254,9 +254,9 @@ export async function getModelByName(db: DbOrTx, name: string): Promise<ModelRow
 export interface UpdateModelInput {
   readonly display?: string | null | undefined;
   readonly capabilities?: Record<string, boolean> | undefined;
-  /** µcredit-per-input-token integer (resale price). */
+  /** µUSD per 1M input tokens integer (resale price). */
   readonly inputPrice?: bigint | undefined;
-  /** µcredit-per-output-token integer. */
+  /** µUSD per 1M output tokens integer. */
   readonly outputPrice?: bigint | undefined;
   /** `public` | `tenant`. */
   readonly visibility?: string | undefined;

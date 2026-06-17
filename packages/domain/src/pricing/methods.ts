@@ -6,7 +6,7 @@ import type {
   UnitSpec,
 } from '@actionow/contracts';
 
-import type { MicroCredits } from '../credits.js';
+import { type MicroCredits, PER_1M_TOKENS, roundHalfUpDiv } from '../credits.js';
 import { DomainError } from '../errors.js';
 
 /** Sum of `usage[dim] * rate` over every priced dimension. Missing usage = 0. */
@@ -119,14 +119,18 @@ export function priceFormula(spec: FormulaSpec, vars: Record<string, number>): M
 }
 
 /**
- * Token-priced cost: `input_tokens*inputPrice + output_tokens*outputPrice`
- * (µcredits). Reads the snake_case `usage.input_tokens`/`usage.output_tokens`
- * keys every adapter emits on its `UsageVector` (missing = 0) so it serves both
- * `settle` (observed usage) and `quote` (estimated usage). No markup is applied
- * here; the entry markup + modifier stack apply downstream.
+ * Token-priced cost in µUSD (Track 1 — µUSD per 1M tokens). `inputPrice` and
+ * `outputPrice` are **µUSD per 1,000,000 tokens** (official `$X/1M` → `X×1e6`),
+ * so the cost is
+ *   `roundHalfUp((in*inputPrice + out*outputPrice) / 1_000_000)`.
+ * Reads the snake_case `usage.input_tokens`/`usage.output_tokens` keys every
+ * adapter emits on its `UsageVector` (missing = 0), serving both `settle`
+ * (observed usage) and `quote`/hold (estimated usage). All-integer bigint math
+ * with a single round-half-up; no markup here (entry markup + modifier stack
+ * apply downstream).
  */
 export function priceModelToken(spec: ModelTokenSpec, usage: Record<string, number>): MicroCredits {
   const input = BigInt(usage.input_tokens ?? 0) * BigInt(spec.inputPrice);
   const output = BigInt(usage.output_tokens ?? 0) * BigInt(spec.outputPrice);
-  return input + output;
+  return roundHalfUpDiv(input + output, PER_1M_TOKENS);
 }

@@ -20,7 +20,8 @@ import { tenant } from './identity.js';
  * one chat `resource` (which carries the upstream channels / routing /
  * credentials). `visibility` is `public` (every tenant) or `tenant` (only
  * tenants with a `model_grant` row). `input_price`/`output_price` are
- * µcredit-per-token integers (the operator's resale price). `capabilities`
+ * **µUSD per 1M tokens** integers (the operator's resale price; `$X/1M → X×1e6`).
+ * `capabilities`
  * is a jsonb feature flag map (tools/vision/audio/json/stream) read by Track A.
  */
 export const model = pgTable(

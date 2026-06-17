@@ -666,9 +666,10 @@ export class AdminService {
    * credential resolved via the shared {@link SecretResolver} incl. its `oauth`
    * branch, the egress proxy resolved from `proxyRef` with the global
    * `UPSTREAM_PROXY_URL` fallback). Each upstream slug becomes a `model` row via
-   * {@link upsertModelsFromSync}: a new model gets the request's per-token default
-   * prices (3/7 when omitted), an existing one keeps its price (display +
-   * capabilities are refreshed). Returns the created/updated names + total.
+   * {@link upsertModelsFromSync}: a new model gets the request's µUSD-per-1M
+   * default prices ($1.25/1M in, $10/1M out when omitted), an existing one keeps
+   * its price (display + capabilities are refreshed). Returns the created/updated
+   * names + total.
    */
   async syncChannelModels(
     resourceId: string,
@@ -700,8 +701,10 @@ export class AdminService {
         display: m.displayName,
         capabilities: m.capabilities,
       })),
-      defaultInputPrice: BigInt(dto.defaultInputPrice ?? 3),
-      defaultOutputPrice: BigInt(dto.defaultOutputPrice ?? 7),
+      // µUSD per 1M tokens (Track 1). Sane placeholder when the request omits a
+      // default: $1.25/1M input, $10/1M output (admin should tune per provider).
+      defaultInputPrice: BigInt(dto.defaultInputPrice ?? 1_250_000),
+      defaultOutputPrice: BigInt(dto.defaultOutputPrice ?? 10_000_000),
     });
 
     return {
@@ -938,9 +941,9 @@ export class AdminService {
   // ----- models -----
 
   /**
-   * Register a relay model. `inputPrice`/`outputPrice` are µcredit-per-token
-   * integers (NOT human credits) — passed through unchanged. `capabilities`
-   * defaults to `{}` when omitted.
+   * Register a relay model. `inputPrice`/`outputPrice` are µUSD per 1M tokens
+   * integers (`$X/1M → X×1e6`; NOT human credits) — passed through unchanged.
+   * `capabilities` defaults to `{}` when omitted.
    */
   createModel(dto: CreateModelDto): Promise<ModelRow> {
     const input: CreateModelInput = {

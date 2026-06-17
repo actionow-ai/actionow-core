@@ -248,7 +248,7 @@ export type CreateModelDto = z.infer<typeof createModelSchema>;
 
 /**
  * `PATCH /admin/models/:name` — update a relay model. Every field is optional
- * (omitted = unchanged). `inputPrice`/`outputPrice` stay µcredit-per-token
+ * (omitted = unchanged). `inputPrice`/`outputPrice` stay µUSD per 1M tokens
  * integers (NOT human credits, same convention as create). `display` may be set
  * to `null` to clear it.
  */
