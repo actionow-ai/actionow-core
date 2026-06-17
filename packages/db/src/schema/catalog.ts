@@ -64,6 +64,24 @@ export const upstreamChannel = pgTable(
   (t) => [index('upstream_resource_idx').on(t.resourceId)],
 );
 
+/**
+ * Per-channel routing health (P0a): a failing `upstream_channel` is cooled down
+ * until `cooldown_until` so the weighted router skips it. Persisted (not
+ * in-memory) so cooldown is consistent across replicas via the shared DB. Only
+ * written on a failure; `consecutive_failures` drives exponential backoff and
+ * resets when the last failure is older than the reset window (so no per-success
+ * write is needed). A row's absence ⇒ the channel is healthy.
+ */
+export const channelHealth = pgTable('channel_health', {
+  channelId: uuid('channel_id')
+    .primaryKey()
+    .references(() => upstreamChannel.id),
+  consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+  cooldownUntil: timestamp('cooldown_until', { withTimezone: true }),
+  lastFailureAt: timestamp('last_failure_at', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const difyBinding = pgTable('dify_binding', {
   resourceId: text('resource_id')
     .notNull()

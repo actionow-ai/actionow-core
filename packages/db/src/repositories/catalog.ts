@@ -1,9 +1,10 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray } from 'drizzle-orm';
 import { PgTransaction } from 'drizzle-orm/pg-core';
 
 import {
   account,
+  channelHealth,
   difyBinding,
   modifier,
   pricebookEntry,
@@ -104,6 +105,127 @@ export async function listChannels(db: DbOrTx, resourceId: string): Promise<Upst
     .select()
     .from(upstreamChannel)
     .where(and(eq(upstreamChannel.resourceId, resourceId), eq(upstreamChannel.status, 'active')));
+}
+
+/** List EVERY upstream channel for a resource (incl. disabled) — operator admin view. */
+export async function listChannelsForResource(
+  db: DbOrTx,
+  resourceId: string,
+): Promise<UpstreamChannelRow[]> {
+  return db
+    .select()
+    .from(upstreamChannel)
+    .where(eq(upstreamChannel.resourceId, resourceId))
+    .orderBy(desc(upstreamChannel.weight));
+}
+
+/** Mutable fields of an `upstream_channel` (admin update); omitted keys are unchanged. */
+export interface UpdateUpstreamChannelInput {
+  readonly credentialRef?: string | null;
+  readonly endpoint?: string | null;
+  readonly model?: string | null;
+  readonly proxyRef?: string | null;
+  readonly config?: Record<string, unknown> | null;
+  readonly weight?: number;
+  readonly status?: string;
+}
+
+/** Patch an `upstream_channel` row (only the supplied fields), returning the new row. */
+export async function updateUpstreamChannel(
+  db: DbOrTx,
+  channelId: string,
+  patch: UpdateUpstreamChannelInput,
+): Promise<UpstreamChannelRow | undefined> {
+  const set: Partial<InferInsertModel<typeof upstreamChannel>> = {};
+  if (patch.credentialRef !== undefined) set.credentialRef = patch.credentialRef;
+  if (patch.endpoint !== undefined) set.endpoint = patch.endpoint;
+  if (patch.model !== undefined) set.model = patch.model;
+  if (patch.proxyRef !== undefined) set.proxyRef = patch.proxyRef;
+  if (patch.config !== undefined) set.config = patch.config;
+  if (patch.weight !== undefined) set.weight = patch.weight;
+  if (patch.status !== undefined) set.status = patch.status;
+  if (Object.keys(set).length === 0) {
+    const rows = await db
+      .select()
+      .from(upstreamChannel)
+      .where(eq(upstreamChannel.id, channelId))
+      .limit(1);
+    return rows[0];
+  }
+  const rows = await db
+    .update(upstreamChannel)
+    .set(set)
+    .where(eq(upstreamChannel.id, channelId))
+    .returning();
+  return rows[0];
+}
+
+// --- Channel health / cooldown (P0a) -----------------------------------------
+
+/** Exponential-backoff cooldown: base, cap, and the window after which the failure streak resets. */
+const COOLDOWN_BASE_MS = 1_000;
+const COOLDOWN_CAP_MS = 5 * 60_000;
+const FAILURE_RESET_WINDOW_MS = 5 * 60_000;
+
+/**
+ * Record a routing failure for `channelId` and cool it down. The cooldown is
+ * `now + min(BASE·2^(failures-1), CAP)` (or `retryAfterMs` if larger); the
+ * failure streak resets to 1 when the prior failure is older than the reset
+ * window, so no per-success write is needed — a channel is healthy once
+ * `cooldown_until` passes. Best-effort: not transactional with the request.
+ */
+export async function recordChannelFailure(
+  db: DbOrTx,
+  channelId: string,
+  now: Date,
+  retryAfterMs?: number,
+): Promise<void> {
+  const existing = (
+    await db.select().from(channelHealth).where(eq(channelHealth.channelId, channelId)).limit(1)
+  )[0];
+  const withinWindow =
+    existing?.lastFailureAt != null &&
+    now.getTime() - existing.lastFailureAt.getTime() < FAILURE_RESET_WINDOW_MS;
+  const failures = withinWindow ? existing.consecutiveFailures + 1 : 1;
+  const backoffMs = Math.min(COOLDOWN_BASE_MS * 2 ** (failures - 1), COOLDOWN_CAP_MS);
+  const cooldownUntil = new Date(now.getTime() + Math.max(backoffMs, retryAfterMs ?? 0));
+  const values = {
+    channelId,
+    consecutiveFailures: failures,
+    cooldownUntil,
+    lastFailureAt: now,
+    updatedAt: now,
+  };
+  await db
+    .insert(channelHealth)
+    .values(values)
+    .onConflictDoUpdate({
+      target: channelHealth.channelId,
+      set: {
+        consecutiveFailures: failures,
+        cooldownUntil,
+        lastFailureAt: now,
+        updatedAt: now,
+      },
+    });
+}
+
+/**
+ * Of the given `channelIds`, return those currently in cooldown (`cooldown_until
+ * > now`). A channel with no health row, or whose cooldown has passed, is absent
+ * (healthy). The router excludes the returned ids from selection.
+ */
+export async function listCooledDownChannelIds(
+  db: DbOrTx,
+  channelIds: string[],
+  now: Date,
+): Promise<string[]> {
+  if (channelIds.length === 0) return [];
+  const rows = await db
+    .select({ channelId: channelHealth.channelId })
+    .from(channelHealth)
+    .where(and(inArray(channelHealth.channelId, channelIds), gt(channelHealth.cooldownUntil, now)));
+  return rows.map((r) => r.channelId);
 }
 
 /**

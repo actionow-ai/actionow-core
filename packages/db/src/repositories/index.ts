@@ -61,6 +61,8 @@ export {
   listActiveModifiers,
   listApplicableModifiers,
   listChannels,
+  listChannelsForResource,
+  listCooledDownChannelIds,
   listModifiers,
   listPricebookEntries,
   listResources,
@@ -68,11 +70,14 @@ export {
   type ModifierRow,
   type ModifierScopeTarget,
   type PricebookEntryRow,
+  recordChannelFailure,
   type Resource,
   type ResourceVersionRow,
   type ResourceWithSchema,
   type SecretRefRow,
   updateResourceStatus,
+  updateUpstreamChannel,
+  type UpdateUpstreamChannelInput,
   type UpstreamChannelRow,
 } from './catalog.js';
 export {

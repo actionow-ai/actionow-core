@@ -64,6 +64,13 @@
       "when": 1781616158676,
       "tag": "0008_right_kingpin",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781665403508,
+      "tag": "0009_amazing_lockjaw",
+      "breakpoints": true
     }
   ]
 }
