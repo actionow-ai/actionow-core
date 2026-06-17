@@ -1,5 +1,5 @@
-import type { Database } from '@actionow/db';
-import { resolveModelForTenant } from '@actionow/db';
+import type { Database, ModelView } from '@actionow/db';
+import { listVisibleModels, resolveModelForTenant } from '@actionow/db';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { engineNotFound } from '../common/errors.js';
@@ -32,6 +32,8 @@ export interface ModelResolverPort {
     modelName: string,
     tenantId: string,
   ): Promise<ResolvedModel | undefined>;
+  /** The models visible to a tenant (Track C, MERGED) — backs `GET /v1/models`. */
+  listVisibleModels(db: Database, tenantId: string): Promise<ModelView[]>;
 }
 
 /**
@@ -43,16 +45,22 @@ export interface ModelResolverPort {
 export const realModelResolverPort: ModelResolverPort = {
   resolveModelForTenant: (db, modelName, tenantId) =>
     resolveModelForTenant(db, modelName, tenantId),
+  listVisibleModels: (db, tenantId) => listVisibleModels(db, tenantId),
 };
 
 /**
  * A fake {@link ModelResolverPort} for test overrides: resolves a fixed set of
  * model names to pre-built {@link ResolvedModel}s, returning `undefined` for
- * anything else (→ `resource_not_found`).
+ * anything else (→ `resource_not_found`), and lists the supplied `visible`
+ * {@link ModelView}s (default none) for discovery.
  */
-export function fakeModelResolverPort(models: Record<string, ResolvedModel>): ModelResolverPort {
+export function fakeModelResolverPort(
+  models: Record<string, ResolvedModel>,
+  visible: ModelView[] = [],
+): ModelResolverPort {
   return {
     resolveModelForTenant: (_db, modelName) => Promise.resolve(models[modelName]),
+    listVisibleModels: () => Promise.resolve(visible),
   };
 }
 
@@ -73,5 +81,10 @@ export class ModelResolverService {
     const m = await this.port.resolveModelForTenant(this.db, modelName, tenantId);
     if (m === undefined) throw engineNotFound(`model "${modelName}" not found`);
     return m;
+  }
+
+  /** The models visible to `tenantId` (backs `GET /v1/models` discovery). */
+  listVisible(tenantId: string): Promise<ModelView[]> {
+    return this.port.listVisibleModels(this.db, tenantId);
   }
 }

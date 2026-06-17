@@ -506,3 +506,26 @@ describe('errors + disconnect', () => {
     ).toBe(0n);
   });
 });
+
+describe('discovery (GET /v1/models)', () => {
+  it('lists the tenant-visible models in OpenAI list shape', async () => {
+    const res = await fetch(`${baseUrl}/v1/models`, {
+      method: 'GET',
+      headers: { authorization: `Bearer ${apiKey}` },
+    });
+    expect(res.status).toBe(200);
+    const body = asRecord(await res.json());
+    expect(body.object).toBe('list');
+    const data = body.data as Record<string, unknown>[];
+    expect(Array.isArray(data)).toBe(true);
+    // Both seeded models are public + active → the REAL listVisibleModels
+    // surfaces both, rendered as OpenAI `model` objects owned by `actionow`.
+    const ids = data.map((m) => m.id);
+    expect(ids).toContain(MODEL_NAME);
+    expect(ids).toContain(NO_CAPS_MODEL);
+    for (const m of data) {
+      expect(m.object).toBe('model');
+      expect(m.owned_by).toBe('actionow');
+    }
+  });
+});

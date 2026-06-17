@@ -12,6 +12,7 @@ import {
   ModelResolverService,
   realModelResolverPort,
 } from './model-resolver.service.js';
+import { ModelsController } from './models.controller.js';
 import { OpenAIChatController } from './openai.controller.js';
 
 /**
@@ -24,7 +25,12 @@ import { OpenAIChatController } from './openai.controller.js';
  * {@link MODEL_RESOLVER} with a fake; production uses the real binding.
  */
 @Module({
-  controllers: [OpenAIChatController, AnthropicChatController, GeminiChatController],
+  controllers: [
+    OpenAIChatController,
+    AnthropicChatController,
+    GeminiChatController,
+    ModelsController,
+  ],
   providers: [
     ChatRelayService,
     ModelResolverService,
