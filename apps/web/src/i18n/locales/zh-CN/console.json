@@ -44,10 +44,6 @@
     "dify": "Dify 导入"
   },
   "topbar": { "admin": "管理员", "logout": "退出登录", "backHome": "返回官网", "refresh": "刷新" },
-  "comingSoon": {
-    "title": "即将上线",
-    "body": "该页面将在对应后端能力就绪后于下一波次开放。"
-  },
   "subtitles": {
     "dashboard": "租户与资源概览,最近任务",
     "tenants": "创建与查看租户",
@@ -361,6 +357,56 @@
     "confirm": {
       "deleteTitle": "删除官方价?",
       "deleteMsg": "确定永久删除 {{model}} 的价格吗?此操作不可撤销。"
+    }
+  },
+  "groups": {
+    "title": "分组",
+    "new": "新建分组",
+    "editTitle": "编辑分组",
+    "save": "保存",
+    "empty": "暂无路由分组",
+    "created": "分组已创建",
+    "updated": "分组已更新",
+    "deleted": "分组已删除",
+    "channelCount": "{{n}} 个渠道",
+    "cols": {
+      "name": "名称",
+      "ratio": "倍率",
+      "status": "状态",
+      "description": "描述",
+      "channels": "渠道"
+    },
+    "form": {
+      "name": "名称",
+      "ratioPercent": "倍率(%)",
+      "status": "状态",
+      "description": "描述"
+    },
+    "tip": {
+      "name": "该路由分组的唯一名称(如 default、premium)。",
+      "ratioPercent": "分组价格倍率,以百分比表示——100 = ×1.00(官方价),150 = ×1.50(+50%)。以基点(bps)存储。",
+      "status": "已停用的分组不参与路由。",
+      "description": "可选:描述该分组用途的备注。"
+    },
+    "ratioEquiv": "= ×{{mult}}({{sign}}{{pct}}%) · {{bps}} bps",
+    "actions": { "manageChannels": "管理渠道" },
+    "confirm": {
+      "deleteTitle": "删除分组?",
+      "deleteMsg": "确定永久删除 {{name}} 分组吗?其渠道成员也会一并移除。此操作不可撤销。"
+    },
+    "channels": {
+      "title": "渠道 · {{name}}",
+      "empty": "该分组暂无渠道",
+      "add": "添加渠道",
+      "addPlaceholder": "选择要添加的渠道",
+      "allAdded": "所有渠道都已在该分组中",
+      "remove": "移除",
+      "added": "渠道已添加",
+      "removed": "渠道已移除",
+      "updated": "成员已更新",
+      "cols": { "channel": "渠道", "priority": "优先级", "weight": "权重" },
+      "priorityHint": "优先级越高越先被尝试。",
+      "weightHint": "同优先级渠道间的相对流量占比。"
     }
   },
   "common": { "edit": "编辑", "delete": "删除", "confirm": "确认", "cancel": "取消" },

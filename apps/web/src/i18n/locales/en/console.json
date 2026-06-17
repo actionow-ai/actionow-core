@@ -49,10 +49,6 @@
     "dify": "Dify import"
   },
   "topbar": { "admin": "Admin", "logout": "Sign out", "backHome": "Website", "refresh": "Refresh" },
-  "comingSoon": {
-    "title": "Coming soon",
-    "body": "This page lands in the next wave once its backend track ships."
-  },
   "subtitles": {
     "dashboard": "Tenants & resources overview, recent jobs",
     "tenants": "Create and view tenants",
@@ -366,6 +362,56 @@
     "confirm": {
       "deleteTitle": "Delete official price?",
       "deleteMsg": "Permanently delete the price for {{model}}? This cannot be undone."
+    }
+  },
+  "groups": {
+    "title": "Route groups",
+    "new": "New group",
+    "editTitle": "Edit group",
+    "save": "Save",
+    "empty": "No route groups yet",
+    "created": "Group created",
+    "updated": "Group updated",
+    "deleted": "Group deleted",
+    "channelCount": "{{n}} channels",
+    "cols": {
+      "name": "Name",
+      "ratio": "Ratio",
+      "status": "Status",
+      "description": "Description",
+      "channels": "Channels"
+    },
+    "form": {
+      "name": "Name",
+      "ratioPercent": "Ratio (%)",
+      "status": "Status",
+      "description": "Description"
+    },
+    "tip": {
+      "name": "A unique name for this routing group (e.g. default, premium).",
+      "ratioPercent": "Group price ratio as a percent — 100 = ×1.00 (official price), 150 = ×1.50 (+50%). Stored as basis points.",
+      "status": "Disabled groups are skipped by routing.",
+      "description": "Optional note describing what this group is for."
+    },
+    "ratioEquiv": "= ×{{mult}} ({{sign}}{{pct}}%) · {{bps}} bps",
+    "actions": { "manageChannels": "Manage channels" },
+    "confirm": {
+      "deleteTitle": "Delete group?",
+      "deleteMsg": "Permanently delete the {{name}} group? Its channel membership is removed too. This cannot be undone."
+    },
+    "channels": {
+      "title": "Channels · {{name}}",
+      "empty": "No channels in this group yet",
+      "add": "Add channel",
+      "addPlaceholder": "Select a channel to add",
+      "allAdded": "All channels are already in this group",
+      "remove": "Remove",
+      "added": "Channel added",
+      "removed": "Channel removed",
+      "updated": "Membership updated",
+      "cols": { "channel": "Channel", "priority": "Priority", "weight": "Weight" },
+      "priorityHint": "Higher priority is tried first.",
+      "weightHint": "Relative traffic share among same-priority channels."
     }
   },
   "common": { "edit": "Edit", "delete": "Delete", "confirm": "Confirm", "cancel": "Cancel" },

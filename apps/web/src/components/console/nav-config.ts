@@ -25,8 +25,8 @@ export interface NavGroup {
  * - tenants (租户): tenants / accounts / API keys
  *
  * The catalog page owns its own 模型|资源 tabs, so the nav holds a single
- * `/console/catalog` leaf. `分组`/`官方价格` are pre-backend placeholder routes
- * (see routes.tsx `ComingSoon`) so the billing group reads as complete.
+ * `/console/catalog` leaf. `分组`/`官方价格` are mock-skeleton pages (the
+ * billing/routing backend is design-only; data lives in mockBilling.ts).
  */
 export const NAV: NavGroup[] = [
   {

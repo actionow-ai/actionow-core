@@ -6,11 +6,11 @@ import { AuthPage } from './features/auth/AuthPage';
 import { AccountsPage } from './features/console/AccountsPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { CatalogPage } from './features/console/CatalogPage';
-import { ComingSoon } from './features/console/ComingSoon';
 import { DashboardPage } from './features/console/DashboardPage';
 import { DifyImportPage } from './features/console/DifyImportPage';
 import { ModifiersPage } from './features/console/ModifiersPage';
 import { OfficialPricesPage } from './features/console/OfficialPricesPage';
+import { RouteGroupsPage } from './features/console/RouteGroupsPage';
 import { TenantsPage } from './features/console/TenantsPage';
 import { LandingPage } from './features/landing/LandingPage';
 import { ProtectedRoute } from './lib/auth/ProtectedRoute';
@@ -48,9 +48,9 @@ export function AppRoutes() {
           <Route path="resources/:id" element={<ResourceRedirect />} />
           <Route path="models" element={<Navigate to="/console/catalog?tab=models" replace />} />
           <Route path="modifiers" element={<ModifiersPage />} />
-          {/* Billing & routing: official prices is a mock-skeleton page; groups
-              lands next (still a pre-backend placeholder until then). */}
-          <Route path="groups" element={<ComingSoon />} />
+          {/* Billing & routing: mock-skeleton pages (the billing/routing backend
+              is design-only; data layer lives in src/lib/api/mockBilling.ts). */}
+          <Route path="groups" element={<RouteGroupsPage />} />
           <Route path="official-prices" element={<OfficialPricesPage />} />
           <Route path="dify" element={<DifyImportPage />} />
           <Route path="tenants" element={<TenantsPage />} />
