@@ -103,3 +103,16 @@ export const secretRef = pgTable('secret_ref', {
   locator: text('locator').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * AES-256-GCM ciphertext for a `provider='enc'` {@link secretRef}. Stored as the
+ * `iv.tag.ciphertext` string produced by `encryptSecret`; decrypted on resolve
+ * with the env master key. 1:1 with its `secret_ref`.
+ */
+export const secretMaterial = pgTable('secret_material', {
+  secretRefId: uuid('secret_ref_id')
+    .primaryKey()
+    .references(() => secretRef.id),
+  material: text('material').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
