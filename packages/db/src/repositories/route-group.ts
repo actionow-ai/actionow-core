@@ -1,0 +1,285 @@
+import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
+
+import { apiKey, routeGroup, routeGroupChannel, upstreamChannel } from '../schema/index.js';
+import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
+import type { DbOrTx } from './types.js';
+
+export type RouteGroupRow = InferSelectModel<typeof routeGroup>;
+export type RouteGroupChannelRow = InferSelectModel<typeof routeGroupChannel>;
+export type UpstreamChannelRow = InferSelectModel<typeof upstreamChannel>;
+
+/**
+ * An {@link upstreamChannel} row of a resource that is a MEMBER of a route group,
+ * carrying the per-`(group, channel)` `priority` + `weight` from the join — the
+ * shape Track 4's group-scoped router consumes. Ordered `priority DESC, weight
+ * DESC` (HIGHER priority is the earlier fallback tier).
+ */
+export type GroupChannelForResource = UpstreamChannelRow & {
+  /** The per-(group,channel) priority (HIGHER = tried first). */
+  readonly priority: number;
+  /** The per-(group,channel) weighted-random weight within a tier. */
+  readonly weight: number;
+};
+
+// ----- route_group CRUD -----
+
+/** Fields a caller supplies to {@link createRouteGroup}. */
+export interface CreateRouteGroupInput {
+  readonly name: string;
+  /** Customer-price ratio in basis points (`10000 = 1.0×`); defaults to 10000. */
+  readonly groupRatioBps?: number | undefined;
+  /** `active` (default) | `disabled`. */
+  readonly status?: string | undefined;
+  readonly description?: string | null | undefined;
+}
+
+/** Insert a `route_group` row and return it. */
+export async function createRouteGroup(
+  db: DbOrTx,
+  input: CreateRouteGroupInput,
+): Promise<RouteGroupRow> {
+  const rows = await db
+    .insert(routeGroup)
+    .values({
+      name: input.name,
+      ...(input.groupRatioBps !== undefined ? { groupRatioBps: input.groupRatioBps } : {}),
+      ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}),
+    })
+    .returning();
+  const row = rows[0];
+  if (!row) throw new Error('createRouteGroup: insert returned no row');
+  return row;
+}
+
+/** List live route groups (excludes soft-deleted), newest-first, keyset-paginated. */
+export function listRouteGroups(
+  db: DbOrTx,
+  page: PageParams,
+): Promise<KeysetResult<RouteGroupRow>> {
+  return keysetPage<RouteGroupRow>(db, {
+    table: routeGroup,
+    createdAtCol: routeGroup.createdAt,
+    idCol: routeGroup.id,
+    where: isNull(routeGroup.deletedAt),
+    page,
+  });
+}
+
+/** Fetch a live route group by id (soft-deleted → `undefined`). */
+export async function getRouteGroupById(
+  db: DbOrTx,
+  id: string,
+): Promise<RouteGroupRow | undefined> {
+  const rows = await db
+    .select()
+    .from(routeGroup)
+    .where(and(eq(routeGroup.id, id), isNull(routeGroup.deletedAt)))
+    .limit(1);
+  return rows[0];
+}
+
+/** Fetch a live route group by its unique `name` (soft-deleted → `undefined`). */
+export async function getRouteGroupByName(
+  db: DbOrTx,
+  name: string,
+): Promise<RouteGroupRow | undefined> {
+  const rows = await db
+    .select()
+    .from(routeGroup)
+    .where(and(eq(routeGroup.name, name), isNull(routeGroup.deletedAt)))
+    .limit(1);
+  return rows[0];
+}
+
+/** Mutable fields of a {@link routeGroup} (admin PATCH); omitted keys are unchanged. */
+export interface UpdateRouteGroupInput {
+  readonly name?: string | undefined;
+  readonly groupRatioBps?: number | undefined;
+  readonly status?: string | undefined;
+  readonly description?: string | null | undefined;
+}
+
+/**
+ * Patch a live route group (by id), returning the new row. Only the supplied
+ * fields change; `updated_at` is bumped on any real write. An empty patch reads
+ * back the current live row. Soft-deleted / unknown → `undefined`.
+ */
+export async function updateRouteGroup(
+  db: DbOrTx,
+  id: string,
+  patch: UpdateRouteGroupInput,
+): Promise<RouteGroupRow | undefined> {
+  const set: Partial<InferInsertModel<typeof routeGroup>> = {};
+  if (patch.name !== undefined) set.name = patch.name;
+  if (patch.groupRatioBps !== undefined) set.groupRatioBps = patch.groupRatioBps;
+  if (patch.status !== undefined) set.status = patch.status;
+  if (patch.description !== undefined) set.description = patch.description;
+  if (Object.keys(set).length === 0) {
+    return getRouteGroupById(db, id);
+  }
+  set.updatedAt = new Date();
+  const rows = await db
+    .update(routeGroup)
+    .set(set)
+    .where(and(eq(routeGroup.id, id), isNull(routeGroup.deletedAt)))
+    .returning();
+  return rows[0];
+}
+
+/**
+ * Revoke a route group by SOFT-DELETING it (by id): stamps `deleted_at` (`now()`)
+ * + bumps `updated_at`, only when the row is still live. `getRouteGroup*` /
+ * `listRouteGroups` / `listGroupChannelsForResource` all filter `deleted_at IS
+ * NULL`, so the group drops out, and the PARTIAL unique frees its `name` for a
+ * fresh re-create. Returns the deleted id, or `undefined` when nothing matched
+ * (already deleted / unknown) — idempotent.
+ */
+export async function softDeleteRouteGroup(db: DbOrTx, id: string): Promise<string | undefined> {
+  const now = new Date();
+  const rows = await db
+    .update(routeGroup)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(and(eq(routeGroup.id, id), isNull(routeGroup.deletedAt)))
+    .returning({ id: routeGroup.id });
+  return rows[0]?.id;
+}
+
+// ----- route_group_channel membership -----
+
+/** Fields a caller supplies to {@link addChannelToGroup}. */
+export interface AddChannelToGroupInput {
+  readonly groupId: string;
+  readonly channelId: string;
+  /** HIGHER = tried first (fallback tier); defaults to 0. */
+  readonly priority?: number | undefined;
+  /** Weighted-random weight within a tier; defaults to 1. */
+  readonly weight?: number | undefined;
+}
+
+/**
+ * Add a channel to a route group (UPSERT on the `(group_id, channel_id)` PK): a
+ * re-add of the same pair UPDATES its `priority`/`weight` instead of erroring.
+ * The membership row carries no soft-delete — removal is a hard delete
+ * ({@link removeChannelFromGroup}). Returns the resulting membership row.
+ */
+export async function addChannelToGroup(
+  db: DbOrTx,
+  input: AddChannelToGroupInput,
+): Promise<RouteGroupChannelRow> {
+  const priority = input.priority ?? 0;
+  const weight = input.weight ?? 1;
+  const rows = await db
+    .insert(routeGroupChannel)
+    .values({ groupId: input.groupId, channelId: input.channelId, priority, weight })
+    .onConflictDoUpdate({
+      target: [routeGroupChannel.groupId, routeGroupChannel.channelId],
+      set: { priority, weight },
+    })
+    .returning();
+  const row = rows[0];
+  if (!row) throw new Error('addChannelToGroup: upsert returned no row');
+  return row;
+}
+
+/**
+ * Remove a channel from a route group: HARD-deletes the membership row (no
+ * soft-delete on `route_group_channel`). Returns `true` when a row was removed,
+ * `false` when the pair was not a member — a second remove is an idempotent no-op.
+ */
+export async function removeChannelFromGroup(
+  db: DbOrTx,
+  groupId: string,
+  channelId: string,
+): Promise<boolean> {
+  const rows = await db
+    .delete(routeGroupChannel)
+    .where(and(eq(routeGroupChannel.groupId, groupId), eq(routeGroupChannel.channelId, channelId)))
+    .returning({ channelId: routeGroupChannel.channelId });
+  return rows.length === 1;
+}
+
+/**
+ * List a group's channel MEMBERSHIPS (the `route_group_channel` rows with their
+ * `priority`/`weight`), keyset-paginated newest-first on `(created_at,
+ * channel_id)`. This is the membership listing — NOT joined to the channel —
+ * used by the admin "channels in this group" view.
+ */
+export function listGroupChannels(
+  db: DbOrTx,
+  groupId: string,
+  page: PageParams,
+): Promise<KeysetResult<RouteGroupChannelRow>> {
+  return keysetPage<RouteGroupChannelRow>(db, {
+    table: routeGroupChannel,
+    createdAtCol: routeGroupChannel.createdAt,
+    idCol: routeGroupChannel.channelId,
+    where: eq(routeGroupChannel.groupId, groupId),
+    page,
+  });
+}
+
+/**
+ * The Track-4 router consumer: the ACTIVE, non-soft-deleted {@link upstreamChannel}
+ * rows of `resourceId` that are members of route group `groupId`, JOINed with
+ * `route_group_channel` so each row carries the per-`(group, channel)` `priority`
+ * + `weight`. Ordered `priority DESC, weight DESC` (HIGHER priority is the earlier
+ * fallback tier; weight breaks ties within a tier).
+ *
+ * Returns an EMPTY array when the group is soft-deleted OR `status != 'active'`
+ * (a disabled group offers no candidates), or when the resource has no group
+ * members. Data layer only — Track 4 wires the cooldown filter + weighted pick
+ * + failover cascade on top of this ordered candidate list.
+ */
+export async function listGroupChannelsForResource(
+  db: DbOrTx,
+  resourceId: string,
+  groupId: string,
+): Promise<GroupChannelForResource[]> {
+  const rows = await db
+    .select({
+      channel: upstreamChannel,
+      priority: routeGroupChannel.priority,
+      weight: routeGroupChannel.weight,
+    })
+    .from(routeGroupChannel)
+    .innerJoin(upstreamChannel, eq(routeGroupChannel.channelId, upstreamChannel.id))
+    .innerJoin(routeGroup, eq(routeGroupChannel.groupId, routeGroup.id))
+    .where(
+      and(
+        eq(routeGroupChannel.groupId, groupId),
+        eq(upstreamChannel.resourceId, resourceId),
+        eq(upstreamChannel.status, 'active'),
+        isNull(upstreamChannel.deletedAt),
+        eq(routeGroup.status, 'active'),
+        isNull(routeGroup.deletedAt),
+      ),
+    )
+    .orderBy(desc(routeGroupChannel.priority), desc(routeGroupChannel.weight));
+  return rows.map((r) => ({ ...r.channel, priority: r.priority, weight: r.weight }));
+}
+
+// ----- api_key ↔ route_group binding -----
+
+/**
+ * (Re)bind an API key to a route group, or unbind it. Passing a `routeGroupId`
+ * sets `api_key.route_group_id`; passing `null` clears it (the key then falls
+ * back to the well-known `default` group at routing time). Bumps `updated_at`.
+ * Operates on LIVE keys only (`deleted_at IS NULL`). Returns `true` when a row
+ * was updated, `false` when the id matched no live key (the caller maps that to
+ * a 404). NOTE: the caller is responsible for validating that `routeGroupId`
+ * refers to an existing group.
+ */
+export async function setApiKeyGroup(
+  db: DbOrTx,
+  apiKeyId: string,
+  routeGroupId: string | null,
+): Promise<boolean> {
+  const rows = await db
+    .update(apiKey)
+    .set({ routeGroupId, updatedAt: new Date() })
+    .where(and(eq(apiKey.id, apiKeyId), isNull(apiKey.deletedAt)))
+    .returning({ id: apiKey.id });
+  return rows.length === 1;
+}

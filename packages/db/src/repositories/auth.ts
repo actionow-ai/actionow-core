@@ -28,6 +28,8 @@ export interface ApiKeyRecord {
   readonly resourceAllowlist: string[];
   readonly rateLimit: number | null;
   readonly status: string;
+  /** The bound route group (Track 3); `null` → the `default` group at routing time. */
+  readonly routeGroupId: string | null;
 }
 
 /** Compute the stored lookup hash for an API key (sha256 hex of the plaintext). */
@@ -75,6 +77,7 @@ export async function findApiKeyByHash(
       resourceAllowlist: apiKey.resourceAllowlist,
       rateLimit: apiKey.rateLimit,
       status: apiKey.status,
+      routeGroupId: apiKey.routeGroupId,
     })
     .from(apiKey)
     .where(and(eq(apiKey.hash, hash), isNull(apiKey.deletedAt)))
@@ -89,6 +92,8 @@ export interface ApiKeyView {
   readonly resourceAllowlist: string[];
   readonly rateLimit: number | null;
   readonly status: string;
+  /** The bound route group (Track 3); `null` → the `default` group at routing time. */
+  readonly routeGroupId: string | null;
   readonly createdAt: Date;
 }
 
@@ -98,6 +103,7 @@ const API_KEY_VIEW_COLUMNS = {
   resourceAllowlist: apiKey.resourceAllowlist,
   rateLimit: apiKey.rateLimit,
   status: apiKey.status,
+  routeGroupId: apiKey.routeGroupId,
   createdAt: apiKey.createdAt,
 } as const;
 

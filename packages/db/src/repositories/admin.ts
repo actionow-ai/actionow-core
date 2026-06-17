@@ -131,6 +131,7 @@ export async function listApiKeys(
       resourceAllowlist: apiKey.resourceAllowlist,
       rateLimit: apiKey.rateLimit,
       status: apiKey.status,
+      routeGroupId: apiKey.routeGroupId,
       createdAt: apiKey.createdAt,
       updatedAt: apiKey.updatedAt,
       deletedAt: apiKey.deletedAt,

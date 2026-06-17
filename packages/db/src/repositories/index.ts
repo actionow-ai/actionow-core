@@ -223,6 +223,25 @@ export {
   type RelayTraceRow,
 } from './relay-trace.js';
 export {
+  addChannelToGroup,
+  type AddChannelToGroupInput,
+  createRouteGroup,
+  type CreateRouteGroupInput,
+  getRouteGroupById,
+  getRouteGroupByName,
+  type GroupChannelForResource,
+  listGroupChannels,
+  listGroupChannelsForResource,
+  listRouteGroups,
+  removeChannelFromGroup,
+  type RouteGroupChannelRow,
+  type RouteGroupRow,
+  setApiKeyGroup,
+  softDeleteRouteGroup,
+  updateRouteGroup,
+  type UpdateRouteGroupInput,
+} from './route-group.js';
+export {
   createEncryptedSecret,
   type CreateEncryptedSecretInput,
   resolveSecretRef,

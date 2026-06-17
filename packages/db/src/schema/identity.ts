@@ -12,6 +12,8 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { routeGroup } from './route-group.js';
+
 export const tenant = pgTable('tenant', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
@@ -33,6 +35,12 @@ export const apiKey = pgTable(
       .$type<string[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    // The route group (分组) this key is bound to (Track 3). NULLABLE → a null
+    // means "use the well-known `default` group", resolved at routing time
+    // (Track 4). The group scopes which channels the key may use + sets the
+    // customer-price ratio. The `() =>` FK callback is lazy, so the cross-file
+    // import does not run at module-init (no ESM cycle hazard).
+    routeGroupId: uuid('route_group_id').references(() => routeGroup.id),
     rateLimit: bigint('rate_limit', { mode: 'number' }),
     // status allowed values: active | disabled (createApiKey default + disableApiKeyForTenant)
     status: text('status').notNull().default('active'),

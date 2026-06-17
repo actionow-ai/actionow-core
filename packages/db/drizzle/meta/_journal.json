@@ -141,6 +141,13 @@
       "when": 1781720565336,
       "tag": "0019_nice_lionheart",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1781722499487,
+      "tag": "0020_breezy_ken_ellis",
+      "breakpoints": true
     }
   ]
 }
