@@ -18,6 +18,7 @@ import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
+import type { Modality } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { BP } from '../../lib/breakpoints';
 import { STALE_REFERENCE } from '../../lib/query';
@@ -55,7 +56,7 @@ export function ResourcesPage() {
         id: rid,
         tenantId,
         kind,
-        modality,
+        modality: modality as Modality,
         providerType: provider,
         execModes: execModes.split(',').map((s) => s.trim()).filter(Boolean),
         ioSchema: parsed.value,

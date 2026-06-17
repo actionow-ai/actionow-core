@@ -74,7 +74,7 @@ export interface PricebookView {
   method: string;
   timing: string;
   spec: unknown;
-  markup: string | null;
+  markup: unknown;
   active: boolean;
 }
 export interface ModifierView {
@@ -93,6 +93,10 @@ export interface ChannelView {
   resource_id: string;
   provider_type: string;
   credential_ref: string | null;
+  endpoint: string | null;
+  model: string | null;
+  proxy_ref: string | null;
+  config: Record<string, unknown> | null;
   weight: number;
   status: string;
 }
@@ -103,11 +107,18 @@ export interface DifyImportView {
   compat_report: unknown;
 }
 
+export type Modality = 'text' | 'image' | 'video' | 'audio' | 'composite';
+export type PricebookMethod = 'unit' | 'matrix' | 'fixed' | 'formula' | 'passthrough';
+export type PricebookTiming = 'pre' | 'post';
+export type ModifierOp = 'override_rate' | 'percent_off' | 'flat_off' | 'percent_add';
+export type DifyPricingModel = 'fixed' | 'matrix' | 'metered';
+export type ChannelStatus = 'active' | 'disabled';
+
 export interface CreateResourceBody {
   id: string;
   tenantId: string;
   kind: 'model' | 'workflow';
-  modality: string;
+  modality: Modality;
   providerType: string;
   execModes: string[];
   ioSchema: unknown;
@@ -116,23 +127,39 @@ export interface CreateResourceBody {
 export interface CreateChannelBody {
   providerType: string;
   credentialRef?: string;
+  endpoint?: string;
+  model?: string;
+  proxyRef?: string;
+  config?: Record<string, unknown>;
   weight?: number;
-  status?: string;
+  status?: ChannelStatus;
+}
+/** PATCH a channel: omitted = unchanged; `null` clears a nullable field. */
+export interface UpdateChannelBody {
+  credentialRef?: string | null;
+  endpoint?: string | null;
+  model?: string | null;
+  proxyRef?: string | null;
+  config?: Record<string, unknown> | null;
+  weight?: number;
+  status?: ChannelStatus;
 }
 export interface CreatePricebookBody {
   resourceId: string;
   resourceVersion: number;
   version: number;
-  method: string;
-  timing: string;
+  method: PricebookMethod;
+  timing: PricebookTiming;
   spec: unknown;
-  markup?: number;
+  /** Convenience for `method: 'fixed'` — a HUMAN-credit amount (→ spec.amount). */
+  fixedCredits?: number;
+  markup?: unknown;
   active?: boolean;
 }
 export interface CreateModifierBody {
   scope: string;
   whenExpr?: string;
-  op: string;
+  op: ModifierOp;
   value?: number;
   stackable?: boolean;
   priority?: number;
@@ -145,6 +172,6 @@ export interface DifyImportBody {
   yaml: string;
   endpoint: string;
   serviceKeyRef?: string;
-  pricingModel: unknown;
+  pricingModel: DifyPricingModel;
   allowBlockers?: boolean;
 }

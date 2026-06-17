@@ -14,9 +14,10 @@ import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
+import type { ModifierOp } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
-const OPS = ['override_rate', 'percent_off', 'flat_off', 'percent_add'];
+const OPS: ModifierOp[] = ['override_rate', 'percent_off', 'flat_off', 'percent_add'];
 
 export function ModifiersPage() {
   const { t } = useTranslation('console');
@@ -26,7 +27,7 @@ export function ModifiersPage() {
 
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState('global');
-  const [op, setOp] = useState('percent_off');
+  const [op, setOp] = useState<ModifierOp>('percent_off');
   const [value, setValue] = useState('');
   const [whenExpr, setWhenExpr] = useState('');
   const [priority, setPriority] = useState('');
@@ -90,7 +91,7 @@ export function ModifiersPage() {
         }
       >
         <TextField label={t('modifiers.form.scope')} value={scope} onChange={(e) => setScope(e.target.value)} />
-        <SelectField label={t('modifiers.form.op')} value={op} onChange={(v) => setOp(v)} options={OPS.map((o) => ({ value: o, label: o }))} />
+        <SelectField label={t('modifiers.form.op')} value={op} onChange={(v) => setOp(v as ModifierOp)} options={OPS.map((o) => ({ value: o, label: o }))} />
         <TextField label={t('modifiers.form.value')} value={value} onChange={(e) => setValue(e.target.value)} />
         <TextField label={t('modifiers.form.whenExpr')} value={whenExpr} onChange={(e) => setWhenExpr(e.target.value)} />
         <TextField label={t('modifiers.form.priority')} value={priority} onChange={(e) => setPriority(e.target.value)} />

@@ -16,7 +16,7 @@ import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
-import type { PricebookView } from '../../lib/api/types';
+import type { PricebookMethod, PricebookTiming, PricebookView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
 
@@ -65,8 +65,8 @@ export function ResourceDetailPane({ id }: { id: string }) {
         resourceId: id,
         resourceVersion: resource?.current_version ?? 1,
         version: 1,
-        method,
-        timing,
+        method: method as PricebookMethod,
+        timing: timing as PricebookTiming,
         spec: parsed.value,
         active: true,
       });

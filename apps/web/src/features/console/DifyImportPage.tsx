@@ -9,7 +9,7 @@ import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { ApiError } from '../../lib/api/errors';
 import { mutationError } from '../../lib/api/mutationError';
-import type { DifyImportView } from '../../lib/api/types';
+import type { DifyImportView, DifyPricingModel } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
 export function DifyImportPage() {
@@ -27,7 +27,16 @@ export function DifyImportPage() {
     mutationFn: () => {
       const parsed = validateJson(pricing);
       if (!parsed.ok) throw new ApiError('invalid_input', parsed.error, 400, false);
-      return api.difyImport({ tenantId, resourceId, yaml, endpoint, pricingModel: parsed.value });
+      // NOTE: the backend now expects `pricingModel` to be the enum
+      // 'fixed'|'matrix'|'metered'; this form still collects it as free JSON.
+      // Replacing the JsonField with an enum selector is deferred to the Dify feature task.
+      return api.difyImport({
+        tenantId,
+        resourceId,
+        yaml,
+        endpoint,
+        pricingModel: parsed.value as DifyPricingModel,
+      });
     },
     onSuccess: (r) => { setReport(r); toast(t('dify.imported')); },
     onError: mutationError(t),

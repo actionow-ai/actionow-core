@@ -66,7 +66,7 @@ describe('admin catalog api', () => {
       resourceId: 'r1',
       yaml: 'x',
       endpoint: 'https://e',
-      pricingModel: {},
+      pricingModel: 'fixed',
     });
     expect(calls[0]?.path).toBe('/admin/dify/import');
   });
