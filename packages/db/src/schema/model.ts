@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   check,
   index,
   jsonb,
@@ -45,6 +46,10 @@ export const model = pgTable(
     outputPrice: bigint('output_price', { mode: 'bigint' })
       .notNull()
       .default(sql`0`),
+    // Set `true` by `sync-models` when no official price matched the discovered
+    // slug (Track 2; spec D7). Such a model is created `disabled` and is NEVER
+    // billable at 0 — it stays out of routing until an admin prices it.
+    needsPricing: boolean('needs_pricing').notNull().default(false),
     // status allowed values: active | disabled (create default + admin DTO + sync insert)
     status: text('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

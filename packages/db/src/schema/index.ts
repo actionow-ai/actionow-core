@@ -4,6 +4,7 @@ export * from './execution.js';
 export * from './identity.js';
 export * from './model.js';
 export * from './oauth.js';
+export * from './official-price.js';
 export * from './payment.js';
 export * from './pricing.js';
 export * from './redemption.js';

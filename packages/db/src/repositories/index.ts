@@ -145,6 +145,8 @@ export {
   resolveModelForTenant,
   softDeleteModel,
   type SyncModelInput,
+  type SyncModelSummary,
+  type SyncPricedKind,
   updateModel,
   type UpdateModelInput,
   upsertModelsFromSync,
@@ -167,6 +169,20 @@ export {
   updateOAuthTokens,
   type UpdateOAuthTokensInput,
 } from './oauth-session.js';
+export {
+  createOfficialPrice,
+  type CreateOfficialPriceInput,
+  getOfficialPrice,
+  getOfficialPriceById,
+  listOfficialPrices,
+  type ListOfficialPricesFilter,
+  matchOfficialPrice,
+  normalizeModelSlug,
+  type OfficialModelPriceRow,
+  softDeleteOfficialPrice,
+  updateOfficialPrice,
+  type UpdateOfficialPriceInput,
+} from './official-price.js';
 export {
   type KeysetCursor,
   keysetPage,
