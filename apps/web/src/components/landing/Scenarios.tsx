@@ -19,7 +19,7 @@ function ScenarioTile({ k, GlyphIcon, index }: { k: string; GlyphIcon: Icon; ind
             alignItems: 'center',
             justifyContent: 'center',
             color: 'var(--ink)',
-            background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
+            background: 'var(--grad-accent)',
             marginBottom: 'var(--s-4)',
           }}
         >

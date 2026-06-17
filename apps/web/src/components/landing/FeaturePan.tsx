@@ -48,7 +48,7 @@ function Panel({ index, k, Glyph, wide }: { index: number; k: string; Glyph: Ico
             alignItems: 'center',
             justifyContent: 'center',
             color: 'var(--ink)',
-            background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
+            background: 'var(--grad-accent)',
           }}
         >
           <Glyph size={23} weight="duotone" />

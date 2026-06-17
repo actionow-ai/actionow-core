@@ -10,12 +10,12 @@ export function Logo({ size = 26 }: { size?: number }) {
           width: size,
           height: size,
           borderRadius: 8,
-          background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
+          background: 'var(--grad-accent)',
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
           color: 'var(--ink)',
-          boxShadow: '0 4px 14px rgba(255, 176, 10, 0.4)',
+          boxShadow: 'var(--shadow-accent-sm)',
         }}
       >
         <svg width={size * 0.56} height={size * 0.56} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round">

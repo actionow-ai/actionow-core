@@ -161,7 +161,7 @@ export function AuthPage() {
                 whiteSpace: 'nowrap',
                 transition: 'color 0.2s, background 0.2s',
                 color: mode === m ? 'var(--ink)' : 'var(--muted)',
-                background: mode === m ? 'linear-gradient(135deg, var(--accent), var(--accent-2))' : 'transparent',
+                background: mode === m ? 'var(--grad-accent)' : 'transparent',
               }}
             >
               {t(m === 'login' ? 'auth.loginTab' : 'auth.registerTab')}

@@ -125,7 +125,7 @@ export function LiveConsole() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: i === 0 ? 'var(--ink)' : 'var(--muted)',
-                  background: i === 0 ? 'linear-gradient(135deg, var(--accent), var(--accent-2))' : 'transparent',
+                  background: i === 0 ? 'var(--grad-accent)' : 'transparent',
                 }}
               >
                 <Ic size={18} weight={i === 0 ? 'fill' : 'regular'} />

@@ -150,7 +150,7 @@
   justify-content: center;
   flex-shrink: 0;
   color: var(--ink);
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  background: var(--grad-accent);
 }
 .chip {
   font-size: var(--fs-caption);

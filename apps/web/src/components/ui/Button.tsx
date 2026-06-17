@@ -26,7 +26,7 @@ function styleFor(variant: Variant, size: Size): CSSProperties {
     return {
       ...base,
       color: 'var(--ink)',
-      background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
+      background: 'var(--grad-accent)',
       boxShadow: 'var(--shadow-cta)',
     };
   }

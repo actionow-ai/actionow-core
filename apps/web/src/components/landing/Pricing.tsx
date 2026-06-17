@@ -29,7 +29,7 @@ export function Pricing() {
                 padding: 'var(--s-6)',
                 height: '100%',
                 borderColor: c.featured ? 'var(--hover-bd)' : undefined,
-                boxShadow: c.featured ? '0 12px 30px rgba(255, 176, 10, 0.18)' : undefined,
+                boxShadow: c.featured ? 'var(--shadow-accent-card)' : undefined,
               }}
             >
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)' }}>{t(`pricing.cards.${c.key}.t`)}</div>

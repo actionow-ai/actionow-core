@@ -47,8 +47,8 @@ export function HowItWorks() {
                     fontSize: 17,
                     fontWeight: 800,
                     color: 'var(--ink)',
-                    background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
-                    boxShadow: '0 6px 16px rgba(255, 176, 10, 0.35)',
+                    background: 'var(--grad-accent)',
+                    boxShadow: 'var(--shadow-accent-md)',
                   }}
                 >
                   {i + 1}
