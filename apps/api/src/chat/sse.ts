@@ -39,6 +39,12 @@ export async function pipeSse(res: Response, frames: AsyncIterable<string>): Pro
       if (next.done === true || res.writableEnded) break;
       res.write(next.value);
     }
+  } catch {
+    // The 200 event-stream status is already committed (headers flushed), so a
+    // late failure can't become an HTTP error. The engine forwards upstream
+    // errors as in-band dialect error frames; this is a last-resort guard so an
+    // unexpected transport/render throw ends the stream cleanly instead of
+    // escaping to the global filter (which would throw ERR_HTTP_HEADERS_SENT).
   } finally {
     // Finalize the generator even on a normal break (its `finally` settles;
     // idempotent if `res.on('close')` already returned it).

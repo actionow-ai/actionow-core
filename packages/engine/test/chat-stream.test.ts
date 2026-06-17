@@ -96,9 +96,39 @@ function fakeChatAdapter(): ProviderAdapter {
   };
 }
 
-function deps(overrides: Partial<RunRequest> = {}): Parameters<typeof createChatSettlingStream>[0] {
+/** A chat adapter that streams content but NO usage frame (provider omits it). */
+function fakeChatAdapterNoUsage(): ProviderAdapter {
+  return {
+    ...fakeChatAdapter(),
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async *streamChat(): AsyncIterable<ChatStreamEvent> {
+      yield { type: 'message_start' };
+      yield { type: 'content_delta', text: 'ok' };
+      yield { type: 'stop', stopReason: 'stop' };
+      yield { type: 'done' };
+    },
+  };
+}
+
+/** A chat adapter that streams content then yields a mid-stream IR error event. */
+function fakeChatAdapterError(): ProviderAdapter {
+  return {
+    ...fakeChatAdapter(),
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async *streamChat(): AsyncIterable<ChatStreamEvent> {
+      yield { type: 'message_start' };
+      yield { type: 'content_delta', text: 'ok' };
+      yield { type: 'error', error: { code: 'upstream_error', message: 'boom', retryable: false } };
+    },
+  };
+}
+
+function deps(
+  overrides: Partial<RunRequest> = {},
+  adapter: ProviderAdapter = fakeChatAdapter(),
+): Parameters<typeof createChatSettlingStream>[0] {
   const adapters = new AdapterRegistry();
-  adapters.register(fakeChatAdapter());
+  adapters.register(adapter);
   const req: RunRequest = {
     resource: {
       id: 'chat-resource',
@@ -167,7 +197,7 @@ describe('createChatSettlingStream', () => {
     expect(usageLogCalls).toHaveLength(0);
   });
 
-  it('settles exactly once on consumer early-return (disconnect)', async () => {
+  it('settles exactly once on consumer early-return (disconnect), charging 0 pre-output', async () => {
     const stream = createChatSettlingStream(deps());
     const iter = stream[Symbol.asyncIterator]();
     const first = await iter.next();
@@ -176,6 +206,45 @@ describe('createChatSettlingStream', () => {
 
     expect(settleCalls).toHaveLength(1);
     expect(failCalls).toHaveLength(0);
+    // No usage frame and no output streamed yet → charge the MEASURED partial
+    // (0), NEVER the 1000µ hold ceiling (the gross over-bill the sweep caught).
+    expect(settleCalls[0]?.finalCost).toBe(0n);
+  });
+
+  it('charges the measured streamed output on disconnect after content (not the hold)', async () => {
+    const stream = createChatSettlingStream(deps());
+    const iter = stream[Symbol.asyncIterator]();
+    await iter.next(); // message_start
+    await iter.next(); // content_delta 'ok' (2 chars → ceil(2/4)=1 output token)
+    await iter.return(undefined);
+
+    expect(settleCalls).toHaveLength(1);
+    // 1 measured output token × 1µ/token — the partial work, not the 1000µ hold.
+    expect(settleCalls[0]?.finalCost).toBe(1n);
+  });
+
+  it('settles the measured partial when the stream ends with no usage frame', async () => {
+    const events: ChatStreamEvent[] = [];
+    for await (const ev of createChatSettlingStream(deps({}, fakeChatAdapterNoUsage()))) {
+      events.push(ev);
+    }
+    expect(events.map((e) => e.type)).toEqual(['message_start', 'content_delta', 'stop', 'done']);
+    expect(settleCalls).toHaveLength(1);
+    expect(failCalls).toHaveLength(0);
+    // 'ok' streamed → ceil(2/4)=1 output token × 1µ, not the 1000µ hold.
+    expect(settleCalls[0]?.finalCost).toBe(1n);
+  });
+
+  it('forwards a mid-stream IR error in-band and fails (no settle, no throw)', async () => {
+    const events: ChatStreamEvent[] = [];
+    for await (const ev of createChatSettlingStream(deps({}, fakeChatAdapterError()))) {
+      events.push(ev);
+    }
+    // The error event is DELIVERED to the consumer (so the dialect renderer can
+    // frame it), never thrown — and the job fails/releases the hold (no charge).
+    expect(events.map((e) => e.type)).toEqual(['message_start', 'content_delta', 'error']);
+    expect(failCalls).toHaveLength(1);
+    expect(settleCalls).toHaveLength(0);
   });
 });
 

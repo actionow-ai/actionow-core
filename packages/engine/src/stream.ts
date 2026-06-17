@@ -138,7 +138,9 @@ export async function* createSettlingStream(deps: SettlingStreamDeps): AsyncGene
  * every IR {@link ChatStreamEvent} verbatim to the consumer (including the IR
  * `done`), and **settles exactly once** in `finally` via the SAME
  * `settleStream`/`failStream` helpers — on normal completion, on an IR `error`
- * event (→ fail/release + throw), AND on consumer early-`return()` (disconnect).
+ * event (→ fail/release + an in-band error frame, NOT a throw, since SSE headers
+ * are already committed), AND on consumer early-`return()` (disconnect). A
+ * no-usage end settles a measured partial, never the full hold (see below).
  *
  * Boundary mapping (CRITICAL): the IR `usage` event carries camelCase
  * `{inputTokens, outputTokens}`, but the engine `UsageVector` / `computeFinalCost`
@@ -177,10 +179,31 @@ export async function* createChatSettlingStream(
   let latestUsage: UsageVector | undefined;
   let failure: UnifiedError | undefined;
   let settled = false;
+  // Output bytes actually streamed to the consumer. When a stream ends WITHOUT a
+  // usage frame — a clean disconnect BEFORE the trailing usage event (every real
+  // adapter emits usage last), or a provider that never reports usage — this
+  // measures the partial work so the settle charges it rather than the gross
+  // over-hold ceiling (the streaming hold is a deliberately generous estimate;
+  // charging it on a no-usage abort would over-bill by orders of magnitude).
+  let streamedChars = 0;
+
+  /**
+   * Usage to settle on a clean end with NO usage frame: input estimated from the
+   * request prompt, output from the bytes actually streamed (≈4 bytes/token).
+   * Fair for a partial/aborted stream and abuse-resistant (a client that aborts
+   * just before the trailing usage frame is still billed for what it received),
+   * and always ≤ the hold ceiling so the settle cap never clamps it.
+   */
+  const measuredUsage = (): UsageVector => ({
+    input_tokens: Math.ceil(JSON.stringify(ir.messages).length / 4),
+    output_tokens: Math.ceil(streamedChars / 4),
+  });
 
   /**
    * Settle (success) or fail (release) exactly once, then — on the success path
-   * with a configured model — mirror the `usage_log` row (best-effort).
+   * with a configured model — mirror the `usage_log` row (best-effort). When no
+   * usage frame arrived, settle the {@link measuredUsage} partial, never `undefined`
+   * (which would fall to `settleStream`'s charge-the-full-hold branch).
    */
   const finalize = async (): Promise<void> => {
     if (settled) return;
@@ -189,8 +212,9 @@ export async function* createChatSettlingStream(
       await failStream(deps, failure);
       return;
     }
-    const finalCost = await settleStream(deps, latestUsage);
-    await mirrorChatUsageLog(deps, latestUsage, finalCost);
+    const usage = latestUsage ?? measuredUsage();
+    const finalCost = await settleStream(deps, usage);
+    await mirrorChatUsageLog(deps, usage, finalCost);
   };
 
   try {
@@ -200,19 +224,32 @@ export async function* createChatSettlingStream(
         // camelCase IR → snake_case engine UsageVector at the boundary.
         latestUsage = { input_tokens: ev.usage.inputTokens, output_tokens: ev.usage.outputTokens };
       }
+      // Tally what the consumer actually received, for the no-usage settle.
+      if (ev.type === 'content_delta') streamedChars += ev.text.length;
+      if (ev.type === 'tool_call_delta' && ev.argumentsDelta !== undefined) {
+        streamedChars += ev.argumentsDelta.length;
+      }
       if (ev.type === 'error') {
-        // Route to fail/release + surface the thrown error (mirrors
-        // createSettlingStream, which throws rather than yielding the error).
+        // Streaming has begun — the 200 + SSE headers are already committed, so a
+        // throw can no longer become an HTTP error; it would only corrupt the
+        // response framing and crash the global filter (ERR_HTTP_HEADERS_SENT).
+        // Forward the IR error event so the dialect renderer emits an in-band
+        // error frame, then end the stream; `finally` fails/releases the hold.
         failure = ev.error;
-        throw new EngineError(failure);
+        yield ev;
+        return;
       }
       // Forward every other IR event verbatim — including the IR `done`.
       yield ev;
     }
   } catch (err) {
-    failure ??= toUnified(err);
+    // A raw adapter throw (e.g. the upstream connection failed). Fail/release in
+    // `finally`, then surface the failure IN-BAND as an IR error event rather
+    // than re-throwing into the already-committed SSE stream.
+    const unified = failure ?? toUnified(err);
+    failure = unified;
     await finalize();
-    throw err instanceof EngineError ? err : new EngineError(failure);
+    yield { type: 'error', error: unified };
   } finally {
     // Backstop for a disconnected consumer (early `return()`): the finally still
     // settles exactly once (idempotent via `settled` + the DB transition guard).
