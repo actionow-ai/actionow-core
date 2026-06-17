@@ -1,4 +1,4 @@
-import { ArrowRightIcon, BookOpenIcon } from '@phosphor-icons/react';
+import { ArrowDownIcon, ArrowRightIcon, BookOpenIcon } from '@phosphor-icons/react';
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -85,9 +85,19 @@ export function ImmersiveHero() {
       <div
         data-r
         aria-hidden="true"
-        style={{ position: 'absolute', bottom: 'var(--s-5)', fontSize: 'var(--fs-caption)', letterSpacing: '0.14em', color: 'var(--faint)', whiteSpace: 'nowrap' }}
+        style={{
+          position: 'absolute',
+          bottom: 'var(--s-5)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          fontSize: 'var(--fs-caption)',
+          letterSpacing: '0.14em',
+          color: 'var(--faint)',
+          whiteSpace: 'nowrap',
+        }}
       >
-        ↓ {t('live.title')}
+        <ArrowDownIcon size={12} weight="bold" /> {t('live.title')}
       </div>
     </section>
   );
