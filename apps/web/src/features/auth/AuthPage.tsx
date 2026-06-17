@@ -148,11 +148,13 @@ export function AuthPage() {
     if (!card || !window.matchMedia('(prefers-reduced-motion: no-preference)').matches) return;
     gsap.fromTo(card, { x: -8 }, { x: 0, duration: DUR.slow, ease: 'elastic.out(1, 0.4)' });
     // Brief fail-border pulse, then settle back to the glass border. Resolve the
-    // tokens to concrete colors so GSAP can interpolate between them.
+    // tokens to concrete colors so GSAP can interpolate between them. clearProps
+    // drops the inline borderColor at the end so it can't shadow the theme var
+    // (and stay stale) after a later theme switch — the CSS rule takes over again.
     const styles = getComputedStyle(card);
     const fail = styles.getPropertyValue('--fail').trim();
     const rest = styles.getPropertyValue('--glass-bd').trim();
-    gsap.fromTo(card, { borderColor: fail }, { borderColor: rest, duration: DUR.slower, ease: EASE.out });
+    gsap.fromTo(card, { borderColor: fail }, { borderColor: rest, duration: DUR.slower, ease: EASE.out, clearProps: 'borderColor' });
   };
 
   // Brief success scale on the submit button before navigating. Resolves when

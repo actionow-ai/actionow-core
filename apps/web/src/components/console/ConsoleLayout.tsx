@@ -26,6 +26,7 @@ export function ConsoleLayout() {
   // Route transition: a quick enter (fade + slide-up) on the routed view each
   // time the path changes. Transform/opacity only, so the scroll/fill layout is
   // untouched; reduced-motion skips it (matchMedia no-preference branch only).
+  // revertOnUpdate reverts the prior run so per-path contexts don't accumulate.
   useGSAP(
     () => {
       const el = viewRef.current;
@@ -35,7 +36,7 @@ export function ConsoleLayout() {
         gsap.fromTo(el, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: DUR.base, ease: EASE.out });
       });
     },
-    { dependencies: [pathname] },
+    { dependencies: [pathname], revertOnUpdate: true },
   );
 
   return (
