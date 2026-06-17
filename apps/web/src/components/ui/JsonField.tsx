@@ -1,5 +1,7 @@
 import type { CSSProperties } from 'react';
 
+import { FormField, useFieldId } from './FormField';
+
 export type JsonResult = { ok: true; value: unknown } | { ok: false; error: string };
 
 /** Parse a JSON textarea value. Empty -> ok/undefined (caller decides if required). */
@@ -40,19 +42,18 @@ export function JsonField({
   error?: string;
   placeholder?: string;
 }) {
+  const fieldId = useFieldId();
   return (
-    <label style={{ display: 'block', fontSize: 'var(--fs-sm)' }}>
-      <span style={{ display: 'block', color: 'var(--muted)', marginBottom: 6 }}>{label}</span>
+    <FormField id={fieldId} label={label} error={error}>
       <textarea
+        id={fieldId}
         value={value}
         spellCheck={false}
         placeholder={placeholder}
+        aria-invalid={error !== undefined ? true : undefined}
         onChange={(e) => onChange(e.target.value)}
-        style={error !== undefined ? { ...taStyle, borderColor: 'var(--accent-2)' } : taStyle}
+        style={error !== undefined ? { ...taStyle, borderColor: 'var(--fail)' } : taStyle}
       />
-      {error !== undefined && (
-        <span style={{ display: 'block', color: 'var(--accent-2)', fontSize: 'var(--fs-caption)', marginTop: 4 }}>{error}</span>
-      )}
-    </label>
+    </FormField>
   );
 }

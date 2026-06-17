@@ -25,12 +25,14 @@ export function Select({
   options,
   placeholder,
   ariaLabel,
+  id,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: Option[];
   placeholder?: string;
   ariaLabel?: string;
+  id?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<{ left: number; top: number; width: number } | null>(null);
@@ -143,6 +145,7 @@ export function Select({
     <>
       <button
         ref={btnRef}
+        id={id}
         type="button"
         aria-label={ariaLabel}
         aria-haspopup="listbox"
