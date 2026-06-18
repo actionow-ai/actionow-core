@@ -4,11 +4,19 @@
  * row (trim key/label, keep `options` only for `enum`, keep a positive
  * `maxLength` only for `string`/`file`); `buildIoSchema` drops blank-key rows
  * and cleans the rest into the `{ inputs, outputs }` the API expects.
+ *
+ * `id` is an editor-only stable React key (minted by `emptyIoField`) so removing
+ * a middle field row doesn't strand the surviving rows' focus. `cleanField`
+ * rebuilds a fresh object and never copies it, so it never reaches the backend.
  */
+import { rowId } from '../../lib/rowId';
+
 export const IO_TYPES = ['string', 'number', 'boolean', 'enum', 'file', 'file_list'] as const;
 export type IoType = (typeof IO_TYPES)[number];
 
 export interface IoField {
+  /** Editor-only stable React key; never serialized to the backend. */
+  id?: string;
   key: string;
   type: IoType;
   label?: string;
@@ -19,7 +27,7 @@ export interface IoField {
 }
 
 export function emptyIoField(): IoField {
-  return { key: '', type: 'string', required: false };
+  return { id: rowId(), key: '', type: 'string', required: false };
 }
 
 export function cleanField(f: IoField): IoField {

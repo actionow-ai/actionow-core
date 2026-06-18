@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { BP } from '../../lib/breakpoints';
 import { useMediaQuery } from '../../lib/useMediaQuery';
+import { Z } from '../../lib/zIndex';
 import { Logo } from '../brand/Logo';
 import { LanguageSwitch } from '../layout/LanguageSwitch';
 import { ThemeToggle } from '../layout/ThemeToggle';
@@ -27,7 +28,7 @@ export function Nav() {
     { href: '#pricing', label: t('nav.docs') },
   ];
   return (
-    <header style={{ position: 'sticky', top: 0, zIndex: 40, padding: 'var(--s-3) var(--s-4)' }}>
+    <header style={{ position: 'sticky', top: 0, zIndex: Z.nav, padding: 'var(--s-3) var(--s-4)' }}>
       <nav
         className="glass"
         style={{

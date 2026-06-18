@@ -3,8 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { buildIoSchema, cleanField, emptyIoField } from './ioSchemaShape';
 
 describe('ioSchemaShape', () => {
-  it('emptyIoField is a blank string field', () => {
-    expect(emptyIoField()).toEqual({ key: '', type: 'string', required: false });
+  it('emptyIoField is a blank string field with a stable id', () => {
+    const f = emptyIoField();
+    expect(f).toMatchObject({ key: '', type: 'string', required: false });
+    expect(typeof f.id).toBe('string');
+    expect(f.id?.length ?? 0).toBeGreaterThan(0);
   });
 
   it('cleanField trims the key, keeps enum options, drops maxLength:0', () => {

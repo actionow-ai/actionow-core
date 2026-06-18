@@ -6,7 +6,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import i18n from '../../i18n';
 import type { PricebookMethod } from '../../lib/api/types';
 import type { SpecFormState } from './pricebookSpec';
-import { emptySpecForm } from './pricebookSpec';
+import { emptyDimension, emptySpecForm } from './pricebookSpec';
 import { PricebookSpecForm } from './PricebookSpecForm';
 
 beforeAll(async () => {
@@ -65,6 +65,28 @@ describe('PricebookSpecForm', () => {
     const before = screen.getAllByRole('spinbutton').length; // rate NumberFields
     await user.click(screen.getByRole('button', { name: 'Add dimension' }));
     expect(screen.getAllByRole('spinbutton').length).toBeGreaterThan(before);
+  });
+
+  it('unit: preserves surviving dimension row nodes when a middle row is removed (stable keys)', async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        method="unit"
+        initial={{
+          dimensions: [
+            { ...emptyDimension(), name: 'a' },
+            { ...emptyDimension(), name: 'b' },
+            { ...emptyDimension(), name: 'c' },
+          ],
+        }}
+      />,
+    );
+    const cBefore = screen.getByDisplayValue('c');
+    const removeButtons = screen.getAllByRole('button', { name: 'Remove dimension' });
+    await user.click(removeButtons[1]); // middle row (b)
+    const cAfter = screen.getByDisplayValue('c');
+    expect(cAfter).toBe(cBefore);
+    expect(screen.queryByDisplayValue('b')).not.toBeInTheDocument();
   });
 
   it('formula: shows a validation error for a disallowed expression', () => {

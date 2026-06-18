@@ -1,4 +1,5 @@
 import type { PricebookMethod } from '../../lib/api/types';
+import { rowId } from '../../lib/rowId';
 
 /**
  * Editable form state for the pricebook `spec` builder — a superset holding the
@@ -6,16 +7,31 @@ import type { PricebookMethod } from '../../lib/api/types';
  * branch the chosen `method` needs. All rate/cell numbers are µcredits
  * (1 credit = 1,000,000 µcredits); the human-credit `fixedCredits` lives on the
  * pricing modal (Page 1b), not here.
+ *
+ * Dimension/table rows carry an editor-only stable `id` (the React key) so
+ * removing a middle row doesn't strand the surviving rows' focus; `buildSpec`
+ * reads only name/rate and k/cell, so the id never reaches the backend.
  */
+export interface DimensionRow {
+  id?: string;
+  name: string;
+  rate: number;
+}
+export interface MatrixCellRow {
+  id?: string;
+  k: string;
+  cell: number;
+}
+
 export interface SpecFormState {
   /** unit: named dimensions → per-unit rate (µcredits). */
-  dimensions: { name: string; rate: number }[];
+  dimensions: DimensionRow[];
   /** formula: a single expression over request-param variable names. */
   expr: string;
   /** matrix: the dimension names that compose the joined table key. */
   key: string[];
   /** matrix: joined-key → µcredits cell. */
-  table: { k: string; cell: number }[];
+  table: MatrixCellRow[];
   /** matrix (optional): variable name to multiply by. */
   multiplier: string;
   /** matrix (optional): variable name charged per item. */
@@ -24,9 +40,19 @@ export interface SpecFormState {
   markup: { enabled: boolean; type: 'percent' | 'flat'; value: number };
 }
 
+/** A fresh blank unit dimension row with a stable id. */
+export function emptyDimension(): DimensionRow {
+  return { id: rowId(), name: '', rate: 0 };
+}
+
+/** A fresh blank matrix cell row with a stable id. */
+export function emptyCell(): MatrixCellRow {
+  return { id: rowId(), k: '', cell: 0 };
+}
+
 export function emptySpecForm(): SpecFormState {
   return {
-    dimensions: [{ name: '', rate: 0 }],
+    dimensions: [emptyDimension()],
     expr: '',
     key: [],
     table: [],

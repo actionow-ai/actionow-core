@@ -26,4 +26,27 @@ describe('EntityCard keyboard operability', () => {
     render(<EntityCard title="Resource A" />);
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
+
+  it('does not promote itself to a button when it renders interactive actions (valid ARIA)', async () => {
+    const user = userEvent.setup();
+    const cardClick = vi.fn();
+    const actionClick = vi.fn();
+    render(
+      <EntityCard
+        title="Resource A"
+        onClick={cardClick}
+        actions={
+          <button type="button" onClick={actionClick}>
+            act
+          </button>
+        }
+      />,
+    );
+    // The card itself must NOT be role=button — it can't legally nest the action button.
+    expect(screen.queryByRole('button', { name: /Resource A/ })).not.toBeInTheDocument();
+    // The action fires without also triggering the card's onClick (no double activation).
+    await user.click(screen.getByRole('button', { name: 'act' }));
+    expect(actionClick).toHaveBeenCalledTimes(1);
+    expect(cardClick).not.toHaveBeenCalled();
+  });
 });

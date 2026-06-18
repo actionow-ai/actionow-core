@@ -19,6 +19,10 @@
   --dur-instant: 0.12s; --dur-fast: 0.18s; --dur-base: 0.26s; --dur-slow: 0.42s; --dur-slower: 0.7s;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  /* stacking ladder — mirror of lib/zIndex.ts (background < base < chrome < scrim < popover < toast < tooltip) */
+  --z-background: 0; --z-base: 1; --z-nav: 40; --z-scrim: 100; --z-popover: 200; --z-toast: 300; --z-tooltip: 400;
+  /* minimum interactive hit target (WCAG 2.5.8 floor 24px; 44px = comfortable touch) */
+  --min-touch: 44px;
   /* accent gradient (accent vars are brand-constant across themes) */
   --grad-accent: linear-gradient(135deg, var(--accent), var(--accent-2));
   --track-tight: -0.03em; --track-snug: -0.015em;

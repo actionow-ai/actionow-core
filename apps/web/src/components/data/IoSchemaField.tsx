@@ -82,14 +82,14 @@ function FieldSection({
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-1)' }}>
-        <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 650, color: 'var(--text)' }}>{title}</span>
+        <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 'var(--fw-medium)', color: 'var(--text)' }}>{title}</span>
         <Tooltip text={tooltip} />
       </div>
       {rows.map((row, i) => {
         const showMaxLength = row.type === 'string' || row.type === 'file';
         return (
           <div
-            key={i}
+            key={row.id ?? i}
             className="panel"
             style={{
               display: 'flex',

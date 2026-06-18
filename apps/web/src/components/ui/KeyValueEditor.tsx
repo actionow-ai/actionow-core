@@ -5,7 +5,7 @@ import { Button } from './Button';
 import { FormField, useFieldId } from './FormField';
 import { IconButton } from './IconButton';
 import type { KvRow } from './kvRows';
-import { rowsFromObject } from './kvRows';
+import { blankRow, rowsFromObject } from './kvRows';
 
 const inputStyle = {
   flex: 1,
@@ -17,7 +17,7 @@ const inputStyle = {
   outline: 'none',
 } as const;
 
-const BLANK_ROW: KvRow = { key: '', value: '' };
+const BLANK_ROW: KvRow = blankRow();
 
 /**
  * A fully controlled add/remove key→value row editor — the structured
@@ -52,11 +52,11 @@ export function KeyValueEditor({
     onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
   };
 
-  const addRow = () => onChange([...rows, { key: '', value: '' }]);
+  const addRow = () => onChange([...rows, blankRow()]);
 
   const removeRow = (index: number) => {
     const next = rows.filter((_, i) => i !== index);
-    onChange(next.length > 0 ? next : [{ key: '', value: '' }]);
+    onChange(next.length > 0 ? next : [blankRow()]);
   };
 
   const usePreset = (preset: Record<string, string>) => onChange(rowsFromObject(preset));
@@ -74,7 +74,7 @@ export function KeyValueEditor({
           </div>
         )}
         {rows.map((row, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+          <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
             <input
               id={i === 0 ? fieldId : undefined}
               className="panel"

@@ -115,13 +115,33 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.16s ease, transform 0.16s ease;
-  z-index: 60;
+  z-index: var(--z-tooltip);
 }
 .ico-btn:hover .ico-tip,
 .ico-btn:focus-visible .ico-tip { opacity: 1; transform: translateY(-50%) translateX(0); }
 
 .select-opt:hover,
 .select-opt:focus-visible { background: var(--hover-bg); }
+
+/* Touch hit-slop: on coarse pointers, grow a small control's tap target to
+   --min-touch via a centered invisible ::before — WITHOUT changing its visible
+   size (the box stays as drawn). Desktop/fine pointers are unaffected. Very
+   dense wrapped lists may get slightly overlapping tap zones — an accepted
+   touch-only trade-off versus sub-24px targets. */
+.hit-slop { position: relative; }
+@media (pointer: coarse) {
+  .hit-slop::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    min-width: var(--min-touch);
+    min-height: var(--min-touch);
+    transform: translate(-50%, -50%);
+  }
+}
 
 /* Auth field focus accent: a warm border lift on the focused input (no blue).
    The :focus-visible ring (theme.css) still draws on keyboard focus. */
@@ -257,7 +277,7 @@
 .bg-grid {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: var(--z-background);
   pointer-events: none;
   background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
   background-size: 26px 26px;

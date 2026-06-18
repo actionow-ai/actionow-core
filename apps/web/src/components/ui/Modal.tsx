@@ -1,10 +1,15 @@
+import { XIcon } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 
+import { lockBackground } from '../../lib/inert';
 import { gsap, useGSAP } from '../../lib/motion/gsap';
 import { DUR, EASE } from '../../lib/motion/tokens';
 import { useFocusTrap } from '../../lib/useFocusTrap';
+import { Z } from '../../lib/zIndex';
+import { IconButton } from './IconButton';
 
 export function Modal({
   open,
@@ -25,6 +30,8 @@ export function Modal({
   const backdropRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  const { t } = useTranslation('console');
+
   // Mirror the latest `open` so the exit timeline's deferred onComplete reads the
   // current value, not the (stale) one captured when the timeline was built.
   const openRef = useRef(open);
@@ -36,6 +43,13 @@ export function Modal({
 
   useEffect(() => {
     if (open) setMounted(true);
+  }, [open]);
+
+  // Make the background inert/aria-hidden while open (Tab trap alone doesn't
+  // hide it from a screen reader's virtual cursor).
+  useEffect(() => {
+    if (!open) return;
+    return lockBackground();
   }, [open]);
 
   useEffect(() => {
@@ -92,7 +106,7 @@ export function Modal({
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 80,
+        zIndex: Z.scrim,
         background: 'var(--scrim)',
         display: 'flex',
         alignItems: 'center',
@@ -118,7 +132,10 @@ export function Modal({
           background: 'var(--overlay-bg)',
         }}
       >
-        <h2 style={{ margin: 0, fontSize: 'var(--fs-md)', fontWeight: 700 }}>{title}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--s-3)', flexShrink: 0 }}>
+          <h2 style={{ margin: 0, fontSize: 'var(--fs-md)', fontWeight: 'var(--fw-semibold)' }}>{title}</h2>
+          <IconButton icon={XIcon} label={t('forms.close')} onClick={onClose} size={18} />
+        </div>
         <div
           style={{
             marginTop: 'var(--s-4)',

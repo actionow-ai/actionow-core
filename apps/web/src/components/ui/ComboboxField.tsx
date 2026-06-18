@@ -3,6 +3,7 @@ import type { KeyboardEvent } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { Z } from '../../lib/zIndex';
 import { FormField, useFieldId } from './FormField';
 
 /**
@@ -79,14 +80,15 @@ export function ComboboxField({
       if (inputRef.current?.contains(target) !== true && menuRef.current?.contains(target) !== true)
         setOpen(false);
     };
-    const close = () => setOpen(false);
     document.addEventListener('mousedown', onDown);
     window.addEventListener('resize', place);
-    window.addEventListener('scroll', close, true);
+    // Reposition (don't close) on scroll so the suggestions follow the input
+    // when it lives inside a scrollable Modal/Drawer/table.
+    window.addEventListener('scroll', place, true);
     return () => {
       document.removeEventListener('mousedown', onDown);
       window.removeEventListener('resize', place);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', place, true);
     };
   }, [open]);
 
@@ -209,7 +211,7 @@ export function ComboboxField({
               left: rect.left,
               top: rect.top,
               width: rect.width,
-              zIndex: 90,
+              zIndex: Z.popover,
               maxHeight: 280,
               overflowY: 'auto',
               padding: 'var(--s-1)',

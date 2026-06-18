@@ -3,6 +3,8 @@ import type { KeyboardEvent } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { Z } from '../../lib/zIndex';
+
 export interface Option {
   value: string;
   label: string;
@@ -70,14 +72,15 @@ export function Select({
       const t = e.target as Node;
       if (btnRef.current?.contains(t) !== true && menuRef.current?.contains(t) !== true) setOpen(false);
     };
-    const close = () => setOpen(false);
     document.addEventListener('mousedown', onDown);
     window.addEventListener('resize', place);
-    window.addEventListener('scroll', close, true);
+    // Reposition (don't close) on scroll so a Select opened inside a scrollable
+    // Modal/Drawer/table follows its trigger instead of vanishing.
+    window.addEventListener('scroll', place, true);
     return () => {
       document.removeEventListener('mousedown', onDown);
       window.removeEventListener('resize', place);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', place, true);
     };
   }, [open]);
 
@@ -191,7 +194,7 @@ export function Select({
               left: rect.left,
               top: rect.top,
               width: rect.width,
-              zIndex: 90,
+              zIndex: Z.popover,
               maxHeight: 280,
               overflowY: 'auto',
               padding: 'var(--s-1)',

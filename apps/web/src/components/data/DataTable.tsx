@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { BP } from '../../lib/breakpoints';
 import { useMediaQuery } from '../../lib/useMediaQuery';
+import { Z } from '../../lib/zIndex';
 import { Checkbox } from '../ui/Checkbox';
 import { IconButton } from '../ui/IconButton';
 import { RoseLoader } from '../ui/RoseLoader';
@@ -309,8 +310,11 @@ export function DataTable<T>({
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
+                  justifyContent: 'center',
                   gap: 'var(--s-2)',
                   padding: 'var(--s-4)',
+                  // A clickable card must clear the min touch target even for a short row.
+                  minHeight: clickable ? 'var(--min-touch)' : undefined,
                   borderBottom: '1px solid var(--row-bd)',
                   background: selectedRow ? 'var(--hover-bg)' : undefined,
                 }}
@@ -636,24 +640,36 @@ function ColumnsMenu<T>({
       if (wrapRef.current?.contains(target) !== true && menuRef.current?.contains(target) !== true) setOpen(false);
     };
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') {
+        setOpen(false);
+        // Return focus to the trigger so a keyboard user isn't stranded.
+        wrapRef.current?.querySelector('button')?.focus();
+      }
     };
-    const close = () => setOpen(false);
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
     window.addEventListener('resize', place);
-    window.addEventListener('scroll', close, true);
+    // Reposition (don't close) on scroll so the columns menu follows its trigger.
+    window.addEventListener('scroll', place, true);
     return () => {
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
       window.removeEventListener('resize', place);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', place, true);
     };
   }, [open]);
 
   return (
     <div ref={wrapRef} style={{ display: 'inline-flex' }}>
-      <IconButton icon={ColumnsIcon} label={label} onClick={() => setOpen((o) => !o)} active={open} />
+      <IconButton
+        icon={ColumnsIcon}
+        label={label}
+        onClick={() => setOpen((o) => !o)}
+        active={open}
+        ariaHasPopup="dialog"
+        ariaExpanded={open}
+        ariaControls={open ? menuId : undefined}
+      />
       {open &&
         rect !== null &&
         createPortal(
@@ -671,7 +687,7 @@ function ColumnsMenu<T>({
               top: rect.top,
               left: rect.left,
               transform: 'translateX(-100%)',
-              zIndex: 90,
+              zIndex: Z.popover,
               minWidth: 180,
               maxHeight: 320,
               overflowY: 'auto',

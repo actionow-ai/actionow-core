@@ -26,7 +26,7 @@ export function RowAction({
   return (
     <button
       type="button"
-      className="row-action"
+      className="row-action hit-slop"
       data-danger={danger === true ? '' : undefined}
       aria-label={label}
       title={label}

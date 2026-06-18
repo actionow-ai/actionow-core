@@ -2,13 +2,15 @@ import { useRef } from 'react';
 
 import { gsap, useGSAP } from '../../lib/motion/gsap';
 import { EASE } from '../../lib/motion/tokens';
+import { Z } from '../../lib/zIndex';
 
 /**
  * Ambient aurora background: three warm blurred radial gradients that drift on
  * their own and react to the pointer (parallax + a cursor spotlight). This is a
  * web "aurora / mesh-gradient" approximation behind the Liquid-Glass chrome, not
- * an official Apple material. Autonomous drift respects prefers-reduced-motion;
- * pointer parallax is user-driven and stays on.
+ * an official Apple material. ALL ambient motion (autonomous drift, pointer
+ * parallax, and the cursor spotlight) is gated on `prefers-reduced-motion:
+ * no-preference`, so nothing moves when the user asks to reduce motion.
  */
 const BLOBS = [
   { key: 'b1', size: 460, css: { left: '-8%', top: '-14%' }, color: 'var(--b1)', depth: 0.05, idle: [34, -22, 9] },
@@ -62,7 +64,7 @@ export function AppBackground({ grid = false }: { grid?: boolean }) {
   );
 
   return (
-    <div ref={root} aria-hidden="true" style={{ position: 'fixed', inset: 0, overflow: 'hidden', zIndex: 0, pointerEvents: 'none' }}>
+    <div ref={root} aria-hidden="true" style={{ position: 'fixed', inset: 0, overflow: 'hidden', zIndex: Z.background, pointerEvents: 'none' }}>
       {grid && <div className="bg-grid" />}
       {BLOBS.map((b) => (
         <div key={b.key} data-blob={b.key} style={{ position: 'absolute', width: b.size, height: b.size, willChange: 'transform', ...b.css }}>

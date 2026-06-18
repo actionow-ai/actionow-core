@@ -35,8 +35,12 @@ export function EntityCard({
   selected?: boolean;
 }) {
   const clickable = onClick !== undefined;
+  // role="button" can't legally contain interactive descendants, so a card with
+  // its own `actions` stays a plain clickable card (onClick + pointer affordance)
+  // — never role=button/tabIndex/keydown. Mirrors DataTable's row-as-button rule.
+  const asButton = clickable && actions === undefined;
   const cls = `entity-card${clickable ? ' is-clickable' : ''}${selected === true ? ' is-selected' : ''}`;
-  const onKeyDown = clickable
+  const onKeyDown = asButton
     ? (e: KeyboardEvent<HTMLDivElement>) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -49,9 +53,9 @@ export function EntityCard({
       className={cls}
       onClick={onClick}
       onKeyDown={onKeyDown}
-      role={clickable ? 'button' : undefined}
-      tabIndex={clickable ? 0 : undefined}
-      aria-pressed={clickable ? selected === true : undefined}
+      role={asButton ? 'button' : undefined}
+      tabIndex={asButton ? 0 : undefined}
+      aria-pressed={asButton ? selected === true : undefined}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--s-3)' }}>
         {glyph !== undefined ? (
@@ -96,7 +100,17 @@ export function EntityCard({
       )}
 
       {actions !== undefined && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--s-2)', marginTop: 'var(--s-4)' }}>{actions}</div>
+        <div
+          // Stop action clicks/keys from bubbling to a clickable card's onClick.
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
+          }}
+          role="presentation"
+          style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--s-2)', marginTop: 'var(--s-4)' }}
+        >
+          {actions}
+        </div>
       )}
     </div>
   );

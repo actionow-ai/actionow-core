@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { DUR } from '../../lib/motion/tokens';
+import { Z } from '../../lib/zIndex';
 import type { ToastMsg } from './toast';
 import { subscribeToast } from './toast';
 
@@ -42,7 +43,7 @@ export function Toaster() {
         position: 'fixed',
         right: 'var(--s-4)',
         bottom: 'var(--s-4)',
-        zIndex: 90,
+        zIndex: Z.toast,
         display: 'flex',
         flexDirection: 'column',
         gap: 'var(--s-2)',

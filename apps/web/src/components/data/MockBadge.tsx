@@ -16,7 +16,7 @@ export function MockBadge() {
         alignItems: 'center',
         gap: 'var(--s-1)',
         fontSize: 'var(--fs-caption)',
-        fontWeight: 600,
+        fontWeight: 'var(--fw-medium)',
         whiteSpace: 'nowrap',
         padding: '3px 9px',
         borderRadius: 'var(--r-pill)',

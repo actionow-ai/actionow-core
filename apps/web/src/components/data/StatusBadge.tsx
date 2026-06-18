@@ -35,7 +35,7 @@ export function StatusBadge({ tone, label }: { tone: Tone; label: string }) {
     <span
       style={{
         fontSize: 'var(--fs-caption)',
-        fontWeight: 600,
+        fontWeight: 'var(--fw-medium)',
         padding: '3px 9px',
         borderRadius: 'var(--r-pill)',
         color: TONE_COLOR[tone],

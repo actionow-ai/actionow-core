@@ -11,7 +11,7 @@ import { SelectField } from '../ui/SelectField';
 import { TextField } from '../ui/TextField';
 import { Toggle } from '../ui/Toggle';
 import type { SpecFormState } from './pricebookSpec';
-import { validateFormula } from './pricebookSpec';
+import { emptyCell, emptyDimension, validateFormula } from './pricebookSpec';
 
 /**
  * The per-method `spec` builder. Renders only the branch the chosen `method`
@@ -35,15 +35,15 @@ export function PricebookSpecForm({
   if (method === 'unit') {
     const setDim = (i: number, patch: Partial<{ name: string; rate: number }>) =>
       onChange({ ...value, dimensions: value.dimensions.map((d, j) => (j === i ? { ...d, ...patch } : d)) });
-    const addDim = () => onChange({ ...value, dimensions: [...value.dimensions, { name: '', rate: 0 }] });
+    const addDim = () => onChange({ ...value, dimensions: [...value.dimensions, emptyDimension()] });
     const removeDim = (i: number) => {
       const next = value.dimensions.filter((_, j) => j !== i);
-      onChange({ ...value, dimensions: next.length > 0 ? next : [{ name: '', rate: 0 }] });
+      onChange({ ...value, dimensions: next.length > 0 ? next : [emptyDimension()] });
     };
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
         {value.dimensions.map((d, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--s-2)' }}>
+          <div key={d.id ?? i} style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--s-2)' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <TextField label={t('forms.spec.dimension')} value={d.name} onChange={(v) => setDim(i, { name: v })} />
             </div>
@@ -73,7 +73,7 @@ export function PricebookSpecForm({
   if (method === 'matrix') {
     const setCell = (i: number, patch: Partial<{ k: string; cell: number }>) =>
       onChange({ ...value, table: value.table.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
-    const addCell = () => onChange({ ...value, table: [...value.table, { k: '', cell: 0 }] });
+    const addCell = () => onChange({ ...value, table: [...value.table, emptyCell()] });
     const removeCell = (i: number) => onChange({ ...value, table: value.table.filter((_, j) => j !== i) });
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
@@ -84,7 +84,7 @@ export function PricebookSpecForm({
           onChange={(k) => onChange({ ...value, key: k })}
         />
         {value.table.map((r, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--s-2)' }}>
+          <div key={r.id ?? i} style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--s-2)' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <TextField
                 label={t('forms.spec.cellKey')}

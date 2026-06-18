@@ -9,7 +9,6 @@ import { IconButton } from '../../ui/IconButton';
 import { groupForPath, NAV } from '../nav-config';
 
 const RAIL_STEP = 52; // 40px button + 12px gap
-const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
 
 /** The desktop left rail: brand home, the nav-group switcher with a sliding active indicator, and the lang/theme/logout cluster. */
 export function Rail({ pathname }: { pathname: string }) {
@@ -67,7 +66,7 @@ export function Rail({ pathname }: { pathname: string }) {
             zIndex: 0,
             opacity: activeIdx >= 0 ? 1 : 0,
             transform: `translateY(${String(Math.max(activeIdx, 0) * RAIL_STEP)}px)`,
-            transition: reduced ? 'none' : `transform 0.32s ${EASE}`,
+            transition: reduced ? 'none' : 'transform var(--dur-base) var(--ease-out)',
           }}
         />
         {NAV.map((g, i) => {

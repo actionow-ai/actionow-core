@@ -1,3 +1,4 @@
+import { fieldInputStyle } from './fieldStyles';
 import { FormField, useFieldId } from './FormField';
 
 /**
@@ -47,13 +48,7 @@ export function TextField({
         aria-invalid={error !== undefined ? true : undefined}
         onChange={(e) => onChange(e.target.value)}
         className="panel"
-        style={{
-          fontSize: 'var(--fs-sm)',
-          color: 'var(--text)',
-          padding: '9px 11px',
-          borderRadius: 'var(--r-sm)',
-          outline: 'none',
-        }}
+        style={fieldInputStyle(error)}
       />
     </FormField>
   );

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 
+import { Z } from '../../../lib/zIndex';
 import { MOBILE_TABS } from '../nav-config';
 
 /** The mobile bottom tab bar (fixed), one tab per top-level destination. */
@@ -14,7 +15,7 @@ export function BottomTabs({ pathname }: { pathname: string }) {
         left: 'var(--s-3)',
         right: 'var(--s-3)',
         bottom: 'var(--s-3)',
-        zIndex: 30,
+        zIndex: Z.nav,
         borderRadius: 'var(--r-lg)',
         display: 'flex',
         justifyContent: 'space-around',
@@ -32,9 +33,11 @@ export function BottomTabs({ pathname }: { pathname: string }) {
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: 3,
+              justifyContent: 'center',
+              gap: 'var(--s-1)',
+              minHeight: 'var(--min-touch)',
               fontSize: 'var(--fs-micro)',
-              padding: '6px 12px',
+              padding: 'var(--s-2) var(--s-3)',
               borderRadius: 'var(--r-sm)',
               whiteSpace: 'nowrap',
               color: on ? 'var(--accent)' : 'var(--muted)',

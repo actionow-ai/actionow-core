@@ -34,22 +34,31 @@ export function JsonField({
   value,
   onChange,
   error,
+  hint,
+  tooltip,
+  required,
   placeholder,
+  id,
 }: {
-  label: string;
+  label?: string;
   value: string;
   onChange: (v: string) => void;
   error?: string;
+  hint?: string;
+  tooltip?: string;
+  required?: boolean;
   placeholder?: string;
+  id?: string;
 }) {
-  const fieldId = useFieldId();
+  const fieldId = useFieldId(id);
   return (
-    <FormField id={fieldId} label={label} error={error}>
+    <FormField id={fieldId} label={label} error={error} hint={hint} tooltip={tooltip} required={required}>
       <textarea
         id={fieldId}
         value={value}
         spellCheck={false}
         placeholder={placeholder}
+        required={required}
         aria-invalid={error !== undefined ? true : undefined}
         onChange={(e) => onChange(e.target.value)}
         style={error !== undefined ? { ...taStyle, borderColor: 'var(--fail)' } : taStyle}

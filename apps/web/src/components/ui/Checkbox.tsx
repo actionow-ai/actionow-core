@@ -30,6 +30,7 @@ export function Checkbox({
     <button
       type="button"
       role="checkbox"
+      className="hit-slop"
       aria-checked={indeterminate === true ? 'mixed' : checked}
       aria-label={label ?? ariaLabel}
       disabled={disabled}

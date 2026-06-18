@@ -5,7 +5,6 @@ import { useReducedMotion } from '../../../lib/motion/useReducedMotion';
 import { groupForPath } from '../nav-config';
 
 const SUBNAV_STEP = 38; // 34px item + 4px gap
-const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
 
 /** The desktop sub-navigation column for the active nav group, with a sliding highlight behind the current item. */
 export function SubNav({ pathname }: { pathname: string }) {
@@ -34,14 +33,16 @@ export function SubNav({ pathname }: { pathname: string }) {
             border: '1px solid var(--hover-bd)',
             opacity: activeIdx >= 0 ? 1 : 0,
             transform: `translateY(${String(Math.max(activeIdx, 0) * SUBNAV_STEP)}px)`,
-            transition: reduced ? 'none' : `transform 0.26s ${EASE}`,
+            transition: reduced ? 'none' : 'transform var(--dur-base) var(--ease-out)',
           }}
         />
-        {group.items.map((it, i) => (
+        {group.items.map((it) => (
           <NavLink
             key={it.to}
             to={it.to}
-            style={{
+            // Drive the active colour from NavLink's own `isActive` so it can
+            // never disagree with the `aria-current="page"` NavLink also sets.
+            style={({ isActive }) => ({
               position: 'relative',
               zIndex: 1,
               display: 'flex',
@@ -53,8 +54,8 @@ export function SubNav({ pathname }: { pathname: string }) {
               fontSize: 'var(--fs-sm)',
               whiteSpace: 'nowrap',
               textDecoration: 'none',
-              color: i === activeIdx ? 'var(--text)' : 'var(--muted)',
-            }}
+              color: isActive ? 'var(--text)' : 'var(--muted)',
+            })}
           >
             {t(`nav.${it.labelKey}`)}
           </NavLink>

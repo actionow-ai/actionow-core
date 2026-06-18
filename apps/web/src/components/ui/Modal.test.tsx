@@ -38,6 +38,20 @@ describe('Modal focus trap', () => {
   });
 });
 
+describe('Modal close affordance', () => {
+  it('closes when the header close button is clicked', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByText('trigger'));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /close/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+});
+
 /** Drives `open` from the outside so a test can flip it faster than any animation. */
 function ControlledHarness({ open }: { open: boolean }) {
   return (

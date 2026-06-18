@@ -1,3 +1,4 @@
+import { fieldInputStyle } from './fieldStyles';
 import { FormField, useFieldId } from './FormField';
 
 /**
@@ -51,13 +52,7 @@ export function NumberField({
           onChange(Number.isNaN(n) ? 0 : n);
         }}
         className="panel"
-        style={{
-          fontSize: 'var(--fs-sm)',
-          color: 'var(--text)',
-          padding: '9px 11px',
-          borderRadius: 'var(--r-sm)',
-          outline: 'none',
-        }}
+        style={fieldInputStyle(error)}
       />
     </FormField>
   );

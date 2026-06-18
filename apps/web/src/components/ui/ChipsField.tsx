@@ -74,6 +74,7 @@ export function ChipsField({
             <button
               key={chip}
               type="button"
+              className="hit-slop"
               aria-label={t('forms.removeChip', { value: chip })}
               onClick={() => remove(chip)}
               style={{
@@ -117,6 +118,7 @@ export function ChipsField({
               <button
                 key={s}
                 type="button"
+                className="hit-slop"
                 aria-label={t('forms.addChip', { value: s })}
                 onClick={() => add(s)}
                 style={{

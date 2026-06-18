@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
+import { lockBackground } from '../../lib/inert';
 import { gsap, useGSAP } from '../../lib/motion/gsap';
 import { DUR, EASE } from '../../lib/motion/tokens';
 import { useFocusTrap } from '../../lib/useFocusTrap';
+import { Z } from '../../lib/zIndex';
 import { IconButton } from './IconButton';
 
 /**
@@ -45,6 +47,13 @@ export function Drawer({
 
   useEffect(() => {
     if (open) setMounted(true);
+  }, [open]);
+
+  // Make the background inert/aria-hidden while open (Tab trap alone doesn't
+  // hide it from a screen reader's virtual cursor).
+  useEffect(() => {
+    if (!open) return;
+    return lockBackground();
   }, [open]);
 
   useEffect(() => {
@@ -101,7 +110,7 @@ export function Drawer({
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 80,
+        zIndex: Z.scrim,
         background: 'var(--scrim)',
         display: 'flex',
         justifyContent: 'flex-end',

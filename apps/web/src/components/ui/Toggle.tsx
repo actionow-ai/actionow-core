@@ -19,6 +19,7 @@ export function Toggle({
     <button
       type="button"
       role="switch"
+      className="hit-slop"
       aria-checked={checked}
       aria-label={label}
       disabled={disabled}

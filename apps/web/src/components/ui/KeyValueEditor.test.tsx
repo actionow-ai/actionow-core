@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import { KeyValueEditor } from './KeyValueEditor';
 import type { KvRow } from './kvRows';
+import { rowsFromObject } from './kvRows';
 
 beforeAll(async () => {
   await i18n.changeLanguage('en');
@@ -53,7 +54,9 @@ describe('KeyValueEditor', () => {
     await user.type(inputs[0], 'region');
     await user.type(inputs[1], 'us-east');
 
-    expect(onChange).toHaveBeenLastCalledWith([{ key: 'region', value: 'us-east' }]);
+    // Rows now carry a stable `id` (React key); assert just the wire fields.
+    const last = onChange.mock.calls.at(-1)?.[0] as KvRow[] | undefined;
+    expect(last?.map((r) => ({ key: r.key, value: r.value }))).toEqual([{ key: 'region', value: 'us-east' }]);
   });
 
   it('adds and removes rows', async () => {
@@ -72,15 +75,31 @@ describe('KeyValueEditor', () => {
     expect(screen.getAllByRole('textbox')).toHaveLength(2);
   });
 
+  it('preserves the surviving rows DOM nodes when a middle row is removed (stable keys)', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={rowsFromObject({ a: '1', b: '2', c: '3' })} />);
+
+    // Row C's key input, before the removal.
+    const cBefore = screen.getByDisplayValue('c');
+    // Buttons are [removeA, removeB, removeC, addRow]; remove the MIDDLE row (B).
+    const buttons = screen.getAllByRole('button');
+    await user.click(buttons[1]);
+
+    // With index keys React reuses node positions and strands the value/focus;
+    // with stable per-row ids the surviving node is the SAME element.
+    const cAfter = screen.getByDisplayValue('c');
+    expect(cAfter).toBe(cBefore);
+    // And row B is gone, A and C remain.
+    expect(screen.queryByDisplayValue('b')).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue('a')).toBeInTheDocument();
+  });
+
   it('re-renders new rows when the controlled value changes (regression)', async () => {
     const user = userEvent.setup();
     render(
       <Harness
-        initial={[{ key: 'region', value: 'us-east' }]}
-        swapTo={[
-          { key: 'tier', value: 'gold' },
-          { key: 'zone', value: 'b' },
-        ]}
+        initial={rowsFromObject({ region: 'us-east' })}
+        swapTo={rowsFromObject({ tier: 'gold', zone: 'b' })}
       />,
     );
 
