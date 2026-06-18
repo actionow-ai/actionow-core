@@ -241,6 +241,45 @@ describe('PaymentService', () => {
     expect(intent?.status).toBe('created');
   });
 
+  it('rolls back the event record when fulfillment fails, so a retry credits exactly once (atomicity)', async () => {
+    // The bug: insertEventIfNew committed OUTSIDE the fulfill transaction, so a
+    // crash/abort after it but before fulfillment left the event recorded with
+    // the account UN-credited — and the provider's retry was then classified as a
+    // duplicate, permanently losing the paid topup. With event-record + fulfill in
+    // ONE transaction, a fulfillment failure rolls BOTH back → the retry re-runs.
+    const { tenantId, accountId } = await seedTenantAccount(0n);
+    const svc = buildService(fakeProvider());
+    await svc.createIntent({
+      tenantId,
+      provider: 'stripe',
+      purpose: 'topup',
+      amountMinor: 1000n,
+      currency: 'usd',
+    });
+
+    // Delete the account so the first fulfillment throws (no account for tenant)
+    // at the point where the event would otherwise already be committed.
+    await db.delete(account).where(eq(account.id, accountId));
+    await expect(svc.handleWebhook('stripe', Buffer.from('{}'), {})).rejects.toBeDefined();
+
+    // The distinguishing assertion: the event row was NOT left behind (rolled back
+    // with the failed fulfillment), and the intent is still `created`.
+    expect(await db.select().from(paymentEvent)).toHaveLength(0);
+    expect((await getIntentByProviderRef(db, 'stripe', PROVIDER_REF))?.status).toBe('created');
+
+    // Operator restores the account; the provider redelivers the SAME event.
+    const [a] = await db.insert(account).values({ tenantId, creditBalance: 0n }).returning();
+    if (!a) throw new Error('account re-insert returned no row');
+    const out = await svc.handleWebhook('stripe', Buffer.from('{}'), {});
+    expect(out).toEqual({ fulfilled: true });
+
+    // Credited exactly once — the topup was never silently lost.
+    expect((await getAccount(db, a.id))?.creditBalance).toBe(10_000_000n);
+    const events = await db.select().from(paymentEvent);
+    expect(events).toHaveLength(1);
+    expect(events[0]?.processedAt).not.toBeNull();
+  });
+
   it('records but does not fulfill an order intent (no credit), marking it succeeded', async () => {
     const { tenantId, accountId } = await seedTenantAccount(0n);
     const svc = buildService(fakeProvider());

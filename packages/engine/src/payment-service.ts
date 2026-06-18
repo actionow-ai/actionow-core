@@ -66,9 +66,11 @@ export type HandleWebhookResult = { duplicate: true } | { fulfilled: true };
  * timing:
  *  - `insertEventIfNew` does `ON CONFLICT (provider, provider_event_id) DO
  *    NOTHING`, so a redelivered webhook is recognized as a duplicate and no-ops.
- *  - fulfillment (credit the ledger + transition the intent + mark the event
- *    processed) runs in ONE transaction, so a crash mid-fulfillment rolls the
- *    whole thing back and the redelivery re-runs it cleanly.
+ *  - event-recording AND fulfillment (record the event + credit the ledger +
+ *    transition the intent + mark it processed) run in ONE transaction, so a
+ *    crash/abort mid-fulfillment rolls the event row back too — the redelivery
+ *    re-runs cleanly instead of being mis-classified as a duplicate (which would
+ *    silently lose the paid topup).
  *
  * No NestJS, no HTTP — apps wrap this plain service. Fulfillment happens ONLY
  * here (a webhook), never on a redirect return.
@@ -138,67 +140,70 @@ export class PaymentService {
   ): Promise<HandleWebhookResult> {
     // Verify the signature. A bad/forged/absent signature throws here; we let it
     // propagate so the HTTP layer returns 401 (never a 200). The body is NOT
-    // recorded for an unverified event.
+    // recorded for an unverified event. Verification does no DB work, so it stays
+    // OUTSIDE the transaction below (don't hold a tx open across provider I/O).
     const event = await this.deps.providers.get(provider).verifyWebhook(rawBody, headers);
 
-    // Resolve the intent this event refers to (may be undefined for an event we
-    // never created an intent for — still recorded, but not fulfilled).
-    const intent = await getIntentByProviderRef(this.deps.db, provider, event.providerRef);
+    // Record the event AND fulfill in ONE transaction (see class doc): the
+    // `unique(provider, provider_event_id)` insert is the exactly-once anchor and
+    // must commit atomically with the credit/transition. A redelivery conflicts
+    // and no-ops; a failed fulfillment rolls the event row back so the provider's
+    // retry re-runs cleanly instead of being lost as a duplicate.
+    return this.deps.db.transaction(async (tx) => {
+      // Resolve the intent this event refers to (may be undefined for an event we
+      // never created an intent for — still recorded, but not fulfilled).
+      const intent = await getIntentByProviderRef(tx, provider, event.providerRef);
 
-    // Record the verified event idempotently. A redelivery conflicts on
-    // `unique(provider, provider_event_id)` and is a no-op.
-    const recorded = await insertEventIfNew(this.deps.db, {
-      paymentIntentId: intent?.id ?? null,
-      provider,
-      providerEventId: event.eventId,
-      type: event.type,
-      rawPayload: this.toRawPayload(event),
-      signatureOk: true,
-    });
+      const recorded = await insertEventIfNew(tx, {
+        paymentIntentId: intent?.id ?? null,
+        provider,
+        providerEventId: event.eventId,
+        type: event.type,
+        rawPayload: this.toRawPayload(event),
+        signatureOk: true,
+      });
 
-    if (!recorded.inserted || recorded.row === undefined) {
-      return { duplicate: true };
-    }
+      if (!recorded.inserted || recorded.row === undefined) {
+        return { duplicate: true };
+      }
 
-    const eventRow = recorded.row;
-
-    // Only a `succeeded` event against a known intent triggers fulfillment.
-    if (intent === undefined || event.status !== 'succeeded') {
+      // Only a `succeeded` event against a known intent triggers fulfillment.
+      if (intent !== undefined && event.status === 'succeeded') {
+        await this.fulfill(tx, intent, recorded.row.id);
+      }
       return { fulfilled: true };
-    }
-
-    await this.fulfill(intent, eventRow.id);
-    return { fulfilled: true };
+    });
   }
 
   /**
-   * Fulfill a succeeded intent in ONE transaction: for a `topup`, credit the
-   * account ledger by the frozen `creditAmount`; for any purpose, transition the
-   * intent to `succeeded` and mark the event processed. Because this is a single
-   * transaction guarded upstream by the `unique(provider, event_id)` insert, a
-   * provider retry can never double-credit.
+   * Fulfill a succeeded intent within the caller's transaction `tx`: for a
+   * `topup`, credit the account ledger by the frozen `creditAmount`; for any
+   * purpose, transition the intent to `succeeded` and mark the event processed.
+   * Runs inside the same transaction as the event-record insert (see
+   * {@link handleWebhook}), so a throw here rolls the whole unit back — and the
+   * `unique(provider, event_id)` insert guarding that unit means a provider retry
+   * can never double-credit.
    */
   private async fulfill(
+    tx: DbOrTx,
     intent: NonNullable<Awaited<ReturnType<typeof getIntentByProviderRef>>>,
     eventId: string,
   ): Promise<void> {
-    await this.deps.db.transaction(async (tx) => {
-      if (intent.purpose === 'topup') {
-        if (intent.creditAmount === null) {
-          throw engineError('internal_error', 'topup intent missing credit_amount');
-        }
-        const account = await getAccountByTenant(tx, intent.tenantId);
-        if (account === undefined) {
-          throw engineError('internal_error', `no account for tenant ${intent.tenantId}`);
-        }
-        await topUp(tx, account.id, intent.tenantId, intent.creditAmount);
+    if (intent.purpose === 'topup') {
+      if (intent.creditAmount === null) {
+        throw engineError('internal_error', 'topup intent missing credit_amount');
       }
-      // `order` / `subscription`: the intent transition below records payment;
-      // a future fulfillment hook (mark the order paid) lands here.
+      const account = await getAccountByTenant(tx, intent.tenantId);
+      if (account === undefined) {
+        throw engineError('internal_error', `no account for tenant ${intent.tenantId}`);
+      }
+      await topUp(tx, account.id, intent.tenantId, intent.creditAmount);
+    }
+    // `order` / `subscription`: the intent transition below records payment;
+    // a future fulfillment hook (mark the order paid) lands here.
 
-      await setIntentStatus(tx, intent.id, 'succeeded');
-      await markEventProcessed(tx, eventId);
-    });
+    await setIntentStatus(tx, intent.id, 'succeeded');
+    await markEventProcessed(tx, eventId);
   }
 
   /** Carry the normalized verified event as the audited `raw_payload`. */
