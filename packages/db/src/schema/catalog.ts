@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   check,
   index,
   integer,
@@ -78,6 +79,16 @@ export const upstreamChannel = pgTable(
      * `{ submitPath, pollPath, signatureHeader, timestampHeader }`; null → none.
      */
     config: jsonb('config').$type<Record<string, unknown>>(),
+    /**
+     * The operator's ACTUAL cost on THIS channel in µUSD per 1M INPUT tokens
+     * (Track 5; spec §"Altered existing tables"). Direct-provider channels ≈ the
+     * official catalog price; subscription channels (codex-oauth) ≈ 0. Drives
+     * `usage_log.provider_cost` + margin analytics ONLY — NEVER the customer
+     * price (that is `model.input_price × group_ratio`). Null → unknown cost (0).
+     */
+    inputCostPer1m: bigint('input_cost_per_1m', { mode: 'bigint' }),
+    /** The operator's ACTUAL cost on this channel in µUSD per 1M OUTPUT tokens (Track 5). Null → 0. */
+    outputCostPer1m: bigint('output_cost_per_1m', { mode: 'bigint' }),
     weight: integer('weight').notNull().default(1),
     // status allowed values: active | disabled (createUpstreamChannel default + admin update DTO)
     status: text('status').notNull().default('active'),

@@ -291,6 +291,10 @@ export interface UpdateUpstreamChannelInput {
   readonly config?: Record<string, unknown> | null | undefined;
   readonly weight?: number | undefined;
   readonly status?: string | undefined;
+  /** Operator cost on this channel in µUSD/1M INPUT tokens (Track 5); `null` clears it. */
+  readonly inputCostPer1m?: bigint | null | undefined;
+  /** Operator cost on this channel in µUSD/1M OUTPUT tokens (Track 5); `null` clears it. */
+  readonly outputCostPer1m?: bigint | null | undefined;
 }
 
 /** Patch an `upstream_channel` row (only the supplied fields), returning the new row. */
@@ -307,6 +311,8 @@ export async function updateUpstreamChannel(
   if (patch.config !== undefined) set.config = patch.config;
   if (patch.weight !== undefined) set.weight = patch.weight;
   if (patch.status !== undefined) set.status = patch.status;
+  if (patch.inputCostPer1m !== undefined) set.inputCostPer1m = patch.inputCostPer1m;
+  if (patch.outputCostPer1m !== undefined) set.outputCostPer1m = patch.outputCostPer1m;
   if (Object.keys(set).length === 0) {
     const rows = await db
       .select()
@@ -812,6 +818,10 @@ export interface CreateUpstreamChannelInput {
   readonly config?: Record<string, unknown> | null | undefined;
   readonly weight?: number | undefined;
   readonly status?: string | undefined;
+  /** Operator cost on this channel in µUSD per 1M INPUT tokens (Track 5); null → unknown (0). */
+  readonly inputCostPer1m?: bigint | null | undefined;
+  /** Operator cost on this channel in µUSD per 1M OUTPUT tokens (Track 5); null → unknown (0). */
+  readonly outputCostPer1m?: bigint | null | undefined;
 }
 
 /** Insert an `upstream_channel` routing row for a resource. */
@@ -831,6 +841,8 @@ export async function createUpstreamChannel(
       config: input.config ?? null,
       weight: input.weight ?? 1,
       status: input.status ?? 'active',
+      inputCostPer1m: input.inputCostPer1m ?? null,
+      outputCostPer1m: input.outputCostPer1m ?? null,
     })
     .returning();
   const row = rows[0];

@@ -110,6 +110,41 @@ describe('rollupUsage (P1c.2)', () => {
     expect(byModel.map((r) => r.bucket)).toEqual(['claude-3', 'gpt-4o']);
   });
 
+  it('sums provider_cost and derives margin = sum(cost) − sum(provider_cost) (Track 5)', async () => {
+    const tenantId = await makeTenant('margin');
+    // Two rows: cost 1000/2000, provider_cost 400/null (null → 0). Sum cost=3000,
+    // sum provider_cost=400 → margin=2600.
+    await insertUsageLog(db, {
+      tenantId,
+      model: 'm',
+      inputTokens: 10,
+      outputTokens: 5,
+      cost: 1000n,
+      providerCost: 400n,
+      status: 'succeeded',
+    });
+    await insertUsageLog(db, {
+      tenantId,
+      model: 'm',
+      inputTokens: 20,
+      outputTokens: 7,
+      cost: 2000n,
+      // provider_cost omitted → null → contributes 0 to the sum.
+      status: 'succeeded',
+    });
+
+    const rows = await rollupUsage(db, { groupBy: 'model', tenantId });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      bucket: 'm',
+      cost: 3000n,
+      providerCost: 400n,
+      margin: 2600n,
+    });
+    expect(typeof rows[0]?.providerCost).toBe('bigint');
+    expect(typeof rows[0]?.margin).toBe('bigint');
+  });
+
   it('groups by day with an ISO date-string bucket', async () => {
     const tenantId = await makeTenant('days');
     const a = await insertUsageLog(db, {

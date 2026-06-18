@@ -24,6 +24,14 @@ export const usageLog = pgTable(
     cost: bigint('cost', { mode: 'bigint' })
       .notNull()
       .default(sql`0`),
+    /**
+     * The SERVED upstream channel's ACTUAL cost for THIS call in µUSD (Track 5):
+     * `roundHalfUp((in×ch.input_cost_per_1m + out×ch.output_cost_per_1m) / 1e6)`.
+     * Margin = `cost − provider_cost`. Null when the served channel carried no
+     * cost columns (unknown cost) or pre-Track-5. Does NOT affect the customer
+     * charge (`cost`) — it is the operator's cost basis for margin analytics.
+     */
+    providerCost: bigint('provider_cost', { mode: 'bigint' }),
     latencyMs: bigint('latency_ms', { mode: 'number' }),
     // status allowed values: succeeded | failed | canceled (insertUsageLog)
     status: text('status').notNull(),

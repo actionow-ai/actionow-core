@@ -15,6 +15,11 @@ export interface InsertUsageLogInput {
   readonly outputTokens?: number | undefined;
   /** Final µcredit charge (mirrors the settle cost). Defaults to 0. */
   readonly cost?: bigint | undefined;
+  /**
+   * The served channel's ACTUAL cost for the call in µUSD (Track 5); omit/undefined
+   * → null (unknown cost). `margin = cost − provider_cost`.
+   */
+  readonly providerCost?: bigint | undefined;
   readonly latencyMs?: number | null | undefined;
   /** `succeeded` | `failed` | `canceled`. */
   readonly status: string;
@@ -36,6 +41,7 @@ export async function insertUsageLog(db: DbOrTx, input: InsertUsageLogInput): Pr
       ...(input.inputTokens !== undefined ? { inputTokens: input.inputTokens } : {}),
       ...(input.outputTokens !== undefined ? { outputTokens: input.outputTokens } : {}),
       ...(input.cost !== undefined ? { cost: input.cost } : {}),
+      providerCost: input.providerCost ?? null,
       ...(input.latencyMs !== undefined ? { latencyMs: input.latencyMs } : {}),
       status: input.status,
       channelId: input.channelId ?? null,
@@ -88,6 +94,10 @@ export interface UsageRollupRow {
   outputTokens: bigint;
   /** `sum(cost)` in µcredits — bigint, never float. */
   cost: bigint;
+  /** `sum(provider_cost)` (the served channels' actual cost) in µUSD — bigint (Track 5). */
+  providerCost: bigint;
+  /** `sum(cost) − sum(provider_cost)` — the operator margin in µUSD, bigint (Track 5). */
+  margin: bigint;
   /** `count(*)` where `status <> 'succeeded'`. */
   errors: number;
 }
@@ -115,6 +125,7 @@ interface RawRollupRow {
   inputTokens: string | number | null;
   outputTokens: string | number | null;
   cost: string | number | null;
+  providerCost: string | number | null;
   errors: string | number | null;
 }
 
@@ -158,6 +169,8 @@ export async function rollupUsage(db: DbOrTx, q: UsageRollupQuery): Promise<Usag
       inputTokens: sql<string>`coalesce(sum(${usageLog.inputTokens}), 0)`,
       outputTokens: sql<string>`coalesce(sum(${usageLog.outputTokens}), 0)`,
       cost: sql<string>`coalesce(sum(${usageLog.cost}), 0)`,
+      // A NULL provider_cost (unknown channel cost) contributes 0 to the sum.
+      providerCost: sql<string>`coalesce(sum(${usageLog.providerCost}), 0)`,
       errors: sql<string>`count(*) filter (where ${usageLog.status} <> 'succeeded')`,
     })
     .from(usageLog)
@@ -165,12 +178,19 @@ export async function rollupUsage(db: DbOrTx, q: UsageRollupQuery): Promise<Usag
     .groupBy(sql`1`)
     .orderBy(bucket);
 
-  return (rows as RawRollupRow[]).map((r) => ({
-    bucket: r.bucket,
-    requests: Number(r.requests ?? 0),
-    inputTokens: BigInt(r.inputTokens ?? 0),
-    outputTokens: BigInt(r.outputTokens ?? 0),
-    cost: BigInt(r.cost ?? 0),
-    errors: Number(r.errors ?? 0),
-  }));
+  return (rows as RawRollupRow[]).map((r) => {
+    const cost = BigInt(r.cost ?? 0);
+    const providerCost = BigInt(r.providerCost ?? 0);
+    return {
+      bucket: r.bucket,
+      requests: Number(r.requests ?? 0),
+      inputTokens: BigInt(r.inputTokens ?? 0),
+      outputTokens: BigInt(r.outputTokens ?? 0),
+      cost,
+      providerCost,
+      // margin = sum(cost) − sum(provider_cost), computed in bigint (never float).
+      margin: cost - providerCost,
+      errors: Number(r.errors ?? 0),
+    };
+  });
 }
