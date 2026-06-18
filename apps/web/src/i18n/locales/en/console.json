@@ -13,6 +13,8 @@
     "registered": "Account created, welcome",
     "loggedIn": "Signed in",
     "failed": "Failed, check your email or password",
+    "retryInSeconds": "Try again in {{seconds}}s",
+    "passwordPolicy": "8–256 characters",
     "or": "or",
     "oauthGoogle": "Continue with Google",
     "oauthGithub": "Continue with GitHub",

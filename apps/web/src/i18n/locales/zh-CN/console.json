@@ -13,6 +13,8 @@
     "registered": "账号已创建,欢迎使用",
     "loggedIn": "登录成功",
     "failed": "操作失败,请检查邮箱或密码",
+    "retryInSeconds": "{{seconds}} 秒后重试",
+    "passwordPolicy": "8–256 个字符",
     "or": "或",
     "oauthGoogle": "用 Google 继续",
     "oauthGithub": "用 GitHub 继续",

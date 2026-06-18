@@ -1,5 +1,5 @@
 import { ArrowRightIcon, CheckCircleIcon } from '@phosphor-icons/react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -95,11 +95,20 @@ export function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  // Seconds left on the login-throttle cooldown (from a 429's retry_after_ms).
+  const [cooldown, setCooldown] = useState(0);
   const root = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLFormElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const submitRef = useRef<HTMLDivElement>(null);
   const isFirstMode = useRef(true);
+
+  // Tick the throttle cooldown down once per second; cleared on unmount.
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [cooldown]);
 
   useGSAP(
     () => {
@@ -169,6 +178,7 @@ export function AuthPage() {
   };
 
   const submit = async () => {
+    if (busy || cooldown > 0) return;
     setBusy(true);
     try {
       const user = mode === 'login' ? await login(email, password) : await register(email, password);
@@ -177,8 +187,20 @@ export function AuthPage() {
       void navigate(user.role === 'admin' ? '/console/dashboard' : '/app', { replace: true });
     } catch (err) {
       shake();
-      if (err instanceof ApiError) toast(t(`errors.${err.code}`, t('auth.failed')), 'error');
-      else toast(t('errors.network'), 'error');
+      if (err instanceof ApiError) {
+        if (err.status === 429) {
+          // Login throttle — start a visible cooldown from the server's retry_after_ms.
+          setCooldown(Math.max(1, Math.ceil((err.retryAfterMs ?? 30000) / 1000)));
+          toast(t('errors.rate_limited', t('auth.failed')), 'error');
+        } else if (err.code === 'invalid_input') {
+          // Surface the backend's specific reason (e.g. the password policy), not a generic message.
+          toast(err.message, 'error');
+        } else {
+          toast(t(`errors.${err.code}`, t('auth.failed')), 'error');
+        }
+      } else {
+        toast(t('errors.network'), 'error');
+      }
     } finally {
       setBusy(false);
     }
@@ -217,11 +239,22 @@ export function AuthPage() {
             value={password}
             onChange={setPassword}
             required
+            // The backend enforces 8–256 on register only; hint it client-side.
+            minLength={mode === 'register' ? 8 : undefined}
+            maxLength={mode === 'register' ? 256 : undefined}
+            hint={mode === 'register' ? t('auth.passwordPolicy') : undefined}
           />
 
           <div ref={submitRef} style={{ display: 'flex', flexDirection: 'column' }}>
-            <Button variant="cta" size="lg" type="submit" loading={busy}>
-              {t(mode === 'login' ? 'auth.loginSubmit' : 'auth.registerSubmit')} <ArrowRightIcon size={16} weight="bold" />
+            <Button variant="cta" size="lg" type="submit" loading={busy} disabled={cooldown > 0}>
+              {cooldown > 0 ? (
+                t('auth.retryInSeconds', { seconds: cooldown })
+              ) : (
+                <>
+                  {t(mode === 'login' ? 'auth.loginSubmit' : 'auth.registerSubmit')}{' '}
+                  <ArrowRightIcon size={16} weight="bold" />
+                </>
+              )}
             </Button>
           </div>
 
