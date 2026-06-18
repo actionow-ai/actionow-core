@@ -1,10 +1,12 @@
 import type { Database } from '@actionow/db';
 import {
+  addChannelToGroup,
   createAccount,
   createApiKey,
   createDb,
   createPricebookEntry,
   createResource,
+  createRouteGroup,
   createSecretRef,
   createTenant,
   createUpstreamChannel,
@@ -12,8 +14,11 @@ import {
   findUserByEmail,
   getAccountByTenant,
   getResource,
+  getRouteGroupByName,
   listApiKeys,
+  listChannels,
   listTenants,
+  setApiKeyGroup,
   topUp,
 } from '@actionow/db';
 import { creditsToMicro } from '@actionow/domain';
@@ -54,6 +59,13 @@ export const SEED_ADMIN_EMAIL = 'admin@actionow.local';
 export const SEED_ADMIN_PASSWORD = 'actionow-dev-password';
 export const SEED_RESOURCE_ID = 'openai-gpt';
 export const SEED_OPENING_CREDITS = 100;
+/**
+ * The well-known `default` route group (分组; Track 3). Always exists after a
+ * seed, at ratio 10000 (1.0×); a key with no `route_group_id` falls back to it
+ * at routing time (Track 4). The seeded key is bound to it and the seeded chat
+ * channels join it. NOTE: additive only — nothing routes/prices by it yet.
+ */
+export const SEED_DEFAULT_GROUP_NAME = 'default';
 /** Provider type the seeded resource routes to (an openai-compatible adapter). */
 export const SEED_PROVIDER_TYPE = 'openai';
 /** The env secret ref the seeded upstream channel resolves its credential from. */
@@ -81,6 +93,8 @@ export interface SeedResult {
   readonly accountId: string;
   readonly adminEmail: string;
   readonly resourceId: string;
+  /** The well-known `default` route group's id (分组; Track 3). */
+  readonly defaultGroupId: string;
   /**
    * The freshly-minted API key plaintext, or `null` when the tenant already had
    * keys (the plaintext is unrecoverable, so the seed does not mint another).
@@ -172,13 +186,68 @@ export async function seedAll(db: Database, options: SeedOptions = {}): Promise<
     apiKey = created.plaintext;
   }
 
+  // 6. Track 3: the well-known `default` route group (ratio 10000), the seeded
+  //    key bound to it, and the seeded chat channels joined to it (priority 0,
+  //    weight 1). Additive only — nothing routes/prices by the group yet (Track
+  //    4/5); the group merely exists so the wiring is in place + manageable.
+  const defaultGroupId = await seedDefaultRouteGroup(db, tenantId);
+
   return {
     tenantId,
     accountId,
     adminEmail: SEED_ADMIN_EMAIL,
     resourceId: SEED_RESOURCE_ID,
+    defaultGroupId,
     apiKey,
   };
+}
+
+/**
+ * Idempotently establish the Track-3 `default` route group and its wiring:
+ *
+ *  - create the `default` group (ratio 10000) if absent (its partial-unique name
+ *    means a re-run finds the existing live row instead of inserting a dup);
+ *  - bind EVERY live key of the seed tenant that has no group to `default`
+ *    (`setApiKeyGroup` writes the same value on re-runs → idempotent);
+ *  - add the channels of the given chat resources to `default` with priority 0 /
+ *    weight 1 (`addChannelToGroup` upserts on the `(group, channel)` PK → no
+ *    dup). `listChannels` returns `[]` for an absent resource, so a resource that
+ *    is not seeded yet (e.g. the runtime-provisioned codex channel) is simply
+ *    skipped until it exists.
+ *
+ * Returns the `default` group's id. Network-free; safe to re-run.
+ */
+async function seedDefaultRouteGroup(
+  db: Database,
+  tenantId: string,
+  chatResourceIds: readonly string[] = [SEED_RESOURCE_ID],
+): Promise<string> {
+  const existing = await getRouteGroupByName(db, SEED_DEFAULT_GROUP_NAME);
+  const group =
+    existing ??
+    (await createRouteGroup(db, {
+      name: SEED_DEFAULT_GROUP_NAME,
+      groupRatioBps: 10000,
+      description: 'Well-known default group (1.0×); the fallback group for unbound keys.',
+    }));
+
+  // Bind every unbound live key of the seed tenant to the default group.
+  const { rows: keys } = await listApiKeys(db, tenantId, { limit: 200 });
+  for (const key of keys) {
+    if (key.routeGroupId === null) {
+      await setApiKeyGroup(db, key.id, group.id);
+    }
+  }
+
+  // Add the seeded chat channels to the default group (priority 0, weight 1).
+  for (const resourceId of chatResourceIds) {
+    const channels = await listChannels(db, resourceId);
+    for (const channel of channels) {
+      await addChannelToGroup(db, { groupId: group.id, channelId: channel.id });
+    }
+  }
+
+  return group.id;
 }
 
 /**

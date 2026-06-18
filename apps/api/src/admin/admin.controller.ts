@@ -28,6 +28,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
   UseInterceptors,
@@ -494,7 +495,7 @@ export class AdminController {
     return mapPageEnvelope(result, (r) => r.id, toApiKeyView);
   }
 
-  @Patch('api-keys/:id')
+  @Patch('api-keys/:id/group')
   @ApiOperation({ summary: "(Re)bind an API key's route group (routeGroupId: uuid | null)" })
   async bindApiKeyGroup(
     @Param('id') id: string,
@@ -1039,15 +1040,16 @@ export class AdminController {
     await this.admin.deleteRouteGroup(id);
   }
 
-  @Post('route-groups/:id/channels')
-  @HttpCode(201)
-  @Idempotent()
-  @ApiOperation({ summary: 'Add a channel to a route group (with priority/weight; upserts)' })
+  @Put('route-groups/:id/channels/:channelId')
+  @ApiOperation({
+    summary: "Add/update a channel's membership in a route group (priority/weight; upserts)",
+  })
   async addGroupChannel(
     @Param('id') id: string,
+    @Param('channelId') channelId: string,
     @Body(new ZodBody(addGroupChannelSchema)) dto: AddGroupChannelDto,
   ): Promise<RouteGroupChannelView> {
-    return toRouteGroupChannelView(await this.admin.addChannelToGroup(id, dto));
+    return toRouteGroupChannelView(await this.admin.addChannelToGroup(id, channelId, dto));
   }
 
   @Get('route-groups/:id/channels')

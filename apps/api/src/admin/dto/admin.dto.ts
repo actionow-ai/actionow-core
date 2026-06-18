@@ -58,7 +58,7 @@ export const createApiKeySchema = z.object({
 export type CreateApiKeyDto = z.infer<typeof createApiKeySchema>;
 
 /**
- * `PATCH /admin/api-keys/:id` — (re)bind a key's route group (Track 3). The
+ * `PATCH /admin/api-keys/:id/group` — (re)bind a key's route group (Track 3). The
  * `routeGroupId` is REQUIRED on the body but nullable: a uuid binds the key,
  * `null` unbinds it (→ the `default` group resolves at routing time). The
  * service validates a non-null group exists.
@@ -489,13 +489,15 @@ export const updateRouteGroupSchema = z.object({
 export type UpdateRouteGroupDto = z.infer<typeof updateRouteGroupSchema>;
 
 /**
- * `POST /admin/route-groups/:id/channels` — add a channel to a group with its
- * per-(group,channel) routing knobs. `priority` (HIGHER = tried first) and
- * `weight` (weighted-random within a tier) default to 0/1. An add of an
- * already-member channel upserts (updates priority/weight).
+ * `PUT /admin/route-groups/:id/channels/:channelId` — add (or update) a channel's
+ * membership in a group with its per-(group,channel) routing knobs. The `:id`
+ * (group) and `:channelId` come from the PATH; the BODY carries only `priority`
+ * (HIGHER = tried first) and `weight` (weighted-random within a tier), which
+ * default to 0/1. A PUT for an already-member channel upserts (updates
+ * priority/weight) — the PUT verb makes the upsert idempotent on the membership
+ * URL.
  */
 export const addGroupChannelSchema = z.object({
-  channelId: z.string().uuid(),
   /** HIGHER = tried first (fallback tier). Defaults to 0. */
   priority: z.number().int().optional(),
   /** Weighted-random weight within a priority tier. Defaults to 1. */

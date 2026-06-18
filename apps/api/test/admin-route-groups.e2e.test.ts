@@ -14,10 +14,10 @@ import { DB, ENV } from '../src/common/tokens.js';
 
 /**
  * E2E for the route-group (分组; Track 3) admin CRUD: group CRUD (create→get→patch
- * ratio→delete→404), channel membership (add→list shows priority/weight→remove),
- * and the api-key group binding (POST routeGroupId + PATCH routeGroupId →
- * reflected; bind to a nonexistent group → 404). This track is ADDITIVE — no
- * routing/pricing behavior changes.
+ * ratio→delete→404), channel membership (PUT add/upsert→list shows
+ * priority/weight→DELETE remove), and the api-key group binding (POST
+ * routeGroupId + PATCH /group routeGroupId → reflected; bind to a nonexistent
+ * group → 404). This track is ADDITIVE — no routing/pricing behavior changes.
  */
 
 const ADMIN_SECRET = 'op-admin-secret';
@@ -170,13 +170,24 @@ describe('admin route-group channel membership', () => {
       .expect(201);
     const groupId = group.body.id as string;
 
-    // Add the channel with explicit priority/weight.
-    const added = await auth(request(server()).post(`/admin/route-groups/${groupId}/channels`))
-      .send({ channelId, priority: 7, weight: 4 })
-      .expect(201);
+    // Add the channel with explicit priority/weight (PUT to the membership URL).
+    const added = await auth(
+      request(server()).put(`/admin/route-groups/${groupId}/channels/${channelId}`),
+    )
+      .send({ priority: 7, weight: 4 })
+      .expect(200);
     expect(added.body.channel_id).toBe(channelId);
     expect(added.body.priority).toBe(7);
     expect(added.body.weight).toBe(4);
+
+    // PUT again with new knobs → upserts (idempotent on the membership URL).
+    const reput = await auth(
+      request(server()).put(`/admin/route-groups/${groupId}/channels/${channelId}`),
+    )
+      .send({ priority: 9, weight: 6 })
+      .expect(200);
+    expect(reput.body.priority).toBe(9);
+    expect(reput.body.weight).toBe(6);
 
     // List shows the membership with its priority/weight (paginated envelope).
     const listed = await auth(
@@ -184,10 +195,10 @@ describe('admin route-group channel membership', () => {
     ).expect(200);
     expect(listed.body).toHaveProperty('data');
     const rows = listed.body.data as { channel_id: string; priority: number; weight: number }[];
-    expect(rows).toHaveLength(1);
+    expect(rows).toHaveLength(1); // upsert did not create a duplicate row
     expect(rows[0]?.channel_id).toBe(channelId);
-    expect(rows[0]?.priority).toBe(7);
-    expect(rows[0]?.weight).toBe(4);
+    expect(rows[0]?.priority).toBe(9);
+    expect(rows[0]?.weight).toBe(6);
 
     // Remove → 204; list is then empty.
     await auth(
@@ -208,12 +219,12 @@ describe('admin route-group channel membership', () => {
     const groupId = group.body.id as string;
 
     // unknown group → 404
-    await auth(request(server()).post(`/admin/route-groups/${NIL_UUID}/channels`))
-      .send({ channelId })
+    await auth(request(server()).put(`/admin/route-groups/${NIL_UUID}/channels/${channelId}`))
+      .send({})
       .expect(404);
     // unknown channel → 404
-    await auth(request(server()).post(`/admin/route-groups/${groupId}/channels`))
-      .send({ channelId: NIL_UUID })
+    await auth(request(server()).put(`/admin/route-groups/${groupId}/channels/${NIL_UUID}`))
+      .send({})
       .expect(404);
     // removing a non-member channel from a known group → 404
     await auth(
@@ -248,7 +259,7 @@ describe('admin api-key route-group binding', () => {
     ).toBe(g1.body.id);
 
     // PATCH rebind to g2.
-    const rebound = await auth(request(server()).patch(`/admin/api-keys/${keyId}`))
+    const rebound = await auth(request(server()).patch(`/admin/api-keys/${keyId}/group`))
       .send({ routeGroupId: g2.body.id })
       .expect(200);
     expect(rebound.body.route_group_id).toBe(g2.body.id);
@@ -262,7 +273,7 @@ describe('admin api-key route-group binding', () => {
     ).toBe(g2.body.id);
 
     // PATCH unbind (null → default group at routing time).
-    const unbound = await auth(request(server()).patch(`/admin/api-keys/${keyId}`))
+    const unbound = await auth(request(server()).patch(`/admin/api-keys/${keyId}/group`))
       .send({ routeGroupId: null })
       .expect(200);
     expect(unbound.body.route_group_id).toBeNull();
@@ -281,7 +292,7 @@ describe('admin api-key route-group binding', () => {
       .send({ tenantId })
       .expect(201);
     const keyId = created.body.id as string;
-    await auth(request(server()).patch(`/admin/api-keys/${keyId}`))
+    await auth(request(server()).patch(`/admin/api-keys/${keyId}/group`))
       .send({ routeGroupId: NIL_UUID })
       .expect(404);
 
@@ -289,7 +300,7 @@ describe('admin api-key route-group binding', () => {
     const group = await auth(request(server()).post('/admin/route-groups'))
       .send({ name: 'g' })
       .expect(201);
-    await auth(request(server()).patch(`/admin/api-keys/${NIL_UUID}`))
+    await auth(request(server()).patch(`/admin/api-keys/${NIL_UUID}/group`))
       .send({ routeGroupId: group.body.id })
       .expect(404);
   });

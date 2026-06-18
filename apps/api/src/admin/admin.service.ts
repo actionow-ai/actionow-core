@@ -1398,15 +1398,19 @@ export class AdminService {
    * soft-deleted) exist first. `priority` (HIGHER = tried first) and `weight`
    * default to 0/1.
    */
-  async addChannelToGroup(groupId: string, dto: AddGroupChannelDto): Promise<RouteGroupChannelRow> {
+  async addChannelToGroup(
+    groupId: string,
+    channelId: string,
+    dto: AddGroupChannelDto,
+  ): Promise<RouteGroupChannelRow> {
     await this.requireRouteGroup(groupId);
-    const channel = await getChannelById(this.db, dto.channelId);
+    const channel = await getChannelById(this.db, channelId);
     if (channel === undefined) {
-      throw engineNotFound(`channel ${dto.channelId} not found`);
+      throw engineNotFound(`channel ${channelId} not found`);
     }
     return addChannelToGroup(this.db, {
       groupId,
-      channelId: dto.channelId,
+      channelId,
       ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
       ...(dto.weight !== undefined ? { weight: dto.weight } : {}),
     });
