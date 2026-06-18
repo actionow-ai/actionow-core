@@ -17,6 +17,8 @@ export interface ApiKeyView {
   resource_allowlist: string[];
   rate_limit: number | null;
   status: string;
+  /** The bound route group (also sets the customer price ratio). Null = `default`. */
+  route_group_id: string | null;
   created_at: string;
 }
 export interface ApiKeyCreatedView {
@@ -63,6 +65,12 @@ export interface CreateApiKeyBody {
   tenantId: string;
   resourceAllowlist?: string[];
   rateLimit?: number;
+  /** Bind the key to a route group at creation (omit for the `default` group). */
+  routeGroupId?: string;
+}
+/** PATCH an api-key's route-group binding. `null` unbinds → the `default` group. */
+export interface UpdateApiKeyGroupBody {
+  routeGroupId: string | null;
 }
 
 // --- Catalog (operator) ---
@@ -99,6 +107,9 @@ export interface ChannelView {
   config: Record<string, unknown> | null;
   weight: number;
   status: string;
+  /** Operator cost, µUSD per 1M tokens (decimal string) — NOT the customer price. Null = unset. */
+  input_cost_per_1m: string | null;
+  output_cost_per_1m: string | null;
 }
 export interface DifyImportView {
   resource_id: string;
@@ -155,6 +166,10 @@ export interface UsageRollupView {
   input_tokens: string;
   output_tokens: string;
   cost: string;
+  /** Operator's upstream cost for the bucket (µUSD decimal string). */
+  provider_cost: string;
+  /** cost − provider_cost (µUSD decimal string; can be NEGATIVE). */
+  margin: string;
   errors: number;
 }
 
@@ -234,6 +249,91 @@ export interface RouteGroupChannel {
   weight: number;
 }
 
+// --- Billing & routing (REAL /admin/* wire types — LIVE on main) -----------
+// These replace the mock skeleton above as each page de-mocks; the mock
+// RouteGroup/RouteGroupChannel/OfficialModelPrice stay only until their last
+// consumer (RouteGroupsPage / OfficialPricesPage) migrates.
+
+/** A route group as served by GET /admin/route-groups (snake_case). */
+export interface RouteGroupView {
+  id: string;
+  name: string;
+  /** Group price ratio in basis points — 10000 = ×1.00 (integer, NOT a money string). */
+  group_ratio_bps: number;
+  status: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+/** A channel's membership in a route group. */
+export interface RouteGroupChannelView {
+  group_id: string;
+  channel_id: string;
+  priority: number;
+  weight: number;
+  created_at: string;
+}
+export interface CreateRouteGroupBody {
+  name: string;
+  groupRatioBps?: number;
+  description?: string;
+  status?: 'active' | 'disabled';
+}
+/** PATCH a route group: omitted = unchanged; `description: null` clears it. */
+export interface UpdateRouteGroupBody {
+  name?: string;
+  groupRatioBps?: number;
+  status?: 'active' | 'disabled';
+  description?: string | null;
+}
+/** PUT membership upsert body (defaults priority=0, weight=1). */
+export interface AddGroupChannelBody {
+  priority?: number;
+  weight?: number;
+}
+
+/** An official price as served by GET /admin/official-prices (snake_case, µUSD/1M decimal strings). */
+export interface OfficialPriceView {
+  id: string;
+  provider: string;
+  model_slug: string;
+  display_name: string | null;
+  /** µUSD per 1M input tokens (decimal string — divide by 1e6 to show USD). */
+  input_price_per_1m: string;
+  output_price_per_1m: string;
+  cached_input_price_per_1m: string | null;
+  source_url: string | null;
+  /** Full ISO-8601 timestamp the price takes effect. */
+  effective_at: string | null;
+  notes: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+/** POST /admin/official-prices — camelCase, HUMAN USD per 1M (the server multiplies to µUSD). */
+export interface CreateOfficialPriceBody {
+  provider: string;
+  modelSlug: string;
+  displayName?: string;
+  inputUsdPer1m: number;
+  outputUsdPer1m: number;
+  cachedInputUsdPer1m?: number;
+  sourceUrl?: string;
+  /** Full ISO-8601 timestamp (append T00:00:00Z to a yyyy-mm-dd date). */
+  effectiveAt?: string;
+  notes?: string;
+}
+/** PATCH /admin/official-prices/:id — provider/modelSlug NOT patchable; null clears a nullable field. */
+export interface UpdateOfficialPriceBody {
+  displayName?: string | null;
+  inputUsdPer1m?: number;
+  outputUsdPer1m?: number;
+  cachedInputUsdPer1m?: number | null;
+  sourceUrl?: string | null;
+  effectiveAt?: string | null;
+  notes?: string | null;
+}
+
 export type Modality = 'text' | 'image' | 'video' | 'audio' | 'composite';
 export type PricebookMethod = 'unit' | 'matrix' | 'fixed' | 'formula' | 'passthrough';
 export type PricebookTiming = 'pre' | 'post';
@@ -280,6 +380,9 @@ export interface CreateChannelBody {
   config?: Record<string, unknown>;
   weight?: number;
   status?: ChannelStatus;
+  /** Operator cost in HUMAN USD per 1M tokens (server stores as µUSD). */
+  inputCostUsdPer1m?: number;
+  outputCostUsdPer1m?: number;
 }
 /** PATCH a channel: omitted = unchanged; `null` clears a nullable field. */
 export interface UpdateChannelBody {
@@ -290,6 +393,9 @@ export interface UpdateChannelBody {
   config?: Record<string, unknown> | null;
   weight?: number;
   status?: ChannelStatus;
+  /** HUMAN USD per 1M tokens; `null` clears the cost. */
+  inputCostUsdPer1m?: number | null;
+  outputCostUsdPer1m?: number | null;
 }
 export interface CreatePricebookBody {
   resourceId: string;

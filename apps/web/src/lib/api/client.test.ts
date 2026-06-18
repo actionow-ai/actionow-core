@@ -41,6 +41,26 @@ describe('client verbs', () => {
     expect((opts.headers as Record<string, string>).Authorization).toBe('Bearer tok');
   });
 
+  it('put issues a PUT with JSON body + auth header and no Idempotency-Key', async () => {
+    const { client, fetchMock } = setup();
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({ group_id: 'g1', channel_id: 'c1', priority: 0, weight: 1 }),
+    );
+
+    const out = await client.put<{ group_id: string; channel_id: string }>(
+      '/admin/route-groups/g1/channels/c1',
+      { priority: 0, weight: 1 },
+    );
+
+    expect(out).toEqual({ group_id: 'g1', channel_id: 'c1', priority: 0, weight: 1 });
+    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(opts.method).toBe('PUT');
+    expect(opts.body).toBe(JSON.stringify({ priority: 0, weight: 1 }));
+    expect((opts.headers as Record<string, string>).Authorization).toBe('Bearer tok');
+    // The PUT verb is the idempotency — never send an Idempotency-Key header.
+    expect((opts.headers as Record<string, string>)['Idempotency-Key']).toBeUndefined();
+  });
+
   it('delete issues a DELETE', async () => {
     const { client, fetchMock } = setup();
     fetchMock.mockResolvedValueOnce(mockResponse(undefined, { status: 204 }));

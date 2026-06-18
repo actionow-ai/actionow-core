@@ -7,6 +7,13 @@ export const qk = {
   modifiers: () => ['admin', 'modifiers'] as const,
   secrets: () => ['admin', 'secrets'] as const,
   apiKeys: (tenantId: string) => ['admin', 'api-keys', tenantId] as const,
+  routeGroups: () => ['admin', 'route-groups'] as const,
+  routeGroupChannels: (id: string) => ['admin', 'route-groups', id, 'channels'] as const,
+  /** No params → the bare prefix (invalidates every param variant); with params → the specific filtered key. */
+  officialPrices: (params?: Record<string, unknown>) =>
+    params === undefined
+      ? (['admin', 'official-prices'] as const)
+      : (['admin', 'official-prices', params] as const),
   jobs: (tenantId: string) => ['admin', 'jobs', tenantId] as const,
   models: () => ['admin', 'models'] as const,
   model: (name: string) => ['admin', 'models', name] as const,

@@ -19,6 +19,18 @@ describe('queryKeys factory', () => {
     expect(qk.channels('r1')).not.toEqual(qk.channels('r2'));
   });
 
+  it('builds the route-group and official-price keys', () => {
+    expect(qk.routeGroups()).toEqual(['admin', 'route-groups']);
+    expect(qk.routeGroupChannels('g1')).toEqual(['admin', 'route-groups', 'g1', 'channels']);
+    // No params → the bare prefix (invalidates every param variant); with params → the specific key.
+    expect(qk.officialPrices()).toEqual(['admin', 'official-prices']);
+    expect(qk.officialPrices({ provider: 'openai' })).toEqual([
+      'admin',
+      'official-prices',
+      { provider: 'openai' },
+    ]);
+  });
+
   it('embeds param objects for parametric usage/analytics keys', () => {
     expect(qk.usage({ limit: 10 })).toEqual(['admin', 'usage', { limit: 10 }]);
     expect(qk.analyticsUsage({ groupBy: 'day' })).toEqual([

@@ -19,6 +19,8 @@ export function TextField({
   placeholder,
   autoComplete,
   disabled,
+  minLength,
+  maxLength,
   id,
 }: {
   label?: string;
@@ -32,6 +34,8 @@ export function TextField({
   placeholder?: string;
   autoComplete?: string;
   disabled?: boolean;
+  minLength?: number;
+  maxLength?: number;
   id?: string;
 }) {
   const fieldId = useFieldId(id);
@@ -45,6 +49,8 @@ export function TextField({
         autoComplete={autoComplete}
         disabled={disabled}
         required={required}
+        minLength={minLength}
+        maxLength={maxLength}
         aria-invalid={error !== undefined ? true : undefined}
         onChange={(e) => onChange(e.target.value)}
         className="panel"

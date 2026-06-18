@@ -14,3 +14,23 @@ export function formatCredits(micro: string, locale = 'zh-CN', maxFrac = 2): str
   const grouped = new Intl.NumberFormat(locale).format(BigInt(whole));
   return (neg ? '-' : '') + grouped + (frac ? `.${frac}` : '');
 }
+
+/**
+ * Compare two integer µcredit strings for a DESCENDING sort (largest first),
+ * via `BigInt` so values past `Number.MAX_SAFE_INTEGER` order correctly — never
+ * route money through a JS float.
+ */
+export function compareMicroDesc(a: string, b: string): number {
+  const x = BigInt(a);
+  const y = BigInt(b);
+  return x > y ? -1 : x < y ? 1 : 0;
+}
+
+/**
+ * Like `formatCredits` but always carries a sign: `+` for positive, the native
+ * `-` for negative, and no sign for zero. For signed quantities like margin.
+ */
+export function formatCreditsSigned(micro: string, locale = 'zh-CN', maxFrac = 2): string {
+  const base = formatCredits(micro, locale, maxFrac);
+  return BigInt(micro) > 0n ? `+${base}` : base; // negatives already carry '-'; zero stays unsigned
+}

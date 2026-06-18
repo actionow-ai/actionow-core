@@ -76,6 +76,8 @@ export function createClient(deps: ClientDeps) {
         headers: opts?.idempotencyKey ? { 'Idempotency-Key': opts.idempotencyKey } : undefined,
       }),
     patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
+    /** Idempotent upsert. The PUT verb IS the idempotency — never sends an Idempotency-Key. */
+    put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
     delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
     /** Fetch a list route and unwrap the `{data,next_cursor}` envelope into a `Page<T>`. */
     getPage: async <T>(path: string, query?: RequestInitLite['query']): Promise<Page<T>> => {
