@@ -390,6 +390,7 @@
     "tip": {
       "name": "A unique name for this routing group (e.g. default, premium).",
       "ratioPercent": "Group price ratio as a percent — 100 = ×1.00 (official price), 150 = ×1.50 (+50%). Stored as basis points.",
+      "ratioLive": "Group price ratio — 100 = ×1.00 (official price), 150 = ×1.50. This multiplies REAL customer billing for keys bound to this group. Stored as basis points.",
       "status": "Disabled groups are skipped by routing.",
       "description": "Optional note describing what this group is for."
     },

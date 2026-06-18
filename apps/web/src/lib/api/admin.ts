@@ -1,6 +1,7 @@
 import type { ApiClient } from './client';
 import type {
   AccountView,
+  AddGroupChannelBody,
   AnalyticsUsageQuery,
   ApiKeyCreatedView,
   ApiKeyView,
@@ -12,6 +13,7 @@ import type {
   CreateModifierBody,
   CreatePricebookBody,
   CreateResourceBody,
+  CreateRouteGroupBody,
   CreateSecretBody,
   CreateTenantBody,
   DifyImportBody,
@@ -26,6 +28,8 @@ import type {
   PaymentIntentView,
   PricebookView,
   ResourceView,
+  RouteGroupChannelView,
+  RouteGroupView,
   SecretView,
   SyncChannelModelsBody,
   SyncChannelModelsResult,
@@ -34,6 +38,7 @@ import type {
   UpdateChannelBody,
   UpdateModelBody,
   UpdateResourceBody,
+  UpdateRouteGroupBody,
   UsageLogView,
   UsageRollupView,
 } from './types';
@@ -91,6 +96,23 @@ export function makeAdminApi(client: ApiClient) {
       (await client.getPage<ApiKeyView>('/admin/api-keys', { tenantId })).rows,
     createApiKey: (body: CreateApiKeyBody) =>
       client.post<ApiKeyCreatedView>('/admin/api-keys', body),
+
+    // --- Route groups (billing/routing) ---
+    listRouteGroups: async () => (await client.getPage<RouteGroupView>('/admin/route-groups')).rows,
+    createRouteGroup: (body: CreateRouteGroupBody, idempotencyKey?: string) =>
+      client.post<RouteGroupView>('/admin/route-groups', body, { idempotencyKey }),
+    getRouteGroup: (id: string) => client.get<RouteGroupView>(`/admin/route-groups/${id}`),
+    updateRouteGroup: (id: string, body: UpdateRouteGroupBody) =>
+      client.patch<RouteGroupView>(`/admin/route-groups/${id}`, body),
+    deleteRouteGroup: (id: string): Promise<void> =>
+      client.delete<undefined>(`/admin/route-groups/${id}`),
+    listGroupChannels: async (id: string) =>
+      (await client.getPage<RouteGroupChannelView>(`/admin/route-groups/${id}/channels`)).rows,
+    // PUT membership upsert — the PUT verb is the idempotency; never an Idempotency-Key.
+    addGroupChannel: (id: string, channelId: string, body: AddGroupChannelBody) =>
+      client.put<RouteGroupChannelView>(`/admin/route-groups/${id}/channels/${channelId}`, body),
+    removeGroupChannel: (id: string, channelId: string): Promise<void> =>
+      client.delete<undefined>(`/admin/route-groups/${id}/channels/${channelId}`),
 
     listJobs: ({ tenantId, cursor, limit }: KeysetParams): Promise<Page<JobView>> =>
       client.getPage<JobView>('/admin/jobs', { tenantId, cursor, limit }),

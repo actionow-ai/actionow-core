@@ -5,7 +5,7 @@ import type { ApiClient } from './client';
 
 function fakeClient() {
   const calls: {
-    method: 'get' | 'getPage' | 'post' | 'patch' | 'delete';
+    method: 'get' | 'getPage' | 'post' | 'patch' | 'put' | 'delete';
     path: string;
     arg: unknown;
   }[] = [];
@@ -24,6 +24,10 @@ function fakeClient() {
     }),
     patch: vi.fn((path: string, body?: unknown) => {
       calls.push({ method: 'patch', path, arg: body });
+      return Promise.resolve({});
+    }),
+    put: vi.fn((path: string, body?: unknown) => {
+      calls.push({ method: 'put', path, arg: body });
       return Promise.resolve({});
     }),
     delete: vi.fn((path: string) => {
@@ -134,5 +138,57 @@ describe('admin catalog api', () => {
       pricingModel: 'fixed',
     });
     expect(calls[0]?.path).toBe('/admin/dify/import');
+  });
+});
+
+describe('admin route-groups api', () => {
+  it('addGroupChannel issues a PUT membership upsert (not POST), no idempotency key', async () => {
+    const { client, calls } = fakeClient();
+    await makeAdminApi(client).addGroupChannel('g1', 'c1', { priority: 2, weight: 3 });
+    expect(calls[0]).toEqual({
+      method: 'put',
+      path: '/admin/route-groups/g1/channels/c1',
+      arg: { priority: 2, weight: 3 },
+    });
+  });
+
+  it('listRouteGroups paginates /admin/route-groups (rows unwrapped)', async () => {
+    const { client, calls } = fakeClient();
+    await expect(makeAdminApi(client).listRouteGroups()).resolves.toEqual([]);
+    expect(calls[0]?.method).toBe('getPage');
+    expect(calls[0]?.path).toBe('/admin/route-groups');
+  });
+
+  it('listGroupChannels paginates the group-scoped channels path', async () => {
+    const { client, calls } = fakeClient();
+    await makeAdminApi(client).listGroupChannels('g1');
+    expect(calls[0]?.path).toBe('/admin/route-groups/g1/channels');
+  });
+
+  it('createRouteGroup posts to /admin/route-groups; updateRouteGroup patches :id', async () => {
+    const { client, calls } = fakeClient();
+    const api = makeAdminApi(client);
+    await api.createRouteGroup({ name: 'g', groupRatioBps: 12000 }, 'idem-1');
+    await api.updateRouteGroup('g1', { groupRatioBps: 15000 });
+    expect(calls[0]?.method).toBe('post');
+    expect(calls[0]?.path).toBe('/admin/route-groups');
+    expect(calls[1]).toEqual({
+      method: 'patch',
+      path: '/admin/route-groups/g1',
+      arg: { groupRatioBps: 15000 },
+    });
+  });
+
+  it('deleteRouteGroup + removeGroupChannel delete their paths', async () => {
+    const { client, calls } = fakeClient();
+    const api = makeAdminApi(client);
+    await api.deleteRouteGroup('g1');
+    await api.removeGroupChannel('g1', 'c1');
+    expect(calls[0]).toEqual({ method: 'delete', path: '/admin/route-groups/g1', arg: undefined });
+    expect(calls[1]).toEqual({
+      method: 'delete',
+      path: '/admin/route-groups/g1/channels/c1',
+      arg: undefined,
+    });
   });
 });
