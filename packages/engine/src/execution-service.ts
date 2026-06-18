@@ -553,8 +553,10 @@ export class ExecutionService {
     // 3. Quote → modifiers → hold amount (an upper bound for post methods).
     const holdAmount = this.computeHold(req, inputs);
 
-    // 4. Atomic hold. False → insufficient_credits, NO job created.
-    const held = await holdCredits(db, req.accountId, holdAmount);
+    // 4. Atomic hold. False → insufficient_credits, NO job created. Scoped to the
+    // request's tenant (P2-8 defense-in-depth) so a mismatched account/tenant
+    // never reserves another tenant's credit.
+    const held = await holdCredits(db, req.accountId, holdAmount, req.tenantId);
     if (!held) {
       throw engineError('insufficient_credits', 'insufficient credits for hold');
     }

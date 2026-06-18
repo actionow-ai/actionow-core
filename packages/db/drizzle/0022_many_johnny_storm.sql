@@ -1,0 +1,2 @@
+ALTER TABLE "ledger_txn" ADD CONSTRAINT "ledger_txn_job_id_job_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."job"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payment_event" ADD CONSTRAINT "payment_event_payment_intent_id_payment_intent_id_fk" FOREIGN KEY ("payment_intent_id") REFERENCES "public"."payment_intent"("id") ON DELETE set null ON UPDATE no action;

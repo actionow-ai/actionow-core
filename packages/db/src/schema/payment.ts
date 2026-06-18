@@ -70,7 +70,12 @@ export const paymentEvent = pgTable(
   'payment_event',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    paymentIntentId: uuid('payment_intent_id'),
+    // FK to the intent this event fulfilled (P2-8). ON DELETE SET NULL keeps the
+    // audit event even if the intent is pruned. Null for an event with no known
+    // intent (still recorded for audit).
+    paymentIntentId: uuid('payment_intent_id').references(() => paymentIntent.id, {
+      onDelete: 'set null',
+    }),
     provider: text('provider').notNull(),
     providerEventId: text('provider_event_id').notNull(),
     type: text('type').notNull(),

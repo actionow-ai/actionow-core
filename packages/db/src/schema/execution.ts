@@ -77,7 +77,10 @@ export const ledgerTxn = pgTable(
     creditsDelta: bigint('credits_delta', { mode: 'bigint' }).notNull(),
     balanceAfter: bigint('balance_after', { mode: 'bigint' }).notNull(),
     resourceId: text('resource_id'),
-    jobId: uuid('job_id'),
+    // FK to the originating job (P2-8): referential integrity for the financial
+    // audit trail. ON DELETE SET NULL keeps the ledger row (money history is
+    // append-only) even if a job is ever pruned. Null for non-job rows (topup).
+    jobId: uuid('job_id').references(() => job.id, { onDelete: 'set null' }),
     pricebookVersion: bigint('pricebook_version', { mode: 'number' }),
     modifiersApplied: jsonb('modifiers_applied'),
     usageVector: jsonb('usage_vector'),
