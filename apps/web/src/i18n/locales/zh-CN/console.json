@@ -108,6 +108,18 @@
       "allowlist": "资源白名单(逗号分隔,可空)",
       "rateLimit": "每分钟请求上限(可空)"
     },
+    "group": {
+      "label": "路由组",
+      "default": "默认组(×1.00)",
+      "bound": "路由组",
+      "tip": "将 Key 绑定到路由组,会决定其客户计价倍率与可路由的渠道。默认 = ×1.00。"
+    },
+    "revoke": "吊销",
+    "revoked": "Key 已吊销",
+    "revokeConfirm": {
+      "title": "吊销该 Key?",
+      "msg": "{{id}} 将立即被以 401 拒绝,且不可恢复。"
+    },
     "empty": "请选择租户后查看 Key",
     "submit": "签发",
     "reveal": {

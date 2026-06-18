@@ -37,6 +37,7 @@ import type {
   SyncChannelModelsResult,
   TenantView,
   TopupBody,
+  UpdateApiKeyGroupBody,
   UpdateChannelBody,
   UpdateModelBody,
   UpdateOfficialPriceBody,
@@ -99,6 +100,15 @@ export function makeAdminApi(client: ApiClient) {
       (await client.getPage<ApiKeyView>('/admin/api-keys', { tenantId })).rows,
     createApiKey: (body: CreateApiKeyBody) =>
       client.post<ApiKeyCreatedView>('/admin/api-keys', body),
+    // (Re)bind a key's route group — `routeGroupId: null` unbinds to `default`.
+    // PATCH is naturally idempotent, so no Idempotency-Key.
+    updateApiKeyGroup: (id: string, body: UpdateApiKeyGroupBody) =>
+      client.patch<{ id: string; route_group_id: string | null }>(
+        `/admin/api-keys/${id}/group`,
+        body,
+      ),
+    // Revoke (soft-delete) a key — rejected with 401 thereafter. 204 → void.
+    deleteApiKey: (id: string): Promise<void> => client.delete<undefined>(`/admin/api-keys/${id}`),
 
     // --- Route groups (billing/routing) ---
     listRouteGroups: async () => (await client.getPage<RouteGroupView>('/admin/route-groups')).rows,

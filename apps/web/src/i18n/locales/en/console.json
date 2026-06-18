@@ -113,6 +113,18 @@
       "allowlist": "Resource allowlist (comma-separated, optional)",
       "rateLimit": "Requests per minute (optional)"
     },
+    "group": {
+      "label": "Route group",
+      "default": "Default group (×1.00)",
+      "bound": "Group",
+      "tip": "Binding a key to a route group sets its customer price ratio and which channels it routes to. Default = ×1.00."
+    },
+    "revoke": "Revoke",
+    "revoked": "Key revoked",
+    "revokeConfirm": {
+      "title": "Revoke this key?",
+      "msg": "{{id}} will be rejected with 401 immediately. This can't be undone."
+    },
     "empty": "Pick a tenant to view keys",
     "submit": "Mint",
     "reveal": {

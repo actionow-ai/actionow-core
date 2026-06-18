@@ -231,3 +231,28 @@ describe('admin official-prices api', () => {
     });
   });
 });
+
+describe('admin api-keys group-bind + revoke api', () => {
+  it('updateApiKeyGroup PATCHes the :id/group path; null unbinds (no idempotency key)', async () => {
+    const { client, calls } = fakeClient();
+    const api = makeAdminApi(client);
+    await api.updateApiKeyGroup('k1', { routeGroupId: 'g1' });
+    await api.updateApiKeyGroup('k1', { routeGroupId: null });
+    expect(calls[0]).toEqual({
+      method: 'patch',
+      path: '/admin/api-keys/k1/group',
+      arg: { routeGroupId: 'g1' },
+    });
+    expect(calls[1]).toEqual({
+      method: 'patch',
+      path: '/admin/api-keys/k1/group',
+      arg: { routeGroupId: null },
+    });
+  });
+
+  it('deleteApiKey revokes via DELETE /admin/api-keys/:id', async () => {
+    const { client, calls } = fakeClient();
+    await makeAdminApi(client).deleteApiKey('k1');
+    expect(calls[0]).toEqual({ method: 'delete', path: '/admin/api-keys/k1', arg: undefined });
+  });
+});
