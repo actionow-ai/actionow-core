@@ -33,7 +33,11 @@ export function ConsoleLayout() {
       if (!el) return;
       const mm = gsap.matchMedia();
       mm.add('(prefers-reduced-motion: no-preference)', () => {
-        gsap.fromTo(el, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: DUR.base, ease: EASE.out });
+        gsap.fromTo(
+          el,
+          { opacity: 0, y: 8 },
+          { opacity: 1, y: 0, duration: DUR.base, ease: EASE.out },
+        );
       });
     },
     { dependencies: [pathname], revertOnUpdate: true },
@@ -44,19 +48,42 @@ export function ConsoleLayout() {
       <ConsoleFiltersContext.Provider value={setFilters}>
         <ConsoleBackContext.Provider value={setBack}>
           <AppBackground />
-          <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 'var(--s-3)', padding: 'var(--s-4)', height: '100dvh' }}>
+          <div
+            style={{
+              position: 'relative',
+              zIndex: 1,
+              display: 'flex',
+              gap: 'var(--s-3)',
+              padding: 'var(--s-4)',
+              // Clear the device home-indicator on mobile (env() is 0 elsewhere).
+              paddingBottom: 'calc(var(--s-4) + env(safe-area-inset-bottom, 0px))',
+              height: '100dvh',
+            }}
+          >
             {isDesktop && <Rail pathname={pathname} />}
             {isDesktop && <SubNav pathname={pathname} />}
-            <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+            <main
+              style={{
+                flex: 1,
+                minWidth: 0,
+                minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--s-3)',
+              }}
+            >
               <TopBar action={action} filters={filters} back={back} />
-              <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 0, paddingBottom: isDesktop ? 0 : 76 }}>
+              <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 0 }}>
                 <div ref={viewRef} style={{ width: '100%', height: '100%' }}>
                   <Outlet />
                 </div>
               </div>
+              {/* In-flow (not fixed): the bar is the last flex item, so the
+                  scroll area above is bounded by it and a page's last rows can
+                  never hide behind it — no matter the page's scroll model. */}
+              {!isDesktop && <BottomTabs pathname={pathname} />}
             </main>
           </div>
-          {!isDesktop && <BottomTabs pathname={pathname} />}
         </ConsoleBackContext.Provider>
       </ConsoleFiltersContext.Provider>
     </ConsoleActionContext.Provider>

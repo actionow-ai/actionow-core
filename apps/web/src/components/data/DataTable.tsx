@@ -1,4 +1,11 @@
-import { CaretDownIcon, CaretUpDownIcon, CaretUpIcon, ColumnsIcon, MagnifyingGlassIcon, XIcon } from '@phosphor-icons/react';
+import {
+  CaretDownIcon,
+  CaretUpDownIcon,
+  CaretUpIcon,
+  ColumnsIcon,
+  MagnifyingGlassIcon,
+  XIcon,
+} from '@phosphor-icons/react';
 import type { CSSProperties, KeyboardEvent, ReactNode } from 'react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -126,7 +133,10 @@ export function DataTable<T>({
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
 
   // Columns currently rendered (visibility menu drops hidden ones).
-  const visibleColumns = useMemo(() => columns.filter((c) => !hidden.has(c.key)), [columns, hidden]);
+  const visibleColumns = useMemo(
+    () => columns.filter((c) => !hidden.has(c.key)),
+    [columns, hidden],
+  );
 
   // Default search projection: stringify every visible cell.
   const projectText = useMemo(() => {
@@ -166,12 +176,17 @@ export function DataTable<T>({
   const pageKeys = useMemo(() => paged.map((r) => rowKey(r)), [paged, rowKey]);
   const allOnPage = isAllSelected(selected, pageKeys);
   const someOnPage = indeterminate(selected, pageKeys);
-  const selectedRows = useMemo(() => rows.filter((r) => selected.has(rowKey(r))), [rows, selected, rowKey]);
+  const selectedRows = useMemo(
+    () => rows.filter((r) => selected.has(rowKey(r))),
+    [rows, selected, rowKey],
+  );
 
   const clearSelection = () => setSelected(new Set());
   const toggleRow = (key: string) => setSelected((s) => toggleKey(s, key));
   const toggleSelectAll = () =>
-    setSelected((s) => (isAllSelected(s, pageKeys) ? deselectAll(s, pageKeys) : selectAll(s, pageKeys)));
+    setSelected((s) =>
+      isAllSelected(s, pageKeys) ? deselectAll(s, pageKeys) : selectAll(s, pageKeys),
+    );
 
   const onSort = (col: Column<T>) => {
     setSort((prev) => {
@@ -189,7 +204,14 @@ export function DataTable<T>({
     </div>
   );
   const emptyState = (
-    <div style={{ padding: 'var(--s-6)', color: 'var(--muted)', fontSize: 'var(--fs-sm)', textAlign: 'center' }}>
+    <div
+      style={{
+        padding: 'var(--s-6)',
+        color: 'var(--muted)',
+        fontSize: 'var(--fs-sm)',
+        textAlign: 'center',
+      }}
+    >
       {query.trim() !== '' && rows.length > 0 ? t('table.noMatches') : empty}
     </div>
   );
@@ -232,7 +254,14 @@ export function DataTable<T>({
   // Toolbar above the table (search + columns menu); rendered when any apply.
   const toolbar =
     searchable === true || (columnToggle === true && hideableColumns.length > 0) ? (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)', marginBottom: 'var(--s-3)' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--s-3)',
+          marginBottom: 'var(--s-3)',
+        }}
+      >
         {searchable === true && (
           <SearchBox value={query} onChange={setQuery} placeholder={t('table.search')} />
         )}
@@ -296,77 +325,113 @@ export function DataTable<T>({
   if (!isDesktop) {
     return (
       <MobileShell fill={fill} toolbar={toolbar} bulkBar={bulkBar}>
-        {loading === true ? (
-          loadingState
-        ) : paged.length === 0 ? (
-          emptyState
-        ) : (
-          paged.map((r) => {
-            const { selectedRow, handlers } = rowInteraction(r);
-            return (
-              <div
-                key={rowKey(r)}
-                {...handlers}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  gap: 'var(--s-2)',
-                  padding: 'var(--s-4)',
-                  // A clickable card must clear the min touch target even for a short row.
-                  minHeight: clickable ? 'var(--min-touch)' : undefined,
-                  borderBottom: '1px solid var(--row-bd)',
-                  background: selectedRow ? 'var(--hover-bg)' : undefined,
-                }}
-              >
-                {(selectable === true || rowActions !== undefined) && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--s-3)' }}>
-                    {selectable === true && (
-                      <span onClick={stop} onKeyDown={stopKey} role="presentation">
-                        <Checkbox
-                          checked={selected.has(rowKey(r))}
-                          onChange={() => toggleRow(rowKey(r))}
-                          ariaLabel={t('table.selectRow')}
-                        />
-                      </span>
+        {loading === true
+          ? loadingState
+          : paged.length === 0
+            ? emptyState
+            : paged.map((r) => {
+                const { selectedRow, handlers } = rowInteraction(r);
+                // Compact card: the first (identity) column spans full width as the
+                // card's headline; the rest pack into a 2-up grid so a wide table
+                // (e.g. 7 model columns) is ~3 grid rows, not a one-screen stack.
+                const [primaryCol, ...restCols] = visibleColumns;
+                return (
+                  <div
+                    key={rowKey(r)}
+                    {...handlers}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 'var(--s-3)',
+                      padding: 'var(--s-4)',
+                      // A clickable card must clear the min touch target even for a short row.
+                      minHeight: clickable ? 'var(--min-touch)' : undefined,
+                      borderBottom: '1px solid var(--row-bd)',
+                      background: selectedRow ? 'var(--hover-bg)' : undefined,
+                    }}
+                  >
+                    {visibleColumns.length > 0 && (
+                      <div
+                        style={{
+                          fontSize: 'var(--fs-base)',
+                          fontWeight: 'var(--fw-medium)',
+                          minWidth: 0,
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {primaryCol.cell(r)}
+                      </div>
                     )}
-                    {rowActions !== undefined && (
-                      <span onClick={stop} onKeyDown={stopKey} role="presentation" style={{ display: 'inline-flex', gap: 'var(--s-2)' }}>
-                        {rowActions(r)}
-                      </span>
+                    {restCols.length > 0 && (
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                          gap: 'var(--s-2) var(--s-4)',
+                        }}
+                      >
+                        {restCols.map((c) => (
+                          <Field key={c.key} header={c.header} value={c.cell(r)} />
+                        ))}
+                      </div>
+                    )}
+                    {(selectable === true || rowActions !== undefined) && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 'var(--s-3)',
+                          borderTop: '1px solid var(--row-bd)',
+                          paddingTop: 'var(--s-2)',
+                          marginTop: 'var(--s-1)',
+                        }}
+                      >
+                        {selectable === true ? (
+                          <span onClick={stop} onKeyDown={stopKey} role="presentation">
+                            <Checkbox
+                              checked={selected.has(rowKey(r))}
+                              onChange={() => toggleRow(rowKey(r))}
+                              ariaLabel={t('table.selectRow')}
+                            />
+                          </span>
+                        ) : (
+                          <span />
+                        )}
+                        {rowActions !== undefined && (
+                          <span
+                            onClick={stop}
+                            onKeyDown={stopKey}
+                            role="presentation"
+                            style={{ display: 'inline-flex', gap: 'var(--s-2)' }}
+                          >
+                            {rowActions(r)}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-                {visibleColumns.map((c) => (
-                  <div key={c.key} style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--s-3)' }}>
-                    <div
-                      style={{
-                        fontSize: 'var(--fs-caption)',
-                        color: 'var(--muted)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '.05em',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {c.header}
-                    </div>
-                    <div style={{ fontSize: 'var(--fs-sm)', minWidth: 0, textAlign: 'right' }}>{c.cell(r)}</div>
-                  </div>
-                ))}
-              </div>
-            );
-          })
+                );
+              })}
+        {showPager && (
+          <Pager page={page} pages={pages} total={sorted.length} onPage={setPage} t={t} />
         )}
-        {showPager && <Pager page={page} pages={pages} total={sorted.length} onPage={setPage} t={t} />}
       </MobileShell>
     );
   }
 
   // ----- Desktop: a real <table> for natural sticky header + columns ------
-  const colCount = visibleColumns.length + (selectable === true ? 1 : 0) + (rowActions !== undefined ? 1 : 0);
+  const colCount =
+    visibleColumns.length + (selectable === true ? 1 : 0) + (rowActions !== undefined ? 1 : 0);
 
   return (
-    <div style={fill === true ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : undefined}>
+    <div
+      style={
+        fill === true
+          ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }
+          : undefined
+      }
+    >
       {toolbar}
       {bulkBar}
       <div
@@ -374,10 +439,20 @@ export function DataTable<T>({
         style={{
           borderRadius: 'var(--r-md)',
           overflowX: 'auto',
-          ...(fill === true ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflowY: 'auto' } : null),
+          ...(fill === true
+            ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflowY: 'auto' }
+            : null),
         }}
       >
-        <table style={{ width: '100%', minWidth: 520, borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
+        <table
+          style={{
+            width: '100%',
+            minWidth: 520,
+            borderCollapse: 'separate',
+            borderSpacing: 0,
+            tableLayout: 'fixed',
+          }}
+        >
           <thead>
             <tr>
               {selectable === true && (
@@ -401,13 +476,21 @@ export function DataTable<T>({
               )}
               {visibleColumns.map((c) => {
                 const isSorted = sort.key === c.key && sort.dir !== 'none';
-                const ariaSort = !isSorted ? 'none' : sort.dir === 'asc' ? 'ascending' : 'descending';
+                const ariaSort = !isSorted
+                  ? 'none'
+                  : sort.dir === 'asc'
+                    ? 'ascending'
+                    : 'descending';
                 return (
                   <th
                     key={c.key}
                     scope="col"
                     aria-sort={c.sortable === true ? ariaSort : undefined}
-                    style={{ ...headerCellStyle, width: c.width, ...stickyCellStyle(c.sticky, true) }}
+                    style={{
+                      ...headerCellStyle,
+                      width: c.width,
+                      ...stickyCellStyle(c.sticky, true),
+                    }}
                   >
                     {c.sortable === true ? (
                       <button
@@ -441,7 +524,11 @@ export function DataTable<T>({
                 <th
                   scope="col"
                   aria-hidden="true"
-                  style={{ ...headerCellStyle, width: actionsWidth ?? 1, ...stickyCellStyle('right', true) }}
+                  style={{
+                    ...headerCellStyle,
+                    width: actionsWidth ?? 1,
+                    ...stickyCellStyle('right', true),
+                  }}
                 />
               )}
             </tr>
@@ -471,9 +558,19 @@ export function DataTable<T>({
                     }}
                   >
                     {selectable === true && (
-                      <td style={{ ...bodyCellStyle, ...stickyCellStyle('left', false), background: rowBg ?? 'var(--overlay-bg)' }}>
+                      <td
+                        style={{
+                          ...bodyCellStyle,
+                          ...stickyCellStyle('left', false),
+                          background: rowBg ?? 'var(--overlay-bg)',
+                        }}
+                      >
                         <span onClick={stop} onKeyDown={stopKey} role="presentation">
-                          <Checkbox checked={selected.has(key)} onChange={() => toggleRow(key)} ariaLabel={t('table.selectRow')} />
+                          <Checkbox
+                            checked={selected.has(key)}
+                            onChange={() => toggleRow(key)}
+                            ariaLabel={t('table.selectRow')}
+                          />
                         </span>
                       </td>
                     )}
@@ -483,10 +580,21 @@ export function DataTable<T>({
                         style={{
                           ...bodyCellStyle,
                           ...stickyCellStyle(c.sticky, false),
-                          ...(c.sticky !== undefined ? { background: rowBg ?? 'var(--overlay-bg)' } : null),
+                          ...(c.sticky !== undefined
+                            ? { background: rowBg ?? 'var(--overlay-bg)' }
+                            : null),
                         }}
                       >
-                        <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.cell(r)}</div>
+                        <div
+                          style={{
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {c.cell(r)}
+                        </div>
                       </td>
                     ))}
                     {rowActions !== undefined && (
@@ -500,7 +608,12 @@ export function DataTable<T>({
                           textAlign: 'right',
                         }}
                       >
-                        <span onClick={stop} onKeyDown={stopKey} role="presentation" style={{ display: 'inline-flex', gap: 'var(--s-2)' }}>
+                        <span
+                          onClick={stop}
+                          onKeyDown={stopKey}
+                          role="presentation"
+                          style={{ display: 'inline-flex', gap: 'var(--s-2)' }}
+                        >
                           {rowActions(r)}
                         </span>
                       </td>
@@ -512,7 +625,9 @@ export function DataTable<T>({
           </tbody>
         </table>
       </div>
-      {showPager && <Pager page={page} pages={pages} total={sorted.length} onPage={setPage} t={t} />}
+      {showPager && (
+        <Pager page={page} pages={pages} total={sorted.length} onPage={setPage} t={t} />
+      )}
     </div>
   );
 }
@@ -569,12 +684,35 @@ function headerText(node: ReactNode): string {
 // --- Sub-components -------------------------------------------------------
 
 function SortCaret({ active, dir }: { active: boolean; dir: SortDirection }) {
-  if (!active) return <CaretUpDownIcon size={12} weight="bold" style={{ color: 'var(--faint)', flexShrink: 0 }} aria-hidden="true" />;
+  if (!active)
+    return (
+      <CaretUpDownIcon
+        size={12}
+        weight="bold"
+        style={{ color: 'var(--faint)', flexShrink: 0 }}
+        aria-hidden="true"
+      />
+    );
   const Icon = dir === 'asc' ? CaretUpIcon : CaretDownIcon;
-  return <Icon size={12} weight="bold" style={{ color: 'var(--accent)', flexShrink: 0 }} aria-hidden="true" />;
+  return (
+    <Icon
+      size={12}
+      weight="bold"
+      style={{ color: 'var(--accent)', flexShrink: 0 }}
+      aria-hidden="true"
+    />
+  );
 }
 
-function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+function SearchBox({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
   return (
     <label
       className="panel"
@@ -589,7 +727,11 @@ function SearchBox({ value, onChange, placeholder }: { value: string; onChange: 
         flex: '0 1 280px',
       }}
     >
-      <MagnifyingGlassIcon size={15} style={{ color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true" />
+      <MagnifyingGlassIcon
+        size={15}
+        style={{ color: 'var(--muted)', flexShrink: 0 }}
+        aria-hidden="true"
+      />
       <input
         type="search"
         role="searchbox"
@@ -637,7 +779,8 @@ function ColumnsMenu<T>({
     place();
     const onDown = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (wrapRef.current?.contains(target) !== true && menuRef.current?.contains(target) !== true) setOpen(false);
+      if (wrapRef.current?.contains(target) !== true && menuRef.current?.contains(target) !== true)
+        setOpen(false);
     };
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -701,7 +844,11 @@ function ColumnsMenu<T>({
           >
             {columns.map((c) => (
               <div key={c.key} style={{ padding: 'var(--s-1) var(--s-2)' }}>
-                <Checkbox checked={!hidden.has(c.key)} onChange={() => onToggle(c.key)} label={headerText(c.header)} />
+                <Checkbox
+                  checked={!hidden.has(c.key)}
+                  onChange={() => onToggle(c.key)}
+                  label={headerText(c.header)}
+                />
               </div>
             ))}
           </div>,
@@ -745,15 +892,35 @@ function Pager({
           {t('table.page', { page: safe, pages })}
         </span>
         <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
-          <PagerButton label={t('table.prevPage')} disabled={safe <= 1} onClick={() => onPage(safe - 1)} dir="prev" />
-          <PagerButton label={t('table.nextPage')} disabled={safe >= pages} onClick={() => onPage(safe + 1)} dir="next" />
+          <PagerButton
+            label={t('table.prevPage')}
+            disabled={safe <= 1}
+            onClick={() => onPage(safe - 1)}
+            dir="prev"
+          />
+          <PagerButton
+            label={t('table.nextPage')}
+            disabled={safe >= pages}
+            onClick={() => onPage(safe + 1)}
+            dir="next"
+          />
         </div>
       </div>
     </div>
   );
 }
 
-function PagerButton({ label, disabled, onClick, dir }: { label: string; disabled: boolean; onClick: () => void; dir: 'prev' | 'next' }) {
+function PagerButton({
+  label,
+  disabled,
+  onClick,
+  dir,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+  dir: 'prev' | 'next';
+}) {
   return (
     <button
       type="button"
@@ -775,8 +942,52 @@ function PagerButton({ label, disabled, onClick, dir }: { label: string; disable
         opacity: disabled ? 0.4 : 1,
       }}
     >
-      {dir === 'prev' ? <CaretDownIcon size={14} weight="bold" style={{ transform: 'rotate(90deg)' }} /> : <CaretDownIcon size={14} weight="bold" style={{ transform: 'rotate(-90deg)' }} />}
+      {dir === 'prev' ? (
+        <CaretDownIcon size={14} weight="bold" style={{ transform: 'rotate(90deg)' }} />
+      ) : (
+        <CaretDownIcon size={14} weight="bold" style={{ transform: 'rotate(-90deg)' }} />
+      )}
     </button>
+  );
+}
+
+/** One `LABEL …… value` line inside a mobile card — value right-aligned and
+ * ellipsized so two fields pack into a 2-up grid without overflowing. */
+function Field({ header, value }: { header: ReactNode; value: ReactNode }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
+        gap: 'var(--s-2)',
+        minWidth: 0,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 'var(--fs-caption)',
+          color: 'var(--muted)',
+          textTransform: 'uppercase',
+          letterSpacing: '.05em',
+          flexShrink: 0,
+        }}
+      >
+        {header}
+      </span>
+      <span
+        style={{
+          fontSize: 'var(--fs-sm)',
+          minWidth: 0,
+          textAlign: 'right',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {value}
+      </span>
+    </div>
   );
 }
 
@@ -792,14 +1003,25 @@ function MobileShell({
   children: ReactNode;
 }) {
   return (
-    <div style={fill === true ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : undefined}>
+    <div
+      style={
+        fill === true
+          ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }
+          : undefined
+      }
+    >
       {toolbar}
       {bulkBar}
       <div
         className="panel"
         style={{
           borderRadius: 'var(--r-md)',
-          ...(fill === true ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflowY: 'auto' } : null),
+          // Clip cards to the rounded corners so the first/last card's content
+          // (e.g. the actions footer) never bleeds into the corner-radius cut.
+          overflow: 'hidden',
+          ...(fill === true
+            ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflowY: 'auto' }
+            : null),
         }}
       >
         {children}

@@ -5,27 +5,59 @@
   --ink: #1c1500;
 
   /* spacing (8px grid) */
-  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-16: 64px;
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-16: 64px;
   /* radii */
   --r-xs: 8px;
-  --r-sm: 11px; --r-md: 14px; --r-lg: 18px; --r-pill: 999px;
+  --r-sm: 11px;
+  --r-md: 14px;
+  --r-lg: 18px;
+  --r-pill: 999px;
   /* type scale */
-  --fs-nano: 9px; --fs-micro: 10px;
-  --fs-caption: 11px; --fs-sm: 13px; --fs-base: 15px; --fs-md: 16px; --fs-lg: 18px;
-  --fs-h2: clamp(26px, 3.4vw, 40px); --fs-h1: clamp(28px, 3.4vw, 46px); --fs-display: clamp(40px, 8vw, 104px);
-  --fs-xl: 24px; --fs-2xl: 30px;
-  --fw-medium: 600; --fw-semibold: 700; --fw-bold: 800;
+  --fs-nano: 9px;
+  --fs-micro: 10px;
+  --fs-caption: 11px;
+  --fs-sm: 13px;
+  --fs-base: 15px;
+  --fs-md: 16px;
+  --fs-lg: 18px;
+  --fs-h2: clamp(26px, 3.4vw, 40px);
+  --fs-h1: clamp(28px, 3.4vw, 46px);
+  --fs-display: clamp(40px, 8vw, 104px);
+  --fs-xl: 24px;
+  --fs-2xl: 30px;
+  --fw-medium: 600;
+  --fw-semibold: 700;
+  --fw-bold: 800;
   /* motion */
-  --dur-instant: 0.12s; --dur-fast: 0.18s; --dur-base: 0.26s; --dur-slow: 0.42s; --dur-slower: 0.7s;
+  --dur-instant: 0.12s;
+  --dur-fast: 0.18s;
+  --dur-base: 0.26s;
+  --dur-slow: 0.42s;
+  --dur-slower: 0.7s;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   /* stacking ladder — mirror of lib/zIndex.ts (background < base < chrome < scrim < popover < toast < tooltip) */
-  --z-background: 0; --z-base: 1; --z-nav: 40; --z-scrim: 100; --z-popover: 200; --z-toast: 300; --z-tooltip: 400;
+  --z-background: 0;
+  --z-base: 1;
+  --z-nav: 40;
+  --z-scrim: 100;
+  --z-popover: 200;
+  --z-toast: 300;
+  --z-tooltip: 400;
   /* minimum interactive hit target (WCAG 2.5.8 floor 24px; 44px = comfortable touch) */
   --min-touch: 44px;
   /* accent gradient (accent vars are brand-constant across themes) */
   --grad-accent: linear-gradient(135deg, var(--accent), var(--accent-2));
-  --track-tight: -0.03em; --track-snug: -0.015em;
+  --track-tight: -0.03em;
+  --track-snug: -0.015em;
   /* layout + accent fx */
   --content-max: 1200px;
   /* CTA shadow: a soft warm glow only — no dark contact layer (it read as a
@@ -115,18 +147,48 @@
   --scrim: rgba(40, 30, 5, 0.32);
 }
 
-* { box-sizing: border-box; }
-html, body, #root { margin: 0; }
+* {
+  box-sizing: border-box;
+}
+/* The standard companion to border-box: flex/grid children default to
+   min-width:auto and refuse to shrink below content, overflowing their row.
+   Resetting min-width:0 lets them shrink (and ellipsize) — the systemic fix for
+   the toolbar/row horizontal overflow that body{overflow-x:hidden} otherwise
+   silently clips. ~25 components set this inline today; this makes it the base. */
+*,
+*::before,
+*::after {
+  min-width: 0;
+}
+/* Inline media can't blow out a flex/grid track wider than the viewport. */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+html,
+body,
+#root {
+  margin: 0;
+  max-width: 100%;
+}
 /* Let the document (window) be the scroll container so GSAP ScrollTrigger,
    which listens on the window by default, receives scroll. min-height keeps
    short pages full-viewport; full-height app shells use their own 100dvh. */
-body, #root { min-height: 100dvh; }
+body,
+#root {
+  min-height: 100dvh;
+}
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, system-ui, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family:
+    -apple-system, system-ui, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   -webkit-font-smoothing: antialiased;
-  transition: background 0.5s ease, color 0.5s ease;
+  transition:
+    background 0.5s ease,
+    color 0.5s ease;
   overflow-x: hidden;
 }
 
@@ -136,18 +198,34 @@ body {
   outline-offset: 2px;
   border-radius: var(--r-sm);
 }
-:where(a, button):focus { outline: none; }
-* { -webkit-tap-highlight-color: rgba(255, 214, 10, 0.2); }
-::selection { background: rgba(255, 214, 10, 0.28); color: var(--text); }
+:where(a, button):focus {
+  outline: none;
+}
+* {
+  -webkit-tap-highlight-color: rgba(255, 214, 10, 0.2);
+}
+::selection {
+  background: rgba(255, 214, 10, 0.28);
+  color: var(--text);
+}
 
-a { color: inherit; text-decoration: none; }
+a {
+  color: inherit;
+  text-decoration: none;
+}
 
-.tabular { font-variant-numeric: tabular-nums; }
-.mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
 
 /* Motion: smooth scroll only when the user hasn't asked to reduce motion. */
 @media (prefers-reduced-motion: no-preference) {
-  html { scroll-behavior: smooth; }
+  html {
+    scroll-behavior: smooth;
+  }
 }
 /* Reduced-motion safety net: collapse any CSS animation/transition/smooth-scroll
    we (or a dependency) might miss. GSAP is handled per-component via matchMedia. */

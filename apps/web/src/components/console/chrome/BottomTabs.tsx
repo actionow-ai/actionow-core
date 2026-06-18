@@ -1,21 +1,20 @@
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 
-import { Z } from '../../../lib/zIndex';
 import { MOBILE_TABS } from '../nav-config';
 
-/** The mobile bottom tab bar (fixed), one tab per top-level destination. */
+/**
+ * The mobile bottom tab bar — an IN-FLOW flex item (the last child of `main`),
+ * not `position:fixed`. Being in layout means the scroll area above it is
+ * bounded by it, so page content can never scroll behind the bar.
+ */
 export function BottomTabs({ pathname }: { pathname: string }) {
   const { t } = useTranslation('console');
   return (
     <nav
       className="glass"
       style={{
-        position: 'fixed',
-        left: 'var(--s-3)',
-        right: 'var(--s-3)',
-        bottom: 'var(--s-3)',
-        zIndex: Z.nav,
+        flexShrink: 0,
         borderRadius: 'var(--r-lg)',
         display: 'flex',
         justifyContent: 'space-around',
