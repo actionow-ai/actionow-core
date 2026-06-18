@@ -11,6 +11,7 @@ import type {
   CreateChannelBody,
   CreateModelBody,
   CreateModifierBody,
+  CreateOfficialPriceBody,
   CreatePricebookBody,
   CreateResourceBody,
   CreateRouteGroupBody,
@@ -24,6 +25,7 @@ import type {
   ModelGrantView,
   ModelView,
   ModifierView,
+  OfficialPriceView,
   Page,
   PaymentIntentView,
   PricebookView,
@@ -37,6 +39,7 @@ import type {
   TopupBody,
   UpdateChannelBody,
   UpdateModelBody,
+  UpdateOfficialPriceBody,
   UpdateResourceBody,
   UpdateRouteGroupBody,
   UsageLogView,
@@ -113,6 +116,16 @@ export function makeAdminApi(client: ApiClient) {
       client.put<RouteGroupChannelView>(`/admin/route-groups/${id}/channels/${channelId}`, body),
     removeGroupChannel: (id: string, channelId: string): Promise<void> =>
       client.delete<undefined>(`/admin/route-groups/${id}/channels/${channelId}`),
+
+    // --- Official prices (reference catalog) ---
+    listOfficialPrices: async () =>
+      (await client.getPage<OfficialPriceView>('/admin/official-prices')).rows,
+    createOfficialPrice: (body: CreateOfficialPriceBody, idempotencyKey?: string) =>
+      client.post<OfficialPriceView>('/admin/official-prices', body, { idempotencyKey }),
+    updateOfficialPrice: (id: string, body: UpdateOfficialPriceBody) =>
+      client.patch<OfficialPriceView>(`/admin/official-prices/${id}`, body),
+    deleteOfficialPrice: (id: string): Promise<void> =>
+      client.delete<undefined>(`/admin/official-prices/${id}`),
 
     listJobs: ({ tenantId, cursor, limit }: KeysetParams): Promise<Page<JobView>> =>
       client.getPage<JobView>('/admin/jobs', { tenantId, cursor, limit }),

@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
-import { MockBadge } from '../../components/data/MockBadge';
 import { ProviderIcon } from '../../components/data/ProviderIcon';
 import { Button } from '../../components/ui/Button';
 import { ComboboxField } from '../../components/ui/ComboboxField';
@@ -18,48 +17,49 @@ import { RowAction } from '../../components/ui/RowAction';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { COMMON_PROVIDERS } from '../../lib/api/enums';
-import {
-  createOfficialPrice,
-  deleteOfficialPrice,
-  listOfficialPrices,
-  updateOfficialPrice,
-} from '../../lib/api/mockBilling';
 import { mutationError } from '../../lib/api/mutationError';
-import type { OfficialModelPrice } from '../../lib/api/types';
+import { qk } from '../../lib/api/queryKeys';
+import type { OfficialPriceView } from '../../lib/api/types';
+import { useAdminApi } from '../../lib/api/useAdminApi';
 
-/** Query key for the mock official-price list (no backend → plain mock key). */
-const QK = ['mock', 'official-prices'] as const;
-
-/** µUSD/1M → a `$X.XX` dollar string (2dp, trims to integers cleanly). */
-function usdLabel(microUsdPer1m: number): string {
-  return (microUsdPer1m / 1_000_000).toLocaleString(undefined, {
+/**
+ * A µUSD/1M decimal string → human USD. The catalog magnitudes are tiny, so a
+ * float divide is safe here (display only) — the WRITE path never multiplies
+ * client-side; it sends human USD and the server converts to µUSD.
+ */
+function usdFromMicro(microStr: string): string {
+  return (Number(microStr) / 1_000_000).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 4,
   });
 }
 
 /**
- * The 官方价格 (official model prices) console page — a MOCK skeleton over the
- * in-memory `mockBilling` module (the billing backend is design-only). A
- * searchable/sortable `DataTable` of reference prices in USD per 1M tokens, with
- * a create/edit `Drawer` and per-row delete. A "演示数据" badge marks the page as
- * mock so it's never mistaken for live data. Prices are stored as integer µUSD
- * per 1M and shown as `$X.XX/1M`.
+ * The 官方价格 (official model prices) console page — wired to the live
+ * `/admin/official-prices` backend. A searchable/sortable `DataTable` of reference
+ * prices, a create/edit `Drawer`, and per-row delete. The wire is asymmetric:
+ * the backend RETURNS µUSD/1M decimal strings (snake_case) but ACCEPTS human
+ * USD/1M (camelCase) on write, multiplying to µUSD itself. `effectiveAt` is a
+ * full ISO-8601 timestamp.
  */
 export function OfficialPricesPage() {
   const { t } = useTranslation('console');
+  const api = useAdminApi();
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery({ queryKey: QK, queryFn: listOfficialPrices });
+  const { data, isLoading } = useQuery({
+    queryKey: qk.officialPrices(),
+    queryFn: () => api.listOfficialPrices(),
+  });
 
   const [editId, setEditId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [delTarget, setDelTarget] = useState<OfficialModelPrice | undefined>(undefined);
+  const [delTarget, setDelTarget] = useState<OfficialPriceView | undefined>(undefined);
 
   const del = useMutation({
-    mutationFn: (row: OfficialModelPrice) => deleteOfficialPrice(row.id),
+    mutationFn: (row: OfficialPriceView) => api.deleteOfficialPrice(row.id),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: QK });
+      await qc.invalidateQueries({ queryKey: qk.officialPrices() });
       toast(t('officialPrices.deleted'));
       setDelTarget(undefined);
     },
@@ -75,7 +75,7 @@ export function OfficialPricesPage() {
     [t],
   );
 
-  const cols: Column<OfficialModelPrice>[] = [
+  const cols: Column<OfficialPriceView>[] = [
     {
       key: 'provider',
       header: t('officialPrices.cols.provider'),
@@ -99,16 +99,16 @@ export function OfficialPricesPage() {
     {
       key: 'display_name',
       header: t('officialPrices.cols.displayName'),
-      cell: (r) => r.display_name,
+      cell: (r) => r.display_name ?? '—',
     },
     {
       key: 'input',
       header: t('officialPrices.cols.inputPrice'),
       sortable: true,
-      sortValue: (r) => r.input_price_per_1m,
+      sortValue: (r) => Number(r.input_price_per_1m),
       cell: (r) => (
         <span className="tabular">
-          ${usdLabel(r.input_price_per_1m)}
+          ${usdFromMicro(r.input_price_per_1m)}
           <span style={{ color: 'var(--muted)' }}> /1M</span>
         </span>
       ),
@@ -118,10 +118,10 @@ export function OfficialPricesPage() {
       key: 'output',
       header: t('officialPrices.cols.outputPrice'),
       sortable: true,
-      sortValue: (r) => r.output_price_per_1m,
+      sortValue: (r) => Number(r.output_price_per_1m),
       cell: (r) => (
         <span className="tabular">
-          ${usdLabel(r.output_price_per_1m)}
+          ${usdFromMicro(r.output_price_per_1m)}
           <span style={{ color: 'var(--muted)' }}> /1M</span>
         </span>
       ),
@@ -132,24 +132,19 @@ export function OfficialPricesPage() {
       header: t('officialPrices.cols.effectiveAt'),
       sortable: true,
       sortValue: (r) => r.effective_at ?? '',
-      cell: (r) => <span className="tabular">{r.effective_at ?? '—'}</span>,
+      cell: (r) => <span className="tabular">{r.effective_at ? r.effective_at.slice(0, 10) : '—'}</span>,
       width: '120px',
     },
     {
       key: 'source',
       header: t('officialPrices.cols.source'),
       cell: (r) =>
-        r.source_url !== undefined && r.source_url !== '' ? (
+        r.source_url !== null && r.source_url !== '' ? (
           <a
             href={r.source_url}
             target="_blank"
             rel="noreferrer noopener"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 'var(--s-1)',
-              color: 'var(--accent)',
-            }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-1)', color: 'var(--accent)' }}
           >
             {t('officialPrices.source')}
             <ArrowSquareOutIcon size={13} weight="bold" aria-hidden="true" />
@@ -163,18 +158,10 @@ export function OfficialPricesPage() {
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: 'var(--s-2) var(--s-3) var(--s-4)' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--s-3)',
-          marginBottom: 'var(--s-3)',
-        }}
-      >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)', marginBottom: 'var(--s-3)' }}>
         <h1 style={{ margin: 0, fontSize: 'var(--fs-md)', fontWeight: 'var(--fw-semibold)' }}>
           {t('officialPrices.title')}
         </h1>
-        <MockBadge />
       </div>
 
       <DataTable
@@ -188,24 +175,13 @@ export function OfficialPricesPage() {
         actionsWidth="92px"
         rowActions={(r) => (
           <div style={{ display: 'flex', gap: 'var(--s-1)' }}>
-            <RowAction
-              icon={PencilSimpleIcon}
-              label={t('common.edit')}
-              onClick={() => setEditId(r.id)}
-            />
-            <RowAction
-              icon={TrashIcon}
-              label={t('common.delete')}
-              danger
-              onClick={() => setDelTarget(r)}
-            />
+            <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={() => setEditId(r.id)} />
+            <RowAction icon={TrashIcon} label={t('common.delete')} danger onClick={() => setDelTarget(r)} />
           </div>
         )}
       />
 
-      {createOpen && (
-        <OfficialPriceEditor open onClose={() => setCreateOpen(false)} />
-      )}
+      {createOpen && <OfficialPriceEditor open onClose={() => setCreateOpen(false)} />}
       {editId !== null && (
         <OfficialPriceEditor
           key={editId}
@@ -256,6 +232,7 @@ function DateField({
         onChange={(e) => onChange(e.target.value)}
         className="panel"
         style={{
+          width: '100%',
           fontSize: 'var(--fs-sm)',
           color: 'var(--text)',
           padding: '9px 11px',
@@ -269,63 +246,84 @@ function DateField({
 
 /**
  * Create/edit `Drawer` for an official price. `row === undefined` → create.
- * Prices are entered/stored as integer µUSD per 1M tokens; each price field shows
- * a `= $X.XX/1M` hint. Persists via the mock module + invalidates the query.
+ * Prices are entered in HUMAN USD per 1M tokens (the server stores µUSD); on edit
+ * we convert the µUSD string back to USD to seed the form. `effectiveAt` is sent
+ * as a full ISO timestamp (`yyyy-mm-dd` → `…T00:00:00Z`). Create requires positive
+ * input/output prices; PATCH clears nullable fields with `null`.
  */
 function OfficialPriceEditor({
   row,
   open,
   onClose,
 }: {
-  row?: OfficialModelPrice;
+  row?: OfficialPriceView;
   open: boolean;
   onClose: () => void;
 }) {
   const { t } = useTranslation('console');
+  const api = useAdminApi();
   const qc = useQueryClient();
   const editing = row !== undefined;
+
+  const usd = (s: string | null | undefined): number => (s ? Number(s) / 1_000_000 : 0);
 
   const [provider, setProvider] = useState(row?.provider ?? 'openai');
   const [modelSlug, setModelSlug] = useState(row?.model_slug ?? '');
   const [displayName, setDisplayName] = useState(row?.display_name ?? '');
-  const [inputPrice, setInputPrice] = useState(row?.input_price_per_1m ?? 0);
-  const [outputPrice, setOutputPrice] = useState(row?.output_price_per_1m ?? 0);
-  const [cachedPrice, setCachedPrice] = useState(row?.cached_input_price_per_1m ?? 0);
-  const [effectiveAt, setEffectiveAt] = useState(row?.effective_at ?? '');
+  const [inputUsd, setInputUsd] = useState(usd(row?.input_price_per_1m));
+  const [outputUsd, setOutputUsd] = useState(usd(row?.output_price_per_1m));
+  const [cachedUsd, setCachedUsd] = useState(usd(row?.cached_input_price_per_1m));
+  const [effectiveAt, setEffectiveAt] = useState(row?.effective_at ? row.effective_at.slice(0, 10) : '');
   const [sourceUrl, setSourceUrl] = useState(row?.source_url ?? '');
   const [notes, setNotes] = useState(row?.notes ?? '');
 
-  // Re-seed when the edited row lands/changes (the page also keys edit by id).
   useEffect(() => {
     if (row === undefined) return;
     setProvider(row.provider);
     setModelSlug(row.model_slug);
-    setDisplayName(row.display_name);
-    setInputPrice(row.input_price_per_1m);
-    setOutputPrice(row.output_price_per_1m);
-    setCachedPrice(row.cached_input_price_per_1m ?? 0);
-    setEffectiveAt(row.effective_at ?? '');
+    setDisplayName(row.display_name ?? '');
+    setInputUsd(usd(row.input_price_per_1m));
+    setOutputUsd(usd(row.output_price_per_1m));
+    setCachedUsd(usd(row.cached_input_price_per_1m));
+    setEffectiveAt(row.effective_at ? row.effective_at.slice(0, 10) : '');
     setSourceUrl(row.source_url ?? '');
     setNotes(row.notes ?? '');
   }, [row]);
 
+  const isoOrNull = (d: string): string | null => (d === '' ? null : `${d}T00:00:00Z`);
+  // Create requires positive input/output prices + a model slug (mirrors the backend .positive()).
+  const canSave = modelSlug.trim() !== '' && provider.trim() !== '' && (editing || (inputUsd > 0 && outputUsd > 0));
+
   const save = useMutation({
     mutationFn: () => {
-      const body = {
-        provider: provider.trim(),
-        model_slug: modelSlug.trim(),
-        display_name: displayName.trim(),
-        input_price_per_1m: inputPrice,
-        output_price_per_1m: outputPrice,
-        cached_input_price_per_1m: cachedPrice > 0 ? cachedPrice : undefined,
-        effective_at: effectiveAt === '' ? undefined : effectiveAt,
-        source_url: sourceUrl.trim() === '' ? undefined : sourceUrl.trim(),
-        notes: notes.trim() === '' ? undefined : notes.trim(),
-      };
-      return editing ? updateOfficialPrice(row.id, body) : createOfficialPrice(body);
+      if (editing) {
+        return api.updateOfficialPrice(row.id, {
+          displayName: displayName.trim() === '' ? null : displayName.trim(),
+          inputUsdPer1m: inputUsd,
+          outputUsdPer1m: outputUsd,
+          cachedInputUsdPer1m: cachedUsd > 0 ? cachedUsd : null,
+          sourceUrl: sourceUrl.trim() === '' ? null : sourceUrl.trim(),
+          effectiveAt: isoOrNull(effectiveAt),
+          notes: notes.trim() === '' ? null : notes.trim(),
+        });
+      }
+      return api.createOfficialPrice(
+        {
+          provider: provider.trim(),
+          modelSlug: modelSlug.trim(),
+          displayName: displayName.trim() === '' ? undefined : displayName.trim(),
+          inputUsdPer1m: inputUsd,
+          outputUsdPer1m: outputUsd,
+          cachedInputUsdPer1m: cachedUsd > 0 ? cachedUsd : undefined,
+          sourceUrl: sourceUrl.trim() === '' ? undefined : sourceUrl.trim(),
+          effectiveAt: effectiveAt === '' ? undefined : `${effectiveAt}T00:00:00Z`,
+          notes: notes.trim() === '' ? undefined : notes.trim(),
+        },
+        crypto.randomUUID(),
+      );
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: QK });
+      await qc.invalidateQueries({ queryKey: qk.officialPrices() });
       toast(t(editing ? 'officialPrices.updated' : 'officialPrices.created'));
       onClose();
     },
@@ -338,7 +336,7 @@ function OfficialPriceEditor({
       title={t(editing ? 'officialPrices.editTitle' : 'officialPrices.new')}
       onClose={onClose}
       footer={
-        <Button variant="cta" onClick={() => save.mutate()} loading={save.isPending}>
+        <Button variant="cta" onClick={() => save.mutate()} loading={save.isPending} disabled={!canSave}>
           {t('officialPrices.save')}
         </Button>
       }
@@ -351,6 +349,7 @@ function OfficialPriceEditor({
         value={provider}
         onChange={setProvider}
         required
+        disabled={editing}
       />
       <TextField
         label={t('officialPrices.form.modelSlug')}
@@ -358,38 +357,35 @@ function OfficialPriceEditor({
         value={modelSlug}
         onChange={setModelSlug}
         required
+        disabled={editing}
       />
-      <TextField
-        label={t('officialPrices.form.displayName')}
-        value={displayName}
-        onChange={setDisplayName}
-      />
+      <TextField label={t('officialPrices.form.displayName')} value={displayName} onChange={setDisplayName} />
       <NumberField
         label={t('officialPrices.form.inputPrice')}
         tooltip={t('officialPrices.tip.price')}
-        hint={t('officialPrices.priceEquiv', { usd: usdLabel(inputPrice) })}
-        value={inputPrice}
-        onChange={setInputPrice}
+        hint={t('officialPrices.priceEquiv', { usd: inputUsd.toFixed(2) })}
+        value={inputUsd}
+        onChange={setInputUsd}
         min={0}
-        step={1000}
+        step={0.01}
       />
       <NumberField
         label={t('officialPrices.form.outputPrice')}
         tooltip={t('officialPrices.tip.price')}
-        hint={t('officialPrices.priceEquiv', { usd: usdLabel(outputPrice) })}
-        value={outputPrice}
-        onChange={setOutputPrice}
+        hint={t('officialPrices.priceEquiv', { usd: outputUsd.toFixed(2) })}
+        value={outputUsd}
+        onChange={setOutputUsd}
         min={0}
-        step={1000}
+        step={0.01}
       />
       <NumberField
         label={t('officialPrices.form.cachedInputPrice')}
         tooltip={t('officialPrices.tip.cachedInputPrice')}
-        hint={t('officialPrices.priceEquiv', { usd: usdLabel(cachedPrice) })}
-        value={cachedPrice}
-        onChange={setCachedPrice}
+        hint={t('officialPrices.priceEquiv', { usd: cachedUsd.toFixed(2) })}
+        value={cachedUsd}
+        onChange={setCachedUsd}
         min={0}
-        step={1000}
+        step={0.01}
       />
       <DateField
         label={t('officialPrices.form.effectiveAt')}

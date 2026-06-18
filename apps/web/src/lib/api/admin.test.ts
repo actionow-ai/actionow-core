@@ -192,3 +192,42 @@ describe('admin route-groups api', () => {
     });
   });
 });
+
+describe('admin official-prices api', () => {
+  it('listOfficialPrices paginates /admin/official-prices (rows unwrapped)', async () => {
+    const { client, calls } = fakeClient();
+    await expect(makeAdminApi(client).listOfficialPrices()).resolves.toEqual([]);
+    expect(calls[0]?.method).toBe('getPage');
+    expect(calls[0]?.path).toBe('/admin/official-prices');
+  });
+
+  it('createOfficialPrice posts a camelCase HUMAN-USD body (no client µUSD pre-multiply)', async () => {
+    const { client, calls } = fakeClient();
+    await makeAdminApi(client).createOfficialPrice(
+      { provider: 'openai', modelSlug: 'gpt-4o', inputUsdPer1m: 2.5, outputUsdPer1m: 10 },
+      'idem-1',
+    );
+    expect(calls[0]?.method).toBe('post');
+    expect(calls[0]?.path).toBe('/admin/official-prices');
+    expect(calls[0]?.arg).toEqual(
+      expect.objectContaining({ inputUsdPer1m: 2.5, outputUsdPer1m: 10 }),
+    );
+  });
+
+  it('updateOfficialPrice patches :id; deleteOfficialPrice deletes :id', async () => {
+    const { client, calls } = fakeClient();
+    const api = makeAdminApi(client);
+    await api.updateOfficialPrice('p1', { inputUsdPer1m: 3 });
+    await api.deleteOfficialPrice('p1');
+    expect(calls[0]).toEqual({
+      method: 'patch',
+      path: '/admin/official-prices/p1',
+      arg: { inputUsdPer1m: 3 },
+    });
+    expect(calls[1]).toEqual({
+      method: 'delete',
+      path: '/admin/official-prices/p1',
+      arg: undefined,
+    });
+  });
+});
