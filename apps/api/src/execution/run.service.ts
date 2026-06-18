@@ -12,23 +12,16 @@ import {
   getResource,
   getResourceVersion,
   listApplicableModifiers,
-  listChannels,
   type ModifierRow,
   type PricebookEntryRow,
-  type UpstreamChannelRow,
 } from '@actionow/db';
-import type {
-  JobQueuePort,
-  RunChannel,
-  RunOutcome,
-  RunRequest,
-  StreamOutcome,
-} from '@actionow/engine';
+import type { JobQueuePort, RunOutcome, RunRequest, StreamOutcome } from '@actionow/engine';
 import { ExecutionService } from '@actionow/engine';
 import { type AppEnv, FetchHttpClient } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { TenantContext } from '../auth/auth.service.js';
+import { ChannelRoutingService } from '../common/channel-routing.service.js';
 import { engineInvalidInput, engineNotFound } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
 import { ADAPTERS, DB, ENV, JOB_QUEUE } from '../common/tokens.js';
@@ -59,6 +52,7 @@ export class RunService {
     @Inject(JOB_QUEUE) private readonly queue: JobQueuePort,
     @Inject(ENV) private readonly env: AppEnv,
     private readonly secrets: SecretResolver,
+    private readonly routing: ChannelRoutingService,
   ) {}
 
   async run(resourceId: string, body: RunBody, ctx: TenantContext): Promise<RunOutcome> {
@@ -102,6 +96,14 @@ export class RunService {
    * `forceMode`, when set, overrides the body's `exec_mode` (still validated
    * against the resource's supported modes) — the SSE endpoint forces `stream`
    * so a client hitting `Accept: text/event-stream` always streams.
+   *
+   * Channels are the GROUP-SCOPED candidate set (Track 4) built from
+   * `ctx.routeGroupId`. This governs the in-process `blocking`/`stream` paths
+   * (the engine routes over these channels here). For `async` runs the engine
+   * only enqueues the job — the worker re-loads channels from `listChannels`
+   * (resource-level, no group) since the job row carries no `route_group_id`
+   * (no schema change this track). Wiring the group into the async worker path
+   * is deferred to a follow-up (it needs a `job.route_group_id` column).
    */
   private async buildRequest(
     resourceId: string,
@@ -125,8 +127,12 @@ export class RunService {
       throw engineNotFound(`no active pricebook for resource ${resourceId}`);
     }
 
-    const channelRows = await listChannels(this.db, resourceId);
-    if (channelRows.length === 0) {
+    // Group-scoped candidate set (Track 4): the key's route group filters the
+    // resource's channels (each carrying its per-(group,channel) priority/weight
+    // for the engine's priority-tiered fallback), falling back to ALL active
+    // channels when the group has no members for the resource (compat).
+    const channels = await this.routing.candidatesFor(resourceId, ctx.routeGroupId);
+    if (channels.length === 0) {
       throw engineNotFound(`no active upstream channel for resource ${resourceId}`);
     }
 
@@ -150,7 +156,7 @@ export class RunService {
       },
       pricebookEntry: toPricebookEntry(pricebook),
       modifiers: modifierRows.map(toModifier),
-      channels: channelRows.map(toRunChannel),
+      channels,
       inputs: body.inputs ?? {},
       execMode,
       tenantId: ctx.tenantId,
@@ -209,18 +215,4 @@ function toModifier(row: ModifierRow): Modifier {
   if (row.whenExpr !== null) modifier.whenExpr = row.whenExpr;
   if (row.value !== null) modifier.value = Number(row.value);
   return modifier;
-}
-
-/** Map an `upstream_channel` row to the engine's {@link RunChannel}. */
-function toRunChannel(row: UpstreamChannelRow): RunChannel {
-  return {
-    id: row.id,
-    weight: row.weight,
-    providerType: row.providerType,
-    credentialRef: row.credentialRef ?? undefined,
-    endpoint: row.endpoint ?? undefined,
-    model: row.model ?? undefined,
-    proxyRef: row.proxyRef ?? undefined,
-    config: row.config ?? undefined,
-  };
 }

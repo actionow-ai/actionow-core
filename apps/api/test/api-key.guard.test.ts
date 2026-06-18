@@ -90,7 +90,23 @@ describe('ApiKeyGuard', () => {
       apiKeyId: 'key-1',
       resourceAllowlist: [],
       rateLimit: null,
+      // Track 4: the key's bound route group is surfaced on the auth context.
+      routeGroupId: null,
     });
+  });
+
+  it("threads the key's bound route_group_id into the auth context (Track 4)", async () => {
+    const g = guard(repoWithKey({ routeGroupId: 'group-xyz' }));
+    const req = {
+      headers: { authorization: `Bearer ${validKey}` },
+      params: {},
+    } as unknown as Request;
+    const ctx = {
+      switchToHttp: () => ({ getRequest: () => req }),
+    } as unknown as ExecutionContext;
+    await expect(g.canActivate(ctx)).resolves.toBe(true);
+    const auth = (req as unknown as { auth: Record<string, unknown> }).auth;
+    expect(auth.routeGroupId).toBe('group-xyz');
   });
 
   it('accepts a valid key via the x-api-key header', async () => {

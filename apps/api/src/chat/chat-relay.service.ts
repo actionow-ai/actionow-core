@@ -12,23 +12,16 @@ import {
   getResource,
   getResourceVersion,
   listApplicableModifiers,
-  listChannels,
   type ModifierRow,
-  type UpstreamChannelRow,
 } from '@actionow/db';
-import type {
-  ChatRunOutcome,
-  ChatStreamOutcome,
-  JobQueuePort,
-  RunChannel,
-  RunRequest,
-} from '@actionow/engine';
+import type { ChatRunOutcome, ChatStreamOutcome, JobQueuePort, RunRequest } from '@actionow/engine';
 import { ExecutionService } from '@actionow/engine';
 import { type AppEnv, FetchHttpClient } from '@actionow/infra';
 import { normalizeRequest, readCapabilities } from '@actionow/llm-protocol';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { TenantContext } from '../auth/auth.service.js';
+import { ChannelRoutingService } from '../common/channel-routing.service.js';
 import { engineNotFound } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
 import { ADAPTERS, DB, ENV, JOB_QUEUE } from '../common/tokens.js';
@@ -82,6 +75,7 @@ export class ChatRelayService {
     @Inject(ENV) private readonly env: AppEnv,
     private readonly secrets: SecretResolver,
     private readonly resolver: ModelResolverService,
+    private readonly routing: ChannelRoutingService,
   ) {}
 
   /** Open an IR-streaming chat run for the resolved model (hold runs first). */
@@ -144,8 +138,12 @@ export class ChatRelayService {
       throw engineNotFound(`chat resource ${resourceId} version ${String(version)} not found`);
     }
 
-    const channelRows = await listChannels(this.db, resourceId);
-    if (channelRows.length === 0) {
+    // Group-scoped candidate set (Track 4): the key's route group filters which
+    // channels of the resource are routable, each carrying its per-(group,channel)
+    // priority/weight for the engine's priority-tiered fallback. Falls back to ALL
+    // active channels when the group has no members for the resource (compat).
+    const channels = await this.routing.candidatesFor(resourceId, ctx.routeGroupId);
+    if (channels.length === 0) {
       throw engineNotFound(`no active upstream channel for chat resource ${resourceId}`);
     }
 
@@ -165,7 +163,7 @@ export class ChatRelayService {
       },
       pricebookEntry: this.modelTokenPricebook(resolved, version),
       modifiers: modifierRows.map(toModifier),
-      channels: channelRows.map(toRunChannel),
+      channels,
       inputs: { [IR_KEY]: ir },
       execMode,
       tenantId: ctx.tenantId,
@@ -249,18 +247,4 @@ function toModifier(row: ModifierRow): Modifier {
   if (row.whenExpr !== null) modifier.whenExpr = row.whenExpr;
   if (row.value !== null) modifier.value = Number(row.value);
   return modifier;
-}
-
-/** Map an `upstream_channel` row to the engine's {@link RunChannel}. */
-function toRunChannel(row: UpstreamChannelRow): RunChannel {
-  return {
-    id: row.id,
-    weight: row.weight,
-    providerType: row.providerType,
-    credentialRef: row.credentialRef ?? undefined,
-    endpoint: row.endpoint ?? undefined,
-    model: row.model ?? undefined,
-    proxyRef: row.proxyRef ?? undefined,
-    config: row.config ?? undefined,
-  };
 }

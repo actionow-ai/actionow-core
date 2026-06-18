@@ -26,6 +26,7 @@ const authCtx: ApiKeyContext = {
   apiKeyId: 'k1',
   resourceAllowlist: [],
   rateLimit: null,
+  routeGroupId: null,
 };
 
 function allow(): RateLimitResult {
