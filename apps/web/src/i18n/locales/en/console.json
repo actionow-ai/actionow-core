@@ -39,6 +39,7 @@
       "tenants": "Tenants"
     },
     "dashboard": "Dashboard",
+    "analytics": "Analytics",
     "tenants": "Tenants",
     "accounts": "Accounts",
     "apiKeys": "API Keys",
@@ -53,6 +54,7 @@
   "topbar": { "admin": "Admin", "logout": "Sign out", "backHome": "Website", "refresh": "Refresh" },
   "subtitles": {
     "dashboard": "Tenants & resources overview, recent jobs",
+    "analytics": "Usage, cost and margin over time and by dimension",
     "tenants": "Create and view tenants",
     "catalog": "Models & resources — channels and pricing",
     "resources": "Models, upstream channels & pricing",
@@ -71,6 +73,38 @@
     "pickTenant": "Pick a tenant to view jobs",
     "cols": { "resource": "Resource", "execMode": "Exec mode", "cost": "Cost", "status": "Status" },
     "ranking": { "title": "Top models by cost", "empty": "No usage yet" }
+  },
+  "analytics": {
+    "title": "Analytics",
+    "allTenants": "All tenants",
+    "groupByLabel": "Group by",
+    "metricLabel": "Metric",
+    "groupBy": {
+      "day": "By day",
+      "model": "Model",
+      "tenant": "Tenant",
+      "channel": "Channel",
+      "api_key": "API key"
+    },
+    "metric": { "cost": "Cost", "margin": "Margin", "requests": "Requests", "tokens": "Tokens" },
+    "from": "From",
+    "to": "To",
+    "stats": { "requests": "Requests", "cost": "Cost", "margin": "Margin", "errors": "Errors" },
+    "chart": {
+      "trend": "{{metric}} trend",
+      "breakdown": "{{metric}} by {{dimension}}",
+      "empty": "No usage in this range"
+    },
+    "detail": { "title": "Breakdown" },
+    "cols": {
+      "bucket": "Bucket",
+      "requests": "Requests",
+      "tokens": "Tokens",
+      "cost": "Cost",
+      "providerCost": "Provider cost",
+      "margin": "Margin",
+      "errors": "Errors"
+    }
   },
   "tenants": {
     "title": "Tenants",

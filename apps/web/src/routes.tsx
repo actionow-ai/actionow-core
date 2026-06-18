@@ -4,6 +4,7 @@ import { ConsoleLayout } from './components/console/ConsoleLayout';
 import { UserHome } from './features/app/UserHome';
 import { AuthPage } from './features/auth/AuthPage';
 import { AccountsPage } from './features/console/AccountsPage';
+import { AnalyticsPage } from './features/console/AnalyticsPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { CatalogPage } from './features/console/CatalogPage';
 import { DashboardPage } from './features/console/DashboardPage';
@@ -39,6 +40,7 @@ export function AppRoutes() {
         <Route path="/console" element={<ConsoleLayout />}>
           <Route index element={<Navigate to="/console/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="catalog" element={<CatalogPage />} />
           {/* Legacy routes redirect into the unified catalog page (single route + ?tab). */}
           <Route

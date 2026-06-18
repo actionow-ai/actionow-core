@@ -32,7 +32,10 @@ export const NAV: NavGroup[] = [
   {
     key: 'ops',
     icon: SquaresFourIcon,
-    items: [{ to: '/console/dashboard', labelKey: 'dashboard' }],
+    items: [
+      { to: '/console/dashboard', labelKey: 'dashboard' },
+      { to: '/console/analytics', labelKey: 'analytics' },
+    ],
   },
   {
     key: 'catalog',
