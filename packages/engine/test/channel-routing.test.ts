@@ -91,3 +91,44 @@ describe('routeBlocking', () => {
     expect(result).toBe('a');
   });
 });
+
+describe('routeBlocking — priority tiers (Track 4)', () => {
+  // The priority-10 channel is always tried first; on a retryable failure the
+  // route cascades to the priority-0 tier.
+  const tiered = [
+    { id: 'primary', weight: 1, priority: 10 },
+    { id: 'fallback', weight: 1, priority: 0 },
+  ];
+
+  it('always routes to the higher-priority tier first regardless of rng', async () => {
+    // rng=0.99 would otherwise weight-pick late, but the priority-10 tier comes
+    // first as a whole, so `primary` is chosen.
+    const highRng = { ...deps, rng: () => 0.99 };
+    const result = await routeBlocking(highRng, tiered, (ch) => Promise.resolve(ch.id));
+    expect(result).toBe('primary');
+  });
+
+  it('cascades to the lower-priority tier when the higher one retryably fails', async () => {
+    const attempted: string[] = [];
+    const result = await routeBlocking(deps, tiered, (ch) => {
+      attempted.push(ch.id);
+      if (ch.id === 'primary') throw retryable();
+      return Promise.resolve(ch.id);
+    });
+    expect(result).toBe('fallback');
+    expect(attempted).toEqual(['primary', 'fallback']);
+    expect(failureCalls).toEqual(['primary']);
+  });
+
+  it('weighted-picks within a tier of equal-priority channels', async () => {
+    // Two channels in the SAME (top) tier; weight 1 vs 3. rng=0.99 lands in the
+    // weight-3 band → `heavy` is picked first.
+    const sameTier = [
+      { id: 'light', weight: 1, priority: 10 },
+      { id: 'heavy', weight: 3, priority: 10 },
+    ];
+    const highRng = { ...deps, rng: () => 0.99 };
+    const result = await routeBlocking(highRng, sameTier, (ch) => Promise.resolve(ch.id));
+    expect(result).toBe('heavy');
+  });
+});

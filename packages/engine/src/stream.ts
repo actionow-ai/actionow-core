@@ -269,8 +269,12 @@ export async function* createChatSettlingStream(
       yield { type: 'error', error: failure };
       return;
     }
+    // Carry each channel's group-membership `priority` (Track 4) into the
+    // failover ordering so the pre-first-event stream failover is priority-tier-
+    // aware: the highest tier is tried first, weighted within the tier, then the
+    // next-lower tier. Absent `priority` → a single tier (legacy flat-weighted).
     const ordered = orderForFailover(
-      available.map((c) => ({ id: c.id, weight: c.weight, value: c })),
+      available.map((c) => ({ id: c.id, weight: c.weight, priority: c.priority, value: c })),
       rng,
     );
 

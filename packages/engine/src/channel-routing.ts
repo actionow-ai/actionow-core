@@ -5,10 +5,19 @@ import {
 } from '@actionow/adapters';
 import { type DbOrTx, listCooledDownChannelIds, recordChannelFailure } from '@actionow/db';
 
-/** The minimal channel shape the router needs: `id` (cooldown) + `weight` (selection). */
+/**
+ * The minimal channel shape the router needs: `id` (cooldown), `weight`
+ * (weighted selection within a tier) and an optional `priority` (the fallback
+ * TIER — HIGHER is tried first; absent → `0`, a single tier). Track 4 sources
+ * `priority`/`weight` from the key's route-group membership; legacy
+ * resource-level routing leaves `priority` absent → a single tier, so the
+ * behavior is unchanged.
+ */
 export interface RoutableChannel {
   id: string;
   weight: number;
+  /** Fallback tier — HIGHER is tried first. Absent → `0` (single tier). */
+  priority?: number | undefined;
 }
 
 /** The db/clock/rng the channel router reads cooldown from and records failures into. */
@@ -62,6 +71,7 @@ export async function routeBlocking<C extends RoutableChannel, R>(
   const weighted: WeightedChannel<C>[] = available.map((c) => ({
     id: c.id,
     weight: c.weight,
+    priority: c.priority,
     value: c,
   }));
   return routeWithFailover(

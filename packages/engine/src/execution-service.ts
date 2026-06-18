@@ -50,7 +50,15 @@ const DEFAULT_TRACE_MAX_BYTES = 1_000_000;
 /** A routed upstream channel: how to reach one provider endpoint/credential. */
 export interface RunChannel {
   id: string;
+  /** Weighted-random selection weight WITHIN a priority tier. */
   weight: number;
+  /**
+   * The fallback TIER (Track 4): HIGHER is tried first; a retryable failure in a
+   * tier cascades to the next-lower one. Sourced from the key's route-group
+   * membership (`route_group_channel.priority`); absent for the legacy
+   * resource-level path → a single tier (`0`), so failover stays flat-weighted.
+   */
+  priority?: number | undefined;
   /** Per-channel provider/adapter; overrides resource.providerType for routing — cross-provider fallback. */
   providerType?: string | undefined;
   /** Opaque secret locator resolved via `resolveSecret`; never logged. */

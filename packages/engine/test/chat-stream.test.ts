@@ -385,6 +385,36 @@ describe('createChatSettlingStream', () => {
     expect(failCalls).toHaveLength(0);
   });
 
+  it('tries the higher-priority tier first, then cascades to the lower one (Track 4)', async () => {
+    // The priority-10 channel ('bad', retryable first-frame error) is tried
+    // first regardless of weighted rng; its retryable failure cascades to the
+    // priority-0 'good' tier, whose full stream reaches the consumer.
+    const d = deps(
+      {
+        channels: [
+          { id: 'good', weight: 5, priority: 0, credentialRef: 'r2', model: 'good' },
+          { id: 'bad', weight: 1, priority: 10, credentialRef: 'r1', model: 'bad' },
+        ],
+      },
+      fakeFailoverChatAdapter(),
+    );
+    // rng→0.99 would weight-pick 'good' (weight 5) first if it were a single
+    // tier; the priority tier forces 'bad' (priority 10) first → fail over to 'good'.
+    d.rng = () => 0.99;
+    const events: ChatStreamEvent[] = [];
+    for await (const ev of createChatSettlingStream(d)) events.push(ev);
+
+    expect(events.map((e) => e.type)).toEqual([
+      'message_start',
+      'content_delta',
+      'usage',
+      'stop',
+      'done',
+    ]);
+    expect(settleCalls).toHaveLength(1);
+    expect(failCalls).toHaveLength(0);
+  });
+
   it('every channel errors on the first frame → in-band error, fail, no settle', async () => {
     const d = deps(
       {
