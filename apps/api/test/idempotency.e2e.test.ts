@@ -115,6 +115,31 @@ describe('Track D5: Idempotency-Key replay (allowlisted admin POSTs)', () => {
     expect(await idemRowsForScope('POST /admin/tenants')).toBe(1);
   });
 
+  it('the SAME key with a DIFFERENT body → 400 invalid_input (no wrong-response replay) and creates ONE entity', async () => {
+    const key = 'idem-tenant-diffbody';
+
+    const first = await auth(
+      request(app.getHttpServer()).post('/admin/tenants').set('Idempotency-Key', key),
+    )
+      .send({ name: 'acme' })
+      .expect(201);
+
+    // Reusing the key with a DIFFERENT payload must NOT replay acme's response —
+    // that would hand back the wrong entity. It is a client error.
+    const conflict = await auth(
+      request(app.getHttpServer()).post('/admin/tenants').set('Idempotency-Key', key),
+    )
+      .send({ name: 'globex' })
+      .expect(400);
+    expect(conflict.body.error.code).toBe('invalid_input');
+
+    // Only the original tenant was created; the conflicting POST created nothing.
+    const tenants = await client`SELECT id, name FROM tenant`;
+    expect(tenants).toHaveLength(1);
+    expect(tenants[0]?.id).toBe(first.body.id);
+    expect(tenants[0]?.name).toBe('acme');
+  });
+
   it('the SAME key on a DIFFERENT route (scope) is NOT conflated', async () => {
     const key = 'shared-key';
 

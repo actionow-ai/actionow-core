@@ -138,6 +138,12 @@ export const requestIdempotency = pgTable(
     scope: text('scope').notNull(),
     responseStatus: integer('response_status').notNull(),
     responseBody: jsonb('response_body'),
+    /**
+     * Fingerprint (sha256 hex) of the ORIGINAL request body (P3). On a replay the
+     * interceptor rejects a reused key whose body differs, instead of returning
+     * the wrong cached response. Nullable for pre-P3 rows (skip the check).
+     */
+    requestFingerprint: text('request_fingerprint'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.idKey, t.scope] })],

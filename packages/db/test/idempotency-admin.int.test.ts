@@ -44,7 +44,19 @@ describe('request_idempotency repo', () => {
     expect(wrote).toBe(true);
 
     const hit = await getIdempotentResponse(db, 'k1', 'POST /admin/tenants');
-    expect(hit).toEqual({ status: 201, body });
+    expect(hit).toEqual({ status: 201, body, fingerprint: null });
+  });
+
+  it('round-trips the request fingerprint when supplied (P3 payload-binding)', async () => {
+    await putIdempotentResponse(db, {
+      key: 'k-fp',
+      scope: 'POST /admin/tenants',
+      status: 201,
+      body: { id: 'abc' },
+      fingerprint: 'deadbeef',
+    });
+    const hit = await getIdempotentResponse(db, 'k-fp', 'POST /admin/tenants');
+    expect(hit).toEqual({ status: 201, body: { id: 'abc' }, fingerprint: 'deadbeef' });
   });
 
   it('a second put for the same (key, scope) is a no-op and keeps the first body', async () => {
@@ -64,7 +76,7 @@ describe('request_idempotency repo', () => {
     expect(wroteAgain).toBe(false);
 
     const hit = await getIdempotentResponse(db, 'k1', 'POST /admin/tenants');
-    expect(hit).toEqual({ status: 201, body: { id: 'first' } });
+    expect(hit).toEqual({ status: 201, body: { id: 'first' }, fingerprint: null });
   });
 
   it('the same key under a DIFFERENT scope is independent', async () => {
@@ -85,10 +97,12 @@ describe('request_idempotency repo', () => {
     expect(await getIdempotentResponse(db, 'shared', 'POST /admin/tenants')).toEqual({
       status: 201,
       body: { id: 'tenant' },
+      fingerprint: null,
     });
     expect(await getIdempotentResponse(db, 'shared', 'POST /admin/models')).toEqual({
       status: 201,
       body: { id: 'model' },
+      fingerprint: null,
     });
   });
 
@@ -102,6 +116,7 @@ describe('request_idempotency repo', () => {
     expect(await getIdempotentResponse(db, 'k-null', 'POST /admin/x')).toEqual({
       status: 204,
       body: null,
+      fingerprint: null,
     });
   });
 });

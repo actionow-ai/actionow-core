@@ -2,6 +2,17 @@
 
 Items surfaced during phase reviews that were intentionally deferred. None block the scaffold; each has a documented workaround.
 
+## Hardening pass — risk register (branch `harden/risk-register-fixes`)
+
+A multi-dimensional design review produced a prioritized risk register; **all P0/P1/P2 items were fixed** (one commit each, with tests): relay idempotency (P0-1), `callback_url` SSRF guard + ingress validation (P0-2), payment-webhook atomicity (P0-3), streaming idle timeout (P1-4), BullMQ retry/backoff/DLQ + graceful shutdown + enqueue-fail release (P1-5), seed prod-guard + password policy + login throttle (P1-6), adapter audio/file rejection + file gate (P2-7), money/audit FKs + tenant-scoped money writes (P2-8). The remaining **P3 maturity items carry no runtime risk** and are deferred as dedicated, reviewed efforts rather than rushed at the tail of the fix sequence:
+
+- **Engine persistence port (unweld `DbOrTx`).** `ExecutionServiceDeps.db: DbOrTx` welds the framework-free engine to a concrete drizzle handle typed over the full schema. → Define a narrow repository port (in contracts/engine) covering only the ops the engine calls, have `@actionow/db` implement it, and depend the engine on the port. Large, portability-only; zero runtime impact.
+- **Extract relay pricebook / hold-estimation into the engine.** The chat relay's pricebook-spec construction + stream-hold byte heuristic live in the API app, so the worker / third-party extenders can't reuse them. → Move into the engine behind the existing snapshot DTO.
+- **Decompose the admin god-files** (`admin.service.ts` ~1.5k LOC, `admin.controller.ts` ~1.4k LOC) into per-domain sub-services (tenants/keys, channels/route-groups, pricing/catalog, payments) — also makes per-resource authz easier to audit.
+- **Metrics + structured logging.** Replace `console.log`/`console.error` in the worker/engine with a structured logger and emit counters/histograms (job latency, settle counts, webhook delivery, channel failover). Observability only.
+- **Capability-aware channel routing (follow-up to P2-7).** Adapters now _reject_ content parts they can't represent (no silent base64-as-text downgrade), but the dispatch gate still keys off the resolved MODEL row, not the serving channel's `AdapterCapabilities`. → Re-gate at dispatch (or filter candidate channels by adapter capability) so a multimodal request fails _over_ to a capable channel instead of erroring on a misconfigured mixed-capability resource.
+- **`failJob` tenant-scoping (follow-up to P2-8).** `settleJob`/`topUp`/`holdCredits` money writes are now tenant-scoped; `failJob` (a `credit_held` release only, no balance movement) still keys on `accountId` alone. → Thread `tenantId` into `FailJobInput` for symmetry.
+
 ## Ledger / accounting
 
 - **`hold` produces no ledger row** (Phase 3). `holdCredits` reserves into `account.credit_held` but writes no `ledger_txn` of type `hold`; only the final `settle` row is written. Funds are always correct, but the ledger is not a _complete_ append-only history of every balance event (a §5/§6.2 goal). `appendLedger` already supports a `hold`-typed row. → Add a `hold` ledger row (and matching `release`/`refund` rows) for full auditability.
@@ -20,7 +31,7 @@ Items surfaced during phase reviews that were intentionally deferred. None block
 ## Phase 5 (minor)
 
 - **`RateLimitGuard` over-counts the resource window on a tenant-blocked request** (`apps/api/src/auth/rate-limit.guard.ts`). The guard increments both fixed-window buckets via `Promise.all` before checking either, so a request rejected by the tenant bucket still consumes one slot of the per-(tenant, resource) window. The over-count is benign (a single slot in a fixed window that self-heals when the window rolls over) and never under-charges the limit. → Short-circuit on the tenant bucket first; only touch the resource bucket once the tenant check passes.
-- **Seed CLI prints the dev admin password to stdout** (`apps/api/src/seed/seed.ts`, `main()`). The printed value is `SEED_ADMIN_PASSWORD`, a hardcoded well-known **dev** constant — not a real secret — but printing it widens the intended-stdout surface (the one-time API-key plaintext) beyond what's necessary. → Print only a "use the dev password from docs" hint instead of the literal password.
+- ~~**Seed CLI prints the dev admin password to stdout**~~ — **RESOLVED (hardening pass P1-6).** The CLI now refuses to provision the default-credential admin in `NODE_ENV=production` (requires `SEED_ALLOW_PRODUCTION=true` + an operator `SEED_ADMIN_PASSWORD`) and never echoes an operator-supplied password; the dev-default password is printed only outside production.
 
 ## Testing / CI
 
@@ -43,7 +54,7 @@ Items surfaced during phase reviews that were intentionally deferred. None block
 
 ## Phase 10 (minor)
 
-- **`getIntentByProviderRef` + `insertEventIfNew` run outside the fulfillment transaction** (`packages/engine/src/payment-service.ts`). Correctness holds via the `unique(provider,event_id)` constraint (a concurrent duplicate loses the ON CONFLICT race and no-ops), but the read-then-insert isn't itself transactional. → fold into the fulfillment tx if hardened.
+- ~~**`getIntentByProviderRef` + `insertEventIfNew` run outside the fulfillment transaction**~~ — **RESOLVED (hardening pass P0-3).** Event-recording and fulfillment now run in ONE transaction, so a crash/abort after the event row would otherwise commit rolls it back too and the provider retry re-runs cleanly (instead of being mis-classified as a duplicate and silently losing the topup credit).
 - **`setIntentStatus` has no terminal-state guard** — unconditionally sets `succeeded` on a verified succeeded event. Not reachable now (only succeeded events fulfill; idempotency prevents reprocessing), but a future refund/failed flow needs a status-transition guard.
 - **`order`/`subscription` purposes** record payment (intent succeeded, event processed) but carry no fulfillment hook yet — wire the order/subscription grant when those products land.
 - **WeChat legacy platform-certificate serial branch** is out of scope (unknown serial rejected); add cert-mode verify if a merchant predates the public-key migration.

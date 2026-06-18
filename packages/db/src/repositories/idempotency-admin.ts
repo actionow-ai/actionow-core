@@ -10,6 +10,8 @@ import type { DbOrTx } from './types.js';
 export interface IdempotentResponse {
   readonly status: number;
   readonly body: unknown;
+  /** sha256 hex of the original request body, or null for pre-P3 rows. */
+  readonly fingerprint: string | null;
 }
 
 /**
@@ -25,6 +27,7 @@ export async function getIdempotentResponse(
     .select({
       status: requestIdempotency.responseStatus,
       body: requestIdempotency.responseBody,
+      fingerprint: requestIdempotency.requestFingerprint,
     })
     .from(requestIdempotency)
     .where(and(eq(requestIdempotency.idKey, key), eq(requestIdempotency.scope, scope)))
@@ -32,7 +35,7 @@ export async function getIdempotentResponse(
 
   const row = rows[0];
   if (!row) return undefined;
-  return { status: row.status, body: row.body };
+  return { status: row.status, body: row.body, fingerprint: row.fingerprint };
 }
 
 /** Fields persisted by {@link putIdempotentResponse}. */
@@ -41,6 +44,8 @@ export interface PutIdempotentResponseInput {
   readonly scope: string;
   readonly status: number;
   readonly body: unknown;
+  /** sha256 hex of the request body, stored so a later reuse can be payload-checked. */
+  readonly fingerprint?: string;
 }
 
 /**
@@ -65,6 +70,7 @@ export async function putIdempotentResponse(
       scope: input.scope,
       responseStatus: input.status,
       responseBody: input.body,
+      ...(input.fingerprint !== undefined ? { requestFingerprint: input.fingerprint } : {}),
     })
     .onConflictDoNothing({ target: [requestIdempotency.idKey, requestIdempotency.scope] })
     .returning({ idKey: requestIdempotency.idKey });
