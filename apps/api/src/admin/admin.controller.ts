@@ -226,6 +226,10 @@ interface ChannelView {
   config: Record<string, unknown> | null;
   weight: number;
   status: string;
+  /** Operator cost µUSD/1M INPUT tokens (Track 5); bigint → decimal string, null when unset. */
+  input_cost_per_1m: string | null;
+  /** Operator cost µUSD/1M OUTPUT tokens (Track 5); bigint → decimal string, null when unset. */
+  output_cost_per_1m: string | null;
 }
 
 interface PricebookView {
@@ -301,13 +305,17 @@ interface UsageLogView {
   created_at: string;
 }
 
-/** One aggregated usage bucket. Token/cost sums are bigint → decimal strings. */
+/** One aggregated usage bucket. Token/cost/margin sums are bigint → decimal strings. */
 interface UsageRollupView {
   bucket: string;
   requests: number;
   input_tokens: string;
   output_tokens: string;
   cost: string;
+  /** sum(provider_cost) µUSD — the served channels' actual cost (Track 5). */
+  provider_cost: string;
+  /** sum(cost) − sum(provider_cost) µUSD — the operator margin (Track 5). */
+  margin: string;
   errors: number;
 }
 
@@ -1286,6 +1294,8 @@ function toChannelView(row: UpstreamChannelRow): ChannelView {
     config: row.config,
     weight: row.weight,
     status: row.status,
+    input_cost_per_1m: row.inputCostPer1m === null ? null : row.inputCostPer1m.toString(),
+    output_cost_per_1m: row.outputCostPer1m === null ? null : row.outputCostPer1m.toString(),
   };
 }
 
@@ -1420,6 +1430,8 @@ function toUsageRollupView(row: UsageRollupRow): UsageRollupView {
     input_tokens: row.inputTokens.toString(),
     output_tokens: row.outputTokens.toString(),
     cost: row.cost.toString(),
+    provider_cost: row.providerCost.toString(),
+    margin: row.margin.toString(),
     errors: row.errors,
   };
 }

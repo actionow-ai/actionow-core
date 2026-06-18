@@ -147,6 +147,12 @@ export class ChatRelayService {
       throw engineNotFound(`no active upstream channel for chat resource ${resourceId}`);
     }
 
+    // The CUSTOMER-PRICE ratio (Track 5): resolved pre-routing from the key's
+    // group (`route_group.group_ratio_bps`; unbound → the `default` group; no
+    // default → ×1.0). Folded into the model_token base BEFORE markup/modifiers,
+    // so it applies uniformly to the hold (estimated usage) and the settle.
+    const groupRatioBps = await this.routing.groupRatioBpsFor(ctx.routeGroupId);
+
     const modifierRows = await listApplicableModifiers(this.db, {
       tenantId: ctx.tenantId,
       resourceId,
@@ -161,7 +167,7 @@ export class ChatRelayService {
         execModes: resource.execModes as ExecMode[],
         providerType: resource.providerType,
       },
-      pricebookEntry: this.modelTokenPricebook(resolved, version),
+      pricebookEntry: this.modelTokenPricebook(resolved, version, groupRatioBps),
       modifiers: modifierRows.map(toModifier),
       channels,
       inputs: { [IR_KEY]: ir },
@@ -193,13 +199,19 @@ export class ChatRelayService {
 
   /**
    * Build the `model_token` {@link PricebookEntry} for a resolved model: prices
-   * the run at `roundHalfUp((in*inputPrice + out*outputPrice) / 1_000_000)` µUSD
-   * — `inputPrice`/`outputPrice` are µUSD per 1M tokens, frozen from the model
-   * catalog's resale prices (`post`-timed; settled off the adapter's observed
-   * token usage). The resource's own DB pricebook is ignored for chat — the
-   * model catalog is the source of truth for token pricing.
+   * the run at `roundHalfUp((in*inputPrice + out*outputPrice) × bps / (1e6 ×
+   * 10000))` µUSD — `inputPrice`/`outputPrice` are µUSD per 1M tokens (frozen
+   * from the model catalog's resale prices), `bps` is the key's `groupRatioBps`
+   * (the per-group customer markup, default 10000 = ×1.0). `post`-timed (settled
+   * off the adapter's observed usage); the resource's own DB pricebook is ignored
+   * for chat — the model catalog is the source of truth for token pricing. The
+   * SAME entry sizes the hold (estimated usage), so the ratio applies uniformly.
    */
-  private modelTokenPricebook(resolved: ResolvedModel, resourceVersion: number): PricebookEntry {
+  private modelTokenPricebook(
+    resolved: ResolvedModel,
+    resourceVersion: number,
+    groupRatioBps: number,
+  ): PricebookEntry {
     return {
       resourceId: resolved.resourceId,
       resourceVersion,
@@ -210,6 +222,7 @@ export class ChatRelayService {
         method: 'model_token',
         inputPrice: Number(resolved.inputPrice),
         outputPrice: Number(resolved.outputPrice),
+        groupRatioBps,
       },
     };
   }

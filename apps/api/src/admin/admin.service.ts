@@ -98,6 +98,7 @@ import {
   updateRouteGroup,
   updateTenant,
   updateUpstreamChannel,
+  type UpdateUpstreamChannelInput,
   upsertModelsFromSync,
   type UpstreamChannelRow,
   type UsageLogRow,
@@ -702,6 +703,13 @@ export class AdminService {
       config: dto.config ?? null,
       weight: dto.weight,
       status: dto.status,
+      // HUMAN USD/1M cost rates → integer µUSD/1M (Track 5); omitted → null.
+      ...(dto.inputCostUsdPer1m !== undefined
+        ? { inputCostPer1m: usdPer1mToMicro(dto.inputCostUsdPer1m) }
+        : {}),
+      ...(dto.outputCostUsdPer1m !== undefined
+        ? { outputCostPer1m: usdPer1mToMicro(dto.outputCostUsdPer1m) }
+        : {}),
     });
   }
 
@@ -713,9 +721,32 @@ export class AdminService {
     return listChannelsForResource(this.db, resourceId, page);
   }
 
-  /** Patch an upstream channel's routing fields (weight/status/endpoint/model/...). */
+  /**
+   * Patch an upstream channel's routing fields (weight/status/endpoint/model/...)
+   * + the Track-5 per-channel cost rates. The HUMAN USD/1M cost fields are
+   * converted to integer µUSD/1M here (mirroring the create path); passing `null`
+   * CLEARS a cost column (→ unknown cost / 0). All other fields pass through.
+   */
   async updateChannel(channelId: string, dto: UpdateChannelDto): Promise<UpstreamChannelRow> {
-    const row = await updateUpstreamChannel(this.db, channelId, dto);
+    const patch: {
+      -readonly [K in keyof UpdateUpstreamChannelInput]: UpdateUpstreamChannelInput[K];
+    } = {};
+    if (dto.credentialRef !== undefined) patch.credentialRef = dto.credentialRef;
+    if (dto.endpoint !== undefined) patch.endpoint = dto.endpoint;
+    if (dto.model !== undefined) patch.model = dto.model;
+    if (dto.proxyRef !== undefined) patch.proxyRef = dto.proxyRef;
+    if (dto.config !== undefined) patch.config = dto.config;
+    if (dto.weight !== undefined) patch.weight = dto.weight;
+    if (dto.status !== undefined) patch.status = dto.status;
+    if (dto.inputCostUsdPer1m !== undefined) {
+      patch.inputCostPer1m =
+        dto.inputCostUsdPer1m === null ? null : usdPer1mToMicro(dto.inputCostUsdPer1m);
+    }
+    if (dto.outputCostUsdPer1m !== undefined) {
+      patch.outputCostPer1m =
+        dto.outputCostUsdPer1m === null ? null : usdPer1mToMicro(dto.outputCostUsdPer1m);
+    }
+    const row = await updateUpstreamChannel(this.db, channelId, patch);
     if (row === undefined) {
       throw engineNotFound(`channel ${channelId} not found`);
     }

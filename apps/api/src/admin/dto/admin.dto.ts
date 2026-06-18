@@ -107,6 +107,16 @@ export const createChannelSchema = z.object({
   config: z.record(z.unknown()).optional(),
   weight: z.number().int().positive().optional(),
   status: z.enum(['active', 'disabled']).optional(),
+  /**
+   * The operator's ACTUAL cost on this channel in HUMAN USD per 1M INPUT tokens
+   * (e.g. `0.5` = $0.50/1M) → integer µUSD/1M in the service (Track 5). Drives
+   * `usage_log.provider_cost`/margin ONLY — never the customer price. Omitted →
+   * null (unknown cost; subscription channels ≈ 0). Non-negative (a free channel
+   * is 0).
+   */
+  inputCostUsdPer1m: z.number().nonnegative().optional(),
+  /** The operator's cost in HUMAN USD per 1M OUTPUT tokens → µUSD/1M (Track 5). */
+  outputCostUsdPer1m: z.number().nonnegative().optional(),
 });
 export type CreateChannelDto = z.infer<typeof createChannelSchema>;
 
@@ -123,6 +133,10 @@ export const updateChannelSchema = z.object({
   config: z.record(z.unknown()).nullable().optional(),
   weight: z.number().int().positive().optional(),
   status: z.enum(['active', 'disabled']).optional(),
+  /** Operator cost in HUMAN USD/1M INPUT tokens → µUSD/1M (Track 5); `null` clears it. */
+  inputCostUsdPer1m: z.number().nonnegative().nullable().optional(),
+  /** Operator cost in HUMAN USD/1M OUTPUT tokens → µUSD/1M (Track 5); `null` clears it. */
+  outputCostUsdPer1m: z.number().nonnegative().nullable().optional(),
 });
 export type UpdateChannelDto = z.infer<typeof updateChannelSchema>;
 
