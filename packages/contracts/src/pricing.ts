@@ -57,6 +57,16 @@ export const modelTokenSpecSchema = z.object({
   inputPrice: z.number().int().nonnegative(),
   /** µUSD per 1M output tokens (frozen from the model's `output_price`). */
   outputPrice: z.number().int().nonnegative(),
+  /**
+   * The per-group customer-price ratio in integer BASIS POINTS (`10000 = 1.0×`;
+   * Track 5, spec §"Pricing model"). The key's route group resolves this
+   * pre-routing (`route_group.group_ratio_bps`; default group → 10000); it is
+   * folded into the `model_token` base as `roundHalfUp(base × bps / 10000)`
+   * BEFORE the entry markup + modifier stack (group_ratio is the operator tier
+   * markup; markup/modifiers apply after). Omitted → 10000 (×1.0), so an
+   * un-threaded entry prices identically to Track 1 (the regression invariant).
+   */
+  groupRatioBps: z.number().int().positive().optional(),
 });
 export type ModelTokenSpec = z.infer<typeof modelTokenSpecSchema>;
 

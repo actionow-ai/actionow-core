@@ -46,6 +46,13 @@ interface Seed {
   resourceId: string;
 }
 
+/**
+ * A valid uuid for the routed channel id — `usage_log.channel_id` is a uuid
+ * column, so the served-channel mirror (now threaded for provider_cost) needs a
+ * uuid here (the real routing path always supplies the channel's uuid).
+ */
+const CHANNEL_ID = '11111111-1111-1111-1111-111111111111';
+
 const IO_SCHEMA: IoSchema = {
   inputs: [{ key: 'prompt', type: 'string', required: true }],
   outputs: [{ key: 'text', type: 'string' }],
@@ -141,7 +148,7 @@ function baseRequest(s: Seed, overrides: Partial<RunRequest> = {}): RunRequest {
     },
     pricebookEntry: MODEL_TOKEN_PRICEBOOK,
     modifiers: [],
-    channels: [{ id: 'c1', weight: 1, credentialRef: 'ref-1', model: 'gpt' }],
+    channels: [{ id: CHANNEL_ID, weight: 1, credentialRef: 'ref-1', model: 'gpt' }],
     inputs: { prompt: 'hi' },
     execMode: 'blocking',
     tenantId: s.tenantId,
@@ -170,6 +177,60 @@ describe('ExecutionService.settleSync — usage_log mirror', () => {
     // roundHalfUp((100*1_250_000 + 50*10_000_000)/1e6) = roundHalfUp(625) = 625 µUSD.
     expect(BigInt(logs[0]?.cost as string)).toBe(625n);
     expect(logs[0]?.status).toBe('succeeded');
+  });
+
+  it('computes provider_cost from the served channel cost cols (Track 5); cost unaffected', async () => {
+    const s = await seed(10_000_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(fakeLlmAdapter({ input_tokens: 100, output_tokens: 50 }));
+    const svc = buildService(adapters);
+
+    // Channel carries operator-cost rates: $0.50/1M in, $4/1M out (µUSD/1M).
+    const outcome = await svc.run(
+      baseRequest(s, {
+        usageLogModel: 'gpt-4o',
+        channels: [
+          {
+            id: CHANNEL_ID,
+            weight: 1,
+            credentialRef: 'ref-1',
+            model: 'gpt',
+            providerType: 'fake-llm',
+            inputCostPer1m: 500_000n,
+            outputCostPer1m: 4_000_000n,
+          },
+        ],
+      }),
+    );
+    expect(outcome.status).toBe('succeeded');
+
+    const logs = await client`SELECT cost, provider_cost FROM usage_log`;
+    expect(logs).toHaveLength(1);
+    // Customer cost is the model_token charge (default 1.0× group ratio), UNCHANGED
+    // by the channel cost cols: roundHalfUp((100*1_250_000 + 50*10_000_000)/1e6) = 625.
+    expect(BigInt(logs[0]?.cost as string)).toBe(625n);
+    // provider_cost = roundHalfUp((100*500_000 + 50*4_000_000)/1e6)
+    //              = roundHalfUp((5e7 + 2e8)/1e6) = roundHalfUp(250) = 250 µUSD.
+    expect(BigInt(logs[0]?.provider_cost as string)).toBe(250n);
+    // margin = cost − provider_cost = 625 − 250 = 375.
+    expect(625n - BigInt(logs[0]?.provider_cost as string)).toBe(375n);
+  });
+
+  it('provider_cost is 0 when the served channel has null cost cols (subscription ≈ free)', async () => {
+    const s = await seed(10_000_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(fakeLlmAdapter({ input_tokens: 100, output_tokens: 50 }));
+    const svc = buildService(adapters);
+
+    // The default channel (`c1`) carries NO cost cols → provider_cost = 0.
+    const outcome = await svc.run(baseRequest(s, { usageLogModel: 'gpt-4o' }));
+    expect(outcome.status).toBe('succeeded');
+
+    const logs = await client`SELECT cost, provider_cost FROM usage_log`;
+    expect(logs).toHaveLength(1);
+    expect(BigInt(logs[0]?.cost as string)).toBe(625n);
+    // Null cost cols → 0 provider cost → margin = full charge.
+    expect(BigInt(logs[0]?.provider_cost as string)).toBe(0n);
   });
 
   it('writes NO usage_log row for a non-relay run (usageLogModel absent)', async () => {

@@ -27,6 +27,7 @@ const usageLogCalls: {
   outputTokens?: number;
   channelId?: string;
   providerType?: string;
+  providerCost?: bigint;
 }[] = [];
 
 vi.mock('@actionow/db', () => ({
@@ -47,6 +48,7 @@ vi.mock('@actionow/db', () => ({
         outputTokens?: number;
         channelId?: string;
         providerType?: string;
+        providerCost?: bigint;
       },
     ) => {
       const entry: {
@@ -55,6 +57,7 @@ vi.mock('@actionow/db', () => ({
         outputTokens?: number;
         channelId?: string;
         providerType?: string;
+        providerCost?: bigint;
       } = {
         model: p.model,
       };
@@ -62,6 +65,7 @@ vi.mock('@actionow/db', () => ({
       if (p.outputTokens !== undefined) entry.outputTokens = p.outputTokens;
       if (p.channelId !== undefined) entry.channelId = p.channelId;
       if (p.providerType !== undefined) entry.providerType = p.providerType;
+      if (p.providerCost !== undefined) entry.providerCost = p.providerCost;
       usageLogCalls.push(entry);
       return Promise.resolve({});
     },
@@ -290,14 +294,42 @@ describe('createChatSettlingStream', () => {
     expect(settleCalls).toHaveLength(1);
     expect(usageLogCalls).toHaveLength(1);
     // The served channel (`c1`, no per-channel providerType → resource's
-    // `mock-chat`) is recorded alongside the snake_case token usage.
+    // `mock-chat`) is recorded alongside the snake_case token usage. With no
+    // channel cost columns the Track-5 provider_cost is 0 (margin = full charge).
     expect(usageLogCalls[0]).toEqual({
       model: 'gpt-4o',
       inputTokens: 3,
       outputTokens: 2,
       channelId: 'c1',
       providerType: 'mock-chat',
+      providerCost: 0n,
     });
+  });
+
+  it('mirrors provider_cost from the served channel cost cols on the stream path (Track 5)', async () => {
+    const events: ChatStreamEvent[] = [];
+    for await (const ev of createChatSettlingStream(
+      deps({
+        usageLogModel: 'gpt-4o',
+        // Served channel carries cost rates: $1/1M in, $2/1M out (µUSD/1M).
+        channels: [
+          {
+            id: 'c1',
+            weight: 1,
+            credentialRef: 'ref-1',
+            inputCostPer1m: 1_000_000n,
+            outputCostPer1m: 2_000_000n,
+          },
+        ],
+      }),
+    )) {
+      events.push(ev);
+    }
+
+    expect(usageLogCalls).toHaveLength(1);
+    // usage is in=3 / out=2: provider_cost = roundHalfUp((3*1_000_000 + 2*2_000_000)/1e6)
+    //   = roundHalfUp((3e6 + 4e6)/1e6) = roundHalfUp(7) = 7 µUSD.
+    expect(usageLogCalls[0]?.providerCost).toBe(7n);
   });
 
   it('does NOT mirror usage_log when usageLogModel is unset', async () => {

@@ -33,6 +33,7 @@ import {
   applyModifiers,
   DomainError,
   type MicroCredits,
+  priceProviderCost,
   quote,
   settle,
   validateInputs,
@@ -69,6 +70,14 @@ export interface RunChannel {
   proxyRef?: string | undefined;
   /** Per-channel protocol config forwarded verbatim to the adapter; never logged. */
   config?: Record<string, unknown> | undefined;
+  /**
+   * The operator's ACTUAL cost on this channel in µUSD per 1M INPUT tokens (Track
+   * 5; `upstream_channel.input_cost_per_1m`). Drives `provider_cost`/margin ONLY,
+   * never the customer charge. `null`/absent → 0 (unknown / subscription channel).
+   */
+  inputCostPer1m?: bigint | null | undefined;
+  /** The operator's cost on this channel in µUSD per 1M OUTPUT tokens (Track 5). `null`/absent → 0. */
+  outputCostPer1m?: bigint | null | undefined;
 }
 
 /** The frozen resource snapshot the caller passes for this run. */
@@ -113,6 +122,29 @@ export interface RunRequest {
 
 export interface RunCost {
   credits: MicroCredits;
+}
+
+/**
+ * The channel that ultimately served a settled run, carrying both its identity
+ * (for the `usage_log.channel_id`/`provider_type` mirror) and its per-channel
+ * cost rates (for the Track-5 `provider_cost`/margin computation). `null`/absent
+ * cost rates → 0 provider cost.
+ */
+interface ServedChannel {
+  channelId: string;
+  providerType: string;
+  inputCostPer1m?: bigint | null | undefined;
+  outputCostPer1m?: bigint | null | undefined;
+}
+
+/** Project a routed {@link RunChannel} to the {@link ServedChannel} settle carries. */
+function servedFrom(channel: RunChannel, providerType: string): ServedChannel {
+  return {
+    channelId: channel.id,
+    providerType,
+    inputCostPer1m: channel.inputCostPer1m,
+    outputCostPer1m: channel.outputCostPer1m,
+  };
 }
 
 export type RunOutcome =
@@ -379,10 +411,7 @@ export class ExecutionService {
       jobId,
       holdAmount,
       { kind: 'sync', output: { __ir: response }, usage },
-      served && {
-        channelId: served.id,
-        providerType: served.providerType ?? req.resource.providerType,
-      },
+      served && servedFrom(served, served.providerType ?? req.resource.providerType),
     );
     const cost = outcome.status === 'succeeded' ? outcome.cost : { credits: 0n };
     const result: ChatRunOutcome = { jobId, response, cost };
@@ -522,6 +551,9 @@ export class ExecutionService {
   ): Promise<RunOutcome> {
     const rng = this.deps.rng ?? Math.random;
 
+    // The channel that ultimately served (after any failover), captured for the
+    // Track-5 provider_cost/margin mirror.
+    let served: RunChannel | undefined;
     let result: SubmitResult;
     try {
       result = await routeBlocking(
@@ -531,13 +563,15 @@ export class ExecutionService {
           // Select the adapter per channel so channels under one resource can
           // target different providers (cross-provider failover).
           const adapter = this.deps.adapters.get(channel.providerType ?? req.resource.providerType);
-          return adapter.submit({
+          const r = await adapter.submit({
             resourceId: req.resource.id,
             modality: req.resource.modality,
             inputs,
             execMode: req.execMode,
             ctx: await this.buildContext(req, channel, jobId),
           });
+          served = channel;
+          return r;
         },
       );
     } catch (err) {
@@ -558,7 +592,13 @@ export class ExecutionService {
       throw engineError('internal_error', 'blocking adapter returned an async handle');
     }
 
-    return this.settleSync(req, jobId, holdAmount, result);
+    return this.settleSync(
+      req,
+      jobId,
+      holdAmount,
+      result,
+      served && servedFrom(served, served.providerType ?? req.resource.providerType),
+    );
   }
 
   /** Price the final cost from a sync result and settle atomically. */
@@ -567,7 +607,7 @@ export class ExecutionService {
     jobId: string,
     holdAmount: MicroCredits,
     result: SyncResult,
-    served?: { channelId: string; providerType: string },
+    served?: ServedChannel,
   ): Promise<RunOutcome> {
     const entry = req.pricebookEntry;
     const { credits: finalCost, applied } = computeFinalCost(
@@ -619,7 +659,7 @@ export class ExecutionService {
     req: RunRequest,
     finalCost: MicroCredits,
     usage: UsageVector,
-    served?: { channelId: string; providerType: string },
+    served?: ServedChannel,
   ): Promise<void> {
     if (req.usageLogModel === undefined) return;
     try {
@@ -631,7 +671,14 @@ export class ExecutionService {
         cost: finalCost,
         status: 'succeeded',
         ...(served !== undefined
-          ? { channelId: served.channelId, providerType: served.providerType }
+          ? {
+              channelId: served.channelId,
+              providerType: served.providerType,
+              // Track 5: the served channel's ACTUAL cost (µUSD) for this call,
+              // computed from its cost rates (null → 0) + the observed usage. The
+              // customer charge (`cost`) is unaffected; margin = cost − provider_cost.
+              providerCost: priceProviderCost(usage, served.inputCostPer1m, served.outputCostPer1m),
+            }
           : {}),
         ...(req.usageLogApiKeyId !== undefined ? { apiKeyId: req.usageLogApiKeyId } : {}),
       });

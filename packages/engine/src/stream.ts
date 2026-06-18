@@ -18,7 +18,7 @@ import {
   recordChannelFailure,
   settleJob,
 } from '@actionow/db';
-import type { MicroCredits } from '@actionow/domain';
+import { type MicroCredits, priceProviderCost } from '@actionow/domain';
 
 import { availableChannels } from './channel-routing.js';
 import { EngineError } from './errors.js';
@@ -238,6 +238,8 @@ export async function* createChatSettlingStream(
       servedChannel && {
         channelId: servedChannel.id,
         providerType: servedChannel.providerType ?? deps.req.resource.providerType,
+        inputCostPer1m: servedChannel.inputCostPer1m,
+        outputCostPer1m: servedChannel.outputCostPer1m,
       },
     );
   };
@@ -409,7 +411,12 @@ async function mirrorChatUsageLog(
   deps: SettlingStreamDeps,
   usage: UsageVector | undefined,
   finalCost: MicroCredits,
-  served?: { channelId: string; providerType: string },
+  served?: {
+    channelId: string;
+    providerType: string;
+    inputCostPer1m?: bigint | null | undefined;
+    outputCostPer1m?: bigint | null | undefined;
+  },
 ): Promise<void> {
   const model = deps.req.usageLogModel;
   if (model === undefined) return;
@@ -422,7 +429,17 @@ async function mirrorChatUsageLog(
       cost: finalCost,
       status: 'succeeded',
       ...(served !== undefined
-        ? { channelId: served.channelId, providerType: served.providerType }
+        ? {
+            channelId: served.channelId,
+            providerType: served.providerType,
+            // Track 5: the served channel's actual cost (µUSD) for this stream,
+            // from its cost rates (null → 0) + observed usage (margin analytics).
+            providerCost: priceProviderCost(
+              usage ?? {},
+              served.inputCostPer1m,
+              served.outputCostPer1m,
+            ),
+          }
         : {}),
       ...(deps.req.usageLogApiKeyId !== undefined ? { apiKeyId: deps.req.usageLogApiKeyId } : {}),
     });
