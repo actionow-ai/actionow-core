@@ -252,6 +252,8 @@
       "proxyRef": "代理 Ref",
       "credentialRef": "凭证 Ref",
       "weight": "权重",
+      "inputCost": "输入成本",
+      "outputCost": "输出成本",
       "status": "状态",
       "config": "配置"
     },
@@ -262,6 +264,8 @@
       "model": "要调用的上游模型名(如 gpt-4o)。留空则使用资源默认值。",
       "proxyRef": "可选:出站代理配置的引用。",
       "weight": "路由权重——值越大,在各启用通道中分到的流量越多。",
+      "cost": "运营成本——你为每 1M tokens 向上游支付的金额。用于对比转售价计算毛利。留 0 则不设置。",
+      "costUnit": "美元 / 1M tokens",
       "status": "停用的通道不参与路由。",
       "credentialRef": "保存该通道 API Key 的加密密文 id。可用「新建凭证」创建。",
       "config": "该通道的 Provider 专属键值配置(如异步提交/轮询路径)。"
@@ -278,6 +282,7 @@
       "endpoint": "端点",
       "model": "模型",
       "weight": "权重",
+      "cost": "成本 入/出",
       "status": "状态"
     },
     "empty": "暂无上游通道"

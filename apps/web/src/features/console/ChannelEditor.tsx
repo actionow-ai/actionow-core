@@ -67,6 +67,12 @@ export function ChannelEditor({
   const [proxyRef, setProxyRef] = useState(channel?.proxy_ref ?? '');
   const [credentialRef, setCredentialRef] = useState(channel?.credential_ref ?? '');
   const [weight, setWeight] = useState(channel?.weight ?? 1);
+  // Operator cost = what *we* pay upstream per 1M tokens, stored as a µUSD
+  // string; the form edits human USD (÷1e6 to seed, the server re-multiplies).
+  // `null`/absent → blank (0), so an untouched create sends no cost.
+  const usd = (micro: string | null | undefined) => (micro ? Number(micro) / 1_000_000 : 0);
+  const [inputCostUsd, setInputCostUsd] = useState(usd(channel?.input_cost_per_1m));
+  const [outputCostUsd, setOutputCostUsd] = useState(usd(channel?.output_cost_per_1m));
   const [status, setStatus] = useState<ChannelStatus>(
     (channel?.status as ChannelStatus | undefined) ?? 'active',
   );
@@ -111,9 +117,24 @@ export function ChannelEditor({
         status,
         config: Object.keys(cfg).length > 0 ? cfg : undefined,
       };
+      // Cost diverges by verb: a PATCH sends `null` to clear a previously-set
+      // cost, but a create omits it entirely (the schema rejects `null`).
       return editing
-        ? api.updateChannel(resourceId, channel.id, base)
-        : api.createChannel(resourceId, { ...base, providerType }, idemKey);
+        ? api.updateChannel(resourceId, channel.id, {
+            ...base,
+            inputCostUsdPer1m: inputCostUsd > 0 ? inputCostUsd : null,
+            outputCostUsdPer1m: outputCostUsd > 0 ? outputCostUsd : null,
+          })
+        : api.createChannel(
+            resourceId,
+            {
+              ...base,
+              providerType,
+              inputCostUsdPer1m: inputCostUsd > 0 ? inputCostUsd : undefined,
+              outputCostUsdPer1m: outputCostUsd > 0 ? outputCostUsd : undefined,
+            },
+            idemKey,
+          );
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: qk.channels(resourceId) });
@@ -169,6 +190,24 @@ export function ChannelEditor({
         onChange={setWeight}
         min={1}
       />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--s-3)' }}>
+        <NumberField
+          label={t('channels.form.inputCost')}
+          tooltip={t('channels.tip.cost')}
+          hint={t('channels.tip.costUnit')}
+          value={inputCostUsd}
+          onChange={setInputCostUsd}
+          min={0}
+          step={0.01}
+        />
+        <NumberField
+          label={t('channels.form.outputCost')}
+          value={outputCostUsd}
+          onChange={setOutputCostUsd}
+          min={0}
+          step={0.01}
+        />
+      </div>
       <SelectField
         label={t('channels.form.status')}
         tooltip={t('channels.tip.status')}

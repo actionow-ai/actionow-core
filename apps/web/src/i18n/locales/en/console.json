@@ -257,6 +257,8 @@
       "proxyRef": "Proxy ref",
       "credentialRef": "Credential ref",
       "weight": "Weight",
+      "inputCost": "Input cost",
+      "outputCost": "Output cost",
       "status": "Status",
       "config": "Config"
     },
@@ -267,6 +269,8 @@
       "model": "Upstream model name to call (e.g. gpt-4o). Leave empty to use the resource default.",
       "proxyRef": "Optional reference to an outbound proxy configuration.",
       "weight": "Routing weight — higher values receive a larger share of traffic across active channels.",
+      "cost": "Operator cost — what you pay upstream per 1M tokens. Used to compute margin against resale price. Leave 0 to omit.",
+      "costUnit": "USD per 1M tokens",
       "status": "Disabled channels are skipped by routing.",
       "credentialRef": "Id of the encrypted secret holding this channel's API key. Use \"New credential\" to create one.",
       "config": "Provider-specific key/value settings for this channel (e.g. async submit/poll paths)."
@@ -283,6 +287,7 @@
       "endpoint": "Endpoint",
       "model": "Model",
       "weight": "Weight",
+      "cost": "Cost in/out",
       "status": "Status"
     },
     "empty": "No upstream channels yet"

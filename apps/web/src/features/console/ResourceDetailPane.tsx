@@ -145,6 +145,22 @@ export function ResourceDetailPane({ id }: { id: string }) {
       width: '64px',
     },
     {
+      key: 'cost',
+      header: t('channels.cols.cost'),
+      cell: (r) => {
+        // µUSD/1M strings → human USD for display; '—' per side when unset.
+        const usd = (m: string | null) =>
+          m === null ? '—' : `$${(Number(m) / 1_000_000).toFixed(2)}`;
+        if (r.input_cost_per_1m === null && r.output_cost_per_1m === null) return '—';
+        return (
+          <span className="tabular" style={{ whiteSpace: 'nowrap' }}>
+            {usd(r.input_cost_per_1m)} / {usd(r.output_cost_per_1m)}
+          </span>
+        );
+      },
+      width: '120px',
+    },
+    {
       key: 'status',
       header: t('channels.cols.status'),
       cell: (r) => (
