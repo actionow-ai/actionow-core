@@ -1,11 +1,6 @@
 import type { AdapterRegistry } from '@actionow/adapters';
-import type {
-  ExecMode,
-  IoSchema,
-  Modifier,
-  PricebookEntry,
-  UsageVector,
-} from '@actionow/contracts';
+import type { ExecMode, IoSchema, Modifier, PricebookEntry } from '@actionow/contracts';
+import { EXEC_MODES } from '@actionow/contracts';
 import {
   type Database,
   getActivePricebookEntry,
@@ -19,6 +14,7 @@ import type { JobQueuePort, RunOutcome, RunRequest, StreamOutcome } from '@actio
 import { ExecutionService } from '@actionow/engine';
 import { type AppEnv, FetchHttpClient } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
+import { z } from 'zod';
 
 import type { TenantContext } from '../auth/auth.service.js';
 import { ChannelRoutingService } from '../common/channel-routing.service.js';
@@ -26,15 +22,33 @@ import { engineInvalidInput, engineNotFound } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
 import { ADAPTERS, DB, ENV, JOB_QUEUE } from '../common/tokens.js';
 
+/**
+ * `/v1/run` request-body schema (the run inputs + optional async/idempotency
+ * knobs), enforced at the controller via {@link ZodBody}.
+ *
+ * `callback_url` is validated as an http(s) URL here (rejecting `file:`,
+ * `gopher:`, etc. at ingress); the load-bearing SSRF protection — blocking
+ * private/loopback/metadata *addresses* — is the worker's egress guard, since a
+ * URL-format check alone accepts `http://169.254.169.254/`. Unknown top-level
+ * keys are stripped (not rejected), preserving prior pass-through behavior.
+ */
+export const RunBodySchema = z.object({
+  inputs: z.record(z.unknown()).optional(),
+  exec_mode: z.enum(EXEC_MODES).optional(),
+  callback_url: z
+    .string()
+    .url()
+    .refine((u) => u.startsWith('http://') || u.startsWith('https://'), {
+      message: 'callback_url must be an http(s) URL',
+    })
+    .optional(),
+  idempotency_key: z.string().min(1).optional(),
+  end_user: z.string().optional(),
+  estimated_usage: z.record(z.number()).optional(),
+});
+
 /** A `/v1/run` request body (the run inputs + optional async/idempotency knobs). */
-export interface RunBody {
-  inputs?: Record<string, unknown>;
-  exec_mode?: ExecMode;
-  callback_url?: string;
-  idempotency_key?: string;
-  end_user?: string;
-  estimated_usage?: UsageVector;
-}
+export type RunBody = z.infer<typeof RunBodySchema>;
 
 /**
  * Loads a resource's frozen catalog snapshot (io_schema, active pricebook,

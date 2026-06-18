@@ -1,5 +1,6 @@
 import type { DispatchSummary } from '@actionow/engine';
 import { WebhookDispatcher } from '@actionow/engine';
+import { assertEgressAllowed } from '@actionow/infra';
 
 import type { WorkerRuntime } from '../runtime.js';
 
@@ -15,8 +16,12 @@ import type { WorkerRuntime } from '../runtime.js';
 export function createWebhookOutboxProcessor(
   runtime: WorkerRuntime,
 ): () => Promise<DispatchSummary> {
+  const allowPrivateTargets = runtime.env.WEBHOOK_ALLOW_PRIVATE_TARGETS === true;
   const dispatcher = new WebhookDispatcher({
     resolveSecret: (url: string) => runtime.resolveSecret(url),
+    // SSRF egress guard, secure-by-default. Self-hosted/dev setups that deliver
+    // to a private/loopback callback opt in via WEBHOOK_ALLOW_PRIVATE_TARGETS.
+    assertEgressAllowed: (url: string) => assertEgressAllowed(url, { allowPrivateTargets }),
   });
   return (): Promise<DispatchSummary> =>
     dispatcher.dispatchDue(runtime.db, runtime.http, new Date());

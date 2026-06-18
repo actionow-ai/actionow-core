@@ -225,6 +225,9 @@ beforeAll(async () => {
     ALLOW_DEV_TENANT_HEADER: false,
     RELAY_TRACE: 'off',
     RELAY_TRACE_MAX_BYTES: 1_000_000,
+    // This suite delivers the webhook to a loopback callback server (127.0.0.1),
+    // so it opts into the SSRF egress guard's private-target allowance.
+    WEBHOOK_ALLOW_PRIVATE_TARGETS: true,
   };
 
   // 4. API adapter registry: the real default registry (async-media-mock ready

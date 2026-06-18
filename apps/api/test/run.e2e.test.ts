@@ -262,6 +262,26 @@ describe('POST /v1/run/:resourceId (blocking)', () => {
     expect(applied[0]).toMatchObject({ before: '300', after: '270' });
   });
 
+  it('rejects a non-http(s) callback_url with 400 invalid_input (ZodBody) and creates no job', async () => {
+    const s = await seed(1_000_000n);
+    tenantId = s.tenantId;
+
+    const res = await request(app.getHttpServer())
+      .post(`/v1/run/${s.resourceId}`)
+      .set('x-tenant-id', tenantId)
+      .send({
+        inputs: { prompt: 'hi' },
+        estimated_usage: { tokens: 1000 },
+        callback_url: 'file:///etc/passwd',
+      })
+      .expect(400);
+
+    expect(res.body.error.code).toBe('invalid_input');
+    // validation rejects before the engine runs → no job, no hold.
+    const jobs = await db.select().from(schema.job);
+    expect(jobs).toHaveLength(0);
+  });
+
   it('returns 404 resource_not_found for an unknown resource', async () => {
     const s = await seed(1_000_000n);
     tenantId = s.tenantId;

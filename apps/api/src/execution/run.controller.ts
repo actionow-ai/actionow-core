@@ -7,8 +7,9 @@ import type { Request, Response } from 'express';
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
 import { RateLimitGuard } from '../auth/rate-limit.guard.js';
+import { ZodBody } from '../common/zod.pipe.js';
 import type { RunBody } from './run.service.js';
-import { RunService } from './run.service.js';
+import { RunBodySchema, RunService } from './run.service.js';
 
 /** The 200 (sync) or 202 (async) response body for `POST /v1/run/:resourceId`. */
 interface RunResponse {
@@ -47,7 +48,7 @@ export class RunController {
   @ApiOperation({ summary: 'Run a resource (blocking → 200, async → 202, SSE stream)' })
   async run(
     @Param('resourceId') resourceId: string,
-    @Body() body: RunBody,
+    @Body(new ZodBody(RunBodySchema)) body: RunBody,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<RunResponse | undefined> {

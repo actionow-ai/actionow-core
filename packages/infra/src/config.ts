@@ -121,6 +121,16 @@ const EnvSchema = z
     // sliced to the cap and the row's `truncated` flag is set — a safety valve so
     // a pathological payload can't bloat a `relay_trace` row unbounded.
     RELAY_TRACE_MAX_BYTES: z.coerce.number().int().positive().default(1_000_000),
+    // SSRF opt-in for webhook `callback_url` delivery. Default falsy: a tenant-
+    // supplied callback can NEVER reach a private/loopback/link-local/reserved
+    // address (notably the cloud metadata IP 169.254.169.254) — the dispatcher
+    // dead-letters such a target. Set `'true'` ONLY for self-hosted/dev setups
+    // that deliver to a private/loopback callback. Enum-transform (not
+    // `z.coerce.boolean`, whose JS truthiness turns `'false'` into `true`).
+    WEBHOOK_ALLOW_PRIVATE_TARGETS: z
+      .enum(['true', 'false'])
+      .transform((v) => v === 'true')
+      .optional(),
   })
   .transform((env) => ({
     ...env,
