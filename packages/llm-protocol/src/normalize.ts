@@ -25,6 +25,9 @@ export function normalizeRequest(req: ChatRequest, caps: ModelCapabilities): Cha
       if (part.kind === 'audio' && !caps.audio) {
         throw new ProtocolError('invalid_input', 'model does not support audio input');
       }
+      if (part.kind === 'file' && caps.file !== true) {
+        throw new ProtocolError('invalid_input', 'model does not support file input');
+      }
     }
   }
   return req;

@@ -37,6 +37,26 @@ describe('anthropicAdapter.chat', () => {
     });
   });
 
+  it('REJECTS an audio/file part instead of dumping the payload as text', async () => {
+    const http = fakeHttp({ status: 200, body: {} });
+    for (const kind of ['audio', 'file'] as const) {
+      const partIr: ChatRequest = {
+        model: 'claude-3-5-sonnet',
+        messages: [
+          { role: 'user', content: [{ kind, source: 'base64', data: 'BIG_BASE64', mime: 'x/y' }] },
+        ],
+      };
+      await expect(
+        anthropicAdapter.chat?.(partIr, {
+          providerType: 'anthropic',
+          model: 'claude-3-5-sonnet',
+          apiKey: 'sk',
+          http,
+        }),
+      ).rejects.toMatchObject({ unified: { code: 'invalid_input' } });
+    }
+  });
+
   it('hoists system, sends tools with input_schema, parses content blocks + usage', async () => {
     let seen: HttpRequest | undefined;
     const http = fakeHttp(

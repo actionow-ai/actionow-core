@@ -50,6 +50,35 @@ describe('normalizeRequest', () => {
     ).toThrow(ProtocolError);
   });
 
+  it('400s when a file part is sent to a model without file capability', () => {
+    const withFile: ChatRequest = {
+      ...base,
+      messages: [
+        { role: 'user', content: [{ kind: 'file', source: 'url', data: 'http://x/doc.pdf' }] },
+      ],
+    };
+    expect(() =>
+      normalizeRequest(withFile, { tools: false, vision: false, audio: false, json: false }),
+    ).toThrow(ProtocolError);
+  });
+
+  it('allows a file part when the model declares file capability', () => {
+    const withFile: ChatRequest = {
+      ...base,
+      messages: [
+        { role: 'user', content: [{ kind: 'file', source: 'url', data: 'http://x/doc.pdf' }] },
+      ],
+    };
+    const out = normalizeRequest(withFile, {
+      tools: false,
+      vision: false,
+      audio: false,
+      json: false,
+      file: true,
+    });
+    expect(out.messages).toHaveLength(1);
+  });
+
   it('allows everything when the model declares full capability', () => {
     const full: ChatRequest = {
       ...base,
@@ -66,11 +95,14 @@ describe('normalizeRequest', () => {
 
 describe('readCapabilities', () => {
   it('reads only strict boolean-true flags', () => {
-    expect(readCapabilities({ tools: true, vision: true, audio: true, json: true })).toEqual({
+    expect(
+      readCapabilities({ tools: true, vision: true, audio: true, json: true, file: true }),
+    ).toEqual({
       tools: true,
       vision: true,
       audio: true,
       json: true,
+      file: true,
     });
   });
 
@@ -80,12 +112,14 @@ describe('readCapabilities', () => {
       vision: false,
       audio: false,
       json: false,
+      file: false,
     });
     expect(readCapabilities({ tools: 'true', vision: 1, audio: null, json: undefined })).toEqual({
       tools: false,
       vision: false,
       audio: false,
       json: false,
+      file: false,
     });
   });
 });

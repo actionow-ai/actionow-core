@@ -51,8 +51,17 @@ function irPartToOpenAi(part: ContentPart): Record<string, unknown> {
         : part.data;
     return { type: 'image_url', image_url: { url } };
   }
-  // audio/file have no first-class OpenAI chat representation; pass text through.
-  return { type: 'text', text: part.data };
+  // audio/file have no representation in this OpenAI chat adapter. REJECT rather
+  // than stringify the payload (the old `{type:'text', text: part.data}` dumped
+  // raw base64/URL into the prompt — corrupting the request and billing
+  // megabytes of base64 as input text). The normalize gate only admits a part
+  // kind here if the resolved MODEL claims to support it, so reaching this branch
+  // means the served channel's adapter can't honor that claim — a clear error.
+  throw new AdapterError({
+    code: 'invalid_input',
+    message: `openai chat adapter cannot represent ${part.kind} content`,
+    retryable: false,
+  });
 }
 
 /** Build the OpenAI `messages[]` entry for one IR message. */

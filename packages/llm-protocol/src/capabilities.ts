@@ -4,6 +4,8 @@ export interface ModelCapabilities {
   vision: boolean;
   audio: boolean;
   json: boolean;
+  /** File/document input (e.g. PDFs). Optional for back-compat; absent → false. */
+  file?: boolean;
 }
 
 /** Read a capabilities bag from a model's `capabilities` jsonb (booleans only). */
@@ -14,5 +16,6 @@ export function readCapabilities(raw: Record<string, unknown>): ModelCapabilitie
     vision: flag('vision'),
     audio: flag('audio'),
     json: flag('json'),
+    file: flag('file'),
   };
 }

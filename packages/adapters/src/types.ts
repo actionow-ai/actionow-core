@@ -13,7 +13,13 @@ import type {
   UsageVector,
 } from '@actionow/contracts';
 
-/** A provider's declared chat capabilities, surfaced to the normalization gate. */
+/**
+ * A provider adapter's declared chat capabilities. NOTE: not yet consulted by the
+ * dispatch-time gate (the relay gates against the resolved MODEL row's
+ * capabilities); adapters additionally REJECT content parts they cannot represent
+ * (see openai/anthropic `irPart*`) so an over-claimed model can never silently
+ * downgrade. Wiring these into capability-aware channel selection is a follow-up.
+ */
 export interface AdapterCapabilities {
   tools: boolean;
   vision: boolean;

@@ -29,6 +29,28 @@ describe('openaiAdapter.chat', () => {
     expect(openaiAdapter.capabilities).toMatchObject({ tools: true, vision: true, stream: true });
   });
 
+  it('REJECTS an audio/file part instead of dumping the payload as text', async () => {
+    // A fail-loud http: if the adapter ever reached the request (it must not),
+    // the test would surface the wrong failure.
+    const http = fakeHttp({ status: 200, body: {} });
+    for (const kind of ['audio', 'file'] as const) {
+      const partIr: ChatRequest = {
+        model: 'gpt-4o',
+        messages: [
+          { role: 'user', content: [{ kind, source: 'base64', data: 'BIG_BASE64', mime: 'x/y' }] },
+        ],
+      };
+      await expect(
+        openaiAdapter.chat?.(partIr, {
+          providerType: 'openai',
+          model: 'gpt-4o',
+          apiKey: 'sk',
+          http,
+        }),
+      ).rejects.toMatchObject({ unified: { code: 'invalid_input' } });
+    }
+  });
+
   it('posts an IR-derived body and parses tool_calls into the IR response', async () => {
     let seen: HttpRequest | undefined;
     const http = fakeHttp(

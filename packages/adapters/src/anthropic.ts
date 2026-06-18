@@ -60,7 +60,16 @@ function irPartToBlock(part: ContentPart): Record<string, unknown> {
       source: { type: 'base64', media_type: part.mime ?? 'image/png', data: part.data },
     };
   }
-  return { type: 'text', text: part.data };
+  // audio/file have no representation in this Anthropic chat adapter. REJECT
+  // rather than stringify the payload (the old `{type:'text', text: part.data}`
+  // dumped raw base64/URL into the prompt — corrupting the request and billing
+  // base64 as text). The normalize gate only admits such a part if the resolved
+  // MODEL claims support, so reaching here is a channel/adapter capability gap.
+  throw new AdapterError({
+    code: 'invalid_input',
+    message: `anthropic chat adapter cannot represent ${part.kind} content`,
+    retryable: false,
+  });
 }
 
 /** Build the Anthropic `messages[]` (system is hoisted to a top-level param). */
