@@ -522,6 +522,73 @@ describe('errors + disconnect', () => {
   });
 });
 
+describe('idempotency (Idempotency-Key replay)', () => {
+  it('replays the original chat job on a repeated Idempotency-Key (no double charge)', async () => {
+    const key = 'relay-idem-key-1';
+    const send = (): Promise<Response> =>
+      fetch(`${baseUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'content-type': 'application/json',
+          'idempotency-key': key,
+        },
+        body: JSON.stringify({ model: MODEL_NAME, messages: [{ role: 'user', content: 'hi' }] }),
+      });
+
+    const first = await send();
+    expect(first.status).toBe(200);
+    const firstBody = asRecord(await first.json());
+
+    const second = await send();
+    expect(second.status).toBe(200);
+    const secondBody = asRecord(await second.json());
+
+    // The replay returns the SAME logical result (content + usage + model). The
+    // wire `id`/`created` are minted fresh per render and are not part of the
+    // idempotency contract; the money proof is the one-job/one-settle assertion.
+    expect(secondBody.choices).toEqual(firstBody.choices);
+    expect(secondBody.usage).toEqual(firstBody.usage);
+    expect(secondBody.model).toEqual(firstBody.model);
+
+    // Exactly ONE job carries this idempotency key, settled exactly once →
+    // a retried POST never creates a second job + hold + settle.
+    const jobs = await db.select().from(schema.job).where(eq(schema.job.idempotencyKey, key));
+    expect(jobs).toHaveLength(1);
+    expect(await settleRows(jobs[0]?.id ?? '')).toHaveLength(1);
+  });
+
+  it('rejects a reused Idempotency-Key on a stream run with 400 invalid_input', async () => {
+    const key = 'relay-idem-stream-1';
+    const send = (): Promise<Response> =>
+      fetch(`${baseUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'content-type': 'application/json',
+          accept: 'text/event-stream',
+          'idempotency-key': key,
+        },
+        body: JSON.stringify({
+          model: MODEL_NAME,
+          stream: true,
+          messages: [{ role: 'user', content: 'hi' }],
+        }),
+      });
+
+    const first = await send();
+    expect(first.status).toBe(200);
+    await readSseBlocks(first); // drain so the first stream settles cleanly
+
+    // The reused key cannot re-open a live stream → 400 invalid_input (the claim
+    // is rejected BEFORE any SSE byte, so the filter surfaces a real HTTP error).
+    const second = await send();
+    expect(second.status).toBe(400);
+    const body = asRecord(await second.json());
+    expect(asRecord(body.error).code).toBe('invalid_input');
+  });
+});
+
 describe('discovery (GET /v1/models)', () => {
   it('lists the tenant-visible models in OpenAI list shape', async () => {
     const res = await fetch(`${baseUrl}/v1/models`, {

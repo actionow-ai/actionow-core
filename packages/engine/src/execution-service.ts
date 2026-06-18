@@ -323,6 +323,17 @@ export class ExecutionService {
   async runChatStream(req: RunRequest): Promise<ChatStreamOutcome> {
     const { db } = this.deps;
     const jobId = randomUUID();
+
+    // Idempotency replay is intentionally narrow (mirrors runStream): a replayed
+    // stream-mode key cannot re-open a live stream, so a reused key surfaces as
+    // an invalid_input rather than silently double-charging a second stream.
+    if (req.idempotencyKey !== undefined) {
+      const claim = await claimIdempotency(db, req.tenantId, req.idempotencyKey, jobId);
+      if (!claim.claimed) {
+        throw engineError('invalid_input', 'idempotency key already used for a stream run');
+      }
+    }
+
     // Validate the user-facing inputs against the resource io_schema with the
     // out-of-band IR stripped (the strict schema rejects unknown keys); the IR
     // is re-attached to the stream's inputs below.
@@ -359,14 +370,59 @@ export class ExecutionService {
   }
 
   /**
-   * Blocking IR chat run: same hold prefix, then resolve the adapter, call
-   * `adapter.chat(ir, ctx)`, map the IR camelCase `usage` → the snake_case
-   * engine {@link UsageVector}, and settle via the existing `settleSync` path
-   * (which also fires the `usage_log` mirror when `req.usageLogModel` is set).
-   * Additive: does not touch `run`/`runBlocking`.
+   * Blocking IR chat run. Idempotency mirrors {@link run}: a repeated
+   * `idempotencyKey` replays the original settled chat job instead of creating a
+   * second job + hold + settle. The relay is the most billable endpoint, so a
+   * client/proxy retry (network blip, 5xx) must never double-charge.
    */
   async runChat(req: RunRequest): Promise<ChatRunOutcome> {
-    const jobId = randomUUID();
+    const { db } = this.deps;
+
+    if (req.idempotencyKey !== undefined) {
+      const probeJobId = randomUUID();
+      const claim = await claimIdempotency(db, req.tenantId, req.idempotencyKey, probeJobId);
+      if (!claim.claimed) {
+        const existing =
+          claim.existingJobId === undefined ? undefined : await getJob(db, claim.existingJobId);
+        if (existing === undefined) {
+          throw engineError('internal_error', 'idempotency key claimed but job missing');
+        }
+        return this.replayChat(existing);
+      }
+      // We own the key; executeChat below must use `probeJobId` so the claim row
+      // points at the job we are about to create.
+      return this.executeChat(req, probeJobId);
+    }
+    return this.executeChat(req, randomUUID());
+  }
+
+  /** Reconstruct a {@link ChatRunOutcome} from a settled chat job (idempotent replay). */
+  private replayChat(job: Job): ChatRunOutcome {
+    if (job.status !== 'succeeded') {
+      // A concurrent duplicate is still in flight (or the original failed); we
+      // cannot fabricate a response, so surface a retryable conflict — the
+      // client retries and then replays the settled result.
+      throw engineError('rate_limited', 'idempotency key still in progress', { retryable: true });
+    }
+    const ir = job.output?.[IR_KEY];
+    if (ir === undefined) {
+      throw engineError('internal_error', 'replayed chat job has no IR output');
+    }
+    return {
+      jobId: job.id,
+      response: ir as ChatResponse,
+      cost: { credits: job.costCredits ?? 0n },
+    };
+  }
+
+  /**
+   * The blocking IR chat body: same hold prefix as {@link run}, then resolve the
+   * adapter per channel, call `adapter.chat(ir, ctx)`, map the IR camelCase
+   * `usage` → the snake_case engine {@link UsageVector}, and settle via
+   * `settleSync` (which fires the `usage_log` mirror when `req.usageLogModel` is
+   * set). `jobId` is the claim-owned id so the idempotency row points at it.
+   */
+  private async executeChat(req: RunRequest, jobId: string): Promise<ChatRunOutcome> {
     const { inputs, holdAmount } = await this.validateAndHold(stripIr(req), jobId);
     const ir = readIr(inputs, req.inputs);
 

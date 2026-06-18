@@ -83,14 +83,20 @@ export class ChatRelayService {
     modelName: string,
     ir: ChatRequest,
     ctx: TenantContext,
+    idempotencyKey?: string,
   ): Promise<ChatStreamOutcome> {
-    const req = await this.buildChatRunRequest(modelName, ir, ctx, 'stream');
+    const req = await this.buildChatRunRequest(modelName, ir, ctx, 'stream', idempotencyKey);
     return this.buildService().runChatStream(req);
   }
 
   /** Run a blocking IR chat for the resolved model (hold → chat → settle-once). */
-  async chat(modelName: string, ir: ChatRequest, ctx: TenantContext): Promise<ChatRunOutcome> {
-    const req = await this.buildChatRunRequest(modelName, ir, ctx, 'blocking');
+  async chat(
+    modelName: string,
+    ir: ChatRequest,
+    ctx: TenantContext,
+    idempotencyKey?: string,
+  ): Promise<ChatRunOutcome> {
+    const req = await this.buildChatRunRequest(modelName, ir, ctx, 'blocking', idempotencyKey);
     return this.buildService().runChat(req);
   }
 
@@ -122,6 +128,7 @@ export class ChatRelayService {
     ir: ChatRequest,
     ctx: TenantContext,
     execMode: ExecMode,
+    idempotencyKey?: string,
   ): Promise<RunRequest> {
     const resolved = await this.resolver.resolve(modelName, ctx.tenantId);
     normalizeRequest(ir, readCapabilities(resolved.capabilities));
@@ -180,6 +187,10 @@ export class ChatRelayService {
     // Attribute the mirrored usage_log row to the calling api key when present
     // (absent on the dev `x-tenant-id` fallback) — exactOptionalPropertyTypes.
     if (ctx.apiKeyId !== undefined) req.usageLogApiKeyId = ctx.apiKeyId;
+    // Idempotency-Key (P0): thread the caller's key into the engine so a retried
+    // relay POST replays the original job instead of re-charging (runChat) — and
+    // a reused key on a stream run is rejected (runChatStream).
+    if (idempotencyKey !== undefined) req.idempotencyKey = idempotencyKey;
     if (execMode === 'stream') {
       // STREAMING needs a NON-ZERO hold (§C1): `settleStream` caps the final
       // charge at `min(computed, holdAmount)`, so a 0 hold would clamp every

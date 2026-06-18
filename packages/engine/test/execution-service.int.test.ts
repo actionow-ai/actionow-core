@@ -2,6 +2,8 @@ import type { ProviderAdapter } from '@actionow/adapters';
 import { AdapterError, AdapterRegistry } from '@actionow/adapters';
 import type {
   AdapterContext,
+  ChatRequest,
+  ChatResponse,
   IoSchema,
   PricebookEntry,
   SubmitInput,
@@ -89,6 +91,62 @@ const POST_PRICEBOOK: PricebookEntry = {
   timing: 'post',
   spec: { method: 'unit', dimensions: { tokens: { rate: 1 } } },
 };
+
+/** A post (unit) pricebook for chat: 1 µcredit per OUTPUT token. */
+const CHAT_PRICEBOOK: PricebookEntry = {
+  resourceId: 'openai',
+  resourceVersion: 1,
+  version: 1,
+  method: 'unit',
+  timing: 'post',
+  spec: { method: 'unit', dimensions: { output_tokens: { rate: 1 } } },
+};
+
+/** The neutral IR a chat run carries at `inputs.__ir`. */
+const CHAT_IR: ChatRequest = {
+  model: 'gpt-4o',
+  messages: [{ role: 'user', content: [{ kind: 'text', text: 'hi' }] }],
+};
+
+/** A fake blocking chat adapter returning a fixed IR response + token usage. */
+function fakeChatAdapter(outputTokens: number): ProviderAdapter {
+  return {
+    providerType: 'fake-chat',
+    submit: () => Promise.resolve({ kind: 'sync', output: {}, usage: {} }),
+    chat: (): Promise<ChatResponse> =>
+      Promise.resolve({
+        message: { role: 'assistant', content: [{ kind: 'text', text: 'echo: hi' }] },
+        stopReason: 'stop',
+        usage: { inputTokens: 3, outputTokens },
+      }),
+    extractUsage: () => ({}),
+    mapError: () => ({ code: 'upstream_error', message: 'fake', retryable: false }),
+  };
+}
+
+/** A `runChat` RunRequest: empty io_schema (IR rides out-of-band), holdFloor 0 (blocking). */
+function chatRequest(s: Seed, overrides: Partial<RunRequest> = {}): RunRequest {
+  return {
+    resource: {
+      id: s.resourceId,
+      version: 1,
+      modality: 'text',
+      ioSchema: { inputs: [], outputs: [] },
+      execModes: ['blocking'],
+      providerType: 'fake-chat',
+    },
+    pricebookEntry: CHAT_PRICEBOOK,
+    modifiers: [],
+    channels: [{ id: 'c1', weight: 1, credentialRef: 'ref-1', model: 'gpt' }],
+    inputs: { __ir: CHAT_IR },
+    execMode: 'blocking',
+    tenantId: s.tenantId,
+    accountId: s.accountId,
+    holdFloor: 0n,
+    usageLogModel: 'gpt-4o',
+    ...overrides,
+  };
+}
 
 /** A fake blocking LLM adapter returning a fixed text + token usage. */
 function fakeLlmAdapter(usageTokens: number): ProviderAdapter {
@@ -382,6 +440,47 @@ describe('ExecutionService.run — channel context threading', () => {
     );
 
     expect(seen[0]?.proxyUrl).toBe('http://global-proxy.local:3128');
+  });
+});
+
+describe('ExecutionService.runChat — idempotency', () => {
+  it('replays the same job for a repeated idempotency key (no double charge)', async () => {
+    const s = await seed(1_000_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(fakeChatAdapter(5)); // 5 output tokens → 5µ
+    const svc = buildService(adapters);
+
+    const first = await svc.runChat(chatRequest(s, { idempotencyKey: 'chat-key-1' }));
+    const second = await svc.runChat(chatRequest(s, { idempotencyKey: 'chat-key-1' }));
+
+    // The replay returns the ORIGINAL job, response, and cost — not a fresh run.
+    expect(second.jobId).toBe(first.jobId);
+    expect(second.response).toEqual(first.response);
+    expect(second.cost.credits).toBe(first.cost.credits);
+
+    // Exactly one job and one settle row → no double execution / double charge.
+    const jobs = await db.select().from(schema.job);
+    expect(jobs).toHaveLength(1);
+    const settleRows = (await db.select().from(ledgerTxn)).filter((l) => l.type === 'settle');
+    expect(settleRows).toHaveLength(1);
+    // 5 output tokens × 1µ debited exactly once.
+    expect(await readAccount(s.accountId)).toEqual({ balance: 999_995n, held: 0n });
+  });
+});
+
+describe('ExecutionService.runChatStream — idempotency', () => {
+  it('rejects a reused idempotency key with invalid_input (cannot replay a live stream)', async () => {
+    const s = await seed(1_000_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(fakeChatAdapter(5));
+    const svc = buildService(adapters);
+
+    // First claim succeeds (we don't need to drain the stream for the claim to persist).
+    await svc.runChatStream(chatRequest(s, { execMode: 'stream', idempotencyKey: 'stream-key-1' }));
+
+    await expect(
+      svc.runChatStream(chatRequest(s, { execMode: 'stream', idempotencyKey: 'stream-key-1' })),
+    ).rejects.toMatchObject({ unified: { code: 'invalid_input' } });
   });
 });
 

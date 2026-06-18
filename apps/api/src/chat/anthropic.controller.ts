@@ -10,6 +10,7 @@ import type { Request, Response } from 'express';
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
 import { RateLimitGuard } from '../auth/rate-limit.guard.js';
+import { idempotencyKeyHeader } from '../common/idempotency.interceptor.js';
 import { ChatRelayService } from './chat-relay.service.js';
 import { pipeSse } from './sse.js';
 
@@ -39,12 +40,13 @@ export class AnthropicChatController {
   ): Promise<Record<string, unknown> | undefined> {
     const ctx = this.auth.resolve(req);
     const ir = parseAnthropicChat(body);
+    const idem = idempotencyKeyHeader(req);
     if (body.stream === true) {
-      const { events } = await this.relay.chatStream(ir.model, ir, ctx);
+      const { events } = await this.relay.chatStream(ir.model, ir, ctx, idem);
       await pipeSse(res, renderAnthropicMessagesStream(events, ir.model));
       return undefined;
     }
-    const { response, servedBy } = await this.relay.chat(ir.model, ir, ctx);
+    const { response, servedBy } = await this.relay.chat(ir.model, ir, ctx, idem);
     if (servedBy !== undefined) res.setHeader('x-actionow-channel', servedBy.providerType);
     return renderAnthropicChat(response, ir.model);
   }

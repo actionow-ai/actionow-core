@@ -120,7 +120,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
 }
 
 /** The non-empty `Idempotency-Key` header value, or `undefined`. */
-function idempotencyKeyHeader(req: Request): string | undefined {
+export function idempotencyKeyHeader(req: Request): string | undefined {
   const raw = req.headers[HEADER];
   const value = Array.isArray(raw) ? raw[0] : raw;
   if (typeof value !== 'string') return undefined;
