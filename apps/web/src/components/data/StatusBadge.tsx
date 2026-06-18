@@ -1,12 +1,6 @@
-export type Tone = 'ok' | 'run' | 'wait' | 'fail' | 'idle';
+import { Pill, type PillTone } from '../ui/Pill';
 
-const TONE_COLOR: Record<Tone, string> = {
-  ok: 'var(--ok)',
-  run: 'var(--run)',
-  wait: 'var(--wait)',
-  fail: 'var(--fail)',
-  idle: 'var(--idle)',
-};
+export type Tone = PillTone;
 
 const STATUS_TONE: Record<string, Tone> = {
   succeeded: 'ok',
@@ -27,22 +21,14 @@ export function statusTone(status: string): Tone {
 }
 
 /**
- * A status pill. Takes a pre-resolved `tone` and a `label` already translated by
- * the page (`t('status.'+s, s)`) — it no longer renders raw English enums.
+ * A status pill: a leading tone dot + a `label` already translated by the page
+ * (`t('status.'+s, s)`) — it no longer renders raw English enums. Composes the
+ * shared `Pill` primitive (the design's dotted `.pill`).
  */
 export function StatusBadge({ tone, label }: { tone: Tone; label: string }) {
   return (
-    <span
-      style={{
-        fontSize: 'var(--fs-caption)',
-        fontWeight: 'var(--fw-medium)',
-        padding: '3px 9px',
-        borderRadius: 'var(--r-pill)',
-        color: TONE_COLOR[tone],
-        background: 'color-mix(in srgb, currentColor 16%, transparent)',
-      }}
-    >
+    <Pill tone={tone} dot>
       {label}
-    </span>
+    </Pill>
   );
 }

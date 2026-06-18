@@ -87,7 +87,7 @@ export function EntityCard({
       </div>
 
       {meta !== undefined && meta.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s-5)', marginTop: 'var(--s-4)' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s-6)', marginTop: 'var(--s-4)' }}>
           {meta.map((m, i) => (
             <div key={i} style={{ minWidth: 0 }}>
               <div style={{ fontSize: 'var(--fs-caption)', textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--faint)' }}>{m.label}</div>

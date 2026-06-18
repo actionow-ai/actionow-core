@@ -3,18 +3,20 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from './Button';
 import { FormField, useFieldId } from './FormField';
-import { IconButton } from './IconButton';
 import type { KvRow } from './kvRows';
 import { blankRow, rowsFromObject } from './kvRows';
+import { RowAction } from './RowAction';
 
+// Surface (glass bg, border, r-sm, focus ring) comes from the `.field` class;
+// keys/values are code so the inputs are mono, at the design's KV row height.
 const inputStyle = {
   flex: 1,
   minWidth: 0,
   fontSize: 'var(--fs-sm)',
+  fontFamily: 'ui-monospace, Menlo, monospace',
   color: 'var(--text)',
   padding: '9px 11px',
-  borderRadius: 'var(--r-sm)',
-  outline: 'none',
+  minHeight: 40,
 } as const;
 
 const BLANK_ROW: KvRow = blankRow();
@@ -77,22 +79,25 @@ export function KeyValueEditor({
           <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
             <input
               id={i === 0 ? fieldId : undefined}
-              className="panel"
+              className="field"
               aria-label={t('forms.kv.keyAria', { index: i + 1 })}
               placeholder={t('forms.kv.keyPlaceholder')}
               value={row.key}
               onChange={(e) => setRow(i, { key: e.target.value })}
               style={inputStyle}
             />
+            <span aria-hidden="true" style={{ color: 'var(--faint)', flexShrink: 0 }}>
+              =
+            </span>
             <input
-              className="panel"
+              className="field"
               aria-label={t('forms.kv.valueAria', { index: i + 1 })}
               placeholder={t('forms.kv.valuePlaceholder')}
               value={row.value}
               onChange={(e) => setRow(i, { value: e.target.value })}
               style={inputStyle}
             />
-            <IconButton icon={XIcon} label={t('forms.removeRow')} onClick={() => removeRow(i)} size={16} />
+            <RowAction icon={XIcon} label={t('forms.removeRow')} onClick={() => removeRow(i)} danger />
           </div>
         ))}
         <div>

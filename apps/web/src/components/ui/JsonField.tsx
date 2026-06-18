@@ -15,6 +15,8 @@ export function validateJson(raw: string): JsonResult {
   }
 }
 
+// Surface (glass bg, border, r-sm, focus/error rings) comes from the `.field`
+// class; this carries only the textarea-specific shape (multiline, mono, resize).
 const taStyle: CSSProperties = {
   width: '100%',
   minHeight: 120,
@@ -23,9 +25,6 @@ const taStyle: CSSProperties = {
   lineHeight: 1.6,
   fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
   color: 'var(--text)',
-  background: 'var(--panel-bg)',
-  border: '1px solid var(--panel-bd)',
-  borderRadius: 'var(--r-sm)',
   padding: 'var(--s-3)',
 };
 
@@ -61,7 +60,8 @@ export function JsonField({
         required={required}
         aria-invalid={error !== undefined ? true : undefined}
         onChange={(e) => onChange(e.target.value)}
-        style={error !== undefined ? { ...taStyle, borderColor: 'var(--fail)' } : taStyle}
+        className="field"
+        style={taStyle}
       />
     </FormField>
   );

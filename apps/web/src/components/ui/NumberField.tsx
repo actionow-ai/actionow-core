@@ -1,4 +1,4 @@
-import { fieldInputStyle } from './fieldStyles';
+import { FIELD_INPUT_BASE } from './fieldStyles';
 import { FormField, useFieldId } from './FormField';
 
 /**
@@ -51,8 +51,8 @@ export function NumberField({
           const n = e.target.valueAsNumber;
           onChange(Number.isNaN(n) ? 0 : n);
         }}
-        className="panel"
-        style={fieldInputStyle(error)}
+        className="field tabular"
+        style={FIELD_INPUT_BASE}
       />
     </FormField>
   );

@@ -1,17 +1,14 @@
 import { describe, expect, test } from 'vitest';
 
-import { fieldInputStyle } from './fieldStyles';
+import { FIELD_INPUT_BASE } from './fieldStyles';
 
-describe('fieldInputStyle', () => {
+describe('FIELD_INPUT_BASE', () => {
   test('is full-width so the input fills its form column', () => {
-    expect(fieldInputStyle().width).toBe('100%');
+    expect(FIELD_INPUT_BASE.width).toBe('100%');
   });
 
-  test('paints a red border when there is an error', () => {
-    expect(fieldInputStyle('bad value').borderColor).toBe('var(--fail)');
-  });
-
-  test('has no error border when valid', () => {
-    expect(fieldInputStyle()).not.toHaveProperty('borderColor');
+  test('delegates surface, border and error ring to the .field class (no inline border/background)', () => {
+    expect(FIELD_INPUT_BASE).not.toHaveProperty('borderColor');
+    expect(FIELD_INPUT_BASE).not.toHaveProperty('background');
   });
 });

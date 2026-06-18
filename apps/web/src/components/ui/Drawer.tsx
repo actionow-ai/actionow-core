@@ -15,8 +15,8 @@ import { IconButton } from './IconButton';
  * A right-slide side panel — a heavier sibling of `Modal` for long forms (e.g.
  * the channel editor). Same deferred-unmount lifecycle (stays mounted through
  * the exit tween), focus trap while open, Escape/backdrop close, `--scrim`
- * backdrop, near-opaque `--overlay-bg` panel. Slides from `x:40→0`;
- * reduced-motion unmounts/sets instantly.
+ * backdrop, near-opaque `--overlay-bg` panel. Slides fully in from the right
+ * edge (translateX 100%→0); reduced-motion unmounts/sets instantly.
  */
 export function Drawer({
   open,
@@ -24,7 +24,7 @@ export function Drawer({
   onClose,
   children,
   footer,
-  width = 'min(480px, 96vw)',
+  width = 'min(460px, 94vw)',
 }: {
   open: boolean;
   title: string;
@@ -75,11 +75,12 @@ export function Drawer({
       if (open) {
         if (reduced) {
           gsap.set(backdrop, { opacity: 1 });
-          gsap.set(panel, { opacity: 1, x: 0 });
+          gsap.set(panel, { xPercent: 0 });
           return;
         }
         gsap.fromTo(backdrop, { opacity: 0 }, { opacity: 1, duration: DUR.base, ease: EASE.out });
-        gsap.fromTo(panel, { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: DUR.base, ease: EASE.out });
+        // Full-width slide from the right edge (the design's translateX(100%)→0).
+        gsap.fromTo(panel, { xPercent: 100 }, { xPercent: 0, duration: DUR.base, ease: EASE.out });
         return;
       }
 
@@ -95,7 +96,7 @@ export function Drawer({
           if (!openRef.current) setMounted(false);
         },
       });
-      tl.to(panel, { opacity: 0, x: 40, duration: DUR.fast, ease: EASE.in }, 0);
+      tl.to(panel, { xPercent: 100, duration: DUR.fast, ease: EASE.in }, 0);
       tl.to(backdrop, { opacity: 0, duration: DUR.fast, ease: EASE.in }, 0);
     },
     { dependencies: [open] },
@@ -112,6 +113,8 @@ export function Drawer({
         inset: 0,
         zIndex: Z.scrim,
         background: 'var(--scrim)',
+        backdropFilter: 'blur(2px)',
+        WebkitBackdropFilter: 'blur(2px)',
         display: 'flex',
         justifyContent: 'flex-end',
       }}
@@ -129,14 +132,14 @@ export function Drawer({
           display: 'flex',
           flexDirection: 'column',
           borderRadius: 0,
-          padding: 'var(--s-5)',
+          padding: 'var(--s-6)',
           // near-opaque panel so form text/fields stay legible over page content
           background: 'var(--overlay-bg)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--s-3)', flexShrink: 0 }}>
-          <h2 style={{ margin: 0, fontSize: 'var(--fs-md)', fontWeight: 700 }}>{title}</h2>
-          <IconButton icon={XIcon} label={t('forms.close')} onClick={onClose} size={18} />
+          <h2 style={{ margin: 0, fontSize: 'var(--fs-lg)', fontWeight: 'var(--fw-semibold)' }}>{title}</h2>
+          <IconButton icon={XIcon} label={t('forms.close')} onClick={onClose} size={18} bare />
         </div>
         <div
           style={{
@@ -158,7 +161,17 @@ export function Drawer({
           {children}
         </div>
         {footer && (
-          <div style={{ marginTop: 'var(--s-5)', display: 'flex', justifyContent: 'flex-end', gap: 'var(--s-2)', flexShrink: 0 }}>
+          <div
+            style={{
+              marginTop: 'var(--s-6)',
+              paddingTop: 'var(--s-4)',
+              borderTop: '1px solid var(--row-bd)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 'var(--s-3)',
+              flexShrink: 0,
+            }}
+          >
             {footer}
           </div>
         )}

@@ -37,10 +37,11 @@ describe('ConfirmDialog', () => {
     expect(props.onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('danger styles the confirm button with the fail color', () => {
+  it('danger styles the confirm button with the danger variant', () => {
     render(<ConfirmDialog {...defaults()} danger />);
     const confirm = screen.getByRole('button', { name: 'Delete' });
-    expect(confirm.style.color).toBe('var(--fail)');
+    // Button styling is class-driven (.btn-danger → fail-tinted fill/border/text).
+    expect(confirm.className).toContain('btn-danger');
   });
 
   it('loading disables the confirm button (aria-busy)', () => {

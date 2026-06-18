@@ -97,6 +97,9 @@
   --spot: rgba(255, 214, 10, 0.22);
   --blur: 70px;
   --grid-dot: rgba(255, 255, 255, 0.05);
+  /* inset example/callout surface (demo wells, confirm-dialog body) */
+  --demo-bg: rgba(255, 255, 255, 0.025);
+  --demo-bd: rgba(255, 255, 255, 0.07);
 
   --panel-bd-strong: rgba(255, 255, 255, 0.1);
   --row-bd: rgba(255, 255, 255, 0.06);
@@ -130,6 +133,8 @@
   --spot: rgba(255, 176, 10, 0.3);
   --blur: 60px;
   --grid-dot: rgba(0, 0, 0, 0.05);
+  --demo-bg: rgba(120, 90, 20, 0.04);
+  --demo-bd: rgba(0, 0, 0, 0.05);
 
   --row-bd: rgba(0, 0, 0, 0.05);
   --ok: #16a34a;

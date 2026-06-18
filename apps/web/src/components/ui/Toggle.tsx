@@ -41,8 +41,8 @@ export function Toggle({
         aria-hidden="true"
         style={{
           position: 'relative',
-          width: 38,
-          height: 22,
+          width: 46,
+          height: 26,
           flexShrink: 0,
           borderRadius: 'var(--r-pill)',
           background: checked ? 'var(--grad-accent)' : 'var(--panel-bd)',
@@ -52,13 +52,13 @@ export function Toggle({
         <span
           style={{
             position: 'absolute',
-            top: 2,
-            left: 2,
-            width: 18,
-            height: 18,
+            top: 3,
+            left: 3,
+            width: 20,
+            height: 20,
             borderRadius: '50%',
-            background: checked ? 'var(--ink)' : 'var(--text)',
-            transform: checked ? 'translateX(16px)' : 'translateX(0)',
+            background: '#fff',
+            transform: checked ? 'translateX(20px)' : 'translateX(0)',
             transition: 'transform var(--dur-base) var(--ease-out)',
             boxShadow: 'var(--shadow-lift)',
           }}

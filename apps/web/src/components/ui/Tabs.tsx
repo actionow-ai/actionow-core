@@ -59,8 +59,9 @@ export function Tabs({
         aria-label={ariaLabel}
         style={{
           display: 'flex',
-          gap: 'var(--s-4)',
+          gap: 'var(--s-5)',
           borderBottom: '1px solid var(--row-bd)',
+          overflowX: 'auto',
         }}
       >
         {tabs.map((tb, i) => {
@@ -81,12 +82,13 @@ export function Tabs({
               onKeyDown={onKeyDown}
               style={{
                 position: 'relative',
-                padding: '8px 2px',
+                padding: '11px 4px',
+                minHeight: 44,
                 border: 'none',
                 background: 'transparent',
                 cursor: 'pointer',
                 fontSize: 'var(--fs-sm)',
-                fontWeight: 600,
+                fontWeight: 'var(--fw-medium)',
                 whiteSpace: 'nowrap',
                 color: on ? 'var(--text)' : 'var(--muted)',
                 transition: reduced ? 'none' : `color var(--dur-fast) var(--ease-out)`,

@@ -57,7 +57,7 @@ export function PricebookSpecForm({
                 onChange={(n) => setDim(i, { rate: n })}
               />
             </div>
-            <IconButton icon={XIcon} label={t('forms.removeDimension')} onClick={() => removeDim(i)} size={16} />
+            <IconButton icon={XIcon} label={t('forms.removeDimension')} onClick={() => removeDim(i)} size={16} bare />
           </div>
         ))}
         <div>
@@ -102,7 +102,7 @@ export function PricebookSpecForm({
                 onChange={(n) => setCell(i, { cell: n })}
               />
             </div>
-            <IconButton icon={XIcon} label={t('forms.removeRow')} onClick={() => removeCell(i)} size={16} />
+            <IconButton icon={XIcon} label={t('forms.removeRow')} onClick={() => removeCell(i)} size={16} bare />
           </div>
         ))}
         <div>

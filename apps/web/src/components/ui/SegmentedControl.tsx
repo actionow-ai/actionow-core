@@ -1,18 +1,17 @@
 import type { KeyboardEvent } from 'react';
 import { useRef } from 'react';
 
-import { useReducedMotion } from '../../lib/motion/useReducedMotion';
-
 export interface Segment {
   value: string;
   label: string;
 }
 
 /**
- * A radiogroup of pill buttons with a sliding active indicator. On the unified
- * contract: `onChange(value)`. Keyboard: arrow keys move (and wrap) the
- * selection; the active option is the only roving tab stop. Warm `--accent`
- * fill, never blue. Reduced motion disables the slide.
+ * A radiogroup of segment buttons (the design's `.seg`): an inline-flex glass
+ * box with a static per-button accent fill on the selected segment — no sliding
+ * indicator. On the unified contract: `onChange(value)`. Keyboard: arrow keys
+ * move (and wrap) the selection; the active option is the only roving tab stop.
+ * Warm `--accent` fill, never blue.
  */
 export function SegmentedControl({
   value,
@@ -25,18 +24,17 @@ export function SegmentedControl({
   options: Segment[];
   ariaLabel?: string;
 }) {
-  const reduced = useReducedMotion();
   const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const activeIdx = Math.max(
     options.findIndex((o) => o.value === value),
     0,
   );
 
-  // Move the roving selection AND DOM focus to `next`. The newly-selected
-  // button becomes the only tab stop (tabIndex=0) after the re-render, so a
-  // keyboard move must carry focus with it — otherwise focus is stranded on the
-  // now-tabIndex=-1 button. Focusing here (synchronously, by index) sidesteps
-  // the controlled-rerender timing problem and never fires on mouse clicks.
+  // Move the roving selection AND DOM focus to `next`. The newly-selected button
+  // becomes the only tab stop (tabIndex=0) after the re-render, so a keyboard
+  // move must carry focus with it — otherwise focus is stranded on the
+  // now-tabIndex=-1 button. Focusing here (synchronously, by index) sidesteps the
+  // controlled-rerender timing problem and never fires on mouse clicks.
   const moveTo = (next: number) => {
     onChange(options[next].value);
     btnRefs.current[next]?.focus();
@@ -62,31 +60,15 @@ export function SegmentedControl({
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      className="panel"
       style={{
-        position: 'relative',
-        display: 'grid',
-        gridTemplateColumns: `repeat(${String(options.length)}, 1fr)`,
-        gap: 4,
-        padding: 4,
-        borderRadius: 'var(--r-pill)',
+        display: 'inline-flex',
+        gap: 2,
+        padding: 3,
+        background: 'var(--glass-bg)',
+        border: '1px solid var(--panel-bd)',
+        borderRadius: 'var(--r-sm)',
       }}
     >
-      <span
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          top: 4,
-          bottom: 4,
-          left: 4,
-          width: `calc((100% - 8px - ${String((options.length - 1) * 4)}px) / ${String(options.length)})`,
-          borderRadius: 'var(--r-pill)',
-          background: 'var(--grad-accent)',
-          boxShadow: 'var(--shadow-cta)',
-          transform: `translateX(calc(${String(activeIdx)} * (100% + 4px)))`,
-          transition: reduced ? 'none' : `transform var(--dur-base) var(--ease-out)`,
-        }}
-      />
       {options.map((o, i) => {
         const on = i === activeIdx;
         return (
@@ -102,18 +84,17 @@ export function SegmentedControl({
             onClick={() => onChange(o.value)}
             onKeyDown={onKeyDown}
             style={{
-              position: 'relative',
-              zIndex: 1,
-              padding: '8px 0',
-              borderRadius: 'var(--r-pill)',
+              padding: '7px 14px',
+              minHeight: 34,
+              borderRadius: 'var(--r-xs)',
               fontSize: 'var(--fs-sm)',
-              fontWeight: 600,
+              fontWeight: 'var(--fw-medium)',
               border: 'none',
-              background: 'transparent',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
+              background: on ? 'var(--grad-accent)' : 'transparent',
               color: on ? 'var(--ink)' : 'var(--muted)',
-              transition: reduced ? 'none' : `color var(--dur-fast) var(--ease-out)`,
+              transition: 'color 0.15s ease, background 0.15s ease',
             }}
           >
             {o.label}

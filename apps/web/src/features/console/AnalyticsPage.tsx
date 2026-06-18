@@ -11,7 +11,7 @@ import { MetricBarChart } from '../../components/data/MetricBarChart';
 import { Money } from '../../components/data/Money';
 import { TenantSelect } from '../../components/data/TenantSelect';
 import { TimeSeriesChart } from '../../components/data/TimeSeriesChart';
-import { fieldInputStyle } from '../../components/ui/fieldStyles';
+import { FIELD_INPUT_BASE } from '../../components/ui/fieldStyles';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { qk } from '../../lib/api/queryKeys';
@@ -229,7 +229,8 @@ export function AnalyticsPage() {
             value={from}
             max={to === '' ? undefined : to}
             onChange={(e) => setFrom(e.target.value)}
-            style={{ ...fieldInputStyle(), width: 'auto' }}
+            className="field"
+            style={{ ...FIELD_INPUT_BASE, width: 'auto' }}
           />
         </label>
         <label
@@ -247,7 +248,8 @@ export function AnalyticsPage() {
             value={to}
             min={from === '' ? undefined : from}
             onChange={(e) => setTo(e.target.value)}
-            style={{ ...fieldInputStyle(), width: 'auto' }}
+            className="field"
+            style={{ ...FIELD_INPUT_BASE, width: 'auto' }}
           />
         </label>
       </div>

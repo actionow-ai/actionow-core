@@ -1,9 +1,19 @@
+import { ArrowDownRightIcon, ArrowUpRightIcon } from '@phosphor-icons/react';
 import { useRef } from 'react';
 
 import { gsap, useGSAP } from '../../lib/motion/gsap';
 import { EASE } from '../../lib/motion/tokens';
 
-export function StatCard({ label, value }: { label: string; value: number | string }) {
+export function StatCard({
+  label,
+  value,
+  delta,
+}: {
+  label: string;
+  value: number | string;
+  /** Optional period-over-period delta shown beneath the value (e.g. "+12%"). */
+  delta?: { label: string; up: boolean };
+}) {
   const numRef = useRef<HTMLDivElement>(null);
   const isNumber = typeof value === 'number';
   // Last numeric value we counted to, so a live refetch animates from where the
@@ -48,9 +58,28 @@ export function StatCard({ label, value }: { label: string; value: number | stri
   return (
     <div className="glass" style={{ padding: 'var(--s-5)', borderRadius: 'var(--r-md)' }}>
       <div style={{ fontSize: 'var(--fs-nano)', textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--muted)' }}>{label}</div>
-      <div ref={numRef} className="tabular" style={{ fontSize: 'var(--fs-xl)', fontWeight: 700, marginTop: 8, letterSpacing: '-.02em' }}>
+      <div ref={numRef} className="tabular" style={{ fontSize: 'var(--fs-2xl)', fontWeight: 'var(--fw-bold)', marginTop: 8, letterSpacing: '-.02em' }}>
         {value}
       </div>
+      {delta !== undefined && (
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            marginTop: 6,
+            fontSize: 'var(--fs-caption)',
+            color: delta.up ? 'var(--ok)' : 'var(--fail)',
+          }}
+        >
+          {delta.up ? (
+            <ArrowUpRightIcon size={12} weight="bold" aria-hidden="true" />
+          ) : (
+            <ArrowDownRightIcon size={12} weight="bold" aria-hidden="true" />
+          )}
+          {delta.label}
+        </div>
+      )}
     </div>
   );
 }

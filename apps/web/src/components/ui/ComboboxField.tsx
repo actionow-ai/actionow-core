@@ -171,14 +171,13 @@ export function ComboboxField({
           onFocus={openMenu}
           onClick={openMenu}
           onKeyDown={onKeyDown}
-          className="panel"
+          className="field"
           style={{
             width: '100%',
             fontSize: 'var(--fs-sm)',
             color: 'var(--text)',
-            padding: '9px 30px 9px 11px',
-            borderRadius: 'var(--r-sm)',
-            outline: 'none',
+            // extra right padding leaves room for the caret; surface from `.field`
+            padding: '10px 30px 10px 12px',
           }}
         />
         <CaretDownIcon
@@ -215,7 +214,7 @@ export function ComboboxField({
               maxHeight: 280,
               overflowY: 'auto',
               padding: 'var(--s-1)',
-              borderRadius: 'var(--r-md)',
+              borderRadius: 'var(--r-sm)',
               // near-opaque so option text stays legible over any underlying content
               background: 'var(--overlay-bg)',
             }}
@@ -244,12 +243,12 @@ export function ComboboxField({
                     width: '100%',
                     textAlign: 'left',
                     border: 'none',
-                    background: active ? 'var(--hover-bg)' : 'transparent',
+                    background: active || on ? 'var(--hover-bg)' : 'transparent',
                     cursor: 'pointer',
                     padding: 'var(--s-2) var(--s-3)',
                     borderRadius: 'var(--r-sm)',
                     fontSize: 'var(--fs-sm)',
-                    color: on ? 'var(--accent)' : 'var(--text)',
+                    color: 'var(--text)',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',

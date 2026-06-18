@@ -219,15 +219,18 @@ export function AuthPage() {
       >
         {!isDesktop && <Logo size={28} />}
 
-        {/* segmented login / register switch */}
-        <SegmentedControl
-          value={mode}
-          onChange={(v) => setMode(v as Mode)}
-          options={[
-            { value: 'login', label: t('auth.loginTab') },
-            { value: 'register', label: t('auth.registerTab') },
-          ]}
-        />
+        {/* segmented login / register switch — a compact, centered toggle (the
+            design's `.seg` hugs its content rather than stretching the row) */}
+        <div style={{ alignSelf: 'center' }}>
+          <SegmentedControl
+            value={mode}
+            onChange={(v) => setMode(v as Mode)}
+            options={[
+              { value: 'login', label: t('auth.loginTab') },
+              { value: 'register', label: t('auth.registerTab') },
+            ]}
+          />
+        </div>
 
         {/* mode-dependent body: cross-fades when login↔register toggles */}
         <div ref={bodyRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>

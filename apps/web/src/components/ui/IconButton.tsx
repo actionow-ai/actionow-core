@@ -21,6 +21,7 @@ export function IconButton({
   active,
   current,
   tooltip,
+  bare,
   size = 18,
   type = 'button',
   weight,
@@ -34,6 +35,9 @@ export function IconButton({
   active?: boolean;
   current?: boolean;
   tooltip?: boolean;
+  /** Transparent rest (the design's `.ico-btn.bare`) — for rails, top bars and
+   * close buttons. Default is the filled-glass rest. */
+  bare?: boolean;
   size?: number;
   type?: 'button' | 'submit';
   weight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone';
@@ -45,7 +49,7 @@ export function IconButton({
   return (
     <button
       type={type}
-      className={`ico-btn hit-slop${active === true ? ' is-active' : ''}`}
+      className={`ico-btn hit-slop${bare === true ? ' bare' : ''}${active === true ? ' is-active' : ''}`}
       aria-label={label}
       title={tooltip === true ? undefined : label}
       aria-current={current === true ? 'page' : undefined}

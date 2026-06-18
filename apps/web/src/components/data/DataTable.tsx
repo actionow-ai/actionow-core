@@ -635,7 +635,7 @@ export function DataTable<T>({
 // --- Style fragments ------------------------------------------------------
 const headerCellStyle: CSSProperties = {
   textAlign: 'left',
-  padding: '10px var(--s-4)',
+  padding: '11px var(--s-4)',
   fontSize: 'var(--fs-caption)',
   fontWeight: 'var(--fw-medium)',
   textTransform: 'uppercase',
@@ -698,7 +698,7 @@ function SortCaret({ active, dir }: { active: boolean; dir: SortDirection }) {
     <Icon
       size={12}
       weight="bold"
-      style={{ color: 'var(--accent)', flexShrink: 0 }}
+      style={{ color: 'var(--accent-2)', flexShrink: 0 }}
       aria-hidden="true"
     />
   );

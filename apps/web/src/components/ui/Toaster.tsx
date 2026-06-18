@@ -1,3 +1,4 @@
+import { CheckIcon } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
 
 import { DUR } from '../../lib/motion/tokens';
@@ -41,11 +42,13 @@ export function Toaster() {
     <div
       style={{
         position: 'fixed',
-        right: 'var(--s-4)',
-        bottom: 'var(--s-4)',
+        left: '50%',
+        bottom: 28,
+        transform: 'translateX(-50%)',
         zIndex: Z.toast,
         display: 'flex',
         flexDirection: 'column',
+        alignItems: 'center',
         gap: 'var(--s-2)',
       }}
     >
@@ -69,17 +72,27 @@ function Toast({ item }: { item: ToastItem }) {
     <div
       role={item.tone === 'error' ? 'alert' : 'status'}
       aria-live={item.tone === 'error' ? 'assertive' : 'polite'}
-      className="glass"
+      className="panel"
       style={{
-        padding: '10px 14px',
-        borderRadius: 'var(--r-md)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '12px 18px',
+        borderRadius: 'var(--r-pill)',
         fontSize: 'var(--fs-sm)',
+        fontWeight: 'var(--fw-medium)',
         color: item.tone === 'error' ? 'var(--fail)' : 'var(--text)',
+        boxShadow: 'var(--shadow-lift)',
         opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(8px)',
+        transform: visible ? 'translateY(0)' : 'translateY(12px)',
         transition: `opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out)`,
       }}
     >
+      {item.tone !== 'error' && (
+        <span style={{ color: 'var(--ok)', display: 'inline-flex', flexShrink: 0 }}>
+          <CheckIcon size={16} weight="bold" aria-hidden="true" />
+        </span>
+      )}
       {item.text}
     </div>
   );

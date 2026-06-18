@@ -14,12 +14,15 @@ import { IconButton } from './IconButton';
 export function Modal({
   open,
   title,
+  subtitle,
   onClose,
   children,
   footer,
 }: {
   open: boolean;
   title: string;
+  /** Optional secondary line under the title (e.g. "此操作不可恢复"). */
+  subtitle?: ReactNode;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
@@ -108,10 +111,12 @@ export function Modal({
         inset: 0,
         zIndex: Z.scrim,
         background: 'var(--scrim)',
+        backdropFilter: 'blur(2px)',
+        WebkitBackdropFilter: 'blur(2px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 'var(--s-4)',
+        padding: 'var(--s-5)',
       }}
     >
       <div
@@ -122,19 +127,22 @@ export function Modal({
         onClick={(e) => e.stopPropagation()}
         className="glass"
         style={{
-          width: 'min(440px, 92vw)',
+          width: 'min(440px, 94vw)',
           maxHeight: 'min(86dvh, 720px)',
           display: 'flex',
           flexDirection: 'column',
           borderRadius: 'var(--r-lg)',
-          padding: 'var(--s-5)',
+          padding: 'var(--s-6)',
           // near-opaque dialog so form text/fields stay legible over page content
           background: 'var(--overlay-bg)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--s-3)', flexShrink: 0 }}>
-          <h2 style={{ margin: 0, fontSize: 'var(--fs-md)', fontWeight: 'var(--fw-semibold)' }}>{title}</h2>
-          <IconButton icon={XIcon} label={t('forms.close')} onClick={onClose} size={18} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--s-3)', flexShrink: 0 }}>
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ margin: 0, fontSize: 'var(--fs-lg)', fontWeight: 'var(--fw-semibold)' }}>{title}</h2>
+            {subtitle !== undefined && <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', marginTop: 4 }}>{subtitle}</div>}
+          </div>
+          <IconButton icon={XIcon} label={t('forms.close')} onClick={onClose} size={18} bare />
         </div>
         <div
           style={{
@@ -156,7 +164,7 @@ export function Modal({
           {children}
         </div>
         {footer && (
-          <div style={{ marginTop: 'var(--s-5)', display: 'flex', justifyContent: 'flex-end', gap: 'var(--s-2)', flexShrink: 0 }}>
+          <div style={{ marginTop: 'var(--s-6)', display: 'flex', justifyContent: 'flex-end', gap: 'var(--s-3)', flexShrink: 0 }}>
             {footer}
           </div>
         )}

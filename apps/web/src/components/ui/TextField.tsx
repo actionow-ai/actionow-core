@@ -1,4 +1,4 @@
-import { fieldInputStyle } from './fieldStyles';
+import { FIELD_INPUT_BASE } from './fieldStyles';
 import { FormField, useFieldId } from './FormField';
 
 /**
@@ -53,8 +53,8 @@ export function TextField({
         maxLength={maxLength}
         aria-invalid={error !== undefined ? true : undefined}
         onChange={(e) => onChange(e.target.value)}
-        className="panel"
-        style={fieldInputStyle(error)}
+        className="field"
+        style={FIELD_INPUT_BASE}
       />
     </FormField>
   );

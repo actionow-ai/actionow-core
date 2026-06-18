@@ -4,7 +4,7 @@ import { NavLink } from 'react-router-dom';
 import { useReducedMotion } from '../../../lib/motion/useReducedMotion';
 import { groupForPath } from '../nav-config';
 
-const SUBNAV_STEP = 38; // 34px item + 4px gap
+const SUBNAV_STEP = 42; // 38px item + 4px gap
 
 /** The desktop sub-navigation column for the active nav group, with a sliding highlight behind the current item. */
 export function SubNav({ pathname }: { pathname: string }) {
@@ -26,7 +26,7 @@ export function SubNav({ pathname }: { pathname: string }) {
             left: 0,
             right: 0,
             top: 0,
-            height: 34,
+            height: 38,
             boxSizing: 'border-box',
             borderRadius: 'var(--r-sm)',
             background: 'var(--hover-bg)',
@@ -47,13 +47,15 @@ export function SubNav({ pathname }: { pathname: string }) {
               zIndex: 1,
               display: 'flex',
               alignItems: 'center',
-              height: 34,
+              height: 38,
               marginBottom: 4,
-              padding: '0 10px',
+              padding: '0 12px',
               borderRadius: 'var(--r-sm)',
               fontSize: 'var(--fs-sm)',
+              fontWeight: 'var(--fw-medium)',
               whiteSpace: 'nowrap',
               textDecoration: 'none',
+              transition: 'color var(--dur-fast) var(--ease-out)',
               color: isActive ? 'var(--text)' : 'var(--muted)',
             })}
           >

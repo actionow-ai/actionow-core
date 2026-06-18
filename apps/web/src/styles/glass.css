@@ -12,6 +12,38 @@
   border: 1px solid var(--panel-bd);
 }
 
+/* Unified form-field surface + warm focus/error rings (no blue). Applies to all
+   field controls (input/textarea and the Select trigger button); components add
+   className="field" (+ "field--err" or aria-invalid on error). width/font/color
+   stay in fieldStyles.ts — the visual surface + ring live here so :focus works.
+   Supersedes the auth-only focus rule below for every field. */
+.field {
+  background: var(--glass-bg);
+  border: 1px solid var(--panel-bd);
+  border-radius: var(--r-sm);
+  min-height: 42px;
+  padding: 10px 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.field:focus,
+.field:focus-visible {
+  outline: none;
+  border-color: var(--hover-bd);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.field--err,
+.field[aria-invalid='true'] {
+  border-color: var(--fail);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fail) 25%, transparent);
+}
+.field--err:focus,
+.field--err:focus-visible,
+.field[aria-invalid='true']:focus,
+.field[aria-invalid='true']:focus-visible {
+  border-color: var(--fail);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fail) 25%, transparent);
+}
+
 /* Interactive glass: hover lifts with a WARM tint + border (no blue). */
 .glass-hover {
   transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
@@ -32,9 +64,56 @@
   .hero-code { margin-top: var(--s-16); transform: translateX(6%); }
 }
 
-/* Tactile button feedback (physical push). */
-.btn-tactile:hover { transform: translateY(-1px); box-shadow: var(--shadow-cta-hover); }
-.btn-tactile:active { transform: translateY(1px) scale(0.99); }
+/* Button — pill, tactile. Variants cta/ghost/danger/link; sizes sm/md/lg.
+   Mirrors the design system's .btn classes; the Button component applies these.
+   md is the base; sm/lg override padding/font/min-height. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  border-radius: var(--r-pill);
+  padding: 10px 16px;
+  min-height: 40px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease,
+    border-color 0.15s ease, opacity 0.15s ease;
+}
+.btn-cta { background: var(--grad-accent); color: var(--ink); box-shadow: var(--shadow-cta); }
+.btn-cta:hover { transform: translateY(-1px); box-shadow: var(--shadow-cta-hover); }
+.btn-cta:active { transform: translateY(1px) scale(0.99); }
+.btn-ghost { background: var(--glass-bg); border-color: var(--panel-bd); color: var(--text); }
+.btn-ghost:hover { border-color: var(--hover-bd); background: var(--hover-bg); }
+.btn-danger {
+  background: color-mix(in srgb, var(--fail) 14%, transparent);
+  border-color: color-mix(in srgb, var(--fail) 40%, transparent);
+  color: var(--fail);
+}
+.btn-danger:hover { background: color-mix(in srgb, var(--fail) 22%, transparent); }
+.btn-sm { padding: 7px 12px; font-size: var(--fs-caption); min-height: 32px; }
+.btn-lg { padding: 13px 22px; font-size: var(--fs-base); min-height: 48px; }
+/* Text-only link variant — outside the design's 3 documented variants but kept
+   for existing call-sites (e.g. AuthPage). Ignores size padding. */
+.btn-link {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  padding: 0;
+  min-height: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.btn:disabled,
+.btn[aria-disabled='true'] { opacity: 0.45; cursor: not-allowed; box-shadow: none; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .btn-cta:hover,
+  .btn-cta:active { transform: none; }
+}
 
 /* Editorial bento first-screen: a rich left stack + a tall companion code
    panel. Layout only — visual styling stays in .glass/.panel/tokens. */
@@ -84,18 +163,23 @@
   width: 40px;
   height: 40px;
   border-radius: var(--r-sm);
-  border: none;
-  background: transparent;
+  border: 1px solid transparent;
+  background: var(--glass-bg);
   color: var(--muted);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.18s ease, background 0.18s ease;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
-.ico-btn:hover { color: var(--text); background: var(--hover-bg); }
+.ico-btn:hover { color: var(--text); background: var(--hover-bg); border-color: var(--hover-bd); }
+/* Bare variant — transparent rest. Used by the rail/topbar (where a filled chip
+   would obscure the sliding active indicator behind the button) and by close
+   buttons (the design's `.ico-btn.bare`). */
+.ico-btn.bare { background: transparent; border-color: transparent; }
+.ico-btn.bare:hover { background: var(--hover-bg); border-color: transparent; }
 .ico-btn.is-active { color: var(--ink); }
-.ico-btn.is-active:hover { color: var(--ink); background: transparent; }
+.ico-btn.is-active:hover { color: var(--ink); background: transparent; border-color: transparent; }
 
 /* Tooltip that slides out to the right of a rail button on hover. */
 .ico-tip {
@@ -158,8 +242,8 @@
 
 /* Compact icon button for DataTable row-actions cells (see RowAction). */
 .row-action {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
   border-radius: var(--r-sm);
   border: 1px solid transparent;
@@ -191,8 +275,8 @@
   .entity-card.is-clickable:hover { transform: none; }
 }
 .card-glyph {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 10px;
   display: inline-flex;
   align-items: center;
@@ -202,12 +286,15 @@
   background: var(--grad-accent);
 }
 .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--fs-caption);
   color: var(--muted);
   background: var(--hover-bg);
   border: 1px solid var(--panel-bd);
   border-radius: var(--r-pill);
-  padding: 2px 9px;
+  padding: 4px 11px;
   white-space: nowrap;
 }
 

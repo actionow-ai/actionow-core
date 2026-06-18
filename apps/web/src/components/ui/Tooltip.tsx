@@ -66,17 +66,21 @@ export function Tooltip({ text, children }: { text: string; children?: ReactNode
         style={{
           maxWidth: 240,
           width: 'max-content',
-          padding: 'var(--s-2) var(--s-3)',
+          padding: '8px 11px',
           borderRadius: 'var(--r-sm)',
           background: 'var(--overlay-bg)',
           border: '1px solid var(--panel-bd)',
-          boxShadow: 'var(--glass-shadow)',
+          boxShadow: 'var(--shadow-lift)',
           color: 'var(--text)',
           fontSize: 'var(--fs-caption)',
           lineHeight: 1.4,
           textAlign: 'left',
           whiteSpace: 'normal',
-          transition: 'opacity var(--dur-fast) var(--ease-out)',
+          // ano-fade rise (the design's bubble enter). No caret: the bubble is
+          // portaled and flips top↔bottom, so a fixed-direction caret would point
+          // the wrong way inside Modal/Drawer scrollports.
+          transform: open ? 'translateY(0)' : 'translateY(6px)',
+          transition: 'opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out)',
         }}
       >
         {text}

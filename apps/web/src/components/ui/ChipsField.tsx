@@ -59,7 +59,7 @@ export function ChipsField({
     <FormField id={fieldId} label={label} tooltip={tooltip} hint={hint}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
         <div
-          className="panel"
+          className="field"
           style={{
             display: 'flex',
             flexWrap: 'wrap',
@@ -128,9 +128,10 @@ export function ChipsField({
                   padding: '3px 9px',
                   borderRadius: 'var(--r-pill)',
                   fontSize: 'var(--fs-caption)',
-                  color: 'var(--muted)',
+                  fontWeight: 'var(--fw-medium)',
+                  color: 'var(--accent-2)',
                   background: 'transparent',
-                  border: '1px dashed var(--panel-bd)',
+                  border: '1px dashed var(--hover-bd)',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
                 }}

@@ -28,7 +28,7 @@ export function Rail({ pathname }: { pathname: string }) {
       className="glass"
       style={{ width: 64, borderRadius: 'var(--r-lg)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--s-4)', padding: 'var(--s-4) 0' }}
     >
-      <button type="button" className="ico-btn" aria-label={t('topbar.backHome')} onClick={() => void navigate('/')}>
+      <button type="button" className="ico-btn bare" aria-label={t('topbar.backHome')} onClick={() => void navigate('/')}>
         <span
           aria-hidden="true"
           style={{
@@ -79,6 +79,7 @@ export function Rail({ pathname }: { pathname: string }) {
               active={on}
               current={on}
               tooltip
+              bare
               size={19}
               weight={on ? 'fill' : 'regular'}
               onClick={() => void navigate(g.items[0].to)}
@@ -92,18 +93,21 @@ export function Rail({ pathname }: { pathname: string }) {
           icon={TranslateIcon}
           label={isZh ? tc('lang.en') : tc('lang.zh')}
           tooltip
+          bare
           onClick={() => void i18n.changeLanguage(isZh ? 'en' : 'zh-CN')}
         />
         <IconButton
           icon={theme === 'dark' ? MoonIcon : SunIcon}
           label={theme === 'dark' ? tc('theme.toLight') : tc('theme.toDark')}
           tooltip
+          bare
           onClick={toggle}
         />
         <IconButton
           icon={SignOutIcon}
           label={t('topbar.logout')}
           tooltip
+          bare
           onClick={() => {
             logout();
             void navigate('/login', { replace: true });

@@ -157,7 +157,7 @@ export function Select({
         aria-activedescendant={open ? optionId(activeIndex) : undefined}
         onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={onKeyDown}
-        className="panel"
+        className="field"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -166,11 +166,11 @@ export function Select({
           width: '100%',
           fontSize: 'var(--fs-sm)',
           color: selected !== undefined && selected.value !== '' ? 'var(--text)' : 'var(--muted)',
-          padding: 'var(--s-2) var(--s-3)',
-          borderRadius: 'var(--r-sm)',
           cursor: 'pointer',
           textAlign: 'left',
-          border: `1px solid ${open ? 'var(--hover-bd)' : 'var(--panel-bd)'}`,
+          // surface/border/radius/min-height/focus-ring come from `.field`; keep
+          // only the open-state border highlight as an inline override.
+          ...(open ? { borderColor: 'var(--hover-bd)' } : null),
         }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -198,7 +198,7 @@ export function Select({
               maxHeight: 280,
               overflowY: 'auto',
               padding: 'var(--s-1)',
-              borderRadius: 'var(--r-md)',
+              borderRadius: 'var(--r-sm)',
               // near-opaque so option text stays legible over any underlying content
               background: 'var(--overlay-bg)',
             }}
@@ -225,17 +225,17 @@ export function Select({
                     width: '100%',
                     textAlign: 'left',
                     border: 'none',
-                    background: active ? 'var(--hover-bg)' : 'transparent',
+                    background: active || on ? 'var(--hover-bg)' : 'transparent',
                     cursor: 'pointer',
                     padding: 'var(--s-2) var(--s-3)',
                     borderRadius: 'var(--r-sm)',
                     fontSize: 'var(--fs-sm)',
-                    color: on ? 'var(--accent)' : 'var(--text)',
+                    color: 'var(--text)',
                     whiteSpace: 'nowrap',
                   }}
                 >
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
-                  {on && <CheckIcon size={14} weight="bold" style={{ flexShrink: 0 }} />}
+                  {on && <CheckIcon size={14} weight="bold" style={{ flexShrink: 0, color: 'var(--accent-2)' }} />}
                 </button>
               );
             })}

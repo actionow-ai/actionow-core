@@ -47,6 +47,7 @@ export function FormField({
             alignItems: 'center',
             gap: 'var(--s-1)',
             fontSize: 'var(--fs-sm)',
+            fontWeight: 'var(--fw-medium)',
             color: 'var(--muted)',
           }}
         >

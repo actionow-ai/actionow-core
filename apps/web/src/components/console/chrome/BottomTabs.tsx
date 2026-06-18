@@ -34,9 +34,10 @@ export function BottomTabs({ pathname }: { pathname: string }) {
               alignItems: 'center',
               justifyContent: 'center',
               gap: 'var(--s-1)',
-              minHeight: 'var(--min-touch)',
+              // design's documented bottom-tab height (≥56px); --min-touch is 44.
+              minHeight: 56,
               fontSize: 'var(--fs-micro)',
-              padding: 'var(--s-2) var(--s-3)',
+              padding: 'var(--s-2) 14px',
               borderRadius: 'var(--r-sm)',
               whiteSpace: 'nowrap',
               color: on ? 'var(--accent)' : 'var(--muted)',

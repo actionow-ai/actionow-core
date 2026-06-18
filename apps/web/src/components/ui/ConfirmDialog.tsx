@@ -48,9 +48,19 @@ export function ConfirmDialog({
         </>
       }
     >
-      <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--muted)', lineHeight: 1.5 }}>
+      <div
+        style={{
+          fontSize: 'var(--fs-sm)',
+          color: 'var(--text)',
+          lineHeight: 1.6,
+          background: 'var(--demo-bg)',
+          border: '1px solid var(--demo-bd)',
+          borderRadius: 'var(--r-sm)',
+          padding: 'var(--s-4)',
+        }}
+      >
         {message}
-      </p>
+      </div>
     </Modal>
   );
 }

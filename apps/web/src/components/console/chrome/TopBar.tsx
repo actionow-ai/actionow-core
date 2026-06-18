@@ -44,6 +44,7 @@ export function TopBar({
             icon={ArrowLeftIcon}
             label={back.label}
             size={17}
+            bare
             onClick={() => void navigate(back.to)}
           />
         </span>
@@ -82,7 +83,7 @@ export function TopBar({
   const refreshBtn = (
     <button
       type="button"
-      className="ico-btn"
+      className="ico-btn bare"
       aria-label={t('topbar.refresh')}
       onClick={() => void qc.invalidateQueries()}
     >
@@ -124,12 +125,14 @@ export function TopBar({
             icon={HouseIcon}
             label={t('topbar.backHome')}
             size={16}
+            bare
             onClick={() => void navigate('/')}
           />
           <IconButton
             icon={SignOutIcon}
             label={t('topbar.logout')}
             size={16}
+            bare
             onClick={() => {
               logout();
               void navigate('/login', { replace: true });

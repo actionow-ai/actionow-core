@@ -118,7 +118,7 @@ function FieldSection({
                   options={typeOptions}
                 />
               </div>
-              <IconButton icon={XIcon} label={t('forms.removeField')} onClick={() => removeRow(i)} size={16} />
+              <IconButton icon={XIcon} label={t('forms.removeField')} onClick={() => removeRow(i)} size={16} bare />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-4)', flexWrap: 'wrap' }}>
               <Toggle label={t('forms.io.required')} checked={row.required ?? false} onChange={(c) => setRow(i, { required: c })} />

@@ -51,20 +51,20 @@ export function Checkbox({
       <span
         aria-hidden="true"
         style={{
-          width: 18,
-          height: 18,
+          width: 22,
+          height: 22,
           flexShrink: 0,
           borderRadius: 'var(--r-xs)',
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
           color: 'var(--ink)',
-          background: filled ? 'var(--grad-accent)' : 'transparent',
-          border: filled ? '1px solid transparent' : '1px solid var(--panel-bd)',
+          background: filled ? 'var(--grad-accent)' : 'var(--glass-bg)',
+          border: filled ? '1.5px solid transparent' : '1.5px solid var(--panel-bd)',
           transition: 'background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out)',
         }}
       >
-        {checked ? <CheckIcon size={13} weight="bold" /> : indeterminate === true ? <MinusIcon size={13} weight="bold" /> : null}
+        {checked ? <CheckIcon size={14} weight="bold" /> : indeterminate === true ? <MinusIcon size={14} weight="bold" /> : null}
       </span>
       {label !== undefined && <span>{label}</span>}
     </button>
