@@ -85,6 +85,18 @@ export interface SeedOptions {
    * is required.
    */
   readonly providerType?: string;
+  /**
+   * Whether to provision the operator admin user. Default `true`. The CLI sets
+   * this `false` in production unless an operator explicitly opts in — so running
+   * the dev seed against a prod DB can NEVER create a published-credential admin.
+   */
+  readonly seedAdmin?: boolean;
+  /**
+   * Password for the seeded admin (hashed; plaintext never persisted). Defaults
+   * to the well-known dev constant {@link SEED_ADMIN_PASSWORD}; the CLI overrides
+   * it with an operator-supplied `SEED_ADMIN_PASSWORD` in production.
+   */
+  readonly adminPassword?: string;
 }
 
 /** Everything a caller (a test, or the CLI) needs after seeding. */
@@ -127,10 +139,12 @@ export async function seedAll(db: Database, options: SeedOptions = {}): Promise<
   //    `/auth/register` — never through the seed. The find-then-create guard
   //    below (on the unique email) ensures re-running the seed never mints a
   //    second admin.
-  if ((await findUserByEmail(db, SEED_ADMIN_EMAIL)) === undefined) {
+  const seedAdmin = options.seedAdmin ?? true;
+  const adminPassword = options.adminPassword ?? SEED_ADMIN_PASSWORD;
+  if (seedAdmin && (await findUserByEmail(db, SEED_ADMIN_EMAIL)) === undefined) {
     await createUser(db, {
       email: SEED_ADMIN_EMAIL,
-      passwordHash: hashPassword(SEED_ADMIN_PASSWORD),
+      passwordHash: hashPassword(adminPassword),
       role: 'admin',
       emailVerified: true,
     });
@@ -259,7 +273,27 @@ async function main(): Promise<void> {
   const url = process.env.DATABASE_URL ?? 'postgres://actionow:actionow@localhost:5433/actionow';
   const db = createDb(url);
 
-  const result = await seedAll(db);
+  // Production safety: NEVER provision the published default-credential admin
+  // against a prod DB. Require an explicit opt-in (SEED_ALLOW_PRODUCTION=true)
+  // AND an operator-supplied SEED_ADMIN_PASSWORD; otherwise skip the admin
+  // entirely. Outside production an operator may still override the password.
+  const isProd = process.env.NODE_ENV === 'production';
+  const envAdminPassword = process.env.SEED_ADMIN_PASSWORD;
+  const hasEnvPassword = envAdminPassword !== undefined && envAdminPassword !== '';
+  const allowProd = process.env.SEED_ALLOW_PRODUCTION === 'true';
+  let seedAdmin = true;
+  let adminPassword = SEED_ADMIN_PASSWORD;
+  if (isProd) {
+    if (allowProd && hasEnvPassword) {
+      adminPassword = envAdminPassword;
+    } else {
+      seedAdmin = false;
+    }
+  } else if (hasEnvPassword) {
+    adminPassword = envAdminPassword;
+  }
+
+  const result = await seedAll(db, { seedAdmin, adminPassword });
   // Register the real-provider catalog (resources + channels + pricebooks) as
   // DATA. Idempotent + network-free; the channels' credentials/proxies resolve
   // from env at run time.
@@ -272,7 +306,16 @@ async function main(): Promise<void> {
   log('seed complete');
   log(`  tenant_id : ${result.tenantId}`);
   log(`  account_id: ${result.accountId}`);
-  log(`  admin     : ${result.adminEmail} (password: ${SEED_ADMIN_PASSWORD})`);
+  if (!seedAdmin) {
+    log(
+      '  admin     : (skipped in production — set SEED_ALLOW_PRODUCTION=true and SEED_ADMIN_PASSWORD to provision one)',
+    );
+  } else if (adminPassword === SEED_ADMIN_PASSWORD) {
+    log(`  admin     : ${result.adminEmail} (password: ${SEED_ADMIN_PASSWORD})`);
+  } else {
+    // Operator-supplied password: never echo it to stdout.
+    log(`  admin     : ${result.adminEmail} (password: <operator-supplied>)`);
+  }
   log(`  resource  : ${result.resourceId}`);
   log(`  providers : ${PROVIDER_SEED_IDS.join(', ')}`);
   log(`  prices(draft): ${OFFICIAL_PRICE_SEED_KEYS.join(', ')}`);

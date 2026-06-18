@@ -6,6 +6,7 @@ import { AdminModule } from '../admin/admin.module.js';
 import { ENV } from '../common/tokens.js';
 import { LocalAuthController } from './local-auth.controller.js';
 import { defaultLocalAuthRepo, LOCAL_AUTH_REPO, LocalAuthService } from './local-auth.service.js';
+import { LoginThrottleGuard } from './login-throttle.guard.js';
 import { OauthController } from './oauth.controller.js';
 import {
   defaultOauthRepo,
@@ -36,6 +37,8 @@ import {
   providers: [
     LocalAuthService,
     OauthService,
+    // Per-IP throttle on POST /auth/login + /auth/register (credential-stuffing defense).
+    LoginThrottleGuard,
     { provide: LOCAL_AUTH_REPO, useValue: defaultLocalAuthRepo },
     { provide: OAUTH_REPO, useValue: defaultOauthRepo },
     { provide: PROFILE_RESOLVER, useValue: defaultProfileResolver },

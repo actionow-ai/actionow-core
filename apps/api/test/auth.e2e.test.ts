@@ -110,7 +110,9 @@ describe('POST /auth/register', () => {
 
     const res = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email: 'dup@example.com', password: 'another' })
+      // A valid-length password so this exercises the DUPLICATE path, not the
+      // password-strength floor below.
+      .send({ email: 'dup@example.com', password: 'anotherStrongPass' })
       .expect(400);
     expect(res.body.error.code).toBe('invalid_input');
   });
@@ -121,6 +123,21 @@ describe('POST /auth/register', () => {
       .send({ email: 'x@example.com' })
       .expect(400);
     expect(res.body.error.code).toBe('invalid_input');
+  });
+
+  it('400 invalid_input for a too-short password (strength floor) and creates no user', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: 'weakpass@example.com', password: 'short' }) // 5 chars < 8
+      .expect(400);
+    expect(res.body.error.code).toBe('invalid_input');
+
+    // The weak registration was rejected before creating any user row.
+    const rows = await db
+      .select()
+      .from(schema.user)
+      .where(eq(schema.user.email, 'weakpass@example.com'));
+    expect(rows).toHaveLength(0);
   });
 });
 

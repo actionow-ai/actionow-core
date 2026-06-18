@@ -41,4 +41,24 @@ describe('seed provisions exactly one operator admin (Track B Task 9)', () => {
     expect(admins).toHaveLength(1);
     expect(admins[0]?.email).toBe('admin@actionow.local');
   });
+
+  it('seeds NO admin when seedAdmin is false (prod-safety: no published-credential admin)', async () => {
+    await client`TRUNCATE TABLE "user" RESTART IDENTITY CASCADE`;
+    await seedAll(db, { providerType: 'stub', seedAdmin: false });
+
+    const admins = await db.select().from(schema.user).where(eq(schema.user.role, 'admin'));
+    expect(admins).toHaveLength(0);
+  });
+
+  it('hashes the operator-supplied adminPassword (not the dev default)', async () => {
+    await client`TRUNCATE TABLE "user" RESTART IDENTITY CASCADE`;
+    await seedAll(db, { providerType: 'stub', adminPassword: 'operator-chosen-strong-pass' });
+
+    const [admin] = await db.select().from(schema.user).where(eq(schema.user.role, 'admin'));
+    expect(admin?.email).toBe('admin@actionow.local');
+    // Stored as a hash, never the plaintext (dev default or operator-supplied).
+    expect(admin?.passwordHash).not.toBe('operator-chosen-strong-pass');
+    expect(admin?.passwordHash).not.toBe('actionow-dev-password');
+    expect((admin?.passwordHash ?? '').length).toBeGreaterThan(20);
+  });
 });

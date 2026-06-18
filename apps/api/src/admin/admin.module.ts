@@ -2,6 +2,7 @@ import { type AppEnv, FetchHttpClient } from '@actionow/infra';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 
+import { LoginThrottleGuard } from '../auth/login-throttle.guard.js';
 import { IdempotencyInterceptor } from '../common/idempotency.interceptor.js';
 import { ENV, HTTP, KNOWN_MODELS } from '../common/tokens.js';
 import { AdminController } from './admin.controller.js';
@@ -37,6 +38,8 @@ import {
     AdminService,
     AdminDifyService,
     AdminGuard,
+    // Per-IP throttle on POST /admin/auth/login (credential-stuffing defense).
+    LoginThrottleGuard,
     // Track D5: resolved by `@UseInterceptors(IdempotencyInterceptor)` on the
     // admin controllers; injects the global DB handle + Reflector.
     IdempotencyInterceptor,

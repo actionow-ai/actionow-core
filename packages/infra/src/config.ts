@@ -131,6 +131,12 @@ const EnvSchema = z
       .enum(['true', 'false'])
       .transform((v) => v === 'true')
       .optional(),
+    // Per-IP attempts/min allowed on the UNAUTHENTICATED auth endpoints
+    // (/auth/login, /auth/register, /admin/auth/login) to blunt credential
+    // stuffing. The throttle is best-effort and FAILS OPEN if the limiter is
+    // slow/unreachable (a limiter outage must not lock everyone out of login).
+    // Optional; absent → a built-in default (see LoginThrottleGuard).
+    AUTH_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().optional(),
   })
   .transform((env) => ({
     ...env,
