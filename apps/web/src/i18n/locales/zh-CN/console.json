@@ -64,7 +64,8 @@
     "recentJobs": "最近任务",
     "noJobs": "该租户暂无任务",
     "pickTenant": "请选择一个租户以查看任务",
-    "cols": { "resource": "资源", "execMode": "执行模式", "cost": "成本", "status": "状态" }
+    "cols": { "resource": "资源", "execMode": "执行模式", "cost": "成本", "status": "状态" },
+    "ranking": { "title": "按成本排名的模型", "empty": "暂无用量" }
   },
   "tenants": {
     "title": "租户",

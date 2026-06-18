@@ -69,7 +69,8 @@
     "recentJobs": "Recent jobs",
     "noJobs": "No jobs for this tenant yet",
     "pickTenant": "Pick a tenant to view jobs",
-    "cols": { "resource": "Resource", "execMode": "Exec mode", "cost": "Cost", "status": "Status" }
+    "cols": { "resource": "Resource", "execMode": "Exec mode", "cost": "Cost", "status": "Status" },
+    "ranking": { "title": "Top models by cost", "empty": "No usage yet" }
   },
   "tenants": {
     "title": "Tenants",
