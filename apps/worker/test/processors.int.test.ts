@@ -166,7 +166,7 @@ describe('job-exec processor', () => {
     const job = await makeQueuedJob(s, 1_000n);
     const adapters = new AdapterRegistry();
     adapters.register(createAsyncMediaMock({ readyAfterPolls: 0 }));
-    const process = createJobExecProcessor(runtimeWith(adapters));
+    const { process } = createJobExecProcessor(runtimeWith(adapters));
 
     await process({ jobId: job.id });
 
@@ -202,7 +202,7 @@ describe('job-exec processor', () => {
     });
 
     const job = await makeQueuedJob(s, 1_000n);
-    const process = createJobExecProcessor(runtimeWith(adapters));
+    const { process } = createJobExecProcessor(runtimeWith(adapters));
     await process({ jobId: job.id });
 
     expect(seen[0]).toEqual({ endpoint: 'https://api.deepseek.com/v1', model: 'deepseek-chat' });
@@ -236,15 +236,14 @@ describe('job-exec processor', () => {
       putUrls.push(url);
       return Promise.resolve();
     };
-    const process = createJobExecProcessor(rt);
+    const { process } = createJobExecProcessor(rt);
 
     await process({ jobId: job.id });
 
     const settled = await getJob(db, job.id);
     expect(settled?.status).toBe('succeeded');
-    expect((settled?.output as Record<string, unknown>).image_url).toContain(
-      'https://asset.actionow.ai/',
-    );
+    const output = settled?.output as Record<string, unknown> | undefined;
+    expect(output?.image_url).toContain('https://asset.actionow.ai/');
     expect(puts).toHaveLength(1);
     const key = puts[0];
     if (key === undefined) throw new Error('no presigned key captured');
@@ -272,7 +271,7 @@ describe('job-exec processor', () => {
     rt.fetchBytes = () =>
       Promise.resolve({ bytes: new Uint8Array([1, 2, 3]), contentType: 'image/png' });
     rt.putBytes = () => Promise.resolve();
-    const process = createJobExecProcessor(rt);
+    const { process } = createJobExecProcessor(rt);
 
     await process({ jobId: job.id });
 

@@ -134,6 +134,22 @@ export class JobRunner {
     await this.pollToTerminal(job, ctx, handle);
   }
 
+  /**
+   * Terminal-fail a job whose queue delivery exhausted its retry budget: release
+   * the hold + mark the row `failed` NOW, rather than leaving it `running` (the
+   * state `process` flips it to before a throw) with credits held until the
+   * ~15-min reaper. No-op when the job is already terminal or vanished — so it is
+   * safe to call from a BullMQ `failed` handler. Dedup-safe via failJob's
+   * status-transition guard.
+   */
+  async failExhausted(jobId: string, message: string): Promise<void> {
+    const job = await getJob(this.deps.db, jobId);
+    if (job === undefined) return;
+    if (job.status !== 'queued' && job.status !== 'running') return;
+    const ctx = await this.deps.loadContext(job);
+    await this.fail(job, ctx, { code: 'internal_error', message, retryable: false });
+  }
+
   /** Submit to the upstream provider; a synchronous result is unexpected here. */
   private async submit(job: Job, ctx: JobExecutionContext): Promise<UpstreamJobHandle> {
     const adapter = this.deps.adapters.get(ctx.providerType);

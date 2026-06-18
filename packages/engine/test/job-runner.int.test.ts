@@ -161,6 +161,37 @@ describe('JobRunner.process — async poll', () => {
   });
 });
 
+describe('JobRunner.failExhausted — terminal-fail on exhausted queue retries', () => {
+  it('releases the hold and marks a stranded job failed', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 1 }));
+    const runner = buildRunner(s, adapters);
+
+    await runner.failExhausted(job.id, 'exhausted retries');
+
+    expect((await getJob(db, job.id))?.status).toBe('failed');
+    // Hold released, balance untouched (no charge on failure) — not held until the reaper.
+    expect(await readAccount(s.accountId)).toEqual({ balance: 1_000_000n, held: 0n });
+  });
+
+  it('no-ops when the job is already terminal (idempotent with the reaper/late retry)', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 1 }));
+    const runner = buildRunner(s, adapters);
+
+    await runner.process(job.id); // → succeeded (debits 100)
+    const after = await readAccount(s.accountId);
+    await runner.failExhausted(job.id, 'late failure'); // already terminal → no-op
+
+    expect((await getJob(db, job.id))?.status).toBe('succeeded');
+    expect(await readAccount(s.accountId)).toEqual(after);
+  });
+});
+
 describe('JobRunner — poll + callback double-settle dedup', () => {
   it('settling twice (poll then callback) writes exactly one ledger row', async () => {
     const s = await seed(1_000_000n);
@@ -295,9 +326,8 @@ describe('JobRunner.settle — optional persistMedia rewrite (async path)', () =
 
     const settled = await getJob(db, job.id);
     expect(settled?.status).toBe('succeeded');
-    expect((settled?.output as Record<string, unknown>).image_url).toBe(
-      `https://asset.actionow.ai/${s.tenantId}/${job.id}.png`,
-    );
+    const output = settled?.output as Record<string, unknown> | undefined;
+    expect(output?.image_url).toBe(`https://asset.actionow.ai/${s.tenantId}/${job.id}.png`);
   });
 
   it('settles with the unchanged output when persistMedia is not injected (no-op)', async () => {
@@ -315,8 +345,7 @@ describe('JobRunner.settle — optional persistMedia rewrite (async path)', () =
     const handle = settled?.upstreamJobHandle;
     if (handle === null || handle === undefined) throw new Error('expected upstream handle');
     // The mock emits https://mock.local/{upstreamHandle}; settle must store it verbatim.
-    expect((settled?.output as Record<string, unknown>).image_url).toBe(
-      `https://mock.local/${handle}`,
-    );
+    const output = settled?.output as Record<string, unknown> | undefined;
+    expect(output?.image_url).toBe(`https://mock.local/${handle}`);
   });
 });

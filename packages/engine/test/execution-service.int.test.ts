@@ -524,4 +524,45 @@ describe('ExecutionService.run — async', () => {
     const settleRows = (await db.select().from(ledgerTxn)).filter((l) => l.type === 'settle');
     expect(settleRows).toHaveLength(0);
   });
+
+  it('fails+releases the job when enqueue throws (no stranded queued job/hold)', async () => {
+    const s = await seed(1_000_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(fakeLlmAdapter(300));
+    // Redis is down: the enqueue rejects AFTER the hold + queued-job snapshot.
+    const enqueue = vi.fn<(jobId: string) => Promise<void>>(() =>
+      Promise.reject(new Error('redis unavailable')),
+    );
+    const svc = new ExecutionService({
+      db,
+      adapters,
+      resolveSecret: () => Promise.resolve('sk-secret'),
+      http: { request: () => Promise.reject(new Error('no http')) },
+      now: () => new Date('2026-06-16T00:00:00.000Z'),
+      enqueue,
+    });
+
+    await expect(
+      svc.run(
+        baseRequest(s, {
+          execMode: 'async-poll',
+          resource: {
+            id: s.resourceId,
+            version: 1,
+            modality: 'text',
+            ioSchema: IO_SCHEMA,
+            execModes: ['async-poll'],
+            providerType: 'fake-llm',
+          },
+        }),
+      ),
+    ).rejects.toBeDefined();
+
+    // Hold released and the job marked failed — NOT left stranded in `queued`
+    // with credits held until the 15-min reaper.
+    expect(await readAccount(s.accountId)).toEqual({ balance: 1_000_000n, held: 0n });
+    const jobs = await db.select().from(schema.job);
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.status).toBe('failed');
+  });
 });

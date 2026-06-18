@@ -7,6 +7,19 @@ import { Redis } from 'ioredis';
 export const JOB_EXEC_QUEUE = 'job-exec';
 
 /**
+ * Retry/backoff/retention for `job-exec` jobs. A transient throw retries with
+ * exponential backoff; on EXHAUSTED attempts the worker's `failed` handler
+ * terminal-fails the DB job (releases the hold). Completed jobs are dropped;
+ * the last `removeOnFail` failures are kept for inspection (a lightweight DLQ).
+ */
+const JOB_EXEC_OPTS = {
+  attempts: 3,
+  backoff: { type: 'exponential' as const, delay: 2_000 },
+  removeOnComplete: true,
+  removeOnFail: 1_000,
+};
+
+/**
  * BullMQ-backed {@link JobQueuePort}. `enqueueExec` pushes a `job-exec` job
  * that the worker's processor drives via `JobRunner.process`. The Redis
  * connection and `Queue` are created lazily on first enqueue so the blocking
@@ -28,7 +41,7 @@ export class BullmqJobQueue implements JobQueuePort, OnModuleDestroy {
   }
 
   async enqueueExec(jobId: string): Promise<void> {
-    await this.getQueue().add('exec', { jobId }, { jobId });
+    await this.getQueue().add('exec', { jobId }, { jobId, ...JOB_EXEC_OPTS });
   }
 
   private getQueue(): Queue {

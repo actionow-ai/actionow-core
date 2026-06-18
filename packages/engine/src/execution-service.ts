@@ -507,7 +507,24 @@ export class ExecutionService {
     }
 
     // async → enqueue and return immediately; the worker JobRunner drives it.
-    await this.deps.enqueue(job.id);
+    // If the enqueue fails (Redis down/timeout) the job would otherwise sit in
+    // `queued` with credits held until the 15-min reaper, and the caller would
+    // get a false 202. Fail+release immediately and surface a retryable error so
+    // the client can retry, shrinking the stranded window from 15 min to nil.
+    try {
+      await this.deps.enqueue(job.id);
+    } catch (err) {
+      await failJob(this.deps.db, {
+        jobId: job.id,
+        accountId: req.accountId,
+        holdAmount,
+        to: 'failed',
+        error: { code: 'internal_error', message: 'failed to enqueue async job', retryable: true },
+      });
+      throw err instanceof EngineError
+        ? err
+        : engineError('internal_error', 'failed to enqueue async job', { retryable: true });
+    }
     return { jobId: job.id, status: 'queued' };
   }
 

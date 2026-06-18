@@ -64,7 +64,7 @@ export function startWorkers(
   const reaperSweepMs = opts.reaperSweepMs ?? REAPER_SWEEP_MS;
   const tokenRefreshSweepMs = opts.tokenRefreshSweepMs ?? TOKEN_REFRESH_SWEEP_MS;
 
-  const processJobExec = createJobExecProcessor(runtime);
+  const jobExec = createJobExecProcessor(runtime);
   const processWebhookOutbox = createWebhookOutboxProcessor(runtime);
   const processHoldReaper = createHoldReaperProcessor(runtime);
   const processTokenRefresh = createTokenRefreshProcessor(runtime);
@@ -72,9 +72,21 @@ export function startWorkers(
   // job-exec: one job per async run, payload { jobId }.
   const jobExecWorker = new Worker(
     'job-exec',
-    (job: BullJob<JobExecData>) => processJobExec(job.data),
+    (job: BullJob<JobExecData>) => jobExec.process(job.data),
     { connection },
   );
+
+  // On EXHAUSTED retries (last attempt failed), terminal-fail the DB job so its
+  // hold is released NOW rather than sitting `running` until the ~15-min reaper.
+  // Earlier attempts (attemptsMade < attempts) are left for BullMQ to retry.
+  jobExecWorker.on('failed', (job, err) => {
+    if (job === undefined) return;
+    const maxAttempts = job.opts.attempts ?? 1;
+    if (job.attemptsMade < maxAttempts) return;
+    void jobExec.failExhausted(job.data.jobId, err.message).catch((e: unknown) => {
+      console.error(`failExhausted error for job ${job.id ?? '?'}: ${String(e)}`);
+    });
+  });
 
   // webhook-outbox: a repeatable sweep that drains due outbox rows.
   const webhookWorker = new Worker('webhook-outbox', () => processWebhookOutbox(), { connection });

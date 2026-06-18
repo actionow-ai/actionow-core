@@ -10,14 +10,23 @@ export interface JobExecData {
 }
 
 /**
+ * The `job-exec` processor surface: `process` drives a job to terminal state;
+ * `failExhausted` terminal-fails a job whose BullMQ retries are exhausted (called
+ * from the Worker's `failed` handler) so the hold is released immediately instead
+ * of waiting for the reaper.
+ */
+export interface JobExecProcessor {
+  process: (data: JobExecData) => Promise<void>;
+  failExhausted: (jobId: string, message: string) => Promise<void>;
+}
+
+/**
  * Build the `job-exec` processor: drive an async job to a terminal state via
  * the engine's {@link JobRunner} (queued→running→poll→settle/fail). Pure over
  * the injected {@link WorkerRuntime}, so a unit test calls the returned
  * function directly with a fake runtime and asserts the job settled.
  */
-export function createJobExecProcessor(
-  runtime: WorkerRuntime,
-): (data: JobExecData) => Promise<void> {
+export function createJobExecProcessor(runtime: WorkerRuntime): JobExecProcessor {
   const persistMedia = buildPersistMedia(runtime);
   const runner = new JobRunner({
     db: runtime.db,
@@ -31,7 +40,11 @@ export function createJobExecProcessor(
     ...(persistMedia !== undefined ? { persistMedia } : {}),
   });
 
-  return (data: JobExecData): Promise<void> => runner.process(data.jobId);
+  return {
+    process: (data: JobExecData): Promise<void> => runner.process(data.jobId),
+    failExhausted: (jobId: string, message: string): Promise<void> =>
+      runner.failExhausted(jobId, message),
+  };
 }
 
 /**
