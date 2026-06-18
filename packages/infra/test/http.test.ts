@@ -272,6 +272,67 @@ describe('FetchHttpClient.stream', () => {
     expect(seen).toEqual([]);
   });
 
+  it('aborts a stalled stream after the idle timeout (no byte within idleTimeoutMs)', async () => {
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      start(): void {
+        // Never enqueue and never close → the upstream stalls forever.
+      },
+      cancel(): void {
+        cancelled = true;
+      },
+    });
+    const stalled = { status: 200, ok: true, body } as unknown as Response;
+    const fetchMock = vi.fn().mockResolvedValue(stalled);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new FetchHttpClient();
+    const res = await client.stream({
+      method: 'POST',
+      url: 'https://x.test/stream',
+      idleTimeoutMs: 30,
+    });
+
+    const chunks: string[] = [];
+    await expect(
+      (async (): Promise<void> => {
+        for await (const chunk of res.lines) chunks.push(chunk);
+      })(),
+    ).rejects.toMatchObject({ unified: { code: 'upstream_timeout', retryable: true } });
+    // The idle timer fired before any chunk arrived.
+    expect(chunks).toHaveLength(0);
+
+    // The idle abort tore down the upstream connection.
+    await Promise.resolve();
+    expect(cancelled).toBe(true);
+  });
+
+  it('does not abort a stream that keeps sending within the idle window', async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      async start(controller): Promise<void> {
+        // Three frames, each well within the 100ms idle window → no timeout.
+        for (const f of ['data: a\n\n', 'data: b\n\n', 'data: c\n\n']) {
+          controller.enqueue(encoder.encode(f));
+          await new Promise((r) => setTimeout(r, 20));
+        }
+        controller.close();
+      },
+    });
+    const fetchMock = vi.fn().mockResolvedValue({ status: 200, ok: true, body });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new FetchHttpClient();
+    const res = await client.stream({
+      method: 'POST',
+      url: 'https://x.test/stream',
+      idleTimeoutMs: 100,
+    });
+    const seen: string[] = [];
+    for await (const chunk of res.lines) seen.push(chunk);
+    expect(seen.join('')).toBe('data: a\n\ndata: b\n\ndata: c\n\n');
+  });
+
   it('releases the reader when the consumer stops early (break)', async () => {
     let cancelled = false;
     const encoder = new TextEncoder();
