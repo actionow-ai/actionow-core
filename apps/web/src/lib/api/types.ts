@@ -1,16 +1,9 @@
-export interface TenantView {
-  id: string;
-  name: string;
-  isolation_mode: string;
-  created_at: string;
-}
-export interface AccountView {
-  id: string;
-  tenant_id: string;
-  credit_balance: string;
-  credit_held: string;
-  created_at: string;
-}
+// TenantView / AccountView are defined ONCE as zod schemas in the shared
+// @actionow/contracts package (the single source of truth with the backend) and
+// re-exported here type-only — the inferred types are erased at build, so no zod
+// reaches the browser bundle. Adding/changing a field happens in one place.
+export type { AccountView, TenantView } from '@actionow/contracts';
+
 export interface ApiKeyView {
   id: string;
   tenant_id: string;

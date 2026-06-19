@@ -1,3 +1,9 @@
+import {
+  type AccountView,
+  accountViewSchema,
+  type TenantView,
+  tenantViewSchema,
+} from '@actionow/contracts';
 import type {
   AccountRow,
   Job,
@@ -44,21 +50,10 @@ function parseLimit(limit: string | undefined): number {
 }
 
 // ----- JSON views (bigint money serialized as decimal µcredit strings) -----
-
-interface TenantView {
-  id: string;
-  name: string;
-  isolation_mode: string;
-  created_at: string;
-}
-
-interface AccountView {
-  id: string;
-  tenant_id: string;
-  credit_balance: string;
-  credit_held: string;
-  created_at: string;
-}
+// TenantView / AccountView are now defined once as zod schemas in
+// @actionow/contracts — the single source of truth shared with the frontend
+// (contract-first pattern; see docs B1). The `toView` mappers below `.parse()`
+// against them so a drifting mapper fails loudly instead of shipping bad JSON.
 
 interface ApiKeyCreatedView {
   id: string;
@@ -324,22 +319,22 @@ export class AdminController {
 }
 
 function toTenantView(row: TenantRow): TenantView {
-  return {
+  return tenantViewSchema.parse({
     id: row.id,
     name: row.name,
     isolation_mode: row.isolationMode,
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 function toAccountView(row: AccountRow): AccountView {
-  return {
+  return accountViewSchema.parse({
     id: row.id,
     tenant_id: row.tenantId,
     credit_balance: row.creditBalance.toString(),
     credit_held: row.creditHeld.toString(),
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 function toResourceView(row: Resource): ResourceView {
