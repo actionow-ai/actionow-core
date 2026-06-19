@@ -710,6 +710,12 @@
       "active": "Active",
       "disabled": "Disabled"
     },
+    "modifierOp": {
+      "override_rate": "Override rate",
+      "percent_off": "Percent off",
+      "flat_off": "Flat off",
+      "percent_add": "Percent add"
+    },
     "capability": {
       "tools": "Tools",
       "vision": "Vision",

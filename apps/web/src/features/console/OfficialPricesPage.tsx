@@ -47,7 +47,7 @@ export function OfficialPricesPage() {
   const api = useAdminApi();
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: qk.officialPrices(),
     queryFn: () => api.listOfficialPrices(),
   });
@@ -169,6 +169,8 @@ export function OfficialPricesPage() {
         rows={data ?? []}
         rowKey={(r) => r.id}
         loading={isLoading}
+        error={isError}
+        onRetry={() => void refetch()}
         empty={t('officialPrices.empty')}
         searchable
         pageSize={20}

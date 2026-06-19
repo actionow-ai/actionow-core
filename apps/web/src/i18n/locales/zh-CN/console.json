@@ -705,6 +705,12 @@
       "active": "启用",
       "disabled": "已停用"
     },
+    "modifierOp": {
+      "override_rate": "覆盖单价",
+      "percent_off": "百分比减免",
+      "flat_off": "固定减免",
+      "percent_add": "百分比加价"
+    },
     "capability": {
       "tools": "工具调用",
       "vision": "视觉",

@@ -1,4 +1,10 @@
-import type { ChannelStatus, Modality, PricebookMethod, PricebookTiming } from './types';
+import type {
+  ChannelStatus,
+  Modality,
+  ModifierOp,
+  PricebookMethod,
+  PricebookTiming,
+} from './types';
 
 /**
  * A single enum option: the literal backend `value` plus the i18n `labelKey`
@@ -58,6 +64,25 @@ export const MODEL_STATUSES: EnumOption<'active' | 'disabled'>[] = [
   { value: 'active', labelKey: 'enums.modelStatus.active' },
   { value: 'disabled', labelKey: 'enums.modelStatus.disabled' },
 ];
+
+/**
+ * Pricing-modifier ops. The `value` is unit-polymorphic by op: credit ops
+ * (`flat_off`/`override_rate`) carry a µcredit amount (render via `<Money>`);
+ * percent ops (`percent_off`/`percent_add`) carry a whole-percent int (render
+ * with a `%` suffix). See `MODIFIER_CREDIT_OPS`.
+ */
+export const MODIFIER_OPS: EnumOption<ModifierOp>[] = [
+  { value: 'override_rate', labelKey: 'enums.modifierOp.override_rate' },
+  { value: 'percent_off', labelKey: 'enums.modifierOp.percent_off' },
+  { value: 'flat_off', labelKey: 'enums.modifierOp.flat_off' },
+  { value: 'percent_add', labelKey: 'enums.modifierOp.percent_add' },
+];
+
+/** Ops whose `value` is a µcredit amount (the rest are whole-percent ints). */
+export const MODIFIER_CREDIT_OPS: ReadonlySet<ModifierOp> = new Set<ModifierOp>([
+  'flat_off',
+  'override_rate',
+]);
 
 /** A known capability flag, surfaced as a toggle (editor) / chip (table). */
 export interface CapabilityDef {
