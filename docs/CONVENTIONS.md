@@ -16,7 +16,7 @@
 
 ## Responsive
 
-- Breakpoints come from `lib/breakpoints.ts` (`BP.md` 768 · `BP.wide` 880 · `BP.lg` 960 · `BP.xl` 1100). No inline `(min-width: …)` literals.
+- Breakpoints come from `lib/breakpoints.ts` (`BP.sm` 640 · `BP.md` 768 · `BP.wide` 880 · `BP.lg` 960 · `BP.xl` 1100 · `BP.xxl` 1280 — the last for master-detail side-by-side). No inline `(min-width: …)` literals.
 - Layout via inline styles + CSS vars (not Tailwind utilities).
 
 ## (Filled by later layers)

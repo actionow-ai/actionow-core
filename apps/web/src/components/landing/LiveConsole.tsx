@@ -154,6 +154,9 @@ export function LiveConsole() {
                 </div>
               ))}
             </div>
+            <div style={{ fontSize: 'var(--fs-micro)', color: 'var(--faint)', marginTop: 'var(--s-2)' }}>
+              {t('live.demo')}
+            </div>
 
             <div style={{ fontSize: 'var(--fs-micro)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--faint)', margin: 'var(--s-4) 0 var(--s-2)' }}>
               {t('live.logTitle')}

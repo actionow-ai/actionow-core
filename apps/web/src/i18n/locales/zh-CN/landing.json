@@ -76,6 +76,7 @@
     "title": "看着它跑起来",
     "lead": "多租户、全模态、逐请求计量 —— 文本、图像、视频、音频,一个控制台尽收眼底。",
     "stats": { "tenants": "租户", "calls": "今日调用", "spend": "消耗 · credits" },
+    "demo": "示意数据",
     "logTitle": "实时调用日志"
   },
   "pricing": {

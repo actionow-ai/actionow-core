@@ -200,59 +200,11 @@ export interface PaymentIntentView {
   updated_at: string;
 }
 
-// --- Billing & routing (mock skeleton) ------------------------------------
-// These mirror the DESIGN-ONLY backend billing spec
-// (actionow-core/docs/.../2026-06-17-actionow-billing-channel-routing-design.md);
-// the backend is NOT built yet. Prices are integer µUSD per 1M tokens
-// ($1 = 1,000,000 µUSD), distinct from the live µcredit/token registry — see
-// `src/lib/api/mockBilling.ts`. Swap these for real `/admin/...` views when the
-// billing backend track lands.
-
-/** A reference ("official") published model price, in µUSD per 1M tokens. */
-export interface OfficialModelPrice {
-  id: string;
-  provider: string;
-  model_slug: string;
-  display_name: string;
-  /** µUSD per 1M input tokens (integer; $1 = 1,000,000 µUSD). */
-  input_price_per_1m: number;
-  /** µUSD per 1M output tokens (integer). */
-  output_price_per_1m: number;
-  /** µUSD per 1M cached-input tokens (integer), when the provider prices it. */
-  cached_input_price_per_1m?: number;
-  source_url?: string;
-  /** ISO date (YYYY-MM-DD) the price takes effect. */
-  effective_at?: string;
-  notes?: string;
-  updated_by?: string;
-  created_at: string;
-}
-
-/** A routing group: a named channel pool with a global price ratio (basis points). */
-export interface RouteGroup {
-  id: string;
-  name: string;
-  /** Group price ratio in basis points — 10000 = ×1.00, 15000 = ×1.50. */
-  group_ratio_bps: number;
-  status: 'active' | 'disabled';
-  description?: string;
-  created_at: string;
-}
-
-/** Membership of a channel in a route group, with routing priority + weight. */
-export interface RouteGroupChannel {
-  group_id: string;
-  channel_id: string;
-  /** Higher priority is tried first. */
-  priority: number;
-  /** Relative share of traffic among same-priority channels. */
-  weight: number;
-}
-
-// --- Billing & routing (REAL /admin/* wire types — LIVE on main) -----------
-// These replace the mock skeleton above as each page de-mocks; the mock
-// RouteGroup/RouteGroupChannel/OfficialModelPrice stay only until their last
-// consumer (RouteGroupsPage / OfficialPricesPage) migrates.
+// --- Billing & routing (REAL /admin/* wire types) --------------------------
+// Live wire types served by the billing/routing backend. Prices are integer
+// µUSD per 1M tokens ($1 = 1,000,000 µUSD), distinct from the live µcredit/token
+// registry. (The earlier mock skeleton + `mockBilling.ts` were removed once
+// RouteGroupsPage / OfficialPricesPage moved onto the real endpoints.)
 
 /** A route group as served by GET /admin/route-groups (snake_case). */
 export interface RouteGroupView {

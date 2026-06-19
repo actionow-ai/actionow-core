@@ -66,8 +66,8 @@ export function AppRoutes() {
           <Route path="resources/:id" element={<ResourceRedirect />} />
           <Route path="models" element={<Navigate to="/console/catalog?tab=models" replace />} />
           <Route path="modifiers" element={<ModifiersPage />} />
-          {/* Billing & routing: mock-skeleton pages (the billing/routing backend
-              is design-only; data layer lives in src/lib/api/mockBilling.ts). */}
+          {/* Billing & routing: live on the real /admin/route-groups and
+              /admin/official-prices endpoints (via useAdminApi). */}
           <Route path="groups" element={<RouteGroupsPage />} />
           <Route path="official-prices" element={<OfficialPricesPage />} />
           <Route path="dify" element={<DifyImportPage />} />

@@ -82,6 +82,7 @@
     "title": "Watch it run",
     "lead": "Multi-tenant, full-modal, metered per request — text, image, video, and audio, all in one console.",
     "stats": { "tenants": "Tenants", "calls": "Calls today", "spend": "Spend · credits" },
+    "demo": "Illustrative data",
     "logTitle": "Live call log"
   },
   "pricing": {
