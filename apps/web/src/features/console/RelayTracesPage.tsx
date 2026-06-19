@@ -173,6 +173,8 @@ export function RelayTracesPage() {
         rows={rows}
         rowKey={(r) => r.id}
         loading={q.isLoading}
+        error={q.isError}
+        onRetry={() => void q.refetch()}
         empty={t('relayTraces.empty')}
         searchable
         onRowClick={(r) => setSelected(r)}

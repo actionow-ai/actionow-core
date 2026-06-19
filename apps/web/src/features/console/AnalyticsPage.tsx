@@ -9,6 +9,7 @@ import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { MetricBarChart } from '../../components/data/MetricBarChart';
 import { Money } from '../../components/data/Money';
+import { QueryBoundary } from '../../components/data/QueryBoundary';
 import { TenantSelect } from '../../components/data/TenantSelect';
 import { TimeSeriesChart } from '../../components/data/TimeSeriesChart';
 import { FIELD_INPUT_BASE } from '../../components/ui/fieldStyles';
@@ -277,42 +278,44 @@ export function AnalyticsPage() {
       {/* Chart */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
         <SectionHeader title={chartTitle} />
-        {rows.length === 0 ? (
-          <div
-            className="panel"
-            style={{
-              borderRadius: 'var(--r-md)',
-              padding: 'var(--s-6)',
-              textAlign: 'center',
-              color: 'var(--muted)',
-              fontSize: 'var(--fs-sm)',
-            }}
-          >
-            {usage.isLoading ? '' : t('analytics.chart.empty')}
-          </div>
-        ) : (
-          <div className="panel" style={{ borderRadius: 'var(--r-md)', padding: 'var(--s-4)' }}>
-            {gb === 'day' ? (
-              <>
-                <TimeSeriesChart points={series} ariaLabel={chartTitle} />
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    marginTop: 'var(--s-2)',
-                    fontSize: 'var(--fs-caption)',
-                    color: 'var(--faint)',
-                  }}
-                >
-                  <span>{series[0]?.label}</span>
-                  <span>{series[series.length - 1]?.label}</span>
-                </div>
-              </>
-            ) : (
-              <MetricBarChart bars={bars} format={fmtMetric} topN={12} />
-            )}
-          </div>
-        )}
+        <QueryBoundary query={usage}>
+          {rows.length === 0 ? (
+            <div
+              className="panel"
+              style={{
+                borderRadius: 'var(--r-md)',
+                padding: 'var(--s-6)',
+                textAlign: 'center',
+                color: 'var(--muted)',
+                fontSize: 'var(--fs-sm)',
+              }}
+            >
+              {t('analytics.chart.empty')}
+            </div>
+          ) : (
+            <div className="panel" style={{ borderRadius: 'var(--r-md)', padding: 'var(--s-4)' }}>
+              {gb === 'day' ? (
+                <>
+                  <TimeSeriesChart points={series} ariaLabel={chartTitle} />
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      marginTop: 'var(--s-2)',
+                      fontSize: 'var(--fs-caption)',
+                      color: 'var(--faint)',
+                    }}
+                  >
+                    <span>{series[0]?.label}</span>
+                    <span>{series[series.length - 1]?.label}</span>
+                  </div>
+                </>
+              ) : (
+                <MetricBarChart bars={bars} format={fmtMetric} topN={12} />
+              )}
+            </div>
+          )}
+        </QueryBoundary>
       </div>
 
       {/* Detail table */}
@@ -323,6 +326,8 @@ export function AnalyticsPage() {
           rows={rows}
           rowKey={(r) => r.bucket}
           loading={usage.isLoading}
+          error={usage.isError}
+          onRetry={() => void usage.refetch()}
           empty={t('analytics.chart.empty')}
           searchable
           pageSize={20}

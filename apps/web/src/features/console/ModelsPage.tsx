@@ -23,7 +23,7 @@ import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RowAction } from '../../components/ui/RowAction';
 import { toast } from '../../components/ui/toast';
-import { CAPABILITIES } from '../../lib/api/enums';
+import { CAPABILITIES, enumLabel, MODALITIES, VISIBILITIES } from '../../lib/api/enums';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ModelView } from '../../lib/api/types';
@@ -56,7 +56,7 @@ export function ModelsPage() {
   const api = useAdminApi();
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: qk.models(),
     queryFn: () => api.listModels(),
     staleTime: STALE_REFERENCE,
@@ -126,7 +126,7 @@ export function ModelsPage() {
     {
       key: 'modality',
       header: t('models.cols.modality'),
-      cell: (m) => m.modality,
+      cell: (m) => enumLabel(t, MODALITIES, m.modality),
       width: '96px',
     },
     {
@@ -201,7 +201,7 @@ export function ModelsPage() {
             whiteSpace: 'nowrap',
           }}
         >
-          {t('enums.visibility.' + m.visibility, m.visibility)}
+          {enumLabel(t, VISIBILITIES, m.visibility)}
         </span>
       ),
       width: '110px',
@@ -221,6 +221,8 @@ export function ModelsPage() {
         rows={data ?? []}
         rowKey={(m) => m.name}
         loading={isLoading}
+        error={isError}
+        onRetry={() => void refetch()}
         empty={t('models.empty')}
         searchable
         selectable

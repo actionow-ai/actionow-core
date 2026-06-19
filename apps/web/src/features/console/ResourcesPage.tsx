@@ -21,6 +21,7 @@ import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import {
   COMMON_PROVIDERS,
+  enumLabel,
   EXEC_MODES,
   MODALITIES,
   RESOURCE_KINDS,
@@ -44,7 +45,7 @@ export function ResourcesPage() {
   const api = useAdminApi();
   const qc = useQueryClient();
   const isWide = useMediaQuery(BP.xxl);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: qk.resources(),
     queryFn: () => api.listResources(),
     staleTime: STALE_REFERENCE,
@@ -111,6 +112,8 @@ export function ResourcesPage() {
     <CardCollection
       rows={data ?? []}
       loading={isLoading}
+      error={isError}
+      onRetry={() => void refetch()}
       empty={t('resources.empty')}
       layout="list"
       renderCard={(r) => (
@@ -121,7 +124,7 @@ export function ResourcesPage() {
           badge={
             <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
           }
-          chips={[r.modality, r.provider_type, ...r.exec_modes]}
+          chips={[enumLabel(t, MODALITIES, r.modality), r.provider_type, ...r.exec_modes]}
           onClick={() => setId(r.id)}
           selected={r.id === id}
         />

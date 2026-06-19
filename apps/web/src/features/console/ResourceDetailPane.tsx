@@ -14,13 +14,20 @@ import { useTranslation } from 'react-i18next';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { ProviderIcon } from '../../components/data/ProviderIcon';
+import { QueryBoundary } from '../../components/data/QueryBoundary';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RowAction } from '../../components/ui/RowAction';
 import { SelectField } from '../../components/ui/SelectField';
 import { toast } from '../../components/ui/toast';
-import { CHANNEL_STATUSES, toOptions } from '../../lib/api/enums';
+import {
+  CHANNEL_STATUSES,
+  enumLabel,
+  PRICEBOOK_METHODS,
+  PRICEBOOK_TIMINGS,
+  toOptions,
+} from '../../lib/api/enums';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ChannelStatus, ChannelView, PricebookView } from '../../lib/api/types';
@@ -171,8 +178,16 @@ export function ResourceDetailPane({ id }: { id: string }) {
   ];
 
   const pbCols: Column<PricebookView>[] = [
-    { key: 'method', header: t('pricebook.cols.method'), cell: (r) => r.method },
-    { key: 'timing', header: t('pricebook.cols.timing'), cell: (r) => r.timing },
+    {
+      key: 'method',
+      header: t('pricebook.cols.method'),
+      cell: (r) => enumLabel(t, PRICEBOOK_METHODS, r.method),
+    },
+    {
+      key: 'timing',
+      header: t('pricebook.cols.timing'),
+      cell: (r) => enumLabel(t, PRICEBOOK_TIMINGS, r.timing),
+    },
     { key: 'version', header: t('pricebook.cols.version'), cell: (r) => String(r.version) },
     {
       key: 'active',
@@ -261,6 +276,8 @@ export function ResourceDetailPane({ id }: { id: string }) {
         rows={channels.data ?? []}
         rowKey={(r) => r.id}
         loading={channels.isLoading}
+        error={channels.isError}
+        onRetry={() => void channels.refetch()}
         empty={t('channels.empty')}
         searchable
         actionsWidth="164px"
@@ -336,6 +353,8 @@ export function ResourceDetailPane({ id }: { id: string }) {
         rows={pricebook.data ?? []}
         rowKey={(r) => r.id}
         loading={pricebook.isLoading}
+        error={pricebook.isError}
+        onRetry={() => void pricebook.refetch()}
         empty={t('pricebook.empty')}
         searchable
         pageSize={10}
@@ -345,7 +364,9 @@ export function ResourceDetailPane({ id }: { id: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-5)' }}>
-      <Section title={t('resources.sections.overview')}>{overviewPanel}</Section>
+      <Section title={t('resources.sections.overview')}>
+        <QueryBoundary query={resources}>{overviewPanel}</QueryBoundary>
+      </Section>
       <Section title={t('resources.sections.channels')}>{channelsPanel}</Section>
       <Section title={t('resources.sections.pricing')}>{pricingPanel}</Section>
 

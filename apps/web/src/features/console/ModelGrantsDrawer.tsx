@@ -120,6 +120,8 @@ export function ModelGrantsDrawer({
         rows={grants.data ?? []}
         rowKey={(g) => g.id}
         loading={grants.isLoading}
+        error={grants.isError}
+        onRetry={() => void grants.refetch()}
         empty={t('models.grant.empty')}
         actionsWidth="56px"
         rowActions={(g) => (

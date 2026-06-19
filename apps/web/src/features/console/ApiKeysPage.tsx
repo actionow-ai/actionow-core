@@ -29,7 +29,7 @@ export function ApiKeysPage() {
   const qc = useQueryClient();
 
   const [tenantId, setTenantId] = useUrlState('tenant');
-  const { data, isLoading } = useQuery({
+  const keys = useQuery({
     queryKey: qk.apiKeys(tenantId),
     queryFn: () => api.listApiKeys(tenantId),
     enabled: tenantId !== '',
@@ -115,8 +115,10 @@ export function ApiKeysPage() {
   return (
     <div style={{ height: '100%' }}>
       <CardCollection
-        rows={tenantId === '' ? [] : (data ?? [])}
-        loading={tenantId !== '' && isLoading}
+        rows={tenantId === '' ? [] : (keys.data ?? [])}
+        loading={tenantId !== '' && keys.isLoading}
+        error={tenantId !== '' && keys.isError}
+        onRetry={() => void keys.refetch()}
         empty={t('apiKeys.empty')}
         renderCard={(r) => (
           <EntityCard
