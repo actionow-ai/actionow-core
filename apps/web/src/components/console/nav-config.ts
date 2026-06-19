@@ -27,7 +27,8 @@ export interface NavConfig {
  * - ops: dashboard / analytics / relay traces
  * - catalog (目录): the unified 模型|资源 catalog page + Dify import
  * - billing (计费与路由): groups / official prices / pricing modifiers
- * - tenants (租户): tenants / accounts / API keys
+ * - tenants (租户): tenants (hub — account balance/top-up lives in the tenant
+ *   detail drawer) / API keys
  *
  * The catalog page owns its own 模型|资源 tabs, so the nav holds a single
  * `/console/catalog` leaf.
@@ -66,7 +67,6 @@ export const ADMIN_NAV: NavGroup[] = [
     icon: BuildingsIcon,
     items: [
       { to: '/console/tenants', labelKey: 'tenants' },
-      { to: '/console/accounts', labelKey: 'accounts' },
       { to: '/console/api-keys', labelKey: 'apiKeys' },
     ],
   },

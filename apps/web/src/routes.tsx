@@ -9,7 +9,6 @@ import { AppOverview } from './features/app/AppOverview';
 import { AppSettings } from './features/app/AppSettings';
 import { AppUsage } from './features/app/AppUsage';
 import { AuthPage } from './features/auth/AuthPage';
-import { AccountsPage } from './features/console/AccountsPage';
 import { AnalyticsPage } from './features/console/AnalyticsPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { CatalogPage } from './features/console/CatalogPage';
@@ -72,7 +71,8 @@ export function AppRoutes() {
           <Route path="official-prices" element={<OfficialPricesPage />} />
           <Route path="dify" element={<DifyImportPage />} />
           <Route path="tenants" element={<TenantsPage />} />
-          <Route path="accounts" element={<AccountsPage />} />
+          {/* Accounts merged into the Tenants hub (per-tenant detail drawer). */}
+          <Route path="accounts" element={<Navigate to="/console/tenants" replace />} />
           <Route path="api-keys" element={<ApiKeysPage />} />
         </Route>
       </Route>

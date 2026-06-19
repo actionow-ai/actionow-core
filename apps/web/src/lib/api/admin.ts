@@ -91,6 +91,7 @@ export function makeAdminApi(client: ApiClient) {
 
     difyImport: (body: DifyImportBody) => client.post<DifyImportView>('/admin/dify/import', body),
 
+    listAccounts: async () => (await client.getPage<AccountView>('/admin/accounts')).rows,
     createAccount: (body: CreateAccountBody) => client.post<AccountView>('/admin/accounts', body),
     topup: (accountId: string, body: TopupBody) =>
       client.post<{ account_id: string; balance: string }>(

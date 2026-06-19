@@ -240,6 +240,11 @@
     "cols": { "name": "Name", "isolation": "Isolation", "created": "Created" },
     "form": { "name": "Name", "isolation": "Isolation" },
     "isolation": { "field": "Field", "schema": "Schema", "db": "Database" },
+    "detail": {
+      "id": "Tenant ID",
+      "account": "Account",
+      "noAccount": "This tenant has no account yet"
+    },
     "empty": "No tenants yet",
     "created": "Tenant created",
     "submit": "Create"
@@ -602,7 +607,10 @@
     "delete": "Delete",
     "confirm": "Confirm",
     "cancel": "Cancel",
-    "retry": "Retry"
+    "retry": "Retry",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "Copy failed"
   },
   "confirm": {
     "deleteChannelTitle": "Delete channel?",
