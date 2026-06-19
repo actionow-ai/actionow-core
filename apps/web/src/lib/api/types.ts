@@ -571,3 +571,27 @@ export interface ConsoleUsageLogView {
   status: string;
   created_at: string;
 }
+/** One payment intent in the caller-tenant's topup history. */
+export interface ConsolePaymentView {
+  id: string;
+  provider: string;
+  purpose: string;
+  amount_minor: string;
+  currency: string;
+  credit_amount: string | null;
+  status: string;
+  created_at: string;
+}
+/** The caller's own profile (never the password hash). */
+export interface ConsoleMeView {
+  id: string;
+  email: string;
+  email_verified: boolean;
+  role: string;
+  status: string;
+  tenant_id: string | null;
+}
+export interface ConsoleChangePasswordBody {
+  currentPassword: string;
+  newPassword: string;
+}

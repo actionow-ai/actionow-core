@@ -6,6 +6,7 @@ import { AppBilling } from './features/app/AppBilling';
 import { AppKeys } from './features/app/AppKeys';
 import { AppModels } from './features/app/AppModels';
 import { AppOverview } from './features/app/AppOverview';
+import { AppSettings } from './features/app/AppSettings';
 import { AppUsage } from './features/app/AppUsage';
 import { AuthPage } from './features/auth/AuthPage';
 import { AccountsPage } from './features/console/AccountsPage';
@@ -45,6 +46,7 @@ export function AppRoutes() {
           <Route path="keys" element={<AppKeys />} />
           <Route path="models" element={<AppModels />} />
           <Route path="billing" element={<AppBilling />} />
+          <Route path="settings" element={<AppSettings />} />
         </Route>
       </Route>
 

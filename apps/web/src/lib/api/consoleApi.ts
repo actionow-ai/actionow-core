@@ -3,11 +3,14 @@ import type {
   ApiKeyCreatedView,
   ConsoleAnalyticsQuery,
   ConsoleApiKeyView,
+  ConsoleChangePasswordBody,
   ConsoleCreateApiKeyBody,
   ConsoleIntentView,
   ConsoleJobView,
   ConsoleLedgerView,
+  ConsoleMeView,
   ConsoleModelView,
+  ConsolePaymentView,
   ConsoleTopupBody,
   ConsoleUsageLogView,
   ConsoleUsageView,
@@ -56,6 +59,17 @@ export function makeConsoleApi(client: ApiClient) {
 
     topup: (body: ConsoleTopupBody) =>
       client.post<ConsoleIntentView>('/console/payments/intents', body),
+    // Topup history — cursor-paginated.
+    listPayments: (params: {
+      cursor?: string;
+      limit?: number;
+    }): Promise<Page<ConsolePaymentView>> =>
+      client.getPage<ConsolePaymentView>('/console/payments', params),
+
+    // Profile + self-serve change-password.
+    me: () => client.get<ConsoleMeView>('/console/me'),
+    changePassword: (body: ConsoleChangePasswordBody) =>
+      client.patch<{ ok: true }>('/console/settings', body),
   };
 }
 

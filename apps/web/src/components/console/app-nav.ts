@@ -25,6 +25,7 @@ export const TENANT_NAV_CONFIG: NavConfig = {
       items: [
         { to: '/app/keys', labelKey: 'tkeys' },
         { to: '/app/billing', labelKey: 'billing' },
+        { to: '/app/settings', labelKey: 'tsettings' },
       ],
     },
   ],

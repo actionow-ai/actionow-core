@@ -18,6 +18,10 @@ function fakeClient(getImpl?: (path: string) => unknown) {
       calls.push({ m: 'post', path, body });
       return Promise.resolve({});
     }),
+    patch: vi.fn((path: string, body?: unknown) => {
+      calls.push({ m: 'patch', path, body });
+      return Promise.resolve({ ok: true });
+    }),
     delete: vi.fn((path: string) => {
       calls.push({ m: 'delete', path });
       return Promise.resolve({ id: 'k1', status: 'disabled' });
@@ -34,6 +38,17 @@ describe('consoleApi (tenant self-service)', () => {
     await api.disableApiKey('k1');
     expect(calls[0]).toMatchObject({ m: 'post', path: '/console/api-keys/k1/rotate' });
     expect(calls[1]).toMatchObject({ m: 'delete', path: '/console/api-keys/k1' });
+  });
+
+  it('me GETs /console/me; changePassword PATCHes /console/settings; listPayments paginates', async () => {
+    const { client, calls } = fakeClient();
+    const api = makeConsoleApi(client);
+    await api.me();
+    await api.changePassword({ currentPassword: 'a', newPassword: 'bbbbbbbb' });
+    await api.listPayments({ limit: 10 });
+    expect(calls[0]).toMatchObject({ m: 'get', path: '/console/me' });
+    expect(calls[1]).toMatchObject({ m: 'patch', path: '/console/settings' });
+    expect(calls[2]).toMatchObject({ m: 'getPage', path: '/console/payments' });
   });
 
   it('usage maps the two page-envelopes (data→rows, next_cursor→nextCursor)', async () => {

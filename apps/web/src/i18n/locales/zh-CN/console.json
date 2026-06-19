@@ -68,7 +68,28 @@
       "currency": "币种",
       "submit": "充值",
       "intentCreated": "支付单已创建",
-      "continue": "前往支付"
+      "continue": "前往支付",
+      "history": "充值记录",
+      "noHistory": "暂无充值",
+      "cols": {
+        "time": "时间",
+        "provider": "方式",
+        "amount": "金额",
+        "credit": "积分",
+        "status": "状态"
+      }
+    },
+    "settings": {
+      "profile": "资料",
+      "email": "邮箱",
+      "role": "角色",
+      "status": "状态",
+      "tenant": "租户",
+      "changePassword": "修改密码",
+      "current": "当前密码",
+      "new": "新密码",
+      "submit": "更新密码",
+      "changed": "密码已修改"
     },
     "usage": {
       "empty": "暂无用量",
@@ -101,6 +122,7 @@
     "tkeys": "API Keys",
     "tmodels": "模型",
     "billing": "充值",
+    "tsettings": "设置",
     "tenants": "租户",
     "accounts": "账户 / 充值",
     "apiKeys": "API Keys",
@@ -122,6 +144,7 @@
     "tkeys": "签发与管理你的 API Key",
     "tmodels": "你的租户可用的模型",
     "billing": "为你的租户余额充值",
+    "tsettings": "你的资料与密码",
     "tenants": "创建与查看租户",
     "catalog": "模型与资源——通道与定价",
     "resources": "模型、上游通道与定价",

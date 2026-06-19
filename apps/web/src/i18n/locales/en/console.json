@@ -73,7 +73,28 @@
       "currency": "Currency",
       "submit": "Top up",
       "intentCreated": "Checkout created",
-      "continue": "Continue to checkout"
+      "continue": "Continue to checkout",
+      "history": "Top-up history",
+      "noHistory": "No top-ups yet",
+      "cols": {
+        "time": "Time",
+        "provider": "Method",
+        "amount": "Amount",
+        "credit": "Credits",
+        "status": "Status"
+      }
+    },
+    "settings": {
+      "profile": "Profile",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "tenant": "Tenant",
+      "changePassword": "Change password",
+      "current": "Current password",
+      "new": "New password",
+      "submit": "Update password",
+      "changed": "Password changed"
     },
     "usage": {
       "empty": "No usage yet",
@@ -106,6 +127,7 @@
     "tkeys": "API Keys",
     "tmodels": "Models",
     "billing": "Billing",
+    "tsettings": "Settings",
     "tenants": "Tenants",
     "accounts": "Accounts",
     "apiKeys": "API Keys",
@@ -127,6 +149,7 @@
     "tkeys": "Mint and manage your API keys",
     "tmodels": "Models available to your tenant",
     "billing": "Top up your tenant balance",
+    "tsettings": "Your profile and password",
     "tenants": "Create and view tenants",
     "catalog": "Models & resources — channels and pricing",
     "resources": "Models, upstream channels & pricing",
