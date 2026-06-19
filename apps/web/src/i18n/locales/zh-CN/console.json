@@ -32,6 +32,7 @@
     "backHome": "返回官网",
     "overview": {
       "balance": "余额",
+      "held": "冻结",
       "jobsCount": "最近任务",
       "jobs": "最近任务",
       "ledger": "流水",

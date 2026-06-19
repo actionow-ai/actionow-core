@@ -595,3 +595,8 @@ export interface ConsoleChangePasswordBody {
   currentPassword: string;
   newPassword: string;
 }
+/** The caller-tenant's credit balance + held (µcredit decimal strings). */
+export interface ConsoleBalanceView {
+  balance: string;
+  held: string;
+}

@@ -31,6 +31,7 @@ export const qk = {
   consoleUsageLog: () => ['console', 'usage-log'] as const,
   consolePayments: () => ['console', 'payments'] as const,
   consoleMe: () => ['console', 'me'] as const,
+  consoleBalance: () => ['console', 'balance'] as const,
   ledger: (tenantId: string) => ['admin', 'ledger', tenantId] as const,
   payments: (tenantId: string) => ['admin', 'payments', tenantId] as const,
 };

@@ -32,6 +32,7 @@
     "backHome": "Website",
     "overview": {
       "balance": "Balance",
+      "held": "held",
       "jobsCount": "Recent jobs",
       "jobs": "Recent jobs",
       "ledger": "Ledger",

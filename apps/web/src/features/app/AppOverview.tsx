@@ -24,8 +24,14 @@ export function AppOverview() {
   });
   const jobs = usage.data?.jobs.rows ?? [];
   const ledger = usage.data?.ledger.rows ?? [];
-  // The most recent ledger row carries the live balance.
-  const balance = ledger[0]?.balance_after ?? '0';
+  // Balance now comes from the dedicated endpoint (credit balance + held).
+  const balanceQ = useQuery({
+    queryKey: qk.consoleBalance(),
+    queryFn: () => api.balance(),
+    staleTime: STALE_VOLATILE,
+  });
+  const balance = balanceQ.data?.balance ?? '0';
+  const held = balanceQ.data?.held ?? '0';
 
   const jobCols: Column<ConsoleJobView>[] = [
     { key: 'resource', header: t('app.overview.cols.resource'), cell: (r) => r.resource_id },
@@ -86,6 +92,8 @@ export function AppOverview() {
       <BalanceCard
         micro={balance}
         label={t('app.overview.balance')}
+        held={held}
+        heldLabel={t('app.overview.held')}
         cta={t('app.billing.submit')}
         topupTo="/app/billing"
       />

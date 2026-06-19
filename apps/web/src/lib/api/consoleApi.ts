@@ -3,6 +3,7 @@ import type {
   ApiKeyCreatedView,
   ConsoleAnalyticsQuery,
   ConsoleApiKeyView,
+  ConsoleBalanceView,
   ConsoleChangePasswordBody,
   ConsoleCreateApiKeyBody,
   ConsoleIntentView,
@@ -65,6 +66,9 @@ export function makeConsoleApi(client: ApiClient) {
       limit?: number;
     }): Promise<Page<ConsolePaymentView>> =>
       client.getPage<ConsolePaymentView>('/console/payments', params),
+
+    // Tenant credit balance + held (dedicated endpoint).
+    balance: () => client.get<ConsoleBalanceView>('/console/balance'),
 
     // Profile + self-serve change-password.
     me: () => client.get<ConsoleMeView>('/console/me'),
