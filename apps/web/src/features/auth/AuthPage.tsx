@@ -94,6 +94,9 @@ export function AuthPage() {
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // Field-level auth error (wrong credentials / invalid input), surfaced on the
+  // password field instead of only a transient toast.
+  const [authError, setAuthError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Seconds left on the login-throttle cooldown (from a 429's retry_after_ms).
   const [cooldown, setCooldown] = useState(0);
@@ -180,6 +183,7 @@ export function AuthPage() {
   const submit = async () => {
     if (busy || cooldown > 0) return;
     setBusy(true);
+    setAuthError(null);
     try {
       const user = mode === 'login' ? await login(email, password) : await register(email, password);
       toast(mode === 'register' ? t('auth.registered') : t('auth.loggedIn'));
@@ -193,8 +197,11 @@ export function AuthPage() {
           setCooldown(Math.max(1, Math.ceil((err.retryAfterMs ?? 30000) / 1000)));
           toast(t('errors.rate_limited', t('auth.failed')), 'error');
         } else if (err.code === 'invalid_input') {
-          // Surface the backend's specific reason (e.g. the password policy), not a generic message.
-          toast(err.message, 'error');
+          // Field-level: the backend's specific reason (e.g. the password policy).
+          setAuthError(err.message);
+        } else if (err.status === 401) {
+          // Field-level: credentials rejected (copy names both email + password).
+          setAuthError(t('auth.failed'));
         } else {
           toast(t(`errors.${err.code}`, t('auth.failed')), 'error');
         }
@@ -224,7 +231,10 @@ export function AuthPage() {
         <div style={{ alignSelf: 'center' }}>
           <SegmentedControl
             value={mode}
-            onChange={(v) => setMode(v as Mode)}
+            onChange={(v) => {
+              setMode(v as Mode);
+              setAuthError(null);
+            }}
             options={[
               { value: 'login', label: t('auth.loginTab') },
               { value: 'register', label: t('auth.registerTab') },
@@ -234,14 +244,28 @@ export function AuthPage() {
 
         {/* mode-dependent body: cross-fades when login↔register toggles */}
         <div ref={bodyRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-          <TextField label={t('auth.email')} type="email" autoComplete="username" value={email} onChange={setEmail} required />
+          <TextField
+            label={t('auth.email')}
+            type="email"
+            autoComplete="username"
+            value={email}
+            onChange={(v) => {
+              setEmail(v);
+              if (authError !== null) setAuthError(null);
+            }}
+            required
+          />
           <TextField
             label={t('auth.password')}
             type="password"
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             value={password}
-            onChange={setPassword}
+            onChange={(v) => {
+              setPassword(v);
+              if (authError !== null) setAuthError(null);
+            }}
             required
+            error={authError ?? undefined}
             // The backend enforces 8–256 on register only; hint it client-side.
             minLength={mode === 'register' ? 8 : undefined}
             maxLength={mode === 'register' ? 256 : undefined}

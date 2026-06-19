@@ -25,7 +25,7 @@ export function Nav() {
   const links = [
     { href: '#scenarios', label: t('nav.scenarios') },
     { href: '#features', label: t('nav.features') },
-    { href: '#pricing', label: t('nav.docs') },
+    { href: '#pricing', label: t('nav.pricing') },
   ];
   return (
     <header style={{ position: 'sticky', top: 0, zIndex: Z.nav, padding: 'var(--s-3) var(--s-4)' }}>
