@@ -12,6 +12,8 @@ export default tseslint.config(
       '**/dist/**',
       '**/.turbo/**',
       '**/drizzle/**',
+      '**/src/generated/**',
+      'packages/contracts/scripts/**',
       'eslint.config.mjs',
       'commitlint.config.cjs',
       '**/vite.config.ts',

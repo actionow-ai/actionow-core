@@ -1,0 +1,625 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Actionow control-plane API",
+    "version": "0.1.0",
+    "description": "Generated from the @actionow/contracts zod schemas (single source of truth). Covers the contract-migrated views; expands as more views migrate."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "TenantView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isolation_mode": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isolation_mode",
+          "created_at"
+        ]
+      },
+      "AccountView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "credit_balance": {
+            "type": "string"
+          },
+          "credit_held": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "credit_balance",
+          "credit_held",
+          "created_at"
+        ]
+      },
+      "ResourceView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "modality": {
+            "type": "string"
+          },
+          "provider_type": {
+            "type": "string"
+          },
+          "exec_modes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string"
+          },
+          "current_version": {
+            "type": "number"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "kind",
+          "modality",
+          "provider_type",
+          "exec_modes",
+          "status",
+          "current_version",
+          "created_at"
+        ]
+      },
+      "ChannelView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "resource_id": {
+            "type": "string"
+          },
+          "provider_type": {
+            "type": "string"
+          },
+          "credential_ref": {
+            "type": "string",
+            "nullable": true
+          },
+          "endpoint": {
+            "type": "string",
+            "nullable": true
+          },
+          "model": {
+            "type": "string",
+            "nullable": true
+          },
+          "proxy_ref": {
+            "type": "string",
+            "nullable": true
+          },
+          "config": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": {
+              "nullable": true
+            }
+          },
+          "weight": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string"
+          },
+          "input_cost_per_1m": {
+            "type": "string",
+            "nullable": true
+          },
+          "output_cost_per_1m": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "resource_id",
+          "provider_type",
+          "credential_ref",
+          "endpoint",
+          "model",
+          "proxy_ref",
+          "config",
+          "weight",
+          "status",
+          "input_cost_per_1m",
+          "output_cost_per_1m"
+        ]
+      },
+      "ModelView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "display": {
+            "type": "string",
+            "nullable": true
+          },
+          "modality": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "visibility": {
+            "type": "string"
+          },
+          "resource_id": {
+            "type": "string"
+          },
+          "input_price": {
+            "type": "string"
+          },
+          "output_price": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "display",
+          "modality",
+          "capabilities",
+          "visibility",
+          "resource_id",
+          "input_price",
+          "output_price",
+          "status",
+          "created_at"
+        ]
+      },
+      "ModelGrantView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "model_id",
+          "tenant_id",
+          "created_at"
+        ]
+      },
+      "PricebookView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "resource_id": {
+            "type": "string"
+          },
+          "resource_version": {
+            "type": "number"
+          },
+          "version": {
+            "type": "number"
+          },
+          "method": {
+            "type": "string"
+          },
+          "timing": {
+            "type": "string"
+          },
+          "spec": {
+            "nullable": true
+          },
+          "markup": {
+            "nullable": true
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "resource_id",
+          "resource_version",
+          "version",
+          "method",
+          "timing",
+          "active"
+        ]
+      },
+      "ModifierView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "when_expr": {
+            "type": "string",
+            "nullable": true
+          },
+          "op": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string",
+            "nullable": true
+          },
+          "stackable": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "number"
+          },
+          "version": {
+            "type": "number"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "when_expr",
+          "op",
+          "value",
+          "stackable",
+          "priority",
+          "version",
+          "active"
+        ]
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/admin/tenants": {
+      "get": {
+        "summary": "List tenants (paginated)",
+        "tags": [
+          "tenants"
+        ],
+        "responses": {
+          "200": {
+            "description": "List tenants (paginated)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TenantView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/accounts": {
+      "get": {
+        "summary": "List accounts (balance/held)",
+        "tags": [
+          "tenants"
+        ],
+        "responses": {
+          "200": {
+            "description": "List accounts (balance/held)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AccountView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/resources": {
+      "get": {
+        "summary": "List catalog resources",
+        "tags": [
+          "catalog"
+        ],
+        "responses": {
+          "200": {
+            "description": "List catalog resources",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ResourceView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/resources/{id}/channels": {
+      "get": {
+        "summary": "List a resource’s channels",
+        "tags": [
+          "catalog"
+        ],
+        "responses": {
+          "200": {
+            "description": "List a resource’s channels",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ChannelView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/models": {
+      "get": {
+        "summary": "List relay models",
+        "tags": [
+          "catalog"
+        ],
+        "responses": {
+          "200": {
+            "description": "List relay models",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ModelView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/pricebook": {
+      "get": {
+        "summary": "List pricebook entries",
+        "tags": [
+          "pricing"
+        ],
+        "responses": {
+          "200": {
+            "description": "List pricebook entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PricebookView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/modifiers": {
+      "get": {
+        "summary": "List pricing modifiers",
+        "tags": [
+          "pricing"
+        ],
+        "responses": {
+          "200": {
+            "description": "List pricing modifiers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ModifierView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

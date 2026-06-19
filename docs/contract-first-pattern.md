@@ -34,10 +34,28 @@ packages/contracts/src/admin-views.ts   ← 唯一真相源(zod schema)
 
 ## 路线(B1 → B2 → B3)
 
-- **B1（本次,完成）**:view 类型单一真相源,先 tenants/accounts 立范式。
-- **下一步**:把其余控制面 view(resources/channels/models/modifiers/pricebook/official-prices/route-groups/api-keys/relay-traces…)逐个迁到 `*-views.ts`;再统一**请求体**(后端已有 `createXxxSchema` zod,可直接搬进 contracts 与前端共享)。
-- **B2**:`zod-to-openapi` 让 `/docs` 的响应 schema 变完整,并落地可构建的 `openapi.json`。
-- **B3**:从契约**生成/封装** `packages/sdk`(TS 先行),前端 `lib/api` 改为消费它;再出 Python。这才是场景①「开箱即用 SDK」。
+- **B1(完成)**:view 类型单一真相源。已迁 8 个:tenants/accounts(`admin-views.ts`)+ resources/channels/models/modelGrants/pricebook/modifiers(`catalog-views.ts`)。
+- **B2(完成 — 管线已打通)**:zod 契约 → `openapi.json` → SDK 类型,全部可复制脚本化。
+- **下一步**:把其余控制面 view 逐个迁到 `*-views.ts`(同配方),并加进 `openapi.ts` 的 registry——每迁一个就自动进 OpenAPI + SDK;再统一**请求体**(后端已有 `createXxxSchema` zod,搬进 contracts 共享)。
+- **B3**:把 `src/generated/openapi.ts` 抽成独立 `packages/sdk` + 一层 typed fetch 客户端,前端 `lib/api` 改为消费它;再出 Python。场景①「开箱即用 SDK」。
+
+### B2 管线(怎么跑)
+
+真相源是 `packages/contracts` 的 zod schema;**构建期**工具(`@asteasolutions/zod-to-openapi` + `openapi-typescript`,均为 contracts 的 devDep,绝不入前端/后端运行时)派生制品:
+
+```
+packages/contracts/src/openapi.ts     ← 注册 schema + 路径 → OpenAPI 文档(build-time only,不在 index 导出)
+   │  pnpm --filter @actionow/contracts gen:openapi
+   ▼
+packages/contracts/openapi.json       ← OpenAPI v3(已提交,可审、可喂任意 codegen)
+   │  pnpm --filter @actionow/contracts gen:sdk   (openapi-typescript)
+   ▼
+packages/contracts/src/generated/openapi.ts   ← 生成的 TS 类型(SDK 雏形,已提交)
+
+# 一把梭:pnpm --filter @actionow/contracts gen
+```
+
+已验证端到端:8 个 component schema + 7 条 list 路径;money 维持 `string`(µ 单位串,未退化成 number)、`capabilities` → `object{additionalProperties:boolean}`、分页响应 `data.items` 正确 `$ref` 组件。openapi.json 与 generated 类型均通过 typecheck/lint,前端不受影响(零 zod/openapi 工具入包)。
 
 ## ⚠️ 分支收敛(重要)
 
