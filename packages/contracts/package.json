@@ -12,16 +12,13 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
     "test": "vitest run --passWithNoTests",
-    "gen:openapi": "tsx scripts/gen-openapi.ts",
-    "gen:sdk": "openapi-typescript openapi.json -o src/generated/openapi.ts",
-    "gen": "pnpm gen:openapi && pnpm gen:sdk"
+    "gen:openapi": "tsx scripts/gen-openapi.ts"
   },
   "dependencies": {
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "@asteasolutions/zod-to-openapi": "^7.3.4",
-    "openapi-typescript": "^7.13.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   }

@@ -35,27 +35,38 @@ packages/contracts/src/admin-views.ts   ← 唯一真相源(zod schema)
 ## 路线(B1 → B2 → B3)
 
 - **B1(完成)**:view 类型单一真相源。已迁 8 个:tenants/accounts(`admin-views.ts`)+ resources/channels/models/modelGrants/pricebook/modifiers(`catalog-views.ts`)。
-- **B2(完成 — 管线已打通)**:zod 契约 → `openapi.json` → SDK 类型,全部可复制脚本化。
-- **下一步**:把其余控制面 view 逐个迁到 `*-views.ts`(同配方),并加进 `openapi.ts` 的 registry——每迁一个就自动进 OpenAPI + SDK;再统一**请求体**(后端已有 `createXxxSchema` zod,搬进 contracts 共享)。
-- **B3**:把 `src/generated/openapi.ts` 抽成独立 `packages/sdk` + 一层 typed fetch 客户端,前端 `lib/api` 改为消费它;再出 Python。场景①「开箱即用 SDK」。
+- **B2(完成)**:zod 契约 → `openapi.json`,脚本化可复现。
+- **B3(完成)**:`openapi.json` → 独立 `packages/sdk`(生成类型 + typed `openapi-fetch` 客户端,`publishConfig.access=public`)。场景①「`npm install @actionow/sdk` 开箱即用」的雏形已就绪。
+- **下一步**:把其余控制面/租户 view 逐个迁到 `*-views.ts`(同配方),并加进 `openapi.ts` 的 registry——每迁一个就自动进 OpenAPI + SDK;再统一**请求体**(后端已有 `createXxxSchema` zod,搬进 contracts 共享);把前端 `lib/api` 改为消费 `@actionow/sdk`(内外一致);出 Python 客户端。
 
-### B2 管线(怎么跑)
+### 端到端管线(怎么跑)
 
-真相源是 `packages/contracts` 的 zod schema;**构建期**工具(`@asteasolutions/zod-to-openapi` + `openapi-typescript`,均为 contracts 的 devDep,绝不入前端/后端运行时)派生制品:
+真相源是 `packages/contracts` 的 zod schema;**构建期**工具(`@asteasolutions/zod-to-openapi` 在 contracts、`openapi-typescript` 在 sdk,均为 devDep,绝不入前端/后端运行时)派生制品:
 
 ```
-packages/contracts/src/openapi.ts     ← 注册 schema + 路径 → OpenAPI 文档(build-time only,不在 index 导出)
-   │  pnpm --filter @actionow/contracts gen:openapi
-   ▼
-packages/contracts/openapi.json       ← OpenAPI v3(已提交,可审、可喂任意 codegen)
-   │  pnpm --filter @actionow/contracts gen:sdk   (openapi-typescript)
-   ▼
-packages/contracts/src/generated/openapi.ts   ← 生成的 TS 类型(SDK 雏形,已提交)
-
-# 一把梭:pnpm --filter @actionow/contracts gen
+packages/contracts/src/*-views.ts        ← zod 真相源(后端 .parse() · 前端 import type)
+        │  src/openapi.ts(build-time only,不在 index 导出)
+        │  pnpm --filter @actionow/contracts gen:openapi
+        ▼
+packages/contracts/openapi.json          ← OpenAPI v3(已提交,可审 · 可喂任意 codegen)
+        │  pnpm --filter @actionow/sdk gen   (openapi-typescript)
+        ▼
+packages/sdk/src/generated/openapi.ts    ← 生成类型(已提交,eslint/prettier 忽略,可复现)
+        │  src/index.ts:createActionowClient() + 具名 view 类型导出
+        ▼
+@actionow/sdk                            ← 外部 `import { createActionowClient } from '@actionow/sdk'`
 ```
 
-已验证端到端:8 个 component schema + 7 条 list 路径;money 维持 `string`(µ 单位串,未退化成 number)、`capabilities` → `object{additionalProperties:boolean}`、分页响应 `data.items` 正确 `$ref` 组件。openapi.json 与 generated 类型均通过 typecheck/lint,前端不受影响(零 zod/openapi 工具入包)。
+用法:
+
+```ts
+import { createActionowClient } from '@actionow/sdk';
+const api = createActionowClient({ baseUrl: 'https://gw.acme.com', token });
+const { data } = await api.GET('/admin/models'); // data.data: ModelView[]
+data?.data.forEach((m) => console.log(m.name, m.input_price)); // input_price: string(µcredit)
+```
+
+已验证端到端:8 component schema + 7 list 路径;**关键不变量**——µcredit 金额在「zod → OpenAPI → SDK 类型 → 客户端返回」全链路保持 `string`(没退化成 number),`capabilities` → `object{additionalProperties:boolean}`,分页响应 `data.items` 正确 `$ref` 组件。openapi.json + 生成类型 + sdk 客户端均 typecheck/lint/test 通过;前端零影响(无 zod/openapi 工具入包);制品可复现(fresh gen 零 diff)。
 
 ## ⚠️ 分支收敛(重要)
 
