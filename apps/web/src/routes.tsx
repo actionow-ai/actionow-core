@@ -6,6 +6,7 @@ import { AppBilling } from './features/app/AppBilling';
 import { AppKeys } from './features/app/AppKeys';
 import { AppModels } from './features/app/AppModels';
 import { AppOverview } from './features/app/AppOverview';
+import { AppUsage } from './features/app/AppUsage';
 import { AuthPage } from './features/auth/AuthPage';
 import { AccountsPage } from './features/console/AccountsPage';
 import { AnalyticsPage } from './features/console/AnalyticsPage';
@@ -40,6 +41,7 @@ export function AppRoutes() {
         <Route path="/app" element={<ConsoleLayout nav={TENANT_NAV_CONFIG} />}>
           <Route index element={<Navigate to="/app/overview" replace />} />
           <Route path="overview" element={<AppOverview />} />
+          <Route path="usage" element={<AppUsage />} />
           <Route path="keys" element={<AppKeys />} />
           <Route path="models" element={<AppModels />} />
           <Route path="billing" element={<AppBilling />} />

@@ -554,3 +554,20 @@ export interface ConsoleIntentView {
   redirect_url?: string;
   qr?: string;
 }
+/** Tenant analytics query (no tenantId — the token scopes it; no `tenant` groupBy). */
+export interface ConsoleAnalyticsQuery {
+  groupBy: 'day' | 'model' | 'channel' | 'api_key';
+  from?: string;
+  to?: string;
+}
+/** One per-call usage-log row for the caller's tenant (tenant implicit). */
+export interface ConsoleUsageLogView {
+  id: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost: string;
+  latency_ms: number | null;
+  status: string;
+  created_at: string;
+}

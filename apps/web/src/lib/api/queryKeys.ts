@@ -27,6 +27,8 @@ export const qk = {
   consoleApiKeys: () => ['console', 'api-keys'] as const,
   consoleUsage: () => ['console', 'usage'] as const,
   consoleModels: () => ['console', 'models'] as const,
+  consoleAnalytics: (params: Record<string, unknown>) => ['console', 'analytics', params] as const,
+  consoleUsageLog: () => ['console', 'usage-log'] as const,
   ledger: (tenantId: string) => ['admin', 'ledger', tenantId] as const,
   payments: (tenantId: string) => ['admin', 'payments', tenantId] as const,
 };

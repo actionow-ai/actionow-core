@@ -74,6 +74,19 @@
       "submit": "Top up",
       "intentCreated": "Checkout created",
       "continue": "Continue to checkout"
+    },
+    "usage": {
+      "empty": "No usage yet",
+      "log": "Per-call log",
+      "noLog": "No calls yet",
+      "cols": {
+        "time": "Time",
+        "model": "Model",
+        "tokens": "Tokens",
+        "cost": "Cost",
+        "latency": "Latency",
+        "status": "Status"
+      }
     }
   },
   "nav": {
@@ -89,6 +102,7 @@
     "analytics": "Analytics",
     "relayTraces": "Relay traces",
     "overview": "Overview",
+    "tusage": "Usage",
     "tkeys": "API Keys",
     "tmodels": "Models",
     "billing": "Billing",
@@ -109,6 +123,7 @@
     "analytics": "Usage, cost and margin over time and by dimension",
     "relayTraces": "Upstream relay audit — requests, responses, latency",
     "overview": "Balance, recent jobs and ledger",
+    "tusage": "Usage aggregation and per-call log",
     "tkeys": "Mint and manage your API keys",
     "tmodels": "Models available to your tenant",
     "billing": "Top up your tenant balance",

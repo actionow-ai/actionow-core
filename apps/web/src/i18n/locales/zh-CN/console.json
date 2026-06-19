@@ -69,6 +69,19 @@
       "submit": "充值",
       "intentCreated": "支付单已创建",
       "continue": "前往支付"
+    },
+    "usage": {
+      "empty": "暂无用量",
+      "log": "逐次调用日志",
+      "noLog": "暂无调用",
+      "cols": {
+        "time": "时间",
+        "model": "模型",
+        "tokens": "Token",
+        "cost": "成本",
+        "latency": "延迟",
+        "status": "状态"
+      }
     }
   },
   "nav": {
@@ -84,6 +97,7 @@
     "analytics": "分析",
     "relayTraces": "中转追踪",
     "overview": "概览",
+    "tusage": "用量",
     "tkeys": "API Keys",
     "tmodels": "模型",
     "billing": "充值",
@@ -104,6 +118,7 @@
     "analytics": "按时间与维度查看用量、成本与毛利",
     "relayTraces": "上游中转审计——请求、响应、延迟",
     "overview": "余额、最近任务与流水",
+    "tusage": "用量聚合与逐次调用日志",
     "tkeys": "签发与管理你的 API Key",
     "tmodels": "你的租户可用的模型",
     "billing": "为你的租户余额充值",

@@ -1,6 +1,7 @@
 import type { ApiClient, PageEnvelope } from './client';
 import type {
   ApiKeyCreatedView,
+  ConsoleAnalyticsQuery,
   ConsoleApiKeyView,
   ConsoleCreateApiKeyBody,
   ConsoleIntentView,
@@ -8,8 +9,10 @@ import type {
   ConsoleLedgerView,
   ConsoleModelView,
   ConsoleTopupBody,
+  ConsoleUsageLogView,
   ConsoleUsageView,
   Page,
+  UsageRollupView,
 } from './types';
 
 /**
@@ -43,6 +46,13 @@ export function makeConsoleApi(client: ApiClient) {
 
     listModels: async (): Promise<ConsoleModelView[]> =>
       (await client.getPage<ConsoleModelView>('/console/models')).rows,
+
+    // Tenant usage rollups (raw array, like the admin analytics route).
+    analyticsUsage: (params: ConsoleAnalyticsQuery) =>
+      client.get<UsageRollupView[]>('/console/analytics/usage', { ...params }),
+    // Per-call usage log — cursor-paginated keyset.
+    usageLog: (params: { cursor?: string; limit?: number }): Promise<Page<ConsoleUsageLogView>> =>
+      client.getPage<ConsoleUsageLogView>('/console/usage-log', params),
 
     topup: (body: ConsoleTopupBody) =>
       client.post<ConsoleIntentView>('/console/payments/intents', body),

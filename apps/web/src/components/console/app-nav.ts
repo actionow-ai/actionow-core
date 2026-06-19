@@ -1,4 +1,4 @@
-import { CoinsIcon, KeyIcon, SquaresFourIcon, StackIcon } from '@phosphor-icons/react';
+import { ChartLineIcon, CoinsIcon, KeyIcon, SquaresFourIcon } from '@phosphor-icons/react';
 
 import type { NavConfig } from './nav-config';
 
@@ -15,6 +15,7 @@ export const TENANT_NAV_CONFIG: NavConfig = {
       icon: SquaresFourIcon,
       items: [
         { to: '/app/overview', labelKey: 'overview' },
+        { to: '/app/usage', labelKey: 'tusage' },
         { to: '/app/models', labelKey: 'tmodels' },
       ],
     },
@@ -27,10 +28,11 @@ export const TENANT_NAV_CONFIG: NavConfig = {
       ],
     },
   ],
+  // 4 primary mobile destinations; the reference Models list stays desktop-SubNav-only.
   mobileTabs: [
     { to: '/app/overview', labelKey: 'overview', icon: SquaresFourIcon },
+    { to: '/app/usage', labelKey: 'tusage', icon: ChartLineIcon },
     { to: '/app/keys', labelKey: 'tkeys', icon: KeyIcon },
-    { to: '/app/models', labelKey: 'tmodels', icon: StackIcon },
     { to: '/app/billing', labelKey: 'billing', icon: CoinsIcon },
   ],
 };
