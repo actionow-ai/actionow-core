@@ -2,7 +2,16 @@
 // @actionow/contracts package (the single source of truth with the backend) and
 // re-exported here type-only — the inferred types are erased at build, so no zod
 // reaches the browser bundle. Adding/changing a field happens in one place.
-export type { AccountView, TenantView } from '@actionow/contracts';
+export type {
+  AccountView,
+  ChannelView,
+  ModelGrantView,
+  ModelView,
+  ModifierView,
+  PricebookView,
+  ResourceView,
+  TenantView,
+} from '@actionow/contracts';
 
 export interface ApiKeyView {
   id: string;
@@ -17,17 +26,6 @@ export interface ApiKeyView {
 export interface ApiKeyCreatedView {
   id: string;
   plaintext: string;
-}
-export interface ResourceView {
-  id: string;
-  tenant_id: string;
-  kind: string;
-  modality: string;
-  provider_type: string;
-  exec_modes: string[];
-  status: string;
-  current_version: number;
-  created_at: string;
 }
 export interface JobView {
   job_id: string;
@@ -67,43 +65,9 @@ export interface UpdateApiKeyGroupBody {
 }
 
 // --- Catalog (operator) ---
-export interface PricebookView {
-  id: string;
-  resource_id: string;
-  resource_version: number;
-  version: number;
-  method: string;
-  timing: string;
-  spec: unknown;
-  markup: unknown;
-  active: boolean;
-}
-export interface ModifierView {
-  id: string;
-  scope: string;
-  when_expr: string | null;
-  op: string;
-  value: string | null;
-  stackable: boolean;
-  priority: number;
-  version: number;
-  active: boolean;
-}
-export interface ChannelView {
-  id: string;
-  resource_id: string;
-  provider_type: string;
-  credential_ref: string | null;
-  endpoint: string | null;
-  model: string | null;
-  proxy_ref: string | null;
-  config: Record<string, unknown> | null;
-  weight: number;
-  status: string;
-  /** Operator cost, µUSD per 1M tokens (decimal string) — NOT the customer price. Null = unset. */
-  input_cost_per_1m: string | null;
-  output_cost_per_1m: string | null;
-}
+// ResourceView / ChannelView / PricebookView / ModifierView / ModelView /
+// ModelGrantView now come from @actionow/contracts (catalog-views) — see the
+// type-only re-export at the top of this file.
 export interface DifyImportView {
   resource_id: string;
   version: number;
@@ -115,28 +79,6 @@ export interface DifyImportView {
 export interface SecretView {
   id: string;
   provider: string;
-  created_at: string;
-}
-
-export interface ModelView {
-  id: string;
-  name: string;
-  display: string | null;
-  modality: string;
-  capabilities: Record<string, boolean>;
-  visibility: string;
-  resource_id: string;
-  input_price: string;
-  output_price: string;
-  status: string;
-  created_at: string;
-}
-
-/** A tenant grant on a `tenant`-visibility model (public models ignore grants). */
-export interface ModelGrantView {
-  id: string;
-  model_id: string;
-  tenant_id: string;
   created_at: string;
 }
 

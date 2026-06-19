@@ -1,5 +1,6 @@
 export * from './adapter.js';
 export * from './admin-views.js';
+export * from './catalog-views.js';
 export * from './chat.js';
 export * from './http.js';
 export * from './io-schema.js';

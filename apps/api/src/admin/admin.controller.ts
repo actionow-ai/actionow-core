@@ -1,6 +1,18 @@
 import {
   type AccountView,
   accountViewSchema,
+  type ChannelView,
+  channelViewSchema,
+  type ModelGrantView,
+  modelGrantViewSchema,
+  type ModelView,
+  modelViewSchema,
+  type ModifierView,
+  modifierViewSchema,
+  type PricebookView,
+  pricebookViewSchema,
+  type ResourceView,
+  resourceViewSchema,
   type TenantView,
   tenantViewSchema,
 } from '@actionow/contracts';
@@ -198,59 +210,9 @@ interface CodexLoginStartView {
   state: string;
 }
 
-interface ResourceView {
-  id: string;
-  tenant_id: string;
-  kind: string;
-  modality: string;
-  provider_type: string;
-  exec_modes: string[];
-  status: string;
-  current_version: number;
-  created_at: string;
-}
-
-interface ChannelView {
-  id: string;
-  resource_id: string;
-  provider_type: string;
-  credential_ref: string | null;
-  endpoint: string | null;
-  model: string | null;
-  proxy_ref: string | null;
-  config: Record<string, unknown> | null;
-  weight: number;
-  status: string;
-  /** Operator cost µUSD/1M INPUT tokens (Track 5); bigint → decimal string, null when unset. */
-  input_cost_per_1m: string | null;
-  /** Operator cost µUSD/1M OUTPUT tokens (Track 5); bigint → decimal string, null when unset. */
-  output_cost_per_1m: string | null;
-}
-
-interface PricebookView {
-  id: string;
-  resource_id: string;
-  resource_version: number;
-  version: number;
-  method: string;
-  timing: string;
-  spec: unknown;
-  markup: unknown;
-  active: boolean;
-}
-
-interface ModifierView {
-  id: string;
-  scope: string;
-  when_expr: string | null;
-  op: string;
-  /** µcredits for credit ops / whole-percent for percent ops, as a string. */
-  value: string | null;
-  stackable: boolean;
-  priority: number;
-  version: number;
-  active: boolean;
-}
+// ResourceView / ChannelView / PricebookView / ModifierView / ModelView /
+// ModelGrantView now live in @actionow/contracts (catalog-views) — single
+// source of truth shared with the frontend; their toView mappers `.parse()`.
 
 interface LedgerView {
   id: string;
@@ -271,20 +233,6 @@ interface JobView {
   status: string;
   exec_mode: string;
   cost: string | null;
-  created_at: string;
-}
-
-interface ModelView {
-  id: string;
-  name: string;
-  display: string | null;
-  modality: string;
-  capabilities: Record<string, boolean>;
-  visibility: string;
-  resource_id: string;
-  input_price: string;
-  output_price: string;
-  status: string;
   created_at: string;
 }
 
@@ -312,14 +260,6 @@ interface UsageRollupView {
   /** sum(cost) − sum(provider_cost) µUSD — the operator margin (Track 5). */
   margin: string;
   errors: number;
-}
-
-/** One tenant grant of a model (model-grants listing). */
-interface ModelGrantView {
-  id: string;
-  model_id: string;
-  tenant_id: string;
-  created_at: string;
 }
 
 /**
@@ -1274,7 +1214,7 @@ function toAccountView(row: AccountRow): AccountView {
 }
 
 function toResourceView(row: Resource): ResourceView {
-  return {
+  return resourceViewSchema.parse({
     id: row.id,
     tenant_id: row.tenantId,
     kind: row.kind,
@@ -1284,11 +1224,11 @@ function toResourceView(row: Resource): ResourceView {
     status: row.status,
     current_version: row.currentVersion,
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 function toChannelView(row: UpstreamChannelRow): ChannelView {
-  return {
+  return channelViewSchema.parse({
     id: row.id,
     resource_id: row.resourceId,
     provider_type: row.providerType,
@@ -1301,11 +1241,11 @@ function toChannelView(row: UpstreamChannelRow): ChannelView {
     status: row.status,
     input_cost_per_1m: row.inputCostPer1m === null ? null : row.inputCostPer1m.toString(),
     output_cost_per_1m: row.outputCostPer1m === null ? null : row.outputCostPer1m.toString(),
-  };
+  });
 }
 
 function toPricebookView(row: PricebookEntryRow): PricebookView {
-  return {
+  return pricebookViewSchema.parse({
     id: row.id,
     resource_id: row.resourceId,
     resource_version: row.resourceVersion,
@@ -1315,11 +1255,11 @@ function toPricebookView(row: PricebookEntryRow): PricebookView {
     spec: row.spec,
     markup: row.markup,
     active: row.active,
-  };
+  });
 }
 
 function toModifierView(row: ModifierRow): ModifierView {
-  return {
+  return modifierViewSchema.parse({
     id: row.id,
     scope: row.scope,
     when_expr: row.whenExpr,
@@ -1329,7 +1269,7 @@ function toModifierView(row: ModifierRow): ModifierView {
     priority: row.priority,
     version: row.version,
     active: row.active,
-  };
+  });
 }
 
 function toLedgerView(row: LedgerRow): LedgerView {
@@ -1359,7 +1299,7 @@ function toJobView(row: Job): JobView {
 }
 
 function toModelView(row: ModelRow): ModelView {
-  return {
+  return modelViewSchema.parse({
     id: row.id,
     name: row.name,
     display: row.display,
@@ -1371,16 +1311,16 @@ function toModelView(row: ModelRow): ModelView {
     output_price: row.outputPrice.toString(),
     status: row.status,
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 function toModelGrantView(row: ModelGrantRow): ModelGrantView {
-  return {
+  return modelGrantViewSchema.parse({
     id: row.id,
     model_id: row.modelId,
     tenant_id: row.tenantId,
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 function toOfficialPriceView(row: OfficialModelPriceRow): OfficialPriceView {
