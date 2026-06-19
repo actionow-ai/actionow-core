@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
-import { Pill } from '../../components/ui/Pill';
+import { StatusBadge } from '../../components/data/StatusBadge';
+import { enumLabel, MODALITIES, VISIBILITIES } from '../../lib/api/enums';
 import { qk } from '../../lib/api/queryKeys';
 import type { ConsoleModelView } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
@@ -29,13 +30,18 @@ export function AppModels() {
     {
       key: 'modality',
       header: t('app.models.cols.modality'),
-      cell: (r) => r.modality,
+      cell: (r) => enumLabel(t, MODALITIES, r.modality),
       width: '110px',
     },
     {
       key: 'visibility',
       header: t('app.models.cols.visibility'),
-      cell: (r) => <Pill tone={r.visibility === 'public' ? 'ok' : 'idle'}>{r.visibility}</Pill>,
+      cell: (r) => (
+        <StatusBadge
+          tone={r.visibility === 'public' ? 'ok' : 'idle'}
+          label={enumLabel(t, VISIBILITIES, r.visibility)}
+        />
+      ),
       width: '110px',
     },
   ];
@@ -46,6 +52,8 @@ export function AppModels() {
       rows={models.data ?? []}
       rowKey={(r) => r.name}
       loading={models.isLoading}
+      error={models.isError}
+      onRetry={() => void models.refetch()}
       empty={t('app.models.empty')}
       searchable
       pageSize={20}

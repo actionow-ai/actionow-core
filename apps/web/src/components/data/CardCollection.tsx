@@ -4,6 +4,7 @@ import { useRef } from 'react';
 import { gsap, useGSAP } from '../../lib/motion/gsap';
 import { DUR, EASE } from '../../lib/motion/tokens';
 import { RoseLoader } from '../ui/RoseLoader';
+import { ErrorState } from './ErrorState';
 
 /**
  * Renders a set of entity cards as a responsive grid (default) or a vertical
@@ -13,12 +14,18 @@ import { RoseLoader } from '../ui/RoseLoader';
 export function CardCollection<T>({
   rows,
   loading,
+  error,
+  onRetry,
   empty,
   layout = 'grid',
   renderCard,
 }: {
   rows: T[];
   loading?: boolean;
+  /** Render an error + retry state in place of cards when the backing query failed. */
+  error?: boolean;
+  /** Retry handler for the error state — wire to the query's `refetch`. */
+  onRetry?: () => void;
   empty?: ReactNode;
   layout?: 'grid' | 'list';
   renderCard: (row: T) => ReactNode;
@@ -44,6 +51,9 @@ export function CardCollection<T>({
     { scope: gridRef, dependencies: [rows.length] },
   );
 
+  if (error === true) {
+    return <ErrorState onRetry={onRetry} />;
+  }
   if (loading === true) {
     return (
       <div style={{ padding: 'var(--s-8)', display: 'grid', placeItems: 'center' }}>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { MODALITIES, PRICEBOOK_METHODS, toOptions } from './enums';
+import { enumLabel, MODALITIES, PRICEBOOK_METHODS, toOptions } from './enums';
 
 describe('enums', () => {
   it('MODALITIES values match the Modality union', () => {
@@ -18,5 +18,15 @@ describe('enums', () => {
       value: 'unit',
       label: 'T:enums.method.unit',
     });
+  });
+});
+
+describe('enumLabel', () => {
+  it('resolves a known value through its labelKey', () => {
+    expect(enumLabel((k) => 'T:' + k, MODALITIES, 'image')).toBe('T:enums.modality.image');
+  });
+
+  it('falls back to the raw value for an unknown (open-ended) value', () => {
+    expect(enumLabel((k) => 'T:' + k, MODALITIES, 'hologram')).toBe('hologram');
   });
 });

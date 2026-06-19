@@ -99,3 +99,15 @@ export function toOptions<V extends string>(
 ): { value: V; label: string }[] {
   return opts.map((o) => ({ value: o.value, label: t(o.labelKey) }));
 }
+
+/**
+ * Resolve a single backend enum `value` to its translated label via the matching
+ * option's `labelKey`. Unknown values (the option sets are intentionally
+ * open-ended — e.g. capabilities, providers) fall back to the raw value so a new
+ * backend constant still renders legibly instead of breaking. Use this anywhere a
+ * raw enum would otherwise be rendered in English (table cells, detail rows).
+ */
+export function enumLabel(t: (key: string) => string, opts: EnumOption[], value: string): string {
+  const opt = opts.find((o) => o.value === value);
+  return opt ? t(opt.labelKey) : value;
+}

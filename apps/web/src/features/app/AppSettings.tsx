@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { QueryBoundary } from '../../components/data/QueryBoundary';
+import { StatusBadge } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { Pill } from '../../components/ui/Pill';
 import { SectionHeader } from '../../components/ui/SectionHeader';
@@ -65,35 +67,38 @@ export function AppSettings() {
     <div style={{ maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 'var(--s-5)' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
         <SectionHeader title={t('app.settings.profile')} />
-        <div
-          className="panel"
-          style={{
-            borderRadius: 'var(--r-md)',
-            padding: 'var(--s-4)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--s-3)',
-          }}
-        >
-          <Row label={t('app.settings.email')}>
-            <span className="mono" style={{ wordBreak: 'break-all' }}>
-              {me.data?.email ?? '—'}
-            </span>
-          </Row>
-          <Row label={t('app.settings.role')}>
-            <Pill tone="idle">{me.data?.role ?? '—'}</Pill>
-          </Row>
-          <Row label={t('app.settings.status')}>
-            <Pill tone={me.data?.status === 'active' ? 'ok' : 'idle'}>
-              {me.data?.status ?? '—'}
-            </Pill>
-          </Row>
-          <Row label={t('app.settings.tenant')}>
-            <span className="mono" style={{ wordBreak: 'break-all' }}>
-              {me.data?.tenant_id ?? '—'}
-            </span>
-          </Row>
-        </div>
+        <QueryBoundary query={me}>
+          <div
+            className="panel"
+            style={{
+              borderRadius: 'var(--r-md)',
+              padding: 'var(--s-4)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--s-3)',
+            }}
+          >
+            <Row label={t('app.settings.email')}>
+              <span className="mono" style={{ wordBreak: 'break-all' }}>
+                {me.data?.email ?? '—'}
+              </span>
+            </Row>
+            <Row label={t('app.settings.role')}>
+              <Pill tone="idle">{me.data?.role ?? '—'}</Pill>
+            </Row>
+            <Row label={t('app.settings.status')}>
+              <StatusBadge
+                tone={me.data?.status === 'active' ? 'ok' : 'idle'}
+                label={me.data ? t('status.' + me.data.status, me.data.status) : '—'}
+              />
+            </Row>
+            <Row label={t('app.settings.tenant')}>
+              <span className="mono" style={{ wordBreak: 'break-all' }}>
+                {me.data?.tenant_id ?? '—'}
+              </span>
+            </Row>
+          </div>
+        </QueryBoundary>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>

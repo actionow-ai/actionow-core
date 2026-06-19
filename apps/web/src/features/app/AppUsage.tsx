@@ -7,9 +7,10 @@ import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { MetricBarChart } from '../../components/data/MetricBarChart';
 import { Money } from '../../components/data/Money';
+import { QueryBoundary } from '../../components/data/QueryBoundary';
+import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { TimeSeriesChart } from '../../components/data/TimeSeriesChart';
 import { Button } from '../../components/ui/Button';
-import { Pill } from '../../components/ui/Pill';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { qk } from '../../lib/api/queryKeys';
@@ -108,7 +109,7 @@ export function AppUsage() {
     {
       key: 'status',
       header: t('app.usage.cols.status'),
-      cell: (r) => <Pill tone={r.status === 'succeeded' ? 'ok' : 'fail'}>{r.status}</Pill>,
+      cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
       width: '110px',
     },
   ];
@@ -151,28 +152,30 @@ export function AppUsage() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
         <SectionHeader title={chartTitle} />
-        {rows.length === 0 ? (
-          <div
-            className="panel"
-            style={{
-              borderRadius: 'var(--r-md)',
-              padding: 'var(--s-6)',
-              textAlign: 'center',
-              color: 'var(--muted)',
-              fontSize: 'var(--fs-sm)',
-            }}
-          >
-            {analytics.isLoading ? '' : t('app.usage.empty')}
-          </div>
-        ) : (
-          <div className="panel" style={{ borderRadius: 'var(--r-md)', padding: 'var(--s-4)' }}>
-            {gb === 'day' ? (
-              <TimeSeriesChart points={series} ariaLabel={chartTitle} />
-            ) : (
-              <MetricBarChart bars={bars} format={fmtMetric} topN={10} />
-            )}
-          </div>
-        )}
+        <QueryBoundary query={analytics}>
+          {rows.length === 0 ? (
+            <div
+              className="panel"
+              style={{
+                borderRadius: 'var(--r-md)',
+                padding: 'var(--s-6)',
+                textAlign: 'center',
+                color: 'var(--muted)',
+                fontSize: 'var(--fs-sm)',
+              }}
+            >
+              {t('app.usage.empty')}
+            </div>
+          ) : (
+            <div className="panel" style={{ borderRadius: 'var(--r-md)', padding: 'var(--s-4)' }}>
+              {gb === 'day' ? (
+                <TimeSeriesChart points={series} ariaLabel={chartTitle} />
+              ) : (
+                <MetricBarChart bars={bars} format={fmtMetric} topN={10} />
+              )}
+            </div>
+          )}
+        </QueryBoundary>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
@@ -182,6 +185,8 @@ export function AppUsage() {
           rows={logRows}
           rowKey={(r) => r.id}
           loading={log.isLoading}
+          error={log.isError}
+          onRetry={() => void log.refetch()}
           empty={t('app.usage.noLog')}
           searchable
         />

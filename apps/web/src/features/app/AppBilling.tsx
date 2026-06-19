@@ -6,9 +6,9 @@ import { useTranslation } from 'react-i18next';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { Money } from '../../components/data/Money';
+import { StatusBadge } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { NumberField } from '../../components/ui/NumberField';
-import { Pill } from '../../components/ui/Pill';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TextField } from '../../components/ui/TextField';
@@ -92,7 +92,7 @@ export function AppBilling() {
     {
       key: 'status',
       header: t('app.billing.cols.status'),
-      cell: (r) => <Pill tone={payTone(r.status)}>{r.status}</Pill>,
+      cell: (r) => <StatusBadge tone={payTone(r.status)} label={t('status.' + r.status, r.status)} />,
       width: '110px',
     },
   ];
@@ -203,6 +203,8 @@ export function AppBilling() {
           rows={history.data?.rows ?? []}
           rowKey={(r) => r.id}
           loading={history.isLoading}
+          error={history.isError}
+          onRetry={() => void history.refetch()}
           empty={t('app.billing.noHistory')}
           pageSize={10}
         />

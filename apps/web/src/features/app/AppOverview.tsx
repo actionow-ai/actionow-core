@@ -5,6 +5,7 @@ import { BalanceCard } from '../../components/data/BalanceCard';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { Money } from '../../components/data/Money';
+import { QueryBoundary } from '../../components/data/QueryBoundary';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { qk } from '../../lib/api/queryKeys';
@@ -89,14 +90,16 @@ export function AppOverview() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-5)' }}>
-      <BalanceCard
-        micro={balance}
-        label={t('app.overview.balance')}
-        held={held}
-        heldLabel={t('app.overview.held')}
-        cta={t('app.billing.submit')}
-        topupTo="/app/billing"
-      />
+      <QueryBoundary query={balanceQ}>
+        <BalanceCard
+          micro={balance}
+          label={t('app.overview.balance')}
+          held={held}
+          heldLabel={t('app.overview.held')}
+          cta={t('app.billing.submit')}
+          topupTo="/app/billing"
+        />
+      </QueryBoundary>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
         <SectionHeader title={t('app.overview.jobs')} />
@@ -105,6 +108,8 @@ export function AppOverview() {
           rows={jobs}
           rowKey={(r) => r.job_id}
           loading={usage.isLoading}
+          error={usage.isError}
+          onRetry={() => void usage.refetch()}
           empty={t('app.overview.noJobs')}
           pageSize={10}
         />
@@ -117,6 +122,8 @@ export function AppOverview() {
           rows={ledger}
           rowKey={(r) => r.id}
           loading={usage.isLoading}
+          error={usage.isError}
+          onRetry={() => void usage.refetch()}
           empty={t('app.overview.noLedger')}
           pageSize={10}
         />

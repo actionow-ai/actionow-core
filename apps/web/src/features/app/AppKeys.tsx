@@ -69,6 +69,8 @@ export function AppKeys() {
       <CardCollection
         rows={keys.data?.rows ?? []}
         loading={keys.isLoading}
+        error={keys.isError}
+        onRetry={() => void keys.refetch()}
         empty={t('app.keys.empty')}
         renderCard={(r) => (
           <EntityCard
