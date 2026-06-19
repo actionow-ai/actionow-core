@@ -161,6 +161,37 @@ describe('JobRunner.process — async poll', () => {
   });
 });
 
+describe('JobRunner.failExhausted — terminal-fail on exhausted queue retries', () => {
+  it('releases the hold and marks a stranded job failed', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 1 }));
+    const runner = buildRunner(s, adapters);
+
+    await runner.failExhausted(job.id, 'exhausted retries');
+
+    expect((await getJob(db, job.id))?.status).toBe('failed');
+    // Hold released, balance untouched (no charge on failure) — not held until the reaper.
+    expect(await readAccount(s.accountId)).toEqual({ balance: 1_000_000n, held: 0n });
+  });
+
+  it('no-ops when the job is already terminal (idempotent with the reaper/late retry)', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 1 }));
+    const runner = buildRunner(s, adapters);
+
+    await runner.process(job.id); // → succeeded (debits 100)
+    const after = await readAccount(s.accountId);
+    await runner.failExhausted(job.id, 'late failure'); // already terminal → no-op
+
+    expect((await getJob(db, job.id))?.status).toBe('succeeded');
+    expect(await readAccount(s.accountId)).toEqual(after);
+  });
+});
+
 describe('JobRunner — poll + callback double-settle dedup', () => {
   it('settling twice (poll then callback) writes exactly one ledger row', async () => {
     const s = await seed(1_000_000n);
@@ -265,5 +296,56 @@ describe('JobRunner.settle — applied-modifier serialization (async path)', () 
     expect(applied[0]).toMatchObject({ before: '100', after: '90' });
     expect(typeof applied[0]?.before).toBe('string');
     expect(typeof applied[0]?.after).toBe('string');
+  });
+});
+
+describe('JobRunner.settle — optional persistMedia rewrite (async path)', () => {
+  it('rewrites media output via persistMedia before settling', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 0 }));
+    const runner = new JobRunner({
+      db,
+      adapters,
+      loadContext: () => Promise.resolve(contextFor(s)),
+      resolveSecret: () => Promise.resolve(undefined),
+      http: { request: () => Promise.reject(new Error('no http')) },
+      maxPolls: 5,
+      pollIntervalMs: 0,
+      sleep: () => Promise.resolve(),
+      persistMedia: ({ output, tenantId, jobId }) =>
+        Promise.resolve({
+          persisted: true,
+          output: { ...output, image_url: `https://asset.actionow.ai/${tenantId}/${jobId}.png` },
+          objects: [{ key: `${tenantId}/${jobId}.png`, contentType: 'image/png', size: 3 }],
+        }),
+    });
+
+    await runner.process(job.id);
+
+    const settled = await getJob(db, job.id);
+    expect(settled?.status).toBe('succeeded');
+    const output = settled?.output as Record<string, unknown> | undefined;
+    expect(output?.image_url).toBe(`https://asset.actionow.ai/${s.tenantId}/${job.id}.png`);
+  });
+
+  it('settles with the unchanged output when persistMedia is not injected (no-op)', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 0 }));
+    // buildRunner omits persistMedia → behavior is unchanged.
+    const runner = buildRunner(s, adapters);
+
+    await runner.process(job.id);
+
+    const settled = await getJob(db, job.id);
+    expect(settled?.status).toBe('succeeded');
+    const handle = settled?.upstreamJobHandle;
+    if (handle === null || handle === undefined) throw new Error('expected upstream handle');
+    // The mock emits https://mock.local/{upstreamHandle}; settle must store it verbatim.
+    const output = settled?.output as Record<string, unknown> | undefined;
+    expect(output?.image_url).toBe(`https://mock.local/${handle}`);
   });
 });

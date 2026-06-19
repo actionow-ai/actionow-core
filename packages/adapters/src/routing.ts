@@ -1,9 +1,20 @@
 import { AdapterError } from './errors.js';
 
-/** A routing candidate carrying its selection `weight` and the routed `value`. */
+/**
+ * A routing candidate carrying its selection `weight`, optional fallback
+ * `priority`, and the routed `value`.
+ *
+ * `priority` defines the fallback TIER (Track 4): channels are grouped by
+ * `priority`, tiers sorted HIGHEST-first, and a whole tier is tried (weighted
+ * pick, then the rest by weight) before the next-lower tier is reached. An
+ * absent `priority` is treated as `0`, so a list with no priorities collapses to
+ * a single tier and behaves exactly like the pre-Track-4 weighted+failover.
+ */
 export interface WeightedChannel<T> {
   id: string;
   weight: number;
+  /** Fallback tier — HIGHER is tried first. Absent → `0` (single tier). */
+  priority?: number | undefined;
   value: T;
 }
 
@@ -45,15 +56,53 @@ export function selectWeighted<T>(
 }
 
 /**
- * Order channels for a failover attempt: the weighted pick first, then the
- * remaining channels by descending weight (ties keep list order).
+ * Order channels for a failover attempt as PRIORITY TIERS (Track 4): channels
+ * are grouped by `priority` (absent → `0`), the tiers sorted HIGHEST-priority
+ * first, and EACH tier is internally ordered by the weighted pick (then the rest
+ * by descending weight) before the next-lower tier is appended. The failover
+ * loop therefore exhausts a whole tier before cascading to the next-lower one.
+ *
+ * A list with no priorities (or all equal) is a single tier → the result is
+ * identical to the pre-Track-4 "weighted pick, then rest by weight" ordering, so
+ * existing single-tier callers/tests are unaffected.
+ *
+ * Exported for callers (e.g. the engine's streaming chat path) that must drive
+ * the failover loop themselves — `routeWithFailover` returns a value, but a
+ * stream has to commit to a channel mid-attempt (after the first frame).
  */
-function orderForFailover<T>(
+export function orderForFailover<T>(
   channels: readonly WeightedChannel<T>[],
   rng: () => number,
 ): WeightedChannel<T>[] {
-  const picked = selectWeighted(channels, rng);
-  const rest = channels.filter((c) => c !== picked).sort((a, b) => b.weight - a.weight);
+  if (channels.length === 0) return [];
+
+  // Group into tiers keyed by priority (absent → 0), preserving list order
+  // within each tier so a deterministic `rng` yields a deterministic ordering.
+  const tiers = new Map<number, WeightedChannel<T>[]>();
+  for (const c of channels) {
+    const tier = c.priority ?? 0;
+    const bucket = tiers.get(tier);
+    if (bucket === undefined) tiers.set(tier, [c]);
+    else bucket.push(c);
+  }
+
+  // Tiers HIGHEST-priority first; each tier weighted-ordered independently.
+  const sortedTiers = [...tiers.keys()].sort((a, b) => b - a);
+  return sortedTiers.flatMap((tier) => orderTier(tiers.get(tier) ?? [], rng));
+}
+
+/**
+ * Order ONE priority tier: the weighted pick first, then the remaining channels
+ * by descending weight (ties keep list order). This is the pre-Track-4 ordering,
+ * now applied per-tier.
+ */
+function orderTier<T>(
+  tier: readonly WeightedChannel<T>[],
+  rng: () => number,
+): WeightedChannel<T>[] {
+  if (tier.length === 0) return [];
+  const picked = selectWeighted(tier, rng);
+  const rest = tier.filter((c) => c !== picked).sort((a, b) => b.weight - a.weight);
   return [picked, ...rest];
 }
 

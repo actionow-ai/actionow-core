@@ -8,6 +8,7 @@ import {
   markWebhookSent,
   rescheduleWebhook,
 } from '@actionow/db';
+import { assertEgressAllowed } from '@actionow/infra';
 
 /** The header carrying the HMAC-SHA256 hex signature of the webhook body. */
 export const SIGNATURE_HEADER = 'X-Actionow-Signature';
@@ -32,6 +33,13 @@ export interface WebhookDispatcherOptions {
   batchSize?: number;
   /** Resolve the signing secret per webhook url; absent → unsigned. */
   resolveSecret?: (url: string) => Promise<string | undefined>;
+  /**
+   * SSRF egress guard for the (tenant-controlled) callback url; rejects by
+   * throwing. Default: infra's {@link assertEgressAllowed} with the strict
+   * policy (private/loopback/link-local/reserved targets and non-http schemes
+   * are blocked). The worker injects one bound to `WEBHOOK_ALLOW_PRIVATE_TARGETS`.
+   */
+  assertEgressAllowed?: (url: string) => Promise<void>;
 }
 
 const DEFAULT_MAX_ATTEMPTS = 5;
@@ -62,8 +70,13 @@ export function backoffMs(attempts: number, baseMs: number, maxMs: number): numb
  * only dead-letters; the ledger is already correct (review #11).
  */
 export class WebhookDispatcher {
-  private readonly opts: Required<Omit<WebhookDispatcherOptions, 'resolveSecret'>> &
+  private readonly opts: Required<
+    Omit<WebhookDispatcherOptions, 'resolveSecret' | 'assertEgressAllowed'>
+  > &
     Pick<WebhookDispatcherOptions, 'resolveSecret'>;
+
+  /** SSRF egress guard; defaults to the strict infra policy. */
+  private readonly assertEgressAllowed: (url: string) => Promise<void>;
 
   constructor(options: WebhookDispatcherOptions = {}) {
     this.opts = {
@@ -73,6 +86,8 @@ export class WebhookDispatcher {
       batchSize: options.batchSize ?? DEFAULT_BATCH_SIZE,
       ...(options.resolveSecret !== undefined ? { resolveSecret: options.resolveSecret } : {}),
     };
+    this.assertEgressAllowed =
+      options.assertEgressAllowed ?? ((url: string): Promise<void> => assertEgressAllowed(url));
   }
 
   async dispatchDue(db: DbOrTx, http: HttpClient, now: Date): Promise<DispatchSummary> {
@@ -82,6 +97,17 @@ export class WebhookDispatcher {
     for (const row of due) {
       summary.processed += 1;
       const attempts = row.attempts + 1;
+
+      // SSRF egress guard: a tenant-supplied callback_url that points at a
+      // private/reserved address (or a non-http scheme) is permanently blocked —
+      // dead-letter immediately rather than burning retries on a target that can
+      // never legitimately succeed.
+      if (await this.egressBlocked(row.url)) {
+        await markWebhookDead(db, row.id, attempts);
+        summary.dead += 1;
+        continue;
+      }
+
       const ok = await this.deliver(http, row.url, row.payload);
 
       if (ok) {
@@ -102,6 +128,16 @@ export class WebhookDispatcher {
     }
 
     return summary;
+  }
+
+  /** True when the egress guard rejects this url (SSRF target / bad scheme). */
+  private async egressBlocked(url: string): Promise<boolean> {
+    try {
+      await this.assertEgressAllowed(url);
+      return false;
+    } catch {
+      return true;
+    }
   }
 
   /** POST the signed payload; returns `true` on a 2xx, `false` on error/non-2xx. */

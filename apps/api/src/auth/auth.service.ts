@@ -8,6 +8,14 @@ import type { AuthedRequest } from './api-key.guard.js';
 export interface TenantContext {
   tenantId: string;
   accountId: string;
+  /** The api_key that authenticated this request; absent on the dev fallback. */
+  apiKeyId?: string;
+  /**
+   * The route group (分组; Track 4) the authenticating key is bound to; `null` →
+   * resolve the well-known `default` group at routing time. Drives the
+   * group-scoped channel candidate set + priority-tiered fallback.
+   */
+  routeGroupId?: string | null;
 }
 
 /**
@@ -27,6 +35,16 @@ export class AuthService {
     if (auth === undefined) {
       throw engineUnauthorized('request is not authenticated');
     }
-    return { tenantId: auth.tenantId, accountId: auth.accountId };
+    const ctx: TenantContext = {
+      tenantId: auth.tenantId,
+      accountId: auth.accountId,
+      // The key's bound group (`null` → resolve `default` at routing time). The
+      // relay/run services read this to scope the channel candidate set (Track 4).
+      routeGroupId: auth.routeGroupId,
+    };
+    // `apiKeyId` is null on the `x-tenant-id` dev fallback (no key presented);
+    // omit it then so the optional field stays absent (exactOptionalPropertyTypes).
+    if (auth.apiKeyId !== null) ctx.apiKeyId = auth.apiKeyId;
+    return ctx;
   }
 }

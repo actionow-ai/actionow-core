@@ -3,15 +3,60 @@ import type {
   HttpRequest,
   HttpResponse,
   HttpStreamResponse,
+  UnifiedError,
 } from '@actionow/contracts';
+import { ProxyAgent } from 'undici';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 /**
+ * Default inter-chunk idle timeout for `stream()` (ms). LLM streams emit tokens
+ * continuously once generation starts; a 2-minute gap with NO bytes (including
+ * time-to-first-byte) means the upstream has stalled. Bounds the hang so a hung
+ * provider can't pin the SSE connection + credit hold until the 15-min reaper.
+ */
+const DEFAULT_STREAM_IDLE_MS = 120_000;
+
+/**
+ * Thrown by `stream()` when the upstream sends no bytes within the idle window.
+ * Carries a `unified` payload so the engine maps it to a retryable
+ * `upstream_timeout` (its `toUnified` reads `.unified`).
+ */
+export class StreamIdleTimeoutError extends Error {
+  readonly unified: UnifiedError;
+
+  constructor(idleMs: number) {
+    super(`upstream stream idle for ${String(idleMs)}ms`);
+    this.name = 'StreamIdleTimeoutError';
+    this.unified = {
+      code: 'upstream_timeout',
+      message: 'upstream stream stalled (idle timeout)',
+      retryable: true,
+    };
+  }
+}
+
+/**
+ * The undici `dispatcher` is exposed on `RequestInit` by the Node global-fetch
+ * types, but those types come from a separate `undici-types` package whose
+ * `Dispatcher` shape can drift from the `undici` package we construct the
+ * `ProxyAgent` from. Bridge the two universes at this single field rather than
+ * pinning the two independently-published type packages together.
+ */
+type FetchInit = Omit<RequestInit, 'dispatcher'> & { dispatcher?: ProxyAgent };
+
+/**
  * Build the `fetch` `RequestInit` shared by buffered and streaming requests:
  * JSON-serialize a body and default the `content-type` header when one is set.
+ *
+ * When an `agent` is supplied it is attached as the undici `dispatcher` so the
+ * request egresses through the per-request proxy.
  */
-function buildInit(req: HttpRequest, signal?: AbortSignal): RequestInit {
+function buildInit(
+  req: HttpRequest,
+  agent: ProxyAgent | undefined,
+  signal?: AbortSignal,
+): RequestInit {
   const headers: Record<string, string> = { ...req.headers };
   let body: string | undefined;
   if (req.body !== undefined) {
@@ -21,14 +66,19 @@ function buildInit(req: HttpRequest, signal?: AbortSignal): RequestInit {
     }
   }
 
-  const init: RequestInit = { method: req.method, headers };
+  const init: FetchInit = { method: req.method, headers };
   if (signal !== undefined) {
     init.signal = signal;
   }
   if (body !== undefined) {
     init.body = body;
   }
-  return init;
+  if (agent !== undefined) {
+    init.dispatcher = agent;
+  }
+  // Bridge the `undici` ProxyAgent's `dispatcher` to the global-fetch RequestInit
+  // (whose `dispatcher` comes from a separate undici-types version); see FetchInit.
+  return init as unknown as RequestInit;
 }
 
 /**
@@ -38,12 +88,40 @@ function buildInit(req: HttpRequest, signal?: AbortSignal): RequestInit {
  * generator's `finally` can `releaseLock()` and `cancel()` the underlying
  * stream when the consumer stops early — preventing a leaked HTTP connection.
  */
-async function* iterateUtf8(body: ReadableStream<Uint8Array>): AsyncIterable<string> {
+async function* iterateUtf8(
+  body: ReadableStream<Uint8Array>,
+  idle?: { controller: AbortController; idleMs: number },
+): AsyncIterable<string> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   try {
     for (;;) {
-      const { done, value } = await reader.read();
+      // Each read is bounded by the inter-chunk idle timeout when configured: on
+      // timeout the fetch is aborted (tearing down the connection) and a
+      // StreamIdleTimeoutError is thrown. The abandoned read is swallowed so its
+      // eventual rejection (from the abort) is never unhandled.
+      const readPromise = reader.read();
+      let result: Awaited<typeof readPromise>;
+      if (idle === undefined) {
+        result = await readPromise;
+      } else {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => {
+            idle.controller.abort();
+            reject(new StreamIdleTimeoutError(idle.idleMs));
+          }, idle.idleMs);
+        });
+        try {
+          result = await Promise.race([readPromise, timeout]);
+        } catch (err) {
+          void readPromise.catch(() => undefined);
+          throw err;
+        } finally {
+          if (timer !== undefined) clearTimeout(timer);
+        }
+      }
+      const { done, value } = result;
       if (done) {
         break;
       }
@@ -58,10 +136,11 @@ async function* iterateUtf8(body: ReadableStream<Uint8Array>): AsyncIterable<str
       yield tail;
     }
   } finally {
-    // Releasing then cancelling tears down the upstream connection on early
-    // return (consumer `break`/`return`) as well as normal completion.
-    reader.releaseLock();
-    await body.cancel().catch(() => undefined);
+    // `cancel()` tears down the upstream connection AND releases the lock — on
+    // normal completion, consumer early-return, AND idle-timeout/abort. It also
+    // resolves any read() left outstanding by a timed-out race (so no dangling
+    // lock) and triggers the source's `cancel` (closing the socket).
+    await reader.cancel().catch(() => undefined);
   }
 }
 
@@ -84,6 +163,26 @@ const emptyLines: AsyncIterable<string> = {
  * - Always captures the raw response `text` so callers can map upstream errors.
  */
 export class FetchHttpClient implements HttpClient {
+  /** One ProxyAgent per proxy URL, reused across requests. */
+  private readonly proxyAgents = new Map<string, ProxyAgent>();
+
+  /** Inter-chunk idle timeout for `stream()` (ms); per-request `idleTimeoutMs` overrides. */
+  private readonly streamIdleTimeoutMs: number;
+
+  constructor(opts: { streamIdleTimeoutMs?: number } = {}) {
+    this.streamIdleTimeoutMs = opts.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_MS;
+  }
+
+  /** Resolve (caching) the ProxyAgent for a proxy URL. */
+  private agentFor(proxyUrl: string): ProxyAgent {
+    let agent = this.proxyAgents.get(proxyUrl);
+    if (agent === undefined) {
+      agent = new ProxyAgent(proxyUrl);
+      this.proxyAgents.set(proxyUrl, agent);
+    }
+    return agent;
+  }
+
   async request(req: HttpRequest): Promise<HttpResponse> {
     const controller = new AbortController();
     const timeoutMs = req.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -92,7 +191,8 @@ export class FetchHttpClient implements HttpClient {
     }, timeoutMs);
 
     try {
-      const res = await fetch(req.url, buildInit(req, controller.signal));
+      const agent = req.proxyUrl === undefined ? undefined : this.agentFor(req.proxyUrl);
+      const res = await fetch(req.url, buildInit(req, agent, controller.signal));
       const text = await res.text();
 
       let parsed: unknown;
@@ -116,14 +216,33 @@ export class FetchHttpClient implements HttpClient {
    * headers) but exposes the response body as an async iterable of decoded
    * UTF-8 text chunks instead of buffering it.
    *
-   * No request timeout is applied — streaming responses are long-lived by
-   * design; the consumer controls lifetime by stopping iteration (which
-   * releases and cancels the underlying reader). Works on Node 24's undici
-   * `fetch`, whose `Response.body` is a web `ReadableStream`.
+   * No total timeout is applied — streaming responses are long-lived by design.
+   * Instead an INTER-CHUNK idle timeout bounds a stalled upstream: the initial
+   * fetch (time-to-headers) and each body read are aborted if no bytes arrive
+   * within `idleTimeoutMs` (default {@link DEFAULT_STREAM_IDLE_MS}), so a hung
+   * provider can't pin the SSE connection + credit hold until the reaper. The
+   * consumer still controls lifetime by stopping iteration (cancels the reader).
+   * Works on Node 24's undici `fetch`, whose `Response.body` is a web
+   * `ReadableStream`.
    */
   async stream(req: HttpRequest): Promise<HttpStreamResponse> {
-    const res = await fetch(req.url, buildInit(req));
-    const lines = res.body === null ? emptyLines : iterateUtf8(res.body);
+    const agent = req.proxyUrl === undefined ? undefined : this.agentFor(req.proxyUrl);
+    const idleMs = req.idleTimeoutMs ?? this.streamIdleTimeoutMs;
+
+    // Bound time-to-headers too: abort if the upstream accepts the connection
+    // but never sends a response within the idle window.
+    const controller = new AbortController();
+    const headerTimer = setTimeout(() => {
+      controller.abort();
+    }, idleMs);
+    let res: Response;
+    try {
+      res = await fetch(req.url, buildInit(req, agent, controller.signal));
+    } finally {
+      clearTimeout(headerTimer);
+    }
+
+    const lines = res.body === null ? emptyLines : iterateUtf8(res.body, { controller, idleMs });
     return { status: res.status, ok: res.ok, lines };
   }
 }

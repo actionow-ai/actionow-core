@@ -1,8 +1,9 @@
 import type { JobStatus } from '@actionow/contracts';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { job } from '../schema/index.js';
+import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
 export type Job = InferSelectModel<typeof job>;
@@ -61,6 +62,20 @@ export async function getJob(db: DbOrTx, jobId: string): Promise<Job | undefined
   return rows[0];
 }
 
+/** Fetch a job by id scoped to a tenant (tenant predicate in SQL), or `undefined`. */
+export async function getJobForTenant(
+  db: DbOrTx,
+  jobId: string,
+  tenantId: string,
+): Promise<Job | undefined> {
+  const rows = await db
+    .select()
+    .from(job)
+    .where(and(eq(job.id, jobId), eq(job.tenantId, tenantId)))
+    .limit(1);
+  return rows[0];
+}
+
 /**
  * Record the upstream provider's job handle on a job so a later async callback
  * can correlate the payload back to the job (best-effort; not on the money
@@ -93,18 +108,19 @@ export async function getJobByUpstreamHandle(
 }
 
 /**
- * List a tenant's jobs newest-first. `cursor` is an exclusive upper bound on
- * `created_at` (ISO string) for keyset pagination; `limit` caps the page size.
+ * List a tenant's jobs newest-first, keyset-paginated on `(created_at, id)`.
+ * The `tenant_id` filter composes with the keyset.
  */
 export async function listJobs(
   db: DbOrTx,
   tenantId: string,
-  cursor?: string,
-  limit = 50,
-): Promise<Job[]> {
-  const where =
-    cursor === undefined
-      ? eq(job.tenantId, tenantId)
-      : and(eq(job.tenantId, tenantId), lt(job.createdAt, new Date(cursor)));
-  return db.select().from(job).where(where).orderBy(desc(job.createdAt)).limit(limit);
+  page: PageParams,
+): Promise<KeysetResult<Job>> {
+  return keysetPage<Job>(db, {
+    table: job,
+    createdAtCol: job.createdAt,
+    idCol: job.id,
+    where: eq(job.tenantId, tenantId),
+    page,
+  });
 }

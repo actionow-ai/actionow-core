@@ -1,4 +1,4 @@
-import type { Database, PricebookEntryRow, Resource } from '@actionow/db';
+import type { Database, PageParams, PricebookEntryRow, Resource } from '@actionow/db';
 import {
   getActivePricebookEntry,
   getResourceWithSchema,
@@ -8,6 +8,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { TenantContext } from '../auth/auth.service.js';
 import { engineNotFound } from '../common/errors.js';
+import { mapPageEnvelope, type PageEnvelope } from '../common/pagination.js';
 import { DB } from '../common/tokens.js';
 
 /** A pricing summary surfaced on the single-resource view (§4.5). */
@@ -50,13 +51,18 @@ export class ResourcesService {
   constructor(@Inject(DB) private readonly db: Database) {}
 
   /**
-   * List the caller's resources. `allowlist` (the API key's `resourceAllowlist`)
-   * further restricts the result; an empty allowlist means "no restriction".
+   * List the caller's resources, keyset-paginated into the uniform envelope.
+   * `allowlist` (the API key's `resourceAllowlist`) further restricts the result
+   * IN SQL so it composes with the keyset; an empty allowlist means "no
+   * restriction".
    */
-  async list(ctx: TenantContext, allowlist: readonly string[]): Promise<ResourceSummary[]> {
-    const rows = await listResourcesByTenant(this.db, ctx.tenantId);
-    const visible = allowlist.length === 0 ? rows : rows.filter((r) => allowlist.includes(r.id));
-    return visible.map(toSummary);
+  async list(
+    ctx: TenantContext,
+    allowlist: readonly string[],
+    page: PageParams,
+  ): Promise<PageEnvelope<ResourceSummary>> {
+    const result = await listResourcesByTenant(this.db, ctx.tenantId, page, allowlist);
+    return mapPageEnvelope(result, (r) => r.id, toSummary);
   }
 
   /**

@@ -47,11 +47,23 @@ describe('admin_user → user data migration', () => {
     const files = await migrationFiles();
     expect(files.length).toBeGreaterThanOrEqual(2);
 
-    // The phase-9 migration is the last one; it creates user/user_identity,
-    // copies admin_user rows, then drops admin_user.
-    const phase9 = files.at(-1);
-    if (phase9 === undefined) throw new Error('no migrations found');
-    const earlier = files.slice(0, -1);
+    // The phase-9 migration creates user/user_identity, copies admin_user rows,
+    // then drops admin_user. Locate it by content (the `admin_user` → `user`
+    // data migration) rather than position, so later migrations appended after
+    // it don't shift which file we target.
+    let phase9: string | undefined;
+    for (const file of files) {
+      const body = await readFile(join(DRIZZLE_DIR, file), 'utf8');
+      if (body.includes('INSERT INTO "user"') && body.includes('DROP TABLE "admin_user"')) {
+        phase9 = file;
+        break;
+      }
+    }
+    if (phase9 === undefined) throw new Error('phase-9 admin_user→user migration not found');
+    // Apply only the migrations up to (and not including) the phase-9 one; any
+    // migrations after it are irrelevant to this data-migration assertion.
+    const phase9Index = files.indexOf(phase9);
+    const earlier = files.slice(0, phase9Index);
 
     // 1. Apply every migration BEFORE the phase-9 one. This creates admin_user.
     for (const file of earlier) {

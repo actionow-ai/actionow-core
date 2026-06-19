@@ -1,11 +1,20 @@
-import type { Database } from '@actionow/db';
+import {
+  type Database,
+  type DifyBindingRow,
+  type KeysetResult,
+  listDifyBindings,
+  type PageParams,
+  softDeleteDifyBinding,
+  updateDifyBinding,
+} from '@actionow/db';
 import { DifyParseError } from '@actionow/dify';
 import type { RegisterResult } from '@actionow/engine';
 import { DifyRegistrationError, DifyRegistrationService, EngineError } from '@actionow/engine';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { engineNotFound } from '../common/errors.js';
 import { DB, KNOWN_MODELS } from '../common/tokens.js';
-import type { DifyImportDto } from './dto/admin.dto.js';
+import type { DifyImportDto, UpdateDifyDto } from './dto/admin.dto.js';
 
 /**
  * Wraps the engine's {@link DifyRegistrationService} for the admin HTTP surface
@@ -43,6 +52,40 @@ export class AdminDifyService {
     } catch (err: unknown) {
       throw mapDifyError(err);
     }
+  }
+
+  /** List live dify bindings (admin view), keyset-paginated newest-first. */
+  list(page: PageParams): Promise<KeysetResult<DifyBindingRow>> {
+    return listDifyBindings(this.db, page);
+  }
+
+  /**
+   * Patch the current dify binding of a resource (`endpoint`/`serviceKeyRef`/
+   * `pricingModel`). 404 when the resource has no live binding.
+   */
+  async update(resourceId: string, dto: UpdateDifyDto): Promise<DifyBindingRow> {
+    const patch: { endpoint?: string; serviceKeyRef?: string | null; pricingModel?: string } = {};
+    if (dto.endpoint !== undefined) patch.endpoint = dto.endpoint;
+    if (dto.serviceKeyRef !== undefined) patch.serviceKeyRef = dto.serviceKeyRef;
+    if (dto.pricingModel !== undefined) patch.pricingModel = dto.pricingModel;
+    const row = await updateDifyBinding(this.db, resourceId, patch);
+    if (row === undefined) {
+      throw engineNotFound(`dify binding for resource ${resourceId} not found`);
+    }
+    return row;
+  }
+
+  /**
+   * Revoke (soft-delete) the current dify binding of a resource. `getDifyBinding`
+   * filters soft-deleted, so the binding stops resolving. 404 when no live
+   * binding matched.
+   */
+  async delete(resourceId: string): Promise<{ resource_id: string }> {
+    const id = await softDeleteDifyBinding(this.db, resourceId);
+    if (id === undefined) {
+      throw engineNotFound(`dify binding for resource ${resourceId} not found`);
+    }
+    return { resource_id: id };
   }
 }
 

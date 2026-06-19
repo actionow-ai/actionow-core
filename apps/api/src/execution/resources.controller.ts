@@ -1,10 +1,11 @@
-import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 
 import type { AuthedRequest } from '../auth/api-key.guard.js';
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
+import { type PageEnvelope, toPageParams } from '../common/pagination.js';
 import type { ResourceDetail, ResourceSummary } from './resources.service.js';
 import { ResourcesService } from './resources.service.js';
 
@@ -24,12 +25,16 @@ export class ResourcesController {
     private readonly auth: AuthService,
   ) {}
 
-  /** List the resources visible to the caller (tenant + allowlist filtered). */
+  /** List the resources visible to the caller (tenant + allowlist filtered, paginated). */
   @Get()
-  @ApiOperation({ summary: 'List resources visible to the caller' })
-  async list(@Req() req: Request): Promise<ResourceSummary[]> {
+  @ApiOperation({ summary: 'List resources visible to the caller (paginated)' })
+  async list(
+    @Req() req: Request,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ResourceSummary>> {
     const ctx = this.auth.resolve(req);
-    return this.resources.list(ctx, allowlistOf(req));
+    return this.resources.list(ctx, allowlistOf(req), toPageParams({ cursor, limit }));
   }
 
   /** Fetch a single resource (with io_schema + pricing). 404 when not visible. */

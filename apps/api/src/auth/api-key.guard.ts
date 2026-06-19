@@ -22,6 +22,13 @@ export interface ApiKeyContext {
   readonly resourceAllowlist: string[];
   /** Per-(tenant,resource) requests-per-minute cap, or `null` for the default. */
   readonly rateLimit: number | null;
+  /**
+   * The route group (分组; Track 3/4) this key is bound to; `null` → resolve to
+   * the well-known `default` group at routing time. Scopes which channels of a
+   * resource the key may route to (Track 4) and, later, the customer price
+   * ratio (Track 5).
+   */
+  readonly routeGroupId: string | null;
 }
 
 /** An express request carrying the guard-populated {@link ApiKeyContext}. */
@@ -54,8 +61,10 @@ export const API_KEY_REPO = Symbol('API_KEY_REPO');
  * enforces the key's `resourceAllowlist` against the `:resourceId` route param.
  *
  * The plaintext key is never logged. The only non-key path is a `x-tenant-id`
- * dev fallback, gated to `NODE_ENV !== 'production'` so production always
- * requires a real key.
+ * dev fallback, gated to `NODE_ENV !== 'production'` AND an explicit
+ * `ALLOW_DEV_TENANT_HEADER` opt-in, so production always requires a real key and
+ * a misconfigured non-prod instance does not silently accept an unauthenticated
+ * tenant header.
  */
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
@@ -95,16 +104,18 @@ export class ApiKeyGuard implements CanActivate {
       apiKeyId: record.id,
       resourceAllowlist: record.resourceAllowlist,
       rateLimit: record.rateLimit,
+      routeGroupId: record.routeGroupId,
     };
     return true;
   }
 
   /**
    * Dev-only fallback: resolve the tenant from `x-tenant-id` when no key is
-   * presented. Disabled in production so a real API key is always required.
+   * presented. Disabled in production, and otherwise requires the explicit
+   * `ALLOW_DEV_TENANT_HEADER` opt-in, so a real API key is required by default.
    */
   private async resolveDevFallback(req: AuthedRequest): Promise<ApiKeyContext> {
-    if (this.env.NODE_ENV === 'production') {
+    if (this.env.NODE_ENV === 'production' || !this.env.ALLOW_DEV_TENANT_HEADER) {
       throw engineUnauthorized('missing API key');
     }
     const header = req.headers['x-tenant-id'];
@@ -122,6 +133,9 @@ export class ApiKeyGuard implements CanActivate {
       apiKeyId: null,
       resourceAllowlist: [],
       rateLimit: null,
+      // No key was presented → no bound group; routing resolves the `default`
+      // group (or falls back to all channels) for the dev tenant.
+      routeGroupId: null,
     };
   }
 

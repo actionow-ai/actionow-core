@@ -1,6 +1,7 @@
-import { Body, Controller, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { LoginThrottleGuard } from '../../auth/login-throttle.guard.js';
 import { engineInvalidInput } from '../../common/errors.js';
 import type { LoginResult } from './admin-auth.service.js';
 import { AdminAuthService } from './admin-auth.service.js';
@@ -13,6 +14,7 @@ interface LoginBody {
 
 @ApiTags('admin')
 @Controller('admin/auth')
+@UseGuards(LoginThrottleGuard)
 export class AdminAuthController {
   constructor(private readonly auth: AdminAuthService) {}
 

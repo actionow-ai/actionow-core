@@ -6,54 +6,121 @@ import {
 } from '@actionow/contracts';
 import type {
   AccountRow,
+  ApiKeyRow,
   Job,
   LedgerRow,
+  ModelGrantRow,
+  ModelRow,
   ModifierRow,
+  OAuthSessionListRow,
+  OfficialModelPriceRow,
   PricebookEntryRow,
+  RedemptionCodeRow,
   Resource,
+  RouteGroupChannelRow,
+  RouteGroupRow,
+  SecretRefView,
   TenantRow,
   UpstreamChannelRow,
+  UsageLogRow,
+  UsageRollupRow,
 } from '@actionow/db';
-import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { engineInvalidInput } from '../common/errors.js';
+import { IdempotencyInterceptor } from '../common/idempotency.interceptor.js';
+import { Idempotent } from '../common/idempotent.decorator.js';
+import { mapPageEnvelope, type PageEnvelope, toPageParams } from '../common/pagination.js';
 import { ZodBody } from '../common/zod.pipe.js';
-import { AdminService } from './admin.service.js';
+import { AdminService, type RelayTraceView, toRelayTraceView } from './admin.service.js';
 import { AdminGuard } from './auth/admin.guard.js';
 import { Roles } from './auth/roles.decorator.js';
 import {
+  type AddGroupChannelDto,
+  addGroupChannelSchema,
+  type AnalyticsUsageQueryDto,
+  analyticsUsageQuerySchema,
+  type CodexLoginComplete,
+  codexLoginCompleteSchema,
+  type CodexLoginStart,
+  codexLoginStartSchema,
   type CreateAccountDto,
   createAccountSchema,
   type CreateApiKeyDto,
   createApiKeySchema,
   type CreateChannelDto,
   createChannelSchema,
+  type CreateModelDto,
+  createModelSchema,
   type CreateModifierDto,
   createModifierSchema,
+  type CreateOAuthSessionDto,
+  createOAuthSessionSchema,
+  type CreateOfficialPriceDto,
+  createOfficialPriceSchema,
   type CreatePricebookDto,
   createPricebookSchema,
   type CreateResourceDto,
   createResourceSchema,
+  type CreateRouteGroupDto,
+  createRouteGroupSchema,
+  type CreateSecretDto,
+  createSecretSchema,
   type CreateTenantDto,
   createTenantSchema,
+  type GenerateCodesDto,
+  generateCodesSchema,
+  type GrantModelDto,
+  grantModelSchema,
+  type OfficialPricesQueryDto,
+  officialPricesQuerySchema,
+  type RedemptionCodesQueryDto,
+  redemptionCodesQuerySchema,
+  type RelayTraceQueryDto,
+  relayTraceQuerySchema,
+  type SyncChannelModelsDto,
+  syncChannelModelsSchema,
   type TopupDto,
   topupSchema,
+  type UpdateApiKeyGroupDto,
+  updateApiKeyGroupSchema,
+  type UpdateChannelDto,
+  updateChannelSchema,
+  type UpdateModelDto,
+  updateModelSchema,
+  type UpdateModifierDto,
+  updateModifierSchema,
+  type UpdateOfficialPriceDto,
+  updateOfficialPriceSchema,
+  type UpdatePricebookDto,
+  updatePricebookSchema,
+  type UpdateResourceDto,
+  updateResourceSchema,
+  type UpdateRouteGroupDto,
+  updateRouteGroupSchema,
+  type UpdateTenantDto,
+  updateTenantSchema,
 } from './dto/admin.dto.js';
 
-const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 200;
-
-/** Clamp a `limit` query param to `[1, MAX_LIMIT]`, defaulting when absent/NaN. */
-function parseLimit(limit: string | undefined): number {
-  const parsed = limit === undefined ? DEFAULT_LIMIT : Number.parseInt(limit, 10);
-  return Number.isNaN(parsed) ? DEFAULT_LIMIT : Math.min(Math.max(1, parsed), MAX_LIMIT);
-}
-
 // ----- JSON views (bigint money serialized as decimal µcredit strings) -----
-// TenantView / AccountView are now defined once as zod schemas in
+// TenantView / AccountView are defined ONCE as zod schemas in
 // @actionow/contracts — the single source of truth shared with the frontend
-// (contract-first pattern; see docs B1). The `toView` mappers below `.parse()`
-// against them so a drifting mapper fails loudly instead of shipping bad JSON.
+// (contract-first). The `toView` mappers below `.parse()` against them so a
+// drifting mapper fails loudly instead of shipping bad JSON.
 
 interface ApiKeyCreatedView {
   id: string;
@@ -67,7 +134,68 @@ interface ApiKeyView {
   resource_allowlist: string[];
   rate_limit: number | null;
   status: string;
+  /** The bound route group (Track 3); `null` → the `default` group at routing time. */
+  route_group_id: string | null;
   created_at: string;
+}
+
+/** A created encrypted secret. EXCLUDES the plaintext value by construction. */
+interface SecretView {
+  id: string;
+  provider: string;
+  created_at: string;
+}
+
+/**
+ * A credential's metadata for the list/get-by-id surface. EXCLUDES the secret
+ * material by construction: only the locator/provider/timestamps are projected
+ * (the `enc` ciphertext lives in `secret_material` and is never selected). `id`
+ * is usable as a channel `credentialRef`.
+ */
+interface SecretMetadataView {
+  id: string;
+  provider: string;
+  locator: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * A registered OAuth-subscription session. EXCLUDES the access/refresh tokens by
+ * construction (they are encrypted at rest and never leave the service). `id` is
+ * the `secret_ref` id usable as a channel `credentialRef`.
+ */
+interface OAuthSessionView {
+  id: string;
+  provider_kind: string;
+  account_label: string | null;
+  account_id: string | null;
+}
+
+/**
+ * A row of the token-free OAuth-session listing. EXCLUDES the access/refresh
+ * tokens by construction (they never leave the service); `id` is the
+ * `secret_ref` id usable as a channel `credentialRef`. Timestamps are ISO-8601
+ * strings (or `null` when unset).
+ */
+interface OAuthSessionListView {
+  id: string;
+  provider_kind: string;
+  account_label: string | null;
+  account_id: string | null;
+  status: string;
+  expires_at: string | null;
+  last_refresh_at: string | null;
+}
+
+/**
+ * The turnkey codex login-start response: the `authorize_url` the operator opens
+ * and the sealed `state` (the PKCE verifier, encrypted) to echo back to
+ * `.../complete`. Carries NO secret material in the clear.
+ */
+interface CodexLoginStartView {
+  authorize_url: string;
+  state: string;
 }
 
 interface ResourceView {
@@ -87,8 +215,16 @@ interface ChannelView {
   resource_id: string;
   provider_type: string;
   credential_ref: string | null;
+  endpoint: string | null;
+  model: string | null;
+  proxy_ref: string | null;
+  config: Record<string, unknown> | null;
   weight: number;
   status: string;
+  /** Operator cost µUSD/1M INPUT tokens (Track 5); bigint → decimal string, null when unset. */
+  input_cost_per_1m: string | null;
+  /** Operator cost µUSD/1M OUTPUT tokens (Track 5); bigint → decimal string, null when unset. */
+  output_cost_per_1m: string | null;
 }
 
 interface PricebookView {
@@ -138,6 +274,117 @@ interface JobView {
   created_at: string;
 }
 
+interface ModelView {
+  id: string;
+  name: string;
+  display: string | null;
+  modality: string;
+  capabilities: Record<string, boolean>;
+  visibility: string;
+  resource_id: string;
+  input_price: string;
+  output_price: string;
+  status: string;
+  created_at: string;
+}
+
+interface UsageLogView {
+  id: string;
+  tenant_id: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost: string;
+  latency_ms: number | null;
+  status: string;
+  created_at: string;
+}
+
+/** One aggregated usage bucket. Token/cost/margin sums are bigint → decimal strings. */
+interface UsageRollupView {
+  bucket: string;
+  requests: number;
+  input_tokens: string;
+  output_tokens: string;
+  cost: string;
+  /** sum(provider_cost) µUSD — the served channels' actual cost (Track 5). */
+  provider_cost: string;
+  /** sum(cost) − sum(provider_cost) µUSD — the operator margin (Track 5). */
+  margin: string;
+  errors: number;
+}
+
+/** One tenant grant of a model (model-grants listing). */
+interface ModelGrantView {
+  id: string;
+  model_id: string;
+  tenant_id: string;
+  created_at: string;
+}
+
+/**
+ * One official model price (Track 2 catalog). The stored µUSD/1M integers are
+ * serialized as decimal strings (never coerced through a float) — the
+ * `*_price_per_1m` fields are µUSD per 1M tokens.
+ */
+interface OfficialPriceView {
+  id: string;
+  provider: string;
+  model_slug: string;
+  display_name: string | null;
+  input_price_per_1m: string;
+  output_price_per_1m: string;
+  cached_input_price_per_1m: string | null;
+  source_url: string | null;
+  effective_at: string | null;
+  notes: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * A route group (分组; Track 3). `group_ratio_bps` is the customer-price ratio in
+ * integer basis points (`10000 = 1.0×`) — returned as a number (it is a plain
+ * int32, not bigint money).
+ */
+interface RouteGroupView {
+  id: string;
+  name: string;
+  group_ratio_bps: number;
+  status: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One channel membership of a route group (Track 3): the `channel_id` plus its
+ * per-(group,channel) routing knobs `priority` (HIGHER = tried first) + `weight`.
+ */
+interface RouteGroupChannelView {
+  group_id: string;
+  channel_id: string;
+  priority: number;
+  weight: number;
+  created_at: string;
+}
+
+/**
+ * A minted redemption code (admin mint listing). The `code` value IS the row's
+ * identity on this admin-only surface, so it is returned; no unrelated secret is
+ * exposed. `credit_amount` is the bigint µcredit grant as a decimal string.
+ */
+interface RedemptionCodeView {
+  code: string;
+  credit_amount: string;
+  status: string;
+  redeemed_by_tenant: string | null;
+  redeemed_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+}
+
 /**
  * Admin CRUD over the catalog/pricing/tenants/keys (Phase 5, Task 4). Every
  * route requires an admin JWT with the `admin` role (the {@link AdminGuard} +
@@ -149,6 +396,10 @@ interface JobView {
 @ApiBearerAuth('jwt')
 @UseGuards(AdminGuard)
 @Roles('admin')
+// Track D5: `Idempotency-Key` replay. The interceptor acts ONLY on POSTs marked
+// with `@Idempotent()` (the non-secret allowlist below); every other route is
+// untouched. Secret-returning POSTs are deliberately left undecorated.
+@UseInterceptors(IdempotencyInterceptor)
 @Controller('admin')
 export class AdminController {
   constructor(private readonly admin: AdminService) {}
@@ -157,6 +408,7 @@ export class AdminController {
 
   @Post('tenants')
   @HttpCode(201)
+  @Idempotent()
   @ApiOperation({ summary: 'Create a tenant' })
   async createTenant(
     @Body(new ZodBody(createTenantSchema)) dto: CreateTenantDto,
@@ -165,15 +417,35 @@ export class AdminController {
   }
 
   @Get('tenants')
-  @ApiOperation({ summary: 'List tenants' })
-  async listTenants(): Promise<TenantView[]> {
-    return (await this.admin.listTenants()).map(toTenantView);
+  @ApiOperation({ summary: 'List tenants (paginated)' })
+  async listTenants(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<TenantView>> {
+    const result = await this.admin.listTenants(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toTenantView);
+  }
+
+  @Get('tenants/:id')
+  @ApiOperation({ summary: 'Get one tenant by id or 404' })
+  async getTenant(@Param('id') id: string): Promise<TenantView> {
+    return toTenantView(await this.admin.getTenant(id));
+  }
+
+  @Patch('tenants/:id')
+  @ApiOperation({ summary: 'Update a tenant (isolation mode)' })
+  async updateTenant(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateTenantSchema)) dto: UpdateTenantDto,
+  ): Promise<TenantView> {
+    return toTenantView(await this.admin.updateTenant(id, dto));
   }
 
   // ----- accounts -----
 
   @Post('accounts')
   @HttpCode(201)
+  @Idempotent()
   @ApiOperation({ summary: 'Create an account (opening balance in credits)' })
   async createAccount(
     @Body(new ZodBody(createAccountSchema)) dto: CreateAccountDto,
@@ -183,6 +455,7 @@ export class AdminController {
 
   @Post('accounts/:id/topup')
   @HttpCode(200)
+  @Idempotent()
   @ApiOperation({ summary: 'Top up an account (amount in credits → µcredits)' })
   async topup(
     @Param('id') id: string,
@@ -190,6 +463,26 @@ export class AdminController {
   ): Promise<{ account_id: string; balance: string }> {
     const { balanceMicro } = await this.admin.topup(id, dto);
     return { account_id: id, balance: balanceMicro };
+  }
+
+  @Get('accounts')
+  @ApiOperation({ summary: 'List accounts (balance/held view, paginated)' })
+  async listAccounts(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<AccountView>> {
+    const result = await this.admin.listAccounts(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toAccountView);
+  }
+
+  @Get('accounts/:id')
+  @ApiOperation({
+    summary: 'Get one account (balance/held view) or 404 — balance moves only via topup/ledger',
+  })
+  async getAccount(@Param('id') id: string): Promise<AccountView> {
+    // No PATCH/DELETE for accounts: the balance/held are ledger-owned and only
+    // move through topup + the settle/hold paths, never a direct admin write.
+    return toAccountView(await this.admin.getAccountById(id));
   }
 
   // ----- api keys -----
@@ -205,23 +498,145 @@ export class AdminController {
   }
 
   @Get('api-keys')
-  @ApiOperation({ summary: 'List a tenant’s API keys (no hashes)' })
-  async listApiKeys(@Query('tenantId') tenantId: string): Promise<ApiKeyView[]> {
-    const rows = await this.admin.listApiKeys(tenantId);
-    return rows.map((r) => ({
-      id: r.id,
-      tenant_id: r.tenantId,
-      resource_allowlist: r.resourceAllowlist,
-      rate_limit: r.rateLimit,
-      status: r.status,
-      created_at: r.createdAt.toISOString(),
-    }));
+  @ApiOperation({ summary: 'List a tenant’s API keys (no hashes, paginated)' })
+  async listApiKeys(
+    @Query('tenantId') tenantId: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ApiKeyView>> {
+    const result = await this.admin.listApiKeys(tenantId, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toApiKeyView);
+  }
+
+  @Patch('api-keys/:id/group')
+  @ApiOperation({ summary: "(Re)bind an API key's route group (routeGroupId: uuid | null)" })
+  async bindApiKeyGroup(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateApiKeyGroupSchema)) dto: UpdateApiKeyGroupDto,
+  ): Promise<{ id: string; route_group_id: string | null }> {
+    await this.admin.setApiKeyGroup(id, dto);
+    return { id, route_group_id: dto.routeGroupId };
+  }
+
+  @Delete('api-keys/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Revoke (soft-delete) an API key — the key is rejected with 401 after' })
+  async revokeApiKey(@Param('id') id: string): Promise<void> {
+    await this.admin.revokeApiKey(id);
+  }
+
+  // ----- secrets -----
+
+  @Post('secrets')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Create an encrypted-at-rest credential (returns its ref id)' })
+  async createSecret(
+    @Body(new ZodBody(createSecretSchema)) dto: CreateSecretDto,
+  ): Promise<SecretView> {
+    const row = await this.admin.createSecret(dto);
+    return { id: row.id, provider: row.provider, created_at: row.createdAt.toISOString() };
+  }
+
+  @Get('secrets')
+  @ApiOperation({ summary: 'List credentials (metadata only, NO material, paginated)' })
+  async listSecrets(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<SecretMetadataView>> {
+    const result = await this.admin.listSecrets(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toSecretMetadataView);
+  }
+
+  @Get('secrets/:id')
+  @ApiOperation({ summary: 'Get one credential (metadata only, NO material) or 404' })
+  async getSecret(@Param('id') id: string): Promise<SecretMetadataView> {
+    return toSecretMetadataView(await this.admin.getSecret(id));
+  }
+
+  @Delete('secrets/:id')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: 'Revoke (soft-delete) a credential — resolution returns undefined after',
+  })
+  async revokeSecret(@Param('id') id: string): Promise<void> {
+    await this.admin.revokeSecret(id);
+  }
+
+  // ----- oauth sessions (BYO subscription) -----
+
+  @Post('oauth-sessions')
+  @HttpCode(201)
+  @ApiOperation({
+    summary: 'Register an OAuth subscription session (paste-auth; operator BYO, ToS-acknowledged)',
+  })
+  async createOAuthSession(
+    @Body(new ZodBody(createOAuthSessionSchema)) dto: CreateOAuthSessionDto,
+  ): Promise<OAuthSessionView> {
+    const session = await this.admin.createOAuthSession(dto);
+    return {
+      id: session.id,
+      provider_kind: session.providerKind,
+      account_label: session.accountLabel ?? null,
+      account_id: session.accountId ?? null,
+    };
+  }
+
+  @Get('oauth-sessions')
+  @ApiOperation({ summary: 'List registered OAuth subscription sessions (token-free, paginated)' })
+  async listOAuthSessions(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<OAuthSessionListView>> {
+    const result = await this.admin.listOAuthSessions(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.secretRefId, toOAuthSessionListView);
+  }
+
+  @Delete('oauth-sessions/:id')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: 'Revoke (soft-delete) an OAuth session — channel resolution returns undefined after',
+  })
+  async revokeOAuthSession(@Param('id') id: string): Promise<void> {
+    await this.admin.revokeOAuthSession(id);
+  }
+
+  @Post('oauth-sessions/codex/login/start')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Begin a turnkey server-side codex OAuth login (returns authorize_url + sealed state)',
+  })
+  startCodexLogin(
+    // The `@Body` pipe validates the explicit ToS ack (`z.literal(true)`); the
+    // start path needs no field from the validated body, so the pipe is the
+    // sole consumer of `dto` (kept for the route's request contract + swagger).
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    @Body(new ZodBody(codexLoginStartSchema)) dto: CodexLoginStart,
+  ): CodexLoginStartView {
+    return this.admin.startCodexLogin();
+  }
+
+  @Post('oauth-sessions/codex/login/complete')
+  @HttpCode(201)
+  @ApiOperation({
+    summary: 'Complete a turnkey codex OAuth login (exchange the code; tokens never returned)',
+  })
+  async completeCodexLogin(
+    @Body(new ZodBody(codexLoginCompleteSchema)) dto: CodexLoginComplete,
+  ): Promise<OAuthSessionView> {
+    const session = await this.admin.completeCodexLogin(dto);
+    return {
+      id: session.id,
+      provider_kind: session.providerKind,
+      account_label: session.accountLabel ?? null,
+      account_id: session.accountId ?? null,
+    };
   }
 
   // ----- resources -----
 
   @Post('resources')
   @HttpCode(201)
+  @Idempotent()
   @ApiOperation({ summary: 'Register a catalog resource (+ io_schema)' })
   async createResource(
     @Body(new ZodBody(createResourceSchema)) dto: CreateResourceDto,
@@ -230,13 +645,33 @@ export class AdminController {
   }
 
   @Get('resources')
-  @ApiOperation({ summary: 'List catalog resources' })
-  async listResources(): Promise<ResourceView[]> {
-    return (await this.admin.listResources()).map(toResourceView);
+  @ApiOperation({ summary: 'List catalog resources (paginated)' })
+  async listResources(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ResourceView>> {
+    const result = await this.admin.listResources(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toResourceView);
+  }
+
+  @Get('resources/:id')
+  @ApiOperation({ summary: 'Get one catalog resource by id or 404' })
+  async getResource(@Param('id') id: string): Promise<ResourceView> {
+    return toResourceView(await this.admin.getResource(id));
+  }
+
+  @Patch('resources/:id')
+  @ApiOperation({ summary: 'Update a resource (status only — key fields are immutable)' })
+  async updateResource(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateResourceSchema)) dto: UpdateResourceDto,
+  ): Promise<ResourceView> {
+    return toResourceView(await this.admin.updateResource(id, dto));
   }
 
   @Post('resources/:id/channels')
   @HttpCode(201)
+  @Idempotent()
   @ApiOperation({ summary: 'Add an upstream channel to a resource' })
   async createChannel(
     @Param('id') id: string,
@@ -245,10 +680,70 @@ export class AdminController {
     return toChannelView(await this.admin.createChannel(id, dto));
   }
 
+  @Get('resources/:id/channels')
+  @ApiOperation({ summary: "List a resource's upstream channels (incl. disabled, paginated)" })
+  async listChannels(
+    @Param('id') id: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ChannelView>> {
+    const result = await this.admin.listResourceChannels(id, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toChannelView);
+  }
+
+  @Get('resources/:id/channels/:channelId')
+  @ApiOperation({ summary: 'Get one channel of a resource or 404 (channel ∉ resource → 404)' })
+  async getChannel(
+    @Param('id') id: string,
+    @Param('channelId') channelId: string,
+  ): Promise<ChannelView> {
+    return toChannelView(await this.admin.getChannel(id, channelId));
+  }
+
+  @Patch('resources/:id/channels/:channelId')
+  @ApiOperation({ summary: 'Update an upstream channel (weight/status/endpoint/model/...)' })
+  async updateChannel(
+    @Param('channelId') channelId: string,
+    @Body(new ZodBody(updateChannelSchema)) dto: UpdateChannelDto,
+  ): Promise<ChannelView> {
+    return toChannelView(await this.admin.updateChannel(channelId, dto));
+  }
+
+  @Delete('resources/:id/channels/:channelId')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete an upstream channel (channel ∉ resource → 404)' })
+  async deleteChannel(
+    @Param('id') id: string,
+    @Param('channelId') channelId: string,
+  ): Promise<void> {
+    await this.admin.deleteChannel(id, channelId);
+  }
+
+  @Post('resources/:id/channels/:channelId/sync-models')
+  @HttpCode(200)
+  @Idempotent()
+  @ApiOperation({
+    summary: "Sync a channel provider's available models into model rows (multi-model routing)",
+  })
+  async syncChannelModels(
+    @Param('id') id: string,
+    @Param('channelId') channelId: string,
+    @Body(new ZodBody(syncChannelModelsSchema)) dto: SyncChannelModelsDto,
+  ): Promise<{
+    resource_id: string;
+    created: string[];
+    updated: string[];
+    total: number;
+    summary: { name: string; priced: string }[];
+  }> {
+    return this.admin.syncChannelModels(id, channelId, dto);
+  }
+
   // ----- pricebook -----
 
   @Post('pricebook')
   @HttpCode(201)
+  @Idempotent()
   @ApiOperation({ summary: 'Add a pricebook entry (fixed amount in credits)' })
   async createPricebook(
     @Body(new ZodBody(createPricebookSchema)) dto: CreatePricebookDto,
@@ -257,15 +752,43 @@ export class AdminController {
   }
 
   @Get('pricebook')
-  @ApiOperation({ summary: 'List a resource’s pricebook entries' })
-  async listPricebook(@Query('resourceId') resourceId: string): Promise<PricebookView[]> {
-    return (await this.admin.listPricebook(resourceId)).map(toPricebookView);
+  @ApiOperation({ summary: 'List a resource’s pricebook entries (paginated)' })
+  async listPricebook(
+    @Query('resourceId') resourceId: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<PricebookView>> {
+    const result = await this.admin.listPricebook(resourceId, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toPricebookView);
+  }
+
+  @Get('pricebook/:id')
+  @ApiOperation({ summary: 'Get one pricebook entry by id or 404' })
+  async getPricebook(@Param('id') id: string): Promise<PricebookView> {
+    return toPricebookView(await this.admin.getPricebook(id));
+  }
+
+  @Patch('pricebook/:id')
+  @ApiOperation({ summary: 'Update a pricebook entry (fixedCredits → µcredit spec.amount)' })
+  async updatePricebook(
+    @Param('id') id: string,
+    @Body(new ZodBody(updatePricebookSchema)) dto: UpdatePricebookDto,
+  ): Promise<PricebookView> {
+    return toPricebookView(await this.admin.updatePricebook(id, dto));
+  }
+
+  @Delete('pricebook/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete a pricebook entry' })
+  async deletePricebook(@Param('id') id: string): Promise<void> {
+    await this.admin.deletePricebook(id);
   }
 
   // ----- modifiers -----
 
   @Post('modifiers')
   @HttpCode(201)
+  @Idempotent()
   @ApiOperation({ summary: 'Add a pricing modifier (scope-aware, §9.2)' })
   async createModifier(
     @Body(new ZodBody(createModifierSchema)) dto: CreateModifierDto,
@@ -274,48 +797,405 @@ export class AdminController {
   }
 
   @Get('modifiers')
-  @ApiOperation({ summary: 'List pricing modifiers' })
-  async listModifiers(): Promise<ModifierView[]> {
-    return (await this.admin.listModifiers()).map(toModifierView);
+  @ApiOperation({ summary: 'List pricing modifiers (paginated)' })
+  async listModifiers(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ModifierView>> {
+    const result = await this.admin.listModifiers(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toModifierView);
+  }
+
+  @Get('modifiers/:id')
+  @ApiOperation({ summary: 'Get one pricing modifier by id or 404' })
+  async getModifier(@Param('id') id: string): Promise<ModifierView> {
+    return toModifierView(await this.admin.getModifier(id));
+  }
+
+  @Patch('modifiers/:id')
+  @ApiOperation({ summary: 'Update a pricing modifier (credit-op value → µcredits)' })
+  async updateModifier(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateModifierSchema)) dto: UpdateModifierDto,
+  ): Promise<ModifierView> {
+    return toModifierView(await this.admin.updateModifier(id, dto));
+  }
+
+  @Delete('modifiers/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete a pricing modifier' })
+  async deleteModifier(@Param('id') id: string): Promise<void> {
+    await this.admin.deleteModifier(id);
+  }
+
+  // ----- models -----
+
+  @Post('models')
+  @HttpCode(201)
+  @Idempotent()
+  @ApiOperation({ summary: 'Register a relay model (name → chat resource)' })
+  async createModel(@Body(new ZodBody(createModelSchema)) dto: CreateModelDto): Promise<ModelView> {
+    return toModelView(await this.admin.createModel(dto));
+  }
+
+  @Get('models')
+  @ApiOperation({ summary: 'List the relay model catalog (paginated)' })
+  async listModels(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ModelView>> {
+    const result = await this.admin.listModels(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toModelView);
+  }
+
+  @Get('models/:name')
+  @ApiOperation({ summary: 'Get one relay model by name or 404' })
+  async getModel(@Param('name') name: string): Promise<ModelView> {
+    return toModelView(await this.admin.getModel(name));
+  }
+
+  @Patch('models/:name')
+  @ApiOperation({ summary: 'Update a relay model (display/capabilities/prices/visibility/status)' })
+  async updateModel(
+    @Param('name') name: string,
+    @Body(new ZodBody(updateModelSchema)) dto: UpdateModelDto,
+  ): Promise<ModelView> {
+    return toModelView(await this.admin.updateModel(name, dto));
+  }
+
+  @Delete('models/:name')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete a relay model — it stops routing after' })
+  async deleteModel(@Param('name') name: string): Promise<void> {
+    await this.admin.deleteModel(name);
+  }
+
+  @Post('models/:name/grants')
+  @HttpCode(201)
+  @Idempotent()
+  @ApiOperation({ summary: 'Grant a tenant-visibility model to a tenant' })
+  async grantModel(
+    @Param('name') name: string,
+    @Body(new ZodBody(grantModelSchema)) dto: GrantModelDto,
+  ): Promise<{ ok: true }> {
+    await this.admin.grantModel(name, dto);
+    return { ok: true };
+  }
+
+  @Get('models/:name/grants')
+  @ApiOperation({
+    summary: "List a model's tenant grants (paginated); 404 if the model is unknown",
+  })
+  async listModelGrants(
+    @Param('name') name: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ModelGrantView>> {
+    const result = await this.admin.listModelGrants(name, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toModelGrantView);
+  }
+
+  @Delete('models/:name/grants/:tenantId')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Revoke (hard-delete) a tenant grant of a model' })
+  async deleteModelGrant(
+    @Param('name') name: string,
+    @Param('tenantId') tenantId: string,
+  ): Promise<void> {
+    await this.admin.deleteModelGrant(name, tenantId);
   }
 
   // ----- jobs -----
 
   @Get('jobs')
-  @ApiOperation({ summary: 'List a tenant’s jobs (keyset)' })
+  @ApiOperation({ summary: 'List a tenant’s jobs (keyset, paginated)' })
   async listJobs(
     @Query('tenantId') tenantId: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
-  ): Promise<{ jobs: JobView[]; next_cursor: string | null }> {
-    const effective = parseLimit(limit);
-    const rows = await this.admin.listJobs(tenantId, cursor, effective);
-    const last = rows.at(-1);
-    return {
-      jobs: rows.map(toJobView),
-      next_cursor:
-        rows.length === effective && last !== undefined ? last.createdAt.toISOString() : null,
-    };
+  ): Promise<PageEnvelope<JobView>> {
+    const result = await this.admin.listJobs(tenantId, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toJobView);
   }
 
   // ----- ledger -----
 
   @Get('ledger')
-  @ApiOperation({ summary: 'List a tenant’s ledger transactions (keyset)' })
+  @ApiOperation({ summary: 'List a tenant’s ledger transactions (keyset, paginated)' })
   async listLedger(
     @Query('tenantId') tenantId: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
-  ): Promise<{ transactions: LedgerView[]; next_cursor: string | null }> {
-    const effective = parseLimit(limit);
-    const rows = await this.admin.listLedger(tenantId, cursor, effective);
-    const last = rows.at(-1);
-    return {
-      transactions: rows.map(toLedgerView),
-      next_cursor:
-        rows.length === effective && last !== undefined ? last.createdAt.toISOString() : null,
-    };
+  ): Promise<PageEnvelope<LedgerView>> {
+    const result = await this.admin.listLedger(tenantId, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toLedgerView);
   }
+
+  // ----- redemption codes -----
+
+  @Post('redemption-codes')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Batch-mint redemption codes (credits → µcredits)' })
+  async generateCodes(
+    @Body(new ZodBody(generateCodesSchema)) dto: GenerateCodesDto,
+  ): Promise<{ codes: string[]; credit_amount: string }> {
+    const { codes, creditAmount } = await this.admin.generateCodes(dto);
+    return { codes, credit_amount: creditAmount.toString() };
+  }
+
+  @Get('redemption-codes')
+  @ApiOperation({ summary: 'List minted redemption codes (status filter, paginated)' })
+  async listRedemptionCodes(
+    @Query() raw: Record<string, string>,
+  ): Promise<PageEnvelope<RedemptionCodeView>> {
+    const q = parseRedemptionCodesQuery(raw);
+    const filter = q.status !== undefined ? { status: q.status } : {};
+    const page = toPageParams({
+      ...(q.limit !== undefined ? { limit: String(q.limit) } : {}),
+      ...(q.cursor !== undefined ? { cursor: q.cursor } : {}),
+    });
+    const result = await this.admin.listRedemptionCodes(filter, page);
+    return mapPageEnvelope(result, (r) => r.code, toRedemptionCodeView);
+  }
+
+  // ----- official model price catalog (Track 2) -----
+
+  @Post('official-prices')
+  @HttpCode(201)
+  @Idempotent()
+  @ApiOperation({
+    summary: 'Add an official model price (USD/1M → µUSD/1M); (provider,slug) unique',
+  })
+  async createOfficialPrice(
+    @Body(new ZodBody(createOfficialPriceSchema)) dto: CreateOfficialPriceDto,
+  ): Promise<OfficialPriceView> {
+    return toOfficialPriceView(await this.admin.createOfficialPrice(dto));
+  }
+
+  @Get('official-prices')
+  @ApiOperation({ summary: 'List the official price catalog (optional ?provider=, paginated)' })
+  async listOfficialPrices(
+    @Query() raw: Record<string, string>,
+  ): Promise<PageEnvelope<OfficialPriceView>> {
+    const q = parseOfficialPricesQuery(raw);
+    const filter = q.provider !== undefined ? { provider: q.provider } : {};
+    const page = toPageParams({
+      ...(q.limit !== undefined ? { limit: String(q.limit) } : {}),
+      ...(q.cursor !== undefined ? { cursor: q.cursor } : {}),
+    });
+    const result = await this.admin.listOfficialPrices(filter, page);
+    return mapPageEnvelope(result, (r) => r.id, toOfficialPriceView);
+  }
+
+  @Get('official-prices/:id')
+  @ApiOperation({ summary: 'Get one official price by id or 404' })
+  async getOfficialPrice(@Param('id') id: string): Promise<OfficialPriceView> {
+    return toOfficialPriceView(await this.admin.getOfficialPrice(id));
+  }
+
+  @Patch('official-prices/:id')
+  @ApiOperation({ summary: 'Update an official price (USD/1M → µUSD/1M)' })
+  async updateOfficialPrice(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateOfficialPriceSchema)) dto: UpdateOfficialPriceDto,
+  ): Promise<OfficialPriceView> {
+    return toOfficialPriceView(await this.admin.updateOfficialPrice(id, dto));
+  }
+
+  @Delete('official-prices/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete an official price (frees the (provider,slug) pair)' })
+  async deleteOfficialPrice(@Param('id') id: string): Promise<void> {
+    await this.admin.deleteOfficialPrice(id);
+  }
+
+  // ----- route groups (分组; Track 3) -----
+
+  @Post('route-groups')
+  @HttpCode(201)
+  @Idempotent()
+  @ApiOperation({ summary: 'Create a route group (group_ratio_bps in basis points; name unique)' })
+  async createRouteGroup(
+    @Body(new ZodBody(createRouteGroupSchema)) dto: CreateRouteGroupDto,
+  ): Promise<RouteGroupView> {
+    return toRouteGroupView(await this.admin.createRouteGroup(dto));
+  }
+
+  @Get('route-groups')
+  @ApiOperation({ summary: 'List route groups (paginated)' })
+  async listRouteGroups(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<RouteGroupView>> {
+    const result = await this.admin.listRouteGroups(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toRouteGroupView);
+  }
+
+  @Get('route-groups/:id')
+  @ApiOperation({ summary: 'Get one route group by id or 404' })
+  async getRouteGroup(@Param('id') id: string): Promise<RouteGroupView> {
+    return toRouteGroupView(await this.admin.getRouteGroup(id));
+  }
+
+  @Patch('route-groups/:id')
+  @ApiOperation({ summary: 'Update a route group (name/group_ratio_bps/status/description)' })
+  async updateRouteGroup(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateRouteGroupSchema)) dto: UpdateRouteGroupDto,
+  ): Promise<RouteGroupView> {
+    return toRouteGroupView(await this.admin.updateRouteGroup(id, dto));
+  }
+
+  @Delete('route-groups/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete a route group (frees the name; drops from routing)' })
+  async deleteRouteGroup(@Param('id') id: string): Promise<void> {
+    await this.admin.deleteRouteGroup(id);
+  }
+
+  @Put('route-groups/:id/channels/:channelId')
+  @ApiOperation({
+    summary: "Add/update a channel's membership in a route group (priority/weight; upserts)",
+  })
+  async addGroupChannel(
+    @Param('id') id: string,
+    @Param('channelId') channelId: string,
+    @Body(new ZodBody(addGroupChannelSchema)) dto: AddGroupChannelDto,
+  ): Promise<RouteGroupChannelView> {
+    return toRouteGroupChannelView(await this.admin.addChannelToGroup(id, channelId, dto));
+  }
+
+  @Get('route-groups/:id/channels')
+  @ApiOperation({ summary: "List a group's channel memberships (with priority/weight, paginated)" })
+  async listGroupChannels(
+    @Param('id') id: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<RouteGroupChannelView>> {
+    const result = await this.admin.listGroupChannels(id, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.channelId, toRouteGroupChannelView);
+  }
+
+  @Delete('route-groups/:id/channels/:channelId')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Remove a channel from a route group (hard-deletes the membership)' })
+  async removeGroupChannel(
+    @Param('id') id: string,
+    @Param('channelId') channelId: string,
+  ): Promise<void> {
+    await this.admin.removeChannelFromGroup(id, channelId);
+  }
+
+  // ----- usage stats -----
+
+  @Get('usage')
+  @ApiOperation({ summary: 'Global per-call usage log (all tenants, paginated)' })
+  async listUsage(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<UsageLogView>> {
+    const result = await this.admin.listUsageGlobal(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toUsageLogView);
+  }
+
+  // ----- relay traces (upstream audit) -----
+
+  @Get('relay-traces')
+  @ApiOperation({ summary: 'Upstream relay audit trace (filtered, paginated, token-redacted)' })
+  async listRelayTraces(
+    @Query() raw: Record<string, string>,
+  ): Promise<PageEnvelope<RelayTraceView>> {
+    const q = parseRelayTraceQuery(raw);
+    const filter = {
+      ...(q.jobId !== undefined ? { jobId: q.jobId } : {}),
+      ...(q.tenantId !== undefined ? { tenantId: q.tenantId } : {}),
+      ...(q.providerType !== undefined ? { providerType: q.providerType } : {}),
+      ...(q.channelId !== undefined ? { channelId: q.channelId } : {}),
+      ...(q.from !== undefined ? { from: new Date(q.from) } : {}),
+      ...(q.to !== undefined ? { to: new Date(q.to) } : {}),
+    };
+    const page = toPageParams({
+      ...(q.limit !== undefined ? { limit: String(q.limit) } : {}),
+      ...(q.cursor !== undefined ? { cursor: q.cursor } : {}),
+    });
+    const result = await this.admin.listRelayTraces(filter, page);
+    return mapPageEnvelope(result, (r) => r.id, toRelayTraceView);
+  }
+
+  // ----- analytics -----
+
+  @Get('analytics/usage')
+  @ApiOperation({ summary: 'Usage rollups by day/model/tenant/channel/api-key' })
+  async analyticsUsage(@Query() raw: Record<string, string>): Promise<UsageRollupView[]> {
+    const q = parseAnalyticsUsageQuery(raw);
+    const rows = await this.admin.analyticsUsage(q);
+    return rows.map(toUsageRollupView);
+  }
+}
+
+/**
+ * Validate the analytics-usage query against its zod schema. Query params arrive
+ * as strings; on failure we throw an `invalid_input` engine error so the global
+ * filter renders the §4.7 envelope (400) — mirroring the {@link ZodBody} pipe,
+ * since query params aren't routed through it.
+ */
+function parseAnalyticsUsageQuery(raw: Record<string, string>): AnalyticsUsageQueryDto {
+  const result = analyticsUsageQuerySchema.safeParse(raw);
+  if (!result.success) {
+    const first = result.error.issues[0];
+    const path = first?.path.join('.') ?? '';
+    const detail = first === undefined ? 'invalid query' : `${path}: ${first.message}`;
+    throw engineInvalidInput(detail);
+  }
+  return result.data;
+}
+
+/**
+ * Validate the relay-traces query against its zod schema (same 400-on-failure
+ * contract as {@link parseAnalyticsUsageQuery}, since query params bypass the
+ * {@link ZodBody} pipe). A bad cursor is caught downstream by `toPageParams`.
+ */
+function parseRelayTraceQuery(raw: Record<string, string>): RelayTraceQueryDto {
+  const result = relayTraceQuerySchema.safeParse(raw);
+  if (!result.success) {
+    const first = result.error.issues[0];
+    const path = first?.path.join('.') ?? '';
+    const detail = first === undefined ? 'invalid query' : `${path}: ${first.message}`;
+    throw engineInvalidInput(detail);
+  }
+  return result.data;
+}
+
+/**
+ * Validate the redemption-codes query against its zod schema (same 400-on-failure
+ * contract as {@link parseRelayTraceQuery}, since query params bypass the
+ * {@link ZodBody} pipe).
+ */
+function parseRedemptionCodesQuery(raw: Record<string, string>): RedemptionCodesQueryDto {
+  const result = redemptionCodesQuerySchema.safeParse(raw);
+  if (!result.success) {
+    const first = result.error.issues[0];
+    const path = first?.path.join('.') ?? '';
+    const detail = first === undefined ? 'invalid query' : `${path}: ${first.message}`;
+    throw engineInvalidInput(detail);
+  }
+  return result.data;
+}
+
+/**
+ * Validate the official-prices query against its zod schema (same 400-on-failure
+ * contract as {@link parseRedemptionCodesQuery}, since query params bypass the
+ * {@link ZodBody} pipe).
+ */
+function parseOfficialPricesQuery(raw: Record<string, string>): OfficialPricesQueryDto {
+  const result = officialPricesQuerySchema.safeParse(raw);
+  if (!result.success) {
+    const first = result.error.issues[0];
+    const path = first?.path.join('.') ?? '';
+    const detail = first === undefined ? 'invalid query' : `${path}: ${first.message}`;
+    throw engineInvalidInput(detail);
+  }
+  return result.data;
 }
 
 function toTenantView(row: TenantRow): TenantView {
@@ -325,6 +1205,62 @@ function toTenantView(row: TenantRow): TenantView {
     isolation_mode: row.isolationMode,
     created_at: row.createdAt.toISOString(),
   });
+}
+
+function toApiKeyView(row: Omit<ApiKeyRow, 'hash'>): ApiKeyView {
+  return {
+    id: row.id,
+    tenant_id: row.tenantId,
+    resource_allowlist: row.resourceAllowlist,
+    rate_limit: row.rateLimit,
+    status: row.status,
+    route_group_id: row.routeGroupId,
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toRouteGroupView(row: RouteGroupRow): RouteGroupView {
+  return {
+    id: row.id,
+    name: row.name,
+    group_ratio_bps: row.groupRatioBps,
+    status: row.status,
+    description: row.description,
+    created_at: row.createdAt.toISOString(),
+    updated_at: row.updatedAt.toISOString(),
+  };
+}
+
+function toRouteGroupChannelView(row: RouteGroupChannelRow): RouteGroupChannelView {
+  return {
+    group_id: row.groupId,
+    channel_id: row.channelId,
+    priority: row.priority,
+    weight: row.weight,
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toSecretMetadataView(row: SecretRefView): SecretMetadataView {
+  return {
+    id: row.id,
+    provider: row.provider,
+    locator: row.locator,
+    created_at: row.createdAt.toISOString(),
+    updated_at: row.updatedAt.toISOString(),
+  };
+}
+
+function toOAuthSessionListView(row: OAuthSessionListRow): OAuthSessionListView {
+  return {
+    id: row.secretRefId,
+    provider_kind: row.providerKind,
+    account_label: row.accountLabel,
+    account_id: row.accountId,
+    status: row.status,
+    expires_at: row.expiresAt === null ? null : row.expiresAt.toISOString(),
+    last_refresh_at: row.lastRefreshAt === null ? null : row.lastRefreshAt.toISOString(),
+  };
 }
 
 function toAccountView(row: AccountRow): AccountView {
@@ -357,8 +1293,14 @@ function toChannelView(row: UpstreamChannelRow): ChannelView {
     resource_id: row.resourceId,
     provider_type: row.providerType,
     credential_ref: row.credentialRef,
+    endpoint: row.endpoint,
+    model: row.model,
+    proxy_ref: row.proxyRef,
+    config: row.config,
     weight: row.weight,
     status: row.status,
+    input_cost_per_1m: row.inputCostPer1m === null ? null : row.inputCostPer1m.toString(),
+    output_cost_per_1m: row.outputCostPer1m === null ? null : row.outputCostPer1m.toString(),
   };
 }
 
@@ -413,5 +1355,88 @@ function toJobView(row: Job): JobView {
     exec_mode: row.execMode,
     cost: row.costCredits === null ? null : row.costCredits.toString(),
     created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toModelView(row: ModelRow): ModelView {
+  return {
+    id: row.id,
+    name: row.name,
+    display: row.display,
+    modality: row.modality,
+    capabilities: row.capabilities,
+    visibility: row.visibility,
+    resource_id: row.resourceId,
+    input_price: row.inputPrice.toString(),
+    output_price: row.outputPrice.toString(),
+    status: row.status,
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toModelGrantView(row: ModelGrantRow): ModelGrantView {
+  return {
+    id: row.id,
+    model_id: row.modelId,
+    tenant_id: row.tenantId,
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toOfficialPriceView(row: OfficialModelPriceRow): OfficialPriceView {
+  return {
+    id: row.id,
+    provider: row.provider,
+    model_slug: row.modelSlug,
+    display_name: row.displayName,
+    input_price_per_1m: row.inputPricePer1m.toString(),
+    output_price_per_1m: row.outputPricePer1m.toString(),
+    cached_input_price_per_1m:
+      row.cachedInputPricePer1m === null ? null : row.cachedInputPricePer1m.toString(),
+    source_url: row.sourceUrl,
+    effective_at: row.effectiveAt === null ? null : row.effectiveAt.toISOString(),
+    notes: row.notes,
+    updated_by: row.updatedBy,
+    created_at: row.createdAt.toISOString(),
+    updated_at: row.updatedAt.toISOString(),
+  };
+}
+
+function toRedemptionCodeView(row: RedemptionCodeRow): RedemptionCodeView {
+  return {
+    code: row.code,
+    credit_amount: row.creditAmount.toString(),
+    status: row.status,
+    redeemed_by_tenant: row.redeemedByTenant,
+    redeemed_at: row.redeemedAt === null ? null : row.redeemedAt.toISOString(),
+    expires_at: row.expiresAt === null ? null : row.expiresAt.toISOString(),
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toUsageLogView(row: UsageLogRow): UsageLogView {
+  return {
+    id: row.id,
+    tenant_id: row.tenantId,
+    model: row.model,
+    input_tokens: row.inputTokens,
+    output_tokens: row.outputTokens,
+    cost: row.cost.toString(),
+    latency_ms: row.latencyMs,
+    status: row.status,
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toUsageRollupView(row: UsageRollupRow): UsageRollupView {
+  return {
+    bucket: row.bucket,
+    requests: row.requests,
+    input_tokens: row.inputTokens.toString(),
+    output_tokens: row.outputTokens.toString(),
+    cost: row.cost.toString(),
+    provider_cost: row.providerCost.toString(),
+    margin: row.margin.toString(),
+    errors: row.errors,
   };
 }

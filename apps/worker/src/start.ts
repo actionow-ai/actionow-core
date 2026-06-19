@@ -5,6 +5,7 @@ import { Redis } from 'ioredis';
 import {
   createHoldReaperProcessor,
   createJobExecProcessor,
+  createTokenRefreshProcessor,
   createWebhookOutboxProcessor,
   type JobExecData,
 } from './processors/index.js';
@@ -15,6 +16,8 @@ import type { WorkerRuntime } from './runtime.js';
 export const WEBHOOK_SWEEP_MS = 10_000;
 /** Default cadence for the repeatable hold-reaper sweep (ms). */
 export const REAPER_SWEEP_MS = 30_000;
+/** Default cadence for the repeatable oauth token-refresh sweep (ms). */
+export const TOKEN_REFRESH_SWEEP_MS = 60_000;
 
 /** Tuning for {@link startWorkers}. */
 export interface StartWorkersOptions {
@@ -22,6 +25,8 @@ export interface StartWorkersOptions {
   webhookSweepMs?: number;
   /** Repeatable hold-reaper sweep cadence in ms (default {@link REAPER_SWEEP_MS}). */
   reaperSweepMs?: number;
+  /** Repeatable token-refresh sweep cadence in ms (default {@link TOKEN_REFRESH_SWEEP_MS}). */
+  tokenRefreshSweepMs?: number;
   /**
    * BullMQ connection. When omitted a fresh ioredis client is created from
    * `runtime.env.REDIS_URL` and owned by the returned handle (closed on
@@ -57,17 +62,31 @@ export function startWorkers(
 
   const webhookSweepMs = opts.webhookSweepMs ?? WEBHOOK_SWEEP_MS;
   const reaperSweepMs = opts.reaperSweepMs ?? REAPER_SWEEP_MS;
+  const tokenRefreshSweepMs = opts.tokenRefreshSweepMs ?? TOKEN_REFRESH_SWEEP_MS;
 
-  const processJobExec = createJobExecProcessor(runtime);
+  const jobExec = createJobExecProcessor(runtime);
   const processWebhookOutbox = createWebhookOutboxProcessor(runtime);
   const processHoldReaper = createHoldReaperProcessor(runtime);
+  const processTokenRefresh = createTokenRefreshProcessor(runtime);
 
   // job-exec: one job per async run, payload { jobId }.
   const jobExecWorker = new Worker(
     'job-exec',
-    (job: BullJob<JobExecData>) => processJobExec(job.data),
+    (job: BullJob<JobExecData>) => jobExec.process(job.data),
     { connection },
   );
+
+  // On EXHAUSTED retries (last attempt failed), terminal-fail the DB job so its
+  // hold is released NOW rather than sitting `running` until the ~15-min reaper.
+  // Earlier attempts (attemptsMade < attempts) are left for BullMQ to retry.
+  jobExecWorker.on('failed', (job, err) => {
+    if (job === undefined) return;
+    const maxAttempts = job.opts.attempts ?? 1;
+    if (job.attemptsMade < maxAttempts) return;
+    void jobExec.failExhausted(job.data.jobId, err.message).catch((e: unknown) => {
+      console.error(`failExhausted error for job ${job.id ?? '?'}: ${String(e)}`);
+    });
+  });
 
   // webhook-outbox: a repeatable sweep that drains due outbox rows.
   const webhookWorker = new Worker('webhook-outbox', () => processWebhookOutbox(), { connection });
@@ -75,11 +94,16 @@ export function startWorkers(
   // hold-reaper: a repeatable sweep that cancels expired in-flight holds.
   const reaperWorker = new Worker('hold-reaper', () => processHoldReaper(), { connection });
 
+  // token-refresh: a repeatable sweep that refreshes near-expiry oauth sessions.
+  const tokenRefreshWorker = new Worker('token-refresh', () => processTokenRefresh(), {
+    connection,
+  });
+
   jobExecWorker.on('ready', () => {
     console.log(`worker ready: ${QUEUE_NAMES.join(', ')}`);
   });
 
-  const workers = [jobExecWorker, webhookWorker, reaperWorker];
+  const workers = [jobExecWorker, webhookWorker, reaperWorker, tokenRefreshWorker];
   for (const worker of workers) {
     worker.on('failed', (job, err) => {
       // Never log secrets — engine/adapter layers sanitize before throwing.
@@ -91,7 +115,8 @@ export function startWorkers(
   // restarts so it is not registered twice.
   const webhookQueue = new Queue('webhook-outbox', { connection });
   const reaperQueue = new Queue('hold-reaper', { connection });
-  const queues = [webhookQueue, reaperQueue];
+  const tokenRefreshQueue = new Queue('token-refresh', { connection });
+  const queues = [webhookQueue, reaperQueue, tokenRefreshQueue];
   const scheduled = Promise.all([
     webhookQueue.add(
       'sweep',
@@ -99,6 +124,11 @@ export function startWorkers(
       { repeat: { every: webhookSweepMs }, jobId: 'webhook-outbox-sweep' },
     ),
     reaperQueue.add('sweep', {}, { repeat: { every: reaperSweepMs }, jobId: 'hold-reaper-sweep' }),
+    tokenRefreshQueue.add(
+      'sweep',
+      {},
+      { repeat: { every: tokenRefreshSweepMs }, jobId: 'token-refresh-sweep' },
+    ),
   ]);
   // Surface a scheduling failure rather than leaving it floating; a real boot
   // would crash, and the e2e awaits readiness via the first delivered job.

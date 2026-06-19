@@ -1,6 +1,13 @@
 import { z } from 'zod';
 
-export const PRICE_METHODS = ['unit', 'matrix', 'fixed', 'formula', 'passthrough'] as const;
+export const PRICE_METHODS = [
+  'unit',
+  'matrix',
+  'fixed',
+  'formula',
+  'passthrough',
+  'model_token',
+] as const;
 export type PriceMethod = (typeof PRICE_METHODS)[number];
 export const PRICE_TIMINGS = ['pre', 'post'] as const;
 export type PriceTiming = (typeof PRICE_TIMINGS)[number];
@@ -44,12 +51,32 @@ export const passthroughSpecSchema = z.object({
 });
 export type PassthroughSpec = z.infer<typeof passthroughSpecSchema>;
 
+export const modelTokenSpecSchema = z.object({
+  method: z.literal('model_token'),
+  /** µUSD per 1M input tokens (frozen from the model's `input_price`). */
+  inputPrice: z.number().int().nonnegative(),
+  /** µUSD per 1M output tokens (frozen from the model's `output_price`). */
+  outputPrice: z.number().int().nonnegative(),
+  /**
+   * The per-group customer-price ratio in integer BASIS POINTS (`10000 = 1.0×`;
+   * Track 5, spec §"Pricing model"). The key's route group resolves this
+   * pre-routing (`route_group.group_ratio_bps`; default group → 10000); it is
+   * folded into the `model_token` base as `roundHalfUp(base × bps / 10000)`
+   * BEFORE the entry markup + modifier stack (group_ratio is the operator tier
+   * markup; markup/modifiers apply after). Omitted → 10000 (×1.0), so an
+   * un-threaded entry prices identically to Track 1 (the regression invariant).
+   */
+  groupRatioBps: z.number().int().positive().optional(),
+});
+export type ModelTokenSpec = z.infer<typeof modelTokenSpecSchema>;
+
 export const priceSpecSchema = z.discriminatedUnion('method', [
   unitSpecSchema,
   matrixSpecSchema,
   fixedSpecSchema,
   formulaSpecSchema,
   passthroughSpecSchema,
+  modelTokenSpecSchema,
 ]);
 export type PriceSpec = z.infer<typeof priceSpecSchema>;
 

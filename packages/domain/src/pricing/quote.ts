@@ -3,7 +3,7 @@ import type { PricebookEntry } from '@actionow/contracts';
 import type { MicroCredits } from '../credits.js';
 import { DomainError } from '../errors.js';
 import { applyMarkup } from './markup.js';
-import { priceFixed, priceFormula, priceMatrix, priceUnit } from './methods.js';
+import { priceFixed, priceFormula, priceMatrix, priceModelToken, priceUnit } from './methods.js';
 
 /**
  * Pre-execution quote: resolve the base µcredit price for a `pre` method
@@ -23,6 +23,9 @@ export function quote(entry: PricebookEntry, params: Record<string, unknown>): M
     case 'formula':
       base = priceFormula(spec, params as Record<string, number>);
       break;
+    case 'model_token':
+      base = priceModelToken(spec, params as Record<string, number>);
+      break;
     default:
       throw new DomainError('invalid_pricing', `quote() needs a pre method, got ${spec.method}`);
   }
@@ -40,6 +43,8 @@ export function settle(entry: PricebookEntry, usage: Record<string, number>): Mi
   let base: MicroCredits;
   if (spec.method === 'unit') {
     base = priceUnit(spec, usage);
+  } else if (spec.method === 'model_token') {
+    base = priceModelToken(spec, usage);
   } else if (spec.method === 'passthrough') {
     const inner = applyMarkup(BigInt(usage.subtotal ?? 0), spec.markup);
     return applyMarkup(inner, entry.markup);

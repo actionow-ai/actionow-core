@@ -61,7 +61,9 @@ async function seed(balance: bigint): Promise<Seed> {
     providerType: 'openai',
     execModes: ['blocking'],
   });
-  await db.insert(resourceVersion).values({ resourceId, version: 1, ioSchema: { type: 'object' } });
+  await db
+    .insert(resourceVersion)
+    .values({ resourceId, version: 1, ioSchema: { inputs: [], outputs: [] } });
   return { tenantId: t.id, accountId: a.id, resourceId };
 }
 
@@ -123,8 +125,9 @@ describe('createJob / getJob / transitionJob / listJobs', () => {
     await makeHeldJob(s, 100_000n);
     await makeHeldJob(s, 100_000n);
 
-    const jobs = await listJobs(db, s.tenantId, undefined, 10);
+    const { rows: jobs, hasMore } = await listJobs(db, s.tenantId, { limit: 10 });
     expect(jobs).toHaveLength(2);
+    expect(hasMore).toBe(false);
   });
 });
 

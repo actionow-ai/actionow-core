@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
 import { RateLimitGuard } from '../auth/rate-limit.guard.js';
+import { ChannelRoutingService } from '../common/channel-routing.service.js';
 import { ResourcesController } from './resources.controller.js';
 import { ResourcesService } from './resources.service.js';
 import { RunController } from './run.controller.js';
@@ -15,7 +16,14 @@ import { RunService } from './run.service.js';
  */
 @Module({
   controllers: [RunController, ResourcesController],
-  providers: [RunService, ResourcesService, AuthService, ApiKeyGuard, RateLimitGuard],
+  providers: [
+    RunService,
+    ResourcesService,
+    AuthService,
+    ChannelRoutingService,
+    ApiKeyGuard,
+    RateLimitGuard,
+  ],
 })
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- NestJS modules are decorated empty classes
 export class ExecutionModule {}

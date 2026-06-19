@@ -17,6 +17,7 @@ import {
   failJob,
   getJob,
   getJobByUpstreamHandle,
+  insertRelayTrace,
   type Job,
   settleJob,
   setUpstreamHandle,
@@ -25,7 +26,12 @@ import {
 
 import { EngineError } from './errors.js';
 import type { RunChannel } from './execution-service.js';
+import type { PersistMediaResult } from './media-persistence.js';
 import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
+import { type TraceContext, TracingHttpClient } from './relay-trace.js';
+
+/** Default per-body byte cap when the runner deps carry no `traceMaxBytes`. */
+const DEFAULT_TRACE_MAX_BYTES = 1_000_000;
 
 /**
  * The frozen execution context a {@link JobRunner} needs to drive a job that
@@ -44,6 +50,18 @@ export interface JobExecutionContext {
 
 export type ExecutionContextLoader = (job: Job) => Promise<JobExecutionContext>;
 
+/**
+ * Persist media outputs to durable storage, returning a (possibly) rewritten
+ * output. Optional injected dependency; absent → no rewrite. Best-effort: the
+ * concrete hook never throws (it falls back to the temp upstream URL), so
+ * settle proceeds regardless. Wired in Task 10 over a real StorageProvider.
+ */
+export type PersistMediaFn = (input: {
+  tenantId: string;
+  jobId: string;
+  output: Record<string, unknown>;
+}) => Promise<PersistMediaResult>;
+
 export interface JobRunnerDeps {
   db: DbOrTx;
   adapters: AdapterRegistry;
@@ -58,6 +76,18 @@ export interface JobRunnerDeps {
   sleep?: (ms: number) => Promise<void>;
   /** Source of randomness for weighted channel selection (default Math.random). */
   rng?: () => number;
+  /** Global egress proxy fallback (UPSTREAM_PROXY_URL) when a channel has no proxyRef. */
+  proxyUrlEnv?: string | undefined;
+  /** Persist media outputs before settle (rewrites temp upstream URLs to durable ones). */
+  persistMedia?: PersistMediaFn | undefined;
+  /**
+   * When true (`RELAY_TRACE=full`), wrap `ctx.http` in a {@link TracingHttpClient}
+   * so the async media submit/poll upstream calls are captured to `relay_trace`
+   * (best-effort; secrets redacted; bodies capped). Default off.
+   */
+  traceUpstream?: boolean | undefined;
+  /** Per-body byte cap for the trace (RELAY_TRACE_MAX_BYTES). Default 1MB. */
+  traceMaxBytes?: number | undefined;
 }
 
 const DEFAULT_MAX_POLLS = 30;
@@ -104,6 +134,22 @@ export class JobRunner {
     await this.pollToTerminal(job, ctx, handle);
   }
 
+  /**
+   * Terminal-fail a job whose queue delivery exhausted its retry budget: release
+   * the hold + mark the row `failed` NOW, rather than leaving it `running` (the
+   * state `process` flips it to before a throw) with credits held until the
+   * ~15-min reaper. No-op when the job is already terminal or vanished — so it is
+   * safe to call from a BullMQ `failed` handler. Dedup-safe via failJob's
+   * status-transition guard.
+   */
+  async failExhausted(jobId: string, message: string): Promise<void> {
+    const job = await getJob(this.deps.db, jobId);
+    if (job === undefined) return;
+    if (job.status !== 'queued' && job.status !== 'running') return;
+    const ctx = await this.deps.loadContext(job);
+    await this.fail(job, ctx, { code: 'internal_error', message, retryable: false });
+  }
+
   /** Submit to the upstream provider; a synchronous result is unexpected here. */
   private async submit(job: Job, ctx: JobExecutionContext): Promise<UpstreamJobHandle> {
     const adapter = this.deps.adapters.get(ctx.providerType);
@@ -112,11 +158,11 @@ export class JobRunner {
       ctx.channels.map((c) => ({ id: c.id, weight: c.weight, value: c })),
       rng,
       async (channel) => {
-        const adapterCtx = await this.buildContext(ctx.providerType, channel);
+        const adapterCtx = await this.buildContext(ctx.providerType, channel, job);
         return adapter.submit({
           resourceId: job.resourceId,
           modality: ctx.modality,
-          inputs: job.inputs as Record<string, unknown>,
+          inputs: job.inputs,
           execMode: job.execMode as ExecMode,
           ctx: adapterCtx,
         });
@@ -150,7 +196,7 @@ export class JobRunner {
     const maxPolls = this.deps.maxPolls ?? DEFAULT_MAX_POLLS;
     const intervalMs = this.deps.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
     const sleep = this.deps.sleep ?? defaultSleep;
-    const adapterCtx = await this.buildContext(ctx.providerType, ctx.channels[0]);
+    const adapterCtx = await this.buildContext(ctx.providerType, ctx.channels[0], job);
 
     for (let i = 0; i < maxPolls; i += 1) {
       const result = await adapter.poll(handle.upstreamJobId, adapterCtx);
@@ -183,11 +229,24 @@ export class JobRunner {
     result: PollResult,
   ): Promise<{ settled: boolean }> {
     const usage: UsageVector = result.usage ?? {};
-    const output = result.output ?? {};
+    let output = result.output ?? {};
+    // Best-effort media persistence: rewrite temp upstream media URLs to durable
+    // ones BEFORE the settle write. Absent (non-media setups / existing tests) →
+    // unchanged. The hook never throws (Task 8); settle proceeds regardless.
+    if (this.deps.persistMedia !== undefined) {
+      const persisted = await this.deps.persistMedia({
+        tenantId: job.tenantId,
+        jobId: job.id,
+        output,
+      });
+      output = persisted.output;
+    }
+    // Cost is computed from `usage` + `job.inputs`, so rewriting `output` does
+    // not affect pricing.
     const { credits: finalCost, applied } = computeFinalCost(
       ctx.pricebookEntry,
       usage,
-      job.inputs as Record<string, unknown>,
+      job.inputs,
       ctx.modifiers,
     );
     return settleJob(this.deps.db, {
@@ -263,15 +322,57 @@ export class JobRunner {
   private async buildContext(
     providerType: string,
     channel: RunChannel | undefined,
+    job: Job,
   ): Promise<AdapterContext> {
-    const ctx: AdapterContext = { providerType, http: this.deps.http };
-    if (channel === undefined) return ctx;
+    const ctx: AdapterContext = {
+      providerType,
+      http: this.maybeTrace({
+        tenantId: job.tenantId,
+        jobId: job.id,
+        providerType,
+        ...(channel !== undefined ? { channelId: channel.id } : {}),
+      }),
+    };
+    if (channel === undefined) {
+      // No channel: the global egress proxy fallback still applies.
+      if (this.deps.proxyUrlEnv !== undefined) ctx.proxyUrl = this.deps.proxyUrlEnv;
+      return ctx;
+    }
     if (channel.model !== undefined) ctx.model = channel.model;
     if (channel.endpoint !== undefined) ctx.endpoint = channel.endpoint;
     if (channel.credentialRef !== undefined) {
       const apiKey = await this.deps.resolveSecret(channel.credentialRef);
       if (apiKey !== undefined) ctx.apiKey = apiKey;
     }
+    const proxyUrl = await this.resolveProxy(channel);
+    if (proxyUrl !== undefined) ctx.proxyUrl = proxyUrl;
+    if (channel.config !== undefined) ctx.config = channel.config;
     return ctx;
+  }
+
+  /** Resolve a channel's egress proxy URL: its proxyRef (via resolveSecret), else the global env fallback. */
+  private async resolveProxy(channel: RunChannel): Promise<string | undefined> {
+    if (channel.proxyRef !== undefined) {
+      const url = await this.deps.resolveSecret(channel.proxyRef);
+      if (url !== undefined) return url;
+    }
+    return this.deps.proxyUrlEnv;
+  }
+
+  /**
+   * Wrap the shared `http` in a {@link TracingHttpClient} when tracing is on,
+   * else return it unwrapped. Best-effort `insertRelayTrace` sink.
+   */
+  private maybeTrace(trace: TraceContext): HttpClient {
+    if (this.deps.traceUpstream !== true) return this.deps.http;
+    const db = this.deps.db;
+    return new TracingHttpClient(
+      this.deps.http,
+      async (row) => {
+        await insertRelayTrace(db, row);
+      },
+      trace,
+      this.deps.traceMaxBytes ?? DEFAULT_TRACE_MAX_BYTES,
+    );
   }
 }

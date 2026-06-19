@@ -27,6 +27,7 @@ function repoWithKey(record: Partial<ApiKeyRecord> = {}): ApiKeyRepo {
     resourceAllowlist: [],
     rateLimit: null,
     status: 'active',
+    routeGroupId: null,
     ...record,
   };
   return {
@@ -39,6 +40,13 @@ function repoWithKey(record: Partial<ApiKeyRecord> = {}): ApiKeyRepo {
 
 function guard(repo: ApiKeyRepo, nodeEnv = 'production'): ApiKeyGuard {
   return new ApiKeyGuard({} as never, repo, { NODE_ENV: nodeEnv } as never);
+}
+
+function guardWithFlag(repo: ApiKeyRepo, allowDevHeader: boolean): ApiKeyGuard {
+  return new ApiKeyGuard({} as never, repo, {
+    NODE_ENV: 'development',
+    ALLOW_DEV_TENANT_HEADER: allowDevHeader,
+  } as never);
 }
 
 describe('ApiKeyGuard', () => {
@@ -82,7 +90,23 @@ describe('ApiKeyGuard', () => {
       apiKeyId: 'key-1',
       resourceAllowlist: [],
       rateLimit: null,
+      // Track 4: the key's bound route group is surfaced on the auth context.
+      routeGroupId: null,
     });
+  });
+
+  it("threads the key's bound route_group_id into the auth context (Track 4)", async () => {
+    const g = guard(repoWithKey({ routeGroupId: 'group-xyz' }));
+    const req = {
+      headers: { authorization: `Bearer ${validKey}` },
+      params: {},
+    } as unknown as Request;
+    const ctx = {
+      switchToHttp: () => ({ getRequest: () => req }),
+    } as unknown as ExecutionContext;
+    await expect(g.canActivate(ctx)).resolves.toBe(true);
+    const auth = (req as unknown as { auth: Record<string, unknown> }).auth;
+    expect(auth.routeGroupId).toBe('group-xyz');
   });
 
   it('accepts a valid key via the x-api-key header', async () => {
@@ -121,6 +145,7 @@ describe('ApiKeyGuard', () => {
           resourceAllowlist: [],
           rateLimit: null,
           status: 'active',
+          routeGroupId: null,
         }),
       getAccountByTenant: (): Promise<{ id: string } | undefined> => Promise.resolve(undefined),
     } as unknown as ApiKeyRepo;
@@ -132,7 +157,7 @@ describe('ApiKeyGuard', () => {
 
   describe('x-tenant-id dev fallback', () => {
     it('is honored outside production when no key is present', async () => {
-      const g = guard(repoWithKey(), 'development');
+      const g = guardWithFlag(repoWithKey(), true);
       const req = { headers: { 'x-tenant-id': 'dev-tenant' }, params: {} } as unknown as Request;
       const ctx = {
         switchToHttp: () => ({ getRequest: () => req }),
@@ -145,6 +170,23 @@ describe('ApiKeyGuard', () => {
 
     it('is ignored in production (still requires a key)', async () => {
       const g = guard(repoWithKey(), 'production');
+      await expect(
+        g.canActivate(ctxFor({ headers: { 'x-tenant-id': 'dev-tenant' } })),
+      ).rejects.toMatchObject({ unified: { code: 'unauthorized' } });
+    });
+  });
+
+  describe('x-tenant-id requires the explicit ALLOW_DEV_TENANT_HEADER flag', () => {
+    it('honored when the flag is true (non-prod)', async () => {
+      const g = guardWithFlag(repoWithKey(), true);
+      const req = { headers: { 'x-tenant-id': 'dev-tenant' }, params: {} } as unknown as Request;
+      const ctx = {
+        switchToHttp: () => ({ getRequest: () => req }),
+      } as unknown as ExecutionContext;
+      await expect(g.canActivate(ctx)).resolves.toBe(true);
+    });
+    it('rejected when the flag is false even in non-prod', async () => {
+      const g = guardWithFlag(repoWithKey(), false);
       await expect(
         g.canActivate(ctxFor({ headers: { 'x-tenant-id': 'dev-tenant' } })),
       ).rejects.toMatchObject({ unified: { code: 'unauthorized' } });

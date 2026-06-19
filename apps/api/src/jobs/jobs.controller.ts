@@ -4,10 +4,9 @@ import type { Request } from 'express';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
-import type { JobsPage, JobView } from './jobs.service.js';
+import { type PageEnvelope, toPageParams } from '../common/pagination.js';
+import type { JobView } from './jobs.service.js';
 import { JobsService } from './jobs.service.js';
-
-const DEFAULT_LIMIT = 50;
 
 @ApiTags('v1')
 @ApiBearerAuth('api-key')
@@ -21,16 +20,14 @@ export class JobsController {
 
   /** List the caller's jobs newest-first, keyset-paginated by `cursor`. */
   @Get()
-  @ApiOperation({ summary: 'List the caller’s jobs (keyset)' })
+  @ApiOperation({ summary: 'List the caller’s jobs (keyset, paginated)' })
   async list(
     @Req() req: Request,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
-  ): Promise<JobsPage> {
+  ): Promise<PageEnvelope<JobView>> {
     const ctx = this.auth.resolve(req);
-    const parsedLimit = limit === undefined ? DEFAULT_LIMIT : Number.parseInt(limit, 10);
-    const effectiveLimit = Number.isNaN(parsedLimit) ? DEFAULT_LIMIT : parsedLimit;
-    return this.jobs.list(ctx, cursor, effectiveLimit);
+    return this.jobs.list(ctx, toPageParams({ cursor, limit }));
   }
 
   /** Fetch a single job by id (404 if it is not the caller's). */

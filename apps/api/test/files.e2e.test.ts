@@ -77,6 +77,7 @@ beforeAll(async () => {
     .useValue({
       // 'production' so the x-tenant-id dev fallback is OFF — a real key is required.
       NODE_ENV: 'production',
+      CREDIT_RATE: 1000,
       DATABASE_URL: pg.getConnectionUri(),
       REDIS_URL: 'redis://localhost:6379',
       API_PORT: 0,

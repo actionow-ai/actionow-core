@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  check,
   index,
   jsonb,
   pgTable,
@@ -11,11 +12,15 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { routeGroup } from './route-group.js';
+
 export const tenant = pgTable('tenant', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   isolationMode: text('isolation_mode').notNull().default('field'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
 export const apiKey = pgTable(
@@ -30,11 +35,24 @@ export const apiKey = pgTable(
       .$type<string[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    // The route group (分组) this key is bound to (Track 3). NULLABLE → a null
+    // means "use the well-known `default` group", resolved at routing time
+    // (Track 4). The group scopes which channels the key may use + sets the
+    // customer-price ratio. The `() =>` FK callback is lazy, so the cross-file
+    // import does not run at module-init (no ESM cycle hazard).
+    routeGroupId: uuid('route_group_id').references(() => routeGroup.id),
     rateLimit: bigint('rate_limit', { mode: 'number' }),
+    // status allowed values: active | disabled (createApiKey default + disableApiKeyForTenant)
     status: text('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [uniqueIndex('api_key_hash_idx').on(t.hash), index('api_key_tenant_idx').on(t.tenantId)],
+  (t) => [
+    uniqueIndex('api_key_hash_idx').on(t.hash),
+    index('api_key_tenant_idx').on(t.tenantId),
+    check('api_key_status_allowed', sql`${t.status} IN ('active', 'disabled')`),
+  ],
 );
 
 /**
@@ -45,16 +63,24 @@ export const apiKey = pgTable(
  * existing `admin_user` row migrates in with `role='admin'`. `tenant_id` is the
  * tenant a self-registered user provisioned (null for the seeded admin).
  */
-export const user = pgTable('user', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  email: text('email').notNull().unique(),
-  emailVerified: boolean('email_verified').notNull().default(false),
-  passwordHash: text('password_hash'),
-  role: text('role').notNull().default('user'),
-  status: text('status').notNull().default('active'),
-  tenantId: uuid('tenant_id').references(() => tenant.id),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const user = pgTable(
+  'user',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email').notNull().unique(),
+    emailVerified: boolean('email_verified').notNull().default(false),
+    passwordHash: text('password_hash'),
+    role: text('role').notNull().default('user'),
+    status: text('status').notNull().default('active'),
+    tenantId: uuid('tenant_id').references(() => tenant.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('user_role_allowed', sql`${t.role} IN ('user', 'admin')`),
+    index('user_tenant_idx').on(t.tenantId),
+  ],
+);
 
 /**
  * A federated identity linking a {@link user} to an external OAuth provider
@@ -62,6 +88,7 @@ export const user = pgTable('user', {
  * subject id, NEVER the email — so a provider account links to exactly one
  * user. Cascades on user deletion; indexed by `user_id` for "my identities".
  */
+// immutable: no updated_at (a federated identity link is never mutated in place)
 export const userIdentity = pgTable(
   'user_identity',
   {

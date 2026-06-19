@@ -1,5 +1,6 @@
 import type { HttpClient, HttpRequest, HttpResponse } from '@actionow/contracts';
 import { schema } from '@actionow/db';
+import { assertEgressAllowed } from '@actionow/infra';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
@@ -133,6 +134,53 @@ describe('WebhookDispatcher.dispatchDue', () => {
     expect(
       (await dispatcher.dispatchDue(db, http, new Date(t2.getTime() + 1_000_000))).processed,
     ).toBe(0);
+  });
+
+  it('dead-letters an SSRF callback target without POSTing (default egress guard)', async () => {
+    // The cloud metadata IP — a classic SSRF target. The default dispatcher must
+    // refuse it and dead-letter immediately (retrying a blocked URL is pointless).
+    await db.insert(webhookOutbox).values({
+      jobId: '00000000-0000-0000-0000-000000000004',
+      url: 'http://169.254.169.254/latest/meta-data/',
+      payload: { job_id: 'job-4' },
+    });
+    const { http, calls } = recordingHttp(() => ({
+      status: 200,
+      ok: true,
+      body: undefined,
+      text: 'ok',
+    }));
+    const dispatcher = new WebhookDispatcher({});
+
+    const summary = await dispatcher.dispatchDue(db, http, new Date());
+
+    expect(summary).toMatchObject({ processed: 1, dead: 1, sent: 0, retried: 0 });
+    // The blocked URL is NEVER fetched.
+    expect(calls).toHaveLength(0);
+    const row = (await db.select().from(webhookOutbox))[0];
+    expect(row?.status).toBe('dead');
+  });
+
+  it('delivers to a private/loopback target when an allow-private guard is injected', async () => {
+    await db.insert(webhookOutbox).values({
+      jobId: '00000000-0000-0000-0000-000000000005',
+      url: 'http://127.0.0.1:9000/hook',
+      payload: { job_id: 'job-5' },
+    });
+    const { http, calls } = recordingHttp(() => ({
+      status: 200,
+      ok: true,
+      body: undefined,
+      text: 'ok',
+    }));
+    const dispatcher = new WebhookDispatcher({
+      assertEgressAllowed: (url) => assertEgressAllowed(url, { allowPrivateTargets: true }),
+    });
+
+    const summary = await dispatcher.dispatchDue(db, http, new Date());
+    expect(summary).toMatchObject({ processed: 1, sent: 1, dead: 0, retried: 0 });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toBe('http://127.0.0.1:9000/hook');
   });
 
   it('treats a thrown network error as a delivery failure (retry)', async () => {

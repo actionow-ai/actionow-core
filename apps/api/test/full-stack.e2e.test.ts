@@ -219,6 +219,15 @@ beforeAll(async () => {
     RATE_LIMIT_RESOURCE_PER_MIN: 600,
     ADMIN_JWT_SECRET: ADMIN_SECRET,
     STORAGE_MAX_UPLOAD_BYTES: 100 * 1024 * 1024,
+    CREDIT_RATE: 1000,
+    // This suite authenticates over real Bearer API keys (NODE_ENV=production
+    // already disables the fallback), so the dev tenant header stays off.
+    ALLOW_DEV_TENANT_HEADER: false,
+    RELAY_TRACE: 'off',
+    RELAY_TRACE_MAX_BYTES: 1_000_000,
+    // This suite delivers the webhook to a loopback callback server (127.0.0.1),
+    // so it opts into the SSRF egress guard's private-target allowance.
+    WEBHOOK_ALLOW_PRIVATE_TARGETS: true,
   };
 
   // 4. API adapter registry: the real default registry (async-media-mock ready
@@ -260,6 +269,12 @@ beforeAll(async () => {
     http: new FetchHttpClient(),
     resolveSecret: (ref: string): Promise<string | undefined> =>
       Promise.resolve(ref.startsWith('http://127.0.0.1') ? WEBHOOK_SECRET : undefined),
+    // Storage unconfigured in this e2e → media persistence is a no-op (the job
+    // settles with the temp upstream URL).
+    storage: null,
+    publicBaseUrl: undefined,
+    fetchBytes: () => Promise.reject(new Error('no fetchBytes')),
+    putBytes: () => Promise.reject(new Error('no putBytes')),
   };
   workers = startWorkers(runtime, { webhookSweepMs: 250, reaperSweepMs: 500 });
 

@@ -7,10 +7,11 @@ import type { WorkerRuntime } from '../src/runtime.js';
 
 /**
  * Light unit test for {@link startWorkers}: `bullmq` is mocked so no Redis is
- * required. We assert that booting binds exactly the three queue names
- * (`job-exec`, `webhook-outbox`, `hold-reaper`), registers the two repeatable
- * sweeps at the requested cadence, and that `close()` drains every Worker +
- * Queue. The real BullMQ/Redis path is covered by the api full-stack e2e.
+ * required. We assert that booting binds exactly the four queue names
+ * (`job-exec`, `webhook-outbox`, `hold-reaper`, `token-refresh`), registers the
+ * three repeatable sweeps at the requested cadence, and that `close()` drains
+ * every Worker + Queue. The real BullMQ/Redis path is covered by the api
+ * full-stack e2e.
  */
 
 const workerNames: string[] = [];
@@ -41,6 +42,10 @@ const runtime: WorkerRuntime = {
   adapters: { providerTypes: () => [], get: () => ({}) } as unknown as AdapterRegistry,
   http: { request: () => Promise.reject(new Error('no http')) },
   resolveSecret: () => Promise.resolve(undefined),
+  storage: null,
+  publicBaseUrl: undefined,
+  fetchBytes: () => Promise.reject(new Error('no fetchBytes')),
+  putBytes: () => Promise.reject(new Error('no putBytes')),
 };
 
 afterEach(() => {
@@ -49,15 +54,19 @@ afterEach(() => {
 });
 
 describe('startWorkers', () => {
-  it('binds the three queue names and registers both sweeps, then closes cleanly', async () => {
+  it('binds the four queue names and registers all sweeps, then closes cleanly', async () => {
     const { startWorkers } = await import('../src/start.js');
 
-    const handle = startWorkers(runtime, { webhookSweepMs: 250, reaperSweepMs: 500 });
+    const handle = startWorkers(runtime, {
+      webhookSweepMs: 250,
+      reaperSweepMs: 500,
+      tokenRefreshSweepMs: 750,
+    });
 
-    // Exactly the three processing queues are bound as Workers.
-    expect(workerNames).toEqual(['job-exec', 'webhook-outbox', 'hold-reaper']);
+    // Exactly the four processing queues are bound as Workers.
+    expect(workerNames).toEqual(['job-exec', 'webhook-outbox', 'hold-reaper', 'token-refresh']);
 
-    // Both repeatable sweeps were scheduled with the requested cadences.
+    // All three repeatable sweeps were scheduled with the requested cadences.
     await Promise.resolve();
     expect(queueAddSpy).toHaveBeenCalledWith(
       'sweep',
@@ -69,10 +78,15 @@ describe('startWorkers', () => {
       {},
       { repeat: { every: 500 }, jobId: 'hold-reaper-sweep' },
     );
+    expect(queueAddSpy).toHaveBeenCalledWith(
+      'sweep',
+      {},
+      { repeat: { every: 750 }, jobId: 'token-refresh-sweep' },
+    );
 
-    // close() drains all three Workers and both sweep Queues.
+    // close() drains all four Workers and all three sweep Queues.
     await handle.close();
-    expect(workerCloseSpy).toHaveBeenCalledTimes(3);
-    expect(queueCloseSpy).toHaveBeenCalledTimes(2);
+    expect(workerCloseSpy).toHaveBeenCalledTimes(4);
+    expect(queueCloseSpy).toHaveBeenCalledTimes(3);
   });
 });

@@ -1,7 +1,8 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq, lt } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 import { account, apiKey, ledgerTxn, tenant } from '../schema/index.js';
+import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
 export type TenantRow = InferSelectModel<typeof tenant>;
@@ -30,14 +31,53 @@ export async function createTenant(db: DbOrTx, input: CreateTenantInput): Promis
   return row;
 }
 
-/** List all tenants, newest-first. */
-export async function listTenants(db: DbOrTx): Promise<TenantRow[]> {
-  return db.select().from(tenant).orderBy(desc(tenant.createdAt));
+/** List live tenants (excludes soft-deleted), newest-first, keyset-paginated. */
+export async function listTenants(db: DbOrTx, page: PageParams): Promise<KeysetResult<TenantRow>> {
+  return keysetPage<TenantRow>(db, {
+    table: tenant,
+    createdAtCol: tenant.createdAt,
+    idCol: tenant.id,
+    where: isNull(tenant.deletedAt),
+    page,
+  });
 }
 
-/** Fetch a tenant by id, or `undefined`. */
+/** Fetch a live tenant by id (soft-deleted → `undefined`). */
 export async function getTenant(db: DbOrTx, tenantId: string): Promise<TenantRow | undefined> {
-  const rows = await db.select().from(tenant).where(eq(tenant.id, tenantId)).limit(1);
+  const rows = await db
+    .select()
+    .from(tenant)
+    .where(and(eq(tenant.id, tenantId), isNull(tenant.deletedAt)))
+    .limit(1);
+  return rows[0];
+}
+
+/** Mutable fields of a `tenant` (admin PATCH); omitted keys are unchanged. */
+export interface UpdateTenantInput {
+  /** `field` | `schema` | `db` (§8). */
+  readonly isolationMode?: string | undefined;
+}
+
+/**
+ * Patch a live `tenant` (only the supplied fields), bumping `updated_at`,
+ * returning the new row. Limited to `isolation_mode` — the tenant name/id are not
+ * mutated here. Soft-deleted / unknown → `undefined`; an empty patch reads the
+ * current live row back. (There is intentionally NO tenant DELETE — too
+ * destructive to cascade from an admin route.)
+ */
+export async function updateTenant(
+  db: DbOrTx,
+  tenantId: string,
+  patch: UpdateTenantInput,
+): Promise<TenantRow | undefined> {
+  if (patch.isolationMode === undefined) {
+    return getTenant(db, tenantId);
+  }
+  const rows = await db
+    .update(tenant)
+    .set({ isolationMode: patch.isolationMode, updatedAt: new Date() })
+    .where(and(eq(tenant.id, tenantId), isNull(tenant.deletedAt)))
+    .returning();
   return rows[0];
 }
 
@@ -62,10 +102,28 @@ export async function createAccount(db: DbOrTx, input: CreateAccountInput): Prom
   return row;
 }
 
-/** Fetch an account by id, or `undefined`. */
+/** Fetch a live account by id (soft-deleted → `undefined`). */
 export async function getAccount(db: DbOrTx, accountId: string): Promise<AccountRow | undefined> {
-  const rows = await db.select().from(account).where(eq(account.id, accountId)).limit(1);
+  const rows = await db
+    .select()
+    .from(account)
+    .where(and(eq(account.id, accountId), isNull(account.deletedAt)))
+    .limit(1);
   return rows[0];
+}
+
+/** List live accounts (excludes soft-deleted), newest-first, keyset-paginated. */
+export async function listAccounts(
+  db: DbOrTx,
+  page: PageParams,
+): Promise<KeysetResult<AccountRow>> {
+  return keysetPage<AccountRow>(db, {
+    table: account,
+    createdAtCol: account.createdAt,
+    idCol: account.id,
+    where: isNull(account.deletedAt),
+    page,
+  });
 }
 
 /**
@@ -75,35 +133,42 @@ export async function getAccount(db: DbOrTx, accountId: string): Promise<Account
 export async function listApiKeys(
   db: DbOrTx,
   tenantId: string,
-): Promise<Omit<ApiKeyRow, 'hash'>[]> {
-  return db
-    .select({
+  page: PageParams,
+): Promise<KeysetResult<Omit<ApiKeyRow, 'hash'>>> {
+  return keysetPage<Omit<ApiKeyRow, 'hash'>>(db, {
+    table: apiKey,
+    createdAtCol: apiKey.createdAt,
+    idCol: apiKey.id,
+    selection: {
       id: apiKey.id,
       tenantId: apiKey.tenantId,
       resourceAllowlist: apiKey.resourceAllowlist,
       rateLimit: apiKey.rateLimit,
       status: apiKey.status,
+      routeGroupId: apiKey.routeGroupId,
       createdAt: apiKey.createdAt,
-    })
-    .from(apiKey)
-    .where(eq(apiKey.tenantId, tenantId))
-    .orderBy(desc(apiKey.createdAt));
+      updatedAt: apiKey.updatedAt,
+      deletedAt: apiKey.deletedAt,
+    },
+    where: and(eq(apiKey.tenantId, tenantId), isNull(apiKey.deletedAt)),
+    page,
+  });
 }
 
 /**
- * List a tenant's ledger transactions newest-first, keyset-paginated. `cursor`
- * is an exclusive upper bound on `created_at` (ISO string); `limit` caps the
- * page size.
+ * List a tenant's ledger transactions newest-first, keyset-paginated on
+ * `(created_at, id)`. The `tenant_id` filter composes with the keyset.
  */
 export async function listLedger(
   db: DbOrTx,
   tenantId: string,
-  cursor?: string,
-  limit = 50,
-): Promise<LedgerRow[]> {
-  const where =
-    cursor === undefined
-      ? eq(ledgerTxn.tenantId, tenantId)
-      : and(eq(ledgerTxn.tenantId, tenantId), lt(ledgerTxn.createdAt, new Date(cursor)));
-  return db.select().from(ledgerTxn).where(where).orderBy(desc(ledgerTxn.createdAt)).limit(limit);
+  page: PageParams,
+): Promise<KeysetResult<LedgerRow>> {
+  return keysetPage<LedgerRow>(db, {
+    table: ledgerTxn,
+    createdAtCol: ledgerTxn.createdAt,
+    idCol: ledgerTxn.id,
+    where: eq(ledgerTxn.tenantId, tenantId),
+    page,
+  });
 }

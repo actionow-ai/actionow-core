@@ -1,10 +1,21 @@
-import type { SubmitInput, SubmitResult, UnifiedError, UsageVector } from '@actionow/contracts';
+import type {
+  AdapterContext,
+  SubmitInput,
+  SubmitResult,
+  UnifiedError,
+  UsageVector,
+} from '@actionow/contracts';
 
 import { AdapterError, httpStatusToUnified } from './errors.js';
 import { asNumber, asRecord, asString } from './internal/json.js';
 import type { ProviderAdapter } from './types.js';
 
 const PROVIDER = 'dify-workflow';
+
+/** Spread `proxyUrl` into a request when the channel set one. */
+function withProxy(ctx: AdapterContext): { proxyUrl?: string } {
+  return ctx.proxyUrl === undefined ? {} : { proxyUrl: ctx.proxyUrl };
+}
 
 /** Extract `{total_tokens}` from a Dify `{ data: { total_tokens } }` envelope. */
 function extractUsage(raw: unknown): UsageVector {
@@ -23,6 +34,7 @@ export const difyWorkflowAdapter: ProviderAdapter = {
       url: `${ctx.endpoint ?? ''}/v1/workflows/run`,
       headers: { Authorization: `Bearer ${ctx.apiKey ?? ''}` },
       body: { inputs, response_mode: 'blocking', user: 'actionow' },
+      ...withProxy(ctx),
     });
 
     if (!res.ok) {

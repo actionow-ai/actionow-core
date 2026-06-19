@@ -19,7 +19,8 @@
     "@actionow/db": "workspace:*",
     "@actionow/dify": "workspace:*",
     "@actionow/domain": "workspace:*",
-    "@actionow/infra": "workspace:*"
+    "@actionow/infra": "workspace:*",
+    "@actionow/payments": "workspace:*"
   },
   "devDependencies": {
     "@testcontainers/postgresql": "^10.13.0",

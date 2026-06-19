@@ -105,6 +105,48 @@ describe('holdCredits', () => {
     expect(held).toBe(BigInt(k) * amount);
     expect(held).toBeLessThanOrEqual(balance); // no oversell, ever
   });
+
+  it('a mismatched tenantId holds ZERO and returns false (P2-8 tenant scope)', async () => {
+    const { accountId } = await seedAccount(1_000_000n);
+    const wrongTenant = '00000000-0000-0000-0000-000000000000';
+
+    const ok = await holdCredits(db, accountId, 100_000n, wrongTenant);
+
+    expect(ok).toBe(false);
+    expect(await readAccount(accountId)).toEqual({ balance: 1_000_000n, held: 0n });
+  });
+
+  it('the correct tenantId still holds normally (P2-8)', async () => {
+    const { tenantId, accountId } = await seedAccount(1_000_000n);
+
+    const ok = await holdCredits(db, accountId, 100_000n, tenantId);
+
+    expect(ok).toBe(true);
+    expect(await readAccount(accountId)).toEqual({ balance: 1_000_000n, held: 100_000n });
+  });
+});
+
+describe('ledger_txn.job_id foreign key (P2-8)', () => {
+  it('rejects a ledger row referencing a non-existent job', async () => {
+    const { tenantId, accountId } = await seedAccount(1_000_000n);
+    const bogusJob = '99999999-9999-9999-9999-999999999999';
+
+    const error = await appendLedger(db, {
+      tenantId,
+      accountId,
+      type: 'settle',
+      creditsDelta: -1n,
+      balanceAfter: 999_999n,
+      jobId: bogusJob,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(error).toBeInstanceOf(Error);
+    const cause: unknown = error instanceof Error ? error.cause : undefined;
+    expect((cause as { code?: unknown }).code).toBe('23503'); // foreign_key_violation
+  });
 });
 
 describe('releaseHold', () => {

@@ -1,0 +1,1 @@
+ALTER TABLE "request_idempotency" ADD COLUMN "request_fingerprint" text;

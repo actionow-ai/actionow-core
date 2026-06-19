@@ -79,11 +79,16 @@ beforeAll(async () => {
     .overrideProvider(ENV)
     .useValue({
       NODE_ENV: 'test',
+      CREDIT_RATE: 1000,
       DATABASE_URL: container.getConnectionUri(),
       REDIS_URL: 'redis://localhost:6379',
       API_PORT: 3000,
       LOG_LEVEL: 'info',
       DEV_TENANT_ID: undefined,
+      // Track B Task 5: the `x-tenant-id` dev fallback now requires an explicit
+      // opt-in even outside production. This suite drives `/v1/run` via the
+      // header without an API key, so it must enable the gate.
+      ALLOW_DEV_TENANT_HEADER: true,
       RATE_LIMIT_TENANT_PER_MIN: 600,
       RATE_LIMIT_RESOURCE_PER_MIN: 120,
     })
@@ -255,6 +260,26 @@ describe('POST /v1/run/:resourceId (blocking)', () => {
     const applied = settleRow?.modifiersApplied as { before: string; after: string }[];
     expect(applied).toHaveLength(1);
     expect(applied[0]).toMatchObject({ before: '300', after: '270' });
+  });
+
+  it('rejects a non-http(s) callback_url with 400 invalid_input (ZodBody) and creates no job', async () => {
+    const s = await seed(1_000_000n);
+    tenantId = s.tenantId;
+
+    const res = await request(app.getHttpServer())
+      .post(`/v1/run/${s.resourceId}`)
+      .set('x-tenant-id', tenantId)
+      .send({
+        inputs: { prompt: 'hi' },
+        estimated_usage: { tokens: 1000 },
+        callback_url: 'file:///etc/passwd',
+      })
+      .expect(400);
+
+    expect(res.body.error.code).toBe('invalid_input');
+    // validation rejects before the engine runs → no job, no hold.
+    const jobs = await db.select().from(schema.job);
+    expect(jobs).toHaveLength(0);
   });
 
   it('returns 404 resource_not_found for an unknown resource', async () => {

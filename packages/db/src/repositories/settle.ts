@@ -1,5 +1,5 @@
-import type { JobStatus } from '@actionow/contracts';
-import { eq, sql } from 'drizzle-orm';
+import type { JobStatus, UnifiedError, UsageVector } from '@actionow/contracts';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { account, webhookOutbox } from '../schema/index.js';
 import { transitionJob } from './job.js';
@@ -47,8 +47,9 @@ export interface SettleJobInput {
 export async function settleJob(db: DbOrTx, p: SettleJobInput): Promise<{ settled: boolean }> {
   return db.transaction(async (tx) => {
     const moved = await transitionJob(tx, p.jobId, ['queued', 'running'], 'succeeded', {
-      output: p.output,
-      usage: p.usage,
+      // output/usage are validated upstream; the job columns carry precise jsonb types.
+      output: p.output as Record<string, unknown>,
+      usage: p.usage as UsageVector,
       costCredits: p.finalCost,
     });
     if (!moved) return { settled: false };
@@ -59,7 +60,9 @@ export async function settleJob(db: DbOrTx, p: SettleJobInput): Promise<{ settle
         creditHeld: sql`${account.creditHeld} - ${p.holdAmount}`,
         creditBalance: sql`${account.creditBalance} - ${p.finalCost}`,
       })
-      .where(eq(account.id, p.accountId))
+      // Scope the debit to (account, tenant) — defense-in-depth (P2-8). A
+      // mismatch matches 0 rows → throws below → the whole settle rolls back.
+      .where(and(eq(account.id, p.accountId), eq(account.tenantId, p.tenantId)))
       .returning({ balanceAfter: account.creditBalance });
 
     const row = rows[0];
@@ -109,7 +112,7 @@ export interface FailJobInput {
 export async function failJob(db: DbOrTx, p: FailJobInput): Promise<{ settled: boolean }> {
   return db.transaction(async (tx) => {
     const moved = await transitionJob(tx, p.jobId, ['queued', 'running'], p.to, {
-      error: p.error ?? null,
+      error: (p.error ?? null) as UnifiedError | null,
     });
     if (!moved) return { settled: false };
 

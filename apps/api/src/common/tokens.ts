@@ -20,3 +20,15 @@ export const STORAGE = Symbol('STORAGE');
  * (an unknown model is a non-blocking `warn`); overridable per deployment/test.
  */
 export const KNOWN_MODELS = Symbol('KNOWN_MODELS');
+/**
+ * The engine `PaymentService`, constructed over a `PaymentRegistry` built from
+ * whatever payment-provider creds are present in env. Overridable in tests so
+ * the webhook e2e injects a fake provider (no real Stripe network call).
+ */
+export const PAYMENTS = Symbol('PAYMENTS');
+/**
+ * The shared {@link HttpClient} for server-side upstream calls (e.g. the codex
+ * OAuth code-exchange). Defaults to a real `FetchHttpClient`; overridable in
+ * tests so the OAuth-login e2e injects a fake (no real network call).
+ */
+export const HTTP = Symbol('HTTP');

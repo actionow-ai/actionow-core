@@ -32,6 +32,13 @@ export interface AdapterContext {
   model?: string;
   endpoint?: string;
   apiKey?: string; // resolved from vault by caller; never logged
+  /** Optional per-channel egress proxy URL (resolved from the channel proxy_ref); never logged. */
+  proxyUrl?: string;
+  /**
+   * Opaque per-channel protocol config consumed by the adapter (e.g. relay task
+   * paths, signature header names); never logged.
+   */
+  config?: Record<string, unknown>;
   http: HttpClient;
 }
 
@@ -41,6 +48,23 @@ export interface SubmitInput {
   inputs: Record<string, unknown>;
   execMode: ExecMode;
   ctx: AdapterContext;
+}
+
+/**
+ * A provider-neutral description of one upstream model, returned by the optional
+ * `ProviderAdapter.listModels` (the adapter discovers them from the provider's
+ * official catalog endpoint). `id` is the upstream slug the relay sends in the
+ * request body and stores as a `model` row `name`. `capabilities` is a feature
+ * flag map (tools/vision/audio/json/stream) — a `Record<string, boolean>` rather
+ * than the adapters-package `AdapterCapabilities`, since contracts may not import
+ * the adapters package (the dependency runs the other way).
+ */
+export interface ProviderModel {
+  id: string;
+  displayName?: string;
+  description?: string;
+  contextWindow?: number;
+  capabilities?: Record<string, boolean>;
 }
 
 export interface SyncResult {

@@ -110,6 +110,7 @@ beforeAll(async () => {
       // production disables the x-tenant-id dev fallback, so a real API key is
       // required — exactly the surface §12 exercises.
       NODE_ENV: 'production',
+      CREDIT_RATE: 1000,
       DATABASE_URL: container.getConnectionUri(),
       REDIS_URL: 'redis://localhost:6379',
       API_PORT: 3000,
@@ -387,6 +388,6 @@ describe('§12 acceptance', () => {
 
     // And it appears in the tenant-scoped list view.
     const list = await bearer(request(app.getHttpServer()).get('/v1/resources')).expect(200);
-    expect(list.body.map((r: { id: string }) => r.id)).toContain(difyResourceId);
+    expect(list.body.data.map((r: { id: string }) => r.id)).toContain(difyResourceId);
   });
 });

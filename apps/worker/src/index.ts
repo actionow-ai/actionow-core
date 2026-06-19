@@ -4,7 +4,7 @@
  * against a Testcontainers Redis. `main.ts` is the process entrypoint and is
  * NOT re-exported (importing it would run `bootstrap`).
  */
-export { createWorkerRuntime, resolveSecretFromEnv, type WorkerRuntime } from './runtime.js';
+export { createWorkerRuntime, type WorkerRuntime } from './runtime.js';
 export {
   REAPER_SWEEP_MS,
   type RunningWorkers,

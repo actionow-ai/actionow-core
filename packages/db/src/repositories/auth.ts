@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 import { apiKey, user, userIdentity } from '../schema/index.js';
 import type { DbOrTx } from './types.js';
@@ -28,6 +28,8 @@ export interface ApiKeyRecord {
   readonly resourceAllowlist: string[];
   readonly rateLimit: number | null;
   readonly status: string;
+  /** The bound route group (Track 3); `null` → the `default` group at routing time. */
+  readonly routeGroupId: string | null;
 }
 
 /** Compute the stored lookup hash for an API key (sha256 hex of the plaintext). */
@@ -59,7 +61,11 @@ export async function createApiKey(db: DbOrTx, input: CreateApiKeyInput): Promis
   return { id: row.id, plaintext };
 }
 
-/** Look an API key up by its sha256 hex hash, or `undefined` when absent. */
+/**
+ * Look a LIVE API key up by its sha256 hex hash, or `undefined` when absent or
+ * soft-deleted (revoked). The `deleted_at IS NULL` predicate means a revoked key
+ * authenticates as absent — the auth guard sees no record and rejects (Track D).
+ */
 export async function findApiKeyByHash(
   db: DbOrTx,
   hash: string,
@@ -71,11 +77,128 @@ export async function findApiKeyByHash(
       resourceAllowlist: apiKey.resourceAllowlist,
       rateLimit: apiKey.rateLimit,
       status: apiKey.status,
+      routeGroupId: apiKey.routeGroupId,
     })
     .from(apiKey)
-    .where(eq(apiKey.hash, hash))
+    .where(and(eq(apiKey.hash, hash), isNull(apiKey.deletedAt)))
     .limit(1);
   return rows[0];
+}
+
+/** The tenant-scoped view of an `api_key` row (no `hash`). */
+export interface ApiKeyView {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly resourceAllowlist: string[];
+  readonly rateLimit: number | null;
+  readonly status: string;
+  /** The bound route group (Track 3); `null` → the `default` group at routing time. */
+  readonly routeGroupId: string | null;
+  readonly createdAt: Date;
+}
+
+const API_KEY_VIEW_COLUMNS = {
+  id: apiKey.id,
+  tenantId: apiKey.tenantId,
+  resourceAllowlist: apiKey.resourceAllowlist,
+  rateLimit: apiKey.rateLimit,
+  status: apiKey.status,
+  routeGroupId: apiKey.routeGroupId,
+  createdAt: apiKey.createdAt,
+} as const;
+
+/**
+ * Read one API key scoped to a tenant. The `tenant_id` predicate is in SQL, so a
+ * key id that belongs to another tenant resolves to `undefined` (cross-tenant
+ * safe). Excludes the `hash` — callers only ever see the one-time plaintext.
+ */
+export async function getApiKeyForTenant(
+  db: DbOrTx,
+  keyId: string,
+  tenantId: string,
+): Promise<ApiKeyView | undefined> {
+  const rows = await db
+    .select(API_KEY_VIEW_COLUMNS)
+    .from(apiKey)
+    .where(and(eq(apiKey.id, keyId), eq(apiKey.tenantId, tenantId), isNull(apiKey.deletedAt)))
+    .limit(1);
+  return rows[0];
+}
+
+/**
+ * Flip a tenant's key to `status='disabled'` and bump `updated_at`. Tenant-
+ * predicated in SQL, so a cross-tenant id updates no rows and returns `false`;
+ * `true` on success. Skips already-soft-deleted rows.
+ */
+export async function disableApiKeyForTenant(
+  db: DbOrTx,
+  keyId: string,
+  tenantId: string,
+): Promise<boolean> {
+  const rows = await db
+    .update(apiKey)
+    .set({ status: 'disabled', updatedAt: new Date() })
+    .where(and(eq(apiKey.id, keyId), eq(apiKey.tenantId, tenantId), isNull(apiKey.deletedAt)))
+    .returning({ id: apiKey.id });
+  return rows.length === 1;
+}
+
+/**
+ * Revoke an API key by SOFT-DELETING it: stamps `deleted_at`/`updated_at`
+ * (`now()`) only when the row is still live. A revoked key authenticates as
+ * absent — {@link findApiKeyByHash} filters `deleted_at IS NULL`, so the auth
+ * guard sees no record and rejects with 401 (Track D revoke).
+ *
+ * `tenantId` is OPTIONAL: when supplied the delete is tenant-predicated in SQL
+ * (a cross-tenant id matches no row), matching the tenant-scoped read repos
+ * (`getApiKeyForTenant`/`disableApiKeyForTenant`); when omitted the admin
+ * operator revokes by `:id` across tenants. Returns the deleted key's `id`, or
+ * `undefined` when nothing matched (not found / already revoked / wrong tenant)
+ * — a second revoke is a safe no-op, never a throw.
+ */
+export async function softDeleteApiKey(
+  db: DbOrTx,
+  keyId: string,
+  tenantId?: string,
+): Promise<string | undefined> {
+  const now = new Date();
+  const rows = await db
+    .update(apiKey)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(apiKey.id, keyId),
+        ...(tenantId !== undefined ? [eq(apiKey.tenantId, tenantId)] : []),
+        isNull(apiKey.deletedAt),
+      ),
+    )
+    .returning({ id: apiKey.id });
+  return rows[0]?.id;
+}
+
+/**
+ * Rotate a tenant's key in one transaction: mint a fresh plaintext that inherits
+ * the old key's `resourceAllowlist`/`rateLimit`, then disable the old row. The
+ * tenant predicate is in SQL — a cross-tenant id is a no-op returning `undefined`
+ * (nothing is minted or disabled). The new {@link CreatedApiKey} plaintext is
+ * shown ONCE.
+ */
+export async function rotateApiKeyForTenant(
+  db: DbOrTx,
+  keyId: string,
+  tenantId: string,
+): Promise<CreatedApiKey | undefined> {
+  return db.transaction(async (tx) => {
+    const existing = await getApiKeyForTenant(tx, keyId, tenantId);
+    if (existing === undefined) return undefined;
+    const created = await createApiKey(tx, {
+      tenantId,
+      resourceAllowlist: existing.resourceAllowlist,
+      rateLimit: existing.rateLimit ?? undefined,
+    });
+    await disableApiKeyForTenant(tx, keyId, tenantId);
+    return created;
+  });
 }
 
 /** Normalize an email for storage/lookup: trim + lowercase (case-insensitive). */
@@ -155,6 +278,20 @@ export async function findUserByEmail(db: DbOrTx, email: string): Promise<UserRe
 /** Look a user up by id, or `undefined` when absent. */
 export async function findUserById(db: DbOrTx, id: string): Promise<UserRecord | undefined> {
   const rows = await db.select(USER_COLUMNS).from(user).where(eq(user.id, id)).limit(1);
+  return rows[0];
+}
+
+/** Set a user's password hash (self-serve change-password). Returns the updated row, or undefined if the id is unknown. */
+export async function updateUserPassword(
+  db: DbOrTx,
+  id: string,
+  passwordHash: string,
+): Promise<UserRecord | undefined> {
+  const rows = await db
+    .update(user)
+    .set({ passwordHash, updatedAt: new Date() })
+    .where(eq(user.id, id))
+    .returning(USER_COLUMNS);
   return rows[0];
 }
 

@@ -51,6 +51,10 @@ export async function loadJobContext(db: Database, job: Job): Promise<JobExecuti
       id: c.id,
       weight: c.weight,
       credentialRef: c.credentialRef ?? undefined,
+      endpoint: c.endpoint ?? undefined,
+      model: c.model ?? undefined,
+      proxyRef: c.proxyRef ?? undefined,
+      config: c.config ?? undefined,
     })),
   };
 }
@@ -62,9 +66,9 @@ function toPricebookEntry(row: PricebookEntryRow): PricebookEntry {
     version: row.version,
     method: row.method as PricebookEntry['method'],
     timing: row.timing as PricebookEntry['timing'],
-    spec: row.spec as PricebookEntry['spec'],
+    spec: row.spec,
   };
-  if (row.markup !== null) entry.markup = row.markup as PricebookEntry['markup'];
+  if (row.markup !== null) entry.markup = row.markup;
   return entry;
 }
 

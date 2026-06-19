@@ -2,6 +2,7 @@ import { AdapterError } from '@actionow/adapters';
 import type { UnifiedError, UnifiedErrorCode } from '@actionow/contracts';
 import { DomainError } from '@actionow/domain';
 import { EngineError } from '@actionow/engine';
+import { ProtocolError } from '@actionow/llm-protocol';
 import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import { Catch, HttpException, Logger } from '@nestjs/common';
 import type { Response } from 'express';
@@ -99,6 +100,13 @@ export class UnifiedErrorFilter implements ExceptionFilter {
   private toUnified(exception: unknown): UnifiedError {
     if (exception instanceof EngineError) return exception.unified;
     if (exception instanceof AdapterError) return exception.unified;
+    if (exception instanceof ProtocolError) {
+      // A request-normalization failure (e.g. a capability mismatch from the
+      // chat relay's `normalizeRequest`) carries its own unified code (e.g.
+      // `invalid_input`) → mapped to its real client status (400) by the same
+      // `statusForCode` table, not the 500 a plain `Error` would yield.
+      return { code: exception.code, message: exception.message, retryable: false };
+    }
     if (exception instanceof DomainError) {
       return { code: 'invalid_input', message: exception.message, retryable: false };
     }

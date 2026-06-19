@@ -1,47 +1,54 @@
 import type { AdapterRegistry } from '@actionow/adapters';
-import type {
-  ExecMode,
-  IoSchema,
-  Modifier,
-  PricebookEntry,
-  UsageVector,
-} from '@actionow/contracts';
+import type { ExecMode, IoSchema, Modifier, PricebookEntry } from '@actionow/contracts';
+import { EXEC_MODES } from '@actionow/contracts';
 import {
   type Database,
   getActivePricebookEntry,
   getResource,
   getResourceVersion,
   listApplicableModifiers,
-  listChannels,
   type ModifierRow,
   type PricebookEntryRow,
-  type UpstreamChannelRow,
 } from '@actionow/db';
-import type {
-  JobQueuePort,
-  RunChannel,
-  RunOutcome,
-  RunRequest,
-  StreamOutcome,
-} from '@actionow/engine';
+import type { JobQueuePort, RunOutcome, RunRequest, StreamOutcome } from '@actionow/engine';
 import { ExecutionService } from '@actionow/engine';
-import { FetchHttpClient } from '@actionow/infra';
+import { type AppEnv, FetchHttpClient } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
+import { z } from 'zod';
 
 import type { TenantContext } from '../auth/auth.service.js';
+import { ChannelRoutingService } from '../common/channel-routing.service.js';
 import { engineInvalidInput, engineNotFound } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
-import { ADAPTERS, DB, JOB_QUEUE } from '../common/tokens.js';
+import { ADAPTERS, DB, ENV, JOB_QUEUE } from '../common/tokens.js';
+
+/**
+ * `/v1/run` request-body schema (the run inputs + optional async/idempotency
+ * knobs), enforced at the controller via {@link ZodBody}.
+ *
+ * `callback_url` is validated as an http(s) URL here (rejecting `file:`,
+ * `gopher:`, etc. at ingress); the load-bearing SSRF protection — blocking
+ * private/loopback/metadata *addresses* — is the worker's egress guard, since a
+ * URL-format check alone accepts `http://169.254.169.254/`. Unknown top-level
+ * keys are stripped (not rejected), preserving prior pass-through behavior.
+ */
+export const RunBodySchema = z.object({
+  inputs: z.record(z.unknown()).optional(),
+  exec_mode: z.enum(EXEC_MODES).optional(),
+  callback_url: z
+    .string()
+    .url()
+    .refine((u) => u.startsWith('http://') || u.startsWith('https://'), {
+      message: 'callback_url must be an http(s) URL',
+    })
+    .optional(),
+  idempotency_key: z.string().min(1).optional(),
+  end_user: z.string().optional(),
+  estimated_usage: z.record(z.number()).optional(),
+});
 
 /** A `/v1/run` request body (the run inputs + optional async/idempotency knobs). */
-export interface RunBody {
-  inputs?: Record<string, unknown>;
-  exec_mode?: ExecMode;
-  callback_url?: string;
-  idempotency_key?: string;
-  end_user?: string;
-  estimated_usage?: UsageVector;
-}
+export type RunBody = z.infer<typeof RunBodySchema>;
 
 /**
  * Loads a resource's frozen catalog snapshot (io_schema, active pricebook,
@@ -57,7 +64,9 @@ export class RunService {
     @Inject(DB) private readonly db: Database,
     @Inject(ADAPTERS) private readonly adapters: AdapterRegistry,
     @Inject(JOB_QUEUE) private readonly queue: JobQueuePort,
+    @Inject(ENV) private readonly env: AppEnv,
     private readonly secrets: SecretResolver,
+    private readonly routing: ChannelRoutingService,
   ) {}
 
   async run(resourceId: string, body: RunBody, ctx: TenantContext): Promise<RunOutcome> {
@@ -89,6 +98,9 @@ export class RunService {
       http: this.http,
       now: () => new Date(),
       enqueue: (jobId: string): Promise<void> => this.queue.enqueueExec(jobId),
+      proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
+      traceUpstream: this.env.RELAY_TRACE === 'full',
+      traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
     });
   }
 
@@ -98,6 +110,14 @@ export class RunService {
    * `forceMode`, when set, overrides the body's `exec_mode` (still validated
    * against the resource's supported modes) — the SSE endpoint forces `stream`
    * so a client hitting `Accept: text/event-stream` always streams.
+   *
+   * Channels are the GROUP-SCOPED candidate set (Track 4) built from
+   * `ctx.routeGroupId`. This governs the in-process `blocking`/`stream` paths
+   * (the engine routes over these channels here). For `async` runs the engine
+   * only enqueues the job — the worker re-loads channels from `listChannels`
+   * (resource-level, no group) since the job row carries no `route_group_id`
+   * (no schema change this track). Wiring the group into the async worker path
+   * is deferred to a follow-up (it needs a `job.route_group_id` column).
    */
   private async buildRequest(
     resourceId: string,
@@ -121,8 +141,12 @@ export class RunService {
       throw engineNotFound(`no active pricebook for resource ${resourceId}`);
     }
 
-    const channelRows = await listChannels(this.db, resourceId);
-    if (channelRows.length === 0) {
+    // Group-scoped candidate set (Track 4): the key's route group filters the
+    // resource's channels (each carrying its per-(group,channel) priority/weight
+    // for the engine's priority-tiered fallback), falling back to ALL active
+    // channels when the group has no members for the resource (compat).
+    const channels = await this.routing.candidatesFor(resourceId, ctx.routeGroupId);
+    if (channels.length === 0) {
       throw engineNotFound(`no active upstream channel for resource ${resourceId}`);
     }
 
@@ -146,7 +170,7 @@ export class RunService {
       },
       pricebookEntry: toPricebookEntry(pricebook),
       modifiers: modifierRows.map(toModifier),
-      channels: channelRows.map(toRunChannel),
+      channels,
       inputs: body.inputs ?? {},
       execMode,
       tenantId: ctx.tenantId,
@@ -186,9 +210,9 @@ function toPricebookEntry(row: PricebookEntryRow): PricebookEntry {
     version: row.version,
     method: row.method as PricebookEntry['method'],
     timing: row.timing as PricebookEntry['timing'],
-    spec: row.spec as PricebookEntry['spec'],
+    spec: row.spec,
   };
-  if (row.markup !== null) entry.markup = row.markup as PricebookEntry['markup'];
+  if (row.markup !== null) entry.markup = row.markup;
   return entry;
 }
 
@@ -205,13 +229,4 @@ function toModifier(row: ModifierRow): Modifier {
   if (row.whenExpr !== null) modifier.whenExpr = row.whenExpr;
   if (row.value !== null) modifier.value = Number(row.value);
   return modifier;
-}
-
-/** Map an `upstream_channel` row to the engine's {@link RunChannel}. */
-function toRunChannel(row: UpstreamChannelRow): RunChannel {
-  return {
-    id: row.id,
-    weight: row.weight,
-    credentialRef: row.credentialRef ?? undefined,
-  };
 }

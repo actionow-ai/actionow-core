@@ -4,6 +4,15 @@ export interface HttpRequest {
   headers?: Record<string, string>;
   body?: unknown;
   timeoutMs?: number;
+  /**
+   * Inter-chunk idle timeout for `stream()` (ms): a stalled upstream that sends
+   * no bytes within this window (incl. time-to-first-byte) is aborted so a hung
+   * provider can't pin the SSE connection + credit hold. Defaults to the client's
+   * configured `streamIdleTimeoutMs`. Does not apply to buffered `request()`.
+   */
+  idleTimeoutMs?: number;
+  /** Optional per-request HTTP(S) proxy URL; the FetchHttpClient routes via an undici ProxyAgent. */
+  proxyUrl?: string;
 }
 export interface HttpResponse {
   status: number;
