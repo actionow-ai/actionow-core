@@ -597,7 +597,13 @@
       "weightHint": "Relative traffic share among same-priority channels."
     }
   },
-  "common": { "edit": "Edit", "delete": "Delete", "confirm": "Confirm", "cancel": "Cancel" },
+  "common": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "retry": "Retry"
+  },
   "confirm": {
     "deleteChannelTitle": "Delete channel?",
     "deleteChannelMsg": "Permanently delete the {{provider}} channel? This cannot be undone."
@@ -792,6 +798,7 @@
     "job_failed": "Job failed",
     "internal_error": "Internal server error",
     "forbidden_not_admin": "This account is not an admin",
-    "network": "Network error, please retry"
+    "network": "Network error, please retry",
+    "loadFailed": "Failed to load"
   }
 }

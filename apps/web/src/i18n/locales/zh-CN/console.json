@@ -592,7 +592,13 @@
       "weightHint": "同优先级渠道间的相对流量占比。"
     }
   },
-  "common": { "edit": "编辑", "delete": "删除", "confirm": "确认", "cancel": "取消" },
+  "common": {
+    "edit": "编辑",
+    "delete": "删除",
+    "confirm": "确认",
+    "cancel": "取消",
+    "retry": "重试"
+  },
   "confirm": {
     "deleteChannelTitle": "删除通道?",
     "deleteChannelMsg": "确定永久删除 {{provider}} 通道吗?此操作不可撤销。"
@@ -787,6 +793,7 @@
     "job_failed": "任务执行失败",
     "internal_error": "服务器内部错误",
     "forbidden_not_admin": "该账号不是管理员",
-    "network": "网络错误,请稍后再试"
+    "network": "网络错误,请稍后再试",
+    "loadFailed": "加载失败"
   }
 }

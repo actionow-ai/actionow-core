@@ -242,6 +242,29 @@ describe('DataTable column visibility', () => {
   });
 });
 
+describe('DataTable error state', () => {
+  it('renders an error + retry in place of rows when error is set, and retries on click', async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+    render(
+      <DataTable columns={COLS} rows={[]} rowKey={rowKey} error onRetry={onRetry} empty="No rows" />,
+    );
+
+    // error wins over the empty state
+    expect(screen.queryByText('No rows')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /retry/i }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('error wins over loading', () => {
+    render(<DataTable columns={COLS} rows={[]} rowKey={rowKey} error loading />);
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+});
+
 describe('DataTable sorting', () => {
   it('cycles a sortable header asc -> desc and reorders rows', async () => {
     const user = userEvent.setup();

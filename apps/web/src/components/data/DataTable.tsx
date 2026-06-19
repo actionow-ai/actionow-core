@@ -17,6 +17,7 @@ import { Z } from '../../lib/zIndex';
 import { Checkbox } from '../ui/Checkbox';
 import { IconButton } from '../ui/IconButton';
 import { RoseLoader } from '../ui/RoseLoader';
+import { ErrorState } from './ErrorState';
 import {
   clampPage,
   deselectAll,
@@ -53,6 +54,10 @@ export interface DataTableProps<T> {
   rowKey: (row: T) => string;
   empty?: ReactNode;
   loading?: boolean;
+  /** Render an error + retry state in place of rows when the backing query failed. */
+  error?: boolean;
+  /** Retry handler for the error state — wire to the query's `refetch`. */
+  onRetry?: () => void;
   fill?: boolean;
   onRowClick?: (row: T) => void;
   selectedKey?: string;
@@ -101,6 +106,8 @@ export function DataTable<T>({
   rowKey,
   empty,
   loading,
+  error,
+  onRetry,
   fill,
   onRowClick,
   selectedKey,
@@ -203,6 +210,7 @@ export function DataTable<T>({
       <RoseLoader size={56} />
     </div>
   );
+  const errorState = <ErrorState onRetry={onRetry} />;
   const emptyState = (
     <div
       style={{
@@ -325,11 +333,13 @@ export function DataTable<T>({
   if (!isDesktop) {
     return (
       <MobileShell fill={fill} toolbar={toolbar} bulkBar={bulkBar}>
-        {loading === true
-          ? loadingState
-          : paged.length === 0
-            ? emptyState
-            : paged.map((r) => {
+        {error === true
+          ? errorState
+          : loading === true
+            ? loadingState
+            : paged.length === 0
+              ? emptyState
+              : paged.map((r) => {
                 const { selectedRow, handlers } = rowInteraction(r);
                 // Compact card: the first (identity) column spans full width as the
                 // card's headline; the rest pack into a 2-up grid so a wide table
@@ -534,7 +544,11 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody>
-            {loading === true ? (
+            {error === true ? (
+              <tr>
+                <td colSpan={colCount}>{errorState}</td>
+              </tr>
+            ) : loading === true ? (
               <tr>
                 <td colSpan={colCount}>{loadingState}</td>
               </tr>
