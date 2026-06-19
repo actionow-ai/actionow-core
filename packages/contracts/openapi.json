@@ -336,6 +336,700 @@
           "version",
           "active"
         ]
+      },
+      "ApiKeyView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "resource_allowlist": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rate_limit": {
+            "type": "number",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "route_group_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "resource_allowlist",
+          "rate_limit",
+          "status",
+          "route_group_id",
+          "created_at"
+        ]
+      },
+      "JobView": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "resource_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "exec_mode": {
+            "type": "string"
+          },
+          "cost": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "tenant_id",
+          "resource_id",
+          "status",
+          "exec_mode",
+          "cost",
+          "created_at"
+        ]
+      },
+      "LedgerView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "account_id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "credits_delta": {
+            "type": "string"
+          },
+          "balance_after": {
+            "type": "string"
+          },
+          "resource_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "job_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "account_id",
+          "type",
+          "credits_delta",
+          "balance_after",
+          "resource_id",
+          "job_id",
+          "created_at"
+        ]
+      },
+      "UsageLogView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "input_tokens": {
+            "type": "number"
+          },
+          "output_tokens": {
+            "type": "number"
+          },
+          "cost": {
+            "type": "string"
+          },
+          "latency_ms": {
+            "type": "number",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "model",
+          "input_tokens",
+          "output_tokens",
+          "cost",
+          "latency_ms",
+          "status",
+          "created_at"
+        ]
+      },
+      "UsageRollupView": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string"
+          },
+          "requests": {
+            "type": "number"
+          },
+          "input_tokens": {
+            "type": "string"
+          },
+          "output_tokens": {
+            "type": "string"
+          },
+          "cost": {
+            "type": "string"
+          },
+          "provider_cost": {
+            "type": "string"
+          },
+          "margin": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "bucket",
+          "requests",
+          "input_tokens",
+          "output_tokens",
+          "cost",
+          "provider_cost",
+          "margin",
+          "errors"
+        ]
+      },
+      "PaymentIntentView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "provider_ref": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "target_ref": {
+            "type": "string",
+            "nullable": true
+          },
+          "amount_minor": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "credit_amount": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "provider",
+          "provider_ref",
+          "purpose",
+          "target_ref",
+          "amount_minor",
+          "currency",
+          "credit_amount",
+          "status",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "SecretView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "created_at"
+        ]
+      },
+      "DifyImportView": {
+        "type": "object",
+        "properties": {
+          "resource_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "io_schema": {
+            "nullable": true
+          },
+          "compat_report": {
+            "nullable": true
+          }
+        },
+        "required": [
+          "resource_id",
+          "version"
+        ]
+      },
+      "RouteGroupView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "group_ratio_bps": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "group_ratio_bps",
+          "status",
+          "description",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "RouteGroupChannelView": {
+        "type": "object",
+        "properties": {
+          "group_id": {
+            "type": "string"
+          },
+          "channel_id": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "number"
+          },
+          "weight": {
+            "type": "number"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_id",
+          "channel_id",
+          "priority",
+          "weight",
+          "created_at"
+        ]
+      },
+      "OfficialPriceView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "model_slug": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "input_price_per_1m": {
+            "type": "string"
+          },
+          "output_price_per_1m": {
+            "type": "string"
+          },
+          "cached_input_price_per_1m": {
+            "type": "string",
+            "nullable": true
+          },
+          "source_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "effective_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "updated_by": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "model_slug",
+          "display_name",
+          "input_price_per_1m",
+          "output_price_per_1m",
+          "cached_input_price_per_1m",
+          "source_url",
+          "effective_at",
+          "notes",
+          "updated_by",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "ConsoleApiKeyView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "resource_allowlist": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rate_limit": {
+            "type": "number",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "resource_allowlist",
+          "rate_limit",
+          "status",
+          "created_at"
+        ]
+      },
+      "ConsoleJobView": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string"
+          },
+          "resource_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "exec_mode": {
+            "type": "string"
+          },
+          "cost": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "resource_id",
+          "status",
+          "exec_mode",
+          "cost",
+          "created_at"
+        ]
+      },
+      "ConsoleLedgerView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "credits_delta": {
+            "type": "string"
+          },
+          "balance_after": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "credits_delta",
+          "balance_after",
+          "job_id",
+          "created_at"
+        ]
+      },
+      "ConsoleModelView": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "display": {
+            "type": "string"
+          },
+          "modality": {
+            "type": "string"
+          },
+          "capabilities": {
+            "nullable": true
+          },
+          "visibility": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "display",
+          "modality",
+          "visibility"
+        ]
+      },
+      "ConsoleUsageLogView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "input_tokens": {
+            "type": "number"
+          },
+          "output_tokens": {
+            "type": "number"
+          },
+          "cost": {
+            "type": "string"
+          },
+          "latency_ms": {
+            "type": "number",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "model",
+          "input_tokens",
+          "output_tokens",
+          "cost",
+          "latency_ms",
+          "status",
+          "created_at"
+        ]
+      },
+      "ConsolePaymentView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "amount_minor": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "credit_amount": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "purpose",
+          "amount_minor",
+          "currency",
+          "credit_amount",
+          "status",
+          "created_at"
+        ]
+      },
+      "ConsoleMeView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "email_verified": {
+            "type": "boolean"
+          },
+          "role": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "email_verified",
+          "role",
+          "status",
+          "tenant_id"
+        ]
+      },
+      "ConsoleBalanceView": {
+        "type": "object",
+        "properties": {
+          "balance": {
+            "type": "string"
+          },
+          "held": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "balance",
+          "held"
+        ]
+      },
+      "ConsoleIntentView": {
+        "type": "object",
+        "properties": {
+          "intent_id": {
+            "type": "string"
+          },
+          "redirect_url": {
+            "type": "string"
+          },
+          "qr": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "intent_id"
+        ]
       }
     },
     "parameters": {}
@@ -599,6 +1293,486 @@
                       "type": "array",
                       "items": {
                         "$ref": "#/components/schemas/ModifierView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api-keys": {
+      "get": {
+        "summary": "List a tenant’s API keys",
+        "tags": [
+          "admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "List a tenant’s API keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ApiKeyView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/jobs": {
+      "get": {
+        "summary": "List a tenant’s jobs",
+        "tags": [
+          "admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "List a tenant’s jobs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/JobView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/ledger": {
+      "get": {
+        "summary": "List a tenant’s ledger transactions",
+        "tags": [
+          "admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "List a tenant’s ledger transactions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LedgerView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/usage": {
+      "get": {
+        "summary": "Global per-call usage log",
+        "tags": [
+          "admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "Global per-call usage log",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/UsageLogView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/payments": {
+      "get": {
+        "summary": "List a tenant’s payment intents",
+        "tags": [
+          "admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "List a tenant’s payment intents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PaymentIntentView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/route-groups": {
+      "get": {
+        "summary": "List route groups",
+        "tags": [
+          "billing"
+        ],
+        "responses": {
+          "200": {
+            "description": "List route groups",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RouteGroupView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/route-groups/{id}/channels": {
+      "get": {
+        "summary": "List a group’s channels",
+        "tags": [
+          "billing"
+        ],
+        "responses": {
+          "200": {
+            "description": "List a group’s channels",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RouteGroupChannelView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/official-prices": {
+      "get": {
+        "summary": "List the official price catalog",
+        "tags": [
+          "billing"
+        ],
+        "responses": {
+          "200": {
+            "description": "List the official price catalog",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OfficialPriceView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/api-keys": {
+      "get": {
+        "summary": "List your tenant API keys",
+        "tags": [
+          "console"
+        ],
+        "responses": {
+          "200": {
+            "description": "List your tenant API keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ConsoleApiKeyView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/models": {
+      "get": {
+        "summary": "Models visible to your tenant",
+        "tags": [
+          "console"
+        ],
+        "responses": {
+          "200": {
+            "description": "Models visible to your tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ConsoleModelView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/usage-log": {
+      "get": {
+        "summary": "Your tenant per-call usage log",
+        "tags": [
+          "console"
+        ],
+        "responses": {
+          "200": {
+            "description": "Your tenant per-call usage log",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ConsoleUsageLogView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/payments": {
+      "get": {
+        "summary": "Your tenant payment history",
+        "tags": [
+          "console"
+        ],
+        "responses": {
+          "200": {
+            "description": "Your tenant payment history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ConsolePaymentView"
                       }
                     },
                     "next_cursor": {

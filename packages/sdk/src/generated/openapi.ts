@@ -284,6 +284,486 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a tenant’s API keys */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List a tenant’s API keys */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["ApiKeyView"][];
+                            next_cursor: string | null;
+                            has_more: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a tenant’s jobs */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List a tenant’s jobs */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["JobView"][];
+                            next_cursor: string | null;
+                            has_more: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a tenant’s ledger transactions */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List a tenant’s ledger transactions */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["LedgerView"][];
+                            next_cursor: string | null;
+                            has_more: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Global per-call usage log */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Global per-call usage log */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["UsageLogView"][];
+                            next_cursor: string | null;
+                            has_more: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a tenant’s payment intents */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List a tenant’s payment intents */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["PaymentIntentView"][];
+                            next_cursor: string | null;
+                            has_more: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/route-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List route groups */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List route groups */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["RouteGroupView"][];
+                            next_cursor: string | null;
+                            has_more: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/route-groups/{id}/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a group’s channels */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List a group’s channels */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["RouteGroupChannelView"][];
+                            next_cursor: string | null;
+                            has_more: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/official-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the official price catalog */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List the official price catalog */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["OfficialPriceView"][];
+                            next_cursor: string | null;
+                            has_more: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/console/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List your tenant API keys */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List your tenant API keys */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["ConsoleApiKeyView"][];
+                            next_cursor: string | null;
+                            has_more: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/console/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Models visible to your tenant */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Models visible to your tenant */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["ConsoleModelView"][];
+                            next_cursor: string | null;
+                            has_more: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/console/usage-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your tenant per-call usage log */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Your tenant per-call usage log */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["ConsoleUsageLogView"][];
+                            next_cursor: string | null;
+                            has_more: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/console/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your tenant payment history */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Your tenant payment history */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["ConsolePaymentView"][];
+                            next_cursor: string | null;
+                            has_more: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -370,6 +850,179 @@ export interface components {
             priority: number;
             version: number;
             active: boolean;
+        };
+        ApiKeyView: {
+            id: string;
+            tenant_id: string;
+            resource_allowlist: string[];
+            rate_limit: number | null;
+            status: string;
+            route_group_id: string | null;
+            created_at: string;
+        };
+        JobView: {
+            job_id: string;
+            tenant_id: string;
+            resource_id: string;
+            status: string;
+            exec_mode: string;
+            cost: string | null;
+            created_at: string;
+        };
+        LedgerView: {
+            id: string;
+            tenant_id: string;
+            account_id: string;
+            type: string;
+            credits_delta: string;
+            balance_after: string;
+            resource_id: string | null;
+            job_id: string | null;
+            created_at: string;
+        };
+        UsageLogView: {
+            id: string;
+            tenant_id: string;
+            model: string;
+            input_tokens: number;
+            output_tokens: number;
+            cost: string;
+            latency_ms: number | null;
+            status: string;
+            created_at: string;
+        };
+        UsageRollupView: {
+            bucket: string;
+            requests: number;
+            input_tokens: string;
+            output_tokens: string;
+            cost: string;
+            provider_cost: string;
+            margin: string;
+            errors: number;
+        };
+        PaymentIntentView: {
+            id: string;
+            tenant_id: string;
+            provider: string;
+            provider_ref: string;
+            purpose: string;
+            target_ref: string | null;
+            amount_minor: string;
+            currency: string;
+            credit_amount: string | null;
+            status: string;
+            created_at: string;
+            updated_at: string;
+        };
+        SecretView: {
+            id: string;
+            provider: string;
+            created_at: string;
+        };
+        DifyImportView: {
+            resource_id: string;
+            version: number;
+            io_schema?: unknown;
+            compat_report?: unknown;
+        };
+        RouteGroupView: {
+            id: string;
+            name: string;
+            group_ratio_bps: number;
+            status: string;
+            description: string | null;
+            created_at: string;
+            updated_at: string;
+        };
+        RouteGroupChannelView: {
+            group_id: string;
+            channel_id: string;
+            priority: number;
+            weight: number;
+            created_at: string;
+        };
+        OfficialPriceView: {
+            id: string;
+            provider: string;
+            model_slug: string;
+            display_name: string | null;
+            input_price_per_1m: string;
+            output_price_per_1m: string;
+            cached_input_price_per_1m: string | null;
+            source_url: string | null;
+            effective_at: string | null;
+            notes: string | null;
+            updated_by: string | null;
+            created_at: string;
+            updated_at: string;
+        };
+        ConsoleApiKeyView: {
+            id: string;
+            resource_allowlist: string[];
+            rate_limit: number | null;
+            status: string;
+            created_at: string;
+        };
+        ConsoleJobView: {
+            job_id: string;
+            resource_id: string;
+            status: string;
+            exec_mode: string;
+            cost: string | null;
+            created_at: string;
+        };
+        ConsoleLedgerView: {
+            id: string;
+            type: string;
+            credits_delta: string;
+            balance_after: string;
+            job_id: string | null;
+            created_at: string;
+        };
+        ConsoleModelView: {
+            name: string;
+            display: string;
+            modality: string;
+            capabilities?: unknown;
+            visibility: string;
+        };
+        ConsoleUsageLogView: {
+            id: string;
+            model: string;
+            input_tokens: number;
+            output_tokens: number;
+            cost: string;
+            latency_ms: number | null;
+            status: string;
+            created_at: string;
+        };
+        ConsolePaymentView: {
+            id: string;
+            provider: string;
+            purpose: string;
+            amount_minor: string;
+            currency: string;
+            credit_amount: string | null;
+            status: string;
+            created_at: string;
+        };
+        ConsoleMeView: {
+            id: string;
+            email: string;
+            email_verified: boolean;
+            role: string;
+            status: string;
+            tenant_id: string | null;
+        };
+        ConsoleBalanceView: {
+            balance: string;
+            held: string;
+        };
+        ConsoleIntentView: {
+            intent_id: string;
+            redirect_url?: string;
+            qr?: string;
         };
     };
     responses: never;

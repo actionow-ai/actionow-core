@@ -7,6 +7,11 @@ import { z } from 'zod';
 
 import { accountViewSchema, tenantViewSchema } from './admin-views.js';
 import {
+  officialPriceViewSchema,
+  routeGroupChannelViewSchema,
+  routeGroupViewSchema,
+} from './billing-views.js';
+import {
   channelViewSchema,
   modelGrantViewSchema,
   modelViewSchema,
@@ -14,6 +19,27 @@ import {
   pricebookViewSchema,
   resourceViewSchema,
 } from './catalog-views.js';
+import {
+  consoleApiKeyViewSchema,
+  consoleBalanceViewSchema,
+  consoleIntentViewSchema,
+  consoleJobViewSchema,
+  consoleLedgerViewSchema,
+  consoleMeViewSchema,
+  consoleModelViewSchema,
+  consolePaymentViewSchema,
+  consoleUsageLogViewSchema,
+} from './console-views.js';
+import {
+  apiKeyViewSchema,
+  difyImportViewSchema,
+  jobViewSchema,
+  ledgerViewSchema,
+  paymentIntentViewSchema,
+  secretViewSchema,
+  usageLogViewSchema,
+  usageRollupViewSchema,
+} from './ops-views.js';
 
 /**
  * BUILD-TIME ONLY. This module turns the pure zod view contracts into an OpenAPI
@@ -47,6 +73,32 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const Pricebook = registry.register('PricebookView', pricebookViewSchema);
   const Modifier = registry.register('ModifierView', modifierViewSchema);
 
+  // admin operational views (ops-views)
+  const ApiKey = registry.register('ApiKeyView', apiKeyViewSchema);
+  const Job = registry.register('JobView', jobViewSchema);
+  const Ledger = registry.register('LedgerView', ledgerViewSchema);
+  const UsageLog = registry.register('UsageLogView', usageLogViewSchema);
+  registry.register('UsageRollupView', usageRollupViewSchema);
+  const Payment = registry.register('PaymentIntentView', paymentIntentViewSchema);
+  registry.register('SecretView', secretViewSchema);
+  registry.register('DifyImportView', difyImportViewSchema);
+
+  // billing & routing views (billing-views)
+  const RouteGroup = registry.register('RouteGroupView', routeGroupViewSchema);
+  const RouteGroupChannel = registry.register('RouteGroupChannelView', routeGroupChannelViewSchema);
+  const OfficialPrice = registry.register('OfficialPriceView', officialPriceViewSchema);
+
+  // tenant console views (console-views)
+  const ConsoleApiKey = registry.register('ConsoleApiKeyView', consoleApiKeyViewSchema);
+  registry.register('ConsoleJobView', consoleJobViewSchema);
+  registry.register('ConsoleLedgerView', consoleLedgerViewSchema);
+  const ConsoleModel = registry.register('ConsoleModelView', consoleModelViewSchema);
+  const ConsoleUsageLog = registry.register('ConsoleUsageLogView', consoleUsageLogViewSchema);
+  const ConsolePayment = registry.register('ConsolePaymentView', consolePaymentViewSchema);
+  registry.register('ConsoleMeView', consoleMeViewSchema);
+  registry.register('ConsoleBalanceView', consoleBalanceViewSchema);
+  registry.register('ConsoleIntentView', consoleIntentViewSchema);
+
   // --- representative list paths referencing the registered schemas ---
   // (GET/list endpoints prove the response-schema chain; request bodies follow
   // once the create/update schemas migrate into contracts.)
@@ -72,6 +124,23 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   list('/admin/models', 'List relay models', Model, 'catalog');
   list('/admin/pricebook', 'List pricebook entries', Pricebook, 'pricing');
   list('/admin/modifiers', 'List pricing modifiers', Modifier, 'pricing');
+  list('/admin/api-keys', 'List a tenant’s API keys', ApiKey, 'admin');
+  list('/admin/jobs', 'List a tenant’s jobs', Job, 'admin');
+  list('/admin/ledger', 'List a tenant’s ledger transactions', Ledger, 'admin');
+  list('/admin/usage', 'Global per-call usage log', UsageLog, 'admin');
+  list('/admin/payments', 'List a tenant’s payment intents', Payment, 'admin');
+  list('/admin/route-groups', 'List route groups', RouteGroup, 'billing');
+  list(
+    '/admin/route-groups/{id}/channels',
+    'List a group’s channels',
+    RouteGroupChannel,
+    'billing',
+  );
+  list('/admin/official-prices', 'List the official price catalog', OfficialPrice, 'billing');
+  list('/console/api-keys', 'List your tenant API keys', ConsoleApiKey, 'console');
+  list('/console/models', 'Models visible to your tenant', ConsoleModel, 'console');
+  list('/console/usage-log', 'Your tenant per-call usage log', ConsoleUsageLog, 'console');
+  list('/console/payments', 'Your tenant payment history', ConsolePayment, 'console');
 
   const generator = new OpenApiGeneratorV3(registry.definitions);
   return generator.generateDocument({

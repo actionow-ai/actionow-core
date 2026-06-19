@@ -18,6 +18,29 @@ export type ModelView = Schemas['ModelView'];
 export type ModelGrantView = Schemas['ModelGrantView'];
 export type PricebookView = Schemas['PricebookView'];
 export type ModifierView = Schemas['ModifierView'];
+// admin operational views
+export type ApiKeyView = Schemas['ApiKeyView'];
+export type JobView = Schemas['JobView'];
+export type LedgerView = Schemas['LedgerView'];
+export type UsageLogView = Schemas['UsageLogView'];
+export type UsageRollupView = Schemas['UsageRollupView'];
+export type PaymentIntentView = Schemas['PaymentIntentView'];
+export type SecretView = Schemas['SecretView'];
+export type DifyImportView = Schemas['DifyImportView'];
+// billing & routing views
+export type RouteGroupView = Schemas['RouteGroupView'];
+export type RouteGroupChannelView = Schemas['RouteGroupChannelView'];
+export type OfficialPriceView = Schemas['OfficialPriceView'];
+// tenant console views
+export type ConsoleApiKeyView = Schemas['ConsoleApiKeyView'];
+export type ConsoleJobView = Schemas['ConsoleJobView'];
+export type ConsoleLedgerView = Schemas['ConsoleLedgerView'];
+export type ConsoleModelView = Schemas['ConsoleModelView'];
+export type ConsoleUsageLogView = Schemas['ConsoleUsageLogView'];
+export type ConsolePaymentView = Schemas['ConsolePaymentView'];
+export type ConsoleMeView = Schemas['ConsoleMeView'];
+export type ConsoleBalanceView = Schemas['ConsoleBalanceView'];
+export type ConsoleIntentView = Schemas['ConsoleIntentView'];
 
 export interface ActionowClientOptions {
   /** API origin, e.g. `https://gateway.example.com`. */

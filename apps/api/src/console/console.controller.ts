@@ -1,3 +1,23 @@
+import {
+  type ConsoleApiKeyView,
+  consoleApiKeyViewSchema,
+  type ConsoleBalanceView,
+  consoleBalanceViewSchema,
+  type ConsoleJobView,
+  consoleJobViewSchema,
+  type ConsoleLedgerView,
+  consoleLedgerViewSchema,
+  type ConsoleMeView,
+  consoleMeViewSchema,
+  type ConsoleModelView,
+  consoleModelViewSchema,
+  type ConsolePaymentView,
+  consolePaymentViewSchema,
+  type ConsoleUsageLogView,
+  consoleUsageLogViewSchema,
+  type UsageRollupView,
+  usageRollupViewSchema,
+} from '@actionow/contracts';
 import type {
   ApiKeyRow,
   Job,
@@ -50,122 +70,59 @@ interface ApiKeyCreatedView {
   id: string;
   plaintext: string;
 }
-interface ApiKeyView {
-  id: string;
-  resource_allowlist: string[];
-  rate_limit: number | null;
-  status: string;
-  created_at: string;
-}
-interface JobView {
-  job_id: string;
-  resource_id: string;
-  status: string;
-  exec_mode: string;
-  cost: string | null;
-  created_at: string;
-}
-interface LedgerView {
-  id: string;
-  type: string;
-  credits_delta: string;
-  balance_after: string;
-  job_id: string | null;
-  created_at: string;
-}
-interface ModelListItem {
-  name: string;
-  display: string;
-  modality: string;
-  capabilities: unknown;
-  visibility: string;
-}
-/** One usage rollup bucket — bigint sums serialized as decimal µ-strings. */
-interface UsageRollupView {
-  bucket: string;
-  requests: number;
-  input_tokens: string;
-  output_tokens: string;
-  cost: string;
-  provider_cost: string;
-  margin: string;
-  errors: number;
-}
-/** One per-call usage-log row for the caller's tenant (tenant implicit). */
-interface UsageLogView {
-  id: string;
-  model: string;
-  input_tokens: number;
-  output_tokens: number;
-  cost: string;
-  latency_ms: number | null;
-  status: string;
-  created_at: string;
-}
-/** One payment intent in the caller-tenant's topup history. */
-interface PaymentIntentView {
-  id: string;
-  provider: string;
-  purpose: string;
-  amount_minor: string;
-  currency: string;
-  credit_amount: string | null;
-  status: string;
-  created_at: string;
-}
-/** The caller's own profile (never the password hash). */
-interface MeView {
-  id: string;
-  email: string;
-  email_verified: boolean;
-  role: string;
-  status: string;
-  tenant_id: string | null;
-}
-/** The caller-tenant's credit balance + held (µcredit decimal strings). */
-interface BalanceView {
-  balance: string;
-  held: string;
-}
+
+// The console wire views (ApiKey/Job/Ledger/Model/UsageRollup/UsageLog/Payment/
+// Me/Balance) now live in @actionow/contracts (console-views + ops-views) — the
+// single source of truth shared with the frontend. The mappers below `.parse()`
+// against the schemas. Local aliases keep the route signatures terse and the
+// `Console*` naming explicit at the call sites.
+type ApiKeyView = ConsoleApiKeyView;
+type JobView = ConsoleJobView;
+type LedgerView = ConsoleLedgerView;
+type ModelListItem = ConsoleModelView;
+type UsageLogView = ConsoleUsageLogView;
+type PaymentIntentView = ConsolePaymentView;
+type MeView = ConsoleMeView;
+type BalanceView = ConsoleBalanceView;
 
 /** Project a tenant api-key row to its console view (no hash). */
 function toApiKeyView(r: Omit<ApiKeyRow, 'hash'>): ApiKeyView {
-  return {
+  return consoleApiKeyViewSchema.parse({
     id: r.id,
     resource_allowlist: r.resourceAllowlist,
     rate_limit: r.rateLimit,
     status: r.status,
     created_at: r.createdAt.toISOString(),
-  };
+  });
 }
 
 /** Project a job row to the console job view (money as decimal strings). */
 function toConsoleJobView(j: Job): JobView {
-  return {
+  return consoleJobViewSchema.parse({
     job_id: j.id,
     resource_id: j.resourceId,
     status: j.status,
     exec_mode: j.execMode,
     cost: j.costCredits === null ? null : j.costCredits.toString(),
     created_at: j.createdAt.toISOString(),
-  };
+  });
 }
 
 /** Project a ledger row to the console ledger view (money as decimal strings). */
 function toConsoleLedgerView(l: LedgerRow): LedgerView {
-  return {
+  return consoleLedgerViewSchema.parse({
     id: l.id,
     type: l.type,
     credits_delta: l.creditsDelta.toString(),
     balance_after: l.balanceAfter.toString(),
     job_id: l.jobId,
     created_at: l.createdAt.toISOString(),
-  };
+  });
 }
 
 /** Project a usage rollup row (bigint sums) to its decimal-string view. */
 function toUsageRollupView(row: UsageRollupRow): UsageRollupView {
-  return {
+  return usageRollupViewSchema.parse({
     bucket: row.bucket,
     requests: row.requests,
     input_tokens: row.inputTokens.toString(),
@@ -174,12 +131,12 @@ function toUsageRollupView(row: UsageRollupRow): UsageRollupView {
     provider_cost: row.providerCost.toString(),
     margin: row.margin.toString(),
     errors: row.errors,
-  };
+  });
 }
 
 /** Project a usage-log row to the console view (tenant implicit; cost decimal string). */
 function toUsageLogView(row: UsageLogRow): UsageLogView {
-  return {
+  return consoleUsageLogViewSchema.parse({
     id: row.id,
     model: row.model,
     input_tokens: row.inputTokens,
@@ -188,12 +145,12 @@ function toUsageLogView(row: UsageLogRow): UsageLogView {
     latency_ms: row.latencyMs,
     status: row.status,
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 /** Project a payment-intent row to the tenant's topup-history view (money as decimal strings). */
 function toPaymentIntentView(row: PaymentIntentRow): PaymentIntentView {
-  return {
+  return consolePaymentViewSchema.parse({
     id: row.id,
     provider: row.provider,
     purpose: row.purpose,
@@ -202,19 +159,19 @@ function toPaymentIntentView(row: PaymentIntentRow): PaymentIntentView {
     credit_amount: row.creditAmount === null ? null : row.creditAmount.toString(),
     status: row.status,
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 /** Project the caller's user record to its profile view (never the password hash). */
 function toMeView(u: UserRecord): MeView {
-  return {
+  return consoleMeViewSchema.parse({
     id: u.id,
     email: u.email,
     email_verified: u.emailVerified,
     role: u.role,
     status: u.status,
     tenant_id: u.tenantId,
-  };
+  });
 }
 
 /**
@@ -354,7 +311,10 @@ export class ConsoleController {
   async balance(@Req() req: ConsoleRequest): Promise<BalanceView> {
     const ctx = ctxOf(req);
     const account = await this.console.balance(ctx.accountId);
-    return { balance: account.creditBalance.toString(), held: account.creditHeld.toString() };
+    return consoleBalanceViewSchema.parse({
+      balance: account.creditBalance.toString(),
+      held: account.creditHeld.toString(),
+    });
   }
 
   @Get('payments')
@@ -381,13 +341,15 @@ export class ConsoleController {
     const ctx = ctxOf(req);
     const rows: ModelView[] = await this.console.listModels(ctx.tenantId);
     return {
-      data: rows.map((m) => ({
-        name: m.name,
-        display: m.display,
-        modality: m.modality,
-        capabilities: m.capabilities,
-        visibility: m.visibility,
-      })),
+      data: rows.map((m) =>
+        consoleModelViewSchema.parse({
+          name: m.name,
+          display: m.display,
+          modality: m.modality,
+          capabilities: m.capabilities,
+          visibility: m.visibility,
+        }),
+      ),
       next_cursor: null,
       has_more: false,
     };

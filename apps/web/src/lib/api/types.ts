@@ -2,39 +2,44 @@
 // @actionow/contracts package (the single source of truth with the backend) and
 // re-exported here type-only — the inferred types are erased at build, so no zod
 // reaches the browser bundle. Adding/changing a field happens in one place.
+import type { ConsoleJobView, ConsoleLedgerView } from '@actionow/contracts';
+
 export type {
   AccountView,
+  ApiKeyView,
   ChannelView,
+  ConsoleApiKeyView,
+  ConsoleBalanceView,
+  ConsoleIntentView,
+  ConsoleJobView,
+  ConsoleLedgerView,
+  ConsoleMeView,
+  ConsoleModelView,
+  ConsolePaymentView,
+  ConsoleUsageLogView,
+  DifyImportView,
+  JobView,
+  LedgerView,
   ModelGrantView,
   ModelView,
   ModifierView,
+  OfficialPriceView,
+  PaymentIntentView,
   PricebookView,
   ResourceView,
+  RouteGroupChannelView,
+  RouteGroupView,
+  SecretView,
   TenantView,
+  UsageLogView,
+  UsageRollupView,
 } from '@actionow/contracts';
 
-export interface ApiKeyView {
-  id: string;
-  tenant_id: string;
-  resource_allowlist: string[];
-  rate_limit: number | null;
-  status: string;
-  /** The bound route group (also sets the customer price ratio). Null = `default`. */
-  route_group_id: string | null;
-  created_at: string;
-}
+// ApiKeyView / JobView now come from @actionow/contracts (ops-views) — see the
+// type-only re-export at the top of this file.
 export interface ApiKeyCreatedView {
   id: string;
   plaintext: string;
-}
-export interface JobView {
-  job_id: string;
-  tenant_id: string;
-  resource_id: string;
-  status: string;
-  exec_mode: string;
-  cost: string | null;
-  created_at: string;
 }
 export interface Page<T> {
   rows: T[];
@@ -68,72 +73,9 @@ export interface UpdateApiKeyGroupBody {
 // ResourceView / ChannelView / PricebookView / ModifierView / ModelView /
 // ModelGrantView now come from @actionow/contracts (catalog-views) — see the
 // type-only re-export at the top of this file.
-export interface DifyImportView {
-  resource_id: string;
-  version: number;
-  io_schema: unknown;
-  compat_report: unknown;
-}
-
-/** A created encrypted secret. Excludes the plaintext value by construction. */
-export interface SecretView {
-  id: string;
-  provider: string;
-  created_at: string;
-}
-
-export interface UsageLogView {
-  id: string;
-  tenant_id: string;
-  model: string;
-  input_tokens: number;
-  output_tokens: number;
-  cost: string;
-  latency_ms: number | null;
-  status: string;
-  created_at: string;
-}
-
-/** One aggregated usage bucket; token/cost sums are decimal strings. */
-export interface UsageRollupView {
-  bucket: string;
-  requests: number;
-  input_tokens: string;
-  output_tokens: string;
-  cost: string;
-  /** Operator's upstream cost for the bucket (µUSD decimal string). */
-  provider_cost: string;
-  /** cost − provider_cost (µUSD decimal string; can be NEGATIVE). */
-  margin: string;
-  errors: number;
-}
-
-export interface LedgerView {
-  id: string;
-  tenant_id: string;
-  account_id: string;
-  type: string;
-  credits_delta: string;
-  balance_after: string;
-  resource_id: string | null;
-  job_id: string | null;
-  created_at: string;
-}
-
-export interface PaymentIntentView {
-  id: string;
-  tenant_id: string;
-  provider: string;
-  provider_ref: string;
-  purpose: string;
-  target_ref: string | null;
-  amount_minor: string;
-  currency: string;
-  credit_amount: string | null;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
+// DifyImportView / SecretView / UsageLogView / UsageRollupView / LedgerView /
+// PaymentIntentView now come from @actionow/contracts (ops-views) — see the
+// type-only re-export at the top of this file.
 
 // --- Billing & routing (REAL /admin/* wire types) --------------------------
 // Live wire types served by the billing/routing backend. Prices are integer
@@ -141,25 +83,8 @@ export interface PaymentIntentView {
 // registry. (The earlier mock skeleton + `mockBilling.ts` were removed once
 // RouteGroupsPage / OfficialPricesPage moved onto the real endpoints.)
 
-/** A route group as served by GET /admin/route-groups (snake_case). */
-export interface RouteGroupView {
-  id: string;
-  name: string;
-  /** Group price ratio in basis points — 10000 = ×1.00 (integer, NOT a money string). */
-  group_ratio_bps: number;
-  status: string;
-  description: string | null;
-  created_at: string;
-  updated_at: string;
-}
-/** A channel's membership in a route group. */
-export interface RouteGroupChannelView {
-  group_id: string;
-  channel_id: string;
-  priority: number;
-  weight: number;
-  created_at: string;
-}
+// RouteGroupView / RouteGroupChannelView now come from @actionow/contracts
+// (billing-views) — see the type-only re-export at the top of this file.
 export interface CreateRouteGroupBody {
   name: string;
   groupRatioBps?: number;
@@ -179,24 +104,8 @@ export interface AddGroupChannelBody {
   weight?: number;
 }
 
-/** An official price as served by GET /admin/official-prices (snake_case, µUSD/1M decimal strings). */
-export interface OfficialPriceView {
-  id: string;
-  provider: string;
-  model_slug: string;
-  display_name: string | null;
-  /** µUSD per 1M input tokens (decimal string — divide by 1e6 to show USD). */
-  input_price_per_1m: string;
-  output_price_per_1m: string;
-  cached_input_price_per_1m: string | null;
-  source_url: string | null;
-  /** Full ISO-8601 timestamp the price takes effect. */
-  effective_at: string | null;
-  notes: string | null;
-  updated_by: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// OfficialPriceView now comes from @actionow/contracts (billing-views) — see
+// the type-only re-export at the top of this file.
 /** POST /admin/official-prices — camelCase, HUMAN USD per 1M (the server multiplies to µUSD). */
 export interface CreateOfficialPriceBody {
   provider: string;
@@ -390,38 +299,17 @@ export interface RelayTraceQuery {
 
 // ----- Tenant self-service console plane (`/console/*`, scoped by the token) -----
 
-/** A tenant's own API key (no tenant_id/route_group — the token scopes it). */
-export interface ConsoleApiKeyView {
-  id: string;
-  resource_allowlist: string[];
-  rate_limit: number | null;
-  status: string;
-  created_at: string;
-}
-export interface ConsoleJobView {
-  job_id: string;
-  resource_id: string;
-  status: string;
-  exec_mode: string;
-  cost: string | null;
-  created_at: string;
-}
-export interface ConsoleLedgerView {
-  id: string;
-  type: string;
-  credits_delta: string;
-  balance_after: string;
-  job_id: string | null;
-  created_at: string;
-}
-export interface ConsoleModelView {
-  name: string;
-  display: string;
-  modality: string;
-  capabilities: unknown;
-  visibility: string;
-}
-/** `GET /console/usage` — two independent keysets, each its own envelope. */
+// ConsoleApiKeyView / ConsoleJobView / ConsoleLedgerView / ConsoleModelView /
+// ConsoleUsageLogView / ConsolePaymentView / ConsoleMeView / ConsoleBalanceView
+// / ConsoleIntentView now come from @actionow/contracts (console-views) — see
+// the type-only re-export at the top of this file.
+
+/**
+ * `GET /console/usage` — two independent keysets, each its own envelope. This is
+ * a FRONTEND-ONLY composite: the wire serves two `PageEnvelope`s and `consoleApi`
+ * remaps them into the FE `Page` shape, so it has no backend wire-view twin and
+ * stays a local interface (NOT migrated into @actionow/contracts).
+ */
 export interface ConsoleUsageView {
   jobs: Page<ConsoleJobView>;
   ledger: Page<ConsoleLedgerView>;
@@ -435,55 +323,13 @@ export interface ConsoleTopupBody {
   amount_minor: number;
   currency: string;
 }
-/** `POST /console/payments/intents` — a checkout handle (hosted redirect or QR). */
-export interface ConsoleIntentView {
-  intent_id: string;
-  redirect_url?: string;
-  qr?: string;
-}
 /** Tenant analytics query (no tenantId — the token scopes it; no `tenant` groupBy). */
 export interface ConsoleAnalyticsQuery {
   groupBy: 'day' | 'model' | 'channel' | 'api_key';
   from?: string;
   to?: string;
 }
-/** One per-call usage-log row for the caller's tenant (tenant implicit). */
-export interface ConsoleUsageLogView {
-  id: string;
-  model: string;
-  input_tokens: number;
-  output_tokens: number;
-  cost: string;
-  latency_ms: number | null;
-  status: string;
-  created_at: string;
-}
-/** One payment intent in the caller-tenant's topup history. */
-export interface ConsolePaymentView {
-  id: string;
-  provider: string;
-  purpose: string;
-  amount_minor: string;
-  currency: string;
-  credit_amount: string | null;
-  status: string;
-  created_at: string;
-}
-/** The caller's own profile (never the password hash). */
-export interface ConsoleMeView {
-  id: string;
-  email: string;
-  email_verified: boolean;
-  role: string;
-  status: string;
-  tenant_id: string | null;
-}
 export interface ConsoleChangePasswordBody {
   currentPassword: string;
   newPassword: string;
-}
-/** The caller-tenant's credit balance + held (µcredit decimal strings). */
-export interface ConsoleBalanceView {
-  balance: string;
-  held: string;
 }
