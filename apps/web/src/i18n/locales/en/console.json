@@ -65,6 +65,15 @@
         "modality": "Modality",
         "visibility": "Visibility"
       }
+    },
+    "billing": {
+      "provider": "Payment method",
+      "amount": "Amount",
+      "amountHint": "In major units (e.g. dollars)",
+      "currency": "Currency",
+      "submit": "Top up",
+      "intentCreated": "Checkout created",
+      "continue": "Continue to checkout"
     }
   },
   "nav": {
@@ -82,6 +91,7 @@
     "overview": "Overview",
     "tkeys": "API Keys",
     "tmodels": "Models",
+    "billing": "Billing",
     "tenants": "Tenants",
     "accounts": "Accounts",
     "apiKeys": "API Keys",
@@ -101,6 +111,7 @@
     "overview": "Balance, recent jobs and ledger",
     "tkeys": "Mint and manage your API keys",
     "tmodels": "Models available to your tenant",
+    "billing": "Top up your tenant balance",
     "tenants": "Create and view tenants",
     "catalog": "Models & resources — channels and pricing",
     "resources": "Models, upstream channels & pricing",

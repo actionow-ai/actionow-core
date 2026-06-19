@@ -1,4 +1,4 @@
-import { KeyIcon, SquaresFourIcon, StackIcon } from '@phosphor-icons/react';
+import { CoinsIcon, KeyIcon, SquaresFourIcon, StackIcon } from '@phosphor-icons/react';
 
 import type { NavConfig } from './nav-config';
 
@@ -21,12 +21,16 @@ export const TENANT_NAV_CONFIG: NavConfig = {
     {
       key: 'account',
       icon: KeyIcon,
-      items: [{ to: '/app/keys', labelKey: 'tkeys' }],
+      items: [
+        { to: '/app/keys', labelKey: 'tkeys' },
+        { to: '/app/billing', labelKey: 'billing' },
+      ],
     },
   ],
   mobileTabs: [
     { to: '/app/overview', labelKey: 'overview', icon: SquaresFourIcon },
     { to: '/app/keys', labelKey: 'tkeys', icon: KeyIcon },
     { to: '/app/models', labelKey: 'tmodels', icon: StackIcon },
+    { to: '/app/billing', labelKey: 'billing', icon: CoinsIcon },
   ],
 };

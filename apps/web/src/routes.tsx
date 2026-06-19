@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 
 import { TENANT_NAV_CONFIG } from './components/console/app-nav';
 import { ConsoleLayout } from './components/console/ConsoleLayout';
+import { AppBilling } from './features/app/AppBilling';
 import { AppKeys } from './features/app/AppKeys';
 import { AppModels } from './features/app/AppModels';
 import { AppOverview } from './features/app/AppOverview';
@@ -41,6 +42,7 @@ export function AppRoutes() {
           <Route path="overview" element={<AppOverview />} />
           <Route path="keys" element={<AppKeys />} />
           <Route path="models" element={<AppModels />} />
+          <Route path="billing" element={<AppBilling />} />
         </Route>
       </Route>
 

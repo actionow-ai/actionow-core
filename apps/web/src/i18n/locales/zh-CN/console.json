@@ -60,6 +60,15 @@
     "models": {
       "empty": "你的租户暂无可用模型",
       "cols": { "name": "模型", "display": "显示名", "modality": "模态", "visibility": "可见性" }
+    },
+    "billing": {
+      "provider": "支付方式",
+      "amount": "金额",
+      "amountHint": "主单位(如元/美元)",
+      "currency": "币种",
+      "submit": "充值",
+      "intentCreated": "支付单已创建",
+      "continue": "前往支付"
     }
   },
   "nav": {
@@ -77,6 +86,7 @@
     "overview": "概览",
     "tkeys": "API Keys",
     "tmodels": "模型",
+    "billing": "充值",
     "tenants": "租户",
     "accounts": "账户 / 充值",
     "apiKeys": "API Keys",
@@ -96,6 +106,7 @@
     "overview": "余额、最近任务与流水",
     "tkeys": "签发与管理你的 API Key",
     "tmodels": "你的租户可用的模型",
+    "billing": "为你的租户余额充值",
     "tenants": "创建与查看租户",
     "catalog": "模型与资源——通道与定价",
     "resources": "模型、上游通道与定价",
