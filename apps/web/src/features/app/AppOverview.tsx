@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
-import { StatCard } from '../../components/console/StatCard';
+import { BalanceCard } from '../../components/data/BalanceCard';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { Money } from '../../components/data/Money';
@@ -10,7 +10,7 @@ import { SectionHeader } from '../../components/ui/SectionHeader';
 import { qk } from '../../lib/api/queryKeys';
 import type { ConsoleJobView, ConsoleLedgerView } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
-import { formatCredits, formatCreditsSigned } from '../../lib/money';
+import { formatCreditsSigned } from '../../lib/money';
 import { STALE_VOLATILE } from '../../lib/query';
 
 export function AppOverview() {
@@ -83,16 +83,12 @@ export function AppOverview() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-5)' }}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-          gap: 'var(--s-3)',
-        }}
-      >
-        <StatCard label={t('app.overview.balance')} value={formatCredits(balance, i18n.language)} />
-        <StatCard label={t('app.overview.jobsCount')} value={jobs.length} />
-      </div>
+      <BalanceCard
+        micro={balance}
+        label={t('app.overview.balance')}
+        cta={t('app.billing.submit')}
+        topupTo="/app/billing"
+      />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
         <SectionHeader title={t('app.overview.jobs')} />
