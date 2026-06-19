@@ -40,6 +40,7 @@
     },
     "dashboard": "Dashboard",
     "analytics": "Analytics",
+    "relayTraces": "Relay traces",
     "tenants": "Tenants",
     "accounts": "Accounts",
     "apiKeys": "API Keys",
@@ -55,6 +56,7 @@
   "subtitles": {
     "dashboard": "Tenants & resources overview, recent jobs",
     "analytics": "Usage, cost and margin over time and by dimension",
+    "relayTraces": "Upstream relay audit — requests, responses, latency",
     "tenants": "Create and view tenants",
     "catalog": "Models & resources — channels and pricing",
     "resources": "Models, upstream channels & pricing",
@@ -104,6 +106,38 @@
       "providerCost": "Provider cost",
       "margin": "Margin",
       "errors": "Errors"
+    }
+  },
+  "relayTraces": {
+    "title": "Relay traces",
+    "allTenants": "All tenants",
+    "providerPlaceholder": "Provider (e.g. openai)",
+    "from": "From",
+    "to": "To",
+    "empty": "No relay traces in this range",
+    "loadMore": "Load more",
+    "cols": {
+      "time": "Time",
+      "provider": "Provider",
+      "method": "Method",
+      "status": "Status",
+      "latency": "Latency",
+      "url": "URL"
+    },
+    "viewer": {
+      "title": "Relay trace",
+      "err": "ERR",
+      "stream": "Stream",
+      "truncated": "Truncated",
+      "url": "URL",
+      "tenant": "Tenant",
+      "job": "Job",
+      "channel": "Channel",
+      "provider": "Provider",
+      "error": "Error",
+      "reqHeaders": "Request headers",
+      "reqBody": "Request body",
+      "resBody": "Response body"
     }
   },
   "tenants": {

@@ -35,6 +35,7 @@ export const NAV: NavGroup[] = [
     items: [
       { to: '/console/dashboard', labelKey: 'dashboard' },
       { to: '/console/analytics', labelKey: 'analytics' },
+      { to: '/console/relay-traces', labelKey: 'relayTraces' },
     ],
   },
   {

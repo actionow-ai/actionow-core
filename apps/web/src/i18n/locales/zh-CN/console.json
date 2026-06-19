@@ -35,6 +35,7 @@
     "groups": { "ops": "运营", "catalog": "目录", "billing": "计费与路由", "tenants": "租户" },
     "dashboard": "仪表盘",
     "analytics": "分析",
+    "relayTraces": "中转追踪",
     "tenants": "租户",
     "accounts": "账户 / 充值",
     "apiKeys": "API Keys",
@@ -50,6 +51,7 @@
   "subtitles": {
     "dashboard": "租户与资源概览,最近任务",
     "analytics": "按时间与维度查看用量、成本与毛利",
+    "relayTraces": "上游中转审计——请求、响应、延迟",
     "tenants": "创建与查看租户",
     "catalog": "模型与资源——通道与定价",
     "resources": "模型、上游通道与定价",
@@ -99,6 +101,38 @@
       "providerCost": "上游成本",
       "margin": "毛利",
       "errors": "错误数"
+    }
+  },
+  "relayTraces": {
+    "title": "中转追踪",
+    "allTenants": "全部租户",
+    "providerPlaceholder": "Provider(如 openai)",
+    "from": "起",
+    "to": "止",
+    "empty": "该区间暂无中转追踪",
+    "loadMore": "加载更多",
+    "cols": {
+      "time": "时间",
+      "provider": "Provider",
+      "method": "方法",
+      "status": "状态",
+      "latency": "延迟",
+      "url": "URL"
+    },
+    "viewer": {
+      "title": "中转追踪",
+      "err": "错误",
+      "stream": "流式",
+      "truncated": "已截断",
+      "url": "URL",
+      "tenant": "租户",
+      "job": "任务",
+      "channel": "渠道",
+      "provider": "Provider",
+      "error": "错误",
+      "reqHeaders": "请求头",
+      "reqBody": "请求体",
+      "resBody": "响应体"
     }
   },
   "tenants": {

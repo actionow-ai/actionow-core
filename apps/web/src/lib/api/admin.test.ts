@@ -256,3 +256,23 @@ describe('admin api-keys group-bind + revoke api', () => {
     expect(calls[0]).toEqual({ method: 'delete', path: '/admin/api-keys/k1', arg: undefined });
   });
 });
+
+describe('admin relay-traces api', () => {
+  it('listRelayTraces paginates /admin/relay-traces with the cursor + filters', async () => {
+    const { client, calls } = fakeClient();
+    await makeAdminApi(client).listRelayTraces({
+      tenantId: 't1',
+      providerType: 'openai',
+      limit: 50,
+      cursor: 'c1',
+    });
+    expect(calls[0]?.method).toBe('getPage');
+    expect(calls[0]?.path).toBe('/admin/relay-traces');
+    expect(calls[0]?.arg).toMatchObject({
+      tenantId: 't1',
+      providerType: 'openai',
+      limit: 50,
+      cursor: 'c1',
+    });
+  });
+});

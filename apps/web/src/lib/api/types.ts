@@ -470,3 +470,33 @@ export interface AnalyticsUsageQuery {
   from?: string;
   to?: string;
 }
+
+/** One upstream relay audit trace (token-redacted, bodies may be truncated). */
+export interface RelayTraceView {
+  id: string;
+  created_at: string;
+  tenant_id: string | null;
+  job_id: string | null;
+  channel_id: string | null;
+  provider_type: string | null;
+  method: string;
+  url: string;
+  request_headers: Record<string, string> | null;
+  request_body: string | null;
+  response_status: number | null;
+  response_body: string | null;
+  is_stream: boolean;
+  latency_ms: number | null;
+  error: string | null;
+  truncated: boolean;
+}
+export interface RelayTraceQuery {
+  tenantId?: string;
+  jobId?: string;
+  providerType?: string;
+  channelId?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  cursor?: string;
+}

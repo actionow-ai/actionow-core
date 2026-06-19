@@ -11,6 +11,7 @@ import { DashboardPage } from './features/console/DashboardPage';
 import { DifyImportPage } from './features/console/DifyImportPage';
 import { ModifiersPage } from './features/console/ModifiersPage';
 import { OfficialPricesPage } from './features/console/OfficialPricesPage';
+import { RelayTracesPage } from './features/console/RelayTracesPage';
 import { RouteGroupsPage } from './features/console/RouteGroupsPage';
 import { TenantsPage } from './features/console/TenantsPage';
 import { LandingPage } from './features/landing/LandingPage';
@@ -41,6 +42,7 @@ export function AppRoutes() {
           <Route index element={<Navigate to="/console/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="relay-traces" element={<RelayTracesPage />} />
           <Route path="catalog" element={<CatalogPage />} />
           {/* Legacy routes redirect into the unified catalog page (single route + ?tab). */}
           <Route

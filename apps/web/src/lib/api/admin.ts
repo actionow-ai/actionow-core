@@ -29,6 +29,8 @@ import type {
   Page,
   PaymentIntentView,
   PricebookView,
+  RelayTraceQuery,
+  RelayTraceView,
   ResourceView,
   RouteGroupChannelView,
   RouteGroupView,
@@ -172,6 +174,28 @@ export function makeAdminApi(client: ApiClient) {
       client.getPage<UsageLogView>('/admin/usage', params),
     analyticsUsage: (params: AnalyticsUsageQuery) =>
       client.get<UsageRollupView[]>('/admin/analytics/usage', { ...params }),
+
+    // Upstream relay audit traces — cursor-paginated, filterable, token-redacted.
+    listRelayTraces: ({
+      tenantId,
+      jobId,
+      providerType,
+      channelId,
+      from,
+      to,
+      limit,
+      cursor,
+    }: RelayTraceQuery): Promise<Page<RelayTraceView>> =>
+      client.getPage<RelayTraceView>('/admin/relay-traces', {
+        tenantId,
+        jobId,
+        providerType,
+        channelId,
+        from,
+        to,
+        limit,
+        cursor,
+      }),
 
     listLedger: ({ tenantId, cursor, limit }: KeysetParams): Promise<Page<LedgerView>> =>
       client.getPage<LedgerView>('/admin/ledger', { tenantId, cursor, limit }),
