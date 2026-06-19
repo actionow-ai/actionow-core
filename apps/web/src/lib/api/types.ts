@@ -500,3 +500,57 @@ export interface RelayTraceQuery {
   limit?: number;
   cursor?: string;
 }
+
+// ----- Tenant self-service console plane (`/console/*`, scoped by the token) -----
+
+/** A tenant's own API key (no tenant_id/route_group — the token scopes it). */
+export interface ConsoleApiKeyView {
+  id: string;
+  resource_allowlist: string[];
+  rate_limit: number | null;
+  status: string;
+  created_at: string;
+}
+export interface ConsoleJobView {
+  job_id: string;
+  resource_id: string;
+  status: string;
+  exec_mode: string;
+  cost: string | null;
+  created_at: string;
+}
+export interface ConsoleLedgerView {
+  id: string;
+  type: string;
+  credits_delta: string;
+  balance_after: string;
+  job_id: string | null;
+  created_at: string;
+}
+export interface ConsoleModelView {
+  name: string;
+  display: string;
+  modality: string;
+  capabilities: unknown;
+  visibility: string;
+}
+/** `GET /console/usage` — two independent keysets, each its own envelope. */
+export interface ConsoleUsageView {
+  jobs: Page<ConsoleJobView>;
+  ledger: Page<ConsoleLedgerView>;
+}
+export interface ConsoleCreateApiKeyBody {
+  resourceAllowlist?: string[];
+  rateLimit?: number;
+}
+export interface ConsoleTopupBody {
+  provider: string;
+  amount_minor: number;
+  currency: string;
+}
+/** `POST /console/payments/intents` — a checkout handle (hosted redirect or QR). */
+export interface ConsoleIntentView {
+  intent_id: string;
+  redirect_url?: string;
+  qr?: string;
+}

@@ -1,7 +1,10 @@
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 
+import { TENANT_NAV_CONFIG } from './components/console/app-nav';
 import { ConsoleLayout } from './components/console/ConsoleLayout';
-import { UserHome } from './features/app/UserHome';
+import { AppKeys } from './features/app/AppKeys';
+import { AppModels } from './features/app/AppModels';
+import { AppOverview } from './features/app/AppOverview';
 import { AuthPage } from './features/auth/AuthPage';
 import { AccountsPage } from './features/console/AccountsPage';
 import { AnalyticsPage } from './features/console/AnalyticsPage';
@@ -31,9 +34,14 @@ export function AppRoutes() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<AuthPage />} />
 
-      {/* Any authenticated user (tenant self-service home). */}
+      {/* Any authenticated user — the tenant self-service console (/app). */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/app" element={<UserHome />} />
+        <Route path="/app" element={<ConsoleLayout nav={TENANT_NAV_CONFIG} />}>
+          <Route index element={<Navigate to="/app/overview" replace />} />
+          <Route path="overview" element={<AppOverview />} />
+          <Route path="keys" element={<AppKeys />} />
+          <Route path="models" element={<AppModels />} />
+        </Route>
       </Route>
 
       {/* Operator admin console. */}

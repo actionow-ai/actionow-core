@@ -29,13 +29,54 @@
     "soon": "自助控制台即将上线",
     "hint": "你的租户与账户已就绪。Key 自助、用量自查与自助充值将在后续阶段开放。",
     "logout": "退出登录",
-    "backHome": "返回官网"
+    "backHome": "返回官网",
+    "overview": {
+      "balance": "余额",
+      "jobsCount": "最近任务",
+      "jobs": "最近任务",
+      "ledger": "流水",
+      "noJobs": "暂无任务",
+      "noLedger": "暂无流水",
+      "cols": {
+        "resource": "资源",
+        "status": "状态",
+        "mode": "模式",
+        "cost": "成本",
+        "time": "时间",
+        "type": "类型",
+        "delta": "变动",
+        "balance": "余额"
+      }
+    },
+    "keys": {
+      "mint": "签发 Key",
+      "empty": "还没有 API Key——签发你的第一个",
+      "rotate": "轮换",
+      "disable": "停用",
+      "disabled": "Key 已停用",
+      "confirmDisableTitle": "停用该 Key?",
+      "confirmDisableMsg": "{{id}} 将立即失效。"
+    },
+    "models": {
+      "empty": "你的租户暂无可用模型",
+      "cols": { "name": "模型", "display": "显示名", "modality": "模态", "visibility": "可见性" }
+    }
   },
   "nav": {
-    "groups": { "ops": "运营", "catalog": "目录", "billing": "计费与路由", "tenants": "租户" },
+    "groups": {
+      "ops": "运营",
+      "catalog": "目录",
+      "billing": "计费与路由",
+      "tenants": "租户",
+      "home": "概览",
+      "account": "账户"
+    },
     "dashboard": "仪表盘",
     "analytics": "分析",
     "relayTraces": "中转追踪",
+    "overview": "概览",
+    "tkeys": "API Keys",
+    "tmodels": "模型",
     "tenants": "租户",
     "accounts": "账户 / 充值",
     "apiKeys": "API Keys",
@@ -52,6 +93,9 @@
     "dashboard": "租户与资源概览,最近任务",
     "analytics": "按时间与维度查看用量、成本与毛利",
     "relayTraces": "上游中转审计——请求、响应、延迟",
+    "overview": "余额、最近任务与流水",
+    "tkeys": "签发与管理你的 API Key",
+    "tmodels": "你的租户可用的模型",
     "tenants": "创建与查看租户",
     "catalog": "模型与资源——通道与定价",
     "resources": "模型、上游通道与定价",

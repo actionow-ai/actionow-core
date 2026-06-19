@@ -11,6 +11,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/admin': API,
+      '/console': API,
       '/auth': API,
       '/v1': API,
     },
@@ -19,6 +20,7 @@ export default defineConfig({
     port: 4173,
     proxy: {
       '/admin': API,
+      '/console': API,
       '/auth': API,
       '/v1': API,
     },

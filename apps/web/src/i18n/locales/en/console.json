@@ -29,18 +29,59 @@
     "soon": "Self-service console coming soon",
     "hint": "Your tenant and account are ready. Self-service keys, usage, and top-ups open in a later phase.",
     "logout": "Sign out",
-    "backHome": "Website"
+    "backHome": "Website",
+    "overview": {
+      "balance": "Balance",
+      "jobsCount": "Recent jobs",
+      "jobs": "Recent jobs",
+      "ledger": "Ledger",
+      "noJobs": "No jobs yet",
+      "noLedger": "No ledger entries yet",
+      "cols": {
+        "resource": "Resource",
+        "status": "Status",
+        "mode": "Mode",
+        "cost": "Cost",
+        "time": "Time",
+        "type": "Type",
+        "delta": "Change",
+        "balance": "Balance"
+      }
+    },
+    "keys": {
+      "mint": "Mint key",
+      "empty": "No API keys yet — mint your first one",
+      "rotate": "Rotate",
+      "disable": "Disable",
+      "disabled": "Key disabled",
+      "confirmDisableTitle": "Disable this key?",
+      "confirmDisableMsg": "{{id}} will stop working immediately."
+    },
+    "models": {
+      "empty": "No models available to your tenant",
+      "cols": {
+        "name": "Model",
+        "display": "Display",
+        "modality": "Modality",
+        "visibility": "Visibility"
+      }
+    }
   },
   "nav": {
     "groups": {
       "ops": "Operations",
       "catalog": "Catalog",
       "billing": "Billing & Routing",
-      "tenants": "Tenants"
+      "tenants": "Tenants",
+      "home": "Home",
+      "account": "Account"
     },
     "dashboard": "Dashboard",
     "analytics": "Analytics",
     "relayTraces": "Relay traces",
+    "overview": "Overview",
+    "tkeys": "API Keys",
+    "tmodels": "Models",
     "tenants": "Tenants",
     "accounts": "Accounts",
     "apiKeys": "API Keys",
@@ -57,6 +98,9 @@
     "dashboard": "Tenants & resources overview, recent jobs",
     "analytics": "Usage, cost and margin over time and by dimension",
     "relayTraces": "Upstream relay audit — requests, responses, latency",
+    "overview": "Balance, recent jobs and ledger",
+    "tkeys": "Mint and manage your API keys",
+    "tmodels": "Models available to your tenant",
     "tenants": "Create and view tenants",
     "catalog": "Models & resources — channels and pricing",
     "resources": "Models, upstream channels & pricing",
