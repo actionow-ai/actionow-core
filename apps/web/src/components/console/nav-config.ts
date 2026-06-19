@@ -16,19 +16,23 @@ export interface NavGroup {
   icon: Icon;
   items: NavItem[];
 }
+/** A full nav set for one console shell (admin or tenant) — desktop groups + the mobile bottom tabs. */
+export interface NavConfig {
+  groups: NavGroup[];
+  mobileTabs: MobileTab[];
+}
 
 /**
- * Nav grouped by responsibility (职责分组):
- * - ops: dashboard
+ * The ADMIN nav grouped by responsibility (职责分组):
+ * - ops: dashboard / analytics / relay traces
  * - catalog (目录): the unified 模型|资源 catalog page + Dify import
  * - billing (计费与路由): groups / official prices / pricing modifiers
  * - tenants (租户): tenants / accounts / API keys
  *
  * The catalog page owns its own 模型|资源 tabs, so the nav holds a single
- * `/console/catalog` leaf. `分组`/`官方价格` are mock-skeleton pages (the
- * billing/routing backend is design-only; data lives in mockBilling.ts).
+ * `/console/catalog` leaf.
  */
-export const NAV: NavGroup[] = [
+export const ADMIN_NAV: NavGroup[] = [
   {
     key: 'ops',
     icon: SquaresFourIcon,
@@ -68,12 +72,14 @@ export const NAV: NavGroup[] = [
   },
 ];
 
-export function groupForPath(pathname: string): NavGroup {
-  return NAV.find((g) => g.items.some((it) => pathname.startsWith(it.to))) ?? NAV[0];
+/** The group owning `pathname` within `groups`, else the first group. */
+export function groupForPath(pathname: string, groups: NavGroup[]): NavGroup {
+  return groups.find((g) => g.items.some((it) => pathname.startsWith(it.to))) ?? groups[0];
 }
 
-export function activeItem(pathname: string): NavItem {
-  const g = groupForPath(pathname);
+/** The active leaf for `pathname` within `groups`, else its group’s first item. */
+export function activeItem(pathname: string, groups: NavGroup[]): NavItem {
+  const g = groupForPath(pathname, groups);
   return g.items.find((it) => pathname.startsWith(it.to)) ?? g.items[0];
 }
 
@@ -83,9 +89,12 @@ export interface MobileTab {
   labelKey: string;
   icon: Icon;
 }
-export const MOBILE_TABS: MobileTab[] = [
+export const ADMIN_MOBILE_TABS: MobileTab[] = [
   { to: '/console/dashboard', labelKey: 'dashboard', icon: SquaresFourIcon },
   { to: '/console/catalog', labelKey: 'catalog', icon: StackIcon },
   { to: '/console/tenants', labelKey: 'tenants', icon: BuildingsIcon },
   { to: '/console/api-keys', labelKey: 'apiKeys', icon: KeyIcon },
 ];
+
+/** The admin console nav set (default for `ConsoleLayout`). */
+export const ADMIN_NAV_CONFIG: NavConfig = { groups: ADMIN_NAV, mobileTabs: ADMIN_MOBILE_TABS };

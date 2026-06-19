@@ -12,6 +12,7 @@ import { LanguageSwitch } from '../../layout/LanguageSwitch';
 import { ThemeToggle } from '../../layout/ThemeToggle';
 import { IconButton } from '../../ui/IconButton';
 import type { ConsoleBack } from '../ConsoleChrome';
+import { useNavConfig } from '../ConsoleChrome';
 import { activeItem } from '../nav-config';
 
 /** The top bar: page title + subtitle, an optional back target, the page's filter/action slots, a refresh control, and the mobile-only chrome cluster. */
@@ -33,7 +34,8 @@ export function TopBar({
   const reduced = useReducedMotion();
   const isDesktop = useMediaQuery(BP.md);
 
-  const item = activeItem(pathname);
+  const { groups } = useNavConfig();
+  const item = activeItem(pathname, groups);
   const subtitle = t(`subtitles.${item.labelKey}`, '');
 
   const titleBlock = (

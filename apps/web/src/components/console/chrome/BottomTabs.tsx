@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 
-import { MOBILE_TABS } from '../nav-config';
+import { useNavConfig } from '../ConsoleChrome';
 
 /**
  * The mobile bottom tab bar — an IN-FLOW flex item (the last child of `main`),
@@ -10,6 +10,7 @@ import { MOBILE_TABS } from '../nav-config';
  */
 export function BottomTabs({ pathname }: { pathname: string }) {
   const { t } = useTranslation('console');
+  const { mobileTabs } = useNavConfig();
   return (
     <nav
       className="glass"
@@ -21,7 +22,7 @@ export function BottomTabs({ pathname }: { pathname: string }) {
         padding: 'var(--s-2)',
       }}
     >
-      {MOBILE_TABS.map((tab) => {
+      {mobileTabs.map((tab) => {
         const TabIcon = tab.icon;
         const on = pathname.startsWith(tab.to);
         return (

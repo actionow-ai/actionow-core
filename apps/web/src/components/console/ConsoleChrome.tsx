@@ -1,6 +1,18 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useMemo } from 'react';
 
+import { ADMIN_NAV_CONFIG, type NavConfig } from './nav-config';
+
+/**
+ * The nav set the shell renders (admin or tenant). `ConsoleLayout` provides it;
+ * the chrome (Rail/SubNav/BottomTabs/TopBar) reads it here instead of importing
+ * a fixed nav, so the same shell serves both the admin and tenant `/app` planes.
+ */
+export const NavConfigContext = createContext<NavConfig>(ADMIN_NAV_CONFIG);
+export function useNavConfig(): NavConfig {
+  return useContext(NavConfigContext);
+}
+
 /** Setter the console shell provides so a page can publish its top-bar action. */
 export type SetConsoleAction = (node: ReactNode) => void;
 export const ConsoleActionContext = createContext<SetConsoleAction>(() => undefined);

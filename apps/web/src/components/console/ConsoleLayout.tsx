@@ -12,10 +12,20 @@ import { Rail } from './chrome/Rail';
 import { SubNav } from './chrome/SubNav';
 import { TopBar } from './chrome/TopBar';
 import type { ConsoleBack } from './ConsoleChrome';
-import { ConsoleActionContext, ConsoleBackContext, ConsoleFiltersContext } from './ConsoleChrome';
+import {
+  ConsoleActionContext,
+  ConsoleBackContext,
+  ConsoleFiltersContext,
+  NavConfigContext,
+} from './ConsoleChrome';
+import { ADMIN_NAV_CONFIG, type NavConfig } from './nav-config';
 
-/** Composition root for the console shell: provides the action/filters/back slots and lays out the chrome around the routed `<Outlet/>`. */
-export function ConsoleLayout() {
+/**
+ * Composition root for the console shell: provides the action/filters/back slots
+ * and the nav set, and lays out the chrome around the routed `<Outlet/>`. `nav`
+ * defaults to the admin nav; the tenant `/app` shell passes its own set.
+ */
+export function ConsoleLayout({ nav = ADMIN_NAV_CONFIG }: { nav?: NavConfig } = {}) {
   const { pathname } = useLocation();
   const isDesktop = useMediaQuery(BP.md);
   const [action, setAction] = useState<ReactNode>(null);
@@ -44,48 +54,50 @@ export function ConsoleLayout() {
   );
 
   return (
-    <ConsoleActionContext.Provider value={setAction}>
-      <ConsoleFiltersContext.Provider value={setFilters}>
-        <ConsoleBackContext.Provider value={setBack}>
-          <AppBackground />
-          <div
-            style={{
-              position: 'relative',
-              zIndex: 1,
-              display: 'flex',
-              gap: 'var(--s-3)',
-              padding: 'var(--s-4)',
-              // Clear the device home-indicator on mobile (env() is 0 elsewhere).
-              paddingBottom: 'calc(var(--s-4) + env(safe-area-inset-bottom, 0px))',
-              height: '100dvh',
-            }}
-          >
-            {isDesktop && <Rail pathname={pathname} />}
-            {isDesktop && <SubNav pathname={pathname} />}
-            <main
+    <NavConfigContext.Provider value={nav}>
+      <ConsoleActionContext.Provider value={setAction}>
+        <ConsoleFiltersContext.Provider value={setFilters}>
+          <ConsoleBackContext.Provider value={setBack}>
+            <AppBackground />
+            <div
               style={{
-                flex: 1,
-                minWidth: 0,
-                minHeight: 0,
+                position: 'relative',
+                zIndex: 1,
                 display: 'flex',
-                flexDirection: 'column',
                 gap: 'var(--s-3)',
+                padding: 'var(--s-4)',
+                // Clear the device home-indicator on mobile (env() is 0 elsewhere).
+                paddingBottom: 'calc(var(--s-4) + env(safe-area-inset-bottom, 0px))',
+                height: '100dvh',
               }}
             >
-              <TopBar action={action} filters={filters} back={back} />
-              <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 0 }}>
-                <div ref={viewRef} style={{ width: '100%', height: '100%' }}>
-                  <Outlet />
+              {isDesktop && <Rail pathname={pathname} />}
+              {isDesktop && <SubNav pathname={pathname} />}
+              <main
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  minHeight: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 'var(--s-3)',
+                }}
+              >
+                <TopBar action={action} filters={filters} back={back} />
+                <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 0 }}>
+                  <div ref={viewRef} style={{ width: '100%', height: '100%' }}>
+                    <Outlet />
+                  </div>
                 </div>
-              </div>
-              {/* In-flow (not fixed): the bar is the last flex item, so the
+                {/* In-flow (not fixed): the bar is the last flex item, so the
                   scroll area above is bounded by it and a page's last rows can
                   never hide behind it — no matter the page's scroll model. */}
-              {!isDesktop && <BottomTabs pathname={pathname} />}
-            </main>
-          </div>
-        </ConsoleBackContext.Provider>
-      </ConsoleFiltersContext.Provider>
-    </ConsoleActionContext.Provider>
+                {!isDesktop && <BottomTabs pathname={pathname} />}
+              </main>
+            </div>
+          </ConsoleBackContext.Provider>
+        </ConsoleFiltersContext.Provider>
+      </ConsoleActionContext.Provider>
+    </NavConfigContext.Provider>
   );
 }

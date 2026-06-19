@@ -6,7 +6,8 @@ import { useAuth } from '../../../lib/auth/AuthProvider';
 import { useReducedMotion } from '../../../lib/motion/useReducedMotion';
 import { useTheme } from '../../../lib/theme/ThemeProvider';
 import { IconButton } from '../../ui/IconButton';
-import { groupForPath, NAV } from '../nav-config';
+import { useNavConfig } from '../ConsoleChrome';
+import { groupForPath } from '../nav-config';
 
 const RAIL_STEP = 52; // 40px button + 12px gap
 
@@ -20,15 +21,29 @@ export function Rail({ pathname }: { pathname: string }) {
   const { theme, toggle } = useTheme();
   const { logout } = useAuth();
 
-  const activeIdx = NAV.findIndex((g) => g.key === groupForPath(pathname).key);
+  const { groups } = useNavConfig();
+  const activeIdx = groups.findIndex((g) => g.key === groupForPath(pathname, groups).key);
   const isZh = i18n.language.startsWith('zh');
 
   return (
     <div
       className="glass"
-      style={{ width: 64, borderRadius: 'var(--r-lg)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--s-4)', padding: 'var(--s-4) 0' }}
+      style={{
+        width: 64,
+        borderRadius: 'var(--r-lg)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 'var(--s-4)',
+        padding: 'var(--s-4) 0',
+      }}
     >
-      <button type="button" className="ico-btn bare" aria-label={t('topbar.backHome')} onClick={() => void navigate('/')}>
+      <button
+        type="button"
+        className="ico-btn bare"
+        aria-label={t('topbar.backHome')}
+        onClick={() => void navigate('/')}
+      >
         <span
           aria-hidden="true"
           style={{
@@ -43,14 +58,31 @@ export function Rail({ pathname }: { pathname: string }) {
             boxShadow: 'var(--glow-accent)',
           }}
         >
-          <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round">
+          <svg
+            width={17}
+            height={17}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinejoin="round"
+          >
             <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" />
           </svg>
         </span>
         <span className="ico-tip">{t('topbar.backHome')}</span>
       </button>
 
-      <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--s-3)' }}>
+      <div
+        style={{
+          position: 'relative',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 'var(--s-3)',
+        }}
+      >
         <span
           aria-hidden="true"
           style={{
@@ -69,7 +101,7 @@ export function Rail({ pathname }: { pathname: string }) {
             transition: reduced ? 'none' : 'transform var(--dur-base) var(--ease-out)',
           }}
         />
-        {NAV.map((g, i) => {
+        {groups.map((g, i) => {
           const on = i === activeIdx;
           return (
             <IconButton
@@ -88,7 +120,14 @@ export function Rail({ pathname }: { pathname: string }) {
         })}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--s-2)' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 'var(--s-2)',
+        }}
+      >
         <IconButton
           icon={TranslateIcon}
           label={isZh ? tc('lang.en') : tc('lang.zh')}

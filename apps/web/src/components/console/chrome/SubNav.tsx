@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 
 import { useReducedMotion } from '../../../lib/motion/useReducedMotion';
+import { useNavConfig } from '../ConsoleChrome';
 import { groupForPath } from '../nav-config';
 
 const SUBNAV_STEP = 42; // 38px item + 4px gap
@@ -10,12 +11,24 @@ const SUBNAV_STEP = 42; // 38px item + 4px gap
 export function SubNav({ pathname }: { pathname: string }) {
   const { t } = useTranslation('console');
   const reduced = useReducedMotion();
-  const group = groupForPath(pathname);
+  const { groups } = useNavConfig();
+  const group = groupForPath(pathname, groups);
   const activeIdx = group.items.findIndex((it) => pathname.startsWith(it.to));
 
   return (
-    <div className="glass" style={{ width: 200, borderRadius: 'var(--r-lg)', padding: 'var(--s-4) var(--s-3)' }}>
-      <div style={{ fontSize: 'var(--fs-caption)', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', margin: '0 var(--s-2) var(--s-3)' }}>
+    <div
+      className="glass"
+      style={{ width: 200, borderRadius: 'var(--r-lg)', padding: 'var(--s-4) var(--s-3)' }}
+    >
+      <div
+        style={{
+          fontSize: 'var(--fs-caption)',
+          letterSpacing: '.1em',
+          textTransform: 'uppercase',
+          color: 'var(--faint)',
+          margin: '0 var(--s-2) var(--s-3)',
+        }}
+      >
         {t(`nav.groups.${group.key}`)}
       </div>
       <div style={{ position: 'relative' }}>
