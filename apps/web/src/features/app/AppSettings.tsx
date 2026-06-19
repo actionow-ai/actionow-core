@@ -103,8 +103,12 @@ export function AppSettings() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
         <SectionHeader title={t('app.settings.changePassword')} />
-        <div
+        <form
           className="panel"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (canSubmit) change.mutate();
+          }}
           style={{
             borderRadius: 'var(--r-md)',
             padding: 'var(--s-4)',
@@ -115,6 +119,7 @@ export function AppSettings() {
         >
           <TextField
             type="password"
+            autoComplete="current-password"
             label={t('app.settings.current')}
             value={current}
             onChange={setCurrent}
@@ -122,6 +127,7 @@ export function AppSettings() {
           />
           <TextField
             type="password"
+            autoComplete="new-password"
             label={t('app.settings.new')}
             value={next}
             onChange={setNext}
@@ -129,15 +135,10 @@ export function AppSettings() {
             maxLength={256}
             hint={t('auth.passwordPolicy')}
           />
-          <Button
-            variant="cta"
-            onClick={() => change.mutate()}
-            loading={change.isPending}
-            disabled={!canSubmit}
-          >
+          <Button variant="cta" type="submit" loading={change.isPending} disabled={!canSubmit}>
             {t('app.settings.submit')}
           </Button>
-        </div>
+        </form>
       </div>
     </div>
   );

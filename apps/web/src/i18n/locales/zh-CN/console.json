@@ -38,6 +38,7 @@
       "ledger": "流水",
       "noJobs": "暂无任务",
       "noLedger": "暂无流水",
+      "viewAll": "查看全部",
       "cols": {
         "resource": "资源",
         "status": "状态",

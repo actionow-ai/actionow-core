@@ -7,6 +7,7 @@ import { DataTable } from '../../components/data/DataTable';
 import { Money } from '../../components/data/Money';
 import { QueryBoundary } from '../../components/data/QueryBoundary';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
+import { Button } from '../../components/ui/Button';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { qk } from '../../lib/api/queryKeys';
 import type { ConsoleJobView, ConsoleLedgerView } from '../../lib/api/types';
@@ -102,7 +103,14 @@ export function AppOverview() {
       </QueryBoundary>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-        <SectionHeader title={t('app.overview.jobs')} />
+        <SectionHeader
+          title={t('app.overview.jobs')}
+          action={
+            <Button variant="link" to="/app/usage">
+              {t('app.overview.viewAll')}
+            </Button>
+          }
+        />
         <DataTable
           columns={jobCols}
           rows={jobs}

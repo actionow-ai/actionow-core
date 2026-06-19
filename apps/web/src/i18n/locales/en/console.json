@@ -38,6 +38,7 @@
       "ledger": "Ledger",
       "noJobs": "No jobs yet",
       "noLedger": "No ledger entries yet",
+      "viewAll": "View all",
       "cols": {
         "resource": "Resource",
         "status": "Status",
