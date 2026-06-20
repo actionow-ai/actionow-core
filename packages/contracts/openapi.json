@@ -2100,6 +2100,16 @@
         "tags": [
           "catalog"
         ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
         "responses": {
           "200": {
             "description": "List a resource’s channels",
@@ -2137,6 +2147,16 @@
         "summary": "Add an upstream channel",
         "tags": [
           "catalog"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
         ],
         "requestBody": {
           "required": true,
@@ -2235,6 +2255,16 @@
         "summary": "List pricebook entries",
         "tags": [
           "pricing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "resourceId",
+            "in": "query"
+          }
         ],
         "responses": {
           "200": {
@@ -2372,6 +2402,16 @@
         "tags": [
           "admin"
         ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "tenantId",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "List a tenant’s API keys",
@@ -2440,6 +2480,33 @@
         "tags": [
           "admin"
         ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "nullable": true
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "tenantId",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "List a tenant’s jobs",
@@ -2479,6 +2546,33 @@
         "summary": "List a tenant’s ledger transactions",
         "tags": [
           "admin"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "nullable": true
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "tenantId",
+            "in": "query"
+          }
         ],
         "responses": {
           "200": {
@@ -2520,6 +2614,33 @@
         "tags": [
           "admin"
         ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "nullable": true
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "tenantId",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Global per-call usage log",
@@ -2560,6 +2681,33 @@
         "tags": [
           "admin"
         ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "nullable": true
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "tenantId",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "List a tenant’s payment intents",
@@ -2590,6 +2738,67 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/admin/secrets": {
+      "get": {
+        "summary": "List encrypted credentials",
+        "tags": [
+          "admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "List encrypted credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SecretView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create an encrypted credential",
+        "tags": [
+          "admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSecretBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Create an encrypted credential"
           }
         }
       }
@@ -2667,6 +2876,16 @@
         "summary": "List a group’s channels",
         "tags": [
           "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
         ],
         "responses": {
           "200": {
@@ -2770,6 +2989,87 @@
         }
       }
     },
+    "/admin/models/{name}/grants": {
+      "get": {
+        "summary": "List a model’s tenant grants",
+        "tags": [
+          "catalog"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "name",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List a model’s tenant grants",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ModelGrantView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Grant a tenant-visibility model",
+        "tags": [
+          "catalog"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "name",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantModelBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Grant a tenant-visibility model"
+          }
+        }
+      }
+    },
     "/console/api-keys": {
       "get": {
         "summary": "List your tenant API keys",
@@ -2830,7 +3130,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsoleApiKeyView"
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "plaintext": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "plaintext"
+                  ]
                 }
               }
             }
@@ -2884,6 +3196,25 @@
         "tags": [
           "console"
         ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "nullable": true
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Your tenant per-call usage log",
@@ -2924,6 +3255,25 @@
         "tags": [
           "console"
         ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "nullable": true
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Your tenant payment history",
@@ -2958,11 +3308,627 @@
         }
       }
     },
+    "/admin/models/{name}": {
+      "get": {
+        "summary": "Get one relay model",
+        "tags": [
+          "catalog"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "name",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get one relay model",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelView"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a relay model",
+        "tags": [
+          "catalog"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "name",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Delete a relay model"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a relay model",
+        "tags": [
+          "catalog"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "name",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateModelBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Update a relay model",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/route-groups/{id}": {
+      "get": {
+        "summary": "Get one route group",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get one route group",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteGroupView"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a route group",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Delete a route group"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a route group",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRouteGroupBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Update a route group",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteGroupView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/analytics/usage": {
+      "get": {
+        "summary": "Admin usage rollups",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "day",
+                "model",
+                "tenant",
+                "channel",
+                "api_key"
+              ]
+            },
+            "required": true,
+            "name": "groupBy",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "tenantId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Admin usage rollups",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UsageRollupView"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/analytics/usage": {
+      "get": {
+        "summary": "Your tenant usage rollups",
+        "tags": [
+          "console"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "day",
+                "model",
+                "channel",
+                "api_key"
+              ]
+            },
+            "required": true,
+            "name": "groupBy",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Your tenant usage rollups",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UsageRollupView"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/balance": {
+      "get": {
+        "summary": "Your tenant credit balance + held",
+        "tags": [
+          "console"
+        ],
+        "responses": {
+          "200": {
+            "description": "Your tenant credit balance + held",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleBalanceView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/me": {
+      "get": {
+        "summary": "Your own profile",
+        "tags": [
+          "console"
+        ],
+        "responses": {
+          "200": {
+            "description": "Your own profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleMeView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/resources/{id}/channels/{channelId}": {
+      "delete": {
+        "summary": "Delete a channel",
+        "tags": [
+          "catalog"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "channelId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Delete a channel"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Patch a channel",
+        "tags": [
+          "catalog"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "channelId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateChannelBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Patch a channel",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api-keys/{id}": {
+      "delete": {
+        "summary": "Revoke an API key",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoke an API key"
+          }
+        }
+      }
+    },
+    "/admin/route-groups/{id}/channels/{channelId}": {
+      "delete": {
+        "summary": "Remove a group channel",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "channelId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Remove a group channel"
+          }
+        }
+      },
+      "put": {
+        "summary": "Add/update a group channel membership",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "channelId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddGroupChannelBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Add/update a group channel membership",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteGroupChannelView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/official-prices/{id}": {
+      "delete": {
+        "summary": "Delete an official price row",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Delete an official price row"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update an official price catalog row",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOfficialPriceBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Update an official price catalog row",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialPriceView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/models/{name}/grants/{tenantId}": {
+      "delete": {
+        "summary": "Revoke a model grant",
+        "tags": [
+          "catalog"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "name",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "tenantId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoke a model grant"
+          }
+        }
+      }
+    },
     "/admin/tenants/{id}": {
       "patch": {
         "summary": "Update a tenant",
         "tags": [
           "tenants"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
         ],
         "requestBody": {
           "required": true,
@@ -2994,6 +3960,16 @@
         "tags": [
           "tenants"
         ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -3024,6 +4000,16 @@
         "tags": [
           "admin"
         ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -3044,29 +4030,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/admin/secrets": {
-      "post": {
-        "summary": "Create an encrypted credential",
-        "tags": [
-          "admin"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateSecretBody"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "Create an encrypted credential"
           }
         }
       }
@@ -3100,6 +4063,16 @@
         "tags": [
           "catalog"
         ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -3124,41 +4097,29 @@
         }
       }
     },
-    "/admin/resources/{id}/channels/{channelId}": {
-      "patch": {
-        "summary": "Patch a channel",
-        "tags": [
-          "catalog"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateChannelBody"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Patch a channel",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChannelView"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/admin/resources/{id}/channels/{channelId}/sync-models": {
       "post": {
         "summary": "Sync a channel’s upstream models",
         "tags": [
           "catalog"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "channelId",
+            "in": "path"
+          }
         ],
         "requestBody": {
           "required": true,
@@ -3182,6 +4143,16 @@
         "summary": "Update a pricebook entry",
         "tags": [
           "pricing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
         ],
         "requestBody": {
           "required": true,
@@ -3212,6 +4183,16 @@
         "summary": "Update a pricing modifier",
         "tags": [
           "pricing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
         ],
         "requestBody": {
           "required": true,
@@ -3260,82 +4241,41 @@
         }
       }
     },
-    "/admin/models/{name}": {
-      "patch": {
-        "summary": "Update a relay model",
-        "tags": [
-          "catalog"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateModelBody"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Update a relay model",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ModelView"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/admin/models/{name}/grants": {
+    "/console/api-keys/{id}/rotate": {
       "post": {
-        "summary": "Grant a tenant-visibility model",
+        "summary": "Rotate an API key (new plaintext; old key disabled)",
         "tags": [
-          "catalog"
+          "console"
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GrantModelBody"
-              }
-            }
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
           }
-        },
-        "responses": {
-          "204": {
-            "description": "Grant a tenant-visibility model"
-          }
-        }
-      }
-    },
-    "/admin/route-groups/{id}": {
-      "patch": {
-        "summary": "Update a route group",
-        "tags": [
-          "billing"
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateRouteGroupBody"
-              }
-            }
-          }
-        },
         "responses": {
-          "200": {
-            "description": "Update a route group",
+          "201": {
+            "description": "Rotated key",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RouteGroupView"
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "plaintext": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "plaintext"
+                  ]
                 }
               }
             }
@@ -3343,29 +4283,41 @@
         }
       }
     },
-    "/admin/route-groups/{id}/channels/{channelId}": {
-      "put": {
-        "summary": "Add/update a group channel membership",
+    "/console/api-keys/{id}": {
+      "delete": {
+        "summary": "Disable one of your API keys",
         "tags": [
-          "billing"
+          "console"
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AddGroupChannelBody"
-              }
-            }
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
           }
-        },
+        ],
         "responses": {
           "200": {
-            "description": "Add/update a group channel membership",
+            "description": "Disabled key",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RouteGroupChannelView"
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "status"
+                  ]
                 }
               }
             }
@@ -3373,39 +4325,9 @@
         }
       }
     },
-    "/admin/official-prices/{id}": {
-      "patch": {
-        "summary": "Update an official price catalog row",
-        "tags": [
-          "billing"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateOfficialPriceBody"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Update an official price catalog row",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OfficialPriceView"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/console/payments/topup": {
+    "/console/payments/intents": {
       "post": {
-        "summary": "Start a self-serve credit topup",
+        "summary": "Start a self-serve credit topup (returns a checkout handle)",
         "tags": [
           "console"
         ],
@@ -3420,8 +4342,15 @@
           }
         },
         "responses": {
-          "204": {
-            "description": "Start a self-serve credit topup"
+          "201": {
+            "description": "Start a self-serve credit topup (returns a checkout handle)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleIntentView"
+                }
+              }
+            }
           }
         }
       }

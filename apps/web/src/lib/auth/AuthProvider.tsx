@@ -5,6 +5,8 @@ import { config } from '../../config';
 import type { ApiClient } from '../api/client';
 import { createClient } from '../api/client';
 import { ApiError } from '../api/errors';
+import type { SdkClient } from '../api/sdkClient';
+import { createSdkClient } from '../api/sdkClient';
 import { decodeJwt, isExpired } from './jwt';
 
 const TOKEN_KEY = 'actionow.token';
@@ -17,7 +19,13 @@ export interface AuthUser {
 interface AuthCtx {
   user: AuthUser | null;
   isAuthed: boolean;
+  /** Hand-written raw client — used for the auth plane (`/auth/*`, not in the
+   *  contract) and as the hybrid fallback for a few resource methods. */
   client: ApiClient;
+  /** Typed `openapi-fetch` SDK client — the primary control-plane transport. */
+  sdk: SdkClient;
+  /** Clears the token (logout). The resource APIs call this on a 401. */
+  onUnauthorized: () => void;
   login: (email: string, password: string) => Promise<AuthUser>;
   register: (email: string, password: string) => Promise<AuthUser>;
   logout: () => void;
@@ -56,6 +64,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [clearToken],
   );
 
+  // The typed SDK client reads the token PER REQUEST via the same ref, so it
+  // survives token changes without rebuilding (only `clearToken` is a dep).
+  const sdk = useMemo<SdkClient>(
+    () => createSdkClient({ getToken: () => tokenRef.current, onUnauthorized: clearToken }),
+    [clearToken],
+  );
+
   const authenticate = useCallback(async (path: string, email: string, password: string): Promise<AuthUser> => {
     const r = await createClient({ getToken: () => null, onUnauthorized: () => undefined }).post<{
       token: string;
@@ -85,8 +100,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [token, clearToken]);
 
   const value = useMemo<AuthCtx>(
-    () => ({ user: userFromToken(token), isAuthed: token !== null, client, login, register, logout }),
-    [token, client, login, register, logout],
+    () => ({
+      user: userFromToken(token),
+      isAuthed: token !== null,
+      client,
+      sdk,
+      onUnauthorized: clearToken,
+      login,
+      register,
+      logout,
+    }),
+    [token, client, sdk, clearToken, login, register, logout],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

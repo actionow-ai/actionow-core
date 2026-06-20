@@ -183,6 +183,9 @@ importers:
       '@actionow/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@actionow/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@gsap/react':
         specifier: ^2.1.1
         version: 2.1.2(gsap@3.15.0)(react@19.2.7)

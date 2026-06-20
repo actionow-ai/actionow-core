@@ -96,6 +96,13 @@ function pageOf(item: z.ZodTypeAny): z.ZodTypeAny {
   });
 }
 
+/**
+ * The `{ id, plaintext }` returned ONCE when a key is minted/rotated (admin AND
+ * console). Inline (not a migrated view) — it is a tiny write-only response with
+ * no list/read twin, so it stays local to the OpenAPI document.
+ */
+const apiKeyCreatedSchema = z.object({ id: z.string(), plaintext: z.string() });
+
 /** Build the OpenAPI v3 document from the zod contracts (the single source of truth). */
 export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateDocument']> {
   const registry = new OpenAPIRegistry();
@@ -106,7 +113,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const Resource = registry.register('ResourceView', resourceViewSchema);
   const Channel = registry.register('ChannelView', channelViewSchema);
   const Model = registry.register('ModelView', modelViewSchema);
-  registry.register('ModelGrantView', modelGrantViewSchema);
+  const ModelGrant = registry.register('ModelGrantView', modelGrantViewSchema);
   const Pricebook = registry.register('PricebookView', pricebookViewSchema);
   const Modifier = registry.register('ModifierView', modifierViewSchema);
 
@@ -115,9 +122,9 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const Job = registry.register('JobView', jobViewSchema);
   const Ledger = registry.register('LedgerView', ledgerViewSchema);
   const UsageLog = registry.register('UsageLogView', usageLogViewSchema);
-  registry.register('UsageRollupView', usageRollupViewSchema);
+  const UsageRollup = registry.register('UsageRollupView', usageRollupViewSchema);
   const Payment = registry.register('PaymentIntentView', paymentIntentViewSchema);
-  registry.register('SecretView', secretViewSchema);
+  const Secret = registry.register('SecretView', secretViewSchema);
   registry.register('DifyImportView', difyImportViewSchema);
 
   // billing & routing views (billing-views)
@@ -127,14 +134,17 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
 
   // tenant console views (console-views)
   const ConsoleApiKey = registry.register('ConsoleApiKeyView', consoleApiKeyViewSchema);
+  // ConsoleJob/ConsoleLedger back the `/console/usage` composite (`{ jobs, ledger }`),
+  // which stays on the raw client (its bespoke two-envelope body isn't worth a
+  // custom OpenAPI schema), so they're registered as component schemas only.
   registry.register('ConsoleJobView', consoleJobViewSchema);
   registry.register('ConsoleLedgerView', consoleLedgerViewSchema);
   const ConsoleModel = registry.register('ConsoleModelView', consoleModelViewSchema);
   const ConsoleUsageLog = registry.register('ConsoleUsageLogView', consoleUsageLogViewSchema);
   const ConsolePayment = registry.register('ConsolePaymentView', consolePaymentViewSchema);
-  registry.register('ConsoleMeView', consoleMeViewSchema);
-  registry.register('ConsoleBalanceView', consoleBalanceViewSchema);
-  registry.register('ConsoleIntentView', consoleIntentViewSchema);
+  const ConsoleMe = registry.register('ConsoleMeView', consoleMeViewSchema);
+  const ConsoleBalance = registry.register('ConsoleBalanceView', consoleBalanceViewSchema);
+  const ConsoleIntent = registry.register('ConsoleIntentView', consoleIntentViewSchema);
 
   // --- request-body schemas (named) derived from the migrated contracts ----
   // (these are the write-side single source of truth; the create/update paths
@@ -188,15 +198,51 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     consoleChangePasswordSchema,
   );
 
+  /**
+   * Derive the OpenAPI path-parameter schema from the `{token}`s in a path.
+   * zod-to-openapi does NOT infer path params from the path string, and
+   * openapi-fetch types `params.path` as `undefined` unless they're declared —
+   * so every templated path must register its params or the SDK won't typecheck.
+   */
+  function pathParamsOf(path: string): z.ZodTypeAny | undefined {
+    const names = [...path.matchAll(/\{(\w+)}/g)].flatMap((m) =>
+      m[1] === undefined ? [] : [m[1]],
+    );
+    if (names.length === 0) return undefined;
+    return z.object(Object.fromEntries(names.map((n) => [n, z.string()])));
+  }
+
+  /** Merge an optional path-param schema + optional query into a `request`. */
+  function requestOf(
+    path: string,
+    query?: z.ZodTypeAny,
+    body?: z.ZodTypeAny,
+  ): Record<string, unknown> | undefined {
+    const params = pathParamsOf(path);
+    const req: Record<string, unknown> = {};
+    if (params) req.params = params;
+    if (query) req.query = query;
+    if (body) req.body = { content: { 'application/json': { schema: body } }, required: true };
+    return Object.keys(req).length > 0 ? req : undefined;
+  }
+
   // --- representative list paths referencing the registered schemas ---
   // (GET/list endpoints prove the response-schema chain; request bodies follow
   // once the create/update schemas migrate into contracts.)
-  const list = (path: string, summary: string, item: z.ZodTypeAny, tag: string) => {
+  const list = (
+    path: string,
+    summary: string,
+    item: z.ZodTypeAny,
+    tag: string,
+    query?: z.ZodTypeAny,
+  ) => {
+    const request = requestOf(path, query);
     registry.registerPath({
       method: 'get',
       path,
       summary,
       tags: [tag],
+      ...(request ? { request } : {}),
       responses: {
         200: {
           description: summary,
@@ -205,6 +251,12 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
       },
     });
   };
+
+  // Common keyset query (`cursor` + `limit`); some lists add filters on top.
+  const keyset = z.object({
+    cursor: z.string().optional(),
+    limit: z.coerce.number().optional(),
+  });
 
   /**
    * A write endpoint (POST/PATCH/PUT) whose `request.body` is one of the migrated
@@ -228,9 +280,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
       path,
       summary,
       tags: [tag],
-      request: {
-        body: { content: { 'application/json': { schema: body } }, required: true },
-      },
+      request: requestOf(path, undefined, body) as never,
       responses: {
         [status]: {
           description: summary,
@@ -242,18 +292,76 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     });
   };
 
+  /** A GET-one endpoint that returns a single registered view (or 404). */
+  const getOne = (path: string, summary: string, view: z.ZodTypeAny, tag: string) => {
+    const request = requestOf(path);
+    registry.registerPath({
+      method: 'get',
+      path,
+      summary,
+      tags: [tag],
+      ...(request ? { request } : {}),
+      responses: {
+        200: { description: summary, content: { 'application/json': { schema: view } } },
+      },
+    });
+  };
+
+  /** A GET endpoint returning a bare array (no list envelope), optional query. */
+  const getArray = (
+    path: string,
+    summary: string,
+    item: z.ZodTypeAny,
+    tag: string,
+    query?: z.ZodTypeAny,
+  ) => {
+    const request = requestOf(path, query);
+    registry.registerPath({
+      method: 'get',
+      path,
+      summary,
+      tags: [tag],
+      ...(request ? { request } : {}),
+      responses: {
+        200: {
+          description: summary,
+          content: { 'application/json': { schema: z.array(item) } },
+        },
+      },
+    });
+  };
+
+  /** A DELETE endpoint that returns `204 No Content` (revoke/remove). */
+  const del = (path: string, summary: string, tag: string) => {
+    const request = requestOf(path);
+    registry.registerPath({
+      method: 'delete',
+      path,
+      summary,
+      tags: [tag],
+      ...(request ? { request } : {}),
+      responses: { 204: { description: summary } },
+    });
+  };
+
+  // Per-list query filters layered on top of the keyset (cursor/limit).
+  const tenantKeyset = keyset.extend({ tenantId: z.string().optional() });
+  const pricebookQuery = z.object({ resourceId: z.string().optional() });
+  const apiKeysQuery = z.object({ tenantId: z.string().optional() });
+
   list('/admin/tenants', 'List tenants (paginated)', Tenant, 'tenants');
   list('/admin/accounts', 'List accounts (balance/held)', Account, 'tenants');
   list('/admin/resources', 'List catalog resources', Resource, 'catalog');
   list('/admin/resources/{id}/channels', 'List a resource’s channels', Channel, 'catalog');
   list('/admin/models', 'List relay models', Model, 'catalog');
-  list('/admin/pricebook', 'List pricebook entries', Pricebook, 'pricing');
+  list('/admin/pricebook', 'List pricebook entries', Pricebook, 'pricing', pricebookQuery);
   list('/admin/modifiers', 'List pricing modifiers', Modifier, 'pricing');
-  list('/admin/api-keys', 'List a tenant’s API keys', ApiKey, 'admin');
-  list('/admin/jobs', 'List a tenant’s jobs', Job, 'admin');
-  list('/admin/ledger', 'List a tenant’s ledger transactions', Ledger, 'admin');
-  list('/admin/usage', 'Global per-call usage log', UsageLog, 'admin');
-  list('/admin/payments', 'List a tenant’s payment intents', Payment, 'admin');
+  list('/admin/api-keys', 'List a tenant’s API keys', ApiKey, 'admin', apiKeysQuery);
+  list('/admin/jobs', 'List a tenant’s jobs', Job, 'admin', tenantKeyset);
+  list('/admin/ledger', 'List a tenant’s ledger transactions', Ledger, 'admin', tenantKeyset);
+  list('/admin/usage', 'Global per-call usage log', UsageLog, 'admin', tenantKeyset);
+  list('/admin/payments', 'List a tenant’s payment intents', Payment, 'admin', tenantKeyset);
+  list('/admin/secrets', 'List encrypted credentials', Secret, 'admin');
   list('/admin/route-groups', 'List route groups', RouteGroup, 'billing');
   list(
     '/admin/route-groups/{id}/channels',
@@ -262,10 +370,57 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     'billing',
   );
   list('/admin/official-prices', 'List the official price catalog', OfficialPrice, 'billing');
+  list('/admin/models/{name}/grants', 'List a model’s tenant grants', ModelGrant, 'catalog');
   list('/console/api-keys', 'List your tenant API keys', ConsoleApiKey, 'console');
   list('/console/models', 'Models visible to your tenant', ConsoleModel, 'console');
-  list('/console/usage-log', 'Your tenant per-call usage log', ConsoleUsageLog, 'console');
-  list('/console/payments', 'Your tenant payment history', ConsolePayment, 'console');
+  list('/console/usage-log', 'Your tenant per-call usage log', ConsoleUsageLog, 'console', keyset);
+  list('/console/payments', 'Your tenant payment history', ConsolePayment, 'console', keyset);
+
+  // --- GET-one (read a single resource) -------------------------------------
+  getOne('/admin/models/{name}', 'Get one relay model', Model, 'catalog');
+  getOne('/admin/route-groups/{id}', 'Get one route group', RouteGroup, 'billing');
+
+  // --- analytics rollups (bare arrays, query-filtered) ----------------------
+  // Query shapes are inline (mirroring the backend admin-DTO query schemas, which
+  // live in the API package, not the contracts) so the SDK types `params.query`.
+  const adminAnalyticsQuery = z.object({
+    groupBy: z.enum(['day', 'model', 'tenant', 'channel', 'api_key']),
+    tenantId: z.string().optional(),
+    from: z.string().optional(),
+    to: z.string().optional(),
+  });
+  const consoleAnalyticsQuery = z.object({
+    groupBy: z.enum(['day', 'model', 'channel', 'api_key']),
+    from: z.string().optional(),
+    to: z.string().optional(),
+  });
+  getArray(
+    '/admin/analytics/usage',
+    'Admin usage rollups',
+    UsageRollup,
+    'admin',
+    adminAnalyticsQuery,
+  );
+  getArray(
+    '/console/analytics/usage',
+    'Your tenant usage rollups',
+    UsageRollup,
+    'console',
+    consoleAnalyticsQuery,
+  );
+
+  // --- console reads (single-object endpoints) ------------------------------
+  getOne('/console/balance', 'Your tenant credit balance + held', ConsoleBalance, 'console');
+  getOne('/console/me', 'Your own profile', ConsoleMe, 'console');
+
+  // --- DELETE (revoke/remove → 204; the FE methods return void) -------------
+  del('/admin/resources/{id}/channels/{channelId}', 'Delete a channel', 'catalog');
+  del('/admin/api-keys/{id}', 'Revoke an API key', 'admin');
+  del('/admin/route-groups/{id}', 'Delete a route group', 'billing');
+  del('/admin/route-groups/{id}/channels/{channelId}', 'Remove a group channel', 'billing');
+  del('/admin/official-prices/{id}', 'Delete an official price row', 'billing');
+  del('/admin/models/{name}', 'Delete a relay model', 'catalog');
+  del('/admin/models/{name}/grants/{tenantId}', 'Revoke a model grant', 'catalog');
 
   // --- write paths referencing the migrated request-body contracts ----------
   // admin core
@@ -495,18 +650,57 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   write({
     method: 'post',
     path: '/console/api-keys',
+    // Minting returns the plaintext key ONCE, not the listed ConsoleApiKeyView.
     summary: 'Mint an API key for your tenant',
     tag: 'console',
     body: ConsoleCreateApiKey,
-    response: ConsoleApiKey,
+    response: apiKeyCreatedSchema,
     created: true,
   });
+  // Rotate takes NO body (the `:id` path identifies the key); returns the new
+  // plaintext once. Registered directly since `write` requires a request body.
+  registry.registerPath({
+    method: 'post',
+    path: '/console/api-keys/{id}/rotate',
+    summary: 'Rotate an API key (new plaintext; old key disabled)',
+    tags: ['console'],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      201: {
+        description: 'Rotated key',
+        content: { 'application/json': { schema: apiKeyCreatedSchema } },
+      },
+    },
+  });
+  // Console disable returns 200 WITH a body (`{ id, status }`), unlike the admin
+  // hard-delete 204 — registered directly so the SDK types the response body.
+  registry.registerPath({
+    method: 'delete',
+    path: '/console/api-keys/{id}',
+    summary: 'Disable one of your API keys',
+    tags: ['console'],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: {
+        description: 'Disabled key',
+        content: {
+          'application/json': {
+            schema: z.object({ id: z.string(), status: z.string() }),
+          },
+        },
+      },
+    },
+  });
+  // BUGFIX: the real endpoint is `/console/payments/intents` (see the console
+  // controller `@Post('payments/intents')`), NOT `/console/payments/topup`.
   write({
     method: 'post',
-    path: '/console/payments/topup',
-    summary: 'Start a self-serve credit topup',
+    path: '/console/payments/intents',
+    summary: 'Start a self-serve credit topup (returns a checkout handle)',
     tag: 'console',
     body: ConsoleCreateIntent,
+    response: ConsoleIntent,
+    created: true,
   });
   write({
     method: 'patch',

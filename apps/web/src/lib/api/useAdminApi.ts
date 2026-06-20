@@ -5,6 +5,6 @@ import type { AdminApi } from './admin';
 import { makeAdminApi } from './admin';
 
 export function useAdminApi(): AdminApi {
-  const { client } = useAuth();
-  return useMemo(() => makeAdminApi(client), [client]);
+  const { sdk, client, onUnauthorized } = useAuth();
+  return useMemo(() => makeAdminApi(sdk, client, onUnauthorized), [sdk, client, onUnauthorized]);
 }
