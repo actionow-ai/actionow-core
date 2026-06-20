@@ -1030,6 +1030,861 @@
         "required": [
           "intent_id"
         ]
+      },
+      "CreateTenantBody": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "isolationMode": {
+            "type": "string",
+            "enum": [
+              "field",
+              "schema",
+              "db"
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateTenantBody": {
+        "type": "object",
+        "properties": {
+          "isolationMode": {
+            "type": "string",
+            "enum": [
+              "field",
+              "schema",
+              "db"
+            ]
+          }
+        }
+      },
+      "CreateAccountBody": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "credits": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "tenantId"
+        ]
+      },
+      "TopupBody": {
+        "type": "object",
+        "properties": {
+          "credits": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          }
+        },
+        "required": [
+          "credits"
+        ]
+      },
+      "CreateApiKeyBody": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "resourceAllowlist": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rateLimit": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "routeGroupId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "tenantId"
+        ]
+      },
+      "UpdateApiKeyGroupBody": {
+        "type": "object",
+        "properties": {
+          "routeGroupId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "routeGroupId"
+        ]
+      },
+      "CreateSecretBody": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "GenerateCodesBody": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "creditsPerCode": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "count",
+          "creditsPerCode"
+        ]
+      },
+      "CreateResourceBody": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "model",
+              "workflow"
+            ]
+          },
+          "modality": {
+            "type": "string",
+            "enum": [
+              "text",
+              "image",
+              "video",
+              "audio",
+              "composite"
+            ]
+          },
+          "providerType": {
+            "type": "string",
+            "minLength": 1
+          },
+          "execModes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "ioSchema": {
+            "nullable": true
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "kind",
+          "modality",
+          "providerType",
+          "execModes"
+        ]
+      },
+      "UpdateResourceBody": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          }
+        }
+      },
+      "CreateChannelBody": {
+        "type": "object",
+        "properties": {
+          "providerType": {
+            "type": "string",
+            "minLength": 1
+          },
+          "credentialRef": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "endpoint": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "proxyRef": {
+            "type": "string",
+            "minLength": 1
+          },
+          "config": {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            }
+          },
+          "weight": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "inputCostUsdPer1m": {
+            "type": "number",
+            "minimum": 0
+          },
+          "outputCostUsdPer1m": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "providerType"
+        ]
+      },
+      "UpdateChannelBody": {
+        "type": "object",
+        "properties": {
+          "credentialRef": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "endpoint": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 1
+          },
+          "proxyRef": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 1
+          },
+          "config": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": {
+              "nullable": true
+            }
+          },
+          "weight": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "inputCostUsdPer1m": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
+          "outputCostUsdPer1m": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          }
+        }
+      },
+      "SyncChannelModelsBody": {
+        "type": "object",
+        "properties": {
+          "defaultInputPrice": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "defaultOutputPrice": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "CreatePricebookBody": {
+        "type": "object",
+        "properties": {
+          "resourceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resourceVersion": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "unit",
+              "matrix",
+              "fixed",
+              "formula",
+              "passthrough"
+            ]
+          },
+          "timing": {
+            "type": "string",
+            "enum": [
+              "pre",
+              "post"
+            ]
+          },
+          "spec": {
+            "nullable": true
+          },
+          "fixedCredits": {
+            "type": "number",
+            "minimum": 0
+          },
+          "markup": {
+            "nullable": true
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "resourceId",
+          "resourceVersion",
+          "version",
+          "method",
+          "timing"
+        ]
+      },
+      "UpdatePricebookBody": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "unit",
+              "matrix",
+              "fixed",
+              "formula",
+              "passthrough"
+            ]
+          },
+          "timing": {
+            "type": "string",
+            "enum": [
+              "pre",
+              "post"
+            ]
+          },
+          "spec": {
+            "nullable": true
+          },
+          "fixedCredits": {
+            "type": "number",
+            "minimum": 0
+          },
+          "markup": {
+            "nullable": true
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CreateModifierBody": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "whenExpr": {
+            "type": "string"
+          },
+          "op": {
+            "type": "string",
+            "enum": [
+              "override_rate",
+              "percent_off",
+              "flat_off",
+              "percent_add"
+            ]
+          },
+          "value": {
+            "type": "number"
+          },
+          "stackable": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "scope",
+          "op"
+        ]
+      },
+      "UpdateModifierBody": {
+        "type": "object",
+        "properties": {
+          "whenExpr": {
+            "type": "string",
+            "nullable": true
+          },
+          "op": {
+            "type": "string",
+            "enum": [
+              "override_rate",
+              "percent_off",
+              "flat_off",
+              "percent_add"
+            ]
+          },
+          "value": {
+            "type": "number"
+          },
+          "stackable": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DifyImportBody": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "resourceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "yaml": {
+            "type": "string",
+            "minLength": 1
+          },
+          "endpoint": {
+            "type": "string",
+            "format": "uri"
+          },
+          "serviceKeyRef": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "pricingModel": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "matrix",
+              "metered"
+            ]
+          },
+          "allowBlockers": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "tenantId",
+          "resourceId",
+          "yaml",
+          "endpoint",
+          "pricingModel"
+        ]
+      },
+      "CreateModelBody": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resourceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "display": {
+            "type": "string"
+          },
+          "modality": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "tenant"
+            ]
+          },
+          "inputPrice": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "outputPrice": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "resourceId"
+        ]
+      },
+      "UpdateModelBody": {
+        "type": "object",
+        "properties": {
+          "display": {
+            "type": "string",
+            "nullable": true
+          },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "inputPrice": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "outputPrice": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "tenant"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          }
+        }
+      },
+      "GrantModelBody": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "tenantId"
+        ]
+      },
+      "CreateRouteGroupBody": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "groupRatioBps": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateRouteGroupBody": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "groupRatioBps": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AddGroupChannelBody": {
+        "type": "object",
+        "properties": {
+          "priority": {
+            "type": "integer"
+          },
+          "weight": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          }
+        }
+      },
+      "CreateOfficialPriceBody": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1
+          },
+          "modelSlug": {
+            "type": "string",
+            "minLength": 1
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "inputUsdPer1m": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "outputUsdPer1m": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "cachedInputUsdPer1m": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "sourceUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "effectiveAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "modelSlug",
+          "inputUsdPer1m",
+          "outputUsdPer1m"
+        ]
+      },
+      "UpdateOfficialPriceBody": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 1
+          },
+          "inputUsdPer1m": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "outputUsdPer1m": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "cachedInputUsdPer1m": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "sourceUrl": {
+            "type": "string",
+            "nullable": true,
+            "format": "uri"
+          },
+          "effectiveAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConsoleCreateApiKeyBody": {
+        "type": "object",
+        "properties": {
+          "resourceAllowlist": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rateLimit": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          }
+        }
+      },
+      "ConsoleCreateIntentBody": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "stripe",
+              "alipay",
+              "wechat",
+              "crypto"
+            ]
+          },
+          "amount_minor": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "provider",
+          "amount_minor",
+          "currency"
+        ]
+      },
+      "ConsoleChangePasswordBody": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "minLength": 1
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
       }
     },
     "parameters": {}
@@ -1068,6 +1923,34 @@
                     "next_cursor",
                     "has_more"
                   ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a tenant",
+        "tags": [
+          "tenants"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenantBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Create a tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantView"
                 }
               }
             }
@@ -1113,6 +1996,34 @@
             }
           }
         }
+      },
+      "post": {
+        "summary": "Create an account",
+        "tags": [
+          "tenants"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAccountBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Create an account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountView"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/admin/resources": {
@@ -1148,6 +2059,34 @@
                     "next_cursor",
                     "has_more"
                   ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Register a catalog resource",
+        "tags": [
+          "catalog"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateResourceBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Register a catalog resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceView"
                 }
               }
             }
@@ -1193,6 +2132,34 @@
             }
           }
         }
+      },
+      "post": {
+        "summary": "Add an upstream channel",
+        "tags": [
+          "catalog"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateChannelBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Add an upstream channel",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelView"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/admin/models": {
@@ -1228,6 +2195,34 @@
                     "next_cursor",
                     "has_more"
                   ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Register a relay model",
+        "tags": [
+          "catalog"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateModelBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Register a relay model",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelView"
                 }
               }
             }
@@ -1273,6 +2268,34 @@
             }
           }
         }
+      },
+      "post": {
+        "summary": "Add a pricebook entry",
+        "tags": [
+          "pricing"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePricebookBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Add a pricebook entry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricebookView"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/admin/modifiers": {
@@ -1313,6 +2336,34 @@
             }
           }
         }
+      },
+      "post": {
+        "summary": "Add a pricing modifier",
+        "tags": [
+          "pricing"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateModifierBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Add a pricing modifier",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModifierView"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/admin/api-keys": {
@@ -1348,6 +2399,34 @@
                     "next_cursor",
                     "has_more"
                   ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Mint an API key",
+        "tags": [
+          "admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiKeyBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Mint an API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyView"
                 }
               }
             }
@@ -1553,6 +2632,34 @@
             }
           }
         }
+      },
+      "post": {
+        "summary": "Create a route group",
+        "tags": [
+          "billing"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRouteGroupBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Create a route group",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteGroupView"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/admin/route-groups/{id}/channels": {
@@ -1633,6 +2740,34 @@
             }
           }
         }
+      },
+      "post": {
+        "summary": "Add an official price catalog row",
+        "tags": [
+          "billing"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOfficialPriceBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Add an official price catalog row",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialPriceView"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/console/api-keys": {
@@ -1668,6 +2803,34 @@
                     "next_cursor",
                     "has_more"
                   ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Mint an API key for your tenant",
+        "tags": [
+          "console"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsoleCreateApiKeyBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Mint an API key for your tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleApiKeyView"
                 }
               }
             }
@@ -1791,6 +2954,497 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/admin/tenants/{id}": {
+      "patch": {
+        "summary": "Update a tenant",
+        "tags": [
+          "tenants"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Update a tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/accounts/{id}/topup": {
+      "post": {
+        "summary": "Credit an account",
+        "tags": [
+          "tenants"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopupBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Credit an account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api-keys/{id}/group": {
+      "patch": {
+        "summary": "Bind an API key’s route group",
+        "tags": [
+          "admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateApiKeyGroupBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bind an API key’s route group",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/secrets": {
+      "post": {
+        "summary": "Create an encrypted credential",
+        "tags": [
+          "admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSecretBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Create an encrypted credential"
+          }
+        }
+      }
+    },
+    "/admin/redemption-codes": {
+      "post": {
+        "summary": "Batch-mint redemption codes",
+        "tags": [
+          "admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateCodesBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Batch-mint redemption codes"
+          }
+        }
+      }
+    },
+    "/admin/resources/{id}": {
+      "patch": {
+        "summary": "Update a resource",
+        "tags": [
+          "catalog"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateResourceBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Update a resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/resources/{id}/channels/{channelId}": {
+      "patch": {
+        "summary": "Patch a channel",
+        "tags": [
+          "catalog"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateChannelBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Patch a channel",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/resources/{id}/channels/{channelId}/sync-models": {
+      "post": {
+        "summary": "Sync a channel’s upstream models",
+        "tags": [
+          "catalog"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncChannelModelsBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Sync a channel’s upstream models"
+          }
+        }
+      }
+    },
+    "/admin/pricebook/{id}": {
+      "patch": {
+        "summary": "Update a pricebook entry",
+        "tags": [
+          "pricing"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePricebookBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Update a pricebook entry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricebookView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/modifiers/{id}": {
+      "patch": {
+        "summary": "Update a pricing modifier",
+        "tags": [
+          "pricing"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateModifierBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Update a pricing modifier",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModifierView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/dify/import": {
+      "post": {
+        "summary": "Register a BYO Dify workflow",
+        "tags": [
+          "catalog"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DifyImportBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Register a BYO Dify workflow"
+          }
+        }
+      }
+    },
+    "/admin/models/{name}": {
+      "patch": {
+        "summary": "Update a relay model",
+        "tags": [
+          "catalog"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateModelBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Update a relay model",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/models/{name}/grants": {
+      "post": {
+        "summary": "Grant a tenant-visibility model",
+        "tags": [
+          "catalog"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantModelBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Grant a tenant-visibility model"
+          }
+        }
+      }
+    },
+    "/admin/route-groups/{id}": {
+      "patch": {
+        "summary": "Update a route group",
+        "tags": [
+          "billing"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRouteGroupBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Update a route group",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteGroupView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/route-groups/{id}/channels/{channelId}": {
+      "put": {
+        "summary": "Add/update a group channel membership",
+        "tags": [
+          "billing"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddGroupChannelBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Add/update a group channel membership",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteGroupChannelView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/official-prices/{id}": {
+      "patch": {
+        "summary": "Update an official price catalog row",
+        "tags": [
+          "billing"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOfficialPriceBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Update an official price catalog row",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialPriceView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/payments/topup": {
+      "post": {
+        "summary": "Start a self-serve credit topup",
+        "tags": [
+          "console"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsoleCreateIntentBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Start a self-serve credit topup"
+          }
+        }
+      }
+    },
+    "/console/settings": {
+      "patch": {
+        "summary": "Change your console password",
+        "tags": [
+          "console"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsoleChangePasswordBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Change your console password"
           }
         }
       }

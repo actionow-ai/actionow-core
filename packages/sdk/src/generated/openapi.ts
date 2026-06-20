@@ -37,7 +37,31 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** Create a tenant */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateTenantBody"];
+                };
+            };
+            responses: {
+                /** @description Create a tenant */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TenantView"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -77,7 +101,31 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** Create an account */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateAccountBody"];
+                };
+            };
+            responses: {
+                /** @description Create an account */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AccountView"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -117,7 +165,31 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** Register a catalog resource */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateResourceBody"];
+                };
+            };
+            responses: {
+                /** @description Register a catalog resource */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ResourceView"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -157,7 +229,31 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** Add an upstream channel */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateChannelBody"];
+                };
+            };
+            responses: {
+                /** @description Add an upstream channel */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ChannelView"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -197,7 +293,31 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** Register a relay model */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateModelBody"];
+                };
+            };
+            responses: {
+                /** @description Register a relay model */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ModelView"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -237,7 +357,31 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** Add a pricebook entry */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreatePricebookBody"];
+                };
+            };
+            responses: {
+                /** @description Add a pricebook entry */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PricebookView"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -277,7 +421,31 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** Add a pricing modifier */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateModifierBody"];
+                };
+            };
+            responses: {
+                /** @description Add a pricing modifier */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ModifierView"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -317,7 +485,31 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** Mint an API key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateApiKeyBody"];
+                };
+            };
+            responses: {
+                /** @description Mint an API key */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiKeyView"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -517,7 +709,31 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** Create a route group */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateRouteGroupBody"];
+                };
+            };
+            responses: {
+                /** @description Create a route group */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RouteGroupView"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -597,7 +813,31 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** Add an official price catalog row */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateOfficialPriceBody"];
+                };
+            };
+            responses: {
+                /** @description Add an official price catalog row */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OfficialPriceView"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -637,7 +877,31 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** Mint an API key for your tenant */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConsoleCreateApiKeyBody"];
+                };
+            };
+            responses: {
+                /** @description Mint an API key for your tenant */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConsoleApiKeyView"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -762,6 +1026,712 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/admin/tenants/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a tenant */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateTenantBody"];
+                };
+            };
+            responses: {
+                /** @description Update a tenant */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TenantView"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/admin/accounts/{id}/topup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Credit an account */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TopupBody"];
+                };
+            };
+            responses: {
+                /** @description Credit an account */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AccountView"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/api-keys/{id}/group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Bind an API key’s route group */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateApiKeyGroupBody"];
+                };
+            };
+            responses: {
+                /** @description Bind an API key’s route group */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiKeyView"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/admin/secrets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create an encrypted credential */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateSecretBody"];
+                };
+            };
+            responses: {
+                /** @description Create an encrypted credential */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/redemption-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Batch-mint redemption codes */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["GenerateCodesBody"];
+                };
+            };
+            responses: {
+                /** @description Batch-mint redemption codes */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/resources/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a resource */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateResourceBody"];
+                };
+            };
+            responses: {
+                /** @description Update a resource */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ResourceView"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/admin/resources/{id}/channels/{channelId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch a channel */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateChannelBody"];
+                };
+            };
+            responses: {
+                /** @description Patch a channel */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ChannelView"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/admin/resources/{id}/channels/{channelId}/sync-models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sync a channel’s upstream models */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SyncChannelModelsBody"];
+                };
+            };
+            responses: {
+                /** @description Sync a channel’s upstream models */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/pricebook/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a pricebook entry */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdatePricebookBody"];
+                };
+            };
+            responses: {
+                /** @description Update a pricebook entry */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PricebookView"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/admin/modifiers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a pricing modifier */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateModifierBody"];
+                };
+            };
+            responses: {
+                /** @description Update a pricing modifier */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ModifierView"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/admin/dify/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register a BYO Dify workflow */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DifyImportBody"];
+                };
+            };
+            responses: {
+                /** @description Register a BYO Dify workflow */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/models/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a relay model */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateModelBody"];
+                };
+            };
+            responses: {
+                /** @description Update a relay model */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ModelView"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/admin/models/{name}/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Grant a tenant-visibility model */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["GrantModelBody"];
+                };
+            };
+            responses: {
+                /** @description Grant a tenant-visibility model */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/route-groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a route group */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateRouteGroupBody"];
+                };
+            };
+            responses: {
+                /** @description Update a route group */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RouteGroupView"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/admin/route-groups/{id}/channels/{channelId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Add/update a group channel membership */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddGroupChannelBody"];
+                };
+            };
+            responses: {
+                /** @description Add/update a group channel membership */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RouteGroupChannelView"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/official-prices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update an official price catalog row */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateOfficialPriceBody"];
+                };
+            };
+            responses: {
+                /** @description Update an official price catalog row */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OfficialPriceView"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/console/payments/topup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a self-serve credit topup */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConsoleCreateIntentBody"];
+                };
+            };
+            responses: {
+                /** @description Start a self-serve credit topup */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/console/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change your console password */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConsoleChangePasswordBody"];
+                };
+            };
+            responses: {
+                /** @description Change your console password */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         trace?: never;
     };
 }
@@ -1023,6 +1993,240 @@ export interface components {
             intent_id: string;
             redirect_url?: string;
             qr?: string;
+        };
+        CreateTenantBody: {
+            name: string;
+            /** @enum {string} */
+            isolationMode?: "field" | "schema" | "db";
+        };
+        UpdateTenantBody: {
+            /** @enum {string} */
+            isolationMode?: "field" | "schema" | "db";
+        };
+        CreateAccountBody: {
+            /** Format: uuid */
+            tenantId: string;
+            credits?: number;
+        };
+        TopupBody: {
+            credits: number;
+        };
+        CreateApiKeyBody: {
+            /** Format: uuid */
+            tenantId: string;
+            resourceAllowlist?: string[];
+            rateLimit?: number;
+            /** Format: uuid */
+            routeGroupId?: string;
+        };
+        UpdateApiKeyGroupBody: {
+            /** Format: uuid */
+            routeGroupId: string | null;
+        };
+        CreateSecretBody: {
+            value: string;
+            label?: string;
+        };
+        GenerateCodesBody: {
+            count: number;
+            creditsPerCode: number;
+            /** Format: date-time */
+            expiresAt?: string;
+        };
+        CreateResourceBody: {
+            id: string;
+            /** Format: uuid */
+            tenantId: string;
+            /** @enum {string} */
+            kind: "model" | "workflow";
+            /** @enum {string} */
+            modality: "text" | "image" | "video" | "audio" | "composite";
+            providerType: string;
+            execModes: string[];
+            ioSchema?: unknown;
+            version?: number;
+        };
+        UpdateResourceBody: {
+            /** @enum {string} */
+            status?: "active" | "disabled";
+        };
+        CreateChannelBody: {
+            providerType: string;
+            /** Format: uuid */
+            credentialRef?: string;
+            endpoint?: string;
+            model?: string;
+            proxyRef?: string;
+            config?: {
+                [key: string]: unknown;
+            };
+            weight?: number;
+            /** @enum {string} */
+            status?: "active" | "disabled";
+            inputCostUsdPer1m?: number;
+            outputCostUsdPer1m?: number;
+        };
+        UpdateChannelBody: {
+            /** Format: uuid */
+            credentialRef?: string | null;
+            endpoint?: string | null;
+            model?: string | null;
+            proxyRef?: string | null;
+            config?: {
+                [key: string]: unknown;
+            } | null;
+            weight?: number;
+            /** @enum {string} */
+            status?: "active" | "disabled";
+            inputCostUsdPer1m?: number | null;
+            outputCostUsdPer1m?: number | null;
+        };
+        SyncChannelModelsBody: {
+            defaultInputPrice?: number;
+            defaultOutputPrice?: number;
+        };
+        CreatePricebookBody: {
+            resourceId: string;
+            resourceVersion: number;
+            version: number;
+            /** @enum {string} */
+            method: "unit" | "matrix" | "fixed" | "formula" | "passthrough";
+            /** @enum {string} */
+            timing: "pre" | "post";
+            spec?: unknown;
+            fixedCredits?: number;
+            markup?: unknown;
+            active?: boolean;
+        };
+        UpdatePricebookBody: {
+            /** @enum {string} */
+            method?: "unit" | "matrix" | "fixed" | "formula" | "passthrough";
+            /** @enum {string} */
+            timing?: "pre" | "post";
+            spec?: unknown;
+            fixedCredits?: number;
+            markup?: unknown;
+            active?: boolean;
+        };
+        CreateModifierBody: {
+            scope: string;
+            whenExpr?: string;
+            /** @enum {string} */
+            op: "override_rate" | "percent_off" | "flat_off" | "percent_add";
+            value?: number;
+            stackable?: boolean;
+            priority?: number;
+            version?: number;
+            active?: boolean;
+        };
+        UpdateModifierBody: {
+            whenExpr?: string | null;
+            /** @enum {string} */
+            op?: "override_rate" | "percent_off" | "flat_off" | "percent_add";
+            value?: number;
+            stackable?: boolean;
+            priority?: number;
+            active?: boolean;
+        };
+        DifyImportBody: {
+            /** Format: uuid */
+            tenantId: string;
+            resourceId: string;
+            yaml: string;
+            /** Format: uri */
+            endpoint: string;
+            /** Format: uuid */
+            serviceKeyRef?: string | null;
+            /** @enum {string} */
+            pricingModel: "fixed" | "matrix" | "metered";
+            allowBlockers?: boolean;
+        };
+        CreateModelBody: {
+            name: string;
+            resourceId: string;
+            display?: string;
+            modality?: string;
+            capabilities?: {
+                [key: string]: boolean;
+            };
+            /** @enum {string} */
+            visibility?: "public" | "tenant";
+            inputPrice?: number;
+            outputPrice?: number;
+            /** @enum {string} */
+            status?: "active" | "disabled";
+        };
+        UpdateModelBody: {
+            display?: string | null;
+            capabilities?: {
+                [key: string]: boolean;
+            };
+            inputPrice?: number;
+            outputPrice?: number;
+            /** @enum {string} */
+            visibility?: "public" | "tenant";
+            /** @enum {string} */
+            status?: "active" | "disabled";
+        };
+        GrantModelBody: {
+            /** Format: uuid */
+            tenantId: string;
+        };
+        CreateRouteGroupBody: {
+            name: string;
+            groupRatioBps?: number;
+            description?: string;
+            /** @enum {string} */
+            status?: "active" | "disabled";
+        };
+        UpdateRouteGroupBody: {
+            name?: string;
+            groupRatioBps?: number;
+            /** @enum {string} */
+            status?: "active" | "disabled";
+            description?: string | null;
+        };
+        AddGroupChannelBody: {
+            priority?: number;
+            weight?: number;
+        };
+        CreateOfficialPriceBody: {
+            provider: string;
+            modelSlug: string;
+            displayName?: string;
+            inputUsdPer1m: number;
+            outputUsdPer1m: number;
+            cachedInputUsdPer1m?: number;
+            /** Format: uri */
+            sourceUrl?: string;
+            /** Format: date-time */
+            effectiveAt?: string;
+            notes?: string;
+        };
+        UpdateOfficialPriceBody: {
+            displayName?: string | null;
+            inputUsdPer1m?: number;
+            outputUsdPer1m?: number;
+            cachedInputUsdPer1m?: number | null;
+            /** Format: uri */
+            sourceUrl?: string | null;
+            /** Format: date-time */
+            effectiveAt?: string | null;
+            notes?: string | null;
+        };
+        ConsoleCreateApiKeyBody: {
+            resourceAllowlist?: string[];
+            rateLimit?: number;
+        };
+        ConsoleCreateIntentBody: {
+            /** @enum {string} */
+            provider: "stripe" | "alipay" | "wechat" | "crypto";
+            amount_minor: number;
+            currency: string;
+        };
+        ConsoleChangePasswordBody: {
+            currentPassword: string;
+            newPassword: string;
         };
     };
     responses: never;
