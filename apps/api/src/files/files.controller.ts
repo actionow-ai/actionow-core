@@ -1,9 +1,20 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
+import { type PageEnvelope, toPageParams } from '../common/pagination.js';
 import { ZodBody } from '../common/zod.pipe.js';
 import { type PresignUploadDto, presignUploadSchema } from './dto/files.dto.js';
 import type { FileUrlResult, FileView, PresignUploadResult } from './files.service.js';
@@ -25,6 +36,21 @@ export class FilesController {
     private readonly files: FilesService,
     private readonly auth: AuthService,
   ) {}
+
+  /** List the caller's files newest-first, keyset-paginated; optional `status` filter. */
+  @Get()
+  @ApiOperation({ summary: 'List the caller’s files (keyset, paginated)' })
+  async list(
+    @Req() req: Request,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: string,
+  ): Promise<PageEnvelope<FileView>> {
+    const ctx = this.auth.resolve(req);
+    const filter: { status?: 'pending' | 'ready' } = {};
+    if (status === 'pending' || status === 'ready') filter.status = status;
+    return this.files.list(ctx, filter, toPageParams({ cursor, limit }));
+  }
 
   /** Issue a presigned PUT + a `pending` reference. */
   @Post('presign-upload')

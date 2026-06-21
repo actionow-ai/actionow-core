@@ -1,4 +1,8 @@
-import type { PaymentProviderKind } from '@actionow/contracts';
+import {
+  type PaymentIntentView,
+  paymentIntentViewSchema,
+  type PaymentProviderKind,
+} from '@actionow/contracts';
 import type { Database, PageParams, PaymentIntentRow } from '@actionow/db';
 import { getIntentByIdForTenant, listIntentsByTenant } from '@actionow/db';
 import type { HandleWebhookResult, PaymentService } from '@actionow/engine';
@@ -11,21 +15,10 @@ import { mapPageEnvelope, type PageEnvelope } from '../common/pagination.js';
 import { DB, PAYMENTS } from '../common/tokens.js';
 import type { CreateIntentBodyDto } from './dto/payments.dto.js';
 
-/** The public JSON view of a `payment_intent` (money as decimal strings). */
-export interface PaymentIntentView {
-  id: string;
-  tenant_id: string;
-  provider: string;
-  provider_ref: string;
-  purpose: string;
-  target_ref: string | null;
-  amount_minor: string;
-  currency: string;
-  credit_amount: string | null;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
+// PaymentIntentView now lives in @actionow/contracts (ops-views) — single
+// source of truth shared with the frontend; toIntentView() `.parse()`s against
+// it. Re-exported here so existing importers (the controllers) keep working.
+export type { PaymentIntentView };
 
 /** The body of a successful `POST /v1/payments/intents`. */
 export interface CreateIntentResponse {
@@ -97,7 +90,7 @@ export class PaymentsService {
 
 /** Project a `payment_intent` row to its public view (bigint money → strings). */
 function toIntentView(row: PaymentIntentRow): PaymentIntentView {
-  return {
+  return paymentIntentViewSchema.parse({
     id: row.id,
     tenant_id: row.tenantId,
     provider: row.provider,
@@ -110,5 +103,5 @@ function toIntentView(row: PaymentIntentRow): PaymentIntentView {
     status: row.status,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
-  };
+  });
 }

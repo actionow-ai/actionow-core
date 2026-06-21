@@ -53,18 +53,49 @@ const VIDEO_IO = {
   ],
   outputs: [{ key: 'video_url', type: 'string' }],
 };
+/** A frozen `io_schema` snapshot for an audio (TTS / generative-audio) resource version. */
+const AUDIO_IO = {
+  inputs: [
+    { key: 'prompt', type: 'string', required: true },
+    { key: 'voice', type: 'string', required: false },
+    { key: 'language', type: 'string', required: false },
+  ],
+  outputs: [{ key: 'audio_url', type: 'string' }],
+};
 
 /** Placeholder token pricing: unit/post over the `tokens` dimension (1 µcredit/token). */
 const TOKENS_PRICEBOOK = { method: 'unit', dimensions: { tokens: { rate: 1 } } } as const;
-/** Placeholder image pricing: unit/post over `tasks` (250_000 µcredits/image). */
+/**
+ * Image pricing: unit/post per IMAGE (250_000 µcredits each). The `async-media`
+ * adapter meters `{ images: N }` from the task result; `tasks` is a same-rate
+ * fallback so a result that omits an image count still bills (never settles 0).
+ */
 const IMAGE_TASK_PRICEBOOK = {
   method: 'unit',
-  dimensions: { tasks: { rate: 250_000 } },
+  dimensions: { images: { rate: 250_000 }, tasks: { rate: 250_000 } },
 } as const;
-/** Placeholder video pricing: unit/post over `tasks` (1_500_000 µcredits/video). */
+/**
+ * Video pricing: unit/post per SECOND (300_000 µcredits/s). The adapter meters
+ * `{ duration_seconds: S }` from the result's `duration`; `tasks` (1_500_000) is
+ * the per-clip fallback when the relay omits a duration (never settles 0).
+ */
 const VIDEO_TASK_PRICEBOOK = {
   method: 'unit',
-  dimensions: { tasks: { rate: 1_500_000 } },
+  dimensions: { duration_seconds: { rate: 300_000 }, tasks: { rate: 1_500_000 } },
+} as const;
+/**
+ * Audio pricing: unit/post over whichever dimension the relay returns — TTS bills
+ * per input `characters` (500 µcredits/char), generative audio per `audio_seconds`
+ * (50_000 µcredits/s); `tasks` (250_000) is the fallback when the relay omits both
+ * (never settles 0). The adapter emits `{ characters }` else `{ audio_seconds }`.
+ */
+const AUDIO_TASK_PRICEBOOK = {
+  method: 'unit',
+  dimensions: {
+    characters: { rate: 500 },
+    audio_seconds: { rate: 50_000 },
+    tasks: { rate: 250_000 },
+  },
 } as const;
 
 /**
@@ -79,6 +110,14 @@ const RELAY_CONFIG = {
   signatureHeader: 'X-HuiMeng-Signature',
   timestampHeader: 'X-HuiMeng-Timestamp',
 };
+
+/**
+ * Video shares the relay protocol but needs a LONGER poll budget — a multi-minute
+ * clip would hit `upstream_timeout` at the default ~30s. The job-runner reads
+ * `maxPolls`/`pollIntervalMs` off the channel config: 120 × 5s ≈ up to 10 minutes
+ * before timing out. (A detached webhook-settled mode is the better long-run fix.)
+ */
+const RELAY_CONFIG_VIDEO = { ...RELAY_CONFIG, maxPolls: 120, pollIntervalMs: 5000 };
 
 /** One catalog entry to seed: a resource + its pricebook + one upstream channel. */
 interface ProviderSeed {
@@ -104,7 +143,7 @@ interface ProviderSeed {
   readonly proxyRef?: string;
 }
 
-/** The eight real-provider catalog entries seeded as DATA. */
+/** The real-provider catalog entries seeded as DATA (text/image/video/audio + direct hosts). */
 const PROVIDER_SEEDS: readonly ProviderSeed[] = [
   // 1. Image relay — generic async-media adapter; vendor protocol is DATA.
   {
@@ -131,6 +170,21 @@ const PROVIDER_SEEDS: readonly ProviderSeed[] = [
     pricebookSpec: VIDEO_TASK_PRICEBOOK,
     endpoint: 'https://api.huimengi.com',
     model: 'seedance-2.0',
+    credentialLocator: 'huimeng',
+    config: RELAY_CONFIG_VIDEO,
+  },
+  // 2b. Audio relay — same async-media relay, audio (TTS / generative) model. The
+  // `model` is a placeholder: point the channel at the operator's real audio model.
+  {
+    id: 'audio-relay',
+    kind: 'model',
+    modality: 'audio',
+    providerType: 'async-media',
+    execModes: ['async-poll', 'async-callback'],
+    ioSchema: AUDIO_IO,
+    pricebookSpec: AUDIO_TASK_PRICEBOOK,
+    endpoint: 'https://api.huimengi.com',
+    model: 'audio-tts-1.0',
     credentialLocator: 'huimeng',
     config: RELAY_CONFIG,
   },

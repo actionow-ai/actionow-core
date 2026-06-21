@@ -1,3 +1,4 @@
+import { type DifyImportView, difyImportViewSchema } from '@actionow/contracts';
 import type { DifyBindingRow } from '@actionow/db';
 import {
   Body,
@@ -28,13 +29,10 @@ import {
   updateDifySchema,
 } from './dto/admin.dto.js';
 
-/** The `POST /admin/dify/import` response: the registered resource's schema. */
-interface DifyImportView {
-  resource_id: string;
-  version: number;
-  io_schema: { inputs: unknown[]; outputs: unknown[] };
-  compat_report: { items: unknown[]; has_blockers: boolean };
-}
+// DifyImportView now lives in @actionow/contracts (ops-views) — single source
+// of truth shared with the frontend; on the wire `io_schema`/`compat_report`
+// are free-form JSON (the contract types them `unknown`). The import() mapper
+// below `.parse()`s its concrete payload against the schema.
 
 /** A dify binding (admin list/patch view). EXCLUDES the dsl/compat-report blobs. */
 interface DifyBindingView {
@@ -83,7 +81,7 @@ export class AdminDifyController {
   @ApiOperation({ summary: 'Register a BYO Dify workflow → returns io_schema' })
   async import(@Body(new ZodBody(difyImportSchema)) dto: DifyImportDto): Promise<DifyImportView> {
     const result = await this.dify.import(dto);
-    return {
+    return difyImportViewSchema.parse({
       resource_id: result.resourceId,
       version: result.version,
       io_schema: {
@@ -94,7 +92,7 @@ export class AdminDifyController {
         items: [...result.compatReport.items],
         has_blockers: result.compatReport.hasBlockers,
       },
-    };
+    });
   }
 
   @Get()

@@ -51,6 +51,42 @@ describe('persistMediaOutput', () => {
     expect(putBytes).toHaveBeenCalledTimes(1);
   });
 
+  it('persists EACH distinct image in a batch to its own object, rewriting element-wise', async () => {
+    const storage = fakeStorage();
+    const putBytes = vi.fn().mockResolvedValue(undefined);
+    const fetchBytes = vi.fn().mockResolvedValue({
+      bytes: new Uint8Array([1]),
+      contentType: 'image/jpeg',
+    });
+
+    const r = await persistMediaOutput({
+      storage,
+      publicBaseUrl: PUBLIC_BASE,
+      fetchBytes,
+      putBytes,
+      tenantId: 't',
+      jobId: 'j',
+      output: {
+        image_url: 'https://cdn/a.jpg',
+        image_urls: ['https://cdn/a.jpg', 'https://cdn/b.jpg', 'https://cdn/c.jpg'],
+        image_count: 3,
+      },
+    });
+
+    expect(r.persisted).toBe(true);
+    expect(r.objects).toHaveLength(3);
+    expect(r.objects.map((o) => o.key)).toEqual(['t/j-0.jpg', 't/j-1.jpg', 't/j-2.jpg']);
+    expect(r.output.image_urls).toEqual([
+      'https://asset.actionow.ai/t/j-0.jpg',
+      'https://asset.actionow.ai/t/j-1.jpg',
+      'https://asset.actionow.ai/t/j-2.jpg',
+    ]);
+    // The single `image_url` key maps to the FIRST persisted image (not all → one).
+    expect(r.output.image_url).toBe('https://asset.actionow.ai/t/j-0.jpg');
+    expect(fetchBytes).toHaveBeenCalledTimes(3);
+    expect(putBytes).toHaveBeenCalledTimes(3);
+  });
+
   it('derives the extension from a video_url and rewrites it', async () => {
     const storage = fakeStorage();
     const r = await persistMediaOutput({
@@ -63,6 +99,23 @@ describe('persistMediaOutput', () => {
       output: { video_url: 'https://cdn.example.com/v.mp4?token=abc' },
     });
     expect(r.output.video_url).toBe('https://asset.actionow.ai/t/j.mp4');
+  });
+
+  it('persists an audio_url, deriving the extension from the audio content-type', async () => {
+    const storage = fakeStorage();
+    const r = await persistMediaOutput({
+      storage,
+      publicBaseUrl: PUBLIC_BASE,
+      // No extension in the URL path → the extension must come from the content-type.
+      fetchBytes: () => Promise.resolve({ bytes: new Uint8Array([0]), contentType: 'audio/mpeg' }),
+      putBytes: () => Promise.resolve(),
+      tenantId: 't',
+      jobId: 'j',
+      output: { audio_url: 'https://cdn.example.com/generate?id=abc' },
+    });
+    expect(r.persisted).toBe(true);
+    expect(r.output.audio_url).toBe('https://asset.actionow.ai/t/j.mp3');
+    expect(r.objects[0]).toMatchObject({ key: 't/j.mp3', contentType: 'audio/mpeg' });
   });
 
   it('is a best-effort no-op when fetching the bytes fails (job still settles)', async () => {

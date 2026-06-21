@@ -12,6 +12,7 @@ import { ExecutionModule } from './execution/execution.module.js';
 import { FilesModule } from './files/files.module.js';
 import { HealthController } from './health/health.controller.js';
 import { JobsModule } from './jobs/jobs.module.js';
+import { MediaDialectModule } from './media-dialect/media-dialect.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
 
 @Module({
@@ -26,6 +27,7 @@ import { PaymentsModule } from './payments/payments.module.js';
     PaymentsModule,
     ConsoleModule,
     ChatModule,
+    MediaDialectModule,
   ],
   controllers: [HealthController],
   // Register the §4.7 filter globally via DI so it also applies under the

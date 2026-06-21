@@ -1,6 +1,6 @@
 import type { AdapterRegistry } from '@actionow/adapters';
-import type { ExecMode, IoSchema, Modifier, PricebookEntry } from '@actionow/contracts';
-import { EXEC_MODES } from '@actionow/contracts';
+import type { ExecMode, IoSchema, Modifier, PricebookEntry, RunBody } from '@actionow/contracts';
+import { runBodySchema } from '@actionow/contracts';
 import {
   type Database,
   getActivePricebookEntry,
@@ -14,41 +14,24 @@ import type { JobQueuePort, RunOutcome, RunRequest, StreamOutcome } from '@actio
 import { ExecutionService } from '@actionow/engine';
 import { type AppEnv, FetchHttpClient } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
-import { z } from 'zod';
 
 import type { TenantContext } from '../auth/auth.service.js';
 import { ChannelRoutingService } from '../common/channel-routing.service.js';
 import { engineInvalidInput, engineNotFound } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
 import { ADAPTERS, DB, ENV, JOB_QUEUE } from '../common/tokens.js';
+import { FilesService } from '../files/files.service.js';
 
 /**
- * `/v1/run` request-body schema (the run inputs + optional async/idempotency
- * knobs), enforced at the controller via {@link ZodBody}.
- *
- * `callback_url` is validated as an http(s) URL here (rejecting `file:`,
- * `gopher:`, etc. at ingress); the load-bearing SSRF protection — blocking
- * private/loopback/metadata *addresses* — is the worker's egress guard, since a
- * URL-format check alone accepts `http://169.254.169.254/`. Unknown top-level
- * keys are stripped (not rejected), preserving prior pass-through behavior.
+ * The `/v1/run` request body — the single source of truth lives in
+ * @actionow/contracts (`runBodySchema`); re-exported here so the controller's
+ * `ZodBody(RunBodySchema)` + `RunBody` type imports are unchanged and the SDK
+ * type cannot drift from what the controller validates. (`callback_url` is
+ * format-checked at ingress; the load-bearing SSRF protection is the worker's
+ * egress guard, which blocks private/loopback/metadata addresses.)
  */
-export const RunBodySchema = z.object({
-  inputs: z.record(z.unknown()).optional(),
-  exec_mode: z.enum(EXEC_MODES).optional(),
-  callback_url: z
-    .string()
-    .url()
-    .refine((u) => u.startsWith('http://') || u.startsWith('https://'), {
-      message: 'callback_url must be an http(s) URL',
-    })
-    .optional(),
-  idempotency_key: z.string().min(1).optional(),
-  end_user: z.string().optional(),
-  estimated_usage: z.record(z.number()).optional(),
-});
-
-/** A `/v1/run` request body (the run inputs + optional async/idempotency knobs). */
-export type RunBody = z.infer<typeof RunBodySchema>;
+export { runBodySchema as RunBodySchema };
+export type { RunBody };
 
 /**
  * Loads a resource's frozen catalog snapshot (io_schema, active pricebook,
@@ -67,12 +50,27 @@ export class RunService {
     @Inject(ENV) private readonly env: AppEnv,
     private readonly secrets: SecretResolver,
     private readonly routing: ChannelRoutingService,
+    private readonly files: FilesService,
   ) {}
 
   async run(resourceId: string, body: RunBody, ctx: TenantContext): Promise<RunOutcome> {
     const req = await this.buildRequest(resourceId, body, ctx);
     const service = this.buildService();
     return service.run(req);
+  }
+
+  /**
+   * Resolve a resource's catalog snapshot into the engine {@link RunRequest},
+   * exposed so the OpenAI media-dialect runner can build a request and then drive
+   * it to terminal IN-PROCESS (no queue) for a synchronous dialect response.
+   */
+  resolveRunRequest(
+    resourceId: string,
+    body: RunBody,
+    ctx: TenantContext,
+    forceMode?: ExecMode,
+  ): Promise<RunRequest> {
+    return this.buildRequest(resourceId, body, ctx, forceMode);
   }
 
   /**
@@ -159,19 +157,26 @@ export class RunService {
       resource.execModes as ExecMode[],
     );
 
+    const ioSchema = versionRow.ioSchema as IoSchema;
+    // Resolve any `file`/`file_list` inputs (a file_id → a presigned GET URL) so
+    // the adapter receives directly-fetchable URLs — e.g. an img2img reference
+    // image for an e-commerce "product photo → variant" run. A no-op (shallow
+    // copy) when the resource declares no file inputs.
+    const inputs = await this.files.resolveFileInputs(ioSchema, body.inputs ?? {}, ctx);
+
     const req: RunRequest = {
       resource: {
         id: resource.id,
         version,
         modality: resource.modality,
-        ioSchema: versionRow.ioSchema as IoSchema,
+        ioSchema,
         execModes: resource.execModes as ExecMode[],
         providerType: resource.providerType,
       },
       pricebookEntry: toPricebookEntry(pricebook),
       modifiers: modifierRows.map(toModifier),
       channels,
-      inputs: body.inputs ?? {},
+      inputs,
       execMode,
       tenantId: ctx.tenantId,
       accountId: ctx.accountId,

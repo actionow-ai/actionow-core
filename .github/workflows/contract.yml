@@ -1,0 +1,47 @@
+name: contract
+
+# Guards the contract-first pipeline: the committed OpenAPI spec and the
+# generated SDK types MUST be reproducible from the zod source, and the SDK must
+# build into a publishable artifact. A drifted/stale generated file fails CI
+# instead of relying on a developer remembering to run `gen` before committing.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  reproducible:
+    name: contract reproducible + sdk builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the pnpm version from the root package.json `packageManager` field.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Regenerate the contract artifacts from the zod source
+        run: |
+          pnpm --filter @actionow/contracts gen:openapi
+          pnpm --filter @actionow/sdk gen
+
+      - name: Fail if a committed generated artifact is stale
+        run: |
+          git diff --exit-code -- \
+            packages/contracts/openapi.json \
+            packages/sdk/src/generated/openapi.ts \
+          || { echo '::error::openapi.json / generated SDK is stale — run `pnpm --filter @actionow/contracts gen:openapi && pnpm --filter @actionow/sdk gen` and commit the result.'; exit 1; }
+
+      - name: Build the SDK (prove the publishable artifact compiles)
+        run: pnpm --filter @actionow/sdk build
+
+      - name: Pack the SDK (prove the tarball assembles)
+        run: pnpm --filter @actionow/sdk pack --pack-destination "$RUNNER_TEMP"

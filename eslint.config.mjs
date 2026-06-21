@@ -12,8 +12,11 @@ export default tseslint.config(
       '**/dist/**',
       '**/.turbo/**',
       '**/drizzle/**',
+      '**/src/generated/**',
+      'packages/contracts/scripts/**',
       'eslint.config.mjs',
       'commitlint.config.cjs',
+      '**/vite.config.ts',
     ],
   },
   eslint.configs.recommended,
@@ -84,14 +87,6 @@ export default tseslint.config(
               from: [['pkg', { package: 'contracts' }]],
               allow: [['pkg', { package: 'contracts' }]],
             },
-            // llm-protocol: pure — contracts only.
-            {
-              from: [['pkg', { package: 'llm-protocol' }]],
-              allow: [
-                ['pkg', { package: 'llm-protocol' }],
-                ['pkg', { package: 'contracts' }],
-              ],
-            },
             // domain: contracts only.
             {
               from: [['pkg', { package: 'domain' }]],
@@ -138,17 +133,7 @@ export default tseslint.config(
                 ['pkg', { package: 'infra' }],
               ],
             },
-            // payments: contracts, domain, infra (NOT db/adapters/dify/engine).
-            {
-              from: [['pkg', { package: 'payments' }]],
-              allow: [
-                ['pkg', { package: 'payments' }],
-                ['pkg', { package: 'contracts' }],
-                ['pkg', { package: 'domain' }],
-                ['pkg', { package: 'infra' }],
-              ],
-            },
-            // engine: orchestration over contracts, domain, db, adapters, infra, dify, payments.
+            // engine: orchestration over contracts, domain, db, adapters, infra, dify.
             {
               from: [['pkg', { package: 'engine' }]],
               allow: [
@@ -159,7 +144,6 @@ export default tseslint.config(
                 ['pkg', { package: 'adapters' }],
                 ['pkg', { package: 'infra' }],
                 ['pkg', { package: 'dify' }],
-                ['pkg', { package: 'payments' }],
               ],
             },
             // apps (api, worker): any package + any app.
@@ -209,37 +193,6 @@ export default tseslint.config(
             '@actionow/infra/*',
             '@actionow/engine',
             '@actionow/engine/*',
-            '@actionow/payments',
-            '@actionow/payments/*',
-            '@actionow/llm-protocol',
-            '@actionow/llm-protocol/*',
-          ],
-        },
-      ],
-    },
-  },
-  // llm-protocol: pure — contracts only. Forbid every non-contracts lib.
-  {
-    files: ['packages/llm-protocol/**/*.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            '@actionow/domain',
-            '@actionow/domain/*',
-            '@actionow/db',
-            '@actionow/db/*',
-            '@actionow/adapters',
-            '@actionow/adapters/*',
-            '@actionow/dify',
-            '@actionow/dify/*',
-            '@actionow/infra',
-            '@actionow/infra/*',
-            '@actionow/engine',
-            '@actionow/engine/*',
-            '@actionow/payments',
-            '@actionow/payments/*',
           ],
         },
       ],
@@ -262,10 +215,6 @@ export default tseslint.config(
             '@actionow/dify/*',
             '@actionow/engine',
             '@actionow/engine/*',
-            '@actionow/payments',
-            '@actionow/payments/*',
-            '@actionow/llm-protocol',
-            '@actionow/llm-protocol/*',
           ],
         },
       ],
@@ -286,10 +235,6 @@ export default tseslint.config(
             '@actionow/infra/*',
             '@actionow/engine',
             '@actionow/engine/*',
-            '@actionow/payments',
-            '@actionow/payments/*',
-            '@actionow/llm-protocol',
-            '@actionow/llm-protocol/*',
           ],
         },
       ],
@@ -308,10 +253,6 @@ export default tseslint.config(
             '@actionow/dify/*',
             '@actionow/engine',
             '@actionow/engine/*',
-            '@actionow/payments',
-            '@actionow/payments/*',
-            '@actionow/llm-protocol',
-            '@actionow/llm-protocol/*',
           ],
         },
       ],
@@ -330,34 +271,6 @@ export default tseslint.config(
             '@actionow/adapters/*',
             '@actionow/engine',
             '@actionow/engine/*',
-            '@actionow/payments',
-            '@actionow/payments/*',
-            '@actionow/llm-protocol',
-            '@actionow/llm-protocol/*',
-          ],
-        },
-      ],
-    },
-  },
-  // payments: contracts, domain, infra only. Forbid db/adapters/dify/engine
-  // (engine + apps may import payments, so neither is restricted here).
-  {
-    files: ['packages/payments/**/*.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            '@actionow/db',
-            '@actionow/db/*',
-            '@actionow/adapters',
-            '@actionow/adapters/*',
-            '@actionow/dify',
-            '@actionow/dify/*',
-            '@actionow/engine',
-            '@actionow/engine/*',
-            '@actionow/llm-protocol',
-            '@actionow/llm-protocol/*',
           ],
         },
       ],
@@ -384,22 +297,41 @@ export default tseslint.config(
             '@actionow/dify/*',
             '@actionow/engine',
             '@actionow/engine/*',
-            '@actionow/payments',
-            '@actionow/payments/*',
-            '@actionow/llm-protocol',
-            '@actionow/llm-protocol/*',
           ],
         },
       ],
     },
   },
   {
-    files: ['**/*.spec.ts', '**/*.test.ts'],
+    files: ['**/*.spec.ts', '**/*.test.ts', '**/*.test.tsx'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-argument': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
+    },
+  },
+  // Frontend app (React + browser): the strict-type-checked rules tuned for the
+  // backend libs are too aggressive for a UI app. Components don't annotate
+  // every return type, `() => setState(x)` handlers return void by design, and
+  // `getElementById('root')!` is the idiomatic mount. Browser globals enabled.
+  {
+    files: ['apps/web/**/*.{ts,tsx}'],
+    languageOptions: { globals: { ...globals.browser } },
+    rules: {
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/no-confusing-void-expression': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
+    },
+  },
+  // Test setup / polyfills (e.g. a jsdom matchMedia shim) legitimately use empty
+  // stubs and runtime guards the type system thinks are unnecessary.
+  {
+    files: ['apps/web/**/test/**', 'apps/web/**/*.test.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-empty-function': 'off',
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
     },
   },
   prettier,

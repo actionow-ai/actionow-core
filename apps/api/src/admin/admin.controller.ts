@@ -1,5 +1,54 @@
+import {
+  type AccountView,
+  accountViewSchema,
+  type AdminTokenView,
+  adminTokenViewSchema,
+  type ApiKeyView,
+  apiKeyViewSchema,
+  type ChannelView,
+  channelViewSchema,
+  type CodexLoginStartView,
+  codexLoginStartViewSchema,
+  type JobView,
+  jobViewSchema,
+  type LedgerView,
+  ledgerViewSchema,
+  type ModelGrantView,
+  modelGrantViewSchema,
+  type ModelView,
+  modelViewSchema,
+  type ModifierView,
+  modifierViewSchema,
+  type OAuthSessionListView,
+  oauthSessionListViewSchema,
+  type OAuthSessionView,
+  oauthSessionViewSchema,
+  type OfficialPriceView,
+  officialPriceViewSchema,
+  type PricebookView,
+  pricebookViewSchema,
+  type ProvisionView,
+  provisionViewSchema,
+  type RedemptionCodeView,
+  redemptionCodeViewSchema,
+  type ResourceView,
+  resourceViewSchema,
+  type RouteGroupChannelView,
+  routeGroupChannelViewSchema,
+  type RouteGroupView,
+  routeGroupViewSchema,
+  type SecretView,
+  secretViewSchema,
+  type TenantView,
+  tenantViewSchema,
+  type UsageLogView,
+  usageLogViewSchema,
+  type UsageRollupView,
+  usageRollupViewSchema,
+} from '@actionow/contracts';
 import type {
   AccountRow,
+  AdminTokenView as AdminTokenRow,
   ApiKeyRow,
   Job,
   LedgerRow,
@@ -30,18 +79,25 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { engineInvalidInput } from '../common/errors.js';
+import { engineInvalidInput, engineUnauthorized } from '../common/errors.js';
 import { IdempotencyInterceptor } from '../common/idempotency.interceptor.js';
 import { Idempotent } from '../common/idempotent.decorator.js';
 import { mapPageEnvelope, type PageEnvelope, toPageParams } from '../common/pagination.js';
 import { ZodBody } from '../common/zod.pipe.js';
-import { AdminService, type RelayTraceView, toRelayTraceView } from './admin.service.js';
-import { AdminGuard } from './auth/admin.guard.js';
+import {
+  AdminService,
+  type ProvisionResult,
+  type RelayTraceView,
+  toRelayTraceView,
+} from './admin.service.js';
+import { AdminTokenService } from './admin-token.service.js';
+import { AdminGuard, type AdminRequest } from './auth/admin.guard.js';
 import { Roles } from './auth/roles.decorator.js';
 import {
   type AddGroupChannelDto,
@@ -54,6 +110,8 @@ import {
   codexLoginStartSchema,
   type CreateAccountDto,
   createAccountSchema,
+  type CreateAdminTokenDto,
+  createAdminTokenSchema,
   type CreateApiKeyDto,
   createApiKeySchema,
   type CreateChannelDto,
@@ -82,6 +140,8 @@ import {
   grantModelSchema,
   type OfficialPricesQueryDto,
   officialPricesQuerySchema,
+  type ProvisionDto,
+  provisionSchema,
   type RedemptionCodesQueryDto,
   redemptionCodesQuerySchema,
   type RelayTraceQueryDto,
@@ -111,21 +171,10 @@ import {
 } from './dto/admin.dto.js';
 
 // ----- JSON views (bigint money serialized as decimal µcredit strings) -----
-
-interface TenantView {
-  id: string;
-  name: string;
-  isolation_mode: string;
-  created_at: string;
-}
-
-interface AccountView {
-  id: string;
-  tenant_id: string;
-  credit_balance: string;
-  credit_held: string;
-  created_at: string;
-}
+// TenantView / AccountView are defined ONCE as zod schemas in
+// @actionow/contracts — the single source of truth shared with the frontend
+// (contract-first). The `toView` mappers below `.parse()` against them so a
+// drifting mapper fails loudly instead of shipping bad JSON.
 
 interface ApiKeyCreatedView {
   id: string;
@@ -133,23 +182,11 @@ interface ApiKeyCreatedView {
   plaintext: string;
 }
 
-interface ApiKeyView {
-  id: string;
-  tenant_id: string;
-  resource_allowlist: string[];
-  rate_limit: number | null;
-  status: string;
-  /** The bound route group (Track 3); `null` → the `default` group at routing time. */
-  route_group_id: string | null;
-  created_at: string;
-}
+// ApiKeyView now lives in @actionow/contracts (ops-views) — single source of
+// truth shared with the frontend; toApiKeyView() `.parse()`s against it.
 
-/** A created encrypted secret. EXCLUDES the plaintext value by construction. */
-interface SecretView {
-  id: string;
-  provider: string;
-  created_at: string;
-}
+// SecretView (the created-secret view: id/provider/created_at) now lives in
+// @actionow/contracts (ops-views); it is built inline in createSecret() below.
 
 /**
  * A credential's metadata for the list/get-by-id surface. EXCLUDES the secret
@@ -165,230 +202,21 @@ interface SecretMetadataView {
   updated_at: string;
 }
 
-/**
- * A registered OAuth-subscription session. EXCLUDES the access/refresh tokens by
- * construction (they are encrypted at rest and never leave the service). `id` is
- * the `secret_ref` id usable as a channel `credentialRef`.
- */
-interface OAuthSessionView {
-  id: string;
-  provider_kind: string;
-  account_label: string | null;
-  account_id: string | null;
-}
+// OAuthSessionView / OAuthSessionListView / CodexLoginStartView now live in
+// @actionow/contracts (ops-views) — single source of truth shared with the
+// credential-management page; their toView mappers `.parse()` against the schemas.
 
-/**
- * A row of the token-free OAuth-session listing. EXCLUDES the access/refresh
- * tokens by construction (they never leave the service); `id` is the
- * `secret_ref` id usable as a channel `credentialRef`. Timestamps are ISO-8601
- * strings (or `null` when unset).
- */
-interface OAuthSessionListView {
-  id: string;
-  provider_kind: string;
-  account_label: string | null;
-  account_id: string | null;
-  status: string;
-  expires_at: string | null;
-  last_refresh_at: string | null;
-}
+// ResourceView / ChannelView / PricebookView / ModifierView / ModelView /
+// ModelGrantView now live in @actionow/contracts (catalog-views) — single
+// source of truth shared with the frontend; their toView mappers `.parse()`.
 
-/**
- * The turnkey codex login-start response: the `authorize_url` the operator opens
- * and the sealed `state` (the PKCE verifier, encrypted) to echo back to
- * `.../complete`. Carries NO secret material in the clear.
- */
-interface CodexLoginStartView {
-  authorize_url: string;
-  state: string;
-}
+// LedgerView / JobView / UsageLogView / UsageRollupView / OfficialPriceView /
+// RouteGroupView / RouteGroupChannelView now live in @actionow/contracts
+// (ops-views + billing-views) — single source of truth shared with the
+// frontend; their toView mappers `.parse()` against the schemas.
 
-interface ResourceView {
-  id: string;
-  tenant_id: string;
-  kind: string;
-  modality: string;
-  provider_type: string;
-  exec_modes: string[];
-  status: string;
-  current_version: number;
-  created_at: string;
-}
-
-interface ChannelView {
-  id: string;
-  resource_id: string;
-  provider_type: string;
-  credential_ref: string | null;
-  endpoint: string | null;
-  model: string | null;
-  proxy_ref: string | null;
-  config: Record<string, unknown> | null;
-  weight: number;
-  status: string;
-  /** Operator cost µUSD/1M INPUT tokens (Track 5); bigint → decimal string, null when unset. */
-  input_cost_per_1m: string | null;
-  /** Operator cost µUSD/1M OUTPUT tokens (Track 5); bigint → decimal string, null when unset. */
-  output_cost_per_1m: string | null;
-}
-
-interface PricebookView {
-  id: string;
-  resource_id: string;
-  resource_version: number;
-  version: number;
-  method: string;
-  timing: string;
-  spec: unknown;
-  markup: unknown;
-  active: boolean;
-}
-
-interface ModifierView {
-  id: string;
-  scope: string;
-  when_expr: string | null;
-  op: string;
-  /** µcredits for credit ops / whole-percent for percent ops, as a string. */
-  value: string | null;
-  stackable: boolean;
-  priority: number;
-  version: number;
-  active: boolean;
-}
-
-interface LedgerView {
-  id: string;
-  tenant_id: string;
-  account_id: string;
-  type: string;
-  credits_delta: string;
-  balance_after: string;
-  resource_id: string | null;
-  job_id: string | null;
-  created_at: string;
-}
-
-interface JobView {
-  job_id: string;
-  tenant_id: string;
-  resource_id: string;
-  status: string;
-  exec_mode: string;
-  cost: string | null;
-  created_at: string;
-}
-
-interface ModelView {
-  id: string;
-  name: string;
-  display: string | null;
-  modality: string;
-  capabilities: Record<string, boolean>;
-  visibility: string;
-  resource_id: string;
-  input_price: string;
-  output_price: string;
-  status: string;
-  created_at: string;
-}
-
-interface UsageLogView {
-  id: string;
-  tenant_id: string;
-  model: string;
-  input_tokens: number;
-  output_tokens: number;
-  cost: string;
-  latency_ms: number | null;
-  status: string;
-  created_at: string;
-}
-
-/** One aggregated usage bucket. Token/cost/margin sums are bigint → decimal strings. */
-interface UsageRollupView {
-  bucket: string;
-  requests: number;
-  input_tokens: string;
-  output_tokens: string;
-  cost: string;
-  /** sum(provider_cost) µUSD — the served channels' actual cost (Track 5). */
-  provider_cost: string;
-  /** sum(cost) − sum(provider_cost) µUSD — the operator margin (Track 5). */
-  margin: string;
-  errors: number;
-}
-
-/** One tenant grant of a model (model-grants listing). */
-interface ModelGrantView {
-  id: string;
-  model_id: string;
-  tenant_id: string;
-  created_at: string;
-}
-
-/**
- * One official model price (Track 2 catalog). The stored µUSD/1M integers are
- * serialized as decimal strings (never coerced through a float) — the
- * `*_price_per_1m` fields are µUSD per 1M tokens.
- */
-interface OfficialPriceView {
-  id: string;
-  provider: string;
-  model_slug: string;
-  display_name: string | null;
-  input_price_per_1m: string;
-  output_price_per_1m: string;
-  cached_input_price_per_1m: string | null;
-  source_url: string | null;
-  effective_at: string | null;
-  notes: string | null;
-  updated_by: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-/**
- * A route group (分组; Track 3). `group_ratio_bps` is the customer-price ratio in
- * integer basis points (`10000 = 1.0×`) — returned as a number (it is a plain
- * int32, not bigint money).
- */
-interface RouteGroupView {
-  id: string;
-  name: string;
-  group_ratio_bps: number;
-  status: string;
-  description: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-/**
- * One channel membership of a route group (Track 3): the `channel_id` plus its
- * per-(group,channel) routing knobs `priority` (HIGHER = tried first) + `weight`.
- */
-interface RouteGroupChannelView {
-  group_id: string;
-  channel_id: string;
-  priority: number;
-  weight: number;
-  created_at: string;
-}
-
-/**
- * A minted redemption code (admin mint listing). The `code` value IS the row's
- * identity on this admin-only surface, so it is returned; no unrelated secret is
- * exposed. `credit_amount` is the bigint µcredit grant as a decimal string.
- */
-interface RedemptionCodeView {
-  code: string;
-  credit_amount: string;
-  status: string;
-  redeemed_by_tenant: string | null;
-  redeemed_at: string | null;
-  expires_at: string | null;
-  created_at: string;
-}
+// RedemptionCodeView now lives in @actionow/contracts (ops-views) — single source
+// of truth shared with the frontend; toRedemptionCodeView() `.parse()`s against it.
 
 /**
  * Admin CRUD over the catalog/pricing/tenants/keys (Phase 5, Task 4). Every
@@ -407,7 +235,10 @@ interface RedemptionCodeView {
 @UseInterceptors(IdempotencyInterceptor)
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly tokens: AdminTokenService,
+  ) {}
 
   // ----- tenants -----
 
@@ -419,6 +250,16 @@ export class AdminController {
     @Body(new ZodBody(createTenantSchema)) dto: CreateTenantDto,
   ): Promise<TenantView> {
     return toTenantView(await this.admin.createTenant(dto));
+  }
+
+  @Post('provision')
+  @HttpCode(201)
+  @ApiOperation({
+    summary:
+      'Provision a customer atomically — tenant + account + API key in one call (plaintext key returned once)',
+  })
+  async provision(@Body(new ZodBody(provisionSchema)) dto: ProvisionDto): Promise<ProvisionView> {
+    return toProvisionView(await this.admin.provision(dto));
   }
 
   @Get('tenants')
@@ -468,6 +309,16 @@ export class AdminController {
   ): Promise<{ account_id: string; balance: string }> {
     const { balanceMicro } = await this.admin.topup(id, dto);
     return { account_id: id, balance: balanceMicro };
+  }
+
+  @Get('accounts')
+  @ApiOperation({ summary: 'List accounts (balance/held view, paginated)' })
+  async listAccounts(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<AccountView>> {
+    const result = await this.admin.listAccounts(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toAccountView);
   }
 
   @Get('accounts/:id')
@@ -520,6 +371,40 @@ export class AdminController {
     await this.admin.revokeApiKey(id);
   }
 
+  // ----- service tokens (M2M admin credentials) -----
+
+  @Post('tokens')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Mint an admin service token (M2M; plaintext returned once)' })
+  async createAdminToken(
+    @Req() req: AdminRequest,
+    @Body(new ZodBody(createAdminTokenSchema)) dto: CreateAdminTokenDto,
+  ): Promise<ApiKeyCreatedView> {
+    // AdminGuard populates req.admin before any handler runs; attribute the token
+    // to that admin (its id is the `created_by` FK). The fallback is unreachable.
+    const createdBy = req.admin?.adminId;
+    if (createdBy === undefined) throw engineUnauthorized('missing admin context');
+    const created = await this.tokens.mint(dto, createdBy);
+    return { id: created.id, plaintext: created.plaintext };
+  }
+
+  @Get('tokens')
+  @ApiOperation({ summary: 'List admin service tokens (metadata only, no hash, paginated)' })
+  async listAdminTokens(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<AdminTokenView>> {
+    const result = await this.tokens.list(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toAdminTokenView);
+  }
+
+  @Delete('tokens/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Revoke (soft-delete) a service token — rejected with 401 after' })
+  async revokeAdminToken(@Param('id') id: string): Promise<void> {
+    await this.tokens.revoke(id);
+  }
+
   // ----- secrets -----
 
   @Post('secrets')
@@ -529,7 +414,11 @@ export class AdminController {
     @Body(new ZodBody(createSecretSchema)) dto: CreateSecretDto,
   ): Promise<SecretView> {
     const row = await this.admin.createSecret(dto);
-    return { id: row.id, provider: row.provider, created_at: row.createdAt.toISOString() };
+    return secretViewSchema.parse({
+      id: row.id,
+      provider: row.provider,
+      created_at: row.createdAt.toISOString(),
+    });
   }
 
   @Get('secrets')
@@ -568,12 +457,7 @@ export class AdminController {
     @Body(new ZodBody(createOAuthSessionSchema)) dto: CreateOAuthSessionDto,
   ): Promise<OAuthSessionView> {
     const session = await this.admin.createOAuthSession(dto);
-    return {
-      id: session.id,
-      provider_kind: session.providerKind,
-      account_label: session.accountLabel ?? null,
-      account_id: session.accountId ?? null,
-    };
+    return toOAuthSessionView(session);
   }
 
   @Get('oauth-sessions')
@@ -607,7 +491,7 @@ export class AdminController {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     @Body(new ZodBody(codexLoginStartSchema)) dto: CodexLoginStart,
   ): CodexLoginStartView {
-    return this.admin.startCodexLogin();
+    return codexLoginStartViewSchema.parse(this.admin.startCodexLogin());
   }
 
   @Post('oauth-sessions/codex/login/complete')
@@ -619,12 +503,7 @@ export class AdminController {
     @Body(new ZodBody(codexLoginCompleteSchema)) dto: CodexLoginComplete,
   ): Promise<OAuthSessionView> {
     const session = await this.admin.completeCodexLogin(dto);
-    return {
-      id: session.id,
-      provider_kind: session.providerKind,
-      account_label: session.accountLabel ?? null,
-      account_id: session.accountId ?? null,
-    };
+    return toOAuthSessionView(session);
   }
 
   // ----- resources -----
@@ -1194,16 +1073,24 @@ function parseOfficialPricesQuery(raw: Record<string, string>): OfficialPricesQu
 }
 
 function toTenantView(row: TenantRow): TenantView {
-  return {
+  return tenantViewSchema.parse({
     id: row.id,
     name: row.name,
     isolation_mode: row.isolationMode,
     created_at: row.createdAt.toISOString(),
-  };
+  });
+}
+
+function toProvisionView(r: ProvisionResult): ProvisionView {
+  return provisionViewSchema.parse({
+    tenant: toTenantView(r.tenant),
+    account: toAccountView(r.account),
+    api_key: { id: r.apiKey.id, plaintext: r.apiKey.plaintext },
+  });
 }
 
 function toApiKeyView(row: Omit<ApiKeyRow, 'hash'>): ApiKeyView {
-  return {
+  return apiKeyViewSchema.parse({
     id: row.id,
     tenant_id: row.tenantId,
     resource_allowlist: row.resourceAllowlist,
@@ -1211,11 +1098,23 @@ function toApiKeyView(row: Omit<ApiKeyRow, 'hash'>): ApiKeyView {
     status: row.status,
     route_group_id: row.routeGroupId,
     created_at: row.createdAt.toISOString(),
-  };
+  });
+}
+
+function toAdminTokenView(row: AdminTokenRow): AdminTokenView {
+  return adminTokenViewSchema.parse({
+    id: row.id,
+    name: row.name,
+    created_by: row.createdBy,
+    status: row.status,
+    expires_at: row.expiresAt === null ? null : row.expiresAt.toISOString(),
+    created_at: row.createdAt.toISOString(),
+    updated_at: row.updatedAt.toISOString(),
+  });
 }
 
 function toRouteGroupView(row: RouteGroupRow): RouteGroupView {
-  return {
+  return routeGroupViewSchema.parse({
     id: row.id,
     name: row.name,
     group_ratio_bps: row.groupRatioBps,
@@ -1223,17 +1122,17 @@ function toRouteGroupView(row: RouteGroupRow): RouteGroupView {
     description: row.description,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
-  };
+  });
 }
 
 function toRouteGroupChannelView(row: RouteGroupChannelRow): RouteGroupChannelView {
-  return {
+  return routeGroupChannelViewSchema.parse({
     group_id: row.groupId,
     channel_id: row.channelId,
     priority: row.priority,
     weight: row.weight,
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 function toSecretMetadataView(row: SecretRefView): SecretMetadataView {
@@ -1246,8 +1145,23 @@ function toSecretMetadataView(row: SecretRefView): SecretMetadataView {
   };
 }
 
+/** Project a created/completed OAuth session (token-free) to its contract view. */
+function toOAuthSessionView(session: {
+  id: string;
+  providerKind: string;
+  accountLabel?: string | null;
+  accountId?: string | null;
+}): OAuthSessionView {
+  return oauthSessionViewSchema.parse({
+    id: session.id,
+    provider_kind: session.providerKind,
+    account_label: session.accountLabel ?? null,
+    account_id: session.accountId ?? null,
+  });
+}
+
 function toOAuthSessionListView(row: OAuthSessionListRow): OAuthSessionListView {
-  return {
+  return oauthSessionListViewSchema.parse({
     id: row.secretRefId,
     provider_kind: row.providerKind,
     account_label: row.accountLabel,
@@ -1255,21 +1169,21 @@ function toOAuthSessionListView(row: OAuthSessionListRow): OAuthSessionListView 
     status: row.status,
     expires_at: row.expiresAt === null ? null : row.expiresAt.toISOString(),
     last_refresh_at: row.lastRefreshAt === null ? null : row.lastRefreshAt.toISOString(),
-  };
+  });
 }
 
 function toAccountView(row: AccountRow): AccountView {
-  return {
+  return accountViewSchema.parse({
     id: row.id,
     tenant_id: row.tenantId,
     credit_balance: row.creditBalance.toString(),
     credit_held: row.creditHeld.toString(),
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 function toResourceView(row: Resource): ResourceView {
-  return {
+  return resourceViewSchema.parse({
     id: row.id,
     tenant_id: row.tenantId,
     kind: row.kind,
@@ -1279,11 +1193,11 @@ function toResourceView(row: Resource): ResourceView {
     status: row.status,
     current_version: row.currentVersion,
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 function toChannelView(row: UpstreamChannelRow): ChannelView {
-  return {
+  return channelViewSchema.parse({
     id: row.id,
     resource_id: row.resourceId,
     provider_type: row.providerType,
@@ -1296,11 +1210,11 @@ function toChannelView(row: UpstreamChannelRow): ChannelView {
     status: row.status,
     input_cost_per_1m: row.inputCostPer1m === null ? null : row.inputCostPer1m.toString(),
     output_cost_per_1m: row.outputCostPer1m === null ? null : row.outputCostPer1m.toString(),
-  };
+  });
 }
 
 function toPricebookView(row: PricebookEntryRow): PricebookView {
-  return {
+  return pricebookViewSchema.parse({
     id: row.id,
     resource_id: row.resourceId,
     resource_version: row.resourceVersion,
@@ -1310,11 +1224,11 @@ function toPricebookView(row: PricebookEntryRow): PricebookView {
     spec: row.spec,
     markup: row.markup,
     active: row.active,
-  };
+  });
 }
 
 function toModifierView(row: ModifierRow): ModifierView {
-  return {
+  return modifierViewSchema.parse({
     id: row.id,
     scope: row.scope,
     when_expr: row.whenExpr,
@@ -1324,11 +1238,11 @@ function toModifierView(row: ModifierRow): ModifierView {
     priority: row.priority,
     version: row.version,
     active: row.active,
-  };
+  });
 }
 
 function toLedgerView(row: LedgerRow): LedgerView {
-  return {
+  return ledgerViewSchema.parse({
     id: row.id,
     tenant_id: row.tenantId,
     account_id: row.accountId,
@@ -1338,11 +1252,11 @@ function toLedgerView(row: LedgerRow): LedgerView {
     resource_id: row.resourceId,
     job_id: row.jobId,
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 function toJobView(row: Job): JobView {
-  return {
+  return jobViewSchema.parse({
     job_id: row.id,
     tenant_id: row.tenantId,
     resource_id: row.resourceId,
@@ -1350,11 +1264,11 @@ function toJobView(row: Job): JobView {
     exec_mode: row.execMode,
     cost: row.costCredits === null ? null : row.costCredits.toString(),
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 function toModelView(row: ModelRow): ModelView {
-  return {
+  return modelViewSchema.parse({
     id: row.id,
     name: row.name,
     display: row.display,
@@ -1366,20 +1280,20 @@ function toModelView(row: ModelRow): ModelView {
     output_price: row.outputPrice.toString(),
     status: row.status,
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 function toModelGrantView(row: ModelGrantRow): ModelGrantView {
-  return {
+  return modelGrantViewSchema.parse({
     id: row.id,
     model_id: row.modelId,
     tenant_id: row.tenantId,
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 function toOfficialPriceView(row: OfficialModelPriceRow): OfficialPriceView {
-  return {
+  return officialPriceViewSchema.parse({
     id: row.id,
     provider: row.provider,
     model_slug: row.modelSlug,
@@ -1394,11 +1308,11 @@ function toOfficialPriceView(row: OfficialModelPriceRow): OfficialPriceView {
     updated_by: row.updatedBy,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
-  };
+  });
 }
 
 function toRedemptionCodeView(row: RedemptionCodeRow): RedemptionCodeView {
-  return {
+  return redemptionCodeViewSchema.parse({
     code: row.code,
     credit_amount: row.creditAmount.toString(),
     status: row.status,
@@ -1406,11 +1320,11 @@ function toRedemptionCodeView(row: RedemptionCodeRow): RedemptionCodeView {
     redeemed_at: row.redeemedAt === null ? null : row.redeemedAt.toISOString(),
     expires_at: row.expiresAt === null ? null : row.expiresAt.toISOString(),
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 function toUsageLogView(row: UsageLogRow): UsageLogView {
-  return {
+  return usageLogViewSchema.parse({
     id: row.id,
     tenant_id: row.tenantId,
     model: row.model,
@@ -1420,11 +1334,11 @@ function toUsageLogView(row: UsageLogRow): UsageLogView {
     latency_ms: row.latencyMs,
     status: row.status,
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 function toUsageRollupView(row: UsageRollupRow): UsageRollupView {
-  return {
+  return usageRollupViewSchema.parse({
     bucket: row.bucket,
     requests: row.requests,
     input_tokens: row.inputTokens.toString(),
@@ -1433,5 +1347,5 @@ function toUsageRollupView(row: UsageRollupRow): UsageRollupView {
     provider_cost: row.providerCost.toString(),
     margin: row.margin.toString(),
     errors: row.errors,
-  };
+  });
 }

@@ -97,6 +97,11 @@ function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Read a channel-config value as an integer ≥ `min`, or undefined when absent/invalid. */
+function asIntAtLeast(value: unknown, min: number): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value >= min ? value : undefined;
+}
+
 /**
  * Drives an async job from `queued` to a terminal state (§4.1.7 async branch):
  * `transitionJob(queued→running)` → `adapter.submit` (async handle) → bounded
@@ -193,8 +198,14 @@ export class JobRunner {
         retryable: false,
       });
     }
-    const maxPolls = this.deps.maxPolls ?? DEFAULT_MAX_POLLS;
-    const intervalMs = this.deps.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
+    // Per-channel poll budget (long-running media): a channel's `config` may raise
+    // maxPolls/pollIntervalMs (e.g. a multi-minute video relay) above the runner's
+    // deps default, so a slow job polls to completion instead of timing out at the
+    // ~30s default. Falls back to the deps value, then the hardcoded default.
+    const cfg = ctx.channels[0]?.config;
+    const maxPolls = asIntAtLeast(cfg?.maxPolls, 1) ?? this.deps.maxPolls ?? DEFAULT_MAX_POLLS;
+    const intervalMs =
+      asIntAtLeast(cfg?.pollIntervalMs, 0) ?? this.deps.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
     const sleep = this.deps.sleep ?? defaultSleep;
     const adapterCtx = await this.buildContext(ctx.providerType, ctx.channels[0], job);
 

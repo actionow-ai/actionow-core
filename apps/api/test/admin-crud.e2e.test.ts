@@ -994,6 +994,31 @@ describe('D3: account get (no PATCH/DELETE — balance is ledger-owned)', () => 
   });
 });
 
+describe('D3: account list (paginated balance/held view)', () => {
+  it('GET /admin/accounts lists accounts with tenant_id + balance/held', async () => {
+    const tenantId = await seedTenantResource('acct-list', 'acct-list-res');
+    const created = await auth(
+      request(app.getHttpServer()).post('/admin/accounts').send({ tenantId, credits: 25 }),
+    ).expect(201);
+    const accountId = created.body.id as string;
+
+    const list = await auth(request(app.getHttpServer()).get('/admin/accounts')).expect(200);
+    const row = (
+      list.body.data as {
+        id: string;
+        tenant_id: string;
+        credit_balance: string;
+        credit_held: string;
+      }[]
+    ).find((a) => a.id === accountId);
+
+    expect(row).toBeDefined();
+    expect(row?.tenant_id).toBe(tenantId);
+    expect(row?.credit_balance).toBe('25000000');
+    expect(row?.credit_held).toBe('0');
+  });
+});
+
 describe('D3: resource get / patch (status only)', () => {
   it('GET → PATCH status → GET reflects it; key fields untouched', async () => {
     await seedTenantResource('res-d3', 'res-d3');

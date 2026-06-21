@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  .ano{
+    --accent:#ffd60a; --accent-2:#ff9f0a; --ink:#1c1500;
+    --grad-accent:linear-gradient(135deg,var(--accent),var(--accent-2));
+    --s-1:4px;--s-2:8px;--s-3:12px;--s-4:16px;--s-5:20px;--s-6:24px;--s-8:32px;--s-10:40px;
+    --r-sm:11px;--r-md:14px;--r-lg:18px;--r-pill:999px;
+    --fs-nano:9px;--fs-micro:10px;--fs-caption:11px;--fs-sm:13px;--fs-base:15px;--fs-md:16px;--fs-lg:18px;--fs-xl:24px;--fs-2xl:30px;
+    --shadow-cta:0 8px 20px rgba(255,176,10,.3);
+    --shadow-cta-hover:0 12px 28px rgba(255,176,10,.42);
+    --glow-accent:0 0 6px rgba(255,176,10,.35);
+    --shadow-lift:0 5px 14px rgba(0,0,0,.34);
+    --bg:#0c0b09;--text:#f2efe6;--muted:#b8b2a3;--faint:#a39c8b;
+    --glass-bg:rgba(255,255,255,.06);--glass-bd:rgba(255,255,255,.12);--glass-hl:rgba(255,255,255,.22);
+    --glass-shadow:0 1px 1px rgba(0,0,0,.25),0 12px 28px rgba(0,0,0,.4);
+    --panel-bg:rgba(18,16,12,.82);--panel-bd:rgba(255,255,255,.08);
+    --nav-bg:rgba(14,12,9,.94);--overlay-bg:rgba(28,25,19,.97);
+    --hover-bg:rgba(255,214,10,.08);--hover-bd:rgba(255,214,10,.28);
+    --row-bd:rgba(255,255,255,.06);--grid-dot:rgba(255,255,255,.05);--scrim:rgba(0,0,0,.45);
+    --ok:#4ade80;--run:#fbbf24;--wait:#fb923c;--fail:#f87171;--idle:#9a9384;--log-ok:#9bdcb0;
+    color:var(--text);
+    font-family:-apple-system,system-ui,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .ano[data-theme='light']{
+    --bg:#f3f0e7;--text:#272219;--muted:#5f5849;--faint:#9b927f;
+    --glass-bg:rgba(255,255,255,.55);--glass-bd:rgba(0,0,0,.06);--glass-hl:rgba(255,255,255,.7);
+    --glass-shadow:0 1px 2px rgba(60,45,5,.05),0 10px 24px rgba(120,90,20,.1);
+    --shadow-lift:0 5px 14px rgba(120,90,20,.16);
+    --panel-bg:rgba(255,255,255,.72);--panel-bd:rgba(0,0,0,.06);
+    --nav-bg:rgba(245,242,233,.93);--overlay-bg:rgba(252,250,245,.98);
+    --hover-bg:rgba(245,158,11,.1);--hover-bd:rgba(245,158,11,.35);
+    --row-bd:rgba(0,0,0,.05);--grid-dot:rgba(0,0,0,.05);--scrim:rgba(40,30,5,.32);
+    --ok:#16a34a;--run:#d9920a;--wait:#ea7a26;--fail:#dc2626;--idle:#7a7263;--log-ok:#2f7d4f;
+  }
+  .ano *{box-sizing:border-box;min-width:0}
+  .ano .tabular{font-variant-numeric:tabular-nums}
+  .ano .mono{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace}
+  .glass{background:var(--glass-bg);backdrop-filter:blur(22px) saturate(170%);-webkit-backdrop-filter:blur(22px) saturate(170%);border:1px solid var(--glass-bd);box-shadow:inset 0 1px 0 var(--glass-hl),var(--glass-shadow)}
+  .panel{background:var(--panel-bg);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--panel-bd)}
+  .chip{font-size:var(--fs-caption);color:var(--muted);background:var(--hover-bg);border:1px solid var(--panel-bd);border-radius:var(--r-pill);padding:2px 9px;white-space:nowrap}
+  .card-glyph{width:36px;height:36px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--ink);background:var(--grad-accent)}
+  .entity-card{position:relative;border-radius:var(--r-md);padding:var(--s-5);background:var(--panel-bg);border:1px solid var(--panel-bd);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .entity-card.click{cursor:pointer}
+  .entity-card.click:hover{transform:translateY(-2px);border-color:var(--hover-bd);box-shadow:var(--shadow-lift)}
+  .entity-card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .navico{position:relative;z-index:1;width:40px;height:40px;border-radius:var(--r-sm);border:none;background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:color .18s ease,background .18s ease}
+  .navico:hover{color:var(--text);background:var(--hover-bg)}
+  .navico.on{color:var(--ink)}
+  .navico.on:hover{color:var(--ink);background:transparent}
+  .ico-btn{width:40px;height:40px;border-radius:var(--r-sm);border:none;background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:color .18s,background .18s}
+  .ico-btn:hover{color:var(--text);background:var(--hover-bg)}
+  .subitem{position:relative;z-index:1;display:flex;align-items:center;height:34px;margin-bottom:4px;padding:0 10px;border-radius:var(--r-sm);font-size:var(--fs-sm);white-space:nowrap;cursor:pointer;color:var(--muted);transition:color .15s}
+  .subitem:hover{color:var(--text)}
+  .subitem.on{color:var(--text)}
+  .pill{font-size:var(--fs-caption);font-weight:600;padding:3px 9px;border-radius:var(--r-pill);white-space:nowrap}
+  .pill.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 16%,transparent)}
+  .pill.run{color:var(--run);background:color-mix(in srgb,var(--run) 16%,transparent)}
+  .pill.wait{color:var(--wait);background:color-mix(in srgb,var(--wait) 16%,transparent)}
+  .pill.fail{color:var(--fail);background:color-mix(in srgb,var(--fail) 16%,transparent)}
+  .pill.idle{color:var(--idle);background:color-mix(in srgb,var(--idle) 16%,transparent)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:var(--fs-sm);font-weight:600;border-radius:var(--r-sm);padding:9px 15px;cursor:pointer;border:1px solid transparent;white-space:nowrap;transition:transform .15s,box-shadow .15s,background .15s,border-color .15s;font-family:inherit}
+  .btn.cta{background:var(--grad-accent);color:var(--ink);box-shadow:var(--shadow-cta)}
+  .btn.cta:hover{transform:translateY(-1px);box-shadow:var(--shadow-cta-hover)}
+  .btn.cta:active{transform:translateY(1px) scale(.99)}
+  .btn.ghost{background:var(--glass-bg);border-color:var(--panel-bd);color:var(--text)}
+  .btn.ghost:hover{border-color:var(--hover-bd);background:var(--hover-bg)}
+  .btn.sm{padding:6px 11px;font-size:var(--fs-caption)}
+  .btn.lg{padding:13px 20px;font-size:var(--fs-base)}
+  .fld label{display:block;font-size:var(--fs-caption);color:var(--muted);margin-bottom:6px;font-weight:600}
+  .fld input,.fld select,.fld textarea{width:100%;font-family:inherit;font-size:var(--fs-sm);color:var(--text);background:var(--glass-bg);border:1px solid var(--panel-bd);padding:9px 11px;border-radius:var(--r-sm);outline:none;transition:border-color .15s,box-shadow .15s}
+  .fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--hover-bd);box-shadow:0 0 0 1px var(--hover-bd)}
+  .fld select{cursor:pointer}
+  .ptile{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:var(--r-sm);background:linear-gradient(180deg,#fff,#f4efe2);border:1px solid rgba(28,21,0,.09);box-shadow:0 1px 2px rgba(28,21,0,.12),inset 0 1px 0 rgba(255,255,255,.75)}
+  .ptile.dark{background:linear-gradient(180deg,#2a2a2e,#131316);border-color:rgba(255,255,255,.14)}
+  .ptile img{display:block}
+  .row{border-bottom:1px solid var(--row-bd);cursor:default;transition:background .15s}
+  .row.click{cursor:pointer}
+  .row.click:hover{background:var(--hover-bg)}
+  .rowact{width:30px;height:30px;flex-shrink:0;border-radius:var(--r-sm);border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:color .15s,background .15s,border-color .15s}
+  .rowact:hover{color:var(--text);background:var(--hover-bg);border-color:var(--hover-bd)}
+  .rowact.danger:hover{color:var(--fail);border-color:var(--fail)}
+  .seg{display:inline-flex;background:var(--glass-bg);border:1px solid var(--panel-bd);border-radius:var(--r-sm);padding:3px;gap:2px}
+  .seg button{font-family:inherit;font-size:var(--fs-sm);font-weight:600;border:none;background:transparent;color:var(--muted);padding:6px 13px;border-radius:8px;cursor:pointer;transition:color .15s,background .15s;white-space:nowrap}
+  .seg button.on{background:var(--grad-accent);color:var(--ink)}
+  .tabx{position:relative;padding:10px 2px;border:none;background:transparent;cursor:pointer;font-size:var(--fs-sm);font-weight:600;white-space:nowrap;color:var(--muted);font-family:inherit}
+  .tabx.on{color:var(--text)}
+  .tabx .ul{position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:999px;background:var(--grad-accent);opacity:0}
+  .tabx.on .ul{opacity:1}
+  .scrim{position:fixed;inset:0;background:var(--scrim);z-index:90;backdrop-filter:blur(2px)}
+  .bg-grid{position:absolute;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(var(--grid-dot) 1px,transparent 1px);background-size:26px 26px;-webkit-mask-image:radial-gradient(ellipse 85% 55% at 50% 0%,#000 35%,transparent 72%);mask-image:radial-gradient(ellipse 85% 55% at 50% 0%,#000 35%,transparent 72%)}
+  .scroll::-webkit-scrollbar{width:10px;height:10px}
+  .scroll::-webkit-scrollbar-thumb{background:var(--panel-bd);border-radius:8px;border:3px solid transparent;background-clip:padding-box}
+  @keyframes ano-toast{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes ano-fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .drawer-in{animation:ano-slide .26s cubic-bezier(.2,.8,.2,1)}
+  @keyframes ano-slide{from{transform:translateX(100%)}to{transform:translateX(0)}}
+  .stage[data-device='desktop']{align-items:stretch}
+  .stage[data-device='mobile']{padding:24px 0}
+  .stage[data-device='mobile'] .frame{width:402px;height:844px;border-radius:46px;padding:11px;background:linear-gradient(160deg,#16140f,#0a0908);box-shadow:0 0 0 2px rgba(255,255,255,.06),0 40px 80px rgba(0,0,0,.55);flex:none}
+  .stage[data-device='mobile'] .frame .screen{width:100%;height:100%;border-radius:36px;overflow:hidden;position:relative;background:var(--bg)}
+  .stage[data-device='desktop'] .frame{flex:1;align-self:stretch;min-height:100%}
+  .stage[data-device='desktop'] .frame .screen{width:100%;height:100%;min-height:100%;position:relative;background:var(--bg)}
+  .stage[data-device='desktop'] [data-shell]{--gap:var(--s-3);--pad:var(--s-5)}
+  .stage[data-device='mobile'] [data-shell]{--gap:var(--s-2);--pad:var(--s-3)}
+</style>
+</helmet>
+
+<div class="ano" data-theme="{{ theme }}" style="height:100vh;display:flex;flex-direction:column;background:#000;overflow:hidden">
+
+  <!-- prototype control bar -->
+  <div style="flex:none;height:54px;display:flex;align-items:center;gap:var(--s-4);padding:0 var(--s-5);background:#0a0908;border-bottom:1px solid rgba(255,255,255,.07);color:#f2efe6">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="width:26px;height:26px;border-radius:7px;background:var(--grad-accent);display:inline-flex;align-items:center;justify-content:center;color:#1c1500;box-shadow:var(--glow-accent)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"></path></svg>
+      </span>
+      <span style="font-weight:700;font-size:14px;letter-spacing:-.01em">Actionow</span>
+      <span style="font-size:11px;color:#8b8576;border-left:1px solid rgba(255,255,255,.1);padding-left:10px">原型 · {{ topTitle }}</span>
+    </div>
+    <div style="flex:1"></div>
+    <div class="seg">
+      <button class="{{ pcClass }}" onClick="{{ setPC }}">PC 端</button>
+      <button class="{{ mobileClass }}" onClick="{{ setMobile }}">移动端</button>
+    </div>
+    <div class="seg">
+      <button class="{{ darkClass }}" onClick="{{ setDark }}">深色</button>
+      <button class="{{ lightClass }}" onClick="{{ setLight }}">浅色</button>
+    </div>
+  </div>
+
+  <!-- stage -->
+  <div class="stage scroll" data-device="{{ device }}" style="flex:1;min-height:0;overflow:auto;background:radial-gradient(circle at 50% 0%,#15130e,#08070500);display:flex;align-items:flex-start;justify-content:center;padding:0">
+    <div class="frame" style="display:flex;align-items:center;justify-content:center">
+      <div class="screen scroll">
+
+        <!-- ============ CONSOLE SHELL ============ -->
+        <sc-if value="{{ inConsole }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg)">
+          <div class="bg-grid"></div>
+          <div style="position:relative;z-index:1;flex:1;min-height:0;display:flex;gap:var(--gap);padding:var(--pad)" data-shell>
+
+            <!-- desktop rail -->
+            <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+            <div class="glass" style="width:64px;flex:none;border-radius:var(--r-lg);display:flex;flex-direction:column;align-items:center;gap:var(--s-4);padding:var(--s-4) 0">
+              <span style="width:30px;height:30px;border-radius:8px;background:var(--grad-accent);display:inline-flex;align-items:center;justify-content:center;color:var(--ink);box-shadow:var(--glow-accent)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"></path></svg>
+              </span>
+              <div style="position:relative;flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--s-3)">
+                <span aria-hidden="true" style="position:absolute;top:0;left:50%;width:40px;height:40px;margin-left:-20px;border-radius:var(--r-sm);background:var(--grad-accent);box-shadow:var(--shadow-cta);z-index:0;transform:translateY({{ railIndicator }}px);transition:transform .26s cubic-bezier(.2,.8,.2,1)"></span>
+                <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="4">
+                  <button class="navico {{ g.cls }}" onClick="{{ g.go }}" title="{{ g.label }}">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ g.icon }}"></path></svg>
+                  </button>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:var(--s-2)">
+                <button class="ico-btn" onClick="{{ toggleTheme }}" title="主题">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ themeIcon }}"></path></svg>
+                </button>
+                <button class="ico-btn" onClick="{{ goLogin }}" title="退出登录">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
+                </button>
+              </div>
+            </div>
+            </sc-if>
+
+            <!-- desktop subnav -->
+            <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+            <div class="glass" style="width:200px;flex:none;border-radius:var(--r-lg);padding:var(--s-4) var(--s-3)">
+              <div style="font-size:var(--fs-caption);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:0 var(--s-2) var(--s-3)">{{ subNavGroup }}</div>
+              <div style="position:relative">
+                <span aria-hidden="true" style="position:absolute;left:0;right:0;top:0;height:34px;border-radius:var(--r-sm);background:var(--hover-bg);border:1px solid var(--hover-bd);transform:translateY({{ subIndicator }}px);transition:transform .26s cubic-bezier(.2,.8,.2,1)"></span>
+                <sc-for list="{{ subNav }}" as="it" hint-placeholder-count="3">
+                  <div class="subitem {{ it.cls }}" onClick="{{ it.go }}">{{ it.label }}</div>
+                </sc-for>
+              </div>
+            </div>
+            </sc-if>
+
+            <!-- main -->
+            <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:var(--s-3)">
+
+              <!-- topbar -->
+              <div class="glass" style="flex:none;border-radius:var(--r-md);padding:var(--s-3) var(--s-4);display:flex;flex-direction:column;gap:var(--s-3)">
+                <div style="display:flex;align-items:center;gap:var(--s-3)">
+                  <sc-if value="{{ showBack }}" hint-placeholder-val="{{ false }}">
+                    <button class="ico-btn" onClick="{{ clearResSel }}" style="flex:none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg></button>
+                  </sc-if>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:var(--fs-lg);font-weight:700;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ topTitle }}</div>
+                    <div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ topSubtitle }}</div>
+                  </div>
+                  <!-- filters slot -->
+                  <sc-if value="{{ showTenantFilter }}" hint-placeholder-val="{{ false }}">
+                    <select class="fld" style="font-size:var(--fs-sm);background:var(--glass-bg);color:var(--text);border:1px solid var(--panel-bd);border-radius:var(--r-sm);padding:8px 10px;flex:none;width:160px" value="{{ filterTenant }}" onChange="{{ onFilterTenant }}">
+                      <sc-for list="{{ tenantOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o.id }}">{{ o.name }}</option></sc-for>
+                    </select>
+                  </sc-if>
+                  <!-- action slot -->
+                  <sc-if value="{{ pageAction.show }}" hint-placeholder-val="{{ false }}">
+                    <button class="btn ghost" style="flex:none" onClick="{{ pageAction.go }}">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>{{ pageAction.label }}
+                    </button>
+                  </sc-if>
+                  <button class="ico-btn" style="flex:none" onClick="{{ noop }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"></path></svg></button>
+                </div>
+              </div>
+
+              <!-- content -->
+              <div class="scroll" style="flex:1;min-height:0;overflow:auto">
+                <div data-content style="min-height:100%">
+                {{ contentSlot }}
+                </div>
+              </div>
+
+              <!-- mobile bottom tabs -->
+              <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+              <div class="glass" style="flex:none;border-radius:var(--r-lg);display:flex;justify-content:space-around;padding:var(--s-2)">
+                <sc-for list="{{ mobileTabs }}" as="tb" hint-placeholder-count="4">
+                  <div onClick="{{ tb.go }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;min-height:44px;justify-content:center;font-size:var(--fs-micro);padding:6px 12px;border-radius:var(--r-sm);cursor:pointer;color:{{ tb.color }}">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ tb.icon }}"></path></svg>
+                    {{ tb.label }}
+                  </div>
+                </sc-for>
+              </div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ============ FULLSCREEN ROUTES ============ -->
+        <sc-if value="{{ rLanding }}" hint-placeholder-val="{{ false }}">{{ landingSlot }}</sc-if>
+        <sc-if value="{{ rLogin }}" hint-placeholder-val="{{ false }}">{{ loginSlot }}</sc-if>
+        <sc-if value="{{ rApp }}" hint-placeholder-val="{{ false }}">{{ appSlot }}</sc-if>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- toast -->
+  <sc-if value="{{ toastShow }}" hint-placeholder-val="{{ false }}">
+    <div class="ano panel" data-theme="{{ theme }}" style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:300;padding:11px 18px;border-radius:var(--r-pill);font-size:var(--fs-sm);font-weight:600;color:var(--text);box-shadow:var(--shadow-lift);animation:ano-toast .3s ease">{{ toastMsg }}</div>
+  </sc-if>
+
+  <!-- ============ DIALOGS ============ -->
+  <sc-if value="{{ dialogShow }}" hint-placeholder-val="{{ false }}">
+    <div class="scrim" onClick="{{ closeDialog }}"></div>
+    <!-- modal (centered) -->
+    <sc-if value="{{ dialogIsModal }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;pointer-events:none">
+      <div class="ano glass scroll" data-theme="{{ theme }}" style="pointer-events:auto;width:min(440px,94vw);max-height:88vh;overflow:auto;border-radius:var(--r-lg);padding:var(--s-6);animation:ano-fade .24s ease">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--s-5)">
+          <div style="font-size:var(--fs-lg);font-weight:700">{{ dialogTitle }}</div>
+          <button class="ico-btn" onClick="{{ closeDialog }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--s-4)">{{ dialogBody }}</div>
+        <div style="display:flex;justify-content:flex-end;gap:var(--s-3);margin-top:var(--s-6)">{{ dialogFooter }}</div>
+      </div>
+    </div>
+    </sc-if>
+    <!-- drawer (right) -->
+    <sc-if value="{{ dialogIsDrawer }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:100;display:flex;justify-content:flex-end;pointer-events:none">
+      <div class="ano glass scroll drawer-in" data-theme="{{ theme }}" style="pointer-events:auto;width:min(520px,96vw);height:100%;overflow:auto;padding:var(--s-6);display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--s-5)">
+          <div style="font-size:var(--fs-lg);font-weight:700">{{ dialogTitle }}</div>
+          <button class="ico-btn" onClick="{{ closeDialog }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:var(--s-4)">{{ dialogBody }}</div>
+        <div style="display:flex;justify-content:flex-end;gap:var(--s-3);margin-top:var(--s-6);padding-top:var(--s-4);border-top:1px solid var(--row-bd)">{{ dialogFooter }}</div>
+      </div>
+    </div>
+    </sc-if>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;device&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;mobile&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;startRoute&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;landing&quot;,&quot;login&quot;,&quot;dashboard&quot;,&quot;catalog&quot;,&quot;tenants&quot;,&quot;apiKeys&quot;,&quot;accounts&quot;,&quot;app&quot;],&quot;default&quot;:&quot;dashboard&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    const now = Date.now();
+    const d = (days)=> new Date(now - days*86400000).toISOString();
+    this.state = {
+      theme: props.theme || 'dark',
+      device: props.device || 'desktop',
+      route: props.startRoute || 'dashboard',
+      catTab: 'models',
+      resSel: '',
+      filterTenant: 'tnt_8f2a',
+      dialog: null,
+      form: {},
+      toast: '',
+      tenants: [
+        {id:'tnt_8f2a', name:'Acme AI', isolation_mode:'schema', created_at:d(41)},
+        {id:'tnt_3c91', name:'Globex 实验室', isolation_mode:'field', created_at:d(28)},
+        {id:'tnt_7d40', name:'Initech', isolation_mode:'db', created_at:d(16)},
+        {id:'tnt_b6e2', name:'Umbrella', isolation_mode:'field', created_at:d(9)},
+        {id:'tnt_a1f5', name:'Hooli', isolation_mode:'schema', created_at:d(3)},
+      ],
+      resources: [
+        {id:'gpt-4o', provider_type:'openai', kind:'model', modality:'text', exec_modes:['blocking','stream'], status:'active'},
+        {id:'claude-3-5-sonnet', provider_type:'anthropic', kind:'model', modality:'text', exec_modes:['blocking','stream'], status:'active'},
+        {id:'gemini-1.5-pro', provider_type:'gemini', kind:'model', modality:'text', exec_modes:['blocking','stream'], status:'active'},
+        {id:'deepseek-v3', provider_type:'deepseek', kind:'model', modality:'text', exec_modes:['blocking'], status:'active'},
+        {id:'flux-pro', provider_type:'minimax', kind:'model', modality:'image', exec_modes:['async-poll'], status:'active'},
+        {id:'support-workflow', provider_type:'dify', kind:'workflow', modality:'composite', exec_modes:['blocking','async-callback'], status:'disabled'},
+      ],
+      models: [
+        {name:'openai/gpt-4o', provider:'openai', modality:'text', caps:['工具调用','视觉','流式'], inUsd:'2.50', outUsd:'10.00', visibility:'public', status:'active'},
+        {name:'anthropic/claude-3-5-sonnet', provider:'anthropic', modality:'text', caps:['工具调用','视觉'], inUsd:'3.00', outUsd:'15.00', visibility:'public', status:'active'},
+        {name:'google/gemini-1.5-pro', provider:'gemini', modality:'text', caps:['视觉','JSON 模式'], inUsd:'1.25', outUsd:'5.00', visibility:'public', status:'active'},
+        {name:'deepseek/deepseek-v3', provider:'deepseek', modality:'text', caps:['工具调用'], inUsd:'0.27', outUsd:'1.10', visibility:'tenant', status:'active'},
+        {name:'qwen/qwen-max', provider:'qwen', modality:'text', caps:['工具调用','流式'], inUsd:'1.60', outUsd:'6.40', visibility:'tenant', status:'active'},
+        {name:'moonshot/kimi-k2', provider:'kimi', modality:'text', caps:['视觉'], inUsd:'0.60', outUsd:'2.50', visibility:'public', status:'disabled'},
+        {name:'xai/grok-2', provider:'xai', modality:'text', caps:['工具调用'], inUsd:'2.00', outUsd:'10.00', visibility:'public', status:'active'},
+        {name:'zhipu/glm-4', provider:'zhipu', modality:'text', caps:['JSON 模式'], inUsd:'0.50', outUsd:'1.50', visibility:'tenant', status:'active'},
+      ],
+      keys: [
+        {id:'ak_live_8Hq2…f0', tenant:'tnt_8f2a', rate:600, allow:['gpt-4o'], status:'active', group:'premium', created_at:d(30)},
+        {id:'ak_live_a91Z…7c', tenant:'tnt_8f2a', rate:null, allow:[], status:'active', group:'', created_at:d(14)},
+        {id:'ak_live_Kp4m…22', tenant:'tnt_8f2a', rate:120, allow:['claude-3-5-sonnet','gpt-4o'], status:'disabled', group:'default', created_at:d(6)},
+        {id:'ak_live_Rd80…91', tenant:'tnt_3c91', rate:300, allow:[], status:'active', group:'', created_at:d(11)},
+      ],
+      routeGroups: [
+        {id:'rg_def', name:'default', bps:10000, status:'active', description:'官方价基线组', channels:5},
+        {id:'rg_prem', name:'premium', bps:15000, status:'active', description:'+50% 高优先渠道', channels:3},
+        {id:'rg_intl', name:'overseas', bps:12000, status:'active', description:'海外直连渠道', channels:4},
+        {id:'rg_test', name:'sandbox', bps:8000, status:'disabled', description:'内测折扣组', channels:2},
+      ],
+      prices: [
+        {id:'op1', provider:'openai', slug:'gpt-4o', name:'GPT-4o', in:'2500000', out:'10000000', eff:'2025-05-13', url:'https://openai.com/pricing'},
+        {id:'op2', provider:'anthropic', slug:'claude-3-5-sonnet', name:'Claude 3.5 Sonnet', in:'3000000', out:'15000000', eff:'2025-04-01', url:'https://anthropic.com/pricing'},
+        {id:'op3', provider:'gemini', slug:'gemini-1.5-pro', name:'Gemini 1.5 Pro', in:'1250000', out:'5000000', eff:'2025-03-20', url:''},
+        {id:'op4', provider:'deepseek', slug:'deepseek-v3', name:'DeepSeek V3', in:'270000', out:'1100000', eff:'2025-05-01', url:'https://deepseek.com'},
+        {id:'op5', provider:'qwen', slug:'qwen-max', name:'Qwen Max', in:'1600000', out:'6400000', eff:'2025-02-10', url:''},
+        {id:'op6', provider:'xai', slug:'grok-2', name:'Grok 2', in:'2000000', out:'10000000', eff:'2025-01-15', url:''},
+      ],
+      modifiers: [
+        {id:'m1', scope:'global', op:'percent_off', value:10, priority:100, active:true},
+        {id:'m2', scope:'tenant:tnt_8f2a', op:'override_rate', value:8, priority:50, active:true},
+        {id:'m3', scope:'model:gpt-4o', op:'percent_add', value:15, priority:80, active:false},
+        {id:'m4', scope:'global', op:'flat_off', value:2, priority:10, active:true},
+      ],
+      jobs: [
+        {id:'job_91', tenant:'tnt_8f2a', resource:'gpt-4o', mode:'stream', status:'succeeded', cost:'18400', at:d(0.01)},
+        {id:'job_90', tenant:'tnt_8f2a', resource:'claude-3-5-sonnet', mode:'blocking', status:'succeeded', cost:'42100', at:d(0.02)},
+        {id:'job_89', tenant:'tnt_8f2a', resource:'flux-pro', mode:'async-poll', status:'running', cost:null, at:d(0.04)},
+        {id:'job_88', tenant:'tnt_8f2a', resource:'gemini-1.5-pro', mode:'blocking', status:'queued', cost:null, at:d(0.06)},
+        {id:'job_87', tenant:'tnt_8f2a', resource:'gpt-4o', mode:'stream', status:'failed', cost:null, at:d(0.1)},
+        {id:'job_86', tenant:'tnt_3c91', resource:'deepseek-v3', mode:'blocking', status:'succeeded', cost:'5200', at:d(0.2)},
+      ],
+      account: {id:'acc_8f2a_main', tenant:'tnt_8f2a', credit_balance:1284500000, held:42000000},
+      groupMembers: [
+        {channel_id:'ch_oai_1', label:'openai · gpt-4o', priority:100, weight:80},
+        {channel_id:'ch_oai_2', label:'openai · gpt-4o (azure)', priority:50, weight:20},
+        {channel_id:'ch_ant_1', label:'anthropic · claude-3-5-sonnet', priority:80, weight:100},
+      ],
+      ranking: [
+        {model:'gpt-4o', cost:284500},
+        {model:'claude-3-5-sonnet', cost:198200},
+        {model:'gemini-1.5-pro', cost:91400},
+        {model:'deepseek-v3', cost:43800},
+        {model:'qwen-max', cost:21500},
+      ],
+      authMode:'login',
+    };
+  }
+
+  // ---------- helpers ----------
+  go(route){ return ()=> this.setState({route, resSel:'', dialog:null}); }
+  toast(msg){ this.setState({toast:msg}); clearTimeout(this._tt); this._tt=setTimeout(()=>this.setState({toast:''}),2400); }
+  openDialog(kind, form){ this.setState({dialog:kind, form: form||{}}); }
+  closeDialog(){ this.setState({dialog:null}); }
+  setField(e){ const f={...this.state.form}; f[e.target.name]=e.target.value; this.setState({form:f}); }
+  uid(p){ return p+'_'+Math.random().toString(36).slice(2,7); }
+  providerSrc(p){
+    const k=(p||'').toLowerCase();
+    const map={openai:'openai',gpt:'openai',anthropic:'anthropic',claude:'anthropic',gemini:'gemini',google:'gemini',deepseek:'deepseek',qwen:'qwen',tongyi:'qwen',dify:'dify',kimi:'kimi',moonshot:'kimi',zhipu:'zhipu',glm:'zhipu',minimax:'minimax',flux:'minimax',xai:'xai',grok:'xai'};
+    for(const key in map){ if(k.includes(key)) return {src:'providers/'+map[key]+'.svg', dark: map[key]==='kimi'}; }
+    return {src:'', dark:false};
+  }
+  toneFor(s){ const m={succeeded:'ok',active:'ok',ready:'ok',running:'run',queued:'wait',pending:'wait',failed:'fail',disabled:'fail',inactive:'fail',canceled:'idle'}; return m[s]||'idle'; }
+  statusLabel(s){ const m={succeeded:'成功',active:'启用',ready:'就绪',running:'运行中',queued:'排队中',pending:'待处理',failed:'失败',disabled:'已停用',inactive:'未启用',canceled:'已取消'}; return m[s]||s; }
+  credits(micro){ return (Number(micro)/1e6).toLocaleString('en-US',{maximumFractionDigits:0}); }
+  usd1m(micro){ return (Number(micro)/1e6).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  fmtDate(iso){ const dt=new Date(iso); return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); }
+  fmtTime(iso){ const dt=new Date(iso); return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0'); }
+
+  // ---------- React element builders (page bodies) ----------
+  el(tag, props, ...kids){ return React.createElement(tag, props, ...kids); }
+
+  pill(status){
+    return this.el('span',{className:'pill '+this.toneFor(status)}, this.statusLabel(status));
+  }
+  chips(arr){
+    return this.el('div',{style:{display:'flex',flexWrap:'wrap',gap:6,marginTop:7}},
+      (arr||[]).map((c,i)=> this.el('span',{key:i,className:'chip'}, c)));
+  }
+  glyphIcon(d){
+    return this.el('span',{className:'card-glyph'}, this.el('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round'}, this.el('path',{d})));
+  }
+  providerGlyph(p, size){
+    const pr=this.providerSrc(p); const s=size||22;
+    if(!pr.src) return this.el('span',{className:'card-glyph'}, (p||'?').charAt(0).toUpperCase());
+    return this.el('span',{className:'ptile'+(pr.dark?' dark':''),style:{width:s+16,height:s+16}}, this.el('img',{src:pr.src,width:s,height:s,alt:''}));
+  }
+  entityCard(opts){
+    const {glyph, title, badge, chips, meta, actions, onClick, selected, key} = opts;
+    const cls='entity-card'+(onClick?' click':'')+(selected?' sel':'');
+    return this.el('div',{key,className:cls,onClick,role:onClick&&!actions?'button':undefined,tabIndex:onClick&&!actions?0:undefined,style:{animation:'ano-fade .3s ease'}},
+      this.el('div',{style:{display:'flex',alignItems:'flex-start',gap:'var(--s-3)'}},
+        glyph,
+        this.el('div',{style:{flex:1,minWidth:0}},
+          this.el('div',{style:{fontSize:'var(--fs-base)',fontWeight:700,letterSpacing:'-.015em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, title),
+          chips && chips.length? this.chips(chips):null),
+        badge? this.el('div',{style:{flexShrink:0}}, badge):null),
+      meta && meta.length? this.el('div',{style:{display:'flex',flexWrap:'wrap',gap:'var(--s-5)',marginTop:'var(--s-4)'}},
+        meta.map((m,i)=> this.el('div',{key:i},
+          this.el('div',{style:{fontSize:'var(--fs-caption)',textTransform:'uppercase',letterSpacing:'.06em',color:'var(--faint)'}}, m.label),
+          this.el('div',{className:'tabular',style:{fontSize:'var(--fs-sm)',marginTop:3,whiteSpace:'nowrap'}}, m.value)))):null,
+      actions? this.el('div',{onClick:(e)=>e.stopPropagation(),style:{display:'flex',justifyContent:'flex-end',gap:'var(--s-2)',marginTop:'var(--s-4)',flexWrap:'wrap'}}, actions):null);
+  }
+  cardGrid(cards, layout){
+    const cols = layout==='list' ? '1fr' : 'repeat(auto-fill, minmax(280px,1fr))';
+    return this.el('div',{style:{display:'grid',gridTemplateColumns:cols,gap:'var(--s-3)'}}, cards);
+  }
+  emptyBox(text){
+    return this.el('div',{className:'panel',style:{borderRadius:'var(--r-md)',padding:'var(--s-6)',textAlign:'center',color:'var(--muted)',fontSize:'var(--fs-sm)'}}, text);
+  }
+  btn(label, variant, onClick, icon){
+    return this.el('button',{className:'btn '+(variant||'ghost'),onClick},
+      icon? this.el('svg',{width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2.4,strokeLinecap:'round'}, this.el('path',{d:icon})):null,
+      label);
+  }
+  rowActBtn(icon, danger, onClick, title){
+    return this.el('button',{className:'rowact'+(danger?' danger':''),onClick,title}, this.el('svg',{width:15,height:15,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.9,strokeLinecap:'round',strokeLinejoin:'round'}, this.el('path',{d:icon})));
+  }
+
+  // ----- table (desktop) / cards (mobile) -----
+  dataTable(cols, rows, actions){
+    const isMobile = this.state.device==='mobile';
+    if(isMobile){
+      return this.el('div',{className:'panel',style:{borderRadius:'var(--r-md)',overflow:'hidden'}},
+        rows.length===0? this.el('div',{style:{padding:'var(--s-6)',textAlign:'center',color:'var(--muted)',fontSize:'var(--fs-sm)'}},'暂无数据'):
+        rows.map((r,ri)=> this.el('div',{key:ri,style:{display:'flex',flexDirection:'column',gap:'var(--s-3)',padding:'var(--s-4)',borderBottom:'1px solid var(--row-bd)'}},
+          this.el('div',{style:{fontSize:'var(--fs-base)',fontWeight:600,minWidth:0,overflow:'hidden'}}, cols[0].cell(r)),
+          this.el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'var(--s-2) var(--s-4)'}},
+            cols.slice(1).map((c,ci)=> this.el('div',{key:ci,style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:'var(--s-2)',minWidth:0}},
+              this.el('span',{style:{fontSize:'var(--fs-caption)',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',flexShrink:0}}, c.header),
+              this.el('span',{style:{fontSize:'var(--fs-sm)',minWidth:0,textAlign:'right',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}, c.cell(r))))),
+          actions? this.el('div',{style:{display:'flex',justifyContent:'flex-end',gap:'var(--s-2)',borderTop:'1px solid var(--row-bd)',paddingTop:'var(--s-2)'}}, actions(r)):null)));
+    }
+    return this.el('div',{className:'panel',style:{borderRadius:'var(--r-md)',overflowX:'auto'}},
+      this.el('table',{style:{width:'100%',borderCollapse:'separate',borderSpacing:0}},
+        this.el('thead',null, this.el('tr',null,
+          cols.map((c,ci)=> this.el('th',{key:ci,style:{textAlign:'left',padding:'10px 16px',fontSize:'var(--fs-caption)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.05em',color:'var(--muted)',borderBottom:'1px solid var(--row-bd)',whiteSpace:'nowrap',width:c.width}}, c.header)),
+          actions? this.el('th',{style:{borderBottom:'1px solid var(--row-bd)'}}):null)),
+        this.el('tbody',null,
+          rows.length===0? this.el('tr',null, this.el('td',{colSpan:cols.length+1,style:{padding:'var(--s-6)',textAlign:'center',color:'var(--muted)',fontSize:'var(--fs-sm)'}},'暂无数据')):
+          rows.map((r,ri)=> this.el('tr',{key:ri,style:{borderBottom:'1px solid var(--row-bd)'}},
+            cols.map((c,ci)=> this.el('td',{key:ci,style:{padding:'12px 16px',fontSize:'var(--fs-sm)',verticalAlign:'middle'}}, c.cell(r))),
+            actions? this.el('td',{style:{padding:'10px 16px',textAlign:'right',whiteSpace:'nowrap'}}, this.el('div',{style:{display:'inline-flex',gap:6}}, actions(r))):null)))));
+  }
+
+  field(label, name, opts){
+    opts=opts||{};
+    const val = this.state.form[name] ?? '';
+    if(opts.type==='select'){
+      return this.el('div',{className:'fld'},
+        this.el('label',null,label),
+        this.el('select',{name,value:val,onChange:(e)=>this.setField(e)},
+          opts.options.map((o,i)=> this.el('option',{key:i,value:o.value}, o.label))));
+    }
+    if(opts.type==='textarea'){
+      return this.el('div',{className:'fld'},
+        this.el('label',null,label),
+        this.el('textarea',{name,value:val,onChange:(e)=>this.setField(e),rows:opts.rows||5,placeholder:opts.placeholder,style:{resize:'vertical',fontFamily:opts.mono?'ui-monospace,Menlo,monospace':'inherit'}}),
+        opts.hint? this.el('div',{style:{fontSize:'var(--fs-caption)',color:'var(--faint)',marginTop:5}}, opts.hint):null);
+    }
+    return this.el('div',{className:'fld'},
+      this.el('label',null,label),
+      this.el('input',{name,value:val,onChange:(e)=>this.setField(e),type:opts.type||'text',placeholder:opts.placeholder}),
+      opts.hint? this.el('div',{style:{fontSize:'var(--fs-caption)',color:'var(--faint)',marginTop:5}}, opts.hint):null);
+  }
+
+  // ---------- page content ----------
+  contentSlot(){
+    const r=this.state.route;
+    if(r==='dashboard') return this.pageDashboard();
+    if(r==='catalog') return this.pageCatalog();
+    if(r==='dify') return this.pageDify();
+    if(r==='groups') return this.pageGroups();
+    if(r==='officialPrices') return this.pagePrices();
+    if(r==='modifiers') return this.pageModifiers();
+    if(r==='tenants') return this.pageTenants();
+    if(r==='accounts') return this.pageAccounts();
+    if(r==='apiKeys') return this.pageApiKeys();
+    return null;
+  }
+
+  pageDashboard(){
+    const tn=this.state.tenants.length, rs=this.state.resources.length;
+    const jobs=this.state.jobs.filter(j=>j.tenant===this.state.filterTenant);
+    const max=Math.max(...this.state.ranking.map(x=>x.cost));
+    return this.el('div',{style:{display:'flex',flexDirection:'column',gap:'var(--s-5)'}},
+      this.el('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:'var(--s-3)'}},
+        [['租户',tn],['资源',rs],['活跃 Key', this.state.keys.filter(k=>k.status==='active').length],['今日任务', this.state.jobs.length]].map((s,i)=>
+          this.el('div',{key:i,className:'glass',style:{padding:'var(--s-5)',borderRadius:'var(--r-md)'}},
+            this.el('div',{style:{fontSize:'var(--fs-nano)',textTransform:'uppercase',letterSpacing:'.06em',color:'var(--muted)'}}, s[0]),
+            this.el('div',{className:'tabular',style:{fontSize:'var(--fs-xl)',fontWeight:700,marginTop:8,letterSpacing:'-.02em'}}, s[1])))),
+      this.el('div',{style:{display:'flex',flexDirection:'column',gap:'var(--s-3)'}},
+        this.sectionHeader('按成本排名的模型'),
+        this.el('div',{className:'panel',style:{borderRadius:'var(--r-md)',padding:'var(--s-5)',display:'flex',flexDirection:'column',gap:'var(--s-4)'}},
+          this.state.ranking.map((x,i)=> this.el('div',{key:i,style:{display:'flex',alignItems:'center',gap:'var(--s-4)'}},
+            this.el('div',{style:{width:140,flexShrink:0,fontSize:'var(--fs-sm)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, x.model),
+            this.el('div',{style:{flex:1,height:10,borderRadius:999,background:'var(--hover-bg)',overflow:'hidden'}},
+              this.el('div',{style:{width:(x.cost/max*100)+'%',height:'100%',borderRadius:999,background:'var(--grad-accent)',transition:'width .5s ease'}})),
+            this.el('div',{className:'tabular',style:{width:90,textAlign:'right',fontSize:'var(--fs-sm)',color:'var(--muted)'}}, this.credits(x.cost*1000)+' cr'))))),
+      this.el('div',{style:{display:'flex',flexDirection:'column',gap:'var(--s-3)'}},
+        this.sectionHeader('最近任务'),
+        this.cardGrid(jobs.map(j=> this.entityCard({
+          key:j.id, glyph:this.glyphIcon('M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z M3.3 7 12 12l8.7-5 M12 22V12'),
+          title:j.resource, badge:this.pill(j.status), chips:[j.mode],
+          meta:[{label:'成本',value:j.cost? this.credits(j.cost)+' cr':'—'},{label:'时间',value:this.fmtTime(j.at)}]
+        })),'list')));
+  }
+
+  sectionHeader(t){
+    return this.el('div',{style:{display:'flex',alignItems:'center',gap:'var(--s-3)'}},
+      this.el('div',{style:{width:4,height:15,borderRadius:2,background:'var(--grad-accent)'}}),
+      this.el('h2',{style:{margin:0,fontSize:'var(--fs-md)',fontWeight:700}}, t));
+  }
+
+  pageCatalog(){
+    const tab=this.state.catTab;
+    return this.el('div',{style:{display:'flex',flexDirection:'column',gap:'var(--s-4)'}},
+      this.el('div',{style:{display:'flex',gap:'var(--s-4)',borderBottom:'1px solid var(--row-bd)',padding:'0 4px'}},
+        [['models','模型'],['resources','资源']].map(tb=>
+          this.el('button',{key:tb[0],className:'tabx'+(tab===tb[0]?' on':''),onClick:()=>this.setState({catTab:tb[0],resSel:''})}, tb[1], this.el('span',{className:'ul'})))),
+      tab==='models'? this.catalogModels() : this.catalogResources());
+  }
+
+  catalogModels(){
+    const cols=[
+      {header:'模型',width:'240px',cell:r=> this.el('span',{style:{display:'inline-flex',alignItems:'center',gap:8}}, this.providerGlyph(r.provider,16), this.el('strong',null,r.name))},
+      {header:'模态',cell:r=>r.modality},
+      {header:'能力',cell:r=> this.el('span',{style:{display:'inline-flex',gap:4,flexWrap:'wrap'}}, r.caps.map((c,i)=>this.el('span',{key:i,className:'chip'},c)))},
+      {header:'输入价',cell:r=> this.el('span',{className:'tabular'},'$'+r.inUsd, this.el('span',{style:{color:'var(--muted)'}},' /1M'))},
+      {header:'输出价',cell:r=> this.el('span',{className:'tabular'},'$'+r.outUsd, this.el('span',{style:{color:'var(--muted)'}},' /1M'))},
+      {header:'可见性',cell:r=> this.el('span',{className:'chip'}, r.visibility==='public'?'公开':'租户')},
+      {header:'状态',cell:r=> this.pill(r.status)},
+    ];
+    return this.dataTable(cols, this.state.models, (r)=>[
+      this.rowActBtn('M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z',false,()=>this.toast('编辑 '+r.name),'编辑'),
+      this.rowActBtn('M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6',true,()=>this.toast('已删除（演示）'),'删除'),
+    ]);
+  }
+
+  catalogResources(){
+    const sel=this.state.resSel;
+    const isWide = this.state.device==='desktop';
+    const list = this.cardGrid(this.state.resources.map(r=> this.entityCard({
+      key:r.id, glyph:this.providerGlyph(r.provider_type,22), title:r.id, badge:this.pill(r.status),
+      chips:[r.modality, r.provider_type, ...r.exec_modes],
+      onClick:()=>this.setState({resSel:r.id}), selected:r.id===sel
+    })),'list');
+    const detail = sel? this.resourceDetail(sel) : this.el('div',{className:'panel',style:{height:'100%',minHeight:240,display:'grid',placeItems:'center',borderRadius:'var(--r-md)',color:'var(--muted)',fontSize:'var(--fs-sm)',padding:'var(--s-6)'}},'从左侧选择一个资源查看详情');
+    if(isWide){
+      return this.el('div',{style:{display:'grid',gridTemplateColumns:'minmax(280px,0.9fr) minmax(360px,1.3fr)',gap:'var(--s-3)',alignItems:'start'}}, list, detail);
+    }
+    return sel? detail : list;
+  }
+
+  resourceDetail(id){
+    const r=this.state.resources.find(x=>x.id===id);
+    if(!r) return null;
+    return this.el('div',{style:{display:'flex',flexDirection:'column',gap:'var(--s-4)'}},
+      this.el('div',{className:'glass',style:{borderRadius:'var(--r-md)',padding:'var(--s-5)',display:'flex',alignItems:'center',gap:'var(--s-3)'}},
+        this.providerGlyph(r.provider_type,26),
+        this.el('div',{style:{flex:1,minWidth:0}},
+          this.el('div',{style:{fontSize:'var(--fs-lg)',fontWeight:700}}, r.id),
+          this.el('div',{style:{fontSize:'var(--fs-sm)',color:'var(--muted)',marginTop:2}}, (r.kind==='workflow'?'工作流':'模型')+' · '+r.modality)),
+        this.pill(r.status)),
+      this.el('div',{style:{display:'flex',flexDirection:'column',gap:'var(--s-2)'}},
+        this.sectionHeader('上游通道'),
+        this.el('div',{className:'panel',style:{borderRadius:'var(--r-md)',padding:'var(--s-4)',display:'flex',flexDirection:'column',gap:'var(--s-3)'}},
+          this.state.groupMembers.map((c,i)=> this.el('div',{key:i,style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--s-3)',padding:'var(--s-2) 0',borderBottom:i<2?'1px solid var(--row-bd)':'none'}},
+            this.el('span',{style:{display:'inline-flex',alignItems:'center',gap:8,minWidth:0}}, this.providerGlyph(c.label,15), this.el('span',{style:{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}, c.label)),
+            this.el('span',{className:'tabular',style:{fontSize:'var(--fs-sm)',color:'var(--muted)',flexShrink:0}}, '权重 '+c.weight))))),
+      this.el('div',{style:{display:'flex',flexDirection:'column',gap:'var(--s-2)'}},
+        this.sectionHeader('定价'),
+        this.el('div',{className:'panel',style:{borderRadius:'var(--r-md)',padding:'var(--s-5)',display:'flex',gap:'var(--s-6)'}},
+          [['计价方式','单位计价'],['时机','后计费'],['版本','v3']].map((m,i)=>
+            this.el('div',{key:i},
+              this.el('div',{style:{fontSize:'var(--fs-caption)',textTransform:'uppercase',color:'var(--faint)'}}, m[0]),
+              this.el('div',{style:{fontSize:'var(--fs-sm)',marginTop:4}}, m[1]))))));
+  }
+
+  pageTenants(){
+    return this.cardGrid(this.state.tenants.map(r=> this.entityCard({
+      key:r.id, glyph:this.glyphIcon('M3 21h18M5 21V7l8-4v18M19 21V11l-6-3M9 9v.01M9 12v.01M9 15v.01'),
+      title:r.name, chips:[{field:'字段级',schema:'Schema 级',db:'库级'}[r.isolation_mode]],
+      meta:[{label:'ID',value:r.id},{label:'创建时间',value:this.fmtDate(r.created_at)}]
+    })));
+  }
+
+  pageApiKeys(){
+    const keys=this.state.keys.filter(k=>k.tenant===this.state.filterTenant);
+    return this.cardGrid(keys.length?keys.map(r=> this.entityCard({
+      key:r.id, glyph:this.glyphIcon('M21 2l-2 2m-7.6 7.6a5 5 0 1 0-7 7 5 5 0 0 0 7-7zm0 0L15 8m0 0l3 3 3-3-3-3'),
+      title:this.el('code',{style:{fontSize:'var(--fs-sm)'}}, r.id), badge:this.pill(r.status),
+      chips:[...(r.rate?[r.rate+'/min']:[]), ...(r.allow.length?r.allow:['全部资源'])],
+      meta:[{label:'路由组',value:r.group||'默认组 (×1.00)'},{label:'创建时间',value:this.fmtDate(r.created_at)}],
+      actions:[
+        this.el('select',{key:'g',className:'fld',value:r.group,onChange:(e)=>{const ks=this.state.keys.map(k=>k.id===r.id?{...k,group:e.target.value}:k);this.setState({keys:ks});this.toast('路由组已更新');},style:{fontSize:'var(--fs-caption)',padding:'6px 9px',width:150}},
+          [{v:'',l:'默认组 (×1.00)'},{v:'premium',l:'premium'},{v:'overseas',l:'overseas'},{v:'sandbox',l:'sandbox'}].map(o=>this.el('option',{key:o.v,value:o.v},o.l))),
+        this.btn('吊销','ghost',()=>this.openDialog('key-revoke',{id:r.id}),'M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6')
+      ]
+    })):[this.emptyBox('该租户下暂无 Key，点击右上角「签发 Key」创建')]);
+  }
+
+  pageAccounts(){
+    const a=this.state.account;
+    return this.el('div',{style:{display:'flex',flexDirection:'column',gap:'var(--s-3)'}},
+      this.el('div',{className:'glass',style:{padding:'var(--s-6)',borderRadius:'var(--r-md)',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'var(--s-4)',flexWrap:'wrap'}},
+        this.el('div',null,
+          this.el('div',{style:{fontSize:'var(--fs-nano)',textTransform:'uppercase',color:'var(--muted)'}},'余额'),
+          this.el('div',{className:'tabular',style:{fontSize:'var(--fs-2xl)',fontWeight:800,marginTop:6}}, this.credits(a.credit_balance), this.el('span',{style:{fontSize:'var(--fs-base)',color:'var(--muted)',fontWeight:600}},' credits')),
+          this.el('div',{style:{fontSize:'var(--fs-caption)',color:'var(--faint)',marginTop:6}}, '冻结 '+this.credits(a.held)+' · '+a.id)),
+        this.btn('充值','cta',()=>this.openDialog('account-topup',{credits:''}),'M12 5v14M5 12h14')),
+      this.el('div',{style:{display:'flex',flexDirection:'column',gap:'var(--s-3)'}},
+        this.sectionHeader('交易流水'),
+        this.dataTable([
+          {header:'类型',cell:r=>r.t},
+          {header:'金额',cell:r=> this.el('span',{className:'tabular',style:{color:r.amount>0?'var(--ok)':'var(--text)'}}, (r.amount>0?'+':'')+this.credits(Math.abs(r.amount))+' cr')},
+          {header:'余额',cell:r=> this.el('span',{className:'tabular'}, this.credits(r.bal)+' cr')},
+          {header:'时间',cell:r=>r.at},
+        ], [
+          {t:'充值',amount:500000000,bal:1284500000,at:'06-17 14:02'},
+          {t:'用量扣费',amount:-18400,bal:784518400,at:'06-17 09:11'},
+          {t:'用量扣费',amount:-42100,bal:784536800,at:'06-16 22:40'},
+          {t:'兑换码',amount:100000000,bal:784578900,at:'06-15 10:00'},
+        ])));
+  }
+
+  pageModifiers(){
+    const opLabel={override_rate:'覆盖费率',percent_off:'百分比折扣',flat_off:'定额减免',percent_add:'百分比加价'};
+    return this.cardGrid(this.state.modifiers.map(r=>{
+      const s=r.active?'active':'inactive';
+      return this.entityCard({
+        key:r.id, glyph:this.glyphIcon('M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6'),
+        title:r.scope, badge:this.pill(s), chips:[opLabel[r.op]||r.op],
+        meta:[{label:'值',value:r.value},{label:'优先级',value:String(r.priority)}]
+      });
+    }));
+  }
+
+  pageGroups(){
+    const cols=[
+      {header:'名称',width:'160px',cell:r=> this.el('strong',null,r.name)},
+      {header:'倍率',width:'150px',cell:r=>{const m=(r.bps/10000).toFixed(2);const d=Math.round((r.bps-10000)/100);return this.el('span',{style:{display:'inline-flex',gap:8,alignItems:'center'}}, this.el('span',{className:'tabular',style:{fontWeight:600}},'×'+m), this.el('span',{className:'tabular',style:{color:d===0?'var(--faint)':'var(--muted)'}}, (d>=0?'+':'')+d+'%'))}},
+      {header:'状态',cell:r=>this.pill(r.status)},
+      {header:'描述',cell:r=>r.description||'—'},
+      {header:'渠道',width:'80px',cell:r=> this.el('span',{className:'tabular'}, r.channels)},
+    ];
+    return this.dataTable(cols, this.state.routeGroups, (r)=>[
+      this.rowActBtn('M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z',false,()=>this.openDialog('group-edit',{id:r.id,name:r.name,ratio:r.bps/100,status:r.status,description:r.description}),'编辑'),
+      this.rowActBtn('M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 17l9 5 9-5',false,()=>this.openDialog('group-channels',{name:r.name}),'管理渠道'),
+      this.rowActBtn('M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6',true,()=>{this.setState({routeGroups:this.state.routeGroups.filter(g=>g.id!==r.id)});this.toast('分组已删除');},'删除'),
+    ]);
+  }
+
+  pagePrices(){
+    const cols=[
+      {header:'Provider',width:'150px',cell:r=> this.el('span',{style:{display:'inline-flex',alignItems:'center',gap:8}}, this.providerGlyph(r.provider,16), r.provider)},
+      {header:'模型标识',cell:r=> this.el('strong',null,r.slug)},
+      {header:'显示名',cell:r=>r.name},
+      {header:'输入价',width:'120px',cell:r=> this.el('span',{className:'tabular'}, '$'+this.usd1m(r.in), this.el('span',{style:{color:'var(--muted)'}},' /1M'))},
+      {header:'输出价',width:'120px',cell:r=> this.el('span',{className:'tabular'}, '$'+this.usd1m(r.out), this.el('span',{style:{color:'var(--muted)'}},' /1M'))},
+      {header:'生效',width:'110px',cell:r=> this.el('span',{className:'tabular'}, r.eff)},
+    ];
+    return this.dataTable(cols, this.state.prices, (r)=>[
+      this.rowActBtn('M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z',false,()=>this.openDialog('price-edit',{id:r.id,provider:r.provider,slug:r.slug,name:r.name,in:this.usd1m(r.in),out:this.usd1m(r.out),eff:r.eff}),'编辑'),
+      this.rowActBtn('M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6',true,()=>{this.setState({prices:this.state.prices.filter(p=>p.id!==r.id)});this.toast('官方价已删除');},'删除'),
+    ]);
+  }
+
+  pageDify(){
+    return this.el('div',{style:{display:'flex',flexDirection:'column',gap:'var(--s-4)',maxWidth:640}},
+      this.sectionHeader('Dify 导入'),
+      this.el('div',{style:{fontSize:'var(--fs-sm)',color:'var(--muted)',marginTop:-6}},'把 Dify 工作流粘贴为 YAML，导入为一个可计费的资源。'),
+      this.field('租户','d_tenant',{type:'select',options:this.state.tenants.map(t=>({value:t.id,label:t.name}))}),
+      this.field('资源 ID','d_rid',{placeholder:'support-workflow'}),
+      this.field('Dify Endpoint','d_ep',{placeholder:'https://api.dify.ai/v1'}),
+      this.field('Workflow YAML','d_yaml',{type:'textarea',mono:true,placeholder:'app:\n  name: ...\n  mode: workflow',rows:6}),
+      this.field('定价模型','d_pm',{type:'select',options:[{value:'fixed',label:'固定'},{value:'matrix',label:'矩阵'},{value:'metered',label:'按量计费'}]}),
+      this.el('div',null, this.btn('导入','cta',()=>this.toast('导入成功 · 已生成兼容性报告'),'M12 5v14M5 12h14')),
+      this.el('div',{className:'panel',style:{borderRadius:'var(--r-md)',padding:'var(--s-4)'}},
+        this.el('div',{style:{fontSize:'var(--fs-sm)',color:'var(--muted)',marginBottom:6}},'兼容性报告'),
+        this.el('pre',{className:'mono',style:{margin:0,fontSize:'var(--fs-sm)',whiteSpace:'pre-wrap',color:'var(--text)'}}, '{\n  "nodes": 7,\n  "supported": 6,\n  "blockers": 1,\n  "pricing_model": "fixed"\n}')));
+  }
+
+  // ---------- fullscreen routes ----------
+  landingSlot(){
+    const isMobile=this.state.device==='mobile';
+    return this.el('div',{className:'scroll',style:{position:'absolute',inset:0,overflow:'auto',background:'var(--bg)'}},
+      this.el('div',{className:'bg-grid'}),
+      this.el('div',{style:{position:'relative',zIndex:1}},
+        // nav
+        this.el('div',{style:{display:'flex',alignItems:'center',gap:'var(--s-3)',padding:isMobile?'16px 18px':'20px 40px',maxWidth:1200,margin:'0 auto'}},
+          this.el('span',{style:{width:28,height:28,borderRadius:7,background:'var(--grad-accent)',display:'inline-flex',alignItems:'center',justifyContent:'center',color:'var(--ink)'}}, this.el('svg',{width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2.2,strokeLinejoin:'round'}, this.el('path',{d:'M12 3l8 4.5v9L12 21l-8-4.5v-9z'}))),
+          this.el('strong',{style:{fontSize:18,letterSpacing:'-.02em'}},'Actionow'),
+          this.el('div',{style:{flex:1}}),
+          this.btn('控制台','ghost',this.go('dashboard')),
+          this.btn('登录','cta',this.go('login'))),
+        // hero
+        this.el('div',{style:{maxWidth:1200,margin:'0 auto',padding:isMobile?'24px 18px 60px':'60px 40px 100px',display:'grid',gridTemplateColumns:isMobile?'1fr':'1.25fr 0.9fr',gap:'var(--s-10)',alignItems:'center'}},
+          this.el('div',{style:{display:'flex',flexDirection:'column',gap:'var(--s-5)'}},
+            this.el('span',{className:'chip',style:{alignSelf:'flex-start'}},'自部署 AI 网关'),
+            this.el('h1',{style:{margin:0,fontSize:isMobile?34:54,fontWeight:850,letterSpacing:'-.035em',lineHeight:1.04}}, '一个网关，', this.el('span',{style:{background:'linear-gradient(120deg,var(--accent),var(--accent-2))',WebkitBackgroundClip:'text',backgroundClip:'text',color:'transparent'}},'接管所有模型'), '的中转与计费'),
+            this.el('p',{style:{margin:0,fontSize:'var(--fs-base)',lineHeight:1.6,color:'var(--muted)',maxWidth:460}},'多租户、积分计费、协议中转，开箱即用。OpenAI / Anthropic / Gemini 兼容端点，按模型 token 计价与对账。'),
+            this.el('div',{style:{display:'flex',gap:'var(--s-3)',flexWrap:'wrap'}}, this.btn('进入控制台','cta',this.go('dashboard'),'M5 12h14M12 5l7 7-7 7'), this.btn('查看文档','ghost',()=>this.toast('文档即将上线'))),
+            this.el('div',{style:{display:'flex',gap:'var(--s-5)',flexWrap:'wrap',marginTop:'var(--s-3)'}}, ['openai','anthropic','gemini','deepseek','qwen','kimi'].map((p,i)=> this.providerGlyph(p,20)))),
+          this.el('div',{className:'glass',style:{borderRadius:'var(--r-lg)',padding:'var(--s-5)',fontFamily:'ui-monospace,Menlo,monospace',fontSize:'var(--fs-sm)',lineHeight:1.7}},
+            this.el('div',{style:{fontSize:'var(--fs-micro)',textTransform:'uppercase',letterSpacing:'.06em',color:'var(--faint)',marginBottom:'var(--s-3)',fontFamily:'inherit'}},'实时日志'),
+            ['chat.completions · gpt-4o · 200','images.generations · flux · 200','video.generations · veo · 202','audio.speech · tts-1 · 200'].map((l,i)=>
+              this.el('div',{key:i,style:{whiteSpace:'nowrap',color:'var(--log-ok)'}}, this.el('span',{style:{color:'var(--faint)'}},'POST '), l))))));
+  }
+
+  loginSlot(){
+    const isMobile=this.state.device==='mobile';
+    const mode=this.state.authMode;
+    const card = this.el('form',{className:'glass',onSubmit:(e)=>{e.preventDefault();this.toast(mode==='login'?'登录成功':'账号已创建');this.setState({route:'dashboard'});},style:{padding:'var(--s-6)',borderRadius:'var(--r-lg)',display:'flex',flexDirection:'column',gap:'var(--s-4)',width:'min(400px,92vw)'}},
+      this.el('div',{className:'seg',style:{width:'100%'}},
+        ['login','register'].map(m=> this.el('button',{key:m,type:'button',className:mode===m?'on':'',style:{flex:1},onClick:()=>this.setState({authMode:m})}, m==='login'?'登录':'注册'))),
+      this.el('div',{className:'fld'}, this.el('label',null,'邮箱'), this.el('input',{type:'email',placeholder:'you@company.com',defaultValue:'admin@actionow.dev'})),
+      this.el('div',{className:'fld'}, this.el('label',null,'密码'), this.el('input',{type:'password',placeholder:'••••••••',defaultValue:'demo1234'})),
+      this.el('button',{type:'submit',className:'btn cta lg'}, mode==='login'?'登录':'创建账号', this.el('svg',{width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2.2,strokeLinecap:'round'}, this.el('path',{d:'M5 12h14M12 5l7 7-7 7'}))),
+      this.el('div',{style:{fontSize:'var(--fs-sm)',color:'var(--muted)',textAlign:'center'}}, mode==='login'?'还没有账号? ':'已有账号? ', this.el('a',{onClick:()=>this.setState({authMode:mode==='login'?'register':'login'}),style:{color:'var(--accent)',cursor:'pointer',fontWeight:600}}, mode==='login'?'立即注册':'去登录')));
+    return this.el('div',{className:'scroll',style:{position:'absolute',inset:0,overflow:'auto',background:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center',padding:'var(--s-8) var(--s-5)'}},
+      this.el('div',{className:'bg-grid'}),
+      this.el('div',{style:{position:'relative',zIndex:1,width:'100%',maxWidth:isMobile?440:1040,display:'grid',gridTemplateColumns:isMobile?'1fr':'1.05fr 0.95fr',gap:isMobile?'var(--s-6)':'var(--s-10)',alignItems:'center'}},
+        isMobile?null:this.el('div',{style:{display:'flex',flexDirection:'column',gap:'var(--s-5)'}},
+          this.el('span',{style:{width:30,height:30,borderRadius:8,background:'var(--grad-accent)',display:'inline-flex',alignItems:'center',justifyContent:'center',color:'var(--ink)'}}, this.el('svg',{width:17,height:17,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2.2,strokeLinejoin:'round'}, this.el('path',{d:'M12 3l8 4.5v9L12 21l-8-4.5v-9z'}))),
+          this.el('h1',{style:{margin:0,fontSize:42,fontWeight:850,letterSpacing:'-.035em',lineHeight:1.04}},'自部署的 AI 网关与中转底座'),
+          this.el('p',{style:{margin:0,fontSize:'var(--fs-base)',lineHeight:1.6,color:'var(--muted)',maxWidth:440}},'多租户、积分计费、协议中转，开箱即用。'),
+          this.el('ul',{style:{listStyle:'none',padding:0,margin:0,display:'flex',flexDirection:'column',gap:'var(--s-2)'}},
+            ['OpenAI / Anthropic / Gemini 兼容端点','租户自助：Key、用量、充值','按模型 token 计价与对账'].map((b,i)=>
+              this.el('li',{key:i,style:{display:'flex',alignItems:'center',gap:10,fontSize:'var(--fs-sm)'}}, this.el('svg',{width:17,height:17,viewBox:'0 0 24 24',fill:'var(--accent)'}, this.el('path',{d:'M12 2a10 10 0 100 20 10 10 0 000-20zm-1.2 14.4l-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4z'})), b)))),
+        this.el('div',{style:{display:'flex',justifyContent:'center'}}, card)));
+  }
+
+  appSlot(){
+    const isMobile=this.state.device==='mobile';
+    const a=this.state.account;
+    return this.el('div',{className:'scroll',style:{position:'absolute',inset:0,overflow:'auto',background:'var(--bg)'}},
+      this.el('div',{className:'bg-grid'}),
+      this.el('div',{style:{position:'relative',zIndex:1,maxWidth:760,margin:'0 auto',padding:isMobile?'18px':'40px 28px',display:'flex',flexDirection:'column',gap:'var(--s-5)'}},
+        this.el('div',{style:{display:'flex',alignItems:'center',gap:'var(--s-3)'}},
+          this.el('span',{style:{width:28,height:28,borderRadius:7,background:'var(--grad-accent)',display:'inline-flex',alignItems:'center',justifyContent:'center',color:'var(--ink)'}}, this.el('svg',{width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2.2,strokeLinejoin:'round'}, this.el('path',{d:'M12 3l8 4.5v9L12 21l-8-4.5v-9z'}))),
+          this.el('strong',{style:{fontSize:16}},'租户自助控制台'),
+          this.el('div',{style:{flex:1}}),
+          this.btn('退出','ghost',this.go('login'))),
+        this.el('div',{className:'glass',style:{padding:'var(--s-6)',borderRadius:'var(--r-lg)',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'var(--s-4)',flexWrap:'wrap'}},
+          this.el('div',null,
+            this.el('div',{style:{fontSize:'var(--fs-nano)',textTransform:'uppercase',color:'var(--muted)'}},'我的余额'),
+            this.el('div',{className:'tabular',style:{fontSize:'var(--fs-2xl)',fontWeight:800,marginTop:6}}, this.credits(a.credit_balance), this.el('span',{style:{fontSize:'var(--fs-base)',color:'var(--muted)',fontWeight:600}},' credits')),
+            this.el('div',{style:{fontSize:'var(--fs-caption)',color:'var(--faint)',marginTop:6}},'本月用量 92,400 credits')),
+          this.btn('充值','cta',()=>this.toast('跳转充值（演示）'),'M12 5v14M5 12h14')),
+        this.el('div',{style:{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:'var(--s-3)'}},
+          [['我的 API Key','ak_live_8Hq2…f0','签发、轮换、停用自己的密钥'],['可用模型','12 个','查看已授权模型与计价']].map((c,i)=>
+            this.el('div',{key:i,className:'panel',style:{borderRadius:'var(--r-md)',padding:'var(--s-5)'}},
+              this.el('div',{style:{fontSize:'var(--fs-sm)',fontWeight:700}}, c[0]),
+              this.el('div',{className:'tabular mono',style:{fontSize:'var(--fs-base)',margin:'8px 0',color:'var(--accent-2)'}}, c[1]),
+              this.el('div',{style:{fontSize:'var(--fs-caption)',color:'var(--muted)'}}, c[2])))),
+        this.el('div',{className:'panel',style:{borderRadius:'var(--r-md)',padding:'var(--s-5)'}},
+          this.el('div',{style:{fontSize:'var(--fs-sm)',fontWeight:700,marginBottom:'var(--s-3)'}},'快速接入'),
+          this.el('pre',{className:'mono',style:{margin:0,fontSize:'var(--fs-sm)',whiteSpace:'pre-wrap',color:'var(--muted)',lineHeight:1.7}},'curl https://api.actionow.dev/v1/chat/completions \\\n  -H "Authorization: Bearer ak_live_…" \\\n  -d \'{"model":"gpt-4o","messages":[…]}\''))));
+  }
+
+  // ---------- dialog content ----------
+  dialogBody(){
+    const k=this.state.dialog;
+    if(k==='tenant-new') return [this.field('名称','name',{placeholder:'Acme AI'}), this.field('隔离模式','iso',{type:'select',options:[{value:'field',label:'字段级'},{value:'schema',label:'Schema 级'},{value:'db',label:'库级'}]})];
+    if(k==='key-new') return [this.field('资源白名单（逗号分隔，可空）','allow',{placeholder:'gpt-4o, claude-3-5-sonnet'}), this.field('每分钟请求上限（可空）','rate',{type:'number',placeholder:'600'}), this.field('路由组','group',{type:'select',options:[{value:'',label:'默认组 (×1.00)'},{value:'premium',label:'premium'},{value:'overseas',label:'overseas'}]})];
+    if(k==='key-reveal') return [this.el('div',{style:{fontSize:'var(--fs-sm)',color:'var(--run)'}},'明文只显示这一次，请立即复制保存。'), this.el('div',{className:'panel mono',style:{padding:'var(--s-4)',borderRadius:'var(--r-sm)',fontSize:'var(--fs-sm)',wordBreak:'break-all',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--s-3)'}}, this.state.form.plaintext, this.btn('复制','ghost',()=>this.toast('已复制')))];
+    if(k==='key-revoke') return [this.el('div',{style:{fontSize:'var(--fs-sm)',color:'var(--muted)',lineHeight:1.6}}, this.el('code',null,this.state.form.id),' 将立即被以 401 拒绝，且不可恢复。')];
+    if(k==='account-new') return [this.field('租户','tenant',{type:'select',options:this.state.tenants.map(t=>({value:t.id,label:t.name}))}), this.field('开通余额 (credits)','credits',{type:'number',placeholder:'0'})];
+    if(k==='account-topup') return [this.field('充值额度 (credits)','credits',{type:'number',placeholder:'100000'})];
+    if(k==='price-edit') return [this.field('Provider','provider',{}), this.field('模型标识','slug',{}), this.field('显示名','name',{}), this.field('输入价 ($ /1M)','in',{type:'number'}), this.field('输出价 ($ /1M)','out',{type:'number'}), this.field('生效日期','eff',{type:'date'})];
+    if(k==='group-edit') return [this.field('名称','name',{}), this.field('倍率 (%)','ratio',{type:'number',hint:'100 = ×1.00（官方价），150 = ×1.50'}), this.field('状态','status',{type:'select',options:[{value:'active',label:'启用'},{value:'disabled',label:'已停用'}]}), this.field('描述','description',{})];
+    if(k==='group-channels') return [
+      this.el('div',{style:{display:'flex',gap:'var(--s-2)',alignItems:'flex-end'}}, this.el('div',{style:{flex:1}}, this.field('添加渠道','pick',{type:'select',options:[{value:'',label:'选择要添加的渠道'},{value:'a',label:'openai · gpt-4o-mini'},{value:'b',label:'gemini · gemini-1.5-flash'}]})), this.btn('添加','cta',()=>this.toast('渠道已添加'),'M12 5v14M5 12h14')),
+      ...this.state.groupMembers.map((m,i)=> this.el('div',{key:i,className:'panel',style:{borderRadius:'var(--r-md)',padding:'var(--s-3)',display:'flex',flexDirection:'column',gap:'var(--s-2)'}},
+        this.el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--s-2)'}}, this.el('strong',{style:{minWidth:0,overflow:'hidden',textOverflow:'ellipsis'}}, m.label), this.btn('移除','ghost',()=>this.toast('渠道已移除'))),
+        this.el('div',{style:{display:'flex',gap:'var(--s-3)'}}, this.el('div',{style:{flex:1}}, this.el('div',{className:'fld'}, this.el('label',null,'优先级'), this.el('input',{type:'number',defaultValue:m.priority}))), this.el('div',{style:{flex:1}}, this.el('div',{className:'fld'}, this.el('label',null,'权重'), this.el('input',{type:'number',defaultValue:m.weight}))))))
+    ];
+    if(k==='modifier-new') return [this.field('范围','scope',{placeholder:'global'}), this.field('操作','op',{type:'select',options:[{value:'override_rate',label:'覆盖费率'},{value:'percent_off',label:'百分比折扣'},{value:'flat_off',label:'定额减免'},{value:'percent_add',label:'百分比加价'}]}), this.field('值（可空）','value',{type:'number'}), this.field('条件表达式（可空）','when',{}), this.field('优先级（可空）','priority',{type:'number'})];
+    return null;
+  }
+  dialogFooter(){
+    const k=this.state.dialog;
+    if(k==='key-reveal') return [this.btn('完成','cta',()=>this.closeDialog())];
+    if(k==='key-revoke') return [this.btn('取消','ghost',()=>this.closeDialog()), this.btn('吊销','cta',()=>{this.setState({keys:this.state.keys.map(x=>x.id===this.state.form.id?{...x,status:'disabled'}:x)});this.toast('Key 已吊销');this.closeDialog();})];
+    if(k==='group-channels') return [this.btn('完成','cta',()=>this.closeDialog())];
+    const submit=(label,fn)=>[this.btn('取消','ghost',()=>this.closeDialog()), this.btn(label,'cta',fn)];
+    if(k==='tenant-new') return submit('创建',()=>{const f=this.state.form;this.setState({tenants:[{id:this.uid('tnt'),name:f.name||'新租户',isolation_mode:f.iso||'field',created_at:new Date().toISOString()},...this.state.tenants]});this.toast('租户已创建');this.closeDialog();});
+    if(k==='key-new') return submit('签发',()=>{const f=this.state.form;const id='ak_live_'+Math.random().toString(36).slice(2,6)+'…'+Math.random().toString(36).slice(2,4);this.setState({keys:[{id,tenant:this.state.filterTenant,rate:f.rate?Number(f.rate):null,allow:f.allow?f.allow.split(',').map(s=>s.trim()).filter(Boolean):[],status:'active',group:f.group||'',created_at:new Date().toISOString()},...this.state.keys]});this.openDialog('key-reveal',{plaintext:id.replace('…','aZ9')+'Kp4mQ2'});});
+    if(k==='account-new') return submit('创建',()=>{this.toast('账户已创建');this.closeDialog();});
+    if(k==='account-topup') return submit('充值',()=>{const f=this.state.form;const add=Number(f.credits||0)*1e6;this.setState({account:{...this.state.account,credit_balance:this.state.account.credit_balance+add}});this.toast('充值成功');this.closeDialog();});
+    if(k==='price-edit') return submit('保存',()=>{const f=this.state.form;this.setState({prices:this.state.prices.map(p=>p.id===f.id?{...p,name:f.name,in:String(Math.round(Number(f.in)*1e6)),out:String(Math.round(Number(f.out)*1e6)),eff:f.eff}:p)});this.toast('官方价已更新');this.closeDialog();});
+    if(k==='group-edit') return submit('保存',()=>{const f=this.state.form;this.setState({routeGroups:this.state.routeGroups.map(g=>g.id===f.id?{...g,name:f.name,bps:Math.round(Number(f.ratio)*100),status:f.status,description:f.description}:g)});this.toast('分组已更新');this.closeDialog();});
+    if(k==='modifier-new') return submit('创建',()=>{const f=this.state.form;this.setState({modifiers:[{id:this.uid('m'),scope:f.scope||'global',op:f.op||'percent_off',value:f.value?Number(f.value):'—',priority:f.priority?Number(f.priority):0,active:true},...this.state.modifiers]});this.toast('规则已创建');this.closeDialog();});
+    return [this.btn('关闭','ghost',()=>this.closeDialog())];
+  }
+
+  renderVals(){
+    const s=this.state;
+    const consoleRoutes=['dashboard','catalog','dify','groups','officialPrices','modifiers','tenants','accounts','apiKeys'];
+    const inConsole=consoleRoutes.includes(s.route);
+    const isDesktop=s.device==='desktop';
+    const isMobile=s.device==='mobile';
+
+    const groups=[
+      {key:'ops',label:'运营',icon:'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',items:['dashboard']},
+      {key:'catalog',label:'目录',icon:'M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 17l9 5 9-5',items:['catalog','dify']},
+      {key:'billing',label:'计费与路由',icon:'M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v10M9 10h4.5a2 2 0 010 4H9',items:['groups','officialPrices','modifiers']},
+      {key:'tenants',label:'租户',icon:'M3 21h18M5 21V7l8-4v18M19 21V11l-6-3',items:['tenants','accounts','apiKeys']},
+    ];
+    const titles={dashboard:'仪表盘',catalog:'目录',dify:'Dify 导入',groups:'分组',officialPrices:'官方价格',modifiers:'调价规则',tenants:'租户',accounts:'账户 / 充值',apiKeys:'API Keys'};
+    const subtitles={dashboard:'租户与资源概览，最近任务',catalog:'模型与资源——通道与定价',dify:'把 Dify 工作流导入为资源',groups:'路由分组与渠道成员',officialPrices:'模型参考价格',modifiers:'全局与范围化的调价规则',tenants:'创建与查看租户',accounts:'账户余额与充值',apiKeys:'签发与管理 API Key'};
+
+    const activeGroupIdx=groups.findIndex(g=>g.items.includes(s.route));
+    const navGroups=groups.map((g,i)=>({label:g.label,icon:g.icon,cls:i===activeGroupIdx?'on':'',go:this.go(g.items[0])}));
+    const ag=groups[activeGroupIdx]||groups[0];
+    const subNav=ag.items.map(it=>({label:titles[it],cls:s.route===it?'on':'',go:this.go(it)}));
+    const subIdx=ag.items.indexOf(s.route);
+
+    const mtabs=[{r:'dashboard',l:'仪表盘',ic:'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'},{r:'catalog',l:'目录',ic:'M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5'},{r:'tenants',l:'租户',ic:'M3 21h18M5 21V7l8-4v18M19 21V11l-6-3'},{r:'apiKeys',l:'Keys',ic:'M21 2l-2 2m-7.6 7.6a5 5 0 1 0-7 7 5 5 0 0 0 7-7zm0 0L15 8'}];
+    const mobileTabs=mtabs.map(t=>({label:t.l,icon:t.ic,color:s.route===t.r?'var(--accent)':'var(--muted)',go:this.go(t.r)}));
+
+    // page action button
+    const actionMap={
+      tenants:{label:'新建租户',go:()=>this.openDialog('tenant-new',{iso:'field'})},
+      apiKeys:{label:'签发 Key',go:()=>this.openDialog('key-new',{group:''})},
+      accounts:{label:'新建账户',go:()=>this.openDialog('account-new',{tenant:s.tenants[0].id})},
+      modifiers:{label:'新建规则',go:()=>this.openDialog('modifier-new',{op:'percent_off'})},
+      groups:{label:'新建分组',go:()=>this.openDialog('group-edit',{name:'',ratio:100,status:'active',description:''})},
+      officialPrices:{label:'新建官方价',go:()=>this.openDialog('price-edit',{provider:'openai',slug:'',name:'',in:'',out:'',eff:''})},
+    };
+    const pa=actionMap[s.route];
+
+    const showTenantFilter=(s.route==='dashboard'||s.route==='apiKeys');
+    const showBack=(s.route==='catalog'&&s.catTab==='resources'&&s.resSel!==''&&isMobile);
+
+    return {
+      theme:s.theme, device:s.device,
+      inConsole, isDesktop, isMobile,
+      rLanding:s.route==='landing', rLogin:s.route==='login', rApp:s.route==='app',
+      topTitle: inConsole? titles[s.route] : (s.route==='landing'?'官网':s.route==='login'?'登录':'租户主页'),
+      topSubtitle: subtitles[s.route]||'',
+      navGroups, subNav, subNavGroup:ag.label, mobileTabs,
+      railIndicator:(activeGroupIdx<0?0:activeGroupIdx)*52,
+      subIndicator:(subIdx<0?0:subIdx)*38,
+      pageAction: pa? {show:true,label:pa.label,go:pa.go} : {show:false,label:'',go:this.noop},
+      showTenantFilter, filterTenant:s.filterTenant,
+      tenantOptions:s.tenants, onFilterTenant:(e)=>this.setState({filterTenant:e.target.value}),
+      showBack, clearResSel:()=>this.setState({resSel:''}),
+      contentSlot: inConsole? this.contentSlot() : null,
+      landingSlot: s.route==='landing'? this.landingSlot():null,
+      loginSlot: s.route==='login'? this.loginSlot():null,
+      appSlot: s.route==='app'? this.appSlot():null,
+      themeIcon: s.theme==='dark'?'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z':'M12 2v2M12 20v2M5 5l1.5 1.5M17.5 17.5 19 19M2 12h2M20 12h2M5 19l1.5-1.5M17.5 6.5 19 5M12 8a4 4 0 100 8 4 4 0 000-8z',
+      toggleTheme:()=>this.setState({theme:s.theme==='dark'?'light':'dark'}),
+      goLogin:this.go('login'), noop:this.noop,
+      setPC:()=>this.setState({device:'desktop'}), setMobile:()=>this.setState({device:'mobile'}),
+      setDark:()=>this.setState({theme:'dark'}), setLight:()=>this.setState({theme:'light'}),
+      pcClass:isDesktop?'on':'', mobileClass:isMobile?'on':'', darkClass:s.theme==='dark'?'on':'', lightClass:s.theme==='light'?'on':'',
+      // dialogs
+      dialogShow: s.dialog!==null,
+      dialogIsModal: ['tenant-new','key-new','key-reveal','key-revoke','account-new','account-topup','modifier-new'].includes(s.dialog),
+      dialogIsDrawer: ['price-edit','group-edit','group-channels'].includes(s.dialog),
+      dialogTitle: {'tenant-new':'新建租户','key-new':'签发 Key','key-reveal':'Key 已生成','key-revoke':'吊销该 Key?','account-new':'新建账户','account-topup':'账户充值','price-edit':s.form.id?'编辑官方价':'新建官方价','group-edit':s.form.id?'编辑分组':'新建分组','group-channels':'渠道 · '+(s.form.name||''),'modifier-new':'新建规则'}[s.dialog]||'',
+      dialogBody: s.dialog? this.dialogBody():null,
+      dialogFooter: s.dialog? this.dialogFooter():null,
+      closeDialog:()=>this.closeDialog(),
+      toastShow: s.toast!=='', toastMsg:s.toast,
+      // shell layout vars (gap/pad differ desktop vs mobile via inline css vars)
+    };
+  }
+
+  noop(){}
+}
+</script>
+</body>
+</html>

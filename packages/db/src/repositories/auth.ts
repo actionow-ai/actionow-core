@@ -281,6 +281,20 @@ export async function findUserById(db: DbOrTx, id: string): Promise<UserRecord |
   return rows[0];
 }
 
+/** Set a user's password hash (self-serve change-password). Returns the updated row, or undefined if the id is unknown. */
+export async function updateUserPassword(
+  db: DbOrTx,
+  id: string,
+  passwordHash: string,
+): Promise<UserRecord | undefined> {
+  const rows = await db
+    .update(user)
+    .set({ passwordHash, updatedAt: new Date() })
+    .where(eq(user.id, id))
+    .returning(USER_COLUMNS);
+  return rows[0];
+}
+
 /**
  * Resolve the user behind an external identity by `(provider, provider_user_id)`
  * — the provider's stable subject, never the email. Joins `user_identity` →

@@ -169,6 +169,13 @@
       "when": 1781761861053,
       "tag": "0023_legal_red_shift",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1781965304362,
+      "tag": "0024_dry_clea",
+      "breakpoints": true
     }
   ]
 }

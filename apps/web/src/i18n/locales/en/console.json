@@ -1,0 +1,978 @@
+{
+  "auth": {
+    "loginTab": "Sign in",
+    "registerTab": "Register",
+    "email": "Email",
+    "password": "Password",
+    "loginSubmit": "Sign in",
+    "registerSubmit": "Create account",
+    "toRegister": "No account yet?",
+    "toRegisterCta": "Register",
+    "toLogin": "Already have an account?",
+    "toLoginCta": "Sign in",
+    "registered": "Account created, welcome",
+    "loggedIn": "Signed in",
+    "failed": "Failed, check your email or password",
+    "retryInSeconds": "Try again in {{seconds}}s",
+    "passwordPolicy": "8–256 characters",
+    "or": "or",
+    "oauthGoogle": "Continue with Google",
+    "oauthGithub": "Continue with GitHub",
+    "brandTitle": "Self-hosted AI gateway and relay",
+    "brandLead": "Multi-tenant, credit billing, protocol relay, out of the box.",
+    "b1": "OpenAI / Anthropic / Gemini compatible endpoints",
+    "b2": "Tenant self-service: keys, usage, top-ups",
+    "b3": "Per-model token pricing and reconciliation"
+  },
+  "app": {
+    "title": "Tenant self-service",
+    "soon": "Self-service console coming soon",
+    "hint": "Your tenant and account are ready. Self-service keys, usage, and top-ups open in a later phase.",
+    "logout": "Sign out",
+    "backHome": "Website",
+    "overview": {
+      "balance": "Balance",
+      "held": "held",
+      "jobsCount": "Recent jobs",
+      "jobs": "Recent jobs",
+      "ledger": "Ledger",
+      "noJobs": "No jobs yet",
+      "noLedger": "No ledger entries yet",
+      "viewAll": "View all",
+      "cols": {
+        "resource": "Resource",
+        "status": "Status",
+        "mode": "Mode",
+        "cost": "Cost",
+        "time": "Time",
+        "type": "Type",
+        "delta": "Change",
+        "balance": "Balance"
+      }
+    },
+    "keys": {
+      "mint": "Mint key",
+      "empty": "No API keys yet — mint your first one",
+      "rotate": "Rotate",
+      "disable": "Disable",
+      "disabled": "Key disabled",
+      "confirmDisableTitle": "Disable this key?",
+      "confirmDisableMsg": "{{id}} will stop working immediately."
+    },
+    "models": {
+      "empty": "No models available to your tenant",
+      "cols": {
+        "name": "Model",
+        "display": "Display",
+        "modality": "Modality",
+        "visibility": "Visibility"
+      }
+    },
+    "billing": {
+      "provider": "Payment method",
+      "amount": "Amount",
+      "amountHint": "In major units (e.g. dollars)",
+      "currency": "Currency",
+      "submit": "Top up",
+      "intentCreated": "Checkout created",
+      "continue": "Continue to checkout",
+      "history": "Top-up history",
+      "noHistory": "No top-ups yet",
+      "cols": {
+        "time": "Time",
+        "provider": "Method",
+        "amount": "Amount",
+        "credit": "Credits",
+        "status": "Status"
+      }
+    },
+    "settings": {
+      "profile": "Profile",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "tenant": "Tenant",
+      "changePassword": "Change password",
+      "current": "Current password",
+      "new": "New password",
+      "submit": "Update password",
+      "changed": "Password changed"
+    },
+    "usage": {
+      "empty": "No usage yet",
+      "log": "Per-call log",
+      "noLog": "No calls yet",
+      "cols": {
+        "time": "Time",
+        "model": "Model",
+        "tokens": "Tokens",
+        "cost": "Cost",
+        "latency": "Latency",
+        "status": "Status"
+      }
+    },
+    "media": {
+      "kindLabel": "Kind",
+      "allKinds": "All media",
+      "empty": "No media yet — generated images and videos will appear here.",
+      "noPreview": "No preview",
+      "copyUrl": "Copy URL",
+      "copied": "Copied",
+      "kind": {
+        "image": "Image",
+        "video": "Video",
+        "file": "File",
+        "audio": "Audio"
+      }
+    }
+  },
+  "nav": {
+    "groups": {
+      "ops": "Operations",
+      "catalog": "Catalog",
+      "billing": "Billing & Routing",
+      "tenants": "Tenants",
+      "home": "Home",
+      "account": "Account"
+    },
+    "dashboard": "Dashboard",
+    "analytics": "Analytics",
+    "relayTraces": "Relay traces",
+    "overview": "Overview",
+    "tusage": "Usage",
+    "tkeys": "API Keys",
+    "tmodels": "Models",
+    "billing": "Billing",
+    "tsettings": "Settings",
+    "tenants": "Tenants",
+    "accounts": "Accounts",
+    "apiKeys": "API Keys",
+    "catalog": "Catalog",
+    "resources": "Resources",
+    "models": "Models",
+    "modifiers": "Modifiers",
+    "routeGroups": "Groups",
+    "officialPrices": "Official prices",
+    "dify": "Dify import",
+    "redemptionCodes": "Redemption codes",
+    "tmedia": "Media",
+    "oauthSessions": "Credentials"
+  },
+  "topbar": {
+    "admin": "Admin",
+    "logout": "Sign out",
+    "backHome": "Website",
+    "refresh": "Refresh"
+  },
+  "subtitles": {
+    "dashboard": "Tenants & resources overview, recent jobs",
+    "analytics": "Usage, cost and margin over time and by dimension",
+    "relayTraces": "Upstream relay audit — requests, responses, latency",
+    "overview": "Balance, recent jobs and ledger",
+    "tusage": "Usage aggregation and per-call log",
+    "tkeys": "Mint and manage your API keys",
+    "tmodels": "Models available to your tenant",
+    "billing": "Top up your tenant balance",
+    "tsettings": "Your profile and password",
+    "tenants": "Create and view tenants",
+    "catalog": "Models & resources — channels and pricing",
+    "resources": "Models, upstream channels & pricing",
+    "models": "Relay models, tenant grants & token pricing",
+    "modifiers": "Global and scoped pricing rules",
+    "routeGroups": "Route groups & channel membership",
+    "officialPrices": "Reference model prices",
+    "dify": "Import a Dify workflow as a resource",
+    "accounts": "Account balance & top-up",
+    "apiKeys": "Issue and manage API keys"
+  },
+  "dashboard": {
+    "stats": {
+      "tenants": "Tenants",
+      "resources": "Resources",
+      "pickTenant": "Select tenant"
+    },
+    "recentJobs": "Recent jobs",
+    "noJobs": "No jobs for this tenant yet",
+    "pickTenant": "Pick a tenant to view jobs",
+    "cols": {
+      "resource": "Resource",
+      "execMode": "Exec mode",
+      "cost": "Cost",
+      "status": "Status"
+    },
+    "ranking": {
+      "title": "Top models by cost",
+      "empty": "No usage yet"
+    }
+  },
+  "analytics": {
+    "title": "Analytics",
+    "allTenants": "All tenants",
+    "groupByLabel": "Group by",
+    "metricLabel": "Metric",
+    "groupBy": {
+      "day": "By day",
+      "model": "Model",
+      "tenant": "Tenant",
+      "channel": "Channel",
+      "api_key": "API key"
+    },
+    "metric": {
+      "cost": "Cost",
+      "margin": "Margin",
+      "requests": "Requests",
+      "tokens": "Tokens"
+    },
+    "from": "From",
+    "to": "To",
+    "stats": {
+      "requests": "Requests",
+      "cost": "Cost",
+      "margin": "Margin",
+      "errors": "Errors"
+    },
+    "chart": {
+      "trend": "{{metric}} trend",
+      "breakdown": "{{metric}} by {{dimension}}",
+      "empty": "No usage in this range"
+    },
+    "detail": {
+      "title": "Breakdown"
+    },
+    "cols": {
+      "bucket": "Bucket",
+      "requests": "Requests",
+      "tokens": "Tokens",
+      "cost": "Cost",
+      "providerCost": "Provider cost",
+      "margin": "Margin",
+      "errors": "Errors"
+    }
+  },
+  "relayTraces": {
+    "title": "Relay traces",
+    "allTenants": "All tenants",
+    "providerPlaceholder": "Provider (e.g. openai)",
+    "from": "From",
+    "to": "To",
+    "empty": "No relay traces in this range",
+    "loadMore": "Load more",
+    "cols": {
+      "time": "Time",
+      "provider": "Provider",
+      "method": "Method",
+      "status": "Status",
+      "latency": "Latency",
+      "url": "URL"
+    },
+    "viewer": {
+      "title": "Relay trace",
+      "err": "ERR",
+      "stream": "Stream",
+      "truncated": "Truncated",
+      "url": "URL",
+      "tenant": "Tenant",
+      "job": "Job",
+      "channel": "Channel",
+      "provider": "Provider",
+      "error": "Error",
+      "reqHeaders": "Request headers",
+      "reqBody": "Request body",
+      "resBody": "Response body"
+    }
+  },
+  "tenants": {
+    "title": "Tenants",
+    "new": "New tenant",
+    "cols": {
+      "name": "Name",
+      "isolation": "Isolation",
+      "created": "Created"
+    },
+    "form": {
+      "name": "Name",
+      "isolation": "Isolation"
+    },
+    "isolation": {
+      "field": "Field",
+      "schema": "Schema",
+      "db": "Database"
+    },
+    "detail": {
+      "id": "Tenant ID",
+      "account": "Account",
+      "noAccount": "This tenant has no account yet"
+    },
+    "empty": "No tenants yet",
+    "created": "Tenant created",
+    "submit": "Create"
+  },
+  "accounts": {
+    "title": "Accounts",
+    "new": "New account",
+    "cols": {
+      "balance": "Balance",
+      "held": "Held",
+      "id": "Account",
+      "actions": "Actions"
+    },
+    "form": {
+      "tenant": "Tenant",
+      "credits": "Opening credits"
+    },
+    "topup": {
+      "action": "Top up",
+      "title": "Top up account",
+      "credits": "Credits to add",
+      "submit": "Top up",
+      "done": "Top-up complete"
+    },
+    "empty": "Create an account to start, or top up an existing one.",
+    "created": "Account created",
+    "submit": "Create"
+  },
+  "apiKeys": {
+    "title": "API Keys",
+    "new": "Mint key",
+    "cols": {
+      "id": "Key ID",
+      "allowlist": "Allowlist",
+      "rateLimit": "Rate limit",
+      "status": "Status",
+      "created": "Created"
+    },
+    "form": {
+      "tenant": "Tenant",
+      "allowlist": "Resource allowlist (comma-separated, optional)",
+      "rateLimit": "Requests per minute (optional)"
+    },
+    "group": {
+      "label": "Route group",
+      "default": "Default group (×1.00)",
+      "bound": "Group",
+      "tip": "Binding a key to a route group sets its customer price ratio and which channels it routes to. Default = ×1.00."
+    },
+    "revoke": "Revoke",
+    "revoked": "Key revoked",
+    "revokeConfirm": {
+      "title": "Revoke this key?",
+      "msg": "{{id}} will be rejected with 401 immediately. This can't be undone."
+    },
+    "empty": "Pick a tenant to view keys",
+    "submit": "Mint",
+    "reveal": {
+      "title": "Key created",
+      "warn": "The plaintext is shown only once, copy it now.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "done": "Done"
+    }
+  },
+  "resources": {
+    "title": "Resources",
+    "new": "New resource",
+    "empty": "No resources yet",
+    "created": "Resource created",
+    "submit": "Create",
+    "cols": {
+      "id": "ID",
+      "modality": "Modality",
+      "provider": "Provider",
+      "execModes": "Exec modes",
+      "status": "Status"
+    },
+    "form": {
+      "id": "Resource ID",
+      "tenant": "Tenant",
+      "kind": "Kind",
+      "modality": "Modality",
+      "provider": "Provider type",
+      "execModes": "Exec modes",
+      "ioSchema": "IO schema"
+    },
+    "tip": {
+      "id": "A unique identifier for this resource (e.g. gpt-4o or my-workflow). Used in API calls and must not collide with another resource.",
+      "tenant": "Which tenant owns this resource (its credits are charged).",
+      "kind": "Model = a single upstream model; Workflow = a multi-step pipeline (e.g. a Dify app).",
+      "modality": "The primary data type this resource handles: text, image, video, audio, or composite.",
+      "providerType": "Free-text upstream provider (e.g. openai, anthropic). The logo resolves from this value.",
+      "execModes": "How callers may invoke this resource: blocking, stream, async-poll or async-callback. Press Enter to add."
+    },
+    "kind": {
+      "model": "Model",
+      "workflow": "Workflow"
+    },
+    "actions": {
+      "setStatus": "Status"
+    },
+    "statusUpdated": "Resource status updated",
+    "sections": {
+      "overview": "Overview",
+      "channels": "Channels",
+      "pricing": "Pricing"
+    },
+    "detail": {
+      "back": "Back to resources",
+      "channels": "Upstream channels",
+      "pricebook": "Pricing",
+      "addChannel": "Add channel",
+      "channelAdded": "Channel added",
+      "addPrice": "Add price",
+      "priceAdded": "Price added",
+      "pick": "Select a resource to view details"
+    }
+  },
+  "models": {
+    "title": "Models",
+    "new": "New model",
+    "editTitle": "Edit model",
+    "save": "Save model",
+    "empty": "No models yet",
+    "created": "Model created",
+    "updated": "Model updated",
+    "deleted": "Model deleted",
+    "statusUpdated": "Model status updated",
+    "cols": {
+      "model": "Model",
+      "modality": "Modality",
+      "capabilities": "Capabilities",
+      "inputPrice": "Input price",
+      "outputPrice": "Output price",
+      "visibility": "Visibility",
+      "status": "Status"
+    },
+    "form": {
+      "name": "Name",
+      "resource": "Resource",
+      "resourcePlaceholder": "Select a resource",
+      "display": "Display name",
+      "modality": "Modality",
+      "capabilities": "Capabilities",
+      "visibility": "Visibility",
+      "inputPrice": "Input price",
+      "outputPrice": "Output price",
+      "status": "Status"
+    },
+    "tip": {
+      "name": "The unique model id callers request (e.g. anthropic/claude-3-5-sonnet). Immutable after creation.",
+      "resource": "Which resource/upstream this model routes to.",
+      "resourceFixed": "Resource is fixed after creation.",
+      "display": "Optional human-readable label shown in lists.",
+      "modality": "The data type this model handles. Immutable after creation.",
+      "modalityFixed": "Modality is fixed after creation.",
+      "capabilities": "Features this model supports — toggle the ones that apply.",
+      "visibility": "Public = available to all tenants; Tenant = only granted tenants can use it.",
+      "visibilityTenant": "Tenant-only: grant access per tenant from the grants drawer.",
+      "price": "Price in µcredits per token. 1 credit = 1,000,000 µcredits.",
+      "priceEquiv": "µcredits / token · ≈ {{n}} credits / 1,000,000 tokens",
+      "status": "Disabled models are hidden from callers."
+    },
+    "actions": {
+      "grants": "Grants",
+      "enable": "Enable",
+      "disable": "Disable"
+    },
+    "grant": {
+      "title": "Grants · {{name}}",
+      "note": "Public models are open to all tenants. Grants only gate tenant-visibility models.",
+      "tenant": "Tenant",
+      "tenantPlaceholder": "Select a tenant",
+      "submit": "Grant",
+      "revoke": "Revoke",
+      "granted": "Tenant granted",
+      "revoked": "Grant revoked",
+      "empty": "No grants yet",
+      "colTenant": "Tenant",
+      "colGranted": "Granted"
+    },
+    "confirm": {
+      "deleteTitle": "Delete model?",
+      "deleteMsg": "Permanently delete model {{name}}? This frees the name for re-create and cannot be undone.",
+      "revokeTitle": "Revoke grant?",
+      "revokeMsg": "Revoke access for {{tenant}}? They will no longer be able to use this model."
+    }
+  },
+  "channels": {
+    "addTitle": "Add channel",
+    "editTitle": "Edit channel",
+    "save": "Save channel",
+    "created": "Channel created",
+    "updated": "Channel updated",
+    "deleted": "Channel deleted",
+    "synced": "Synced {{total}} model(s)",
+    "form": {
+      "provider": "Provider type",
+      "endpoint": "Endpoint",
+      "model": "Model",
+      "proxyRef": "Proxy ref",
+      "credentialRef": "Credential ref",
+      "weight": "Weight",
+      "inputCost": "Input cost",
+      "outputCost": "Output cost",
+      "status": "Status",
+      "config": "Config"
+    },
+    "tip": {
+      "provider": "Free-text upstream provider for this channel (e.g. openai, anthropic). The logo resolves from this value.",
+      "providerFixed": "Provider is fixed after creation.",
+      "endpoint": "Override base URL for this channel. Leave empty to use the provider default.",
+      "model": "Upstream model name to call (e.g. gpt-4o). Leave empty to use the resource default.",
+      "proxyRef": "Optional reference to an outbound proxy configuration.",
+      "weight": "Routing weight — higher values receive a larger share of traffic across active channels.",
+      "cost": "Operator cost — what you pay upstream per 1M tokens. Used to compute margin against resale price. Leave 0 to omit.",
+      "costUnit": "USD per 1M tokens",
+      "status": "Disabled channels are skipped by routing.",
+      "credentialRef": "Id of the encrypted secret holding this channel's API key. Use \"New credential\" to create one.",
+      "config": "Provider-specific key/value settings for this channel (e.g. async submit/poll paths)."
+    },
+    "actions": {
+      "enable": "Enable",
+      "disable": "Disable",
+      "delete": "Delete",
+      "syncModels": "Sync models"
+    },
+    "preset": {
+      "asyncMedia": "Async media preset"
+    },
+    "cols": {
+      "provider": "Provider",
+      "endpoint": "Endpoint",
+      "model": "Model",
+      "weight": "Weight",
+      "cost": "Cost in/out",
+      "status": "Status"
+    },
+    "empty": "No upstream channels yet"
+  },
+  "credentials": {
+    "new": "New credential",
+    "pickExisting": "Select an existing credential",
+    "value": "Secret value",
+    "label": "Label (optional)",
+    "save": "Create credential",
+    "created": "Credential created",
+    "tip": {
+      "value": "The plaintext API key or secret. It is encrypted on save and never shown again — only its id is kept as a reference."
+    }
+  },
+  "pricebook": {
+    "empty": "No pricing yet",
+    "cols": {
+      "method": "Method",
+      "timing": "Timing",
+      "version": "Version",
+      "active": "Active"
+    },
+    "form": {
+      "resourceVersion": "Resource version",
+      "version": "Price version",
+      "method": "Method",
+      "timing": "Timing",
+      "fixedCredits": "Fixed credits",
+      "active": "Active",
+      "spec": "Spec",
+      "markup": "Markup (optional)"
+    },
+    "tip": {
+      "method": "How the price is computed: unit rate, matrix table, fixed amount, formula, or pass-through of upstream cost.",
+      "timing": "Pre = charge an estimate before the call; Post = charge the actual usage after the call completes.",
+      "fixedCredits": "The flat price in human credits (1 credit = 1,000,000 µcredits). The backend converts it to µcredits.",
+      "resourceVersion": "The resource version this price applies to. Defaults to the resource's current version.",
+      "version": "Version number for this price entry; bump it to supersede an earlier price."
+    }
+  },
+  "mock": {
+    "badge": "Demo data (mock)",
+    "note": "This page runs on in-memory demo data until its billing backend ships. Edits are not saved."
+  },
+  "officialPrices": {
+    "title": "Official prices",
+    "new": "New official price",
+    "editTitle": "Edit official price",
+    "save": "Save",
+    "empty": "No official prices yet",
+    "created": "Official price created",
+    "updated": "Official price updated",
+    "deleted": "Official price deleted",
+    "source": "Source",
+    "cols": {
+      "provider": "Provider",
+      "modelSlug": "Model slug",
+      "displayName": "Display name",
+      "inputPrice": "Input price",
+      "outputPrice": "Output price",
+      "effectiveAt": "Effective",
+      "source": "Source"
+    },
+    "form": {
+      "provider": "Provider",
+      "modelSlug": "Model slug",
+      "displayName": "Display name",
+      "inputPrice": "Input price",
+      "outputPrice": "Output price",
+      "cachedInputPrice": "Cached input price",
+      "effectiveAt": "Effective date",
+      "sourceUrl": "Source URL",
+      "notes": "Notes"
+    },
+    "tip": {
+      "provider": "Upstream provider this price is published by (e.g. openai, anthropic). The logo resolves from this value.",
+      "modelSlug": "The provider's model identifier (e.g. gpt-4o or claude-3-5-sonnet).",
+      "price": "Price in US dollars per 1M tokens. Stored as integer µUSD ($1 = 1,000,000 µUSD).",
+      "cachedInputPrice": "Optional discounted rate for cached input tokens, per 1M.",
+      "effectiveAt": "The date this published price takes effect.",
+      "sourceUrl": "Link to the provider's pricing page this figure was taken from."
+    },
+    "priceEquiv": "= ${{usd}} / 1M tokens",
+    "confirm": {
+      "deleteTitle": "Delete official price?",
+      "deleteMsg": "Permanently delete the price for {{model}}? This cannot be undone."
+    }
+  },
+  "groups": {
+    "title": "Route groups",
+    "new": "New group",
+    "editTitle": "Edit group",
+    "save": "Save",
+    "empty": "No route groups yet",
+    "created": "Group created",
+    "updated": "Group updated",
+    "deleted": "Group deleted",
+    "channelCount": "{{n}} channels",
+    "cols": {
+      "name": "Name",
+      "ratio": "Ratio",
+      "status": "Status",
+      "description": "Description",
+      "channels": "Channels"
+    },
+    "form": {
+      "name": "Name",
+      "ratioPercent": "Ratio (%)",
+      "status": "Status",
+      "description": "Description"
+    },
+    "tip": {
+      "name": "A unique name for this routing group (e.g. default, premium).",
+      "ratioPercent": "Group price ratio as a percent — 100 = ×1.00 (official price), 150 = ×1.50 (+50%). Stored as basis points.",
+      "ratioLive": "Group price ratio — 100 = ×1.00 (official price), 150 = ×1.50. This multiplies REAL customer billing for keys bound to this group. Stored as basis points.",
+      "status": "Disabled groups are skipped by routing.",
+      "description": "Optional note describing what this group is for."
+    },
+    "ratioEquiv": "= ×{{mult}} ({{sign}}{{pct}}%) · {{bps}} bps",
+    "actions": {
+      "manageChannels": "Manage channels"
+    },
+    "confirm": {
+      "deleteTitle": "Delete group?",
+      "deleteMsg": "Permanently delete the {{name}} group? Its channel membership is removed too. This cannot be undone."
+    },
+    "channels": {
+      "title": "Channels · {{name}}",
+      "empty": "No channels in this group yet",
+      "add": "Add channel",
+      "addPlaceholder": "Select a channel to add",
+      "allAdded": "All channels are already in this group",
+      "remove": "Remove",
+      "added": "Channel added",
+      "removed": "Channel removed",
+      "updated": "Membership updated",
+      "cols": {
+        "channel": "Channel",
+        "priority": "Priority",
+        "weight": "Weight"
+      },
+      "priorityHint": "Higher priority is tried first.",
+      "weightHint": "Relative traffic share among same-priority channels."
+    }
+  },
+  "common": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "Copy failed"
+  },
+  "confirm": {
+    "deleteChannelTitle": "Delete channel?",
+    "deleteChannelMsg": "Permanently delete the {{provider}} channel? This cannot be undone."
+  },
+  "table": {
+    "search": "Search",
+    "selected": "{{n}} selected",
+    "clear": "Clear",
+    "columns": "Columns",
+    "page": "Page {{page}} / {{pages}}",
+    "totalRows": "{{n}} total",
+    "prevPage": "Previous page",
+    "nextPage": "Next page",
+    "sortBy": "Sort by {{column}}",
+    "noMatches": "No rows match your search",
+    "selectRow": "Select row",
+    "selectAll": "Select all rows"
+  },
+  "modifiers": {
+    "title": "Modifiers",
+    "new": "New modifier",
+    "empty": "No modifiers yet",
+    "created": "Modifier created",
+    "submit": "Create",
+    "cols": {
+      "scope": "Scope",
+      "op": "Op",
+      "value": "Value",
+      "priority": "Priority",
+      "active": "Active"
+    },
+    "form": {
+      "scope": "Scope",
+      "whenExpr": "When expression (optional)",
+      "op": "Op",
+      "value": "Value (optional)",
+      "priority": "Priority (optional)",
+      "stackable": "Stackable"
+    }
+  },
+  "dify": {
+    "title": "Dify import",
+    "submit": "Import",
+    "imported": "Imported",
+    "form": {
+      "tenant": "Tenant",
+      "resourceId": "Resource ID",
+      "endpoint": "Dify endpoint",
+      "yaml": "Workflow YAML",
+      "pricingModel": "Pricing model",
+      "allowBlockers": "Allow blocking nodes"
+    },
+    "pricing": {
+      "fixed": "Fixed",
+      "matrix": "Matrix",
+      "metered": "Metered"
+    },
+    "report": "Compatibility report"
+  },
+  "status": {
+    "succeeded": "Succeeded",
+    "active": "Active",
+    "ready": "Ready",
+    "running": "Running",
+    "queued": "Queued",
+    "pending": "Pending",
+    "failed": "Failed",
+    "disabled": "Disabled",
+    "inactive": "Inactive",
+    "canceled": "Canceled",
+    "unused": "Unused",
+    "redeemed": "Redeemed"
+  },
+  "enums": {
+    "modality": {
+      "text": "Text",
+      "image": "Image",
+      "video": "Video",
+      "audio": "Audio",
+      "composite": "Composite"
+    },
+    "kind": {
+      "model": "Model",
+      "workflow": "Workflow"
+    },
+    "method": {
+      "unit": "Unit",
+      "matrix": "Matrix",
+      "fixed": "Fixed",
+      "formula": "Formula",
+      "passthrough": "Passthrough"
+    },
+    "timing": {
+      "pre": "Pre",
+      "post": "Post"
+    },
+    "channelStatus": {
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "markupType": {
+      "percent": "Percent",
+      "flat": "Flat"
+    },
+    "visibility": {
+      "public": "Public",
+      "tenant": "Tenant"
+    },
+    "modelStatus": {
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "modifierOp": {
+      "override_rate": "Override rate",
+      "percent_off": "Percent off",
+      "flat_off": "Flat off",
+      "percent_add": "Percent add"
+    },
+    "capability": {
+      "tools": "Tools",
+      "vision": "Vision",
+      "audio": "Audio",
+      "json": "JSON mode",
+      "stream": "Streaming"
+    }
+  },
+  "forms": {
+    "addRow": "Add row",
+    "removeRow": "Remove row",
+    "addField": "Add field",
+    "removeField": "Remove field",
+    "addDimension": "Add dimension",
+    "removeDimension": "Remove dimension",
+    "addChip": "Add {{value}}",
+    "removeChip": "Remove {{value}}",
+    "chipsPlaceholder": "Type a value and press Enter",
+    "close": "Close",
+    "advancedJson": "Advanced (JSON)",
+    "kv": {
+      "keyPlaceholder": "key",
+      "valuePlaceholder": "value",
+      "keyAria": "Key (row {{index}})",
+      "valueAria": "Value (row {{index}})"
+    },
+    "io": {
+      "inputs": "Inputs",
+      "inputsHint": "The request parameters callers send to this resource.",
+      "outputs": "Outputs",
+      "outputsHint": "The fields this resource returns in its response.",
+      "key": "Key",
+      "keyHint": "Machine name (no spaces), e.g. prompt or image_url.",
+      "keyPlaceholder": "key",
+      "typeLabel": "Type",
+      "typeHint": "The value type. Choose enum to constrain to a fixed set of options.",
+      "required": "Required",
+      "fieldLabel": "Label",
+      "fieldLabelHint": "Optional human-readable label for this field.",
+      "maxLength": "Max length",
+      "maxLengthHint": "Optional character cap (string and file only). 0 = no limit.",
+      "options": "Options",
+      "optionsHint": "Allowed values — required for an enum field.",
+      "type_string": "String",
+      "type_number": "Number",
+      "type_boolean": "Boolean",
+      "type_enum": "Enum",
+      "type_file": "File",
+      "type_file_list": "File list"
+    },
+    "spec": {
+      "dimension": "Dimension",
+      "rate": "Rate",
+      "rateHint": "µcredits per unit (1 credit = 1,000,000 µcredits).",
+      "muCreditNote": "Amounts here are µcredits — 1 credit = 1,000,000 µcredits.",
+      "key": "Key dimensions",
+      "keyHint": "The dimensions that compose each table key (order matters).",
+      "cellKey": "Combined key",
+      "cellKeyHint": "Join multiple key values with | — e.g. 720p|fast.",
+      "cell": "Price (µcredits)",
+      "multiplier": "Multiplier (optional)",
+      "multiplierHint": "Request variable to multiply the matched cell by.",
+      "perItem": "Per item (optional)",
+      "perItemHint": "Request variable charged once per item.",
+      "expr": "Formula",
+      "exprHint": "Allowed: integers, variable names and + - * ( ). No / % or decimals.",
+      "exprTooltip": "Variable names come from the request parameters.",
+      "exprError": "Only + - * ( ), integers and variable names are allowed.",
+      "markup": "Add markup",
+      "markupType": "Markup type",
+      "markupValue": "Markup value",
+      "markupPercentHint": "Whole percent added on top of the upstream cost.",
+      "markupFlatHint": "Flat µcredits added on top of the upstream cost.",
+      "fixedNote": "Set the price via the Fixed credits field in the pricing form."
+    }
+  },
+  "errors": {
+    "invalid_input": "Invalid request",
+    "unauthorized": "Unauthorized or session expired",
+    "insufficient_credits": "Insufficient credits",
+    "resource_not_found": "Resource not found",
+    "rate_limited": "Too many requests, try again later",
+    "content_filtered": "Content filtered",
+    "upstream_error": "Upstream service error",
+    "upstream_timeout": "Upstream timeout",
+    "job_failed": "Job failed",
+    "internal_error": "Internal server error",
+    "forbidden_not_admin": "This account is not an admin",
+    "network": "Network error, please retry",
+    "loadFailed": "Failed to load"
+  },
+  "redemptionCodes": {
+    "generate": "Generate codes",
+    "submit": "Generate",
+    "allStatuses": "All statuses",
+    "empty": "No redemption codes yet",
+    "cols": {
+      "code": "Code",
+      "creditAmount": "Credit",
+      "status": "Status",
+      "redeemedBy": "Redeemed by",
+      "expiresAt": "Expires",
+      "created": "Created"
+    },
+    "form": {
+      "count": "Number of codes",
+      "creditPerCode": "Credit per code",
+      "expiresAt": "Expiry (optional)",
+      "expiresHint": "Blank = never expires; accepts YYYY-MM-DD or an ISO timestamp"
+    },
+    "status": {
+      "unused": "Unused",
+      "redeemed": "Redeemed"
+    },
+    "minted": {
+      "title": "Codes generated",
+      "warn": "Copy these now — they are shown only once.",
+      "copy": "Copy all",
+      "copied": "Copied",
+      "done": "Done"
+    }
+  },
+  "oauthSessions": {
+    "revoke": "Revoke",
+    "revoked": "Credential revoked",
+    "connected": "Credential connected",
+    "copied": "Copied",
+    "empty": "No upstream credentials yet",
+    "tosWarn": "You are connecting your own upstream subscription; use is subject to that provider's Terms of Service.",
+    "tosAck": "I acknowledge the upstream provider's Terms of Service",
+    "cols": {
+      "provider": "Provider",
+      "account": "Account",
+      "accountId": "Account ID",
+      "status": "Status",
+      "expires": "Expires",
+      "lastRefresh": "Last refresh"
+    },
+    "codex": {
+      "action": "Connect Codex",
+      "title": "Connect a Codex account",
+      "subtitle": "Turnkey server-side OAuth — no tokens to paste",
+      "start": "Start login",
+      "complete": "Complete",
+      "openHint": "Open the authorize URL, sign in, then paste the code back here.",
+      "copyUrl": "Copy URL",
+      "openLink": "Open authorize URL",
+      "code": "Authorization code",
+      "label": "Account label (optional)",
+      "labelHint": "Overrides the label derived from the account."
+    },
+    "paste": {
+      "action": "Paste auth",
+      "title": "Paste an exported auth-json",
+      "subtitle": "BYO: paste the OAuth export from your own machine",
+      "submit": "Register",
+      "authJson": "Auth JSON"
+    },
+    "confirmRevokeTitle": "Revoke credential?",
+    "confirmRevokeMsg": "Revoke {{account}}? Channels using it stop resolving."
+  }
+}

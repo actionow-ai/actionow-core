@@ -1,24 +1,44 @@
 import {
+  type AccountRow,
   type ApiKeyRow,
   createApiKey,
   type CreatedApiKey,
   type Database,
   disableApiKeyForTenant,
+  type FileObject,
+  findUserById,
+  getAccount,
   type Job,
   type KeysetResult,
   type LedgerRow,
   listApiKeys,
+  listFilesByTenant,
+  listIntentsByTenant,
   listJobs,
   listLedger,
+  listUsageLogsByTenant,
   type PageParams,
+  type PaymentIntentRow,
+  rollupUsage,
   rotateApiKeyForTenant,
+  updateUserPassword,
+  type UsageLogRow,
+  type UsageRollupQuery,
+  type UsageRollupRow,
+  type UserRecord,
 } from '@actionow/db';
 import type { PaymentService } from '@actionow/engine';
+import { hashPassword, verifyPassword } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
 
-import { engineNotFound } from '../common/errors.js';
+import { engineInvalidInput, engineNotFound } from '../common/errors.js';
 import { DB, PAYMENTS } from '../common/tokens.js';
-import type { ConsoleCreateApiKeyDto, ConsoleCreateIntentDto } from './dto/console.dto.js';
+import type {
+  ConsoleAnalyticsUsageDto,
+  ConsoleChangePasswordDto,
+  ConsoleCreateApiKeyDto,
+  ConsoleCreateIntentDto,
+} from './dto/console.dto.js';
 import { MODELS_PORT, type ModelsPort, type ModelView } from './models.port.js';
 
 /** The body of a successful self-serve topup (`POST /console/payments/topup`). */
@@ -90,6 +110,78 @@ export class ConsoleService {
 
   listLedger(tenantId: string, page: PageParams): Promise<KeysetResult<LedgerRow>> {
     return listLedger(this.db, tenantId, page);
+  }
+
+  /** Usage rollups for the caller's tenant — the tenant is locked, never from the query. */
+  analyticsUsage(tenantId: string, dto: ConsoleAnalyticsUsageDto): Promise<UsageRollupRow[]> {
+    const query: UsageRollupQuery = { groupBy: dto.groupBy, tenantId };
+    if (dto.from !== undefined) query.from = new Date(dto.from);
+    if (dto.to !== undefined) query.to = new Date(dto.to);
+    return rollupUsage(this.db, query);
+  }
+
+  /** Per-call usage log for the caller's tenant (keyset, newest-first). */
+  listUsageLog(tenantId: string, page: PageParams): Promise<KeysetResult<UsageLogRow>> {
+    return listUsageLogsByTenant(this.db, tenantId, page);
+  }
+
+  // ----- files (asset gallery) -----
+
+  /**
+   * The caller-tenant's READY media files (uploaded assets + generated images/
+   * videos), keyset newest-first, optionally narrowed to a media `kind`. Pending
+   * uploads are excluded — the gallery only shows landed assets.
+   */
+  listFiles(
+    tenantId: string,
+    filter: { kind?: 'image' | 'video' | 'audio' },
+    page: PageParams,
+  ): Promise<KeysetResult<FileObject>> {
+    return listFilesByTenant(
+      this.db,
+      tenantId,
+      { status: 'ready', ...(filter.kind !== undefined ? { kind: filter.kind } : {}) },
+      page,
+    );
+  }
+
+  // ----- balance -----
+
+  /** The caller-tenant's billing account (credit balance + held); the guard supplies the id. */
+  async balance(accountId: string): Promise<AccountRow> {
+    const account = await getAccount(this.db, accountId);
+    if (account === undefined) throw engineNotFound(`account ${accountId} not found`);
+    return account;
+  }
+
+  // ----- payments history -----
+
+  /** The caller-tenant's payment intents (topup history), keyset newest-first. */
+  listPayments(tenantId: string, page: PageParams): Promise<KeysetResult<PaymentIntentRow>> {
+    return listIntentsByTenant(this.db, tenantId, page);
+  }
+
+  // ----- profile / settings -----
+
+  /** The caller's own user record (the guard supplies the id). */
+  async me(userId: string): Promise<UserRecord> {
+    const user = await findUserById(this.db, userId);
+    if (user === undefined) throw engineNotFound(`user ${userId} not found`);
+    return user;
+  }
+
+  /**
+   * Change the caller's password: verify the supplied current password against
+   * the stored scrypt hash, then swap in a hash of the new one. A wrong current
+   * password (or an OAuth-only account with no local hash) is `invalid_input`.
+   */
+  async changePassword(userId: string, dto: ConsoleChangePasswordDto): Promise<void> {
+    const user = await findUserById(this.db, userId);
+    if (user === undefined) throw engineNotFound(`user ${userId} not found`);
+    if (user.passwordHash === null || !verifyPassword(user.passwordHash, dto.currentPassword)) {
+      throw engineInvalidInput('current password is incorrect');
+    }
+    await updateUserPassword(this.db, userId, hashPassword(dto.newPassword));
   }
 
   // ----- models -----

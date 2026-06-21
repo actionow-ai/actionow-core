@@ -87,6 +87,52 @@ describe('async-media adapter', () => {
     });
   });
 
+  it('submits an audio task: params carries prompt, voice, language', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp({ status: 200, body: { task_id: 'task-a', status: 'pending' } }, (r) => {
+      seen = r;
+    });
+    await asyncMediaAdapter.submit(
+      input(
+        http,
+        'audio',
+        { prompt: 'read this aloud', voice: 'aria', language: 'en' },
+        'tts-model',
+      ),
+    );
+    expect(seen?.body).toEqual({
+      model: 'tts-model',
+      params: { prompt: 'read this aloud', voice: 'aria', language: 'en' },
+    });
+  });
+
+  it('forwards a reference image (img2img) into params under its own key', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp({ status: 200, body: { task_id: 't-i2i', status: 'pending' } }, (r) => {
+      seen = r;
+    });
+    // The run path resolves a `file` input (file_id) to a fetchable URL before the
+    // adapter sees it; the adapter forwards a known reference-image key verbatim.
+    await asyncMediaAdapter.submit(
+      input(
+        http,
+        'image',
+        {
+          prompt: 'restyle this product on a marble table',
+          init_image: 'https://asset.actionow.ai/t/in.jpg',
+        },
+        'img-model',
+      ),
+    );
+    expect(seen?.body).toEqual({
+      model: 'img-model',
+      params: {
+        prompt: 'restyle this product on a marble table',
+        init_image: 'https://asset.actionow.ai/t/in.jpg',
+      },
+    });
+  });
+
   it('forwards webhook_url + idempotency_key when present on inputs', async () => {
     let seen: HttpRequest | undefined;
     const http = fakeHttp({ status: 200, body: { task_id: 't2', status: 'pending' } }, (r) => {
@@ -138,7 +184,7 @@ describe('async-media adapter', () => {
     expect(r?.output).toBeUndefined();
   });
 
-  it('polls completed image as succeeded with image_url(s) output + tasks:1 usage', async () => {
+  it('polls completed image as succeeded with image_url(s) output + per-image usage', async () => {
     const ctx = input(
       fakeHttp({
         status: 200,
@@ -165,10 +211,36 @@ describe('async-media adapter', () => {
       image_url: 'https://cdn.relay.example/a.png',
       image_urls: ['https://cdn.relay.example/a.png'],
     });
-    expect(r?.usage).toEqual({ tasks: 1 });
+    expect(r?.usage).toEqual({ images: 1 });
   });
 
-  it('polls completed video as succeeded with video_url output', async () => {
+  it('polls a multi-image task: usage reflects image_count (per-image metering)', async () => {
+    const ctx = input(
+      fakeHttp({
+        status: 200,
+        body: {
+          status: 'completed',
+          result: {
+            image_urls: [
+              'https://cdn/1.png',
+              'https://cdn/2.png',
+              'https://cdn/3.png',
+              'https://cdn/4.png',
+            ],
+            image_count: 4,
+            generated_images: 4,
+          },
+        },
+      }),
+      'image',
+      { prompt: 'x' },
+      'img-model',
+    ).ctx;
+    const r = await asyncMediaAdapter.poll?.('t', ctx);
+    expect(r?.usage).toEqual({ images: 4 });
+  });
+
+  it('polls completed video as succeeded with video_url output + per-second usage', async () => {
     const ctx = input(
       fakeHttp({
         status: 200,
@@ -192,6 +264,48 @@ describe('async-media adapter', () => {
     const r = await asyncMediaAdapter.poll?.('t', ctx);
     expect(r?.status).toBe('succeeded');
     expect(r?.output).toMatchObject({ video_url: 'https://cdn.relay.example/v.mp4' });
+    expect(r?.usage).toEqual({ duration_seconds: 5 });
+  });
+
+  it('polls completed audio as succeeded with audio_url output + per-character usage', async () => {
+    const ctx = input(
+      fakeHttp({
+        status: 200,
+        body: {
+          status: 'completed',
+          result: {
+            audio_url: 'https://cdn.relay.example/speech.mp3',
+            character_count: 42,
+            audio_duration: 7,
+          },
+        },
+      }),
+      'audio',
+      { prompt: 'x' },
+      'tts-model',
+    ).ctx;
+    const r = await asyncMediaAdapter.poll?.('t', ctx);
+    expect(r?.status).toBe('succeeded');
+    expect(r?.output).toMatchObject({ audio_url: 'https://cdn.relay.example/speech.mp3' });
+    // character_count takes precedence (TTS bills per input character).
+    expect(r?.usage).toEqual({ characters: 42 });
+  });
+
+  it('meters generated audio by audio_seconds when no character count is present', async () => {
+    const ctx = input(
+      fakeHttp({
+        status: 200,
+        body: {
+          status: 'completed',
+          result: { audio_url: 'https://cdn.relay.example/music.wav', audio_duration: 30 },
+        },
+      }),
+      'audio',
+      { prompt: 'lofi beat' },
+      'music-model',
+    ).ctx;
+    const r = await asyncMediaAdapter.poll?.('t', ctx);
+    expect(r?.usage).toEqual({ audio_seconds: 30 });
   });
 
   it('polls failed as failed with a job_failed error carrying error_message', async () => {
@@ -239,7 +353,7 @@ describe('async-media adapter', () => {
     });
     expect(cb).toMatchObject({ upstreamJobId: 'task-uuid-1', status: 'succeeded' });
     expect(cb?.output).toMatchObject({ image_url: 'https://cdn.relay.example/a.png' });
-    expect(cb?.usage).toEqual({ tasks: 1 });
+    expect(cb?.usage).toEqual({ images: 1 });
   });
 
   it('parseCallback returns an empty upstreamJobId for a bad signature', () => {

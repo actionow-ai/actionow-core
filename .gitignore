@@ -8,3 +8,4 @@ coverage/
 .turbo/
 *.tsbuildinfo
 .superpowers/
+.DS_Store

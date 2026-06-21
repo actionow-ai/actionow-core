@@ -2,3 +2,7 @@ dist
 .turbo
 pnpm-lock.yaml
 **/drizzle/**
+
+# generated contract-first artifacts (reproduced by `pnpm --filter @actionow/contracts gen`)
+**/src/generated/
+packages/contracts/openapi.json

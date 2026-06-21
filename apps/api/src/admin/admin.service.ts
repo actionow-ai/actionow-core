@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
 import type { AdapterRegistry } from '@actionow/adapters';
-import type { AdapterContext, HttpClient } from '@actionow/contracts';
+import {
+  type AdapterContext,
+  type HttpClient,
+  type RelayTraceView,
+  relayTraceViewSchema,
+} from '@actionow/contracts';
 import {
   type AccountRow,
   addChannelToGroup,
@@ -42,6 +47,7 @@ import {
   type Job,
   type KeysetResult,
   type LedgerRow,
+  listAccounts,
   listApiKeys,
   listChannelsForResource,
   listGroupChannels,
@@ -138,6 +144,7 @@ import type {
   CreateTenantDto,
   GenerateCodesDto,
   GrantModelDto,
+  ProvisionDto,
   SyncChannelModelsDto,
   TopupDto,
   UpdateApiKeyGroupDto,
@@ -227,6 +234,13 @@ interface OAuthSessionInputs {
   accountLabel?: string | undefined;
 }
 
+/** The atomic result of {@link AdminService.provision}: tenant + account + one-time key. */
+export interface ProvisionResult {
+  tenant: TenantRow;
+  account: AccountRow;
+  apiKey: CreatedApiKey;
+}
+
 /**
  * The thin write/read layer behind the admin CRUD controllers. Owns the
  * dto→db-repo mapping and the credit→µcredit conversion at the boundary: every
@@ -259,6 +273,26 @@ export class AdminService {
     return createTenant(this.db, { name: dto.name, isolationMode: dto.isolationMode });
   }
 
+  /**
+   * Atomically provision a customer in ONE transaction: a tenant + its account
+   * (optional opening balance, human credits → µcredits) + an API key. If any
+   * step fails the whole thing rolls back, so an embedder never ends up with a
+   * half-created tenant. The plaintext key is returned ONCE (never re-derivable).
+   */
+  provision(dto: ProvisionDto): Promise<ProvisionResult> {
+    const creditBalance = dto.credits === undefined ? undefined : creditsToMicro(dto.credits);
+    return this.db.transaction(async (tx) => {
+      const tenant = await createTenant(tx, { name: dto.name, isolationMode: dto.isolationMode });
+      const account = await createAccount(tx, { tenantId: tenant.id, creditBalance });
+      const apiKey = await createApiKey(tx, {
+        tenantId: tenant.id,
+        resourceAllowlist: dto.resourceAllowlist,
+        rateLimit: dto.rateLimit,
+      });
+      return { tenant, account, apiKey };
+    });
+  }
+
   listTenants(page: PageParams): Promise<KeysetResult<TenantRow>> {
     return listTenants(this.db, page);
   }
@@ -286,6 +320,11 @@ export class AdminService {
   createAccount(dto: CreateAccountDto): Promise<AccountRow> {
     const creditBalance = dto.credits === undefined ? undefined : creditsToMicro(dto.credits);
     return createAccount(this.db, { tenantId: dto.tenantId, creditBalance });
+  }
+
+  /** List accounts (balance/held view), keyset-paginated — read-only, like the per-id GET. */
+  listAccounts(page: PageParams): Promise<KeysetResult<AccountRow>> {
+    return listAccounts(this.db, page);
   }
 
   /**
@@ -1523,24 +1562,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * snake_case; `created_at` is an ISO string; `request_headers` has had secret
  * header VALUES redacted a SECOND time on read (see {@link toRelayTraceView}).
  */
-export interface RelayTraceView {
-  id: string;
-  created_at: string;
-  tenant_id: string | null;
-  job_id: string | null;
-  channel_id: string | null;
-  provider_type: string | null;
-  method: string;
-  url: string;
-  request_headers: Record<string, string> | null;
-  request_body: string | null;
-  response_status: number | null;
-  response_body: string | null;
-  is_stream: boolean;
-  latency_ms: number | null;
-  error: string | null;
-  truncated: boolean;
-}
+// RelayTraceView is defined once in @actionow/contracts (ops-views) — single
+// source of truth shared with the frontend; toRelayTraceView() `.parse()`s it.
+export type { RelayTraceView };
 
 /**
  * Project a raw `relay_trace` row to its read view. DEFENSE-IN-DEPTH: re-runs the
@@ -1550,7 +1574,7 @@ export interface RelayTraceView {
  * snake_case projection (bodies are already truncated at the byte cap on write).
  */
 export function toRelayTraceView(row: RelayTraceRow): RelayTraceView {
-  return {
+  return relayTraceViewSchema.parse({
     id: row.id,
     created_at: row.createdAt.toISOString(),
     tenant_id: row.tenantId,
@@ -1567,5 +1591,5 @@ export function toRelayTraceView(row: RelayTraceRow): RelayTraceView {
     latency_ms: row.latencyMs,
     error: row.error,
     truncated: row.truncated,
-  };
+  });
 }
