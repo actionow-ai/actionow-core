@@ -241,6 +241,76 @@ describe('POST/GET /v1/files over real MinIO', () => {
       .send({ filename: 'x.txt', content_type: 'text/plain', size: 1 })
       .expect(401);
   });
+
+  it('GET /v1/files lists the caller-tenant files (keyset envelope, created_at, status filter, tenant-scoped)', async () => {
+    const tenantId = await seedTenant('lister');
+    const { plaintext: key } = await createApiKey(db, { tenantId });
+    const other = await seedTenant('lister-other');
+
+    await db.insert(schema.fileObject).values([
+      {
+        tenantId,
+        provider: 'minio',
+        bucket: BUCKET,
+        key: `${tenantId}/one.png`,
+        status: 'ready',
+        contentType: 'image/png',
+        size: 10,
+        createdAt: new Date('2026-02-01Z'),
+      },
+      {
+        tenantId,
+        provider: 'minio',
+        bucket: BUCKET,
+        key: `${tenantId}/two.png`,
+        status: 'ready',
+        contentType: 'image/png',
+        size: 20,
+        createdAt: new Date('2026-02-02Z'),
+      },
+      {
+        tenantId,
+        provider: 'minio',
+        bucket: BUCKET,
+        key: `${tenantId}/p.png`,
+        status: 'pending',
+        contentType: 'image/png',
+        createdAt: new Date('2026-02-03Z'),
+      },
+      {
+        tenantId: other,
+        provider: 'minio',
+        bucket: BUCKET,
+        key: `${other}/secret.png`,
+        status: 'ready',
+        contentType: 'image/png',
+        size: 5,
+        createdAt: new Date('2026-02-04Z'),
+      },
+    ]);
+
+    // Unfiltered: every caller file (pending + ready), newest-first; the other tenant excluded.
+    const all = await request(app.getHttpServer())
+      .get('/v1/files')
+      .set('authorization', `Bearer ${key}`)
+      .expect(200);
+    expect(all.body.data).toHaveLength(3);
+    expect(all.body.data[0].created_at).toBeTruthy();
+    expect(all.body.data[0]).toHaveProperty('etag');
+    expect(all.body).toHaveProperty('next_cursor');
+    expect(all.body).toHaveProperty('has_more', false);
+
+    // status=ready narrows to the two ready files.
+    const ready = await request(app.getHttpServer())
+      .get('/v1/files?status=ready')
+      .set('authorization', `Bearer ${key}`)
+      .expect(200);
+    expect(ready.body.data).toHaveLength(2);
+    for (const f of ready.body.data as { status: string }[]) expect(f.status).toBe('ready');
+
+    // Anonymous → 401.
+    await request(app.getHttpServer()).get('/v1/files').expect(401);
+  });
 });
 
 describe('FilesService.resolveFileInputs', () => {

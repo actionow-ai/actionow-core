@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { AdminRequest } from '../src/admin/auth/admin.guard.js';
 import { AdminGuard } from '../src/admin/auth/admin.guard.js';
+import type { AdminTokenAuthService } from '../src/admin/auth/admin-token-auth.service.js';
 import { ROLES_KEY } from '../src/admin/auth/roles.decorator.js';
 
 const SECRET = 'test-admin-secret';
@@ -31,8 +32,18 @@ function ctx(authHeader: string | undefined, requiredRoles?: string[]): Executio
   } as unknown as ExecutionContext;
 }
 
-function guard(): AdminGuard {
-  return new AdminGuard(jwt, new Reflector(), { ADMIN_JWT_SECRET: SECRET } as never);
+/**
+ * Build the guard with a fake {@link AdminTokenAuthService}. The default verifier
+ * rejects every `at_` token (returns `undefined`), so the JWT-path tests — which
+ * present JWTs, never `at_` tokens — never touch it and stay unaffected.
+ */
+function guard(tokenAuth?: Pick<AdminTokenAuthService, 'verify'>): AdminGuard {
+  return new AdminGuard(
+    jwt,
+    new Reflector(),
+    { ADMIN_JWT_SECRET: SECRET } as never,
+    (tokenAuth ?? { verify: () => Promise.resolve(undefined) }) as AdminTokenAuthService,
+  );
 }
 
 function tokenFor(
@@ -101,6 +112,35 @@ describe('AdminGuard', () => {
       const g = guard();
       const c = ctx(`Bearer ${tokenFor({ sub: 'a', role: 'viewer' })}`);
       await expect(g.canActivate(c)).resolves.toBe(true);
+    });
+  });
+
+  describe('admin service token (at_ prefix) path', () => {
+    it('accepts a valid service token and attaches the verifier-resolved admin context', async () => {
+      const g = guard({ verify: () => Promise.resolve({ adminId: 'admin-9', role: 'admin' }) });
+      const c = ctx('Bearer at_sometoken');
+      await expect(g.canActivate(c)).resolves.toBe(true);
+
+      const req = c.switchToHttp().getRequest<AdminRequest>();
+      expect(req.admin).toMatchObject({ adminId: 'admin-9', role: 'admin' });
+    });
+
+    it('rejects an at_ token the verifier rejects (unknown / revoked / disabled / expired)', async () => {
+      const g = guard({ verify: () => Promise.resolve(undefined) });
+      await expect(g.canActivate(ctx('Bearer at_bad'))).rejects.toMatchObject({
+        unified: { code: 'unauthorized' },
+      });
+    });
+
+    it('routes at_ tokens to the service, NOT the JWT verifier (passes though it is not a JWT)', async () => {
+      const g = guard({ verify: () => Promise.resolve({ adminId: 'a', role: 'admin' }) });
+      await expect(g.canActivate(ctx('Bearer at_not-a-jwt'))).resolves.toBe(true);
+    });
+
+    it('enforces @Roles for a service token too', async () => {
+      const g = guard({ verify: () => Promise.resolve({ adminId: 'a', role: 'admin' }) });
+      const c = ctx('Bearer at_token', ['superadmin']);
+      await expect(g.canActivate(c)).rejects.toMatchObject({ unified: { code: 'unauthorized' } });
     });
   });
 });

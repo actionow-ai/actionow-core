@@ -112,6 +112,20 @@ export async function getAccount(db: DbOrTx, accountId: string): Promise<Account
   return rows[0];
 }
 
+/** List live accounts (excludes soft-deleted), newest-first, keyset-paginated. */
+export async function listAccounts(
+  db: DbOrTx,
+  page: PageParams,
+): Promise<KeysetResult<AccountRow>> {
+  return keysetPage<AccountRow>(db, {
+    table: account,
+    createdAtCol: account.createdAt,
+    idCol: account.id,
+    where: isNull(account.deletedAt),
+    page,
+  });
+}
+
 /**
  * List a tenant's API keys (admin view). The stored `hash` is intentionally
  * NOT selected — the plaintext is unrecoverable and the hash is never surfaced.

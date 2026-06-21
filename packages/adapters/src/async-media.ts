@@ -57,9 +57,25 @@ function buildParams(modality: string, inputs: Record<string, unknown>): Record<
     if (duration !== undefined) params.duration = duration;
     const ratio = asString(inputs.ratio);
     if (ratio !== undefined) params.ratio = ratio;
+  } else if (modality === 'audio') {
+    // TTS / generative-audio params: voice + language + output format pass through
+    // verbatim; `speed` is numeric (playback rate).
+    for (const key of ['voice', 'voice_id', 'language', 'format'] as const) {
+      const v = asString(inputs[key]);
+      if (v !== undefined) params[key] = v;
+    }
+    const speed = asNumber(inputs.speed);
+    if (speed !== undefined) params.speed = speed;
   } else {
     const size = asString(inputs.size);
     if (size !== undefined) params.size = size;
+  }
+  // img2img / reference-image: the run path resolves a `file` input (a file_id)
+  // to a fetchable URL before the adapter sees it; forward a known reference key
+  // VERBATIM so the relay receives it under the io_schema input name unchanged.
+  for (const key of ['image', 'init_image', 'reference_image'] as const) {
+    const url = asString(inputs[key]);
+    if (url !== undefined) params[key] = url;
   }
   return params;
 }
@@ -77,10 +93,43 @@ function resultOutput(result: Record<string, unknown> | undefined): Record<strin
     'duration',
     'resolution',
     'ratio',
+    'audio_url',
+    'audio_duration',
+    'character_count',
+    'sample_rate',
+    'format',
   ]) {
     if (result[key] !== undefined) out[key] = result[key];
   }
   return out;
+}
+
+/**
+ * Derive the metered {@link UsageVector} from a completed task's `result`, so a
+ * media job bills per OUTPUT UNIT (per image, per second of video, per character or
+ * second of audio) rather than a flat per-task charge. Image count comes from
+ * `image_count`/`generated_images`/the `image_urls` length; AUDIO from
+ * `character_count`/`characters` (TTS, per input character) else
+ * `audio_duration`/`audio_seconds` (generative audio, per second); video seconds
+ * from `duration`. Falls back to `{ tasks: 1 }` when no dimension is present, so a
+ * `tasks`-priced pricebook still settles.
+ */
+function usageFromResult(result: Record<string, unknown> | undefined): UsageVector {
+  if (result === undefined) return { tasks: 1 };
+  const imageUrls = result.image_urls;
+  const images =
+    asNumber(result.image_count) ??
+    asNumber(result.generated_images) ??
+    (Array.isArray(imageUrls) ? imageUrls.length : undefined) ??
+    (result.image_url !== undefined ? 1 : undefined);
+  if (images !== undefined) return { images };
+  const characters = asNumber(result.character_count) ?? asNumber(result.characters);
+  if (characters !== undefined) return { characters };
+  const audioSeconds = asNumber(result.audio_duration) ?? asNumber(result.audio_seconds);
+  if (audioSeconds !== undefined) return { audio_seconds: audioSeconds };
+  const duration = asNumber(result.duration) ?? asNumber(result.duration_seconds);
+  if (duration !== undefined) return { duration_seconds: duration };
+  return { tasks: 1 };
 }
 
 /** Read a header value (lower-cased lookup); collapses arrays to the first entry. */
@@ -162,7 +211,7 @@ export const asyncMediaAdapter: ProviderAdapter = {
       return {
         status: 'succeeded',
         output: resultOutput(asRecord(data?.result)),
-        usage: { tasks: 1 },
+        usage: usageFromResult(asRecord(data?.result)),
       };
     }
     if (status === 'failed') {
@@ -215,7 +264,7 @@ export const asyncMediaAdapter: ProviderAdapter = {
         upstreamJobId: taskId,
         status: 'succeeded',
         output: resultOutput(asRecord(data.result)),
-        usage: { tasks: 1 },
+        usage: usageFromResult(asRecord(data.result)),
       };
     }
     return {
@@ -231,8 +280,9 @@ export const asyncMediaAdapter: ProviderAdapter = {
   },
 
   extractUsage(raw: unknown): UsageVector {
-    const status = asString(asRecord(raw)?.status);
-    return status === 'completed' ? { tasks: 1 } : {};
+    const data = asRecord(raw);
+    const status = asString(data?.status);
+    return status === 'completed' ? usageFromResult(asRecord(data?.result)) : {};
   },
 
   mapError(raw: unknown): UnifiedError {

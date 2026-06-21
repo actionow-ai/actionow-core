@@ -80,11 +80,16 @@ describe('seedProviders (real-provider catalog as DATA)', () => {
     // credential_ref → secret_ref locator `huimeng` → SecretResolver reads SECRET_HUIMENG.
     expect(await credentialLocator(channel)).toBe('huimeng');
 
-    // Placeholder media pricing: 250_000 µcredits/image on the `tasks` dimension.
+    // Per-image pricing: 250_000 µcredits per image (the `async-media` adapter
+    // meters `{ images: N }`); `tasks` is a same-rate fallback for results with
+    // no image count, so a media job never settles 0.
     const pricebook = await getActivePricebookEntry(db, 'image-relay', 1);
     expect(pricebook?.method).toBe('unit');
     expect(pricebook?.timing).toBe('post');
-    expect(pricebook?.spec).toEqual({ method: 'unit', dimensions: { tasks: { rate: 250_000 } } });
+    expect(pricebook?.spec).toEqual({
+      method: 'unit',
+      dimensions: { images: { rate: 250_000 }, tasks: { rate: 250_000 } },
+    });
   });
 
   it('seeds the video relay channel: same endpoint/config, model seedance-2.0, 1.5M µcredits/video', async () => {
@@ -99,6 +104,42 @@ describe('seedProviders (real-provider catalog as DATA)', () => {
     expect(channel?.providerType).toBe('async-media');
     expect(channel?.endpoint).toBe('https://api.huimengi.com');
     expect(channel?.model).toBe('seedance-2.0');
+    // Video shares the relay protocol but carries a LONGER poll budget so a
+    // multi-minute clip doesn't time out at the ~30s default (the job-runner
+    // reads maxPolls/pollIntervalMs off the channel config).
+    expect(channel?.config).toEqual({
+      submitPath: '/api/v1/tasks',
+      pollPath: '/api/v1/tasks/{id}',
+      signatureHeader: 'X-HuiMeng-Signature',
+      timestampHeader: 'X-HuiMeng-Timestamp',
+      maxPolls: 120,
+      pollIntervalMs: 5000,
+    });
+    expect(await credentialLocator(channel)).toBe('huimeng');
+
+    // Per-second video pricing (300_000 µcredits/s); `tasks` (1.5M) is the
+    // per-clip fallback when the relay result omits a duration.
+    const pricebook = await getActivePricebookEntry(db, 'video-relay', 1);
+    expect(pricebook?.spec).toEqual({
+      method: 'unit',
+      dimensions: { duration_seconds: { rate: 300_000 }, tasks: { rate: 1_500_000 } },
+    });
+  });
+
+  it('seeds the audio relay channel: same endpoint/config, audio-tts-1.0 model, per-character + per-second pricing', async () => {
+    const { tenantId } = await seedAll(db, { providerType: 'stub' });
+    await seedProviders(db, { tenantId });
+
+    const audio = await getResource(db, 'audio-relay');
+    expect(audio?.providerType).toBe('async-media');
+    expect(audio?.modality).toBe('audio');
+    expect(audio?.execModes).toEqual(['async-poll', 'async-callback']);
+
+    const [channel] = await listChannels(db, 'audio-relay');
+    expect(channel?.providerType).toBe('async-media');
+    expect(channel?.endpoint).toBe('https://api.huimengi.com');
+    expect(channel?.model).toBe('audio-tts-1.0');
+    expect(channel?.status).toBe('active');
     expect(channel?.config).toEqual({
       submitPath: '/api/v1/tasks',
       pollPath: '/api/v1/tasks/{id}',
@@ -107,8 +148,18 @@ describe('seedProviders (real-provider catalog as DATA)', () => {
     });
     expect(await credentialLocator(channel)).toBe('huimeng');
 
-    const pricebook = await getActivePricebookEntry(db, 'video-relay', 1);
-    expect(pricebook?.spec).toEqual({ method: 'unit', dimensions: { tasks: { rate: 1_500_000 } } });
+    // Audio prices per input character (TTS, 500 µcredits/char) OR per second
+    // (generative, 50_000/s); `tasks` (250_000) is the non-zero fallback. The
+    // adapter meters `{ characters }` else `{ audio_seconds }`.
+    const pricebook = await getActivePricebookEntry(db, 'audio-relay', 1);
+    expect(pricebook?.spec).toEqual({
+      method: 'unit',
+      dimensions: {
+        characters: { rate: 500 },
+        audio_seconds: { rate: 50_000 },
+        tasks: { rate: 250_000 },
+      },
+    });
   });
 
   it('seeds the openai-compatible chat channels with per-channel endpoint/model + token pricing', async () => {
@@ -175,12 +226,13 @@ describe('seedProviders (real-provider catalog as DATA)', () => {
     }
   });
 
-  it('exports exactly eight provider seed ids', () => {
-    expect(PROVIDER_SEED_IDS).toHaveLength(8);
+  it('exports exactly nine provider seed ids', () => {
+    expect(PROVIDER_SEED_IDS).toHaveLength(9);
     expect(new Set(PROVIDER_SEED_IDS)).toEqual(
       new Set([
         'image-relay',
         'video-relay',
+        'audio-relay',
         'deepseek-chat',
         'xiaomi-mimo',
         'relay-text',

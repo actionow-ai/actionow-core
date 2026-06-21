@@ -4,10 +4,16 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
-import { createFileObject, getFileObject, markFileReady } from '../src/repositories/index.js';
+import {
+  createFileObject,
+  type FileObject,
+  getFileObject,
+  listFilesByTenant,
+  markFileReady,
+} from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
 
-const { tenant } = schema;
+const { fileObject, tenant } = schema;
 
 let container: StartedPostgreSqlContainer;
 let client: ReturnType<typeof postgres>;
@@ -86,5 +92,110 @@ describe('file_object repository', () => {
     expect(await getFileObject(db, file.id, other)).toBeUndefined();
     // Unscoped lookup still finds it (used internally).
     expect((await getFileObject(db, file.id))?.id).toBe(file.id);
+  });
+});
+
+/** Insert a `file_object` row directly (so status/content_type/created_at are controllable). */
+async function makeFile(
+  tenantId: string,
+  opts: { key: string; status?: 'pending' | 'ready'; contentType?: string | null; createdAt: Date },
+): Promise<FileObject> {
+  const [row] = await db
+    .insert(fileObject)
+    .values({
+      tenantId,
+      provider: 'r2',
+      bucket: 'actionow',
+      key: opts.key,
+      status: opts.status ?? 'ready',
+      contentType: opts.contentType ?? null,
+      createdAt: opts.createdAt,
+    })
+    .returning();
+  if (!row) throw new Error('file insert returned no row');
+  return row;
+}
+
+describe('listFilesByTenant', () => {
+  it('returns only the caller tenant files, newest-first', async () => {
+    const owner = await makeTenant();
+    const other = await makeTenant();
+    await makeFile(owner, {
+      key: 'a',
+      contentType: 'image/png',
+      createdAt: new Date('2026-01-01Z'),
+    });
+    await makeFile(owner, {
+      key: 'b',
+      contentType: 'image/png',
+      createdAt: new Date('2026-01-02Z'),
+    });
+    await makeFile(other, {
+      key: 'c',
+      contentType: 'image/png',
+      createdAt: new Date('2026-01-03Z'),
+    });
+
+    const { rows, hasMore } = await listFilesByTenant(db, owner, {}, { limit: 50 });
+
+    expect(rows.map((r) => r.key)).toEqual(['b', 'a']); // newest-first; the other tenant excluded
+    expect(hasMore).toBe(false);
+  });
+
+  it('filters by kind via the content_type prefix (null content-type excluded)', async () => {
+    const owner = await makeTenant();
+    await makeFile(owner, {
+      key: 'img',
+      contentType: 'image/jpeg',
+      createdAt: new Date('2026-01-01Z'),
+    });
+    await makeFile(owner, {
+      key: 'vid',
+      contentType: 'video/mp4',
+      createdAt: new Date('2026-01-02Z'),
+    });
+    await makeFile(owner, { key: 'none', contentType: null, createdAt: new Date('2026-01-03Z') });
+
+    const images = await listFilesByTenant(db, owner, { kind: 'image' }, { limit: 50 });
+    const videos = await listFilesByTenant(db, owner, { kind: 'video' }, { limit: 50 });
+
+    expect(images.rows.map((r) => r.key)).toEqual(['img']);
+    expect(videos.rows.map((r) => r.key)).toEqual(['vid']);
+  });
+
+  it('filters by status (ready-only excludes pending)', async () => {
+    const owner = await makeTenant();
+    await makeFile(owner, { key: 'ready', status: 'ready', createdAt: new Date('2026-01-01Z') });
+    await makeFile(owner, {
+      key: 'pending',
+      status: 'pending',
+      createdAt: new Date('2026-01-02Z'),
+    });
+
+    const ready = await listFilesByTenant(db, owner, { status: 'ready' }, { limit: 50 });
+
+    expect(ready.rows.map((r) => r.key)).toEqual(['ready']);
+  });
+
+  it('paginates with the keyset cursor', async () => {
+    const owner = await makeTenant();
+    await makeFile(owner, { key: 'x1', createdAt: new Date('2026-01-01Z') });
+    await makeFile(owner, { key: 'x2', createdAt: new Date('2026-01-02Z') });
+    await makeFile(owner, { key: 'x3', createdAt: new Date('2026-01-03Z') });
+
+    const first = await listFilesByTenant(db, owner, {}, { limit: 2 });
+    expect(first.rows.map((r) => r.key)).toEqual(['x3', 'x2']);
+    expect(first.hasMore).toBe(true);
+
+    const last = first.rows[first.rows.length - 1];
+    if (last === undefined) throw new Error('expected a last row');
+    const second = await listFilesByTenant(
+      db,
+      owner,
+      {},
+      { limit: 2, cursor: { createdAt: last.createdAt, id: last.id } },
+    );
+    expect(second.rows.map((r) => r.key)).toEqual(['x1']);
+    expect(second.hasMore).toBe(false);
   });
 });

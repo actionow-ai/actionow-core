@@ -106,6 +106,11 @@ beforeAll(async () => {
       RATE_LIMIT_RESOURCE_PER_MIN: 600,
       ADMIN_JWT_SECRET: ADMIN_SECRET,
       STORAGE_MAX_UPLOAD_BYTES: 100 * 1024 * 1024,
+      STORAGE_PUBLIC_BASE_URL: 'https://asset.example',
+      // The whole suite shares one per-IP auth-throttle bucket (fake limiter, fixed
+      // window, all requests from 127.0.0.1); raise it so registering test users
+      // across the suite never trips the 10/min default.
+      AUTH_RATE_LIMIT_PER_MIN: 1000,
       CREDIT_RATE: 10000,
     })
     .compile();
@@ -121,7 +126,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE api_key, ledger_txn, payment_intent, payment_event, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE file_object, api_key, ledger_txn, payment_intent, payment_event, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`;
 });
 
 const server = (): ReturnType<typeof app.getHttpServer> => app.getHttpServer();
@@ -250,5 +255,183 @@ describe('/console', () => {
       .expect(200);
     expect(Array.isArray(models.body.data)).toBe(true);
     expect(models.body.has_more).toBe(false);
+  });
+
+  it('analytics/usage + usage-log are tenant-scoped (401 without a token); analytics rejects groupBy=tenant', async () => {
+    const token = await registerUser('usage2@example.com');
+
+    // Tenant-scoped: the ConsoleGuard rejects an anonymous caller.
+    await request(server()).get('/console/analytics/usage?groupBy=model').expect(401);
+    await request(server()).get('/console/usage-log').expect(401);
+
+    // Rollups: an array (empty for a fresh tenant), tenant locked by the guard.
+    const analytics = await request(server())
+      .get('/console/analytics/usage?groupBy=model')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(Array.isArray(analytics.body)).toBe(true);
+
+    // The `tenant` groupBy is admin-only — a tenant only has itself → 400.
+    await request(server())
+      .get('/console/analytics/usage?groupBy=tenant')
+      .set('authorization', `Bearer ${token}`)
+      .expect(400);
+
+    // Per-call usage log: a keyset envelope.
+    const log = await request(server())
+      .get('/console/usage-log?limit=5')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(Array.isArray(log.body.data)).toBe(true);
+    expect(log.body).toHaveProperty('next_cursor');
+    expect(log.body).toHaveProperty('has_more');
+  });
+
+  it('balance returns the tenant’s credit balance + held as µ-strings (401 without a token)', async () => {
+    const token = await registerUser('balance@example.com');
+    await request(server()).get('/console/balance').expect(401);
+
+    const bal = await request(server())
+      .get('/console/balance')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(bal.body.balance).toBe('0'); // fresh tenant
+    expect(bal.body.held).toBe('0');
+  });
+
+  it('payments history lists the tenant’s own intents (401 without a token)', async () => {
+    const token = await registerUser('payhist@example.com');
+    await request(server()).get('/console/payments').expect(401);
+
+    // A self-topup writes an intent → it shows in the history.
+    await request(server())
+      .post('/console/payments/intents')
+      .set('authorization', `Bearer ${token}`)
+      .send({ provider: 'stripe', amount_minor: 2500, currency: 'usd' })
+      .expect(201);
+
+    const hist = await request(server())
+      .get('/console/payments?limit=10')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(hist.body.data).toHaveLength(1);
+    expect(hist.body.data[0].provider).toBe('stripe');
+    expect(hist.body.data[0].amount_minor).toBe('2500');
+    expect(hist.body.data[0].purpose).toBe('topup');
+  });
+
+  it('me returns the profile (no hash); settings changes the password after verifying the current one', async () => {
+    const token = await registerUser('settings@example.com', 'oldPassw0rd');
+    await request(server()).get('/console/me').expect(401);
+
+    const me = await request(server())
+      .get('/console/me')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(me.body.email).toBe('settings@example.com');
+    expect(me.body.role).toBe('user');
+    expect(me.body).not.toHaveProperty('password_hash');
+
+    // Wrong current password → 400; too-short new → 400.
+    await request(server())
+      .patch('/console/settings')
+      .set('authorization', `Bearer ${token}`)
+      .send({ currentPassword: 'WRONG', newPassword: 'newPassw0rd' })
+      .expect(400);
+    await request(server())
+      .patch('/console/settings')
+      .set('authorization', `Bearer ${token}`)
+      .send({ currentPassword: 'oldPassw0rd', newPassword: 'short' })
+      .expect(400);
+
+    // Correct current → 200, and the new password then authenticates.
+    await request(server())
+      .patch('/console/settings')
+      .set('authorization', `Bearer ${token}`)
+      .send({ currentPassword: 'oldPassw0rd', newPassword: 'newPassw0rd' })
+      .expect(200);
+    await request(server())
+      .post('/auth/login')
+      .send({ email: 'settings@example.com', password: 'newPassw0rd' })
+      .expect(200);
+  });
+
+  it('files: the gallery lists READY tenant media with a viewable url, filters by kind, and is tenant-scoped (401 without a token)', async () => {
+    const token = await registerUser('gallery@example.com');
+    const otherToken = await registerUser('gallery-other@example.com');
+    await request(server()).get('/console/files').expect(401);
+
+    const me = await request(server())
+      .get('/console/me')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    const otherMe = await request(server())
+      .get('/console/me')
+      .set('authorization', `Bearer ${otherToken}`)
+      .expect(200);
+    const tenantId = me.body.tenant_id as string;
+    const otherTenantId = otherMe.body.tenant_id as string;
+
+    // Seed: a ready image + a ready video (the gallery), a pending upload (excluded),
+    // and a ready file owned by ANOTHER tenant (must never leak).
+    await db.insert(schema.fileObject).values([
+      {
+        tenantId,
+        provider: 'r2',
+        bucket: 'actionow',
+        key: `${tenantId}/img.png`,
+        status: 'ready',
+        contentType: 'image/png',
+        size: 100,
+      },
+      {
+        tenantId,
+        provider: 'r2',
+        bucket: 'actionow',
+        key: `${tenantId}/clip.mp4`,
+        status: 'ready',
+        contentType: 'video/mp4',
+        size: 200,
+      },
+      {
+        tenantId,
+        provider: 'r2',
+        bucket: 'actionow',
+        key: `${tenantId}/pending.png`,
+        status: 'pending',
+        contentType: 'image/png',
+      },
+      {
+        tenantId: otherTenantId,
+        provider: 'r2',
+        bucket: 'actionow',
+        key: `${otherTenantId}/secret.png`,
+        status: 'ready',
+        contentType: 'image/png',
+        size: 50,
+      },
+    ]);
+
+    // All ready files of the CALLER's tenant, with a public-base url; pending + other-tenant excluded.
+    const all = await request(server())
+      .get('/console/files')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(all.body.data).toHaveLength(2);
+    const urls = (all.body.data as { url: string }[]).map((f) => f.url);
+    expect(urls).toContain(`https://asset.example/${tenantId}/img.png`);
+    expect(urls).toContain(`https://asset.example/${tenantId}/clip.mp4`);
+    expect(urls.some((u) => u.includes('secret'))).toBe(false);
+    expect(all.body).toHaveProperty('has_more', false);
+    expect(all.body).toHaveProperty('next_cursor');
+
+    // kind=video narrows to the clip.
+    const vids = await request(server())
+      .get('/console/files?kind=video')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(vids.body.data).toHaveLength(1);
+    expect(vids.body.data[0].content_type).toBe('video/mp4');
+    expect(vids.body.data[0].status).toBe('ready');
   });
 });

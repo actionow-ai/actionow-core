@@ -1,0 +1,119 @@
+{
+  "nav": {
+    "features": "Capabilities",
+    "scenarios": "Use cases",
+    "pricing": "Pricing",
+    "docs": "Docs",
+    "console": "Console",
+    "deploy": "Deploy",
+    "menu": "Menu"
+  },
+  "hero": {
+    "title1": "Self-host your own ",
+    "titleHl": "AI gateway & relay",
+    "title2": "",
+    "flip": ["AI gateway", "a model relay", "credit billing", "self-service"],
+    "lead": "Multi-tenant accounts, credit billing and payments out of the box, with OpenAI / Anthropic / Gemini compatible endpoints across text, image, video, and audio. Deploy once; your customers become tenants.",
+    "ctaPrimary": "Deploy now",
+    "ctaSecondary": "Read the docs",
+    "codeCaption": "OpenAI-compatible, just change the base_url"
+  },
+  "scenarios": {
+    "title": "One base, two ways to run it",
+    "lead": "You self-deploy one instance; your customers are its tenants and users. Flat, clear, ready out of the box.",
+    "ootb": {
+      "t": "Back your own app",
+      "d": "Run Actionow as the backend for your tool: customers are tenants, with login, credits, billing, and a self-service console built in. No account system to rebuild."
+    },
+    "relay": {
+      "t": "Run a model relay",
+      "d": "Resell model access to your customers: they call your instance with the OpenAI, Anthropic, or Gemini SDK, priced per token; your margin sits on top of upstream cost."
+    }
+  },
+  "features": {
+    "title": "Everything it takes to run an AI platform",
+    "items": {
+      "protocol": {
+        "t": "Protocol translation matrix",
+        "d": "OpenAI, Anthropic, and Gemini dialects interconvert, with tool calls, multimodal, and streaming."
+      },
+      "selfservice": {
+        "t": "Tenant self-service console",
+        "d": "Customers register, create and rotate keys, check usage, and top up themselves, no hand-holding."
+      },
+      "pricing": {
+        "t": "Per-model token pricing",
+        "d": "Set input / output prices per model; the spread over upstream cost is your resale margin."
+      },
+      "routing": {
+        "t": "Weighted routing + failover",
+        "d": "Hang many upstream channels behind one model name: weighted routing, automatic failover, per-request credentials."
+      },
+      "billing": {
+        "t": "Credit ledger + payments",
+        "d": "µcredit-precise metering, auditable hold to settle; Stripe, Alipay, WeChat, crypto top-ups and redemption codes."
+      },
+      "logs": {
+        "t": "Call logs and stats",
+        "d": "Per-call logs with usage and latency; the operator sees everything, each tenant sees only their own."
+      }
+    }
+  },
+  "how": {
+    "title": "Running in three steps",
+    "steps": {
+      "s1": {
+        "t": "Deploy an instance",
+        "d": "Bring one up with docker compose and seed the operator admin account."
+      },
+      "s2": {
+        "t": "Configure models and channels",
+        "d": "Register models, attach upstream channels and credentials, set token prices and tenant visibility."
+      },
+      "s3": {
+        "t": "Customers self-onboard",
+        "d": "Customers register as tenants, get keys and top up themselves, and call the compatible endpoints."
+      }
+    }
+  },
+  "compat": { "label": "Works with your existing SDKs" },
+  "live": {
+    "eyebrow": "Runtime at a glance",
+    "title": "Watch it run",
+    "lead": "Multi-tenant, full-modal, metered per request — text, image, video, and audio, all in one console.",
+    "stats": { "tenants": "Tenants", "calls": "Calls today", "spend": "Spend · credits" },
+    "demo": "Illustrative data",
+    "logTitle": "Live call log"
+  },
+  "pricing": {
+    "title": "You self-host, you set the price",
+    "lead": "Actionow is your own base: resale prices, discounts, and data all stay with you. Open-source scaffold, self-hosted on your terms.",
+    "cards": {
+      "self": {
+        "t": "Self-hosted",
+        "p": "Open source",
+        "d": "One-command docker deploy; data and pricing fully your own.",
+        "cta": "Read the docs"
+      },
+      "support": {
+        "t": "Commercial support",
+        "p": "Contact us",
+        "d": "Deployment help, custom upstream adapters, and reconciliation reports.",
+        "cta": "Contact us"
+      }
+    }
+  },
+  "cta": {
+    "title": "Put an AI gateway inside your own infrastructure",
+    "lead": "Deploy a multi-tenant, metered, protocol-translating base in minutes.",
+    "button": "Open the console"
+  },
+  "footer": {
+    "tagline": "Self-hosted AI gateway and relay",
+    "product": "Product",
+    "resources": "Resources",
+    "docs": "Docs",
+    "console": "Console",
+    "rights": "All rights reserved."
+  }
+}

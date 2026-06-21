@@ -1,0 +1,978 @@
+{
+  "auth": {
+    "loginTab": "登录",
+    "registerTab": "注册",
+    "email": "邮箱",
+    "password": "密码",
+    "loginSubmit": "登录",
+    "registerSubmit": "创建账号",
+    "toRegister": "还没有账号?",
+    "toRegisterCta": "立即注册",
+    "toLogin": "已有账号?",
+    "toLoginCta": "去登录",
+    "registered": "账号已创建,欢迎使用",
+    "loggedIn": "登录成功",
+    "failed": "操作失败,请检查邮箱或密码",
+    "retryInSeconds": "{{seconds}} 秒后重试",
+    "passwordPolicy": "8–256 个字符",
+    "or": "或",
+    "oauthGoogle": "用 Google 继续",
+    "oauthGithub": "用 GitHub 继续",
+    "brandTitle": "自部署的 AI 网关与中转底座",
+    "brandLead": "多租户、积分计费、协议中转,开箱即用。",
+    "b1": "OpenAI / Anthropic / Gemini 兼容端点",
+    "b2": "租户自助:Key、用量、充值",
+    "b3": "按模型 token 计价与对账"
+  },
+  "app": {
+    "title": "租户自助控制台",
+    "soon": "自助控制台即将上线",
+    "hint": "你的租户与账户已就绪。Key 自助、用量自查与自助充值将在后续阶段开放。",
+    "logout": "退出登录",
+    "backHome": "返回官网",
+    "overview": {
+      "balance": "余额",
+      "held": "冻结",
+      "jobsCount": "最近任务",
+      "jobs": "最近任务",
+      "ledger": "流水",
+      "noJobs": "暂无任务",
+      "noLedger": "暂无流水",
+      "viewAll": "查看全部",
+      "cols": {
+        "resource": "资源",
+        "status": "状态",
+        "mode": "模式",
+        "cost": "成本",
+        "time": "时间",
+        "type": "类型",
+        "delta": "变动",
+        "balance": "余额"
+      }
+    },
+    "keys": {
+      "mint": "签发 Key",
+      "empty": "还没有 API Key——签发你的第一个",
+      "rotate": "轮换",
+      "disable": "停用",
+      "disabled": "Key 已停用",
+      "confirmDisableTitle": "停用该 Key?",
+      "confirmDisableMsg": "{{id}} 将立即失效。"
+    },
+    "models": {
+      "empty": "你的租户暂无可用模型",
+      "cols": {
+        "name": "模型",
+        "display": "显示名",
+        "modality": "模态",
+        "visibility": "可见性"
+      }
+    },
+    "billing": {
+      "provider": "支付方式",
+      "amount": "金额",
+      "amountHint": "主单位(如元/美元)",
+      "currency": "币种",
+      "submit": "充值",
+      "intentCreated": "支付单已创建",
+      "continue": "前往支付",
+      "history": "充值记录",
+      "noHistory": "暂无充值",
+      "cols": {
+        "time": "时间",
+        "provider": "方式",
+        "amount": "金额",
+        "credit": "积分",
+        "status": "状态"
+      }
+    },
+    "settings": {
+      "profile": "资料",
+      "email": "邮箱",
+      "role": "角色",
+      "status": "状态",
+      "tenant": "租户",
+      "changePassword": "修改密码",
+      "current": "当前密码",
+      "new": "新密码",
+      "submit": "更新密码",
+      "changed": "密码已修改"
+    },
+    "usage": {
+      "empty": "暂无用量",
+      "log": "逐次调用日志",
+      "noLog": "暂无调用",
+      "cols": {
+        "time": "时间",
+        "model": "模型",
+        "tokens": "Token",
+        "cost": "成本",
+        "latency": "延迟",
+        "status": "状态"
+      }
+    },
+    "media": {
+      "kindLabel": "类型",
+      "allKinds": "全部素材",
+      "empty": "暂无素材——生成的图片和视频会显示在这里。",
+      "noPreview": "无预览",
+      "copyUrl": "复制链接",
+      "copied": "已复制",
+      "kind": {
+        "image": "图片",
+        "video": "视频",
+        "file": "文件",
+        "audio": "音频"
+      }
+    }
+  },
+  "nav": {
+    "groups": {
+      "ops": "运营",
+      "catalog": "目录",
+      "billing": "计费与路由",
+      "tenants": "租户",
+      "home": "概览",
+      "account": "账户"
+    },
+    "dashboard": "仪表盘",
+    "analytics": "分析",
+    "relayTraces": "中转追踪",
+    "overview": "概览",
+    "tusage": "用量",
+    "tkeys": "API Keys",
+    "tmodels": "模型",
+    "billing": "充值",
+    "tsettings": "设置",
+    "tenants": "租户",
+    "accounts": "账户 / 充值",
+    "apiKeys": "API Keys",
+    "catalog": "目录",
+    "resources": "资源",
+    "models": "模型",
+    "modifiers": "调价规则",
+    "routeGroups": "分组",
+    "officialPrices": "官方价格",
+    "dify": "Dify 导入",
+    "redemptionCodes": "卡密兑换",
+    "tmedia": "素材",
+    "oauthSessions": "凭证"
+  },
+  "topbar": {
+    "admin": "管理员",
+    "logout": "退出登录",
+    "backHome": "返回官网",
+    "refresh": "刷新"
+  },
+  "subtitles": {
+    "dashboard": "租户与资源概览,最近任务",
+    "analytics": "按时间与维度查看用量、成本与毛利",
+    "relayTraces": "上游中转审计——请求、响应、延迟",
+    "overview": "余额、最近任务与流水",
+    "tusage": "用量聚合与逐次调用日志",
+    "tkeys": "签发与管理你的 API Key",
+    "tmodels": "你的租户可用的模型",
+    "billing": "为你的租户余额充值",
+    "tsettings": "你的资料与密码",
+    "tenants": "创建与查看租户",
+    "catalog": "模型与资源——通道与定价",
+    "resources": "模型、上游通道与定价",
+    "models": "中转模型、租户授权与 token 计价",
+    "modifiers": "全局与范围化的调价规则",
+    "routeGroups": "路由分组与渠道成员",
+    "officialPrices": "模型参考价格",
+    "dify": "把 Dify 工作流导入为资源",
+    "accounts": "账户余额与充值",
+    "apiKeys": "签发与管理 API Key"
+  },
+  "dashboard": {
+    "stats": {
+      "tenants": "租户",
+      "resources": "资源",
+      "pickTenant": "选择租户"
+    },
+    "recentJobs": "最近任务",
+    "noJobs": "该租户暂无任务",
+    "pickTenant": "请选择一个租户以查看任务",
+    "cols": {
+      "resource": "资源",
+      "execMode": "执行模式",
+      "cost": "成本",
+      "status": "状态"
+    },
+    "ranking": {
+      "title": "按成本排名的模型",
+      "empty": "暂无用量"
+    }
+  },
+  "analytics": {
+    "title": "分析",
+    "allTenants": "全部租户",
+    "groupByLabel": "分组维度",
+    "metricLabel": "指标",
+    "groupBy": {
+      "day": "按天",
+      "model": "模型",
+      "tenant": "租户",
+      "channel": "渠道",
+      "api_key": "API Key"
+    },
+    "metric": {
+      "cost": "成本",
+      "margin": "毛利",
+      "requests": "请求数",
+      "tokens": "Token"
+    },
+    "from": "起",
+    "to": "止",
+    "stats": {
+      "requests": "请求数",
+      "cost": "成本",
+      "margin": "毛利",
+      "errors": "错误数"
+    },
+    "chart": {
+      "trend": "{{metric}} 趋势",
+      "breakdown": "按{{dimension}}的{{metric}}",
+      "empty": "该区间暂无用量"
+    },
+    "detail": {
+      "title": "明细"
+    },
+    "cols": {
+      "bucket": "分桶",
+      "requests": "请求数",
+      "tokens": "Token",
+      "cost": "成本",
+      "providerCost": "上游成本",
+      "margin": "毛利",
+      "errors": "错误数"
+    }
+  },
+  "relayTraces": {
+    "title": "中转追踪",
+    "allTenants": "全部租户",
+    "providerPlaceholder": "Provider(如 openai)",
+    "from": "起",
+    "to": "止",
+    "empty": "该区间暂无中转追踪",
+    "loadMore": "加载更多",
+    "cols": {
+      "time": "时间",
+      "provider": "Provider",
+      "method": "方法",
+      "status": "状态",
+      "latency": "延迟",
+      "url": "URL"
+    },
+    "viewer": {
+      "title": "中转追踪",
+      "err": "错误",
+      "stream": "流式",
+      "truncated": "已截断",
+      "url": "URL",
+      "tenant": "租户",
+      "job": "任务",
+      "channel": "渠道",
+      "provider": "Provider",
+      "error": "错误",
+      "reqHeaders": "请求头",
+      "reqBody": "请求体",
+      "resBody": "响应体"
+    }
+  },
+  "tenants": {
+    "title": "租户",
+    "new": "新建租户",
+    "cols": {
+      "name": "名称",
+      "isolation": "隔离模式",
+      "created": "创建时间"
+    },
+    "form": {
+      "name": "名称",
+      "isolation": "隔离模式"
+    },
+    "isolation": {
+      "field": "字段级",
+      "schema": "Schema 级",
+      "db": "库级"
+    },
+    "detail": {
+      "id": "租户 ID",
+      "account": "账户",
+      "noAccount": "该租户还没有账户"
+    },
+    "empty": "暂无租户",
+    "created": "租户已创建",
+    "submit": "创建"
+  },
+  "accounts": {
+    "title": "账户 / 充值",
+    "new": "新建账户",
+    "cols": {
+      "balance": "余额",
+      "held": "冻结",
+      "id": "账户",
+      "actions": "操作"
+    },
+    "form": {
+      "tenant": "租户",
+      "credits": "开通余额(credits)"
+    },
+    "topup": {
+      "action": "充值",
+      "title": "账户充值",
+      "credits": "充值额度(credits)",
+      "submit": "充值",
+      "done": "充值成功"
+    },
+    "empty": "新建一个账户开始,或选择已有账户充值。",
+    "created": "账户已创建",
+    "submit": "创建"
+  },
+  "apiKeys": {
+    "title": "API Keys",
+    "new": "签发 Key",
+    "cols": {
+      "id": "Key ID",
+      "allowlist": "资源白名单",
+      "rateLimit": "限流",
+      "status": "状态",
+      "created": "创建时间"
+    },
+    "form": {
+      "tenant": "租户",
+      "allowlist": "资源白名单(逗号分隔,可空)",
+      "rateLimit": "每分钟请求上限(可空)"
+    },
+    "group": {
+      "label": "路由组",
+      "default": "默认组(×1.00)",
+      "bound": "路由组",
+      "tip": "将 Key 绑定到路由组,会决定其客户计价倍率与可路由的渠道。默认 = ×1.00。"
+    },
+    "revoke": "吊销",
+    "revoked": "Key 已吊销",
+    "revokeConfirm": {
+      "title": "吊销该 Key?",
+      "msg": "{{id}} 将立即被以 401 拒绝,且不可恢复。"
+    },
+    "empty": "请选择租户后查看 Key",
+    "submit": "签发",
+    "reveal": {
+      "title": "Key 已生成",
+      "warn": "明文只显示这一次,请立即复制保存。",
+      "copy": "复制",
+      "copied": "已复制",
+      "done": "完成"
+    }
+  },
+  "resources": {
+    "title": "资源",
+    "new": "新建资源",
+    "empty": "暂无资源",
+    "created": "资源已创建",
+    "submit": "创建",
+    "cols": {
+      "id": "ID",
+      "modality": "模态",
+      "provider": "Provider",
+      "execModes": "执行模式",
+      "status": "状态"
+    },
+    "form": {
+      "id": "资源 ID",
+      "tenant": "租户",
+      "kind": "类型",
+      "modality": "模态",
+      "provider": "Provider 类型",
+      "execModes": "执行模式",
+      "ioSchema": "IO Schema"
+    },
+    "tip": {
+      "id": "该资源的唯一标识（如 gpt-4o 或 my-workflow）。用于 API 调用,且不能与其它资源重复。",
+      "tenant": "该资源归属的租户（按其额度计费）。",
+      "kind": "模型 = 单个上游模型;工作流 = 多步流水线（如 Dify 应用）。",
+      "modality": "该资源处理的主要数据类型:文本、图像、视频、音频或复合。",
+      "providerType": "上游 Provider(自由文本,如 openai、anthropic)。Logo 据此解析。",
+      "execModes": "调用方可使用的执行方式:blocking、stream、async-poll 或 async-callback。按回车添加。"
+    },
+    "kind": {
+      "model": "模型",
+      "workflow": "工作流"
+    },
+    "actions": {
+      "setStatus": "状态"
+    },
+    "statusUpdated": "资源状态已更新",
+    "sections": {
+      "overview": "概览",
+      "channels": "通道",
+      "pricing": "定价"
+    },
+    "detail": {
+      "back": "返回资源",
+      "channels": "上游通道",
+      "pricebook": "定价",
+      "addChannel": "添加通道",
+      "channelAdded": "通道已添加",
+      "addPrice": "添加定价",
+      "priceAdded": "定价已添加",
+      "pick": "从左侧选择一个资源查看详情"
+    }
+  },
+  "models": {
+    "title": "模型",
+    "new": "新建模型",
+    "editTitle": "编辑模型",
+    "save": "保存模型",
+    "empty": "暂无模型",
+    "created": "模型已创建",
+    "updated": "模型已更新",
+    "deleted": "模型已删除",
+    "statusUpdated": "模型状态已更新",
+    "cols": {
+      "model": "模型",
+      "modality": "模态",
+      "capabilities": "能力",
+      "inputPrice": "输入价",
+      "outputPrice": "输出价",
+      "visibility": "可见性",
+      "status": "状态"
+    },
+    "form": {
+      "name": "名称",
+      "resource": "资源",
+      "resourcePlaceholder": "选择一个资源",
+      "display": "显示名",
+      "modality": "模态",
+      "capabilities": "能力",
+      "visibility": "可见性",
+      "inputPrice": "输入价",
+      "outputPrice": "输出价",
+      "status": "状态"
+    },
+    "tip": {
+      "name": "调用方请求时使用的唯一模型 id(如 anthropic/claude-3-5-sonnet)。创建后不可更改。",
+      "resource": "该模型路由到的资源 / 上游。",
+      "resourceFixed": "资源创建后不可更改。",
+      "display": "可选的可读标签,显示在列表中。",
+      "modality": "该模型处理的数据类型。创建后不可更改。",
+      "modalityFixed": "模态创建后不可更改。",
+      "capabilities": "该模型支持的能力——勾选适用项。",
+      "visibility": "Public = 对所有租户开放;Tenant = 仅获授权的租户可用。",
+      "visibilityTenant": "仅租户可见:在授权抽屉中按租户授予访问权。",
+      "price": "价格,单位为每 token 的 µcredits。1 credit = 1,000,000 µcredits。",
+      "priceEquiv": "µcredits / token · ≈ {{n}} credits / 1,000,000 tokens",
+      "status": "已停用的模型对调用方不可见。"
+    },
+    "actions": {
+      "grants": "授权",
+      "enable": "启用",
+      "disable": "停用"
+    },
+    "grant": {
+      "title": "授权 · {{name}}",
+      "note": "Public 模型对所有租户开放。授权仅用于限制 tenant 可见性的模型。",
+      "tenant": "租户",
+      "tenantPlaceholder": "选择一个租户",
+      "submit": "授权",
+      "revoke": "撤销",
+      "granted": "租户已授权",
+      "revoked": "授权已撤销",
+      "empty": "暂无授权",
+      "colTenant": "租户",
+      "colGranted": "授权时间"
+    },
+    "confirm": {
+      "deleteTitle": "删除模型?",
+      "deleteMsg": "确定永久删除模型 {{name}} 吗?删除后该名称可被重新创建,此操作不可撤销。",
+      "revokeTitle": "撤销授权?",
+      "revokeMsg": "确定撤销 {{tenant}} 的访问权吗?该租户将无法再使用此模型。"
+    }
+  },
+  "channels": {
+    "addTitle": "添加通道",
+    "editTitle": "编辑通道",
+    "save": "保存通道",
+    "created": "通道已创建",
+    "updated": "通道已更新",
+    "deleted": "通道已删除",
+    "synced": "已同步 {{total}} 个模型",
+    "form": {
+      "provider": "Provider 类型",
+      "endpoint": "端点",
+      "model": "模型",
+      "proxyRef": "代理 Ref",
+      "credentialRef": "凭证 Ref",
+      "weight": "权重",
+      "inputCost": "输入成本",
+      "outputCost": "输出成本",
+      "status": "状态",
+      "config": "配置"
+    },
+    "tip": {
+      "provider": "该通道的上游 Provider(自由文本,如 openai、anthropic)。Logo 据此解析。",
+      "providerFixed": "Provider 创建后不可更改。",
+      "endpoint": "该通道的 Base URL 覆盖。留空则使用 Provider 默认值。",
+      "model": "要调用的上游模型名(如 gpt-4o)。留空则使用资源默认值。",
+      "proxyRef": "可选:出站代理配置的引用。",
+      "weight": "路由权重——值越大,在各启用通道中分到的流量越多。",
+      "cost": "运营成本——你为每 1M tokens 向上游支付的金额。用于对比转售价计算毛利。留 0 则不设置。",
+      "costUnit": "美元 / 1M tokens",
+      "status": "停用的通道不参与路由。",
+      "credentialRef": "保存该通道 API Key 的加密密文 id。可用「新建凭证」创建。",
+      "config": "该通道的 Provider 专属键值配置(如异步提交/轮询路径)。"
+    },
+    "actions": {
+      "enable": "启用",
+      "disable": "停用",
+      "delete": "删除",
+      "syncModels": "同步模型"
+    },
+    "preset": {
+      "asyncMedia": "异步媒体预设"
+    },
+    "cols": {
+      "provider": "Provider",
+      "endpoint": "端点",
+      "model": "模型",
+      "weight": "权重",
+      "cost": "成本 入/出",
+      "status": "状态"
+    },
+    "empty": "暂无上游通道"
+  },
+  "credentials": {
+    "new": "新建凭证",
+    "pickExisting": "选择已有凭证",
+    "value": "密文值",
+    "label": "标签(可空)",
+    "save": "创建凭证",
+    "created": "凭证已创建",
+    "tip": {
+      "value": "明文 API Key 或密钥。保存时即加密,之后不再回显——仅保留其 id 作为引用。"
+    }
+  },
+  "pricebook": {
+    "empty": "暂无定价",
+    "cols": {
+      "method": "方式",
+      "timing": "时机",
+      "version": "版本",
+      "active": "启用"
+    },
+    "form": {
+      "resourceVersion": "资源版本",
+      "version": "定价版本",
+      "method": "计价方式",
+      "timing": "时机",
+      "fixedCredits": "固定 credit",
+      "active": "启用",
+      "spec": "Spec",
+      "markup": "加价(可空)"
+    },
+    "tip": {
+      "method": "价格的计算方式:单位计价、矩阵计价、固定计价、公式计价,或透传上游成本。",
+      "timing": "预计费 = 调用前先按预估扣费;后计费 = 调用完成后按实际用量扣费。",
+      "fixedCredits": "以「人类 credit」表示的固定价格(1 credit = 1,000,000 µcredits)。后端会换算为 µcredits。",
+      "resourceVersion": "该定价适用的资源版本。默认取资源的当前版本。",
+      "version": "该定价条目的版本号;调高它可覆盖更早的定价。"
+    }
+  },
+  "mock": {
+    "badge": "演示数据 (mock)",
+    "note": "该页面在计费后端就绪前使用内存中的演示数据,所做修改不会保存。"
+  },
+  "officialPrices": {
+    "title": "官方价格",
+    "new": "新建官方价",
+    "editTitle": "编辑官方价",
+    "save": "保存",
+    "empty": "暂无官方价格",
+    "created": "官方价已创建",
+    "updated": "官方价已更新",
+    "deleted": "官方价已删除",
+    "source": "来源",
+    "cols": {
+      "provider": "Provider",
+      "modelSlug": "模型标识",
+      "displayName": "显示名",
+      "inputPrice": "输入价",
+      "outputPrice": "输出价",
+      "effectiveAt": "生效日期",
+      "source": "来源"
+    },
+    "form": {
+      "provider": "Provider",
+      "modelSlug": "模型标识",
+      "displayName": "显示名",
+      "inputPrice": "输入价",
+      "outputPrice": "输出价",
+      "cachedInputPrice": "缓存输入价",
+      "effectiveAt": "生效日期",
+      "sourceUrl": "来源链接",
+      "notes": "备注"
+    },
+    "tip": {
+      "provider": "该价格所属的上游 Provider(如 openai、anthropic)。Logo 据此解析。",
+      "modelSlug": "Provider 的模型标识(如 gpt-4o 或 claude-3-5-sonnet)。",
+      "price": "价格,单位为每 100 万 token 的美元。以整数 µUSD 存储($1 = 1,000,000 µUSD)。",
+      "cachedInputPrice": "可选:缓存输入 token 的优惠价,每 100 万 token。",
+      "effectiveAt": "该公布价格的生效日期。",
+      "sourceUrl": "该数值取自的 Provider 定价页链接。"
+    },
+    "priceEquiv": "= ${{usd}} / 1M tokens",
+    "confirm": {
+      "deleteTitle": "删除官方价?",
+      "deleteMsg": "确定永久删除 {{model}} 的价格吗?此操作不可撤销。"
+    }
+  },
+  "groups": {
+    "title": "分组",
+    "new": "新建分组",
+    "editTitle": "编辑分组",
+    "save": "保存",
+    "empty": "暂无路由分组",
+    "created": "分组已创建",
+    "updated": "分组已更新",
+    "deleted": "分组已删除",
+    "channelCount": "{{n}} 个渠道",
+    "cols": {
+      "name": "名称",
+      "ratio": "倍率",
+      "status": "状态",
+      "description": "描述",
+      "channels": "渠道"
+    },
+    "form": {
+      "name": "名称",
+      "ratioPercent": "倍率(%)",
+      "status": "状态",
+      "description": "描述"
+    },
+    "tip": {
+      "name": "该路由分组的唯一名称(如 default、premium)。",
+      "ratioPercent": "分组价格倍率,以百分比表示——100 = ×1.00(官方价),150 = ×1.50(+50%)。以基点(bps)存储。",
+      "ratioLive": "分组价格倍率——100 = ×1.00(官方价),150 = ×1.50。绑定到该分组的密钥,将以此倍率对终端客户实际计费。以基点(bps)存储。",
+      "status": "已停用的分组不参与路由。",
+      "description": "可选:描述该分组用途的备注。"
+    },
+    "ratioEquiv": "= ×{{mult}}({{sign}}{{pct}}%) · {{bps}} bps",
+    "actions": {
+      "manageChannels": "管理渠道"
+    },
+    "confirm": {
+      "deleteTitle": "删除分组?",
+      "deleteMsg": "确定永久删除 {{name}} 分组吗?其渠道成员也会一并移除。此操作不可撤销。"
+    },
+    "channels": {
+      "title": "渠道 · {{name}}",
+      "empty": "该分组暂无渠道",
+      "add": "添加渠道",
+      "addPlaceholder": "选择要添加的渠道",
+      "allAdded": "所有渠道都已在该分组中",
+      "remove": "移除",
+      "added": "渠道已添加",
+      "removed": "渠道已移除",
+      "updated": "成员已更新",
+      "cols": {
+        "channel": "渠道",
+        "priority": "优先级",
+        "weight": "权重"
+      },
+      "priorityHint": "优先级越高越先被尝试。",
+      "weightHint": "同优先级渠道间的相对流量占比。"
+    }
+  },
+  "common": {
+    "edit": "编辑",
+    "delete": "删除",
+    "confirm": "确认",
+    "cancel": "取消",
+    "retry": "重试",
+    "copy": "复制",
+    "copied": "已复制",
+    "copyFailed": "复制失败"
+  },
+  "confirm": {
+    "deleteChannelTitle": "删除通道?",
+    "deleteChannelMsg": "确定永久删除 {{provider}} 通道吗?此操作不可撤销。"
+  },
+  "table": {
+    "search": "搜索",
+    "selected": "已选 {{n}} 项",
+    "clear": "清除",
+    "columns": "列",
+    "page": "第 {{page}} / {{pages}} 页",
+    "totalRows": "共 {{n}} 条",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
+    "sortBy": "按 {{column}} 排序",
+    "noMatches": "没有匹配的行",
+    "selectRow": "选择该行",
+    "selectAll": "全选"
+  },
+  "modifiers": {
+    "title": "调价规则",
+    "new": "新建规则",
+    "empty": "暂无规则",
+    "created": "规则已创建",
+    "submit": "创建",
+    "cols": {
+      "scope": "范围",
+      "op": "操作",
+      "value": "值",
+      "priority": "优先级",
+      "active": "启用"
+    },
+    "form": {
+      "scope": "范围",
+      "whenExpr": "条件表达式(可空)",
+      "op": "操作",
+      "value": "值(可空)",
+      "priority": "优先级(可空)",
+      "stackable": "可叠加"
+    }
+  },
+  "dify": {
+    "title": "Dify 导入",
+    "submit": "导入",
+    "imported": "导入成功",
+    "form": {
+      "tenant": "租户",
+      "resourceId": "资源 ID",
+      "endpoint": "Dify Endpoint",
+      "yaml": "Workflow YAML",
+      "pricingModel": "定价模型",
+      "allowBlockers": "允许阻塞节点"
+    },
+    "pricing": {
+      "fixed": "固定",
+      "matrix": "矩阵",
+      "metered": "按量计费"
+    },
+    "report": "兼容性报告"
+  },
+  "status": {
+    "succeeded": "成功",
+    "active": "启用",
+    "ready": "就绪",
+    "running": "运行中",
+    "queued": "排队中",
+    "pending": "待处理",
+    "failed": "失败",
+    "disabled": "已停用",
+    "inactive": "未启用",
+    "canceled": "已取消",
+    "unused": "未兑换",
+    "redeemed": "已兑换"
+  },
+  "enums": {
+    "modality": {
+      "text": "文本",
+      "image": "图像",
+      "video": "视频",
+      "audio": "音频",
+      "composite": "复合"
+    },
+    "kind": {
+      "model": "模型",
+      "workflow": "工作流"
+    },
+    "method": {
+      "unit": "单位计价",
+      "matrix": "矩阵计价",
+      "fixed": "固定计价",
+      "formula": "公式计价",
+      "passthrough": "透传计价"
+    },
+    "timing": {
+      "pre": "预计费",
+      "post": "后计费"
+    },
+    "channelStatus": {
+      "active": "启用",
+      "disabled": "已停用"
+    },
+    "markupType": {
+      "percent": "百分比",
+      "flat": "定额"
+    },
+    "visibility": {
+      "public": "公开",
+      "tenant": "租户"
+    },
+    "modelStatus": {
+      "active": "启用",
+      "disabled": "已停用"
+    },
+    "modifierOp": {
+      "override_rate": "覆盖单价",
+      "percent_off": "百分比减免",
+      "flat_off": "固定减免",
+      "percent_add": "百分比加价"
+    },
+    "capability": {
+      "tools": "工具调用",
+      "vision": "视觉",
+      "audio": "音频",
+      "json": "JSON 模式",
+      "stream": "流式"
+    }
+  },
+  "forms": {
+    "addRow": "添加行",
+    "removeRow": "删除行",
+    "addField": "添加字段",
+    "removeField": "删除字段",
+    "addDimension": "添加维度",
+    "removeDimension": "删除维度",
+    "addChip": "添加 {{value}}",
+    "removeChip": "删除 {{value}}",
+    "chipsPlaceholder": "输入后按回车添加",
+    "close": "关闭",
+    "advancedJson": "高级（JSON）",
+    "kv": {
+      "keyPlaceholder": "键",
+      "valuePlaceholder": "值",
+      "keyAria": "键（第 {{index}} 行）",
+      "valueAria": "值（第 {{index}} 行）"
+    },
+    "io": {
+      "inputs": "输入",
+      "inputsHint": "调用方向该资源传入的请求参数。",
+      "outputs": "输出",
+      "outputsHint": "该资源在响应中返回的字段。",
+      "key": "键",
+      "keyHint": "机器名（不含空格），如 prompt 或 image_url。",
+      "keyPlaceholder": "键",
+      "typeLabel": "类型",
+      "typeHint": "取值类型。选择 enum 可将取值限定为固定选项。",
+      "required": "必填",
+      "fieldLabel": "标签",
+      "fieldLabelHint": "该字段的可选可读标签。",
+      "maxLength": "最大长度",
+      "maxLengthHint": "可选的字符上限（仅 string 与 file）。0 表示不限。",
+      "options": "选项",
+      "optionsHint": "允许的取值——enum 字段必填。",
+      "type_string": "字符串",
+      "type_number": "数字",
+      "type_boolean": "布尔",
+      "type_enum": "枚举",
+      "type_file": "文件",
+      "type_file_list": "文件列表"
+    },
+    "spec": {
+      "dimension": "维度",
+      "rate": "费率",
+      "rateHint": "每单位的 µcredits（1 credit = 1,000,000 µcredits）。",
+      "muCreditNote": "此处金额单位为 µcredits——1 credit = 1,000,000 µcredits。",
+      "key": "键维度",
+      "keyHint": "组成表格键的各维度（顺序敏感）。",
+      "cellKey": "组合键",
+      "cellKeyHint": "多个键值以 | 连接——如 720p|fast。",
+      "cell": "价格（µcredits）",
+      "multiplier": "乘数（可选）",
+      "multiplierHint": "用于乘以命中单元格的请求变量。",
+      "perItem": "按项计费（可选）",
+      "perItemHint": "按每项收取一次的请求变量。",
+      "expr": "公式",
+      "exprHint": "允许：整数、变量名与 + - * ( )。不支持 / % 与小数。",
+      "exprTooltip": "变量名来自请求参数。",
+      "exprError": "仅允许 + - * ( )、整数与变量名。",
+      "markup": "添加加价",
+      "markupType": "加价类型",
+      "markupValue": "加价数值",
+      "markupPercentHint": "在上游成本之上叠加的整数百分比。",
+      "markupFlatHint": "在上游成本之上叠加的定额 µcredits。",
+      "fixedNote": "请在定价表单的「固定 credit」字段中设置价格。"
+    }
+  },
+  "errors": {
+    "invalid_input": "请求参数有误",
+    "unauthorized": "未授权或登录已过期",
+    "insufficient_credits": "余额不足",
+    "resource_not_found": "未找到资源",
+    "rate_limited": "请求过于频繁,请稍后再试",
+    "content_filtered": "内容被拦截",
+    "upstream_error": "上游服务错误",
+    "upstream_timeout": "上游服务超时",
+    "job_failed": "任务执行失败",
+    "internal_error": "服务器内部错误",
+    "forbidden_not_admin": "该账号不是管理员",
+    "network": "网络错误,请稍后再试",
+    "loadFailed": "加载失败"
+  },
+  "redemptionCodes": {
+    "generate": "生成卡密",
+    "submit": "生成",
+    "allStatuses": "全部状态",
+    "empty": "暂无卡密",
+    "cols": {
+      "code": "卡密",
+      "creditAmount": "额度",
+      "status": "状态",
+      "redeemedBy": "兑换租户",
+      "expiresAt": "过期时间",
+      "created": "创建时间"
+    },
+    "form": {
+      "count": "卡密数量",
+      "creditPerCode": "单个额度(credits)",
+      "expiresAt": "过期时间(可选)",
+      "expiresHint": "留空=永不过期;可填 YYYY-MM-DD 或 ISO 时间"
+    },
+    "status": {
+      "unused": "未兑换",
+      "redeemed": "已兑换"
+    },
+    "minted": {
+      "title": "卡密已生成",
+      "warn": "请立即复制保存,这些卡密只显示这一次。",
+      "copy": "复制全部",
+      "copied": "已复制",
+      "done": "完成"
+    }
+  },
+  "oauthSessions": {
+    "revoke": "撤销",
+    "revoked": "凭证已撤销",
+    "connected": "凭证已连接",
+    "copied": "已复制",
+    "empty": "暂无上游凭证",
+    "tosWarn": "你正在连接自己的上游订阅,使用须遵守该服务商的服务条款。",
+    "tosAck": "我已知悉并接受上游服务商的服务条款",
+    "cols": {
+      "provider": "服务商",
+      "account": "账号",
+      "accountId": "账号 ID",
+      "status": "状态",
+      "expires": "过期时间",
+      "lastRefresh": "上次刷新"
+    },
+    "codex": {
+      "action": "连接 Codex",
+      "title": "连接 Codex 账号",
+      "subtitle": "全自动服务端 OAuth——无需粘贴令牌",
+      "start": "开始登录",
+      "complete": "完成",
+      "openHint": "打开授权链接登录后,把授权码粘贴回这里。",
+      "copyUrl": "复制链接",
+      "openLink": "打开授权链接",
+      "code": "授权码",
+      "label": "账号备注(可选)",
+      "labelHint": "覆盖根据账号自动生成的备注。"
+    },
+    "paste": {
+      "action": "粘贴授权",
+      "title": "粘贴导出的 auth-json",
+      "subtitle": "自带凭证:粘贴你本机导出的 OAuth 凭证",
+      "submit": "注册",
+      "authJson": "授权 JSON"
+    },
+    "confirmRevokeTitle": "撤销凭证?",
+    "confirmRevokeMsg": "确定撤销 {{account}}?使用它的渠道将无法解析。"
+  }
+}

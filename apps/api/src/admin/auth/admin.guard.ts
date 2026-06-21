@@ -8,6 +8,7 @@ import type { Request } from 'express';
 import { engineUnauthorized } from '../../common/errors.js';
 import { ENV } from '../../common/tokens.js';
 import type { AdminClaims } from './admin-auth.service.js';
+import { ADMIN_TOKEN_PREFIX, AdminTokenAuthService } from './admin-token-auth.service.js';
 import { ROLES_KEY } from './roles.decorator.js';
 
 /** The authenticated admin context the guard attaches as `req.admin`. */
@@ -22,11 +23,15 @@ export interface AdminRequest extends Request {
 }
 
 /**
- * Authenticates `/admin/*` requests via a Bearer JWT (§8). Validates the token
- * against `ADMIN_JWT_SECRET`, rejecting a missing, malformed, expired, or
- * wrong-secret token with `unauthorized`. On success it attaches
- * `{adminId, role}` to `req.admin` and — when the route carries `@Roles(...)` —
- * enforces that the admin's role is among the required ones.
+ * Authenticates `/admin/*` requests via a Bearer credential — either a human
+ * admin login JWT (§8, validated against `ADMIN_JWT_SECRET`) OR an `at_`-prefixed
+ * admin SERVICE TOKEN (M2M; validated against the `admin_token` table). The
+ * credential type is chosen by prefix so a service token is never run through the
+ * JWT verifier and vice-versa. A missing, malformed, expired, revoked, or
+ * wrong-secret credential is rejected with the same uniform `unauthorized`. On
+ * success it attaches `{adminId, role}` to `req.admin` and — when the route
+ * carries `@Roles(...)` — enforces that the role is among the required ones (for
+ * both credential types).
  */
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -34,6 +39,7 @@ export class AdminGuard implements CanActivate {
     private readonly jwt: JwtService,
     private readonly reflector: Reflector,
     @Inject(ENV) private readonly env: AppEnv,
+    private readonly tokenAuth: AdminTokenAuthService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -43,19 +49,29 @@ export class AdminGuard implements CanActivate {
       throw engineUnauthorized('missing admin token');
     }
 
-    let claims: AdminClaims;
-    try {
-      claims = await this.jwt.verifyAsync<AdminClaims>(token, {
-        secret: this.env.ADMIN_JWT_SECRET,
-      });
-    } catch {
-      // Covers expiry, bad signature, and malformed tokens — fail closed.
+    const admin = token.startsWith(ADMIN_TOKEN_PREFIX)
+      ? await this.tokenAuth.verify(token)
+      : await this.verifyJwt(token);
+    if (admin === undefined) {
+      // Covers expiry, bad signature, malformed/unknown/revoked — fail closed.
       throw engineUnauthorized('invalid or expired admin token');
     }
 
-    this.enforceRoles(context, claims.role);
-    req.admin = { adminId: claims.sub, role: claims.role };
+    this.enforceRoles(context, admin.role);
+    req.admin = admin;
     return true;
+  }
+
+  /** Validate a human admin login JWT; `undefined` on any failure (fail closed). */
+  private async verifyJwt(token: string): Promise<AdminContext | undefined> {
+    try {
+      const claims = await this.jwt.verifyAsync<AdminClaims>(token, {
+        secret: this.env.ADMIN_JWT_SECRET,
+      });
+      return { adminId: claims.sub, role: claims.role };
+    } catch {
+      return undefined;
+    }
   }
 
   /** Enforce a route's `@Roles(...)` requirement (no metadata → any admin). */

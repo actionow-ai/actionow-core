@@ -1,0 +1,65 @@
+{
+  "name": "@actionow/sdk",
+  "version": "0.1.0",
+  "description": "Typed client for the Actionow control-plane API, generated from the contract-first OpenAPI spec.",
+  "license": "MIT",
+  "author": "Actionow",
+  "homepage": "https://github.com/actionow-ai/actionow-core/tree/main/packages/sdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/actionow-ai/actionow-core.git",
+    "directory": "packages/sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/actionow-ai/actionow-core/issues"
+  },
+  "keywords": [
+    "actionow",
+    "sdk",
+    "api-client",
+    "typed-client",
+    "openapi",
+    "contract-first",
+    "ai-gateway",
+    "llm"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.js",
+    "module": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --passWithNoTests",
+    "gen": "openapi-typescript ../contracts/openapi.json -o src/generated/openapi.ts",
+    "prepack": "pnpm run build",
+    "prepublishOnly": "pnpm run gen && pnpm run build"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

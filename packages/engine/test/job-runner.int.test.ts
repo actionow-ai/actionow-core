@@ -142,6 +142,38 @@ describe('JobRunner.process — async poll', () => {
     expect(settleRows[0]?.balanceAfter).toBe(999_900n);
   });
 
+  it('honors a per-channel poll budget from config (video can poll past the deps default)', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    // Stays 'running' for 5 polls — MORE than the runner's deps maxPolls (3), so
+    // without a per-channel override it would time out. The channel config raises
+    // the budget to 10, so a slow (video-like) job succeeds instead.
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 5 }));
+    const runner = new JobRunner({
+      db,
+      adapters,
+      loadContext: () =>
+        Promise.resolve({
+          accountId: s.accountId,
+          providerType: 'async-media-mock',
+          modality: 'image',
+          pricebookEntry: IMAGE_PRICEBOOK,
+          modifiers: [],
+          channels: [{ id: 'c1', weight: 1, config: { maxPolls: 10, pollIntervalMs: 0 } }],
+        }),
+      resolveSecret: () => Promise.resolve(undefined),
+      http: { request: () => Promise.reject(new Error('no http')) },
+      maxPolls: 3,
+      pollIntervalMs: 0,
+      sleep: () => Promise.resolve(),
+    });
+
+    await runner.process(job.id);
+
+    expect((await getJob(db, job.id))?.status).toBe('succeeded');
+  });
+
   it('no-ops when the job is already terminal (idempotent process)', async () => {
     const s = await seed(1_000_000n);
     const job = await makeQueuedJob(s, 1_000n);

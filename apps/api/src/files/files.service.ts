@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
 import type { IoSchema, StorageProvider } from '@actionow/contracts';
-import type { FileReadyInput } from '@actionow/db';
+import type { FileReadyInput, ListFilesFilter, PageParams } from '@actionow/db';
 import {
   createFileObject,
   type Database,
   type FileObject,
   getFileObject,
+  listFilesByTenant,
   markFileReady,
 } from '@actionow/db';
 import type { AppEnv } from '@actionow/infra';
@@ -14,6 +15,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { TenantContext } from '../auth/auth.service.js';
 import { engineInvalidInput, engineNotFound } from '../common/errors.js';
+import { mapPageEnvelope, type PageEnvelope } from '../common/pagination.js';
 import { DB, ENV, STORAGE } from '../common/tokens.js';
 
 /** A presigned-upload grant returned by {@link FilesService.presignUpload}. */
@@ -30,13 +32,14 @@ export interface FileUrlResult {
   expires_in: number;
 }
 
-/** The public view of a confirmed `file_object` row. */
+/** The public view of a `file_object` row. */
 export interface FileView {
   id: string;
   status: string;
   size: number | null;
   content_type: string | null;
   etag: string | null;
+  created_at: string;
 }
 
 /**
@@ -124,6 +127,21 @@ export class FilesService {
     const file = await this.requireFile(id, ctx.tenantId);
     const presign = await storage.presignGet(file.key);
     return { url: presign.url, expires_in: presign.expiresIn };
+  }
+
+  /**
+   * Keyset-paginate the caller-tenant's files (newest-first), optionally narrowed
+   * by lifecycle `status`. Storage-independent — a pure DB read of the references,
+   * so it works even when storage is unconfigured (download URLs come from
+   * {@link getUrl}).
+   */
+  async list(
+    ctx: TenantContext,
+    filter: ListFilesFilter,
+    page: PageParams,
+  ): Promise<PageEnvelope<FileView>> {
+    const result = await listFilesByTenant(this.db, ctx.tenantId, filter, page);
+    return mapPageEnvelope(result, (r) => r.id, toView);
   }
 
   /**
@@ -227,5 +245,6 @@ function toView(file: FileObject): FileView {
     size: file.size,
     content_type: file.contentType,
     etag: file.etag,
+    created_at: file.createdAt.toISOString(),
   };
 }

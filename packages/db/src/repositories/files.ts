@@ -1,7 +1,8 @@
-import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
-import { and, eq } from 'drizzle-orm';
+import type { InferInsertModel, InferSelectModel, SQL } from 'drizzle-orm';
+import { and, eq, like } from 'drizzle-orm';
 
 import { fileObject } from '../schema/index.js';
+import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
 export type FileObject = InferSelectModel<typeof fileObject>;
@@ -75,4 +76,37 @@ export async function getFileObject(
       : and(eq(fileObject.id, id), eq(fileObject.tenantId, tenantId));
   const rows = await db.select().from(fileObject).where(where).limit(1);
   return rows[0];
+}
+
+/** Filters for {@link listFilesByTenant} (all optional; AND-ed with the tenant scope). */
+export interface ListFilesFilter {
+  /** Only files in this lifecycle state (e.g. `ready` for the asset gallery). */
+  readonly status?: 'pending' | 'ready';
+  /** Only files whose `content_type` starts with `image/`, `video/`, or `audio/`. */
+  readonly kind?: 'image' | 'video' | 'audio';
+}
+
+/**
+ * Keyset-paginate a tenant's `file_object` rows (newest-first), optionally
+ * narrowed to a lifecycle `status` and/or media `kind`. Rows with a NULL
+ * `content_type` are excluded when a `kind` filter is set (the `LIKE` cannot
+ * match NULL). Tenant isolation is enforced by the leading `tenant_id` predicate.
+ */
+export function listFilesByTenant(
+  db: DbOrTx,
+  tenantId: string,
+  filter: ListFilesFilter,
+  page: PageParams,
+): Promise<KeysetResult<FileObject>> {
+  const predicates: SQL[] = [eq(fileObject.tenantId, tenantId)];
+  if (filter.status !== undefined) predicates.push(eq(fileObject.status, filter.status));
+  if (filter.kind !== undefined) predicates.push(like(fileObject.contentType, `${filter.kind}/%`));
+
+  return keysetPage<FileObject>(db, {
+    table: fileObject,
+    createdAtCol: fileObject.createdAt,
+    idCol: fileObject.id,
+    where: and(...predicates),
+    page,
+  });
 }

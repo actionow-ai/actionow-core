@@ -1,11 +1,45 @@
-import type { ApiKeyRow, Job, LedgerRow } from '@actionow/db';
+import {
+  type ConsoleApiKeyView,
+  consoleApiKeyViewSchema,
+  type ConsoleBalanceView,
+  consoleBalanceViewSchema,
+  type ConsoleFileView,
+  consoleFileViewSchema,
+  type ConsoleJobView,
+  consoleJobViewSchema,
+  type ConsoleLedgerView,
+  consoleLedgerViewSchema,
+  type ConsoleMeView,
+  consoleMeViewSchema,
+  type ConsoleModelView,
+  consoleModelViewSchema,
+  type ConsolePaymentView,
+  consolePaymentViewSchema,
+  type ConsoleUsageLogView,
+  consoleUsageLogViewSchema,
+  type UsageRollupView,
+  usageRollupViewSchema,
+} from '@actionow/contracts';
+import type {
+  ApiKeyRow,
+  FileObject,
+  Job,
+  LedgerRow,
+  PaymentIntentRow,
+  UsageLogRow,
+  UsageRollupRow,
+  UserRecord,
+} from '@actionow/db';
+import type { AppEnv } from '@actionow/infra';
 import {
   Body,
   Controller,
   Delete,
   Get,
   HttpCode,
+  Inject,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -13,13 +47,18 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { engineUnauthorized } from '../common/errors.js';
+import { engineInvalidInput, engineUnauthorized } from '../common/errors.js';
 import { mapPageEnvelope, type PageEnvelope, toPageParams } from '../common/pagination.js';
+import { ENV } from '../common/tokens.js';
 import { ZodBody } from '../common/zod.pipe.js';
 import { type ConsoleContext, ConsoleGuard, type ConsoleRequest } from './console.guard.js';
 import type { ConsoleCreateIntentResponse } from './console.service.js';
 import { ConsoleService } from './console.service.js';
 import {
+  type ConsoleAnalyticsUsageDto,
+  consoleAnalyticsUsageSchema,
+  type ConsoleChangePasswordDto,
+  consoleChangePasswordSchema,
   type ConsoleCreateApiKeyDto,
   consoleCreateApiKeySchema,
   type ConsoleCreateIntentDto,
@@ -37,70 +76,140 @@ interface ApiKeyCreatedView {
   id: string;
   plaintext: string;
 }
-interface ApiKeyView {
-  id: string;
-  resource_allowlist: string[];
-  rate_limit: number | null;
-  status: string;
-  created_at: string;
-}
-interface JobView {
-  job_id: string;
-  resource_id: string;
-  status: string;
-  exec_mode: string;
-  cost: string | null;
-  created_at: string;
-}
-interface LedgerView {
-  id: string;
-  type: string;
-  credits_delta: string;
-  balance_after: string;
-  job_id: string | null;
-  created_at: string;
-}
-interface ModelListItem {
-  name: string;
-  display: string;
-  modality: string;
-  capabilities: unknown;
-  visibility: string;
-}
+
+// The console wire views (ApiKey/Job/Ledger/Model/UsageRollup/UsageLog/Payment/
+// Me/Balance) now live in @actionow/contracts (console-views + ops-views) — the
+// single source of truth shared with the frontend. The mappers below `.parse()`
+// against the schemas. Local aliases keep the route signatures terse and the
+// `Console*` naming explicit at the call sites.
+type ApiKeyView = ConsoleApiKeyView;
+type JobView = ConsoleJobView;
+type LedgerView = ConsoleLedgerView;
+type ModelListItem = ConsoleModelView;
+type UsageLogView = ConsoleUsageLogView;
+type PaymentIntentView = ConsolePaymentView;
+type MeView = ConsoleMeView;
+type BalanceView = ConsoleBalanceView;
+type FileView = ConsoleFileView;
 
 /** Project a tenant api-key row to its console view (no hash). */
 function toApiKeyView(r: Omit<ApiKeyRow, 'hash'>): ApiKeyView {
-  return {
+  return consoleApiKeyViewSchema.parse({
     id: r.id,
     resource_allowlist: r.resourceAllowlist,
     rate_limit: r.rateLimit,
     status: r.status,
     created_at: r.createdAt.toISOString(),
-  };
+  });
 }
 
 /** Project a job row to the console job view (money as decimal strings). */
 function toConsoleJobView(j: Job): JobView {
-  return {
+  return consoleJobViewSchema.parse({
     job_id: j.id,
     resource_id: j.resourceId,
     status: j.status,
     exec_mode: j.execMode,
     cost: j.costCredits === null ? null : j.costCredits.toString(),
     created_at: j.createdAt.toISOString(),
-  };
+  });
 }
 
 /** Project a ledger row to the console ledger view (money as decimal strings). */
 function toConsoleLedgerView(l: LedgerRow): LedgerView {
-  return {
+  return consoleLedgerViewSchema.parse({
     id: l.id,
     type: l.type,
     credits_delta: l.creditsDelta.toString(),
     balance_after: l.balanceAfter.toString(),
     job_id: l.jobId,
     created_at: l.createdAt.toISOString(),
-  };
+  });
+}
+
+/** Project a usage rollup row (bigint sums) to its decimal-string view. */
+function toUsageRollupView(row: UsageRollupRow): UsageRollupView {
+  return usageRollupViewSchema.parse({
+    bucket: row.bucket,
+    requests: row.requests,
+    input_tokens: row.inputTokens.toString(),
+    output_tokens: row.outputTokens.toString(),
+    cost: row.cost.toString(),
+    provider_cost: row.providerCost.toString(),
+    margin: row.margin.toString(),
+    errors: row.errors,
+  });
+}
+
+/** Project a usage-log row to the console view (tenant implicit; cost decimal string). */
+function toUsageLogView(row: UsageLogRow): UsageLogView {
+  return consoleUsageLogViewSchema.parse({
+    id: row.id,
+    model: row.model,
+    input_tokens: row.inputTokens,
+    output_tokens: row.outputTokens,
+    cost: row.cost.toString(),
+    latency_ms: row.latencyMs,
+    status: row.status,
+    created_at: row.createdAt.toISOString(),
+  });
+}
+
+/** Project a payment-intent row to the tenant's topup-history view (money as decimal strings). */
+function toPaymentIntentView(row: PaymentIntentRow): PaymentIntentView {
+  return consolePaymentViewSchema.parse({
+    id: row.id,
+    provider: row.provider,
+    purpose: row.purpose,
+    amount_minor: row.amountMinor.toString(),
+    currency: row.currency,
+    credit_amount: row.creditAmount === null ? null : row.creditAmount.toString(),
+    status: row.status,
+    created_at: row.createdAt.toISOString(),
+  });
+}
+
+/**
+ * Project a `file_object` row to the tenant's gallery view. `url` is a directly-
+ * viewable link built from the storage public base + the object key, or `null`
+ * when no public base is configured (the asset isn't web-served).
+ */
+function toConsoleFileView(row: FileObject, publicBase: string | undefined): FileView {
+  return consoleFileViewSchema.parse({
+    id: row.id,
+    status: row.status,
+    content_type: row.contentType,
+    size: row.size,
+    url: publicBase !== undefined ? `${publicBase}/${row.key}` : null,
+    created_at: row.createdAt.toISOString(),
+  });
+}
+
+/** Project the caller's user record to its profile view (never the password hash). */
+function toMeView(u: UserRecord): MeView {
+  return consoleMeViewSchema.parse({
+    id: u.id,
+    email: u.email,
+    email_verified: u.emailVerified,
+    role: u.role,
+    status: u.status,
+    tenant_id: u.tenantId,
+  });
+}
+
+/**
+ * Validate the tenant analytics query (query params bypass `ZodBody`); a bad
+ * value throws `invalid_input` → the global filter renders the 400 envelope.
+ */
+function parseConsoleAnalyticsUsage(raw: Record<string, string>): ConsoleAnalyticsUsageDto {
+  const result = consoleAnalyticsUsageSchema.safeParse(raw);
+  if (!result.success) {
+    const first = result.error.issues[0];
+    const path = first?.path.join('.') ?? '';
+    const detail = first === undefined ? 'invalid query' : `${path}: ${first.message}`;
+    throw engineInvalidInput(detail);
+  }
+  return result.data;
 }
 
 /**
@@ -117,7 +226,10 @@ function toConsoleLedgerView(l: LedgerRow): LedgerView {
 @UseGuards(ConsoleGuard)
 @Controller('console')
 export class ConsoleController {
-  constructor(private readonly console: ConsoleService) {}
+  constructor(
+    private readonly console: ConsoleService,
+    @Inject(ENV) private readonly env: AppEnv,
+  ) {}
 
   @Post('api-keys')
   @HttpCode(201)
@@ -196,6 +308,79 @@ export class ConsoleController {
     };
   }
 
+  @Get('analytics/usage')
+  @ApiOperation({ summary: 'Your tenant usage rollups (by day/model/channel/api-key)' })
+  async analyticsUsage(
+    @Req() req: ConsoleRequest,
+    @Query() raw: Record<string, string>,
+  ): Promise<UsageRollupView[]> {
+    const ctx = ctxOf(req);
+    const q = parseConsoleAnalyticsUsage(raw);
+    const rows = await this.console.analyticsUsage(ctx.tenantId, q);
+    return rows.map(toUsageRollupView);
+  }
+
+  @Get('usage-log')
+  @ApiOperation({ summary: 'Your tenant per-call usage log (keyset, newest-first)' })
+  async usageLog(
+    @Req() req: ConsoleRequest,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<UsageLogView>> {
+    const ctx = ctxOf(req);
+    const result = await this.console.listUsageLog(ctx.tenantId, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toUsageLogView);
+  }
+
+  @Get('files')
+  @ApiOperation({
+    summary: 'Your tenant media files (asset gallery; ready files only, keyset, newest-first)',
+  })
+  async files(
+    @Req() req: ConsoleRequest,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+    @Query('kind') kind?: string,
+  ): Promise<PageEnvelope<FileView>> {
+    const ctx = ctxOf(req);
+    const filter: { kind?: 'image' | 'video' | 'audio' } = {};
+    if (kind === 'image' || kind === 'video' || kind === 'audio') filter.kind = kind;
+    const result = await this.console.listFiles(
+      ctx.tenantId,
+      filter,
+      toPageParams({ cursor, limit }),
+    );
+    const base = this.env.STORAGE_PUBLIC_BASE_URL;
+    return mapPageEnvelope(
+      result,
+      (r) => r.id,
+      (r) => toConsoleFileView(r, base),
+    );
+  }
+
+  @Get('balance')
+  @ApiOperation({ summary: 'Your tenant credit balance + held (µcredit decimal strings)' })
+  async balance(@Req() req: ConsoleRequest): Promise<BalanceView> {
+    const ctx = ctxOf(req);
+    const account = await this.console.balance(ctx.accountId);
+    return consoleBalanceViewSchema.parse({
+      balance: account.creditBalance.toString(),
+      held: account.creditHeld.toString(),
+    });
+  }
+
+  @Get('payments')
+  @ApiOperation({ summary: 'Your tenant payment-intent (topup) history (keyset, newest-first)' })
+  async payments(
+    @Req() req: ConsoleRequest,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<PaymentIntentView>> {
+    const ctx = ctxOf(req);
+    const result = await this.console.listPayments(ctx.tenantId, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toPaymentIntentView);
+  }
+
   /**
    * Models visible to your tenant, in the uniform envelope. The visible-models
    * port returns the full visibility-filtered set (small, public + granted), so
@@ -208,13 +393,15 @@ export class ConsoleController {
     const ctx = ctxOf(req);
     const rows: ModelView[] = await this.console.listModels(ctx.tenantId);
     return {
-      data: rows.map((m) => ({
-        name: m.name,
-        display: m.display,
-        modality: m.modality,
-        capabilities: m.capabilities,
-        visibility: m.visibility,
-      })),
+      data: rows.map((m) =>
+        consoleModelViewSchema.parse({
+          name: m.name,
+          display: m.display,
+          modality: m.modality,
+          capabilities: m.capabilities,
+          visibility: m.visibility,
+        }),
+      ),
       next_cursor: null,
       has_more: false,
     };
@@ -229,5 +416,23 @@ export class ConsoleController {
   ): Promise<ConsoleCreateIntentResponse> {
     const ctx = ctxOf(req);
     return this.console.selfTopup(dto, ctx.tenantId);
+  }
+
+  @Get('me')
+  @ApiOperation({ summary: 'Your own profile (no password hash)' })
+  async me(@Req() req: ConsoleRequest): Promise<MeView> {
+    const ctx = ctxOf(req);
+    return toMeView(await this.console.me(ctx.userId));
+  }
+
+  @Patch('settings')
+  @ApiOperation({ summary: 'Change your password (verifies the current one)' })
+  async changePassword(
+    @Body(new ZodBody(consoleChangePasswordSchema)) dto: ConsoleChangePasswordDto,
+    @Req() req: ConsoleRequest,
+  ): Promise<{ ok: true }> {
+    const ctx = ctxOf(req);
+    await this.console.changePassword(ctx.userId, dto);
+    return { ok: true };
   }
 }

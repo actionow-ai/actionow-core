@@ -38,7 +38,7 @@ export interface PersistMediaResult {
 }
 
 /** The output keys that may carry an upstream media URL (single value). */
-const SINGLE_URL_KEYS = ['image_url', 'video_url'] as const;
+const SINGLE_URL_KEYS = ['image_url', 'video_url', 'audio_url'] as const;
 /** The output keys that carry an array of media URLs. */
 const ARRAY_URL_KEYS = ['image_urls'] as const;
 
@@ -48,6 +48,13 @@ const EXT_BY_CONTENT_TYPE: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/webp': 'webp',
   'video/mp4': 'mp4',
+  'audio/mpeg': 'mp3',
+  'audio/mp3': 'mp3',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/ogg': 'ogg',
+  'audio/aac': 'aac',
+  'audio/flac': 'flac',
 };
 
 /** Best-effort: derive a file extension from a URL path, then content-type, else 'bin'. */
@@ -69,61 +76,86 @@ function extOf(url: string, contentType?: string): string {
 }
 
 /**
- * Copy any media URL(s) in `output` into R2 under `{tenantId}/{jobId}.{ext}` and
- * rewrite them to the stable `{publicBaseUrl}/{key}` URL. ALL media URLs that share
- * one modality point at the SAME object (image_url == image_urls[0]), so a single
- * download+upload is reused. Best-effort: any error leaves `output` untouched and
- * reports `persisted: false` so the job still settles with the temp URL.
+ * Copy EACH distinct media URL in `output` into R2 and rewrite the output to the
+ * stable `{publicBaseUrl}/{key}` URLs. A single media URL (one image / one video)
+ * is stored under `{tenantId}/{jobId}.{ext}`; a batch of N DISTINCT images is
+ * stored under `{tenantId}/{jobId}-{i}.{ext}` (one object each — a batch is NOT
+ * collapsed to one object), and `image_urls` is rewritten element-wise while the
+ * single `image_url` key maps to the first image. Best-effort: any error leaves
+ * `output` untouched and reports `persisted: false` so the job still settles with
+ * the temp upstream URL.
  */
 export async function persistMediaOutput(input: PersistMediaInput): Promise<PersistMediaResult> {
   const { output } = input;
-  // Find the first present media URL (single keys take priority, else array[0]).
-  const sourceUrl = firstMediaUrl(output);
-  if (sourceUrl === undefined) {
+  const sources = distinctMediaUrls(output);
+  if (sources.length === 0) {
     return { persisted: false, output, objects: [] };
   }
 
   try {
-    const fetched = await input.fetchBytes(sourceUrl);
-    const ext = extOf(sourceUrl, fetched.contentType);
-    const key = `${input.tenantId}/${input.jobId}.${ext}`;
-    const presign = await input.storage.presignPut(
-      key,
-      fetched.contentType !== undefined ? { contentType: fetched.contentType } : {},
-    );
-    await input.putBytes(presign.url, fetched.bytes, fetched.contentType);
+    const single = sources.length === 1;
+    // Map each distinct upstream URL to its persisted public URL.
+    const map = new Map<string, string>();
+    const objects: PersistedObject[] = [];
+    for (let i = 0; i < sources.length; i += 1) {
+      const src = sources[i];
+      if (src === undefined) continue;
+      const fetched = await input.fetchBytes(src);
+      const ext = extOf(src, fetched.contentType);
+      const key = single
+        ? `${input.tenantId}/${input.jobId}.${ext}`
+        : `${input.tenantId}/${input.jobId}-${String(i)}.${ext}`;
+      const presign = await input.storage.presignPut(
+        key,
+        fetched.contentType !== undefined ? { contentType: fetched.contentType } : {},
+      );
+      await input.putBytes(presign.url, fetched.bytes, fetched.contentType);
+      map.set(src, `${input.publicBaseUrl}/${key}`);
+      const object: PersistedObject = { key, size: fetched.bytes.byteLength };
+      if (fetched.contentType !== undefined) object.contentType = fetched.contentType;
+      objects.push(object);
+    }
 
-    const publicUrl = `${input.publicBaseUrl}/${key}`;
+    const firstObj = objects[0];
+    const first = firstObj !== undefined ? `${input.publicBaseUrl}/${firstObj.key}` : undefined;
     const rewritten: Record<string, unknown> = { ...output };
     for (const k of SINGLE_URL_KEYS) {
-      if (typeof rewritten[k] === 'string') rewritten[k] = publicUrl;
+      const v = rewritten[k];
+      if (typeof v === 'string') rewritten[k] = map.get(v) ?? first ?? v;
     }
     for (const k of ARRAY_URL_KEYS) {
-      if (Array.isArray(rewritten[k]))
-        rewritten[k] = (rewritten[k] as unknown[]).map(() => publicUrl);
+      const arr = rewritten[k];
+      if (Array.isArray(arr)) {
+        rewritten[k] = (arr as unknown[]).map((u) =>
+          typeof u === 'string' ? (map.get(u) ?? first ?? u) : u,
+        );
+      }
     }
-    const object: PersistedObject = { key, size: fetched.bytes.byteLength };
-    if (fetched.contentType !== undefined) object.contentType = fetched.contentType;
-    return {
-      persisted: true,
-      output: rewritten,
-      objects: [object],
-    };
+    return { persisted: true, output: rewritten, objects };
   } catch {
     // Best-effort: settle with the temp URL rather than failing the job.
     return { persisted: false, output, objects: [] };
   }
 }
 
-/** The first present media URL in an output, or undefined. */
-function firstMediaUrl(output: Record<string, unknown>): string | undefined {
-  for (const k of SINGLE_URL_KEYS) {
-    const v = output[k];
-    if (typeof v === 'string' && v.length > 0) return v;
-  }
+/**
+ * The distinct media URLs in `output`, ARRAY keys first (so `image_urls[0]` is
+ * index 0) then the single keys, de-duplicated preserving first-seen order — so
+ * `image_url == image_urls[0]` is downloaded/uploaded once, not twice.
+ */
+function distinctMediaUrls(output: Record<string, unknown>): string[] {
+  const urls: string[] = [];
+  const seen = new Set<string>();
+  const push = (u: unknown): void => {
+    if (typeof u === 'string' && u.length > 0 && !seen.has(u)) {
+      seen.add(u);
+      urls.push(u);
+    }
+  };
   for (const k of ARRAY_URL_KEYS) {
     const arr = output[k];
-    if (Array.isArray(arr) && typeof arr[0] === 'string') return arr[0];
+    if (Array.isArray(arr)) for (const u of arr) push(u);
   }
-  return undefined;
+  for (const k of SINGLE_URL_KEYS) push(output[k]);
+  return urls;
 }

@@ -83,6 +83,40 @@ export const user = pgTable(
 );
 
 /**
+ * A long-lived admin SERVICE TOKEN (M2M credential) — the machine equivalent of a
+ * human admin's login JWT. An external developer's backend presents it as a Bearer
+ * token to call the admin control plane (e.g. provision tenants/keys at customer
+ * signup) without a human password or a short-lived JWT. Mirrors {@link apiKey}:
+ * only the sha256 `hash` of the one-time plaintext (`at_<base64url>`) is stored,
+ * and revocation is a soft-delete (`deleted_at`). Always full-admin — the guard
+ * attaches `role='admin'` and the existing `@Roles` RBAC applies. `created_by`
+ * attributes the token to the admin who minted it.
+ */
+export const adminToken = pgTable(
+  'admin_token',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    hash: text('hash').notNull(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => user.id),
+    // Optional expiry; NULL means the token never expires. Enforced by the guard.
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    // status allowed values: active | disabled
+    status: text('status').notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex('admin_token_hash_idx').on(t.hash),
+    index('admin_token_created_by_idx').on(t.createdBy),
+    check('admin_token_status_allowed', sql`${t.status} IN ('active', 'disabled')`),
+  ],
+);
+
+/**
  * A federated identity linking a {@link user} to an external OAuth provider
  * (Phase 9). Keyed on `(provider, provider_user_id)` — the provider's stable
  * subject id, NEVER the email — so a provider account links to exactly one

@@ -11,13 +11,15 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "gen:openapi": "tsx scripts/gen-openapi.ts"
   },
   "dependencies": {
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "vitest": "^2.1.0",
-    "typescript": "^5.6.0"
+    "@asteasolutions/zod-to-openapi": "^7.3.4",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
   }
 }

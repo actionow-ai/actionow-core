@@ -9,6 +9,7 @@ export {
   getAccount,
   getTenant,
   type LedgerRow,
+  listAccounts,
   listApiKeys,
   listLedger,
   listTenants,
@@ -16,6 +17,17 @@ export {
   updateTenant,
   type UpdateTenantInput,
 } from './admin.js';
+export {
+  type AdminTokenRecord,
+  type AdminTokenView,
+  createAdminToken,
+  type CreateAdminTokenInput,
+  type CreatedAdminToken,
+  findAdminTokenByHash,
+  hashAdminToken,
+  listAdminTokens,
+  softDeleteAdminToken,
+} from './admin-token.js';
 export {
   type ApiKeyRecord,
   type ApiKeyView,
@@ -37,6 +49,7 @@ export {
   linkIdentityTx,
   rotateApiKeyForTenant,
   softDeleteApiKey,
+  updateUserPassword,
   type UserRecord,
 } from './auth.js';
 export {
@@ -108,6 +121,8 @@ export {
   type FileObject,
   type FileReadyInput,
   getFileObject,
+  listFilesByTenant,
+  type ListFilesFilter,
   markFileReady,
 } from './files.js';
 export { claimIdempotency, type ClaimResult } from './idempotency.js';
