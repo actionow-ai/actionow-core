@@ -1,5 +1,5 @@
 import { PlusIcon, ProhibitIcon } from '@phosphor-icons/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -7,6 +7,7 @@ import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
 import { CopyField } from '../../components/data/CopyField';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
+import { LoadMore } from '../../components/data/LoadMore';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { Checkbox } from '../../components/ui/Checkbox';
@@ -33,10 +34,13 @@ export function OAuthSessionsPage() {
   const api = useAdminApi();
   const qc = useQueryClient();
 
-  const sessions = useQuery({
+  const sessions = useInfiniteQuery({
     queryKey: qk.oauthSessions(),
-    queryFn: () => api.listOAuthSessions(),
+    queryFn: ({ pageParam }) => api.listOAuthSessions({ cursor: pageParam, limit: 50 }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
+  const sessionRows = sessions.data?.pages.flatMap((p) => p.rows) ?? [];
   const invalidate = () => qc.invalidateQueries({ queryKey: qk.oauthSessions() });
 
   // Stored encrypted credentials (provider API keys) — the other half of
@@ -210,7 +214,7 @@ export function OAuthSessionsPage() {
         <SectionHeader title={t('oauthSessions.title')} />
         <DataTable
           columns={cols}
-          rows={sessions.data ?? []}
+          rows={sessionRows}
           rowKey={(r) => r.id}
           loading={sessions.isLoading}
           error={sessions.isError}
@@ -223,7 +227,11 @@ export function OAuthSessionsPage() {
           )}
           actionsWidth="120px"
           searchable
-          pageSize={20}
+        />
+        <LoadMore
+          hasNextPage={sessions.hasNextPage}
+          isFetchingNextPage={sessions.isFetchingNextPage}
+          onLoadMore={() => void sessions.fetchNextPage()}
         />
       </section>
 

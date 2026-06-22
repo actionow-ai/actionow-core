@@ -17,7 +17,7 @@ const code: RedemptionCodeView = {
 };
 
 const mockApi = vi.hoisted(() => ({
-  listRedemptionCodes: vi.fn(() => Promise.resolve([] as unknown[])),
+  listRedemptionCodes: vi.fn(() => Promise.resolve({ rows: [] as unknown[], nextCursor: null })),
   generateCodes: vi.fn(() => Promise.resolve({ codes: ['GIFT-2'], credit_amount: '5000000' })),
 }));
 vi.mock('../../lib/api/useAdminApi', () => ({ useAdminApi: () => mockApi }));
@@ -40,7 +40,7 @@ beforeAll(async () => {
 });
 beforeEach(() => {
   mockApi.listRedemptionCodes.mockClear();
-  mockApi.listRedemptionCodes.mockResolvedValue([code]);
+  mockApi.listRedemptionCodes.mockResolvedValue({ rows: [code], nextCursor: null });
 });
 
 describe('RedemptionCodesPage', () => {
@@ -48,13 +48,21 @@ describe('RedemptionCodesPage', () => {
     renderPage();
     await screen.findByText('GIFT-1');
     expect(screen.getByText(i18n.t('console:status.unused'))).toBeInTheDocument();
-    // No status in the URL → list every code (undefined filter).
-    expect(mockApi.listRedemptionCodes).toHaveBeenCalledWith(undefined);
+    // No status in the URL → list every code (undefined filter), keyset-paginated.
+    expect(mockApi.listRedemptionCodes).toHaveBeenCalledWith({
+      status: undefined,
+      cursor: undefined,
+      limit: 50,
+    });
   });
 
   it('passes the URL status filter through to the query', async () => {
     renderPage('/?status=redeemed');
     await screen.findByText('GIFT-1');
-    expect(mockApi.listRedemptionCodes).toHaveBeenCalledWith('redeemed');
+    expect(mockApi.listRedemptionCodes).toHaveBeenCalledWith({
+      status: 'redeemed',
+      cursor: undefined,
+      limit: 50,
+    });
   });
 });

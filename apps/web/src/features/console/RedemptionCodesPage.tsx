@@ -1,5 +1,5 @@
 import { PlusIcon } from '@phosphor-icons/react';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -7,6 +7,7 @@ import { useSetConsoleAction, useSetConsoleFilters } from '../../components/cons
 import { CopyField } from '../../components/data/CopyField';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
+import { LoadMore } from '../../components/data/LoadMore';
 import { Money } from '../../components/data/Money';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
@@ -32,11 +33,14 @@ export function RedemptionCodesPage() {
 
   const [status, setStatus] = useUrlState('status');
   const filter = status === 'unused' || status === 'redeemed' ? status : undefined;
-  const codes = useQuery({
+  const codes = useInfiniteQuery({
     queryKey: qk.redemptionCodes(filter),
-    queryFn: () => api.listRedemptionCodes(filter),
-    placeholderData: keepPreviousData,
+    queryFn: ({ pageParam }) =>
+      api.listRedemptionCodes({ status: filter, cursor: pageParam, limit: 50 }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
+  const rows = codes.data?.pages.flatMap((p) => p.rows) ?? [];
 
   const [formOpen, setFormOpen] = useState(false);
   const [count, setCount] = useState(10);
@@ -129,14 +133,18 @@ export function RedemptionCodesPage() {
     <div style={{ height: '100%' }}>
       <DataTable
         columns={cols}
-        rows={codes.data ?? []}
+        rows={rows}
         rowKey={(r) => r.code}
         loading={codes.isLoading}
         error={codes.isError}
         onRetry={() => void codes.refetch()}
         empty={t('redemptionCodes.empty')}
         searchable
-        pageSize={20}
+      />
+      <LoadMore
+        hasNextPage={codes.hasNextPage}
+        isFetchingNextPage={codes.isFetchingNextPage}
+        onLoadMore={() => void codes.fetchNextPage()}
       />
 
       <Modal

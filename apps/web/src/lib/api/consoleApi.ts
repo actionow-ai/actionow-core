@@ -30,8 +30,10 @@ import type {
 export function makeConsoleApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorized: () => void) {
   const u = onUnauthorized;
   return {
-    listApiKeys: async (): Promise<Page<ConsoleApiKeyView>> =>
-      page<ConsoleApiKeyView>(await sdk.GET('/console/api-keys'), u),
+    listApiKeys: async (
+      params: { cursor?: string; limit?: number } = {},
+    ): Promise<Page<ConsoleApiKeyView>> =>
+      page<ConsoleApiKeyView>(await sdk.GET('/console/api-keys', { params: { query: params } }), u),
     createApiKey: async (body: ConsoleCreateApiKeyBody): Promise<ApiKeyCreatedView> =>
       unwrap(await sdk.POST('/console/api-keys', { body }), u),
     // Rotate: new plaintext returned once; the old key is disabled server-side.
