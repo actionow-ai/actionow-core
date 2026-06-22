@@ -27,12 +27,15 @@ export function TenantSelect({
   onChange,
   placeholder,
   tooltip,
+  error,
 }: {
   label?: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   tooltip?: string;
+  /** Inline validation message (labelled mode only) — e.g. a required-field error. */
+  error?: string;
 }) {
   const api = useAdminApi();
   const { data } = useQuery({
@@ -52,6 +55,7 @@ export function TenantSelect({
         options={options}
         placeholder={placeholder}
         tooltip={tooltip}
+        error={error}
       />
     );
   }

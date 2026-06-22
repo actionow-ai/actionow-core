@@ -862,6 +862,7 @@
   },
   "dify": {
     "title": "Dify 导入",
+    "new": "新建导入",
     "submit": "导入",
     "imported": "导入成功",
     "form": {
@@ -872,7 +873,10 @@
       "pricingModel": "定价模型",
       "allowBlockers": "允许阻塞节点",
       "serviceKeyRef": "服务密钥（可选）",
-      "serviceKeyNone": "不绑定密钥"
+      "serviceKeyNone": "不绑定密钥",
+      "tenantRequired": "请选择一个租户。",
+      "resourceRequired": "请填写资源 ID。",
+      "yamlRequired": "请粘贴 Workflow YAML。"
     },
     "pricing": {
       "fixed": "固定",

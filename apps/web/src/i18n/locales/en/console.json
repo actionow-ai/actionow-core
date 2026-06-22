@@ -862,6 +862,7 @@
   },
   "dify": {
     "title": "Dify import",
+    "new": "New import",
     "submit": "Import",
     "imported": "Imported",
     "form": {
@@ -872,7 +873,10 @@
       "pricingModel": "Pricing model",
       "allowBlockers": "Allow blocking nodes",
       "serviceKeyRef": "Service key (optional)",
-      "serviceKeyNone": "No service key"
+      "serviceKeyNone": "No service key",
+      "tenantRequired": "Select a tenant.",
+      "resourceRequired": "Enter a resource ID.",
+      "yamlRequired": "Paste the workflow YAML."
     },
     "pricing": {
       "fixed": "Fixed",
