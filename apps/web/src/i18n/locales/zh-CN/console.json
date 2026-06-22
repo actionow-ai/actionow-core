@@ -70,7 +70,8 @@
         "name": "模型",
         "display": "显示名",
         "modality": "模态",
-        "visibility": "可见性"
+        "visibility": "可见性",
+        "capabilities": "能力"
       }
     },
     "billing": {
@@ -311,7 +312,21 @@
     "detail": {
       "id": "租户 ID",
       "account": "账户",
-      "noAccount": "该租户还没有账户"
+      "noAccount": "该租户还没有账户",
+      "tabsLabel": "租户详情",
+      "ledger": "流水",
+      "payments": "支付",
+      "noLedger": "暂无流水",
+      "noPayments": "暂无支付",
+      "cols": {
+        "time": "时间",
+        "type": "类型",
+        "delta": "变动",
+        "balanceAfter": "余额",
+        "provider": "提供方",
+        "amount": "金额",
+        "status": "状态"
+      }
     },
     "empty": "暂无租户",
     "created": "租户已创建",
@@ -324,7 +339,8 @@
       "done": "客户已开通",
       "keyTitle": "API 密钥（仅显示一次）",
       "keyHint": "请立即复制此密钥，关闭后将无法再次查看。"
-    }
+    },
+    "updated": "租户已更新"
   },
   "accounts": {
     "title": "账户 / 充值",

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge } from '../../components/data/StatusBadge';
-import { enumLabel, MODALITIES, VISIBILITIES } from '../../lib/api/enums';
+import { CAPABILITIES, enumLabel, MODALITIES, VISIBILITIES } from '../../lib/api/enums';
 import { qk } from '../../lib/api/queryKeys';
 import type { ConsoleModelView } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
@@ -43,6 +43,27 @@ export function AppModels() {
         />
       ),
       width: '110px',
+    },
+    {
+      // The single most decision-relevant field for a tenant picking a model:
+      // tools / vision / json / stream / audio. `capabilities` is free-form JSON
+      // on the wire — read it as a record and chip the known flags that are on.
+      key: 'capabilities',
+      header: t('app.models.cols.capabilities'),
+      cell: (r) => {
+        const caps = (r.capabilities ?? {}) as Record<string, unknown>;
+        const active = CAPABILITIES.filter((c) => caps[c.key] === true);
+        if (active.length === 0) return '—';
+        return (
+          <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 'var(--s-1)' }}>
+            {active.map((c) => (
+              <span key={c.key} className="chip">
+                {t(c.labelKey)}
+              </span>
+            ))}
+          </span>
+        );
+      },
     },
   ];
 

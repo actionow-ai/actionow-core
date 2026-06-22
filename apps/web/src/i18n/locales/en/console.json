@@ -70,7 +70,8 @@
         "name": "Model",
         "display": "Display",
         "modality": "Modality",
-        "visibility": "Visibility"
+        "visibility": "Visibility",
+        "capabilities": "Capabilities"
       }
     },
     "billing": {
@@ -311,7 +312,21 @@
     "detail": {
       "id": "Tenant ID",
       "account": "Account",
-      "noAccount": "This tenant has no account yet"
+      "noAccount": "This tenant has no account yet",
+      "tabsLabel": "Tenant detail",
+      "ledger": "Ledger",
+      "payments": "Payments",
+      "noLedger": "No ledger entries",
+      "noPayments": "No payments",
+      "cols": {
+        "time": "Time",
+        "type": "Type",
+        "delta": "Delta",
+        "balanceAfter": "Balance",
+        "provider": "Provider",
+        "amount": "Amount",
+        "status": "Status"
+      }
     },
     "empty": "No tenants yet",
     "created": "Tenant created",
@@ -324,7 +339,8 @@
       "done": "Tenant provisioned",
       "keyTitle": "API key — shown once",
       "keyHint": "Copy this key now; it will not be shown again."
-    }
+    },
+    "updated": "Tenant updated"
   },
   "accounts": {
     "title": "Accounts",

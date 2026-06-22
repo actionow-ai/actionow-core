@@ -19,7 +19,7 @@ import { qk } from '../../lib/api/queryKeys';
 import type { AnalyticsUsageQuery, UsageRollupView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { formatCredits, formatCreditsSigned } from '../../lib/money';
-import { STALE_VOLATILE } from '../../lib/query';
+import { STALE_REFERENCE, STALE_VOLATILE } from '../../lib/query';
 import { useUrlState } from '../../lib/useUrlState';
 
 type GroupBy = AnalyticsUsageQuery['groupBy'];
@@ -77,6 +77,23 @@ export function AnalyticsPage() {
   });
   const rows = usage.data ?? [];
 
+  // When grouping by tenant the bucket is a bare tenant UUID — resolve it to a
+  // name via the tenants list (loaded only for that group-by). channel/api_key
+  // have no global name list, so they stay as ids (hoverable via the chart tip).
+  const tenants = useQuery({
+    queryKey: qk.tenants(),
+    queryFn: () => api.listTenants(),
+    staleTime: STALE_REFERENCE,
+    enabled: gb === 'tenant',
+  });
+  const tenantName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const tn of tenants.data ?? []) m.set(tn.id, tn.name);
+    return m;
+  }, [tenants.data]);
+  const bucketLabel = (bucket: string): string =>
+    gb === 'tenant' ? (tenantName.get(bucket) ?? bucket) : bucket;
+
   useSetConsoleFilters(
     () => (
       <div style={{ width: 200 }}>
@@ -124,16 +141,16 @@ export function AnalyticsPage() {
     () =>
       [...rows]
         .sort((a, b) => (a.bucket < b.bucket ? -1 : a.bucket > b.bucket ? 1 : 0))
-        .map((r) => ({ label: r.bucket, micro: metricMicro(r, mt) })),
-    [rows, mt],
+        .map((r) => ({ label: bucketLabel(r.bucket), micro: metricMicro(r, mt) })),
+    [rows, mt, gb, tenantName],
   );
   const bars = useMemo(
-    () => rows.map((r) => ({ label: r.bucket, micro: metricMicro(r, mt) })),
-    [rows, mt],
+    () => rows.map((r) => ({ label: bucketLabel(r.bucket), micro: metricMicro(r, mt) })),
+    [rows, mt, gb, tenantName],
   );
 
   const cols: Column<UsageRollupView>[] = [
-    { key: 'bucket', header: t('analytics.cols.bucket'), cell: (r) => r.bucket },
+    { key: 'bucket', header: t('analytics.cols.bucket'), cell: (r) => bucketLabel(r.bucket) },
     {
       key: 'requests',
       header: t('analytics.cols.requests'),
