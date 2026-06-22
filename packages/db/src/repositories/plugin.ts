@@ -1,10 +1,42 @@
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
-import { providerPlugin } from '../schema/index.js';
+import { providerPlugin, providerPluginVersion } from '../schema/index.js';
 import type { DbOrTx } from './types.js';
 
 export type ProviderPluginRow = InferSelectModel<typeof providerPlugin>;
+
+/** Write the immutable version-history snapshot for a plugin row (spec §3.6 freeze). */
+async function snapshotVersion(db: DbOrTx, row: ProviderPluginRow): Promise<void> {
+  await db
+    .insert(providerPluginVersion)
+    .values({
+      pluginId: row.id,
+      version: row.version,
+      manifest: row.manifest,
+      handler: row.handler,
+    })
+    .onConflictDoNothing({
+      target: [providerPluginVersion.pluginId, providerPluginVersion.version],
+    });
+}
+
+/** Fetch a FROZEN plugin version snapshot (manifest+handler) — the freeze read path. */
+export async function getPluginVersion(
+  db: DbOrTx,
+  pluginId: string,
+  version: number,
+): Promise<{ manifest: Record<string, unknown>; handler: string } | undefined> {
+  const rows = await db
+    .select()
+    .from(providerPluginVersion)
+    .where(
+      and(eq(providerPluginVersion.pluginId, pluginId), eq(providerPluginVersion.version, version)),
+    )
+    .limit(1);
+  const row = rows[0];
+  return row === undefined ? undefined : { manifest: row.manifest, handler: row.handler };
+}
 
 /** Fields to create one `provider_plugin`. */
 export interface CreatePluginInput {
@@ -84,6 +116,7 @@ export async function createPlugin(
     .returning();
   const row = rows[0];
   if (!row) throw new Error('createPlugin: insert returned no row');
+  await snapshotVersion(db, row);
   return row;
 }
 
@@ -111,7 +144,9 @@ export async function updatePlugin(
     })
     .where(and(eq(providerPlugin.id, id), isNull(providerPlugin.deletedAt)))
     .returning();
-  return rows[0];
+  const row = rows[0];
+  if (row !== undefined) await snapshotVersion(db, row);
+  return row;
 }
 
 /**
@@ -151,6 +186,7 @@ export async function upsertBuiltinPlugin(
     .returning();
   const row = rows[0];
   if (!row) throw new Error('upsertBuiltinPlugin: upsert returned no row');
+  await snapshotVersion(db, row);
   return row;
 }
 

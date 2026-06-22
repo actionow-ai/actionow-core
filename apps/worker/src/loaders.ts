@@ -5,6 +5,7 @@ import {
   getAccountByTenant,
   getActivePricebookEntry,
   getPluginById,
+  getPluginVersion,
   getResource,
   type Job,
   listApplicableModifiers,
@@ -75,12 +76,21 @@ async function toRunChannel(
     config: c.config ?? undefined,
   };
   if (c.pluginId !== null) {
-    const p = await getPluginById(db, c.pluginId);
-    if (p !== undefined) {
+    // Prefer the FROZEN snapshot the channel pinned (spec §3.6); fall back to the
+    // live plugin row when no version is pinned (or the snapshot is missing).
+    let snap: { manifest: Record<string, unknown>; handler: string } | undefined;
+    if (c.pluginVersion !== null) {
+      snap = await getPluginVersion(db, c.pluginId, c.pluginVersion);
+    }
+    if (snap === undefined) {
+      const p = await getPluginById(db, c.pluginId);
+      if (p !== undefined) snap = { manifest: p.manifest, handler: p.handler };
+    }
+    if (snap !== undefined) {
       return {
         ...base,
         providerType: PLUGIN_PROVIDER_TYPE,
-        plugin: { manifest: pluginManifestSchema.parse(p.manifest), handler: p.handler },
+        plugin: { manifest: pluginManifestSchema.parse(snap.manifest), handler: snap.handler },
       };
     }
   }

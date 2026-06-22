@@ -232,6 +232,7 @@ export {
   type CreatePluginInput,
   getPluginById,
   getPluginBySlug,
+  getPluginVersion,
   listPlugins,
   type ProviderPluginRow,
   softDeletePlugin,
