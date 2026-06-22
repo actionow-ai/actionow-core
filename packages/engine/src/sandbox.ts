@@ -9,7 +9,13 @@ export class SandboxError extends Error {
 }
 
 /** The handler entry points a provider plugin may export. */
-export type HandlerFn = 'mapRequest' | 'mapResponse' | 'mapPoll' | 'mapCallback';
+export type HandlerFn =
+  | 'mapRequest'
+  | 'mapResponse'
+  | 'mapSubmit'
+  | 'mapPollRequest'
+  | 'mapPoll'
+  | 'mapCallback';
 
 export interface RunHandlerOptions {
   /** Hard wall-clock cap (default 50ms) — an interrupt handler aborts past it. */

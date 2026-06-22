@@ -5,6 +5,7 @@ export * from './job-runner.js';
 export * from './media-result.js';
 export * from './oauth/codex.js';
 export * from './payment-service.js';
+export * from './plugin-adapter.js';
 export * from './plugin-runner.js';
 export * from './pricing.js';
 export * from './queue.js';

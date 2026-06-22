@@ -407,7 +407,45 @@ export class JobRunner {
     const proxyUrl = await this.resolveProxy(channel);
     if (proxyUrl !== undefined) ctx.proxyUrl = proxyUrl;
     if (channel.config !== undefined) ctx.config = channel.config;
+    // Plugin-served channel (P2): attach the frozen snapshot + the resolved
+    // credential map (consumed only by the signer OUTSIDE the sandbox).
+    if (channel.plugin !== undefined) {
+      ctx.plugin = channel.plugin;
+      ctx.credentials = await this.resolvePluginCredentials(channel);
+    }
     return ctx;
+  }
+
+  /**
+   * Assemble a plugin's credential map: non-secret fields from the channel
+   * `config` (region/service/header_name/…) overlaid with the secret(s) from
+   * `credentialRef` — which resolves to either a JSON object (multi-secret, e.g.
+   * `{ak, sk}`) or a bare string (treated as `api_key`). Secrets live ONLY here.
+   */
+  private async resolvePluginCredentials(channel: RunChannel): Promise<Record<string, string>> {
+    const cred: Record<string, string> = {};
+    if (channel.config !== undefined) {
+      for (const [k, v] of Object.entries(channel.config)) if (typeof v === 'string') cred[k] = v;
+    }
+    if (channel.credentialRef !== undefined) {
+      const secret = await this.deps.resolveSecret(channel.credentialRef);
+      if (secret !== undefined) {
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(secret);
+        } catch {
+          parsed = undefined;
+        }
+        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+            if (typeof v === 'string') cred[k] = v;
+          }
+        } else {
+          cred.api_key = secret;
+        }
+      }
+    }
+    return cred;
   }
 
   /** Resolve a channel's egress proxy URL: its proxyRef (via resolveSecret), else the global env fallback. */
