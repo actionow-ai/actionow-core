@@ -132,7 +132,9 @@
         "video": "视频",
         "file": "文件",
         "audio": "音频"
-      }
+      },
+      "upload": "上传",
+      "uploaded": "文件已上传"
     }
   },
   "nav": {

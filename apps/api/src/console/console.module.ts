@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 
 import { ENV } from '../common/tokens.js';
+import { FilesModule } from '../files/files.module.js';
 import { PaymentsModule } from '../payments/payments.module.js';
 import { ConsoleController } from './console.controller.js';
 import { CONSOLE_REPO, ConsoleGuard, defaultConsoleRepo } from './console.guard.js';
@@ -22,6 +23,8 @@ import { MODELS_PORT, realModelsPort } from './models.port.js';
 @Module({
   imports: [
     PaymentsModule,
+    // Reuse FilesService (exported) for the tenant console upload presign/confirm.
+    FilesModule,
     JwtModule.registerAsync({
       inject: [ENV],
       useFactory: (env: AppEnv) => ({ secret: env.ADMIN_JWT_SECRET }),

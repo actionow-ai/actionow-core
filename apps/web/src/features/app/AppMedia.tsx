@@ -1,12 +1,16 @@
-import { MusicNotesIcon } from '@phosphor-icons/react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { MusicNotesIcon, UploadSimpleIcon } from '@phosphor-icons/react';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useSetConsoleFilters } from '../../components/console/ConsoleChrome';
+import { useSetConsoleAction, useSetConsoleFilters } from '../../components/console/ConsoleChrome';
 import { CardCollection } from '../../components/data/CardCollection';
 import { CopyField } from '../../components/data/CopyField';
 import { LoadMore } from '../../components/data/LoadMore';
+import { Button } from '../../components/ui/Button';
 import { SelectField } from '../../components/ui/SelectField';
+import { toast } from '../../components/ui/toast';
+import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
 import { useUrlState } from '../../lib/useUrlState';
@@ -35,6 +39,8 @@ export function formatBytes(bytes: number | null): string {
 export function AppMedia() {
   const { t } = useTranslation('console');
   const api = useConsoleApi();
+  const qc = useQueryClient();
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const [kind, setKind] = useUrlState('kind');
   const filter = kind === 'image' || kind === 'video' || kind === 'audio' ? kind : undefined;
@@ -45,6 +51,56 @@ export function AppMedia() {
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
   const rows = files.data?.pages.flatMap((p) => p.rows) ?? [];
+
+  // Upload: presign → PUT the bytes straight to object storage → confirm
+  // (head → ready). The bytes never transit the API.
+  const upload = useMutation({
+    mutationFn: async (file: File) => {
+      const ct = file.type === '' ? 'application/octet-stream' : file.type;
+      const grant = await api.presignUpload({
+        filename: file.name,
+        content_type: ct,
+        size: file.size,
+      });
+      const put = await fetch(grant.upload_url, {
+        method: 'PUT',
+        body: file,
+        headers: { 'content-type': ct },
+      });
+      if (!put.ok) throw new Error(`upload failed (${String(put.status)})`);
+      await api.confirmFile(grant.file_id);
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.consoleFiles() });
+      toast(t('app.media.uploaded'));
+    },
+    onError: mutationError(t),
+  });
+
+  useSetConsoleAction(
+    () => (
+      <>
+        <input
+          ref={fileInput}
+          type="file"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f !== undefined) upload.mutate(f);
+            e.target.value = '';
+          }}
+        />
+        <Button
+          variant="ghost"
+          onClick={() => fileInput.current?.click()}
+          loading={upload.isPending}
+        >
+          <UploadSimpleIcon size={14} weight="bold" /> {t('app.media.upload')}
+        </Button>
+      </>
+    ),
+    [t, upload.isPending],
+  );
 
   useSetConsoleFilters(
     () => (

@@ -51,6 +51,9 @@ import { engineInvalidInput, engineUnauthorized } from '../common/errors.js';
 import { mapPageEnvelope, type PageEnvelope, toPageParams } from '../common/pagination.js';
 import { ENV } from '../common/tokens.js';
 import { ZodBody } from '../common/zod.pipe.js';
+import { type PresignUploadDto, presignUploadSchema } from '../files/dto/files.dto.js';
+import type { FileView as FilesFileView, PresignUploadResult } from '../files/files.service.js';
+import { FilesService } from '../files/files.service.js';
 import { type ConsoleContext, ConsoleGuard, type ConsoleRequest } from './console.guard.js';
 import type { ConsoleCreateIntentResponse } from './console.service.js';
 import { ConsoleService } from './console.service.js';
@@ -230,6 +233,7 @@ function parseConsoleAnalyticsUsage(raw: Record<string, string>): ConsoleAnalyti
 export class ConsoleController {
   constructor(
     private readonly console: ConsoleService,
+    private readonly filesService: FilesService,
     @Inject(ENV) private readonly env: AppEnv,
   ) {}
 
@@ -358,6 +362,33 @@ export class ConsoleController {
       (r) => r.id,
       (r) => toConsoleFileView(r, base),
     );
+  }
+
+  /**
+   * Presign a tenant upload (gallery → upload assets). Reuses the data-plane
+   * {@link FilesService} with a tenant context derived from the JWT, so the
+   * tenant scope is the guard's, never a body field.
+   */
+  @Post('files/presign-upload')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Presign a file upload for your tenant (returns a PUT URL + file_id)' })
+  async presignUpload(
+    @Body(new ZodBody(presignUploadSchema)) dto: PresignUploadDto,
+    @Req() req: ConsoleRequest,
+  ): Promise<PresignUploadResult> {
+    const ctx = ctxOf(req);
+    return this.filesService.presignUpload(dto, {
+      tenantId: ctx.tenantId,
+      accountId: ctx.accountId,
+    });
+  }
+
+  @Post('files/:id/confirm')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Confirm an uploaded file (head → ready)' })
+  async confirmFile(@Param('id') id: string, @Req() req: ConsoleRequest): Promise<FilesFileView> {
+    const ctx = ctxOf(req);
+    return this.filesService.confirm(id, { tenantId: ctx.tenantId, accountId: ctx.accountId });
   }
 
   @Get('balance')
