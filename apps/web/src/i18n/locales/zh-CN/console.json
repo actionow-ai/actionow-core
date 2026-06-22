@@ -214,7 +214,8 @@
     "ranking": {
       "title": "按成本排名的模型",
       "empty": "暂无用量"
-    }
+    },
+    "viewTraces": "追踪"
   },
   "analytics": {
     "title": "分析",
@@ -290,7 +291,9 @@
       "reqHeaders": "请求头",
       "reqBody": "请求体",
       "resBody": "响应体"
-    }
+    },
+    "jobIdPlaceholder": "任务 ID",
+    "channelIdPlaceholder": "渠道 ID"
   },
   "tenants": {
     "title": "租户",

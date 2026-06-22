@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import { useSetConsoleFilters } from '../../components/console/ConsoleChrome';
 import { StatCard } from '../../components/console/StatCard';
@@ -150,7 +151,23 @@ export function AnalyticsPage() {
   );
 
   const cols: Column<UsageRollupView>[] = [
-    { key: 'bucket', header: t('analytics.cols.bucket'), cell: (r) => bucketLabel(r.bucket) },
+    {
+      key: 'bucket',
+      header: t('analytics.cols.bucket'),
+      // By-channel rows deep-link into the relay traces filtered to that channel
+      // (forensic drill-down). Other dimensions render as plain labels.
+      cell: (r) =>
+        gb === 'channel' ? (
+          <Link
+            to={`/console/relay-traces?channelId=${encodeURIComponent(r.bucket)}`}
+            style={{ color: 'var(--accent)' }}
+          >
+            {bucketLabel(r.bucket)}
+          </Link>
+        ) : (
+          bucketLabel(r.bucket)
+        ),
+    },
     {
       key: 'requests',
       header: t('analytics.cols.requests'),

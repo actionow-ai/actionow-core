@@ -22,13 +22,20 @@ export function RelayTracesPage() {
 
   const [tenantId, setTenantId] = useUrlState('tenant');
   const [provider, setProvider] = useUrlState('provider');
+  const [jobId, setJobId] = useUrlState('jobId');
+  const [channelId, setChannelId] = useUrlState('channelId');
   const [from, setFrom] = useUrlState('from');
   const [to, setTo] = useUrlState('to');
   const [selected, setSelected] = useState<RelayTraceView | undefined>(undefined);
 
+  // jobId/channelId are deep-link driven (a Job row or Analytics by-channel row
+  // links here with `?jobId=`/`?channelId=`) — read from the URL so a forensic
+  // trace lookup is one click, and editable/clearable via the inputs below.
   const filters: RelayTraceQuery = {
     tenantId: tenantId === '' ? undefined : tenantId,
     providerType: provider === '' ? undefined : provider,
+    jobId: jobId === '' ? undefined : jobId,
+    channelId: channelId === '' ? undefined : channelId,
     from: from === '' ? undefined : `${from}T00:00:00Z`,
     to: to === '' ? undefined : `${to}T23:59:59Z`,
   };
@@ -127,6 +134,20 @@ export function RelayTracesPage() {
           placeholder={t('relayTraces.providerPlaceholder')}
           value={provider}
           onChange={(e) => setProvider(e.target.value)}
+        />
+        <input
+          className="field"
+          style={{ width: 200 }}
+          placeholder={t('relayTraces.jobIdPlaceholder')}
+          value={jobId}
+          onChange={(e) => setJobId(e.target.value)}
+        />
+        <input
+          className="field"
+          style={{ width: 200 }}
+          placeholder={t('relayTraces.channelIdPlaceholder')}
+          value={channelId}
+          onChange={(e) => setChannelId(e.target.value)}
         />
         <label
           style={{
