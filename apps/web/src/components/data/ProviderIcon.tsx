@@ -37,7 +37,7 @@ interface Brand {
  * backend provider_type / model-family aliases (incl. romanized CN names).
  */
 const BRANDS: Brand[] = [
-  { src: openaiUrl, label: 'OpenAI', match: ['openai', 'gpt', 'oai'] },
+  { src: openaiUrl, label: 'OpenAI', match: ['openai', 'gpt', 'oai', 'codex'] },
   { src: anthropicUrl, label: 'Anthropic', match: ['anthropic', 'claude'] },
   { src: geminiUrl, label: 'Gemini', match: ['gemini', 'google', 'vertex', 'palm'] },
   { src: xaiUrl, label: 'xAI', match: ['xai', 'grok'] },

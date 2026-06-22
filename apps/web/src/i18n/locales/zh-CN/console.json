@@ -1077,6 +1077,18 @@
       "done": "完成"
     }
   },
+  "credentials": {
+    "tabsLabel": "凭证类型",
+    "name": "名称",
+    "group": "分组",
+    "groupHint": "自由标签，便于筛选 / 归类",
+    "notes": "备注",
+    "edit": "编辑",
+    "editTitle": "编辑凭证",
+    "saved": "已保存",
+    "bulkRevoke": "撤销 {{n}}",
+    "bulkRevoked": "已撤销 {{n}} 项"
+  },
   "oauthSessions": {
     "revoke": "撤销",
     "revoked": "凭证已撤销",

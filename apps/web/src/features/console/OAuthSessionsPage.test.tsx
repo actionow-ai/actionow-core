@@ -22,9 +22,11 @@ const session: OAuthSessionListView = {
 
 const mockApi = vi.hoisted(() => ({
   listOAuthSessions: vi.fn(() => Promise.resolve({ rows: [] as unknown[], nextCursor: null })),
-  listSecrets: vi.fn(() => Promise.resolve([] as unknown[])),
+  listSecretsPage: vi.fn(() => Promise.resolve({ rows: [] as unknown[], nextCursor: null })),
   revokeOAuthSession: vi.fn(() => Promise.resolve()),
   deleteSecret: vi.fn(() => Promise.resolve()),
+  updateOAuthSession: vi.fn(() => Promise.resolve({})),
+  updateSecret: vi.fn(() => Promise.resolve({})),
   startCodexLogin: vi.fn(() => Promise.resolve({ authorize_url: 'https://x', state: 'st' })),
   completeCodexLogin: vi.fn(() => Promise.resolve({ id: 's2' })),
   createOAuthSession: vi.fn(() => Promise.resolve({ id: 's3' })),
@@ -50,7 +52,7 @@ beforeAll(async () => {
 beforeEach(() => {
   mockApi.revokeOAuthSession.mockClear();
   mockApi.listOAuthSessions.mockResolvedValue({ rows: [session], nextCursor: null });
-  mockApi.listSecrets.mockResolvedValue([]);
+  mockApi.listSecretsPage.mockResolvedValue({ rows: [], nextCursor: null });
 });
 
 describe('OAuthSessionsPage', () => {

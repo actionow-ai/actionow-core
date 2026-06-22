@@ -1613,7 +1613,10 @@ export interface paths {
         /** List encrypted credentials */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    cursor?: string;
+                    limit?: number | null;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;

@@ -455,7 +455,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   list('/admin/ledger', 'List a tenant’s ledger transactions', Ledger, 'admin', tenantKeyset);
   list('/admin/usage', 'Global per-call usage log', UsageLog, 'admin', tenantKeyset);
   list('/admin/payments', 'List a tenant’s payment intents', Payment, 'admin', tenantKeyset);
-  list('/admin/secrets', 'List encrypted credentials', Secret, 'admin');
+  list('/admin/secrets', 'List encrypted credentials', Secret, 'admin', keyset);
   list('/admin/tokens', 'List admin service tokens', AdminToken, 'admin', keyset);
   const redemptionQuery = keyset.extend({
     status: z.enum(['unused', 'redeemed']).optional(),

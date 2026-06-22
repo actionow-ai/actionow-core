@@ -288,6 +288,11 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     // FE consumes the returned `SecretView` — keep on raw.
     createSecret: (body: CreateSecretBody) => rawClient.post<SecretView>('/admin/secrets', body),
     listSecrets: async () => page<SecretView>(await sdk.GET('/admin/secrets'), u).rows,
+    // Keyset-paginated variant (the credentials page lists with LoadMore).
+    listSecretsPage: async (
+      params: { cursor?: string; limit?: number } = {},
+    ): Promise<Page<SecretView>> =>
+      page<SecretView>(await sdk.GET('/admin/secrets', { params: { query: params } }), u),
     // Revoke (soft-delete) a stored credential — 204 → void.
     deleteSecret: async (id: string): Promise<void> => {
       unwrap(await sdk.DELETE('/admin/secrets/{id}', { params: { path: { id } } }), u);

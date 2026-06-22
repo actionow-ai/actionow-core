@@ -1077,6 +1077,18 @@
       "done": "Done"
     }
   },
+  "credentials": {
+    "tabsLabel": "Credential type",
+    "name": "Name",
+    "group": "Group",
+    "groupHint": "Free-text tag for filtering / organizing",
+    "notes": "Notes",
+    "edit": "Edit",
+    "editTitle": "Edit credential",
+    "saved": "Saved",
+    "bulkRevoke": "Revoke {{n}}",
+    "bulkRevoked": "Revoked {{n}}"
+  },
   "oauthSessions": {
     "revoke": "Revoke",
     "revoked": "Credential revoked",
