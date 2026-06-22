@@ -17,7 +17,10 @@ import type {
   ConsoleUsageLogView,
   ConsoleUsageRollupView,
   ConsoleUsageView,
+  FileView,
   Page,
+  PresignUploadBody,
+  PresignUploadResult,
 } from './types';
 
 /**
@@ -30,8 +33,10 @@ import type {
 export function makeConsoleApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorized: () => void) {
   const u = onUnauthorized;
   return {
-    listApiKeys: async (): Promise<Page<ConsoleApiKeyView>> =>
-      page<ConsoleApiKeyView>(await sdk.GET('/console/api-keys'), u),
+    listApiKeys: async (
+      params: { cursor?: string; limit?: number } = {},
+    ): Promise<Page<ConsoleApiKeyView>> =>
+      page<ConsoleApiKeyView>(await sdk.GET('/console/api-keys', { params: { query: params } }), u),
     createApiKey: async (body: ConsoleCreateApiKeyBody): Promise<ApiKeyCreatedView> =>
       unwrap(await sdk.POST('/console/api-keys', { body }), u),
     // Rotate: new plaintext returned once; the old key is disabled server-side.
@@ -74,6 +79,9 @@ export function makeConsoleApi(sdk: SdkClient, rawClient: ApiClient, onUnauthori
     // (`ConsoleCreateIntentBody`), so the typed SDK POST accepts it directly.
     topup: async (body: ConsoleCreateIntentBody): Promise<ConsoleIntentView> =>
       unwrap(await sdk.POST('/console/payments/intents', { body }), u),
+    // One payment intent's status (poll after a topup to confirm settlement).
+    getPaymentIntent: async (id: string): Promise<ConsolePaymentView> =>
+      unwrap(await sdk.GET('/console/payments/intents/{id}', { params: { path: { id } } }), u),
     // Topup history — cursor-paginated.
     listPayments: async (params: {
       cursor?: string;
@@ -83,6 +91,12 @@ export function makeConsoleApi(sdk: SdkClient, rawClient: ApiClient, onUnauthori
         await sdk.GET('/console/payments', { params: { query: params } }),
         u,
       ),
+
+    // Upload: presign → the caller PUTs the bytes to `upload_url` → confirm.
+    presignUpload: async (body: PresignUploadBody): Promise<PresignUploadResult> =>
+      unwrap(await sdk.POST('/console/files/presign-upload', { body }), u),
+    confirmFile: async (id: string): Promise<FileView> =>
+      unwrap(await sdk.POST('/console/files/{id}/confirm', { params: { path: { id } } }), u),
 
     // Asset gallery: the tenant's ready media files (uploaded + generated),
     // cursor-paginated, optionally narrowed to a media kind.

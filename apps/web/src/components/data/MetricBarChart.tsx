@@ -50,6 +50,7 @@ export function MetricBarChart({
             }}
           >
             <span
+              title={b.label}
               style={{
                 flex: '0 0 30%',
                 minWidth: 0,

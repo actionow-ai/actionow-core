@@ -48,6 +48,7 @@ import {
   grantModelSchema,
   syncChannelModelsSchema,
   updateChannelSchema,
+  updateDifySchema,
   updateModelSchema,
   updateModifierSchema,
   updatePricebookSchema,
@@ -55,6 +56,7 @@ import {
 } from './catalog-requests.js';
 import {
   channelViewSchema,
+  difyBindingViewSchema,
   modelGrantViewSchema,
   modelViewSchema,
   modifierViewSchema,
@@ -163,6 +165,8 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const ModelGrant = registry.register('ModelGrantView', modelGrantViewSchema);
   const Pricebook = registry.register('PricebookView', pricebookViewSchema);
   const Modifier = registry.register('ModifierView', modifierViewSchema);
+  const DifyBinding = registry.register('DifyBindingView', difyBindingViewSchema);
+  const UpdateDify = registry.register('UpdateDifyBody', updateDifySchema);
 
   // admin operational views (ops-views)
   const ApiKey = registry.register('ApiKeyView', apiKeyViewSchema);
@@ -433,7 +437,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   list('/admin/resources/{id}/channels', 'List a resource’s channels', Channel, 'catalog');
   list('/admin/models', 'List relay models', Model, 'catalog');
   list('/admin/pricebook', 'List pricebook entries', Pricebook, 'pricing', pricebookQuery);
-  list('/admin/modifiers', 'List pricing modifiers', Modifier, 'pricing');
+  list('/admin/modifiers', 'List pricing modifiers', Modifier, 'pricing', keyset);
   list('/admin/api-keys', 'List a tenant’s API keys', ApiKey, 'admin', apiKeysQuery);
   list('/admin/jobs', 'List a tenant’s jobs', Job, 'admin', tenantKeyset);
   list('/admin/ledger', 'List a tenant’s ledger transactions', Ledger, 'admin', tenantKeyset);
@@ -509,9 +513,15 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     RouteGroupChannel,
     'billing',
   );
-  list('/admin/official-prices', 'List the official price catalog', OfficialPrice, 'billing');
+  list(
+    '/admin/official-prices',
+    'List the official price catalog',
+    OfficialPrice,
+    'billing',
+    keyset,
+  );
   list('/admin/models/{name}/grants', 'List a model’s tenant grants', ModelGrant, 'catalog');
-  list('/console/api-keys', 'List your tenant API keys', ConsoleApiKey, 'console');
+  list('/console/api-keys', 'List your tenant API keys', ConsoleApiKey, 'console', keyset);
   list('/console/models', 'Models visible to your tenant', ConsoleModel, 'console');
   list('/console/usage-log', 'Your tenant per-call usage log', ConsoleUsageLog, 'console', keyset);
   list('/console/payments', 'Your tenant payment history', ConsolePayment, 'console', keyset);
@@ -573,6 +583,39 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   // --- console reads (single-object endpoints) ------------------------------
   getOne('/console/balance', 'Your tenant credit balance + held', ConsoleBalance, 'console');
   getOne('/console/me', 'Your own profile', ConsoleMe, 'console');
+  getOne(
+    '/console/payments/intents/{id}',
+    'Status of one of your payment intents',
+    ConsolePayment,
+    'console',
+  );
+  // Console file upload (tenant JWT) — mirrors the data-plane presign/confirm so
+  // a tenant can upload assets from the gallery (img2img inputs, etc.).
+  registry.registerPath({
+    method: 'post',
+    path: '/console/files/presign-upload',
+    summary: 'Mint a presigned upload for your tenant',
+    tags: ['console'],
+    security: [{ bearerAuth: [] }],
+    request: { body: { content: { 'application/json': { schema: PresignReq } } } },
+    responses: {
+      200: {
+        description: 'Presigned upload',
+        content: { 'application/json': { schema: PresignResult } },
+      },
+    },
+  });
+  registry.registerPath({
+    method: 'post',
+    path: '/console/files/{id}/confirm',
+    summary: 'Confirm an uploaded file (head → ready)',
+    tags: ['console'],
+    security: [{ bearerAuth: [] }],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: { description: 'Confirmed file', content: { 'application/json': { schema: FileV } } },
+    },
+  });
 
   // --- DELETE (revoke/remove → 204; the FE methods return void) -------------
   del('/admin/resources/{id}/channels/{channelId}', 'Delete a channel', 'catalog');
@@ -762,6 +805,16 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     body: DifyImport,
     created: true,
   });
+  list('/admin/dify', 'List dify bindings', DifyBinding, 'catalog', keyset);
+  write({
+    method: 'patch',
+    path: '/admin/dify/{resourceId}',
+    summary: 'Update a dify binding',
+    tag: 'catalog',
+    body: UpdateDify,
+    response: DifyBinding,
+  });
+  del('/admin/dify/{resourceId}', 'Delete a dify binding', 'catalog');
   write({
     method: 'post',
     path: '/admin/models',

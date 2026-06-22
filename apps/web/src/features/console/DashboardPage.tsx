@@ -11,6 +11,7 @@ import { Money } from '../../components/data/Money';
 import { QueryBoundary } from '../../components/data/QueryBoundary';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { TenantSelect } from '../../components/data/TenantSelect';
+import { Button } from '../../components/ui/Button';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { qk } from '../../lib/api/queryKeys';
 import { useAdminApi } from '../../lib/api/useAdminApi';
@@ -106,6 +107,15 @@ export function DashboardPage() {
                     { label: t('dashboard.cols.cost'), value: r.cost !== null ? <Money micro={r.cost} /> : '—' },
                     { label: t('dashboard.cols.status'), value: new Date(r.created_at).toLocaleTimeString() },
                   ]}
+                  actions={
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      to={`/console/relay-traces?jobId=${encodeURIComponent(r.job_id)}`}
+                    >
+                      {t('dashboard.viewTraces')}
+                    </Button>
+                  }
                 />
               )}
             />

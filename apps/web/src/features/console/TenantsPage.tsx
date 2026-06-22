@@ -8,20 +8,29 @@ import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
 import { BalanceCard } from '../../components/data/BalanceCard';
 import { CardCollection } from '../../components/data/CardCollection';
 import { CopyField } from '../../components/data/CopyField';
+import type { Column } from '../../components/data/DataTable';
+import { DataTable } from '../../components/data/DataTable';
 import { EntityCard } from '../../components/data/EntityCard';
 import { Money } from '../../components/data/Money';
+import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { Drawer } from '../../components/ui/Drawer';
 import { Modal } from '../../components/ui/Modal';
 import { NumberField } from '../../components/ui/NumberField';
 import { RoseLoader } from '../../components/ui/RoseLoader';
-import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SelectField } from '../../components/ui/SelectField';
+import { Tabs } from '../../components/ui/Tabs';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
-import type { AccountView, ProvisionView, TenantView } from '../../lib/api/types';
+import type {
+  AccountView,
+  LedgerView,
+  PaymentIntentView,
+  ProvisionView,
+  TenantView,
+} from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
 
@@ -284,11 +293,23 @@ function TenantDetailDrawer({
   const api = useAdminApi();
   const qc = useQueryClient();
 
+  const [tab, setTab] = useState('account');
   const [topupOpen, setTopupOpen] = useState(false);
   const [topupCredits, setTopupCredits] = useState(0);
   const [openingCredits, setOpeningCredits] = useState(0);
 
   const refreshAccounts = () => qc.invalidateQueries({ queryKey: qk.accounts() });
+
+  // Edit the only mutable tenant field (isolation mode) — applied on select.
+  const updateTenant = useMutation({
+    mutationFn: (isolationMode: 'field' | 'schema' | 'db') =>
+      api.updateTenant(tenant.id, { isolationMode }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.tenants() });
+      toast(t('tenants.updated'));
+    },
+    onError: mutationError(t),
+  });
 
   const topup = useMutation({
     mutationFn: () => api.topup(account?.id ?? '', { credits: topupCredits }),
@@ -315,6 +336,143 @@ function TenantDetailDrawer({
     onError: mutationError(t),
   });
 
+  // Ledger + payments tabs lazy-load (only the open tab queries) — wiring the
+  // previously zero-call admin.ts listLedger/listPayments into the hub.
+  const ledger = useQuery({
+    queryKey: qk.ledger(tenant.id),
+    queryFn: () => api.listLedger({ tenantId: tenant.id, limit: 50 }),
+    enabled: tab === 'ledger',
+  });
+  const payments = useQuery({
+    queryKey: qk.payments(tenant.id),
+    queryFn: () => api.listPayments(tenant.id, 50),
+    enabled: tab === 'payments',
+  });
+
+  const ledgerCols: Column<LedgerView>[] = [
+    {
+      key: 'time',
+      header: t('tenants.detail.cols.time'),
+      cell: (r) => new Date(r.created_at).toLocaleDateString(),
+      width: '104px',
+    },
+    { key: 'type', header: t('tenants.detail.cols.type'), cell: (r) => r.type },
+    {
+      key: 'delta',
+      header: t('tenants.detail.cols.delta'),
+      cell: (r) => <Money micro={r.credits_delta} />,
+      width: '110px',
+    },
+    {
+      key: 'balance',
+      header: t('tenants.detail.cols.balanceAfter'),
+      cell: (r) => <Money micro={r.balance_after} />,
+      width: '110px',
+    },
+  ];
+  const paymentCols: Column<PaymentIntentView>[] = [
+    {
+      key: 'time',
+      header: t('tenants.detail.cols.time'),
+      cell: (r) => new Date(r.created_at).toLocaleDateString(),
+      width: '104px',
+    },
+    { key: 'provider', header: t('tenants.detail.cols.provider'), cell: (r) => r.provider },
+    {
+      key: 'amount',
+      header: t('tenants.detail.cols.amount'),
+      cell: (r) => (
+        <span className="tabular">
+          {(Number(r.amount_minor) / 100).toFixed(2)} {r.currency.toUpperCase()}
+        </span>
+      ),
+      width: '120px',
+    },
+    {
+      key: 'status',
+      header: t('tenants.detail.cols.status'),
+      cell: (r) => (
+        <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
+      width: '104px',
+    },
+  ];
+
+  const accountPanel = accountsLoading ? (
+    <div style={{ display: 'grid', placeItems: 'center', padding: 'var(--s-5)' }}>
+      <RoseLoader size={48} />
+    </div>
+  ) : account !== undefined ? (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+      <BalanceCard
+        micro={account.credit_balance}
+        label={t('accounts.cols.balance')}
+        held={account.credit_held}
+        heldLabel={t('accounts.cols.held')}
+      />
+      {topupOpen ? (
+        <div
+          className="panel"
+          style={{
+            borderRadius: 'var(--r-md)',
+            padding: 'var(--s-4)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--s-3)',
+          }}
+        >
+          <NumberField
+            label={t('accounts.topup.credits')}
+            value={topupCredits}
+            onChange={setTopupCredits}
+            min={0}
+          />
+          <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
+            <Button
+              variant="cta"
+              onClick={() => topup.mutate()}
+              loading={topup.isPending}
+              disabled={topupCredits <= 0}
+            >
+              {t('accounts.topup.submit')}
+            </Button>
+            <Button variant="ghost" onClick={() => setTopupOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button variant="ghost" onClick={() => setTopupOpen(true)}>
+          {t('accounts.topup.action')}
+        </Button>
+      )}
+    </div>
+  ) : (
+    <div
+      className="panel"
+      style={{
+        borderRadius: 'var(--r-md)',
+        padding: 'var(--s-4)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--s-3)',
+      }}
+    >
+      <span style={{ color: 'var(--muted)', fontSize: 'var(--fs-sm)' }}>
+        {t('tenants.detail.noAccount')}
+      </span>
+      <NumberField
+        label={t('accounts.form.credits')}
+        value={openingCredits}
+        onChange={setOpeningCredits}
+        min={0}
+      />
+      <Button variant="cta" onClick={() => createAccount.mutate()} loading={createAccount.isPending}>
+        <PlusIcon size={14} weight="bold" /> {t('accounts.new')}
+      </Button>
+    </div>
+  );
+
   return (
     <Drawer open title={tenant.name} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
@@ -326,92 +484,56 @@ function TenantDetailDrawer({
             failedLabel={t('common.copyFailed')}
           />
         </DetailRow>
-        <DetailRow label={t('tenants.form.isolation')}>
-          {t(`tenants.isolation.${tenant.isolation_mode}`, tenant.isolation_mode)}
-        </DetailRow>
+        <div style={{ maxWidth: 240 }}>
+          <SelectField
+            label={t('tenants.form.isolation')}
+            value={tenant.isolation_mode}
+            onChange={(v) => updateTenant.mutate(v as 'field' | 'schema' | 'db')}
+            options={[
+              { value: 'field', label: t('tenants.isolation.field') },
+              { value: 'schema', label: t('tenants.isolation.schema') },
+              { value: 'db', label: t('tenants.isolation.db') },
+            ]}
+          />
+        </div>
         <DetailRow label={t('tenants.cols.created')}>
           {new Date(tenant.created_at).toLocaleString()}
         </DetailRow>
 
-        <SectionHeader title={t('tenants.detail.account')} />
-        {accountsLoading ? (
-          <div style={{ display: 'grid', placeItems: 'center', padding: 'var(--s-5)' }}>
-            <RoseLoader size={48} />
-          </div>
-        ) : account !== undefined ? (
-          <>
-            <BalanceCard
-              micro={account.credit_balance}
-              label={t('accounts.cols.balance')}
-              held={account.credit_held}
-              heldLabel={t('accounts.cols.held')}
+        <Tabs
+          value={tab}
+          onChange={setTab}
+          ariaLabel={t('tenants.detail.tabsLabel')}
+          tabs={[
+            { value: 'account', label: t('tenants.detail.account') },
+            { value: 'ledger', label: t('tenants.detail.ledger') },
+            { value: 'payments', label: t('tenants.detail.payments') },
+          ]}
+        >
+          {tab === 'account' ? (
+            accountPanel
+          ) : tab === 'ledger' ? (
+            <DataTable
+              columns={ledgerCols}
+              rows={ledger.data?.rows ?? []}
+              rowKey={(r) => r.id}
+              loading={ledger.isLoading}
+              error={ledger.isError}
+              onRetry={() => void ledger.refetch()}
+              empty={t('tenants.detail.noLedger')}
             />
-            {topupOpen ? (
-              <div
-                className="panel"
-                style={{
-                  borderRadius: 'var(--r-md)',
-                  padding: 'var(--s-4)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--s-3)',
-                }}
-              >
-                <NumberField
-                  label={t('accounts.topup.credits')}
-                  value={topupCredits}
-                  onChange={setTopupCredits}
-                  min={0}
-                />
-                <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
-                  <Button
-                    variant="cta"
-                    onClick={() => topup.mutate()}
-                    loading={topup.isPending}
-                    disabled={topupCredits <= 0}
-                  >
-                    {t('accounts.topup.submit')}
-                  </Button>
-                  <Button variant="ghost" onClick={() => setTopupOpen(false)}>
-                    {t('common.cancel')}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button variant="ghost" onClick={() => setTopupOpen(true)}>
-                {t('accounts.topup.action')}
-              </Button>
-            )}
-          </>
-        ) : (
-          <div
-            className="panel"
-            style={{
-              borderRadius: 'var(--r-md)',
-              padding: 'var(--s-4)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--s-3)',
-            }}
-          >
-            <span style={{ color: 'var(--muted)', fontSize: 'var(--fs-sm)' }}>
-              {t('tenants.detail.noAccount')}
-            </span>
-            <NumberField
-              label={t('accounts.form.credits')}
-              value={openingCredits}
-              onChange={setOpeningCredits}
-              min={0}
+          ) : (
+            <DataTable
+              columns={paymentCols}
+              rows={payments.data?.rows ?? []}
+              rowKey={(r) => r.id}
+              loading={payments.isLoading}
+              error={payments.isError}
+              onRetry={() => void payments.refetch()}
+              empty={t('tenants.detail.noPayments')}
             />
-            <Button
-              variant="cta"
-              onClick={() => createAccount.mutate()}
-              loading={createAccount.isPending}
-            >
-              <PlusIcon size={14} weight="bold" /> {t('accounts.new')}
-            </Button>
-          </div>
-        )}
+          )}
+        </Tabs>
       </div>
     </Drawer>
   );

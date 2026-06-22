@@ -25,6 +25,7 @@ import type {
   CreateRouteGroupBody,
   CreateSecretBody,
   CreateTenantBody,
+  DifyBindingView,
   DifyImportBody,
   DifyImportView,
   GenerateCodesBody,
@@ -54,6 +55,7 @@ import type {
   TopupBody,
   UpdateApiKeyGroupBody,
   UpdateChannelBody,
+  UpdateDifyBody,
   UpdateModelBody,
   UpdateModifierBody,
   UpdateOfficialPriceBody,
@@ -153,7 +155,10 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
       unwrap(await sdk.DELETE('/admin/pricebook/{id}', { params: { path: { id } } }), u);
     },
 
-    listModifiers: async () => page<ModifierView>(await sdk.GET('/admin/modifiers'), u).rows,
+    listModifiers: async (
+      params: { cursor?: string; limit?: number } = {},
+    ): Promise<Page<ModifierView>> =>
+      page<ModifierView>(await sdk.GET('/admin/modifiers', { params: { query: params } }), u),
     createModifier: async (body: CreateModifierBody) =>
       unwrap(await sdk.POST('/admin/modifiers', { body }), u),
     updateModifier: async (id: string, body: UpdateModifierBody) =>
@@ -166,6 +171,18 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     // response (the import path declares only a 201 with no body schema).
     difyImport: (body: DifyImportBody) =>
       rawClient.post<DifyImportView>('/admin/dify/import', body),
+    listDify: async (
+      params: { cursor?: string; limit?: number } = {},
+    ): Promise<Page<DifyBindingView>> =>
+      page<DifyBindingView>(await sdk.GET('/admin/dify', { params: { query: params } }), u),
+    updateDify: async (resourceId: string, body: UpdateDifyBody) =>
+      unwrap(
+        await sdk.PATCH('/admin/dify/{resourceId}', { params: { path: { resourceId } }, body }),
+        u,
+      ),
+    deleteDify: async (resourceId: string): Promise<void> => {
+      unwrap(await sdk.DELETE('/admin/dify/{resourceId}', { params: { path: { resourceId } } }), u);
+    },
 
     listAccounts: async () => page<AccountView>(await sdk.GET('/admin/accounts'), u).rows,
     createAccount: async (body: CreateAccountBody) =>
@@ -243,8 +260,13 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     },
 
     // --- Official prices (reference catalog) ---
-    listOfficialPrices: async () =>
-      page<OfficialPriceView>(await sdk.GET('/admin/official-prices'), u).rows,
+    listOfficialPrices: async (
+      params: { cursor?: string; limit?: number } = {},
+    ): Promise<Page<OfficialPriceView>> =>
+      page<OfficialPriceView>(
+        await sdk.GET('/admin/official-prices', { params: { query: params } }),
+        u,
+      ),
     createOfficialPrice: async (body: CreateOfficialPriceBody, idempotencyKey?: string) =>
       unwrap(await sdk.POST('/admin/official-prices', { body, headers: idem(idempotencyKey) }), u),
     updateOfficialPrice: async (id: string, body: UpdateOfficialPriceBody) =>
@@ -301,18 +323,23 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     // Mint redemption codes — returns the plaintext codes + per-code grant ONCE.
     generateCodes: async (body: GenerateCodesBody) =>
       unwrap(await sdk.POST('/admin/redemption-codes', { body }), u),
-    // List minted codes (optional status filter); newest-first, the first page.
-    listRedemptionCodes: async (status?: 'unused' | 'redeemed'): Promise<RedemptionCodeView[]> =>
+    // List minted codes (optional status filter); newest-first, keyset-paginated.
+    listRedemptionCodes: async (
+      params: { status?: 'unused' | 'redeemed'; cursor?: string; limit?: number } = {},
+    ): Promise<Page<RedemptionCodeView>> =>
       page<RedemptionCodeView>(
-        await sdk.GET('/admin/redemption-codes', {
-          params: { query: status === undefined ? {} : { status } },
-        }),
+        await sdk.GET('/admin/redemption-codes', { params: { query: params } }),
         u,
-      ).rows,
+      ),
 
     // --- upstream OAuth credentials (BYO paste-auth + turnkey codex login) ---
-    listOAuthSessions: async (): Promise<OAuthSessionListView[]> =>
-      page<OAuthSessionListView>(await sdk.GET('/admin/oauth-sessions'), u).rows,
+    listOAuthSessions: async (
+      params: { cursor?: string; limit?: number } = {},
+    ): Promise<Page<OAuthSessionListView>> =>
+      page<OAuthSessionListView>(
+        await sdk.GET('/admin/oauth-sessions', { params: { query: params } }),
+        u,
+      ),
     createOAuthSession: async (body: CreateOAuthSessionBody): Promise<OAuthSessionView> =>
       unwrap(await sdk.POST('/admin/oauth-sessions', { body }), u),
     revokeOAuthSession: async (id: string): Promise<void> => {

@@ -1,10 +1,13 @@
 import { ArrowSquareOutIcon } from '@phosphor-icons/react';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { QRCodeSVG } from 'qrcode.react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { BalanceCard } from '../../components/data/BalanceCard';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
+import { LoadMore } from '../../components/data/LoadMore';
 import { Money } from '../../components/data/Money';
 import { StatusBadge } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
@@ -42,11 +45,18 @@ const PROVIDERS = ['stripe', 'alipay', 'wechat', 'crypto'] as const satisfies re
 export function AppBilling() {
   const { t } = useTranslation('console');
   const api = useConsoleApi();
+  const qc = useQueryClient();
 
   const [provider, setProvider] = useState<Provider>('stripe');
   const [amount, setAmount] = useState(0);
   const [currency, setCurrency] = useState('usd');
   const [intent, setIntent] = useState<ConsoleIntentView | null>(null);
+
+  const balance = useQuery({
+    queryKey: qk.consoleBalance(),
+    queryFn: () => api.balance(),
+    staleTime: STALE_VOLATILE,
+  });
 
   const topup = useMutation({
     mutationFn: () =>
@@ -55,17 +65,48 @@ export function AppBilling() {
         amount_minor: toMinorUnits(amount),
         currency: currency.trim().toLowerCase(),
       }),
-    onSuccess: (r) => setIntent(r),
+    onSuccess: async (r) => {
+      // A new intent may settle async (webhook) — refresh balance + history so
+      // a completed top-up shows without a manual reload.
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: qk.consolePayments() }),
+        qc.invalidateQueries({ queryKey: qk.consoleBalance() }),
+      ]);
+      setIntent(r);
+    },
     onError: mutationError(t),
   });
 
   const canSubmit = amount > 0 && currency.trim() !== '';
 
-  const history = useQuery({
+  const history = useInfiniteQuery({
     queryKey: qk.consolePayments(),
-    queryFn: () => api.listPayments({ limit: 50 }),
+    queryFn: ({ pageParam }) => api.listPayments({ cursor: pageParam, limit: 50 }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
     staleTime: STALE_VOLATILE,
   });
+  const historyRows = history.data?.pages.flatMap((p) => p.rows) ?? [];
+
+  // Poll the freshly-created intent until it settles (provider webhook), then
+  // refresh balance + history so a completed top-up reflects without a reload.
+  const intentId = intent?.intent_id ?? null;
+  const intentStatus = useQuery({
+    queryKey: qk.consolePaymentIntent(intentId ?? ''),
+    queryFn: () => api.getPaymentIntent(intentId ?? ''),
+    enabled: intentId !== null,
+    refetchInterval: (q) => {
+      const s = q.state.data?.status;
+      return s === 'succeeded' || s === 'failed' || s === 'expired' ? false : 3000;
+    },
+  });
+  const settledStatus = intentStatus.data?.status;
+  useEffect(() => {
+    if (settledStatus === 'succeeded') {
+      void qc.invalidateQueries({ queryKey: qk.consoleBalance() });
+      void qc.invalidateQueries({ queryKey: qk.consolePayments() });
+    }
+  }, [settledStatus, qc]);
 
   const histCols: Column<ConsolePaymentView>[] = [
     {
@@ -99,7 +140,9 @@ export function AppBilling() {
     {
       key: 'status',
       header: t('app.billing.cols.status'),
-      cell: (r) => <StatusBadge tone={payTone(r.status)} label={t('status.' + r.status, r.status)} />,
+      cell: (r) => (
+        <StatusBadge tone={payTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
       width: '110px',
     },
   ];
@@ -107,6 +150,12 @@ export function AppBilling() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-5)' }}>
       <div style={{ maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
+        <BalanceCard
+          micro={balance.data?.balance ?? '0'}
+          label={t('app.billing.balance')}
+          held={balance.data?.held ?? '0'}
+          heldLabel={t('app.billing.held')}
+        />
         <div
           className="panel"
           style={{
@@ -169,8 +218,23 @@ export function AppBilling() {
               gap: 'var(--s-3)',
             }}
           >
-            <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 'var(--fw-medium)' }}>
-              {t('app.billing.intentCreated')}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 'var(--s-2)',
+              }}
+            >
+              <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 'var(--fw-medium)' }}>
+                {t('app.billing.intentCreated')}
+              </span>
+              {settledStatus !== undefined && (
+                <StatusBadge
+                  tone={payTone(settledStatus)}
+                  label={t('status.' + settledStatus, settledStatus)}
+                />
+              )}
             </div>
             <div
               className="mono"
@@ -189,14 +253,23 @@ export function AppBilling() {
             )}
             {intent.qr !== undefined && intent.qr !== '' && (
               <div
-                className="mono"
                 style={{
-                  fontSize: 'var(--fs-caption)',
-                  color: 'var(--muted)',
-                  wordBreak: 'break-all',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 'var(--s-2)',
                 }}
               >
-                {intent.qr}
+                {/* Scannable QR generated locally (no external service → the
+                    payment handle never leaves the browser). */}
+                <div
+                  style={{ background: '#fff', padding: 'var(--s-3)', borderRadius: 'var(--r-sm)' }}
+                >
+                  <QRCodeSVG value={intent.qr} size={176} />
+                </div>
+                <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>
+                  {t('app.billing.scanQr')}
+                </span>
               </div>
             )}
           </div>
@@ -207,13 +280,17 @@ export function AppBilling() {
         <SectionHeader title={t('app.billing.history')} />
         <DataTable
           columns={histCols}
-          rows={history.data?.rows ?? []}
+          rows={historyRows}
           rowKey={(r) => r.id}
           loading={history.isLoading}
           error={history.isError}
           onRetry={() => void history.refetch()}
           empty={t('app.billing.noHistory')}
-          pageSize={10}
+        />
+        <LoadMore
+          hasNextPage={history.hasNextPage}
+          isFetchingNextPage={history.isFetchingNextPage}
+          onLoadMore={() => void history.fetchNextPage()}
         />
       </div>
     </div>

@@ -1,6 +1,5 @@
-import { ArrowsClockwiseIcon, PlusIcon, ProhibitIcon } from '@phosphor-icons/react';
-import { KeyIcon } from '@phosphor-icons/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowsClockwiseIcon, KeyIcon, PlusIcon, ProhibitIcon } from '@phosphor-icons/react';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -8,14 +7,17 @@ import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
 import { CardCollection } from '../../components/data/CardCollection';
 import { CopyField } from '../../components/data/CopyField';
 import { EntityCard } from '../../components/data/EntityCard';
+import { LoadMore } from '../../components/data/LoadMore';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Modal } from '../../components/ui/Modal';
+import { NumberField } from '../../components/ui/NumberField';
+import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
-import type { ConsoleApiKeyView } from '../../lib/api/types';
+import type { ConsoleApiKeyView, ConsoleCreateApiKeyBody } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
 
 export function AppKeys() {
@@ -23,16 +25,40 @@ export function AppKeys() {
   const api = useConsoleApi();
   const qc = useQueryClient();
 
-  const keys = useQuery({ queryKey: qk.consoleApiKeys(), queryFn: () => api.listApiKeys() });
+  const keys = useInfiniteQuery({
+    queryKey: qk.consoleApiKeys(),
+    queryFn: ({ pageParam }) => api.listApiKeys({ cursor: pageParam, limit: 50 }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+  const rows = keys.data?.pages.flatMap((p) => p.rows) ?? [];
+
+  const [formOpen, setFormOpen] = useState(false);
+  const [allowlist, setAllowlist] = useState('');
+  const [rateLimit, setRateLimit] = useState(0);
   const [plaintext, setPlaintext] = useState<string | null>(null);
   const [disableTarget, setDisableTarget] = useState<ConsoleApiKeyView | undefined>(undefined);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: qk.consoleApiKeys() });
 
+  // Mint with optional scoping — the card already renders rate_limit/allowlist
+  // chips, so without this form those were dead UI (always empty).
   const mint = useMutation({
-    mutationFn: () => api.createApiKey({}),
+    mutationFn: () => {
+      const body: ConsoleCreateApiKeyBody = {};
+      const allow = allowlist
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (allow.length > 0) body.resourceAllowlist = allow;
+      if (rateLimit > 0) body.rateLimit = rateLimit;
+      return api.createApiKey(body);
+    },
     onSuccess: async (r) => {
       await invalidate();
+      setFormOpen(false);
+      setAllowlist('');
+      setRateLimit(0);
       setPlaintext(r.plaintext);
     },
     onError: mutationError(t),
@@ -57,17 +83,17 @@ export function AppKeys() {
 
   useSetConsoleAction(
     () => (
-      <Button variant="ghost" onClick={() => mint.mutate()} loading={mint.isPending}>
+      <Button variant="ghost" onClick={() => setFormOpen(true)}>
         <PlusIcon size={14} weight="bold" /> {t('app.keys.mint')}
       </Button>
     ),
-    [t, mint.isPending],
+    [t],
   );
 
   return (
     <>
       <CardCollection
-        rows={keys.data?.rows ?? []}
+        rows={rows}
         loading={keys.isLoading}
         error={keys.isError}
         onRetry={() => void keys.refetch()}
@@ -110,6 +136,30 @@ export function AppKeys() {
           />
         )}
       />
+      <LoadMore
+        hasNextPage={keys.hasNextPage}
+        isFetchingNextPage={keys.isFetchingNextPage}
+        onLoadMore={() => void keys.fetchNextPage()}
+      />
+
+      <Modal
+        open={formOpen}
+        title={t('app.keys.mint')}
+        onClose={() => setFormOpen(false)}
+        footer={
+          <Button variant="cta" onClick={() => mint.mutate()} loading={mint.isPending}>
+            {t('apiKeys.submit')}
+          </Button>
+        }
+      >
+        <TextField label={t('apiKeys.form.allowlist')} value={allowlist} onChange={setAllowlist} />
+        <NumberField
+          label={t('apiKeys.form.rateLimit')}
+          value={rateLimit}
+          onChange={setRateLimit}
+          min={0}
+        />
+      </Modal>
 
       <Modal
         open={plaintext !== null}
@@ -142,7 +192,7 @@ export function AppKeys() {
         danger
         loading={disable.isPending}
         onConfirm={() => {
-          if (disableTarget) disable.mutate(disableTarget.id);
+          if (disableTarget !== undefined) disable.mutate(disableTarget.id);
         }}
         onClose={() => setDisableTarget(undefined)}
       />

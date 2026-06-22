@@ -70,7 +70,8 @@
         "name": "Model",
         "display": "Display",
         "modality": "Modality",
-        "visibility": "Visibility"
+        "visibility": "Visibility",
+        "capabilities": "Capabilities"
       }
     },
     "billing": {
@@ -89,7 +90,10 @@
         "amount": "Amount",
         "credit": "Credits",
         "status": "Status"
-      }
+      },
+      "balance": "Balance",
+      "held": "Held",
+      "scanQr": "Scan to pay"
     },
     "settings": {
       "profile": "Profile",
@@ -128,7 +132,9 @@
         "video": "Video",
         "file": "File",
         "audio": "Audio"
-      }
+      },
+      "upload": "Upload",
+      "uploaded": "File uploaded"
     }
   },
   "nav": {
@@ -210,7 +216,8 @@
     "ranking": {
       "title": "Top models by cost",
       "empty": "No usage yet"
-    }
+    },
+    "viewTraces": "Traces"
   },
   "analytics": {
     "title": "Analytics",
@@ -254,6 +261,17 @@
       "providerCost": "Provider cost",
       "margin": "Margin",
       "errors": "Errors"
+    },
+    "log": {
+      "title": "Per-call log",
+      "empty": "No calls in range",
+      "cols": {
+        "time": "Time",
+        "model": "Model",
+        "tokens": "Tokens",
+        "cost": "Cost",
+        "status": "Status"
+      }
     }
   },
   "relayTraces": {
@@ -286,7 +304,9 @@
       "reqHeaders": "Request headers",
       "reqBody": "Request body",
       "resBody": "Response body"
-    }
+    },
+    "jobIdPlaceholder": "Job ID",
+    "channelIdPlaceholder": "Channel ID"
   },
   "tenants": {
     "title": "Tenants",
@@ -308,7 +328,21 @@
     "detail": {
       "id": "Tenant ID",
       "account": "Account",
-      "noAccount": "This tenant has no account yet"
+      "noAccount": "This tenant has no account yet",
+      "tabsLabel": "Tenant detail",
+      "ledger": "Ledger",
+      "payments": "Payments",
+      "noLedger": "No ledger entries",
+      "noPayments": "No payments",
+      "cols": {
+        "time": "Time",
+        "type": "Type",
+        "delta": "Delta",
+        "balanceAfter": "Balance",
+        "provider": "Provider",
+        "amount": "Amount",
+        "status": "Status"
+      }
     },
     "empty": "No tenants yet",
     "created": "Tenant created",
@@ -321,7 +355,8 @@
       "done": "Tenant provisioned",
       "keyTitle": "API key — shown once",
       "keyHint": "Copy this key now; it will not be shown again."
-    }
+    },
+    "updated": "Tenant updated"
   },
   "accounts": {
     "title": "Accounts",
@@ -720,7 +755,8 @@
     "copy": "Copy",
     "copied": "Copied",
     "copyFailed": "Copy failed",
-    "save": "Save"
+    "save": "Save",
+    "loadMore": "Load more"
   },
   "confirm": {
     "deleteChannelTitle": "Delete channel?",
@@ -780,14 +816,34 @@
       "endpoint": "Dify endpoint",
       "yaml": "Workflow YAML",
       "pricingModel": "Pricing model",
-      "allowBlockers": "Allow blocking nodes"
+      "allowBlockers": "Allow blocking nodes",
+      "serviceKeyRef": "Service key (optional)",
+      "serviceKeyNone": "No service key"
     },
     "pricing": {
       "fixed": "Fixed",
       "matrix": "Matrix",
       "metered": "Metered"
     },
-    "report": "Compatibility report"
+    "report": "Compatibility report",
+    "deleted": "Binding deleted",
+    "updated": "Binding updated",
+    "editTitle": "Edit dify binding",
+    "bindings": {
+      "title": "Bound workflows",
+      "empty": "No dify bindings yet"
+    },
+    "cols": {
+      "resource": "Resource",
+      "mode": "Mode",
+      "endpoint": "Endpoint",
+      "pricing": "Pricing",
+      "created": "Created"
+    },
+    "delete": {
+      "title": "Delete binding?",
+      "message": "Delete the dify binding for {{resource}}? This cannot be undone."
+    }
   },
   "status": {
     "succeeded": "Succeeded",

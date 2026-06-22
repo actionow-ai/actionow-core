@@ -70,7 +70,8 @@
         "name": "模型",
         "display": "显示名",
         "modality": "模态",
-        "visibility": "可见性"
+        "visibility": "可见性",
+        "capabilities": "能力"
       }
     },
     "billing": {
@@ -89,7 +90,10 @@
         "amount": "金额",
         "credit": "积分",
         "status": "状态"
-      }
+      },
+      "balance": "余额",
+      "held": "冻结",
+      "scanQr": "扫码支付"
     },
     "settings": {
       "profile": "资料",
@@ -128,7 +132,9 @@
         "video": "视频",
         "file": "文件",
         "audio": "音频"
-      }
+      },
+      "upload": "上传",
+      "uploaded": "文件已上传"
     }
   },
   "nav": {
@@ -210,7 +216,8 @@
     "ranking": {
       "title": "按成本排名的模型",
       "empty": "暂无用量"
-    }
+    },
+    "viewTraces": "追踪"
   },
   "analytics": {
     "title": "分析",
@@ -254,6 +261,17 @@
       "providerCost": "上游成本",
       "margin": "毛利",
       "errors": "错误数"
+    },
+    "log": {
+      "title": "逐次调用日志",
+      "empty": "该范围内暂无调用",
+      "cols": {
+        "time": "时间",
+        "model": "模型",
+        "tokens": "Token",
+        "cost": "花费",
+        "status": "状态"
+      }
     }
   },
   "relayTraces": {
@@ -286,7 +304,9 @@
       "reqHeaders": "请求头",
       "reqBody": "请求体",
       "resBody": "响应体"
-    }
+    },
+    "jobIdPlaceholder": "任务 ID",
+    "channelIdPlaceholder": "渠道 ID"
   },
   "tenants": {
     "title": "租户",
@@ -308,7 +328,21 @@
     "detail": {
       "id": "租户 ID",
       "account": "账户",
-      "noAccount": "该租户还没有账户"
+      "noAccount": "该租户还没有账户",
+      "tabsLabel": "租户详情",
+      "ledger": "流水",
+      "payments": "支付",
+      "noLedger": "暂无流水",
+      "noPayments": "暂无支付",
+      "cols": {
+        "time": "时间",
+        "type": "类型",
+        "delta": "变动",
+        "balanceAfter": "余额",
+        "provider": "提供方",
+        "amount": "金额",
+        "status": "状态"
+      }
     },
     "empty": "暂无租户",
     "created": "租户已创建",
@@ -321,7 +355,8 @@
       "done": "客户已开通",
       "keyTitle": "API 密钥（仅显示一次）",
       "keyHint": "请立即复制此密钥，关闭后将无法再次查看。"
-    }
+    },
+    "updated": "租户已更新"
   },
   "accounts": {
     "title": "账户 / 充值",
@@ -720,7 +755,8 @@
     "copy": "复制",
     "copied": "已复制",
     "copyFailed": "复制失败",
-    "save": "保存"
+    "save": "保存",
+    "loadMore": "加载更多"
   },
   "confirm": {
     "deleteChannelTitle": "删除通道?",
@@ -780,14 +816,34 @@
       "endpoint": "Dify Endpoint",
       "yaml": "Workflow YAML",
       "pricingModel": "定价模型",
-      "allowBlockers": "允许阻塞节点"
+      "allowBlockers": "允许阻塞节点",
+      "serviceKeyRef": "服务密钥（可选）",
+      "serviceKeyNone": "不绑定密钥"
     },
     "pricing": {
       "fixed": "固定",
       "matrix": "矩阵",
       "metered": "按量计费"
     },
-    "report": "兼容性报告"
+    "report": "兼容性报告",
+    "deleted": "绑定已删除",
+    "updated": "绑定已更新",
+    "editTitle": "编辑 Dify 绑定",
+    "bindings": {
+      "title": "已绑定的工作流",
+      "empty": "暂无 Dify 绑定"
+    },
+    "cols": {
+      "resource": "资源",
+      "mode": "模式",
+      "endpoint": "端点",
+      "pricing": "计费",
+      "created": "创建时间"
+    },
+    "delete": {
+      "title": "删除绑定？",
+      "message": "确定删除 {{resource}} 的 Dify 绑定？此操作不可撤销。"
+    }
   },
   "status": {
     "succeeded": "成功",

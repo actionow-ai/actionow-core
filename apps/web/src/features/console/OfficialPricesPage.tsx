@@ -1,11 +1,12 @@
 import { ArrowSquareOutIcon, PencilSimpleIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
+import { LoadMore } from '../../components/data/LoadMore';
 import { ProviderIcon } from '../../components/data/ProviderIcon';
 import { Button } from '../../components/ui/Button';
 import { ComboboxField } from '../../components/ui/ComboboxField';
@@ -47,10 +48,13 @@ export function OfficialPricesPage() {
   const api = useAdminApi();
   const qc = useQueryClient();
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const list = useInfiniteQuery({
     queryKey: qk.officialPrices(),
-    queryFn: () => api.listOfficialPrices(),
+    queryFn: ({ pageParam }) => api.listOfficialPrices({ cursor: pageParam, limit: 50 }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
+  const rows = list.data?.pages.flatMap((p) => p.rows) ?? [];
 
   const [editId, setEditId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -166,14 +170,13 @@ export function OfficialPricesPage() {
 
       <DataTable
         columns={cols}
-        rows={data ?? []}
+        rows={rows}
         rowKey={(r) => r.id}
-        loading={isLoading}
-        error={isError}
-        onRetry={() => void refetch()}
+        loading={list.isLoading}
+        error={list.isError}
+        onRetry={() => void list.refetch()}
         empty={t('officialPrices.empty')}
         searchable
-        pageSize={20}
         actionsWidth="92px"
         rowActions={(r) => (
           <div style={{ display: 'flex', gap: 'var(--s-1)' }}>
@@ -182,12 +185,17 @@ export function OfficialPricesPage() {
           </div>
         )}
       />
+      <LoadMore
+        hasNextPage={list.hasNextPage}
+        isFetchingNextPage={list.isFetchingNextPage}
+        onLoadMore={() => void list.fetchNextPage()}
+      />
 
       {createOpen && <OfficialPriceEditor open onClose={() => setCreateOpen(false)} />}
       {editId !== null && (
         <OfficialPriceEditor
           key={editId}
-          row={(data ?? []).find((p) => p.id === editId)}
+          row={rows.find((p) => p.id === editId)}
           open
           onClose={() => setEditId(null)}
         />

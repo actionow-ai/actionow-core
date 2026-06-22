@@ -270,6 +270,43 @@ describe('admin CRUD-completion (P0 gaps)', () => {
   });
 });
 
+// P1: list endpoints return the keyset Page envelope + forward cursor/limit so
+// the pages can Load-more (was: first page only, nextCursor dropped).
+describe('admin keyset pagination (P1)', () => {
+  it('listModifiers returns a Page and forwards the cursor', async () => {
+    const { api, calls } = fakeApis();
+    await expect(api.listModifiers({ cursor: 'c1', limit: 50 })).resolves.toEqual({
+      rows: [],
+      nextCursor: null,
+    });
+    expect(calls[0]).toEqual({
+      method: 'GET',
+      path: '/admin/modifiers',
+      arg: { cursor: 'c1', limit: 50 },
+    });
+  });
+
+  it('listRedemptionCodes forwards status + cursor in one query', async () => {
+    const { api, calls } = fakeApis();
+    await api.listRedemptionCodes({ status: 'unused', cursor: 'c2', limit: 50 });
+    expect(calls[0]).toEqual({
+      method: 'GET',
+      path: '/admin/redemption-codes',
+      arg: { status: 'unused', cursor: 'c2', limit: 50 },
+    });
+  });
+
+  it('listOAuthSessions returns a Page and forwards the cursor', async () => {
+    const { api, calls } = fakeApis();
+    await expect(api.listOAuthSessions({ cursor: 'c3', limit: 50 })).resolves.toEqual({
+      rows: [],
+      nextCursor: null,
+    });
+    expect(calls[0]?.path).toBe('/admin/oauth-sessions');
+    expect(calls[0]?.arg).toEqual({ cursor: 'c3', limit: 50 });
+  });
+});
+
 describe('admin route-groups api', () => {
   it('addGroupChannel issues a PUT membership upsert (not POST), no idempotency key', async () => {
     const { api, calls } = fakeApis();
@@ -321,11 +358,15 @@ describe('admin route-groups api', () => {
 });
 
 describe('admin official-prices api', () => {
-  it('listOfficialPrices paginates /admin/official-prices (rows unwrapped)', async () => {
+  it('listOfficialPrices paginates /admin/official-prices (keyset Page)', async () => {
     const { api, calls } = fakeApis();
-    await expect(api.listOfficialPrices()).resolves.toEqual([]);
+    await expect(api.listOfficialPrices({ cursor: 'c1', limit: 50 })).resolves.toEqual({
+      rows: [],
+      nextCursor: null,
+    });
     expect(calls[0]?.method).toBe('GET');
     expect(calls[0]?.path).toBe('/admin/official-prices');
+    expect(calls[0]?.arg).toEqual({ cursor: 'c1', limit: 50 });
   });
 
   it('createOfficialPrice posts a camelCase HUMAN-USD body (no client µUSD pre-multiply)', async () => {

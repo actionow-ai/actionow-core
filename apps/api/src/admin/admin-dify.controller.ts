@@ -1,4 +1,9 @@
-import { type DifyImportView, difyImportViewSchema } from '@actionow/contracts';
+import {
+  type DifyBindingView,
+  difyBindingViewSchema,
+  type DifyImportView,
+  difyImportViewSchema,
+} from '@actionow/contracts';
 import type { DifyBindingRow } from '@actionow/db';
 import {
   Body,
@@ -34,20 +39,11 @@ import {
 // are free-form JSON (the contract types them `unknown`). The import() mapper
 // below `.parse()`s its concrete payload against the schema.
 
-/** A dify binding (admin list/patch view). EXCLUDES the dsl/compat-report blobs. */
-interface DifyBindingView {
-  resource_id: string;
-  resource_version: number;
-  mode: string;
-  endpoint: string;
-  service_key_ref: string | null;
-  pricing_model: string;
-  provision_mode: string;
-  created_at: string;
-}
-
+// DifyBindingView (admin list/patch view; EXCLUDES the dsl/compat-report blobs)
+// now lives in @actionow/contracts (catalog-views) — single source of truth with
+// the frontend. The mapper `.parse()`s against the schema.
 function toDifyBindingView(row: DifyBindingRow): DifyBindingView {
-  return {
+  return difyBindingViewSchema.parse({
     resource_id: row.resourceId,
     resource_version: row.resourceVersion,
     mode: row.mode,
@@ -56,7 +52,7 @@ function toDifyBindingView(row: DifyBindingRow): DifyBindingView {
     pricing_model: row.pricingModel,
     provision_mode: row.provisionMode,
     created_at: row.createdAt.toISOString(),
-  };
+  });
 }
 
 /**

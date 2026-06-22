@@ -46,13 +46,13 @@ describe('AppMedia gallery', () => {
     renderPage();
     const img = await screen.findByRole('img');
     expect(img).toHaveAttribute('src', image.url);
-    // No kind in the URL → list every kind.
-    expect(mockApi.listFiles).toHaveBeenCalledWith({});
+    // No kind in the URL → list every kind, keyset-paginated.
+    expect(mockApi.listFiles).toHaveBeenCalledWith({ kind: undefined, cursor: undefined, limit: 50 });
   });
 
   it('passes the URL kind filter through to the query', async () => {
     renderPage('/?kind=video');
     await screen.findByRole('img');
-    expect(mockApi.listFiles).toHaveBeenCalledWith({ kind: 'video' });
+    expect(mockApi.listFiles).toHaveBeenCalledWith({ kind: 'video', cursor: undefined, limit: 50 });
   });
 });
