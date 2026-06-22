@@ -1,6 +1,14 @@
 import { AdapterRegistry, createAsyncMediaMock } from '@actionow/adapters';
 import type { Modifier, PollResult, PricebookEntry } from '@actionow/contracts';
-import { createJob, getJob, holdCredits, type Job, schema, setUpstreamHandle } from '@actionow/db';
+import {
+  createJob,
+  getJob,
+  holdCredits,
+  insertUsageLog,
+  type Job,
+  schema,
+  setUpstreamHandle,
+} from '@actionow/db';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { eq } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
@@ -29,7 +37,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE webhook_outbox, ledger_txn, idempotency_key, job, account, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE usage_log, webhook_outbox, ledger_txn, idempotency_key, job, account, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
 });
 
 interface Seed {
@@ -140,6 +148,68 @@ describe('JobRunner.process — async poll', () => {
     ).filter((l) => l.type === 'settle');
     expect(settleRows).toHaveLength(1);
     expect(settleRows[0]?.balanceAfter).toBe(999_900n);
+  });
+
+  it('persists the MediaResult as output and writes a usage_log row with provider_cost', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 1 }));
+    // Context whose channel carries a per-unit cost (1500 µUSD/image).
+    const ctx: JobExecutionContext = {
+      ...contextFor(s),
+      channels: [
+        {
+          id: '11111111-1111-1111-1111-111111111111',
+          weight: 1,
+          model: 'mock-image',
+          config: { costPerUnit: { images: 1500 } },
+        },
+      ],
+    };
+    const runner = new JobRunner({
+      db,
+      adapters,
+      loadContext: () => Promise.resolve(ctx),
+      resolveSecret: () => Promise.resolve(undefined),
+      http: { request: () => Promise.reject(new Error('no http')) },
+      maxPolls: 5,
+      pollIntervalMs: 0,
+      sleep: () => Promise.resolve(),
+      // Fake persistence: rewrite each asset to a durable URL (no real R2).
+      persistMediaResult: (input) =>
+        Promise.resolve({
+          result: {
+            ...input.result,
+            assets: input.result.assets.map((a, i) => ({
+              ...a,
+              url: `https://cdn.x/${input.jobId}-${String(i)}.png`,
+            })),
+          },
+          objects: [],
+        }),
+      insertUsageLog: async (row) => {
+        await insertUsageLog(db, row);
+      },
+    });
+
+    await runner.process(job.id);
+
+    const settled = await getJob(db, job.id);
+    expect(settled?.status).toBe('succeeded');
+    // Output is now the canonical MediaResult (assets[]) with the durable URL.
+    const out = settled?.output as { kind: string; assets: { url: string }[] };
+    expect(out.kind).toBe('media');
+    expect(out.assets[0]?.url).toBe(`https://cdn.x/${job.id}-0.png`);
+
+    const logs = await db
+      .select()
+      .from(schema.usageLog)
+      .where(eq(schema.usageLog.tenantId, s.tenantId));
+    expect(logs).toHaveLength(1);
+    expect(logs[0]?.cost).toBe(100n); // customer charge (1 image × 100 µcredits)
+    expect(logs[0]?.providerCost).toBe(1500n); // 1 image × 1500 µUSD costPerUnit
+    expect(logs[0]?.status).toBe('succeeded');
   });
 
   it('honors a per-channel poll budget from config (video can poll past the deps default)', async () => {
