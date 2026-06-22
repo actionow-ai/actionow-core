@@ -9,6 +9,7 @@ import {
   getActivePricebookEntry,
   getJobByUpstreamHandle,
   getResource,
+  insertUsageLog,
   type Job,
   listApplicableModifiers,
   listChannels,
@@ -16,8 +17,12 @@ import {
   type ModifierRow,
   type PricebookEntryRow,
 } from '@actionow/db';
-import type { JobExecutionContext, PersistMediaFn } from '@actionow/engine';
-import { JobRunner, persistMediaOutput, signPayload } from '@actionow/engine';
+import type {
+  InsertMediaUsageLogFn,
+  JobExecutionContext,
+  PersistMediaResultFn,
+} from '@actionow/engine';
+import { JobRunner, persistMediaResult, signPayload } from '@actionow/engine';
 import {
   type AppEnv,
   fetchBytesWithTimeout,
@@ -168,7 +173,10 @@ export class CallbacksService {
 
   /** A `JobRunner` bound to this app's deps + the callback context loader. */
   private buildRunner(): JobRunner {
-    const persistMedia = this.buildPersistMedia();
+    const persistMediaResultFn = this.buildPersistMediaResult();
+    const insertUsageLogFn: InsertMediaUsageLogFn = async (row) => {
+      await insertUsageLog(this.db, row);
+    };
     return new JobRunner({
       db: this.db,
       adapters: this.adapters,
@@ -178,38 +186,34 @@ export class CallbacksService {
       proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
       traceUpstream: this.env.RELAY_TRACE === 'full',
       traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
-      ...(persistMedia !== undefined ? { persistMedia } : {}),
+      insertUsageLog: insertUsageLogFn,
+      ...(persistMediaResultFn !== undefined ? { persistMediaResult: persistMediaResultFn } : {}),
     });
   }
 
   /**
-   * Best-effort media persistence for the webhook-driven settle path: copy
-   * upstream media URLs into R2 and rewrite them to the public base URL. Returns
-   * `undefined` (no rewrite) when storage or the public base URL is unconfigured,
-   * so a callback still settles with the temp upstream URL. `persistMediaOutput`
-   * swallows its own errors (Task 8); the byte transfer is timeout-bounded.
-   *
-   * After the copy, a `ready` `file_object` row is recorded per persisted object so
-   * the tenant's media catalog tracks it (Task 11). The row creation is best-effort:
-   * the output URL is already rewritten, so a catalog-row miss never fails settle.
+   * The P1 canonical-result persistence closure for the callback settle path
+   * (mirrors the worker): copy a MediaResult's assets to R2 + record a
+   * `file_object` per object (with media dims). Undefined when storage is
+   * unconfigured (callback settles with the temp upstream URL).
    */
-  private buildPersistMedia(): PersistMediaFn | undefined {
+  private buildPersistMediaResult(): PersistMediaResultFn | undefined {
     const storage = this.storage;
     const publicBaseUrl = this.env.STORAGE_PUBLIC_BASE_URL;
     if (storage === null || publicBaseUrl === undefined) return undefined;
     const db = this.db;
     const bucket = this.env.STORAGE_BUCKET ?? '';
-    return async ({ tenantId, jobId, output }) => {
-      const result = await persistMediaOutput({
+    return async ({ tenantId, jobId, result }) => {
+      const persisted = await persistMediaResult({
         storage,
         publicBaseUrl,
         tenantId,
         jobId,
-        output,
+        result,
         fetchBytes: fetchBytesWithTimeout,
         putBytes: putBytesWithTimeout,
       });
-      for (const obj of result.objects) {
+      for (const obj of persisted.objects) {
         try {
           const file = await createFileObject(db, {
             tenantId,
@@ -220,12 +224,15 @@ export class CallbacksService {
           await markFileReady(db, file.id, {
             ...(obj.size !== undefined ? { size: obj.size } : {}),
             ...(obj.contentType !== undefined ? { contentType: obj.contentType } : {}),
+            ...(obj.width !== undefined ? { width: obj.width } : {}),
+            ...(obj.height !== undefined ? { height: obj.height } : {}),
+            ...(obj.duration !== undefined ? { duration: obj.duration } : {}),
           });
         } catch {
-          // best-effort: the output URL is already rewritten; a catalog row miss is non-fatal.
+          // best-effort; the asset url is already rewritten.
         }
       }
-      return result;
+      return persisted;
     };
   }
 

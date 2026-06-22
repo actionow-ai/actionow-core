@@ -13,6 +13,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { tenant } from './identity.js';
+import { providerPlugin } from './plugin.js';
 
 export const resource = pgTable(
   'resource',
@@ -89,6 +90,17 @@ export const upstreamChannel = pgTable(
     inputCostPer1m: bigint('input_cost_per_1m', { mode: 'bigint' }),
     /** The operator's ACTUAL cost on this channel in µUSD per 1M OUTPUT tokens (Track 5). Null → 0. */
     outputCostPer1m: bigint('output_cost_per_1m', { mode: 'bigint' }),
+    /**
+     * Plugin binding (P2): when set, this channel is served by the generic plugin
+     * adapter running this `provider_plugin` (vs the code adapter named by
+     * `provider_type`). `plugin_version` pins the version for the freeze snapshot.
+     */
+    pluginId: uuid('plugin_id').references(() => providerPlugin.id),
+    pluginVersion: integer('plugin_version'),
+    /** Trust posture (spec §2 axis E): trusted (first-party) | untrusted (relay). */
+    trust: text('trust').notNull().default('trusted'),
+    /** Relay model-name remapping (untrusted relays): our model → upstream model. */
+    modelMap: jsonb('model_map').$type<Record<string, string>>(),
     weight: integer('weight').notNull().default(1),
     // status allowed values: active | disabled (createUpstreamChannel default + admin update DTO)
     status: text('status').notNull().default('active'),

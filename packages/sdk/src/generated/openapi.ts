@@ -4486,6 +4486,393 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/plugins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List provider plugins */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List provider plugins */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProviderPluginView"][];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create a provider plugin */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreatePluginBody"];
+                };
+            };
+            responses: {
+                /** @description Create a provider plugin */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProviderPluginView"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/plugins/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run a handler fn in the sandbox (test panel) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TestPluginBody"];
+                };
+            };
+            responses: {
+                /** @description Run a handler fn in the sandbox (test panel) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TestPluginResponse"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/plugins/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Soft-delete a custom provider plugin */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Soft-delete a custom provider plugin */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Update a provider plugin */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdatePluginBody"];
+                };
+            };
+            responses: {
+                /** @description Update a provider plugin */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProviderPluginView"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/console/analytics/usage": {
         parameters: {
             query?: never;
@@ -8441,6 +8828,133 @@ export interface components {
         RedeemCodesResult: {
             codes: string[];
             credit_amount: string;
+        };
+        ProviderPluginView: {
+            id: string;
+            slug: string;
+            label: string;
+            modalities: string[];
+            /** @enum {string} */
+            protocol: "sync" | "async-poll";
+            /** @enum {string} */
+            auth_strategy: "bearer" | "query-key" | "custom-header" | "token" | "volcSignV4" | "tencentTC3" | "klingJwt" | "none";
+            manifest: {
+                id: string;
+                label: string;
+                modalities: string[];
+                /** @enum {string} */
+                protocol: "sync" | "async-poll";
+                /** @enum {string} */
+                authStrategy: "bearer" | "query-key" | "custom-header" | "token" | "volcSignV4" | "tencentTC3" | "klingJwt" | "none";
+                /** @default [] */
+                credentialFields: {
+                    key: string;
+                    label: string;
+                    /** @enum {string} */
+                    type: "text" | "password" | "select";
+                    /** @default false */
+                    required: boolean;
+                    options?: string[];
+                    placeholder?: string;
+                }[];
+                paramFields?: {
+                    key: string;
+                    label: string;
+                    /** @enum {string} */
+                    type: "text" | "password" | "select";
+                    /** @default false */
+                    required: boolean;
+                    options?: string[];
+                    placeholder?: string;
+                }[];
+            };
+            handler: string;
+            version: number;
+            builtin: boolean;
+            status: string;
+            created_at: string;
+            updated_at: string;
+        };
+        CreatePluginBody: {
+            slug: string;
+            label: string;
+            manifest: {
+                id: string;
+                label: string;
+                modalities: string[];
+                /** @enum {string} */
+                protocol: "sync" | "async-poll";
+                /** @enum {string} */
+                authStrategy: "bearer" | "query-key" | "custom-header" | "token" | "volcSignV4" | "tencentTC3" | "klingJwt" | "none";
+                /** @default [] */
+                credentialFields: {
+                    key: string;
+                    label: string;
+                    /** @enum {string} */
+                    type: "text" | "password" | "select";
+                    /** @default false */
+                    required: boolean;
+                    options?: string[];
+                    placeholder?: string;
+                }[];
+                paramFields?: {
+                    key: string;
+                    label: string;
+                    /** @enum {string} */
+                    type: "text" | "password" | "select";
+                    /** @default false */
+                    required: boolean;
+                    options?: string[];
+                    placeholder?: string;
+                }[];
+            };
+            handler: string;
+        };
+        UpdatePluginBody: {
+            label?: string;
+            manifest?: {
+                id: string;
+                label: string;
+                modalities: string[];
+                /** @enum {string} */
+                protocol: "sync" | "async-poll";
+                /** @enum {string} */
+                authStrategy: "bearer" | "query-key" | "custom-header" | "token" | "volcSignV4" | "tencentTC3" | "klingJwt" | "none";
+                /** @default [] */
+                credentialFields: {
+                    key: string;
+                    label: string;
+                    /** @enum {string} */
+                    type: "text" | "password" | "select";
+                    /** @default false */
+                    required: boolean;
+                    options?: string[];
+                    placeholder?: string;
+                }[];
+                paramFields?: {
+                    key: string;
+                    label: string;
+                    /** @enum {string} */
+                    type: "text" | "password" | "select";
+                    /** @default false */
+                    required: boolean;
+                    options?: string[];
+                    placeholder?: string;
+                }[];
+            };
+            handler?: string;
+            status?: string;
+        };
+        TestPluginBody: {
+            handler: string;
+            /** @enum {string} */
+            fn: "mapRequest" | "mapResponse" | "mapSubmit" | "mapPollRequest" | "mapPoll" | "mapCallback";
+            arg?: unknown;
+        };
+        TestPluginResponse: {
+            ok: boolean;
+            result?: unknown;
+            error?: string;
         };
         OAuthSessionView: {
             id: string;

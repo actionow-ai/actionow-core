@@ -227,6 +227,19 @@ export {
   type PaymentIntentRow,
   setIntentStatus,
 } from './payments.js';
+export {
+  createPlugin,
+  type CreatePluginInput,
+  getPluginById,
+  getPluginBySlug,
+  getPluginVersion,
+  listPlugins,
+  type ProviderPluginRow,
+  softDeletePlugin,
+  updatePlugin,
+  type UpdatePluginInput,
+  upsertBuiltinPlugin,
+} from './plugin.js';
 export { type ExpiredHold, listExpiredHolds } from './reaper.js';
 export {
   claimRedemptionCode,

@@ -1,5 +1,14 @@
 import { sql } from 'drizzle-orm';
-import { bigint, check, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  check,
+  doublePrecision,
+  index,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 import { tenant } from './identity.js';
 
@@ -25,6 +34,10 @@ export const fileObject = pgTable(
     size: bigint('size', { mode: 'number' }),
     contentType: text('content_type'),
     etag: text('etag'),
+    // Media metadata (P1): populated when a generated image/video/audio asset is persisted.
+    width: bigint('width', { mode: 'number' }),
+    height: bigint('height', { mode: 'number' }),
+    duration: doublePrecision('duration'),
     // status allowed values: pending (createFileObject default) | ready (markFileReady)
     status: text('status').notNull().default('pending'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

@@ -10,6 +10,7 @@ import type {
   UsageVector,
 } from '@actionow/contracts';
 
+import { inferModality, toMediaResult } from './async-media.js';
 import type { ProviderAdapter } from './types.js';
 
 const PROVIDER = 'async-media-mock';
@@ -98,7 +99,12 @@ export function createAsyncMediaMock(opts?: AsyncMediaMockOptions): ProviderAdap
       }
 
       const { output, usage } = succeededFor(job.modality, upstreamJobId);
-      return Promise.resolve({ status: 'succeeded', output, usage });
+      return Promise.resolve({
+        status: 'succeeded',
+        output,
+        usage,
+        mediaResult: toMediaResult(output, inferModality(output)),
+      });
     },
 
     parseCallback(payload: unknown): CallbackResult {

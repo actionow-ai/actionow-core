@@ -166,6 +166,7 @@
     "routeGroups": "Groups",
     "officialPrices": "Official prices",
     "dify": "Dify import",
+    "plugins": "Plugins",
     "redemptionCodes": "Redemption codes",
     "tmedia": "Media",
     "oauthSessions": "Credentials",
@@ -196,6 +197,7 @@
     "routeGroups": "Route groups & channel membership",
     "officialPrices": "Reference model prices",
     "dify": "Import a Dify workflow as a resource",
+    "plugins": "Provider plugins: manifest + sandboxed handler over heterogeneous upstreams",
     "accounts": "Account balance & top-up",
     "apiKeys": "Issue and manage API keys",
     "serviceTokens": "M2M credentials for the admin API"
@@ -906,6 +908,47 @@
     "delete": {
       "title": "Delete binding?",
       "message": "Delete the dify binding for {{resource}}? This cannot be undone."
+    }
+  },
+  "plugins": {
+    "new": "New plugin",
+    "editTitle": "Edit plugin",
+    "empty": "No plugins yet",
+    "created": "Plugin created",
+    "updated": "Plugin updated",
+    "deleted": "Plugin deleted",
+    "builtin": "Built-in",
+    "custom": "Custom",
+    "cols": {
+      "name": "Name",
+      "modalities": "Modalities",
+      "protocol": "Protocol",
+      "auth": "Auth",
+      "version": "Version",
+      "kind": "Kind",
+      "status": "Status"
+    },
+    "form": {
+      "slug": "Slug",
+      "slugRequired": "Enter a slug.",
+      "label": "Label",
+      "labelRequired": "Enter a label.",
+      "modalities": "Modalities",
+      "protocol": "Protocol",
+      "auth": "Auth strategy",
+      "handler": "Handler (sandboxed JS)",
+      "handlerHint": "Export mapRequest/mapResponse (plus mapSubmit/mapPollRequest/mapPoll for async). Runs in the sandbox — no secrets, no network."
+    },
+    "test": {
+      "title": "Test panel",
+      "fn": "Handler function",
+      "arg": "Sample arg (JSON)",
+      "run": "Run test",
+      "badArg": "Sample arg is not valid JSON."
+    },
+    "delete": {
+      "title": "Delete plugin?",
+      "message": "Delete plugin {{name}}? This cannot be undone."
     }
   },
   "status": {

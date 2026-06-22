@@ -20,7 +20,8 @@
     "@actionow/dify": "workspace:*",
     "@actionow/domain": "workspace:*",
     "@actionow/infra": "workspace:*",
-    "@actionow/payments": "workspace:*"
+    "@actionow/payments": "workspace:*",
+    "quickjs-emscripten": "^0.32.0"
   },
   "devDependencies": {
     "@testcontainers/postgresql": "^10.13.0",

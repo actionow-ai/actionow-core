@@ -2,13 +2,16 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 import type {
   AdapterContext,
+  Asset,
   CallbackResult,
+  MediaResult,
   PollResult,
   SubmitInput,
   SubmitResult,
   UnifiedError,
   UsageVector,
 } from '@actionow/contracts';
+import { mediaResultSchema } from '@actionow/contracts';
 
 import { AdapterError, httpStatusToUnified } from './errors.js';
 import { asNumber, asRecord, asString } from './internal/json.js';
@@ -132,6 +135,85 @@ function usageFromResult(result: Record<string, unknown> | undefined): UsageVect
   return { tasks: 1 };
 }
 
+/** Default mime per modality when a URL extension yields no hint. */
+const DEFAULT_MIME: Record<string, string> = {
+  image: 'image/png',
+  video: 'video/mp4',
+  audio: 'audio/mpeg',
+};
+const MIME_BY_EXT: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  mov: 'video/quicktime',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  aac: 'audio/aac',
+  flac: 'audio/flac',
+};
+
+/** Best-effort mime from a URL's extension, falling back to the modality default. */
+function mimeOf(url: string, modality: string): string {
+  const noQuery = url.split('?')[0] ?? url;
+  const ext = noQuery.split('.').pop()?.toLowerCase();
+  return (
+    (ext !== undefined ? MIME_BY_EXT[ext] : undefined) ??
+    DEFAULT_MIME[modality] ??
+    'application/octet-stream'
+  );
+}
+
+/** Infer the modality of a completed `result` from which url key it carries. */
+export function inferModality(result: Record<string, unknown> | undefined): string {
+  if (result === undefined) return 'image';
+  if (asString(result.video_url) !== undefined) return 'video';
+  if (asString(result.audio_url) !== undefined) return 'audio';
+  return 'image';
+}
+
+/**
+ * Normalize an async-media `result` block to the canonical {@link MediaResult} —
+ * the SINGLE source of media field knowledge (supersedes the per-call key
+ * allow-lists). Asset URLs come from `image_urls[]` (batch) then the single
+ * `image_url`/`video_url`/`audio_url`; `usage` mirrors {@link usageFromResult}'s
+ * dimension precedence (images → characters → audio_seconds → duration_seconds →
+ * tasks).
+ */
+export function toMediaResult(
+  result: Record<string, unknown> | undefined,
+  modality: string,
+): MediaResult {
+  const assetModality: Asset['modality'] =
+    modality === 'video' ? 'video' : modality === 'audio' ? 'audio' : 'image';
+  const urls: string[] = [];
+  const arr = result?.image_urls;
+  if (Array.isArray(arr))
+    for (const u of arr) if (typeof u === 'string' && !urls.includes(u)) urls.push(u);
+  for (const k of ['image_url', 'video_url', 'audio_url'] as const) {
+    const u = asString(result?.[k]);
+    if (u !== undefined && !urls.includes(u)) urls.push(u);
+  }
+  const duration = asNumber(result?.duration) ?? asNumber(result?.audio_duration);
+  const assets: Asset[] = urls.map((u) => ({
+    role: 'primary' as const,
+    modality: assetModality,
+    url: u,
+    mime: mimeOf(u, modality),
+    ...(assetModality !== 'image' && duration !== undefined ? { duration } : {}),
+  }));
+  return mediaResultSchema.parse({
+    kind: 'media',
+    assets,
+    usage: usageFromResult(result),
+    raw: result,
+  });
+}
+
 /** Read a header value (lower-cased lookup); collapses arrays to the first entry. */
 function header(
   headers: Record<string, string | string[] | undefined>,
@@ -208,10 +290,12 @@ export const asyncMediaAdapter: ProviderAdapter = {
     const data = asRecord(res.body);
     const status = asString(data?.status);
     if (status === 'completed') {
+      const result = asRecord(data?.result);
       return {
         status: 'succeeded',
-        output: resultOutput(asRecord(data?.result)),
-        usage: usageFromResult(asRecord(data?.result)),
+        output: resultOutput(result),
+        usage: usageFromResult(result),
+        mediaResult: toMediaResult(result, inferModality(result)),
       };
     }
     if (status === 'failed') {
@@ -260,11 +344,13 @@ export const asyncMediaAdapter: ProviderAdapter = {
     if (taskId === undefined || data === undefined) return empty;
     const status = asString(data.status);
     if (status === 'completed') {
+      const result = asRecord(data.result);
       return {
         upstreamJobId: taskId,
         status: 'succeeded',
-        output: resultOutput(asRecord(data.result)),
-        usage: usageFromResult(asRecord(data.result)),
+        output: resultOutput(result),
+        usage: usageFromResult(result),
+        mediaResult: toMediaResult(result, inferModality(result)),
       };
     }
     return {

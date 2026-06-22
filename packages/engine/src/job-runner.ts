@@ -5,6 +5,7 @@ import type {
   CallbackResult,
   ExecMode,
   HttpClient,
+  MediaResult,
   Modifier,
   PollResult,
   PricebookEntry,
@@ -26,7 +27,7 @@ import {
 
 import { EngineError } from './errors.js';
 import type { RunChannel } from './execution-service.js';
-import type { PersistMediaResult } from './media-persistence.js';
+import { meterMedia, type PersistedMediaObject } from './media-result.js';
 import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
 import { type TraceContext, TracingHttpClient } from './relay-trace.js';
 
@@ -51,16 +52,27 @@ export interface JobExecutionContext {
 export type ExecutionContextLoader = (job: Job) => Promise<JobExecutionContext>;
 
 /**
- * Persist media outputs to durable storage, returning a (possibly) rewritten
- * output. Optional injected dependency; absent → no rewrite. Best-effort: the
- * concrete hook never throws (it falls back to the temp upstream URL), so
- * settle proceeds regardless. Wired in Task 10 over a real StorageProvider.
+ * Persist a canonical {@link MediaResult}'s assets to durable storage (P1),
+ * returning the rewritten result (durable URLs) + the persisted objects (one
+ * `file_object` per object, written by the caller). Best-effort: never throws.
  */
-export type PersistMediaFn = (input: {
+export type PersistMediaResultFn = (input: {
   tenantId: string;
   jobId: string;
-  output: Record<string, unknown>;
-}) => Promise<PersistMediaResult>;
+  result: MediaResult;
+}) => Promise<{ result: MediaResult; objects: PersistedMediaObject[] }>;
+
+/** A per-call `usage_log` row for a settled media job (P1 metering / margin). */
+export interface MediaUsageLogRow {
+  tenantId: string;
+  model: string;
+  cost: bigint;
+  providerCost?: bigint | undefined;
+  status: 'succeeded' | 'failed';
+  channelId?: string | undefined;
+  providerType?: string | undefined;
+}
+export type InsertMediaUsageLogFn = (row: MediaUsageLogRow) => Promise<void>;
 
 export interface JobRunnerDeps {
   db: DbOrTx;
@@ -78,8 +90,10 @@ export interface JobRunnerDeps {
   rng?: () => number;
   /** Global egress proxy fallback (UPSTREAM_PROXY_URL) when a channel has no proxyRef. */
   proxyUrlEnv?: string | undefined;
-  /** Persist media outputs before settle (rewrites temp upstream URLs to durable ones). */
-  persistMedia?: PersistMediaFn | undefined;
+  /** Persist a canonical MediaResult's assets before settle (P1). */
+  persistMediaResult?: PersistMediaResultFn | undefined;
+  /** Write a usage_log row for a settled media job (P1 metering — media margin visibility). */
+  insertUsageLog?: InsertMediaUsageLogFn | undefined;
   /**
    * When true (`RELAY_TRACE=full`), wrap `ctx.http` in a {@link TracingHttpClient}
    * so the async media submit/poll upstream calls are captured to `relay_trace`
@@ -100,6 +114,20 @@ function defaultSleep(ms: number): Promise<void> {
 /** Read a channel-config value as an integer ≥ `min`, or undefined when absent/invalid. */
 function asIntAtLeast(value: unknown, min: number): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) && value >= min ? value : undefined;
+}
+
+/**
+ * Narrow a channel-config `costPerUnit` (e.g. `{ images: 1500, duration_seconds: 200 }`,
+ * µUSD per output unit) to a clean number-valued record, dropping non-number
+ * entries. Returns undefined when absent/invalid → an unknown (NULL) provider_cost.
+ */
+function asCostPerUnit(value: unknown): Record<string, number> | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /**
@@ -241,16 +269,18 @@ export class JobRunner {
   ): Promise<{ settled: boolean }> {
     const usage: UsageVector = result.usage ?? {};
     let output = result.output ?? {};
-    // Best-effort media persistence: rewrite temp upstream media URLs to durable
-    // ones BEFORE the settle write. Absent (non-media setups / existing tests) →
-    // unchanged. The hook never throws (Task 8); settle proceeds regardless.
-    if (this.deps.persistMedia !== undefined) {
-      const persisted = await this.deps.persistMedia({
+    const isMedia = result.mediaResult !== undefined;
+    // Best-effort media persistence BEFORE the settle write: persist the canonical
+    // MediaResult's assets to durable storage and store the rewritten result as
+    // `output`. Absent dep (non-media setups / tests) → output unchanged. The hook
+    // never throws (falls back to the temp upstream URL); settle proceeds regardless.
+    if (result.mediaResult !== undefined && this.deps.persistMediaResult !== undefined) {
+      const persisted = await this.deps.persistMediaResult({
         tenantId: job.tenantId,
         jobId: job.id,
-        output,
+        result: result.mediaResult,
       });
-      output = persisted.output;
+      output = persisted.result;
     }
     // Cost is computed from `usage` + `job.inputs`, so rewriting `output` does
     // not affect pricing.
@@ -260,7 +290,7 @@ export class JobRunner {
       job.inputs,
       ctx.modifiers,
     );
-    return settleJob(this.deps.db, {
+    const settleResult = await settleJob(this.deps.db, {
       jobId: job.id,
       accountId: ctx.accountId,
       tenantId: job.tenantId,
@@ -275,6 +305,25 @@ export class JobRunner {
         ? { outbox: { url: job.callbackUrl, payload: { job_id: job.id } } }
         : {}),
     });
+    // P1 metering: write ONE usage_log row for a freshly-settled media job so
+    // media cost/margin is no longer invisible to the admin rollup. Guard on
+    // `settled` so a poll/callback double-settle does not double-count. Cost is
+    // the customer µcredit charge; provider_cost = Σ usage[dim] × channel
+    // costPerUnit[dim] (µUSD), NULL when the channel has no per-unit cost.
+    if (settleResult.settled && isMedia && this.deps.insertUsageLog !== undefined) {
+      const channel = ctx.channels[0];
+      const providerCost = meterMedia(usage, asCostPerUnit(channel?.config?.costPerUnit));
+      await this.deps.insertUsageLog({
+        tenantId: job.tenantId,
+        model: channel?.model ?? job.resourceId,
+        cost: finalCost,
+        ...(providerCost !== undefined ? { providerCost } : {}),
+        status: 'succeeded',
+        ...(channel?.id !== undefined ? { channelId: channel.id } : {}),
+        providerType: ctx.providerType,
+      });
+    }
+    return settleResult;
   }
 
   /** Fail/release a job. Dedup-safe via the same status-transition guard. */
@@ -358,7 +407,45 @@ export class JobRunner {
     const proxyUrl = await this.resolveProxy(channel);
     if (proxyUrl !== undefined) ctx.proxyUrl = proxyUrl;
     if (channel.config !== undefined) ctx.config = channel.config;
+    // Plugin-served channel (P2): attach the frozen snapshot + the resolved
+    // credential map (consumed only by the signer OUTSIDE the sandbox).
+    if (channel.plugin !== undefined) {
+      ctx.plugin = channel.plugin;
+      ctx.credentials = await this.resolvePluginCredentials(channel);
+    }
     return ctx;
+  }
+
+  /**
+   * Assemble a plugin's credential map: non-secret fields from the channel
+   * `config` (region/service/header_name/…) overlaid with the secret(s) from
+   * `credentialRef` — which resolves to either a JSON object (multi-secret, e.g.
+   * `{ak, sk}`) or a bare string (treated as `api_key`). Secrets live ONLY here.
+   */
+  private async resolvePluginCredentials(channel: RunChannel): Promise<Record<string, string>> {
+    const cred: Record<string, string> = {};
+    if (channel.config !== undefined) {
+      for (const [k, v] of Object.entries(channel.config)) if (typeof v === 'string') cred[k] = v;
+    }
+    if (channel.credentialRef !== undefined) {
+      const secret = await this.deps.resolveSecret(channel.credentialRef);
+      if (secret !== undefined) {
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(secret);
+        } catch {
+          parsed = undefined;
+        }
+        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+            if (typeof v === 'string') cred[k] = v;
+          }
+        } else {
+          cred.api_key = secret;
+        }
+      }
+    }
+    return cred;
   }
 
   /** Resolve a channel's egress proxy URL: its proxyRef (via resolveSecret), else the global env fallback. */

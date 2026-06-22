@@ -9,6 +9,7 @@ import type {
   ExecMode,
   HttpClient,
   IoSchema,
+  PluginManifest,
   PricebookEntry,
   StreamEvent,
   SubmitResult,
@@ -62,6 +63,13 @@ export interface RunChannel {
   priority?: number | undefined;
   /** Per-channel provider/adapter; overrides resource.providerType for routing — cross-provider fallback. */
   providerType?: string | undefined;
+  /**
+   * Frozen plugin snapshot (P2) when this channel is plugin-served. The loader
+   * sets it from `channel.plugin_id` (and `providerType='plugin'` so the generic
+   * plugin adapter is dispatched); `buildContext` puts it + the resolved
+   * credentials on the AdapterContext.
+   */
+  plugin?: { manifest: PluginManifest; handler: string } | undefined;
   /** Opaque secret locator resolved via `resolveSecret`; never logged. */
   credentialRef?: string | undefined;
   model?: string | undefined;

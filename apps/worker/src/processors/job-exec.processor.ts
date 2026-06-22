@@ -1,5 +1,10 @@
-import { createFileObject, markFileReady } from '@actionow/db';
-import { JobRunner, type PersistMediaFn, persistMediaOutput } from '@actionow/engine';
+import { createFileObject, insertUsageLog, markFileReady } from '@actionow/db';
+import {
+  type InsertMediaUsageLogFn,
+  JobRunner,
+  persistMediaResult,
+  type PersistMediaResultFn,
+} from '@actionow/engine';
 
 import { loadJobContext } from '../loaders.js';
 import type { WorkerRuntime } from '../runtime.js';
@@ -27,7 +32,11 @@ export interface JobExecProcessor {
  * function directly with a fake runtime and asserts the job settled.
  */
 export function createJobExecProcessor(runtime: WorkerRuntime): JobExecProcessor {
-  const persistMedia = buildPersistMedia(runtime);
+  const persistMediaResultFn = buildPersistMediaResult(runtime);
+  // P1 metering: every settled media job writes a usage_log row (margin visibility).
+  const insertUsageLogFn: InsertMediaUsageLogFn = async (row) => {
+    await insertUsageLog(runtime.db, row);
+  };
   const runner = new JobRunner({
     db: runtime.db,
     adapters: runtime.adapters,
@@ -37,7 +46,8 @@ export function createJobExecProcessor(runtime: WorkerRuntime): JobExecProcessor
     proxyUrlEnv: runtime.env.UPSTREAM_PROXY_URL,
     traceUpstream: runtime.env.RELAY_TRACE === 'full',
     traceMaxBytes: runtime.env.RELAY_TRACE_MAX_BYTES,
-    ...(persistMedia !== undefined ? { persistMedia } : {}),
+    insertUsageLog: insertUsageLogFn,
+    ...(persistMediaResultFn !== undefined ? { persistMediaResult: persistMediaResultFn } : {}),
   });
 
   return {
@@ -48,31 +58,27 @@ export function createJobExecProcessor(runtime: WorkerRuntime): JobExecProcessor
 }
 
 /**
- * Build the best-effort media-persistence closure when both a storage provider
- * and a public base URL are configured; otherwise `undefined` (the settle path
- * keeps the temp upstream URL). The byte transfer runs over the runtime's
- * {@link WorkerRuntime.fetchBytes}/{@link WorkerRuntime.putBytes} (timeout-bounded
- * in prod; injectable in tests). `persistMediaOutput` swallows its own errors, so
- * a failed copy never fails the job (Task 8).
- *
- * After the copy, a `ready` `file_object` row is recorded per persisted object so
- * the tenant's media catalog tracks it (Task 11). The row creation is best-effort:
- * the output URL is already rewritten, so a catalog-row miss never fails the job.
+ * The P1 canonical-result persistence closure: copy a {@link MediaResult}'s
+ * assets to durable storage (`persistMediaResult`) and record ONE `ready`
+ * `file_object` per persisted object — including media metadata (width/height/
+ * duration). This is the SINGLE media `file_object` writer. Best-effort, like
+ * {@link buildPersistMedia}: errors never fail the job. `undefined` when storage
+ * is unconfigured (settle keeps the temp upstream URL).
  */
-function buildPersistMedia(runtime: WorkerRuntime): PersistMediaFn | undefined {
+function buildPersistMediaResult(runtime: WorkerRuntime): PersistMediaResultFn | undefined {
   const { storage, publicBaseUrl, fetchBytes, putBytes } = runtime;
   if (storage === null || publicBaseUrl === undefined) return undefined;
-  return async ({ tenantId, jobId, output }) => {
-    const result = await persistMediaOutput({
+  return async ({ tenantId, jobId, result }) => {
+    const persisted = await persistMediaResult({
       storage,
       publicBaseUrl,
       tenantId,
       jobId,
-      output,
+      result,
       fetchBytes,
       putBytes,
     });
-    for (const obj of result.objects) {
+    for (const obj of persisted.objects) {
       try {
         const file = await createFileObject(runtime.db, {
           tenantId,
@@ -83,11 +89,14 @@ function buildPersistMedia(runtime: WorkerRuntime): PersistMediaFn | undefined {
         await markFileReady(runtime.db, file.id, {
           ...(obj.size !== undefined ? { size: obj.size } : {}),
           ...(obj.contentType !== undefined ? { contentType: obj.contentType } : {}),
+          ...(obj.width !== undefined ? { width: obj.width } : {}),
+          ...(obj.height !== undefined ? { height: obj.height } : {}),
+          ...(obj.duration !== undefined ? { duration: obj.duration } : {}),
         });
       } catch {
-        // best-effort: the output URL is already rewritten; a catalog row miss is non-fatal.
+        // best-effort: the asset URL is already rewritten; a catalog row miss is non-fatal.
       }
     }
-    return result;
+    return persisted;
   };
 }

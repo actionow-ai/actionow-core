@@ -20,6 +20,7 @@ import type {
   CreateModifierBody,
   CreateOAuthSessionBody,
   CreateOfficialPriceBody,
+  CreatePluginRequest,
   CreatePricebookBody,
   CreateResourceBody,
   CreateRouteGroupBody,
@@ -42,6 +43,7 @@ import type {
   Page,
   PaymentIntentView,
   PricebookView,
+  ProviderPluginView,
   ProvisionBody,
   ProvisionView,
   RedemptionCodeView,
@@ -54,6 +56,8 @@ import type {
   SyncChannelModelsBody,
   SyncChannelModelsResult,
   TenantView,
+  TestPluginRequest,
+  TestPluginResponse,
   TopupBody,
   UpdateApiKeyGroupBody,
   UpdateChannelBody,
@@ -62,6 +66,7 @@ import type {
   UpdateModelBody,
   UpdateModifierBody,
   UpdateOfficialPriceBody,
+  UpdatePluginRequest,
   UpdatePricebookBody,
   UpdateResourceBody,
   UpdateRouteGroupBody,
@@ -300,6 +305,19 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     // Edit a stored credential's metadata (name/notes/group) — never the material.
     updateSecret: async (id: string, body: UpdateCredentialMetaBody): Promise<SecretView> =>
       unwrap(await sdk.PATCH('/admin/secrets/{id}', { params: { path: { id } }, body }), u),
+
+    // --- provider plugins (P2) ---
+    listPlugins: async (): Promise<ProviderPluginView[]> =>
+      unwrap(await sdk.GET('/admin/plugins'), u),
+    createPlugin: async (body: CreatePluginRequest): Promise<ProviderPluginView> =>
+      unwrap(await sdk.POST('/admin/plugins', { body }), u),
+    updatePlugin: async (id: string, body: UpdatePluginRequest): Promise<ProviderPluginView> =>
+      unwrap(await sdk.PATCH('/admin/plugins/{id}', { params: { path: { id } }, body }), u),
+    deletePlugin: async (id: string): Promise<void> => {
+      unwrap(await sdk.DELETE('/admin/plugins/{id}', { params: { path: { id } } }), u);
+    },
+    testPlugin: async (body: TestPluginRequest): Promise<TestPluginResponse> =>
+      unwrap(await sdk.POST('/admin/plugins/test', { body }), u),
 
     listModels: async () => page<ModelView>(await sdk.GET('/admin/models'), u).rows,
     createModel: async (body: CreateModelBody, idempotencyKey?: string) =>

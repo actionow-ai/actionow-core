@@ -1,4 +1,6 @@
 import type { HttpClient } from './http.js';
+import type { MediaResult } from './media-result.js';
+import type { PluginManifest } from './provider-plugin.js';
 
 export const EXEC_MODES = ['blocking', 'stream', 'async-poll', 'async-callback'] as const;
 export type ExecMode = (typeof EXEC_MODES)[number];
@@ -39,6 +41,18 @@ export interface AdapterContext {
    * paths, signature header names); never logged.
    */
   config?: Record<string, unknown>;
+  /**
+   * Frozen plugin snapshot (manifest + handler JS) when this channel is served by
+   * the generic plugin adapter (P2). The generic adapter runs the handler in the
+   * QuickJS sandbox; `providerType` is `'plugin'` for these channels.
+   */
+  plugin?: { manifest: PluginManifest; handler: string };
+  /**
+   * Resolved credential map for the plugin signer (api_key / ak / sk / region …).
+   * Consumed ONLY by the platform signer OUTSIDE the sandbox (D5/D7); never logged,
+   * never passed into a handler.
+   */
+  credentials?: Record<string, string>;
   http: HttpClient;
 }
 
@@ -71,6 +85,8 @@ export interface SyncResult {
   kind: 'sync';
   output: Record<string, unknown>;
   usage: UsageVector;
+  /** Canonical media result when this is a media job (P1); the engine prefers it over `output`. */
+  mediaResult?: MediaResult;
 }
 export interface UpstreamJobHandle {
   kind: 'async';
@@ -86,6 +102,8 @@ export interface PollResult {
   output?: Record<string, unknown>;
   usage?: UsageVector;
   error?: UnifiedError;
+  /** Canonical media result for a succeeded media job (P1). */
+  mediaResult?: MediaResult;
 }
 export interface CallbackResult extends PollResult {
   upstreamJobId: string;

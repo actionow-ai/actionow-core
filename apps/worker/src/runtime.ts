@@ -2,6 +2,7 @@ import { type AdapterRegistry, createDefaultRegistry } from '@actionow/adapters'
 import type { HttpClient, StorageProvider } from '@actionow/contracts';
 import { createDb, type Database, resolveSecretRef } from '@actionow/db';
 import type { FetchBytes, PutBytes } from '@actionow/engine';
+import { registerEngineAdapters } from '@actionow/engine';
 import {
   type AppEnv,
   createS3StorageProvider,
@@ -48,7 +49,7 @@ export function createWorkerRuntime(): WorkerRuntime {
   return {
     env,
     db,
-    adapters: createDefaultRegistry(),
+    adapters: registerEngineAdapters(createDefaultRegistry()),
     http: new FetchHttpClient(),
     // A channel's `credential_ref` is a `secret_ref` uuid: the resolver
     // dereferences that row → `SECRET_<locator>`/`<locator>` for `provider=env`
