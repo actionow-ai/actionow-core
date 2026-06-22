@@ -10,5 +10,6 @@ export * from './queue.js';
 export * from './reaper.js';
 export * from './redemption-service.js';
 export * from './relay-trace.js';
+export * from './signers.js';
 export * from './stream.js';
 export * from './webhook.js';
