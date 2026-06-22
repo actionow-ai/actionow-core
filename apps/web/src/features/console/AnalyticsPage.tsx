@@ -14,7 +14,7 @@ import { Money } from '../../components/data/Money';
 import { QueryBoundary } from '../../components/data/QueryBoundary';
 import { TenantSelect } from '../../components/data/TenantSelect';
 import { TimeSeriesChart } from '../../components/data/TimeSeriesChart';
-import { FIELD_INPUT_BASE } from '../../components/ui/fieldStyles';
+import { DateField } from '../../components/ui/DateField';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { qk } from '../../lib/api/queryKeys';
@@ -29,6 +29,15 @@ type Metric = 'cost' | 'margin' | 'requests' | 'tokens';
 
 const GROUP_BYS: GroupBy[] = ['day', 'model', 'tenant', 'channel', 'api_key'];
 const METRICS: Metric[] = ['cost', 'margin', 'requests', 'tokens'];
+
+/** Inline "起/止 + control" wrapper for the date-range filters. */
+const DATE_LABEL = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 'var(--s-2)',
+  fontSize: 'var(--fs-sm)',
+  color: 'var(--muted)',
+} as const;
 
 /**
  * The integer µ-string for the selected metric of one rollup. Accepts BOTH the
@@ -298,44 +307,26 @@ export function AnalyticsPage() {
           onChange={setMetric}
           options={METRICS.map((m) => ({ value: m, label: t(`analytics.metric.${m}`) }))}
         />
-        <label
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--s-2)',
-            fontSize: 'var(--fs-sm)',
-            color: 'var(--muted)',
-          }}
-        >
+        <span style={DATE_LABEL}>
           {t('analytics.from')}
-          <input
-            type="date"
+          <DateField
             value={from}
+            onChange={setFrom}
             max={to === '' ? undefined : to}
-            onChange={(e) => setFrom(e.target.value)}
-            className="field"
-            style={{ ...FIELD_INPUT_BASE, width: 'auto' }}
+            ariaLabel={t('analytics.from')}
+            placeholder={t('analytics.from')}
           />
-        </label>
-        <label
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--s-2)',
-            fontSize: 'var(--fs-sm)',
-            color: 'var(--muted)',
-          }}
-        >
+        </span>
+        <span style={DATE_LABEL}>
           {t('analytics.to')}
-          <input
-            type="date"
+          <DateField
             value={to}
+            onChange={setTo}
             min={from === '' ? undefined : from}
-            onChange={(e) => setTo(e.target.value)}
-            className="field"
-            style={{ ...FIELD_INPUT_BASE, width: 'auto' }}
+            ariaLabel={t('analytics.to')}
+            placeholder={t('analytics.to')}
           />
-        </label>
+        </span>
       </div>
 
       {/* Summary stats */}
@@ -383,14 +374,16 @@ export function AnalyticsPage() {
                   <div
                     style={{
                       display: 'flex',
-                      justifyContent: 'space-between',
+                      // One bucket has start === end — center the lone date instead
+                      // of printing the same label at both ends.
+                      justifyContent: series.length === 1 ? 'center' : 'space-between',
                       marginTop: 'var(--s-2)',
                       fontSize: 'var(--fs-caption)',
                       color: 'var(--faint)',
                     }}
                   >
                     <span>{series[0]?.label}</span>
-                    <span>{series[series.length - 1]?.label}</span>
+                    {series.length > 1 && <span>{series[series.length - 1]?.label}</span>}
                   </div>
                 </>
               ) : (

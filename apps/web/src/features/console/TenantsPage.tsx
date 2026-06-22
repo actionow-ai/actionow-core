@@ -1,4 +1,4 @@
-import { BuildingsIcon, PlusIcon } from '@phosphor-icons/react';
+import { BuildingsIcon, PlusIcon, WarningCircleIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
@@ -11,6 +11,7 @@ import { CopyField } from '../../components/data/CopyField';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { EntityCard } from '../../components/data/EntityCard';
+import { ErrorState } from '../../components/data/ErrorState';
 import { Money } from '../../components/data/Money';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
@@ -124,6 +125,36 @@ export function TenantsPage() {
 
   return (
     <div style={{ height: '100%' }}>
+      {/* Tenants load independently of accounts. If the accounts list fails, the
+          tenant cards still render but every balance falls back to "—"; surface
+          a compact notice so that gap reads as an error, not as "zero credits". */}
+      {accounts.isError && (
+        <div
+          role="alert"
+          className="panel"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--s-3)',
+            padding: 'var(--s-3) var(--s-4)',
+            marginBottom: 'var(--s-3)',
+            borderRadius: 'var(--r-md)',
+            fontSize: 'var(--fs-sm)',
+            color: 'var(--text)',
+          }}
+        >
+          <WarningCircleIcon
+            size={18}
+            weight="regular"
+            style={{ color: 'var(--fail)', flexShrink: 0 }}
+            aria-hidden="true"
+          />
+          <span style={{ flex: 1 }}>{t('tenants.balancesError')}</span>
+          <Button variant="ghost" size="sm" onClick={() => void accounts.refetch()}>
+            {t('common.retry')}
+          </Button>
+        </div>
+      )}
       <CardCollection
         rows={tenants.data ?? []}
         loading={tenants.isLoading}
@@ -244,6 +275,8 @@ export function TenantsPage() {
           tenant={selected}
           account={accountByTenant.get(selected.id)}
           accountsLoading={accounts.isLoading}
+          accountsError={accounts.isError}
+          onRetryAccounts={() => void accounts.refetch()}
           onClose={() => setSelected(null)}
         />
       )}
@@ -282,11 +315,15 @@ function TenantDetailDrawer({
   tenant,
   account,
   accountsLoading,
+  accountsError,
+  onRetryAccounts,
   onClose,
 }: {
   tenant: TenantView;
   account: AccountView | undefined;
   accountsLoading: boolean;
+  accountsError: boolean;
+  onRetryAccounts: () => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation('console');
@@ -402,6 +439,11 @@ function TenantDetailDrawer({
     <div style={{ display: 'grid', placeItems: 'center', padding: 'var(--s-5)' }}>
       <RoseLoader size={48} />
     </div>
+  ) : accountsError && account === undefined ? (
+    // A missing account here is ambiguous when the accounts list failed to load —
+    // it might exist but be unfetched. Show an error+retry instead of the
+    // "no account, create one" form, which would misrepresent the state.
+    <ErrorState message={t('tenants.detail.accountError')} onRetry={onRetryAccounts} />
   ) : account !== undefined ? (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
       <BalanceCard

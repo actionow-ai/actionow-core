@@ -8,6 +8,7 @@ import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { TenantSelect } from '../../components/data/TenantSelect';
 import { Button } from '../../components/ui/Button';
+import { DateField } from '../../components/ui/DateField';
 import { Drawer } from '../../components/ui/Drawer';
 import { Pill } from '../../components/ui/Pill';
 import { qk } from '../../lib/api/queryKeys';
@@ -15,6 +16,15 @@ import type { RelayTraceQuery, RelayTraceView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_VOLATILE } from '../../lib/query';
 import { useUrlState } from '../../lib/useUrlState';
+
+/** Inline "起/止 + control" wrapper for the date-range filters. */
+const DATE_LABEL = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 'var(--s-2)',
+  fontSize: 'var(--fs-sm)',
+  color: 'var(--muted)',
+} as const;
 
 export function RelayTracesPage() {
   const { t } = useTranslation('console');
@@ -149,44 +159,26 @@ export function RelayTracesPage() {
           value={channelId}
           onChange={(e) => setChannelId(e.target.value)}
         />
-        <label
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--s-2)',
-            fontSize: 'var(--fs-sm)',
-            color: 'var(--muted)',
-          }}
-        >
+        <span style={DATE_LABEL}>
           {t('relayTraces.from')}
-          <input
-            className="field"
-            type="date"
-            style={{ width: 'auto' }}
+          <DateField
             value={from}
+            onChange={setFrom}
             max={to === '' ? undefined : to}
-            onChange={(e) => setFrom(e.target.value)}
+            ariaLabel={t('relayTraces.from')}
+            placeholder={t('relayTraces.from')}
           />
-        </label>
-        <label
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--s-2)',
-            fontSize: 'var(--fs-sm)',
-            color: 'var(--muted)',
-          }}
-        >
+        </span>
+        <span style={DATE_LABEL}>
           {t('relayTraces.to')}
-          <input
-            className="field"
-            type="date"
-            style={{ width: 'auto' }}
+          <DateField
             value={to}
+            onChange={setTo}
             min={from === '' ? undefined : from}
-            onChange={(e) => setTo(e.target.value)}
+            ariaLabel={t('relayTraces.to')}
+            placeholder={t('relayTraces.to')}
           />
-        </label>
+        </span>
       </div>
 
       <DataTable

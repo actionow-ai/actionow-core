@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { compareMicroDesc, formatCreditsSigned } from './money';
+import { compareMicroDesc, formatCredits, formatCreditsSigned } from './money';
 
 describe('compareMicroDesc', () => {
   it('sorts µ-credit strings descending (largest first), no floats', () => {
@@ -27,6 +27,20 @@ describe('formatCreditsSigned', () => {
   it('prefixes + for positive, keeps - for negative, leaves 0 unsigned', () => {
     expect(formatCreditsSigned('2500000')).toBe('+2.5');
     expect(formatCreditsSigned('-2500000')).toBe('-2.5');
+    expect(formatCreditsSigned('0')).toBe('0');
+  });
+});
+
+describe('formatCredits sub-cent sentinel', () => {
+  it('shows <0.01 for a non-zero value that truncates to 0 (was "0")', () => {
+    expect(formatCredits('539')).toBe('<0.01');
+    expect(formatCredits('0')).toBe('0');
+    expect(formatCredits('2500000')).toBe('2.5'); // unaffected
+  });
+
+  it('formatCreditsSigned mirrors the sentinel: tiny+ → <0.01, tiny- → >-0.01', () => {
+    expect(formatCreditsSigned('539')).toBe('<0.01');
+    expect(formatCreditsSigned('-539')).toBe('>-0.01');
     expect(formatCreditsSigned('0')).toBe('0');
   });
 });

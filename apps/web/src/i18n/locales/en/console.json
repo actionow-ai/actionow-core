@@ -329,6 +329,7 @@
       "id": "Tenant ID",
       "account": "Account",
       "noAccount": "This tenant has no account yet",
+      "accountError": "Couldn't load this tenant's account.",
       "tabsLabel": "Tenant detail",
       "ledger": "Ledger",
       "payments": "Payments",
@@ -345,6 +346,7 @@
       }
     },
     "empty": "No tenants yet",
+    "balancesError": "Couldn't load tenant balances — credit figures may be missing.",
     "created": "Tenant created",
     "submit": "Create",
     "provision": {
@@ -356,7 +358,12 @@
       "keyTitle": "API key — shown once",
       "keyHint": "Copy this key now; it will not be shown again."
     },
-    "updated": "Tenant updated"
+    "updated": "Tenant updated",
+    "picker": {
+      "title": "Select tenant",
+      "all": "All tenants",
+      "none": "No tenants match"
+    }
   },
   "accounts": {
     "title": "Accounts",
@@ -502,7 +509,9 @@
       "visibility": "Visibility",
       "inputPrice": "Input price",
       "outputPrice": "Output price",
-      "status": "Status"
+      "status": "Status",
+      "nameRequired": "Name is required.",
+      "resourceRequired": "Select a resource."
     },
     "tip": {
       "name": "The unique model id callers request (e.g. anthropic/claude-3-5-sonnet). Immutable after creation.",
@@ -756,7 +765,8 @@
     "copied": "Copied",
     "copyFailed": "Copy failed",
     "save": "Save",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "search": "Search"
   },
   "confirm": {
     "deleteChannelTitle": "Delete channel?",
