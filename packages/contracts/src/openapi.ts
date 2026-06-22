@@ -113,6 +113,13 @@ import {
   usageLogViewSchema,
   usageRollupViewSchema,
 } from './ops-views.js';
+import {
+  createPluginRequestSchema,
+  providerPluginViewSchema,
+  testPluginRequestSchema,
+  testPluginResponseSchema,
+  updatePluginRequestSchema,
+} from './provider-plugin.js';
 
 /**
  * BUILD-TIME ONLY. This module turns the pure zod view contracts into an OpenAPI
@@ -185,6 +192,11 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const RedemptionCode = registry.register('RedemptionCodeView', redemptionCodeViewSchema);
   const RedeemCodes = registry.register('RedeemCodesResult', redeemCodesResultSchema);
   // upstream OAuth subscription sessions (BYO / turnkey codex) — token-free views.
+  const ProviderPlugin = registry.register('ProviderPluginView', providerPluginViewSchema);
+  const CreatePlugin = registry.register('CreatePluginBody', createPluginRequestSchema);
+  const UpdatePlugin = registry.register('UpdatePluginBody', updatePluginRequestSchema);
+  const TestPlugin = registry.register('TestPluginBody', testPluginRequestSchema);
+  const TestPluginResp = registry.register('TestPluginResponse', testPluginResponseSchema);
   const OAuthSession = registry.register('OAuthSessionView', oauthSessionViewSchema);
   const OAuthSessionList = registry.register('OAuthSessionListView', oauthSessionListViewSchema);
   const CodexLoginStartV = registry.register('CodexLoginStartView', codexLoginStartViewSchema);
@@ -604,6 +616,33 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     'admin',
     adminAnalyticsQuery,
   );
+  // provider plugins (P2)
+  getArray('/admin/plugins', 'List provider plugins', ProviderPlugin, 'catalog');
+  write({
+    method: 'post',
+    path: '/admin/plugins',
+    summary: 'Create a provider plugin',
+    tag: 'catalog',
+    body: CreatePlugin,
+    response: ProviderPlugin,
+    created: true,
+  });
+  write({
+    method: 'post',
+    path: '/admin/plugins/test',
+    summary: 'Run a handler fn in the sandbox (test panel)',
+    tag: 'catalog',
+    body: TestPlugin,
+    response: TestPluginResp,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/plugins/{id}',
+    summary: 'Update a provider plugin',
+    tag: 'catalog',
+    body: UpdatePlugin,
+    response: ProviderPlugin,
+  });
   getArray(
     '/console/analytics/usage',
     'Your tenant usage rollups',
@@ -668,6 +707,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   del('/admin/official-prices/{id}', 'Delete an official price row', 'billing');
   del('/admin/pricebook/{id}', 'Delete a pricebook entry', 'pricing');
   del('/admin/modifiers/{id}', 'Delete a pricing modifier', 'pricing');
+  del('/admin/plugins/{id}', 'Soft-delete a custom provider plugin', 'catalog');
   del('/admin/secrets/{id}', 'Revoke an encrypted credential', 'admin');
   del('/admin/models/{name}', 'Delete a relay model', 'catalog');
   del('/admin/models/{name}/grants/{tenantId}', 'Revoke a model grant', 'catalog');

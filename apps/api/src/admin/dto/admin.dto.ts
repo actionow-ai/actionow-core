@@ -10,6 +10,7 @@ import {
   createModifierSchema,
   createOAuthSessionSchema,
   createOfficialPriceSchema,
+  createPluginRequestSchema,
   createPricebookSchema,
   createResourceSchema,
   createRouteGroupSchema,
@@ -20,6 +21,7 @@ import {
   grantModelSchema,
   provisionSchema,
   syncChannelModelsSchema,
+  testPluginRequestSchema,
   topupSchema,
   updateApiKeyGroupSchema,
   updateChannelSchema,
@@ -28,6 +30,7 @@ import {
   updateModelSchema,
   updateModifierSchema,
   updateOfficialPriceSchema,
+  updatePluginRequestSchema,
   updatePricebookSchema,
   updateResourceSchema,
   updateRouteGroupSchema,
@@ -68,6 +71,7 @@ export {
   createModifierSchema,
   createOAuthSessionSchema,
   createOfficialPriceSchema,
+  createPluginRequestSchema,
   createPricebookSchema,
   createResourceSchema,
   createRouteGroupSchema,
@@ -78,6 +82,7 @@ export {
   grantModelSchema,
   provisionSchema,
   syncChannelModelsSchema,
+  testPluginRequestSchema,
   topupSchema,
   updateApiKeyGroupSchema,
   updateChannelSchema,
@@ -86,12 +91,16 @@ export {
   updateModelSchema,
   updateModifierSchema,
   updateOfficialPriceSchema,
+  updatePluginRequestSchema,
   updatePricebookSchema,
   updateResourceSchema,
   updateRouteGroupSchema,
   updateTenantSchema,
 };
 export type UpdateCredentialMetaDto = z.infer<typeof updateCredentialMetaSchema>;
+export type CreatePluginDto = z.infer<typeof createPluginRequestSchema>;
+export type UpdatePluginDto = z.infer<typeof updatePluginRequestSchema>;
+export type TestPluginDto = z.infer<typeof testPluginRequestSchema>;
 
 export type CreateTenantDto = z.infer<typeof createTenantSchema>;
 export type UpdateTenantDto = z.infer<typeof updateTenantSchema>;

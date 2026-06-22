@@ -3,9 +3,13 @@ import { randomUUID } from 'node:crypto';
 import type { AdapterRegistry } from '@actionow/adapters';
 import {
   type AdapterContext,
+  type CreatePluginRequest,
   type HttpClient,
   type RelayTraceView,
   relayTraceViewSchema,
+  type TestPluginRequest,
+  type TestPluginResponse,
+  type UpdatePluginRequest,
 } from '@actionow/contracts';
 import {
   type AccountRow,
@@ -27,6 +31,7 @@ import {
   type CreateOAuthSessionInput,
   createOfficialPrice,
   type CreateOfficialPriceInput,
+  createPlugin,
   createPricebookEntry,
   createRedemptionCode,
   createResource,
@@ -43,6 +48,7 @@ import {
   getModelByName,
   getModifierById,
   getOfficialPriceById,
+  getPluginById,
   getPricebookEntryById,
   getResource,
   getRouteGroupById,
@@ -64,6 +70,7 @@ import {
   listModifiers,
   listOAuthSessions,
   listOfficialPrices,
+  listPlugins,
   listPricebookEntries,
   listRedemptionCodes,
   listRelayTraces,
@@ -80,6 +87,7 @@ import {
   type OfficialModelPriceRow,
   type PageParams,
   type PricebookEntryRow,
+  type ProviderPluginRow,
   type RedemptionCodeRow,
   type RelayTraceFilter,
   type RelayTraceRow,
@@ -97,6 +105,7 @@ import {
   softDeleteModifier,
   softDeleteOAuthSession,
   softDeleteOfficialPrice,
+  softDeletePlugin,
   softDeletePricebookEntry,
   softDeleteRouteGroup,
   softDeleteSecretRef,
@@ -106,6 +115,7 @@ import {
   updateModifier,
   updateOAuthSessionMeta,
   updateOfficialPrice,
+  updatePlugin,
   updatePricebookEntry,
   updateResource,
   updateRouteGroup,
@@ -127,6 +137,8 @@ import {
   generateCodexPkce,
   parseChatgptIdentity,
   redactHeaders,
+  runHandler,
+  SandboxError,
 } from '@actionow/engine';
 import { type AppEnv, FetchHttpClient } from '@actionow/infra';
 import { Inject, Injectable, Optional } from '@nestjs/common';
@@ -599,6 +611,64 @@ export class AdminService {
       throw engineNotFound(`oauth session ${secretRefId} not found`);
     }
     return row;
+  }
+
+  // ----- provider plugins (P2) -----
+
+  listPlugins(): Promise<ProviderPluginRow[]> {
+    return listPlugins(this.db);
+  }
+
+  createPlugin(dto: CreatePluginRequest): Promise<ProviderPluginRow> {
+    return createPlugin(this.db, {
+      slug: dto.slug,
+      label: dto.label,
+      modalities: dto.manifest.modalities,
+      protocol: dto.manifest.protocol,
+      authStrategy: dto.manifest.authStrategy,
+      manifest: dto.manifest,
+      handler: dto.handler,
+    });
+  }
+
+  async updatePlugin(id: string, dto: UpdatePluginRequest): Promise<ProviderPluginRow> {
+    const row = await updatePlugin(this.db, id, {
+      ...(dto.label !== undefined ? { label: dto.label } : {}),
+      ...(dto.manifest !== undefined
+        ? {
+            manifest: dto.manifest,
+            modalities: dto.manifest.modalities,
+            protocol: dto.manifest.protocol,
+            authStrategy: dto.manifest.authStrategy,
+          }
+        : {}),
+      ...(dto.handler !== undefined ? { handler: dto.handler } : {}),
+      ...(dto.status !== undefined ? { status: dto.status } : {}),
+    });
+    if (row === undefined) throw engineNotFound(`plugin ${id} not found`);
+    return row;
+  }
+
+  async deletePlugin(id: string): Promise<void> {
+    const row = await getPluginById(this.db, id);
+    if (row === undefined) throw engineNotFound(`plugin ${id} not found`);
+    if (row.builtin) throw engineInvalidInput('built-in plugins cannot be deleted');
+    await softDeletePlugin(this.db, id);
+  }
+
+  /**
+   * Run ONE handler fn in the QuickJS sandbox with a sample argument (operator
+   * test panel). A sandbox throw/timeout/non-JSON is returned as `{ok:false}` —
+   * never a 500 — so the panel renders the error inline.
+   */
+  async testPlugin(dto: TestPluginRequest): Promise<TestPluginResponse> {
+    try {
+      const result = await runHandler(dto.handler, dto.fn, dto.arg);
+      return { ok: true, result };
+    } catch (err) {
+      const message = err instanceof SandboxError ? err.message : 'handler failed';
+      return { ok: false, error: message };
+    }
   }
 
   /**

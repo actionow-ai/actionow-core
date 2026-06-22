@@ -33,6 +33,8 @@ import {
   opsSummaryViewSchema,
   type PricebookView,
   pricebookViewSchema,
+  type ProviderPluginView,
+  providerPluginViewSchema,
   type ProvisionView,
   provisionViewSchema,
   type RedemptionCodeView,
@@ -47,6 +49,7 @@ import {
   secretViewSchema,
   type TenantView,
   tenantViewSchema,
+  type TestPluginResponse,
   type UsageLogView,
   usageLogViewSchema,
   type UsageRollupView,
@@ -65,6 +68,7 @@ import type {
   OAuthSessionListRow,
   OfficialModelPriceRow,
   PricebookEntryRow,
+  ProviderPluginRow,
   RedemptionCodeRow,
   Resource,
   RouteGroupChannelRow,
@@ -131,6 +135,8 @@ import {
   createOAuthSessionSchema,
   type CreateOfficialPriceDto,
   createOfficialPriceSchema,
+  type CreatePluginDto,
+  createPluginRequestSchema,
   type CreatePricebookDto,
   createPricebookSchema,
   type CreateResourceDto,
@@ -155,6 +161,8 @@ import {
   relayTraceQuerySchema,
   type SyncChannelModelsDto,
   syncChannelModelsSchema,
+  type TestPluginDto,
+  testPluginRequestSchema,
   type TopupDto,
   topupSchema,
   type UpdateApiKeyGroupDto,
@@ -169,6 +177,8 @@ import {
   updateModifierSchema,
   type UpdateOfficialPriceDto,
   updateOfficialPriceSchema,
+  type UpdatePluginDto,
+  updatePluginRequestSchema,
   type UpdatePricebookDto,
   updatePricebookSchema,
   type UpdateResourceDto,
@@ -734,6 +744,47 @@ export class AdminController {
     await this.admin.deleteModifier(id);
   }
 
+  // ----- provider plugins (P2) -----
+
+  @Get('plugins')
+  @ApiOperation({ summary: 'List provider plugins (manifest + handler)' })
+  async listPlugins(): Promise<ProviderPluginView[]> {
+    return (await this.admin.listPlugins()).map(toPluginView);
+  }
+
+  @Post('plugins')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Create a provider plugin' })
+  async createPlugin(
+    @Body(new ZodBody(createPluginRequestSchema)) dto: CreatePluginDto,
+  ): Promise<ProviderPluginView> {
+    return toPluginView(await this.admin.createPlugin(dto));
+  }
+
+  @Post('plugins/test')
+  @ApiOperation({ summary: 'Run one handler fn in the sandbox with a sample arg (test panel)' })
+  async testPlugin(
+    @Body(new ZodBody(testPluginRequestSchema)) dto: TestPluginDto,
+  ): Promise<TestPluginResponse> {
+    return this.admin.testPlugin(dto);
+  }
+
+  @Patch('plugins/:id')
+  @ApiOperation({ summary: 'Update a provider plugin (edit bumps version → freeze)' })
+  async updatePlugin(
+    @Param('id') id: string,
+    @Body(new ZodBody(updatePluginRequestSchema)) dto: UpdatePluginDto,
+  ): Promise<ProviderPluginView> {
+    return toPluginView(await this.admin.updatePlugin(id, dto));
+  }
+
+  @Delete('plugins/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete a custom provider plugin (built-ins rejected)' })
+  async deletePlugin(@Param('id') id: string): Promise<void> {
+    await this.admin.deletePlugin(id);
+  }
+
   // ----- models -----
 
   @Post('models')
@@ -1211,6 +1262,25 @@ function toOAuthSessionView(session: {
     provider_kind: session.providerKind,
     account_label: session.accountLabel ?? null,
     account_id: session.accountId ?? null,
+  });
+}
+
+/** Project a `provider_plugin` row → its API view (snake_case; manifest validated). */
+function toPluginView(row: ProviderPluginRow): ProviderPluginView {
+  return providerPluginViewSchema.parse({
+    id: row.id,
+    slug: row.slug,
+    label: row.label,
+    modalities: row.modalities,
+    protocol: row.protocol,
+    auth_strategy: row.authStrategy,
+    manifest: row.manifest,
+    handler: row.handler,
+    version: row.version,
+    builtin: row.builtin,
+    status: row.status,
+    created_at: row.createdAt.toISOString(),
+    updated_at: row.updatedAt.toISOString(),
   });
 }
 
