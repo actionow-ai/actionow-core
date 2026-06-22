@@ -11,13 +11,11 @@ import {
   WrenchIcon,
 } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
-import { ProviderIcon } from '../../components/data/ProviderIcon';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -29,11 +27,9 @@ import { qk } from '../../lib/api/queryKeys';
 import type { ModelView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
-import { useUrlState } from '../../lib/useUrlState';
 import { ModelEditor } from './ModelEditor';
 import { ModelGrantsDrawer } from './ModelGrantsDrawer';
 
-/** Phosphor glyph per known capability flag, for the compact table chips. */
 const CAP_ICON: Record<string, Icon> = {
   tools: WrenchIcon,
   vision: EyeIcon,
@@ -41,17 +37,17 @@ const CAP_ICON: Record<string, Icon> = {
   json: BracketsCurlyIcon,
   stream: LightningIcon,
 };
-
 const NEW = '__new__';
 
 /**
- * The operator Models Registry: a full-width `DataTable` of relay models with a
- * create/edit drawer, a tenant-grants drawer, per-row delete, and bulk
- * enable/disable. Overlays are URL-stated (`edit` / `grants` hold the model
- * name, `edit === '__new__'` opens create) so they're deep-linkable and
- * refresh-safe. Prices are µcredit/token integers; capabilities render as chips.
+ * The relay-models registry for ONE resource — the「模型」sub-tab of the resource
+ * detail pane (catalog redesign: models nest under their parent resource instead
+ * of a separate top-level tab). Lists `model` rows whose `resource_id` matches,
+ * with create (resource pre-locked) / edit / tenant-grants / delete + bulk
+ * enable-disable. Overlay state is local (not URL) so it doesn't clash with the
+ * resource selection `?id`.
  */
-export function ModelsPage() {
+export function ModelsSection({ resourceId }: { resourceId: string }) {
   const { t } = useTranslation('console');
   const api = useAdminApi();
   const qc = useQueryClient();
@@ -61,25 +57,20 @@ export function ModelsPage() {
     queryFn: () => api.listModels(),
     staleTime: STALE_REFERENCE,
   });
+  const rows = useMemo(
+    () => (data ?? []).filter((m) => m.resource_id === resourceId),
+    [data, resourceId],
+  );
 
-  const [edit, setEdit] = useUrlState('edit');
-  const [grants, setGrants] = useUrlState('grants');
+  const [edit, setEdit] = useState<string>(''); // '' closed, NEW = create, else model name
+  const [grants, setGrants] = useState('');
   const [delTarget, setDelTarget] = useState<ModelView | undefined>(undefined);
 
   const bulkSetStatus = useMutation({
-    mutationFn: async ({
-      rows,
-      status,
-    }: {
-      rows: ModelView[];
-      status: 'active' | 'disabled';
-      clear: () => void;
-    }) => {
-      await Promise.all(rows.map((m) => api.updateModel(m.name, { status })));
+    mutationFn: async ({ rows: sel, status }: { rows: ModelView[]; status: 'active' | 'disabled'; clear: () => void }) => {
+      await Promise.allSettled(sel.map((m) => api.updateModel(m.name, { status })));
     },
-    // Clear the selection only after the batch succeeds, so a failed bulk op
-    // leaves the rows selected for an easy retry (vs. clearing optimistically).
-    onSuccess: async (_data, { clear }) => {
+    onSuccess: async (_d, { clear }) => {
       await qc.invalidateQueries({ queryKey: qk.models() });
       clear();
       toast(t('models.statusUpdated'));
@@ -96,49 +87,29 @@ export function ModelsPage() {
     onError: mutationError(t),
   });
 
-  useSetConsoleAction(
-    () => (
-      <Button variant="ghost" onClick={() => setEdit(NEW)}>
-        <PlusIcon size={14} weight="bold" /> {t('models.new')}
-      </Button>
-    ),
-    [t, setEdit],
-  );
-
   const cols: Column<ModelView>[] = [
     {
       key: 'name',
       header: t('models.cols.model'),
-      // The identity column — give it an explicit width so it never becomes the
-      // sole auto-column that collapses to 0px under table-layout:fixed (Fix 4).
-      width: '200px',
+      width: '220px',
       sortable: true,
       sortValue: (m) => m.name,
       cell: (m) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}>
-          <ProviderIcon provider={m.resource_id} size={18} />
-          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            <strong>{m.name}</strong>
-            {m.display !== null && m.display !== '' && (
-              <span style={{ color: 'var(--muted)' }}> · {m.display}</span>
-            )}
-          </span>
+        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <strong>{m.name}</strong>
+          {m.display !== null && m.display !== '' && (
+            <span style={{ color: 'var(--muted)' }}> · {m.display}</span>
+          )}
         </span>
       ),
     },
-    {
-      key: 'modality',
-      header: t('models.cols.modality'),
-      cell: (m) => enumLabel(t, MODALITIES, m.modality),
-      width: '96px',
-    },
+    { key: 'modality', header: t('models.cols.modality'), cell: (m) => enumLabel(t, MODALITIES, m.modality), width: '96px' },
     {
       key: 'capabilities',
       header: t('models.cols.capabilities'),
+      width: '128px',
       cell: (m) => {
-        const active = CAPABILITIES.filter(
-          (c) => Object.hasOwn(m.capabilities, c.key) && m.capabilities[c.key],
-        );
+        const active = CAPABILITIES.filter((c) => Object.hasOwn(m.capabilities, c.key) && m.capabilities[c.key]);
         if (active.length === 0) return '—';
         return (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)' }}>
@@ -146,13 +117,7 @@ export function ModelsPage() {
               const CapIcon = CAP_ICON[c.key];
               const label = t(c.labelKey);
               return (
-                <span
-                  key={c.key}
-                  role="img"
-                  aria-label={label}
-                  title={label}
-                  style={{ display: 'inline-flex', color: 'var(--muted)' }}
-                >
+                <span key={c.key} role="img" aria-label={label} title={label} style={{ display: 'inline-flex', color: 'var(--muted)' }}>
                   <CapIcon size={15} weight="bold" aria-hidden="true" />
                 </span>
               );
@@ -160,68 +125,59 @@ export function ModelsPage() {
           </span>
         );
       },
-      width: '128px',
     },
     {
       key: 'inputPrice',
       header: t('models.cols.inputPrice'),
+      align: 'right',
+      width: '116px',
       sortable: true,
       sortValue: (m) => Number(m.input_price),
       cell: (m) => (
         <span className="tabular">
           {Number(m.input_price)}
-          <span style={{ color: 'var(--muted)' }}> /tok</span>
+          <span style={{ color: 'var(--muted)' }}> {t('models.perTok')}</span>
         </span>
       ),
-      width: '116px',
     },
     {
       key: 'outputPrice',
       header: t('models.cols.outputPrice'),
+      align: 'right',
+      width: '116px',
       sortable: true,
       sortValue: (m) => Number(m.output_price),
       cell: (m) => (
         <span className="tabular">
           {Number(m.output_price)}
-          <span style={{ color: 'var(--muted)' }}> /tok</span>
+          <span style={{ color: 'var(--muted)' }}> {t('models.perTok')}</span>
         </span>
       ),
-      width: '116px',
     },
     {
       key: 'visibility',
       header: t('models.cols.visibility'),
-      cell: (m) => (
-        <span
-          style={{
-            fontSize: 'var(--fs-caption)',
-            fontWeight: 600,
-            padding: '3px 9px',
-            borderRadius: 'var(--r-pill)',
-            color: 'var(--muted)',
-            background: 'var(--hover-bg)',
-            border: '1px solid var(--panel-bd)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {enumLabel(t, VISIBILITIES, m.visibility)}
-        </span>
-      ),
       width: '110px',
+      cell: (m) => <span className="chip">{enumLabel(t, VISIBILITIES, m.visibility)}</span>,
     },
     {
       key: 'status',
       header: t('models.cols.status'),
-      cell: (m) => <StatusBadge tone={statusTone(m.status)} label={t('status.' + m.status, m.status)} />,
       width: '100px',
+      cell: (m) => <StatusBadge tone={statusTone(m.status)} label={t('status.' + m.status, m.status)} />,
     },
   ];
 
   return (
-    <div style={{ height: '100%' }}>
+    <>
+      <div>
+        <Button onClick={() => setEdit(NEW)}>
+          <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('models.new')}
+        </Button>
+      </div>
       <DataTable
         columns={cols}
-        rows={data ?? []}
+        rows={rows}
         rowKey={(m) => m.name}
         loading={isLoading}
         error={isError}
@@ -230,41 +186,19 @@ export function ModelsPage() {
         searchable
         selectable
         pageSize={20}
-        actionsWidth="132px"
         rowActions={(m) => (
-          <div style={{ display: 'flex', gap: 'var(--s-1)' }}>
-            <RowAction
-              icon={PencilSimpleIcon}
-              label={t('common.edit')}
-              onClick={() => setEdit(m.name)}
-            />
-            <RowAction
-              icon={UsersIcon}
-              label={t('models.actions.grants')}
-              onClick={() => setGrants(m.name)}
-            />
-            <RowAction
-              icon={TrashIcon}
-              label={t('common.delete')}
-              danger
-              onClick={() => setDelTarget(m)}
-            />
-          </div>
+          <>
+            <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={() => setEdit(m.name)} />
+            <RowAction icon={UsersIcon} label={t('models.actions.grants')} onClick={() => setGrants(m.name)} />
+            <RowAction icon={TrashIcon} label={t('common.delete')} danger onClick={() => setDelTarget(m)} />
+          </>
         )}
         bulkActions={(sel, clear) => (
           <>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => bulkSetStatus.mutate({ rows: sel, status: 'active', clear })}
-            >
+            <Button variant="ghost" size="sm" onClick={() => bulkSetStatus.mutate({ rows: sel, status: 'active', clear })}>
               {t('models.actions.enable')}
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => bulkSetStatus.mutate({ rows: sel, status: 'disabled', clear })}
-            >
+            <Button variant="ghost" size="sm" onClick={() => bulkSetStatus.mutate({ rows: sel, status: 'disabled', clear })}>
               {t('models.actions.disable')}
             </Button>
           </>
@@ -274,16 +208,12 @@ export function ModelsPage() {
       <ModelEditor
         key={edit || 'new'}
         name={edit !== '' && edit !== NEW ? edit : undefined}
+        fixedResourceId={resourceId}
         open={edit !== ''}
         onClose={() => setEdit('')}
       />
       {grants !== '' && (
-        <ModelGrantsDrawer
-          key={grants}
-          name={grants}
-          open={grants !== ''}
-          onClose={() => setGrants('')}
-        />
+        <ModelGrantsDrawer key={grants} name={grants} open={grants !== ''} onClose={() => setGrants('')} />
       )}
       <ConfirmDialog
         open={delTarget !== undefined}
@@ -298,6 +228,6 @@ export function ModelsPage() {
         }}
         onClose={() => setDelTarget(undefined)}
       />
-    </div>
+    </>
   );
 }

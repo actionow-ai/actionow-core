@@ -116,6 +116,7 @@ export {
   type UpdatePricebookEntryInput,
   updateResource,
   updateResourceStatus,
+  updateSecretRefMeta,
   updateUpstreamChannel,
   type UpdateUpstreamChannelInput,
   type UpstreamChannelRow,
@@ -177,6 +178,7 @@ export {
   claimRefreshLock,
   createOAuthSession,
   type CreateOAuthSessionInput,
+  type CredentialMetaInput,
   type DecryptedOAuthSession,
   getDecryptedOAuthSession,
   getOAuthSession,
@@ -186,6 +188,7 @@ export {
   type OAuthSessionListRow,
   type OAuthSessionRow,
   softDeleteOAuthSession,
+  updateOAuthSessionMeta,
   updateOAuthTokens,
   type UpdateOAuthTokensInput,
 } from './oauth-session.js';

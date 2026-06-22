@@ -236,6 +236,10 @@ export interface OAuthSessionListRow {
   readonly providerKind: string;
   readonly accountLabel: string | null;
   readonly accountId: string | null;
+  /** Operator-editable metadata (catalog redesign). */
+  readonly name: string | null;
+  readonly notes: string | null;
+  readonly groupTag: string | null;
   readonly expiresAt: Date | null;
   readonly lastRefreshAt: Date | null;
   readonly status: string;
@@ -264,6 +268,9 @@ export async function listOAuthSessions(
       providerKind: oauthSession.providerKind,
       accountLabel: oauthSession.accountLabel,
       accountId: oauthSession.accountId,
+      name: oauthSession.name,
+      notes: oauthSession.notes,
+      groupTag: oauthSession.groupTag,
       expiresAt: oauthSession.expiresAt,
       lastRefreshAt: oauthSession.lastRefreshAt,
       status: oauthSession.status,
@@ -273,6 +280,48 @@ export async function listOAuthSessions(
     where: isNull(oauthSession.deletedAt),
     page,
   });
+}
+
+/** Editable credential metadata (catalog redesign): name / notes / group tag. */
+export interface CredentialMetaInput {
+  readonly name?: string | null | undefined;
+  readonly notes?: string | null | undefined;
+  readonly group?: string | null | undefined;
+}
+
+/**
+ * Update an `oauth_session`'s operator metadata (name/notes/group_tag) only — never
+ * the token material. Returns the updated secret_ref id, or `undefined` if not found
+ * / soft-deleted. Each present key is set (including explicit `null` to clear).
+ */
+export async function updateOAuthSessionMeta(
+  db: DbOrTx,
+  secretRefId: string,
+  meta: CredentialMetaInput,
+): Promise<OAuthSessionListRow | undefined> {
+  const set: Partial<typeof oauthSession.$inferInsert> = { updatedAt: new Date() };
+  if (meta.name !== undefined) set.name = meta.name;
+  if (meta.notes !== undefined) set.notes = meta.notes;
+  if (meta.group !== undefined) set.groupTag = meta.group;
+  const rows = await db
+    .update(oauthSession)
+    .set(set)
+    .where(and(eq(oauthSession.secretRefId, secretRefId), isNull(oauthSession.deletedAt)))
+    .returning({
+      secretRefId: oauthSession.secretRefId,
+      providerKind: oauthSession.providerKind,
+      accountLabel: oauthSession.accountLabel,
+      accountId: oauthSession.accountId,
+      name: oauthSession.name,
+      notes: oauthSession.notes,
+      groupTag: oauthSession.groupTag,
+      expiresAt: oauthSession.expiresAt,
+      lastRefreshAt: oauthSession.lastRefreshAt,
+      status: oauthSession.status,
+      createdAt: oauthSession.createdAt,
+      updatedAt: oauthSession.updatedAt,
+    });
+  return rows[0];
 }
 
 /**

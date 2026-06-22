@@ -149,7 +149,7 @@ export function RouteGroupsPage() {
         pageSize={20}
         actionsWidth="132px"
         rowActions={(r) => (
-          <div style={{ display: 'flex', gap: 'var(--s-1)' }}>
+          <>
             <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={() => setEditId(r.id)} />
             <RowAction
               icon={StackIcon}
@@ -157,7 +157,7 @@ export function RouteGroupsPage() {
               onClick={() => setManageId(r.id)}
             />
             <RowAction icon={TrashIcon} label={t('common.delete')} danger onClick={() => setDelTarget(r)} />
-          </div>
+          </>
         )}
       />
 

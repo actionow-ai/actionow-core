@@ -582,7 +582,11 @@ export function DataTable<T>({
               paged.map((r) => {
                 const key = rowKey(r);
                 const { selectedRow, handlers } = rowInteraction(r);
-                const rowBg = selectedRow ? 'var(--hover-bg)' : undefined;
+                // A row reads as "active" when it's the master-detail selection
+                // (selectedKey) OR a checkbox-selected row — both get the warm bg +
+                // inset gold left rail so checkbox selection has visible feedback.
+                const active = selectedRow || (selectable === true && selected.has(key));
+                const rowBg = active ? 'var(--hover-bg)' : undefined;
                 return (
                   <tr
                     key={key}
@@ -590,7 +594,7 @@ export function DataTable<T>({
                     style={{
                       borderBottom: '1px solid var(--row-bd)',
                       background: rowBg,
-                      boxShadow: selectedRow ? 'inset 2px 0 0 var(--accent)' : undefined,
+                      boxShadow: active ? 'inset 2px 0 0 var(--accent)' : undefined,
                     }}
                   >
                     {selectable === true && (

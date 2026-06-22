@@ -109,6 +109,10 @@ export type PaymentIntentView = z.infer<typeof paymentIntentViewSchema>;
 export const secretViewSchema = z.object({
   id: z.string(),
   provider: z.string(),
+  /** Operator-editable credential metadata (catalog redesign). */
+  name: z.string().nullable(),
+  notes: z.string().nullable(),
+  group: z.string().nullable(),
   created_at: z.string(),
 });
 export type SecretView = z.infer<typeof secretViewSchema>;
@@ -194,6 +198,10 @@ export const oauthSessionListViewSchema = z.object({
   provider_kind: z.string(),
   account_label: z.string().nullable(),
   account_id: z.string().nullable(),
+  /** Operator-editable credential metadata (catalog redesign). */
+  name: z.string().nullable(),
+  notes: z.string().nullable(),
+  group: z.string().nullable(),
   status: z.string(),
   expires_at: z.string().nullable(),
   last_refresh_at: z.string().nullable(),

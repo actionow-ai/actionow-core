@@ -1,7 +1,7 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CSSProperties } from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleAction, useSetConsoleBack } from '../../components/console/ConsoleChrome';
@@ -39,8 +39,8 @@ import { ResourceDetailPane } from './ResourceDetailPane';
 
 export function ResourcesPage() {
   const { t } = useTranslation('console');
-  // Resource selection lives in url-state (`?id=`) so it shares the single
-  // /console/catalog route with the page-level 模型|资源 tab (no route param).
+  // Resource selection lives in url-state (`?id=`) on the /console/catalog route
+  // (no route param), so a selection is deep-linkable and back-button friendly.
   const [id, setId] = useUrlState('id');
   const api = useAdminApi();
   const qc = useQueryClient();
@@ -50,6 +50,18 @@ export function ResourcesPage() {
     queryFn: () => api.listResources(),
     staleTime: STALE_REFERENCE,
   });
+  // Shared models cache (same key as the detail pane's Models tab) → per-resource
+  // model count for the list cards, with no extra per-resource fetch.
+  const models = useQuery({
+    queryKey: qk.models(),
+    queryFn: () => api.listModels(),
+    staleTime: STALE_REFERENCE,
+  });
+  const modelCount = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const x of models.data ?? []) m.set(x.resource_id, (m.get(x.resource_id) ?? 0) + 1);
+    return m;
+  }, [models.data]);
 
   const [open, setOpen] = useState(false);
   // A fresh idempotency key per open of the create modal, so a double-submit of
@@ -101,10 +113,10 @@ export function ResourcesPage() {
     [t],
   );
   // On a narrow viewport the detail replaces the list, so offer a back target
-  // (clears the selection by dropping `?id` while keeping the resources tab).
+  // (clears the selection by dropping `?id`).
   useSetConsoleBack(
     id !== '' && !isWide
-      ? { to: '/console/catalog?tab=resources', label: t('resources.detail.back') }
+      ? { to: '/console/catalog', label: t('resources.detail.back') }
       : null,
   );
 
@@ -124,7 +136,14 @@ export function ResourcesPage() {
           badge={
             <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
           }
-          chips={[enumLabel(t, MODALITIES, r.modality), r.provider_type, ...r.exec_modes]}
+          chips={[
+            enumLabel(t, MODALITIES, r.modality),
+            r.provider_type,
+            ...r.exec_modes,
+            ...((modelCount.get(r.id) ?? 0) > 0
+              ? [t('resources.cards.modelsN', { n: modelCount.get(r.id) })]
+              : []),
+          ]}
           onClick={() => setId(r.id)}
           selected={r.id === id}
         />

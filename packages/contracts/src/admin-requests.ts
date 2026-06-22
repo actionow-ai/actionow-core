@@ -173,3 +173,16 @@ export const codexLoginCompleteSchema = z.object({
   accountLabel: z.string().min(1).optional(),
 });
 export type CodexLoginCompleteBody = z.infer<typeof codexLoginCompleteSchema>;
+
+/**
+ * `PATCH /admin/oauth-sessions/:id` and `PATCH /admin/secrets/:id` — edit a
+ * credential's operator metadata ONLY (never the token/secret material): a human
+ * `name`, free-form `notes`, and a free-text `group` tag. Each field is optional
+ * (absent = unchanged) and nullable (explicit `null` clears it).
+ */
+export const updateCredentialMetaSchema = z.object({
+  name: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  group: z.string().nullable().optional(),
+});
+export type UpdateCredentialMetaBody = z.infer<typeof updateCredentialMetaSchema>;

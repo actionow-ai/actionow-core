@@ -140,7 +140,7 @@
   "nav": {
     "groups": {
       "ops": "Operations",
-      "catalog": "Catalog",
+      "catalog": "Providers",
       "billing": "Billing & Routing",
       "tenants": "Tenants",
       "home": "Home",
@@ -504,21 +504,27 @@
     "actions": {
       "setStatus": "Status"
     },
+    "cards": {
+      "modelsN": "{{n}} models"
+    },
     "statusUpdated": "Resource status updated",
     "sections": {
       "overview": "Overview",
       "channels": "Channels",
-      "pricing": "Pricing"
+      "pricing": "Pricing",
+      "models": "Models"
     },
     "detail": {
       "back": "Back to resources",
+      "tabsLabel": "Resource detail",
       "channels": "Upstream channels",
       "pricebook": "Pricing",
       "addChannel": "Add channel",
       "channelAdded": "Channel added",
       "addPrice": "Add price",
       "priceAdded": "Price added",
-      "pick": "Select a resource to view details"
+      "pick": "Select a resource to view details",
+      "notFound": "Resource not found — it may have been deleted."
     }
   },
   "models": {
@@ -531,6 +537,7 @@
     "updated": "Model updated",
     "deleted": "Model deleted",
     "statusUpdated": "Model status updated",
+    "perTok": "/tok",
     "cols": {
       "model": "Model",
       "modality": "Modality",
@@ -600,6 +607,7 @@
     "created": "Channel created",
     "updated": "Channel updated",
     "deleted": "Channel deleted",
+    "statusUpdated": "Channel status updated",
     "synced": "Synced {{total}} model(s)",
     "form": {
       "provider": "Provider type",
@@ -859,6 +867,7 @@
   },
   "dify": {
     "title": "Dify import",
+    "new": "New import",
     "submit": "Import",
     "imported": "Imported",
     "form": {
@@ -869,7 +878,10 @@
       "pricingModel": "Pricing model",
       "allowBlockers": "Allow blocking nodes",
       "serviceKeyRef": "Service key (optional)",
-      "serviceKeyNone": "No service key"
+      "serviceKeyNone": "No service key",
+      "tenantRequired": "Select a tenant.",
+      "resourceRequired": "Enter a resource ID.",
+      "yamlRequired": "Paste the workflow YAML."
     },
     "pricing": {
       "fixed": "Fixed",
@@ -1076,6 +1088,18 @@
       "copied": "Copied",
       "done": "Done"
     }
+  },
+  "credentials": {
+    "tabsLabel": "Credential type",
+    "name": "Name",
+    "group": "Group",
+    "groupHint": "Free-text tag for filtering / organizing",
+    "notes": "Notes",
+    "edit": "Edit",
+    "editTitle": "Edit credential",
+    "saved": "Saved",
+    "bulkRevoke": "Revoke {{n}}",
+    "bulkRevoked": "Revoked {{n}}"
   },
   "oauthSessions": {
     "revoke": "Revoke",

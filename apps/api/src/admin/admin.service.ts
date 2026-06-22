@@ -104,10 +104,12 @@ import {
   topUp,
   updateModel,
   updateModifier,
+  updateOAuthSessionMeta,
   updateOfficialPrice,
   updatePricebookEntry,
   updateResource,
   updateRouteGroup,
+  updateSecretRefMeta,
   updateTenant,
   updateUpstreamChannel,
   type UpdateUpstreamChannelInput,
@@ -483,6 +485,26 @@ export class AdminService {
     return { id: deleted };
   }
 
+  /**
+   * Edit a credential's operator metadata (name/notes/group) ONLY — never the
+   * material. Returns the refreshed metadata-only view. Throws `resource_not_found`
+   * (404) when the id does not match a live secret.
+   */
+  async updateSecretMeta(
+    id: string,
+    meta: {
+      name?: string | null | undefined;
+      notes?: string | null | undefined;
+      group?: string | null | undefined;
+    },
+  ): Promise<SecretRefView> {
+    const updated = await updateSecretRefMeta(this.db, id, meta);
+    if (updated === undefined) {
+      throw engineNotFound(`secret ${id} not found`);
+    }
+    return updated;
+  }
+
   // ----- oauth sessions (BYO subscription) -----
 
   /**
@@ -557,6 +579,26 @@ export class AdminService {
       throw engineNotFound(`oauth session ${secretRefId} not found`);
     }
     return { id };
+  }
+
+  /**
+   * Edit an OAuth session's operator metadata (name/notes/group) ONLY — never the
+   * token material. Returns the refreshed token-free list row. Throws
+   * `resource_not_found` (404) when the id does not match a live session.
+   */
+  async updateOAuthSessionMeta(
+    secretRefId: string,
+    meta: {
+      name?: string | null | undefined;
+      notes?: string | null | undefined;
+      group?: string | null | undefined;
+    },
+  ): Promise<OAuthSessionListRow> {
+    const row = await updateOAuthSessionMeta(this.db, secretRefId, meta);
+    if (row === undefined) {
+      throw engineNotFound(`oauth session ${secretRefId} not found`);
+    }
+    return row;
   }
 
   /**

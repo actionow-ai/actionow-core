@@ -1,18 +1,20 @@
-import { PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react';
+import { PencilSimpleIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { LoadMore } from '../../components/data/LoadMore';
 import { SecretSelect } from '../../components/data/SecretSelect';
+import { TenantSelect } from '../../components/data/TenantSelect';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Drawer } from '../../components/ui/Drawer';
 import { JsonField } from '../../components/ui/JsonField';
+import { Modal } from '../../components/ui/Modal';
 import { RowAction } from '../../components/ui/RowAction';
-import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
@@ -27,6 +29,7 @@ export function DifyImportPage() {
   const api = useAdminApi();
   const qc = useQueryClient();
 
+  const [open, setOpen] = useState(false);
   const [tenantId, setTenantId] = useState('');
   const [resourceId, setResourceId] = useState('');
   const [endpoint, setEndpoint] = useState('');
@@ -35,8 +38,26 @@ export function DifyImportPage() {
   const [serviceKeyRef, setServiceKeyRef] = useState('');
   const [allowBlockers, setAllowBlockers] = useState(false);
   const [report, setReport] = useState<DifyImportView | null>(null);
+  // Set true on a submit attempt so required-field errors appear only after a
+  // try, not on first paint of an empty form.
+  const [attempted, setAttempted] = useState(false);
   const [editing, setEditing] = useState<DifyBindingView | null>(null);
   const [deleting, setDeleting] = useState<DifyBindingView | null>(null);
+
+  // Open the import modal on a clean slate (a re-import shouldn't inherit the
+  // previous run's form or compat report).
+  const openCreate = () => {
+    setTenantId('');
+    setResourceId('');
+    setEndpoint('');
+    setYaml('');
+    setPricingModel('fixed');
+    setServiceKeyRef('');
+    setAllowBlockers(false);
+    setReport(null);
+    setAttempted(false);
+    setOpen(true);
+  };
 
   const refreshBindings = () => qc.invalidateQueries({ queryKey: qk.difyBindings() });
 
@@ -54,12 +75,33 @@ export function DifyImportPage() {
         allowBlockers,
       }),
     onSuccess: async (r) => {
+      // Keep the modal open and surface the compat report inline — the operator
+      // reads it, then closes manually.
       setReport(r);
       toast(t('dify.imported'));
       await refreshBindings();
     },
     onError: mutationError(t),
   });
+
+  // Required: a tenant to bill, a resource id to mount under, and the YAML to import.
+  const tenantMissing = tenantId === '';
+  const resourceMissing = resourceId.trim() === '';
+  const yamlMissing = yaml.trim() === '';
+  const canSubmit = !tenantMissing && !resourceMissing && !yamlMissing;
+  const onSubmit = () => {
+    setAttempted(true);
+    if (canSubmit) submit.mutate();
+  };
+
+  useSetConsoleAction(
+    () => (
+      <Button variant="ghost" onClick={openCreate}>
+        <PlusIcon size={14} weight="bold" /> {t('dify.new')}
+      </Button>
+    ),
+    [t],
+  );
 
   const bindings = useInfiniteQuery({
     queryKey: qk.difyBindings(),
@@ -110,13 +152,61 @@ export function DifyImportPage() {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-5)' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)', maxWidth: 640 }}>
-        <SectionHeader title={t('dify.title')} />
-        <TextField label={t('dify.form.tenant')} value={tenantId} onChange={setTenantId} />
-        <TextField label={t('dify.form.resourceId')} value={resourceId} onChange={setResourceId} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+      <DataTable
+        columns={cols}
+        rows={rows}
+        rowKey={(r) => r.resource_id}
+        loading={bindings.isLoading}
+        error={bindings.isError}
+        onRetry={() => void bindings.refetch()}
+        empty={t('dify.bindings.empty')}
+        searchable
+        actionsWidth="92px"
+        rowActions={(r) => (
+          <>
+            <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={() => setEditing(r)} />
+            <RowAction icon={TrashIcon} label={t('common.delete')} danger onClick={() => setDeleting(r)} />
+          </>
+        )}
+      />
+      <LoadMore
+        hasNextPage={bindings.hasNextPage}
+        isFetchingNextPage={bindings.isFetchingNextPage}
+        onLoadMore={() => void bindings.fetchNextPage()}
+      />
+
+      <Modal
+        open={open}
+        title={t('dify.title')}
+        onClose={() => setOpen(false)}
+        footer={
+          <Button variant="cta" onClick={onSubmit} loading={submit.isPending}>
+            {t('dify.submit')}
+          </Button>
+        }
+      >
+        <TenantSelect
+          label={t('dify.form.tenant')}
+          value={tenantId}
+          onChange={setTenantId}
+          error={attempted && tenantMissing ? t('dify.form.tenantRequired') : undefined}
+        />
+        <TextField
+          label={t('dify.form.resourceId')}
+          value={resourceId}
+          onChange={setResourceId}
+          required
+          error={attempted && resourceMissing ? t('dify.form.resourceRequired') : undefined}
+        />
         <TextField label={t('dify.form.endpoint')} value={endpoint} onChange={setEndpoint} />
-        <JsonField label={t('dify.form.yaml')} value={yaml} onChange={(v) => setYaml(v)} placeholder="app: ..." />
+        <JsonField
+          label={t('dify.form.yaml')}
+          value={yaml}
+          onChange={(v) => setYaml(v)}
+          placeholder="app: ..."
+          error={attempted && yamlMissing ? t('dify.form.yamlRequired') : undefined}
+        />
         <SelectField
           label={t('dify.form.pricingModel')}
           value={pricingModel}
@@ -138,48 +228,25 @@ export function DifyImportPage() {
           checked={allowBlockers}
           onChange={setAllowBlockers}
         />
-        <div>
-          <Button variant="cta" onClick={() => submit.mutate()} loading={submit.isPending}>
-            {t('dify.submit')}
-          </Button>
-        </div>
         {report && (
           <div className="panel" style={{ borderRadius: 'var(--r-md)', padding: 'var(--s-4)' }}>
             <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', marginBottom: 6 }}>
               {t('dify.report')}
             </div>
-            <pre className="mono" style={{ margin: 0, fontSize: 'var(--fs-sm)', whiteSpace: 'pre-wrap', color: 'var(--text)' }}>
+            <pre
+              className="mono"
+              style={{
+                margin: 0,
+                fontSize: 'var(--fs-sm)',
+                whiteSpace: 'pre-wrap',
+                color: 'var(--text)',
+              }}
+            >
               {JSON.stringify(report.compat_report, null, 2)}
             </pre>
           </div>
         )}
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-        <SectionHeader title={t('dify.bindings.title')} />
-        <DataTable
-          columns={cols}
-          rows={rows}
-          rowKey={(r) => r.resource_id}
-          loading={bindings.isLoading}
-          error={bindings.isError}
-          onRetry={() => void bindings.refetch()}
-          empty={t('dify.bindings.empty')}
-          searchable
-          actionsWidth="92px"
-          rowActions={(r) => (
-            <div style={{ display: 'flex', gap: 'var(--s-1)' }}>
-              <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={() => setEditing(r)} />
-              <RowAction icon={TrashIcon} label={t('common.delete')} danger onClick={() => setDeleting(r)} />
-            </div>
-          )}
-        />
-        <LoadMore
-          hasNextPage={bindings.hasNextPage}
-          isFetchingNextPage={bindings.isFetchingNextPage}
-          onLoadMore={() => void bindings.fetchNextPage()}
-        />
-      </div>
+      </Modal>
 
       {editing !== null && (
         <DifyBindingEditor
