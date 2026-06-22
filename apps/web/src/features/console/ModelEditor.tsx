@@ -31,10 +31,14 @@ export function ModelEditor({
   name,
   open,
   onClose,
+  fixedResourceId,
 }: {
   name?: string;
   open: boolean;
   onClose: () => void;
+  /** When creating under a specific resource (the resource detail's Models tab),
+   *  pre-fill + lock the resource so the operator can't pick a different one. */
+  fixedResourceId?: string;
 }) {
   const { t } = useTranslation('console');
   const api = useAdminApi();
@@ -58,7 +62,7 @@ export function ModelEditor({
 
   // --- Form state ---------------------------------------------------------
   const [nameField, setNameField] = useState('');
-  const [resourceId, setResourceId] = useState('');
+  const [resourceId, setResourceId] = useState(fixedResourceId ?? '');
   const [display, setDisplay] = useState('');
   const [modality, setModality] = useState('text');
   const [capabilities, setCapabilities] = useState<Record<string, boolean>>({});
@@ -162,7 +166,7 @@ export function ModelEditor({
         />
       )}
 
-      {editing ? (
+      {editing || fixedResourceId !== undefined ? (
         <TextField
           label={t('models.form.resource')}
           hint={t('models.tip.resourceFixed')}

@@ -508,10 +508,12 @@
     "sections": {
       "overview": "Overview",
       "channels": "Channels",
-      "pricing": "Pricing"
+      "pricing": "Pricing",
+      "models": "Models"
     },
     "detail": {
       "back": "Back to resources",
+      "tabsLabel": "Resource detail",
       "channels": "Upstream channels",
       "pricebook": "Pricing",
       "addChannel": "Add channel",
@@ -531,6 +533,7 @@
     "updated": "Model updated",
     "deleted": "Model deleted",
     "statusUpdated": "Model status updated",
+    "perTok": "/tok",
     "cols": {
       "model": "Model",
       "modality": "Modality",

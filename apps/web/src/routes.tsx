@@ -12,7 +12,6 @@ import { AppUsage } from './features/app/AppUsage';
 import { AuthPage } from './features/auth/AuthPage';
 import { OAuthCallbackPage } from './features/auth/OAuthCallbackPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
-import { CatalogPage } from './features/console/CatalogPage';
 import { DifyImportPage } from './features/console/DifyImportPage';
 import { ModifiersPage } from './features/console/ModifiersPage';
 import { OAuthSessionsPage } from './features/console/OAuthSessionsPage';
@@ -20,18 +19,17 @@ import { OfficialPricesPage } from './features/console/OfficialPricesPage';
 import { OverviewPage } from './features/console/OverviewPage';
 import { RedemptionCodesPage } from './features/console/RedemptionCodesPage';
 import { RelayTracesPage } from './features/console/RelayTracesPage';
+import { ResourcesPage } from './features/console/ResourcesPage';
 import { RouteGroupsPage } from './features/console/RouteGroupsPage';
 import { ServiceTokensPage } from './features/console/ServiceTokensPage';
 import { TenantsPage } from './features/console/TenantsPage';
 import { ProtectedRoute } from './lib/auth/ProtectedRoute';
 import { RootRoute } from './RootRoute';
 
-/** Redirect the legacy `/console/resources/:id` deep link into the unified catalog route, preserving the selected resource as `?id`. */
+/** Redirect the legacy `/console/resources/:id` deep link into the catalog route, preserving the selected resource as `?id`. */
 function ResourceRedirect() {
   const { id } = useParams();
-  return (
-    <Navigate to={`/console/catalog?tab=resources&id=${encodeURIComponent(id ?? '')}`} replace />
-  );
+  return <Navigate to={`/console/catalog?id=${encodeURIComponent(id ?? '')}`} replace />;
 }
 
 export function AppRoutes() {
@@ -65,14 +63,12 @@ export function AppRoutes() {
           <Route path="dashboard" element={<Navigate to="/console/overview" replace />} />
           <Route path="analytics" element={<Navigate to="/console/overview" replace />} />
           <Route path="relay-traces" element={<RelayTracesPage />} />
-          <Route path="catalog" element={<CatalogPage />} />
-          {/* Legacy routes redirect into the unified catalog page (single route + ?tab). */}
-          <Route
-            path="resources"
-            element={<Navigate to="/console/catalog?tab=resources" replace />}
-          />
+          {/* Catalog = the Resources master-detail; relay models nest inside each resource's detail pane. */}
+          <Route path="catalog" element={<ResourcesPage />} />
+          {/* Legacy routes redirect into the catalog page (resources are the catalog now). */}
+          <Route path="resources" element={<Navigate to="/console/catalog" replace />} />
           <Route path="resources/:id" element={<ResourceRedirect />} />
-          <Route path="models" element={<Navigate to="/console/catalog?tab=models" replace />} />
+          <Route path="models" element={<Navigate to="/console/catalog" replace />} />
           <Route path="modifiers" element={<ModifiersPage />} />
           {/* Billing & routing: live on the real /admin/route-groups and
               /admin/official-prices endpoints (via useAdminApi). */}

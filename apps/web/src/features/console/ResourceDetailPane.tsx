@@ -7,7 +7,6 @@ import {
   TrashIcon,
 } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -19,6 +18,7 @@ import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { RowAction } from '../../components/ui/RowAction';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SelectField } from '../../components/ui/SelectField';
 import { toast } from '../../components/ui/toast';
 import {
@@ -33,35 +33,15 @@ import { qk } from '../../lib/api/queryKeys';
 import type { ChannelStatus, ChannelView, PricebookView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
+import { useUrlState } from '../../lib/useUrlState';
 import { ChannelEditor } from './ChannelEditor';
+import { ModelsSection } from './ModelsSection';
 import { PricingModal } from './PricingModal';
 
-/**
- * A labelled section block for the merged detail pane: an uppercase muted
- * heading above its content, used to stack overview / channels / pricing in one
- * scrolling column (no tabs).
- */
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-      <h2
-        style={{
-          margin: 0,
-          fontSize: 'var(--fs-caption)',
-          fontWeight: 600,
-          letterSpacing: '.1em',
-          textTransform: 'uppercase',
-          color: 'var(--faint)',
-        }}
-      >
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
+const DETAIL_TABS = ['overview', 'channels', 'pricing', 'models'] as const;
+type DetailTab = (typeof DETAIL_TABS)[number];
 
-/** The right pane of the Resources master-detail: one scrolling pane that stacks overview / channels / pricing as sections. */
+/** The right pane of the Resources master-detail: a persistent header bar + a sub-tab strip (概览/通道/定价/模型). Models nest here (catalog redesign). */
 export function ResourceDetailPane({ id }: { id: string }) {
   const { t } = useTranslation('console');
   const api = useAdminApi();
@@ -83,6 +63,11 @@ export function ResourceDetailPane({ id }: { id: string }) {
     queryFn: () => api.listPricebook(id),
     enabled: id !== '',
   });
+
+  const [dtab, setDtab] = useUrlState('dtab', 'overview');
+  const dt: DetailTab = (DETAIL_TABS as readonly string[]).includes(dtab)
+    ? (dtab as DetailTab)
+    : 'overview';
 
   const [chOpen, setChOpen] = useState(false);
   const [editing, setEditing] = useState<ChannelView | undefined>(undefined);
@@ -303,7 +288,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
         actionsWidth="164px"
         selectable
         rowActions={(r) => (
-          <div style={{ display: 'flex', gap: 'var(--s-1)' }}>
+          <>
             <RowAction
               icon={PencilSimpleIcon}
               label={t('common.edit')}
@@ -331,7 +316,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
               danger
               onClick={() => setDelTarget(r)}
             />
-          </div>
+          </>
         )}
         bulkActions={(sel, clear) => (
           <>
@@ -380,7 +365,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
         pageSize={10}
         actionsWidth="96px"
         rowActions={(r) => (
-          <div style={{ display: 'flex', gap: 'var(--s-1)' }}>
+          <>
             <RowAction
               icon={r.active ? PauseIcon : PlayIcon}
               label={r.active ? t('pricebook.actions.disable') : t('pricebook.actions.enable')}
@@ -393,19 +378,53 @@ export function ResourceDetailPane({ id }: { id: string }) {
               danger
               onClick={() => setPbDelTarget(r)}
             />
-          </div>
+          </>
         )}
       />
     </>
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-5)' }}>
-      <Section title={t('resources.sections.overview')}>
-        <QueryBoundary query={resources}>{overviewPanel}</QueryBoundary>
-      </Section>
-      <Section title={t('resources.sections.channels')}>{channelsPanel}</Section>
-      <Section title={t('resources.sections.pricing')}>{pricingPanel}</Section>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
+      {/* Persistent header bar: resource identity + live status. */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--s-3)',
+          paddingBottom: 'var(--s-2)',
+          borderBottom: '1px solid var(--row-bd)',
+        }}
+      >
+        {resource && <ProviderIcon provider={resource.provider_type} size={22} />}
+        <span style={{ fontSize: 'var(--fs-lg)', fontWeight: 'var(--fw-semibold)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {id}
+        </span>
+        {resource && (
+          <StatusBadge tone={statusTone(resource.status)} label={t('status.' + resource.status, resource.status)} />
+        )}
+        {resource && <span style={{ color: 'var(--faint)', fontSize: 'var(--fs-caption)' }}>v{resource.current_version}</span>}
+      </div>
+
+      <SegmentedControl
+        ariaLabel={t('resources.detail.tabsLabel')}
+        value={dt}
+        onChange={setDtab}
+        options={DETAIL_TABS.map((tb) => ({ value: tb, label: t(`resources.sections.${tb}`) }))}
+      />
+
+      {dt === 'overview' && <QueryBoundary query={resources}>{overviewPanel}</QueryBoundary>}
+      {dt === 'channels' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>{channelsPanel}</div>
+      )}
+      {dt === 'pricing' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>{pricingPanel}</div>
+      )}
+      {dt === 'models' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+          <ModelsSection resourceId={id} />
+        </div>
+      )}
 
       <ChannelEditor
         key={editing?.id ?? 'new'}

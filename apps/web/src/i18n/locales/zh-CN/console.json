@@ -508,10 +508,12 @@
     "sections": {
       "overview": "概览",
       "channels": "通道",
-      "pricing": "定价"
+      "pricing": "定价",
+      "models": "模型"
     },
     "detail": {
       "back": "返回资源",
+      "tabsLabel": "资源详情",
       "channels": "上游通道",
       "pricebook": "定价",
       "addChannel": "添加通道",
@@ -531,6 +533,7 @@
     "updated": "模型已更新",
     "deleted": "模型已删除",
     "statusUpdated": "模型状态已更新",
+    "perTok": "/tok",
     "cols": {
       "model": "模型",
       "modality": "模态",

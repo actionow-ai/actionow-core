@@ -39,8 +39,8 @@ import { ResourceDetailPane } from './ResourceDetailPane';
 
 export function ResourcesPage() {
   const { t } = useTranslation('console');
-  // Resource selection lives in url-state (`?id=`) so it shares the single
-  // /console/catalog route with the page-level 模型|资源 tab (no route param).
+  // Resource selection lives in url-state (`?id=`) on the /console/catalog route
+  // (no route param), so a selection is deep-linkable and back-button friendly.
   const [id, setId] = useUrlState('id');
   const api = useAdminApi();
   const qc = useQueryClient();
@@ -101,10 +101,10 @@ export function ResourcesPage() {
     [t],
   );
   // On a narrow viewport the detail replaces the list, so offer a back target
-  // (clears the selection by dropping `?id` while keeping the resources tab).
+  // (clears the selection by dropping `?id`).
   useSetConsoleBack(
     id !== '' && !isWide
-      ? { to: '/console/catalog?tab=resources', label: t('resources.detail.back') }
+      ? { to: '/console/catalog', label: t('resources.detail.back') }
       : null,
   );
 

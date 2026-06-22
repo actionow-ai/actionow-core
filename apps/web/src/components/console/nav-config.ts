@@ -25,13 +25,11 @@ export interface NavConfig {
 /**
  * The ADMIN nav grouped by responsibility (职责分组):
  * - ops: dashboard / analytics / relay traces
- * - catalog (目录): the unified 模型|资源 catalog page + Dify import
+ * - catalog (接入与供给): resources catalog (relay models nest inside each
+ *   resource detail) / Dify import / credentials
  * - billing (计费与路由): groups / official prices / pricing modifiers
  * - tenants (租户): tenants (hub — account balance/top-up lives in the tenant
  *   detail drawer) / API keys
- *
- * The catalog page owns its own 模型|资源 tabs, so the nav holds a single
- * `/console/catalog` leaf.
  */
 export const ADMIN_NAV: NavGroup[] = [
   {
@@ -47,7 +45,7 @@ export const ADMIN_NAV: NavGroup[] = [
     key: 'catalog',
     icon: StackIcon,
     items: [
-      { to: '/console/catalog', labelKey: 'catalog' },
+      { to: '/console/catalog', labelKey: 'resources' },
       { to: '/console/dify', labelKey: 'dify' },
       { to: '/console/oauth-sessions', labelKey: 'oauthSessions' },
     ],
@@ -94,7 +92,7 @@ export interface MobileTab {
 }
 export const ADMIN_MOBILE_TABS: MobileTab[] = [
   { to: '/console/overview', labelKey: 'opsOverview', icon: SquaresFourIcon },
-  { to: '/console/catalog', labelKey: 'catalog', icon: StackIcon },
+  { to: '/console/catalog', labelKey: 'resources', icon: StackIcon },
   { to: '/console/tenants', labelKey: 'tenants', icon: BuildingsIcon },
   { to: '/console/api-keys', labelKey: 'apiKeys', icon: KeyIcon },
 ];
