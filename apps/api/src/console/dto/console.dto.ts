@@ -31,7 +31,7 @@ export type ConsoleChangePasswordDto = z.infer<typeof consoleChangePasswordSchem
  * (a tenant only has itself); `from`/`to` are ISO 8601.
  */
 export const consoleAnalyticsUsageSchema = z.object({
-  groupBy: z.enum(['day', 'model', 'channel', 'api_key']),
+  groupBy: z.enum(['minute', 'hour', 'day', 'model', 'channel', 'api_key']),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
 });

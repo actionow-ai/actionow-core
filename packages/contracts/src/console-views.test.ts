@@ -86,6 +86,8 @@ describe('tenant console view contracts (single source of truth for FE + BE)', (
       output_tokens: '2000',
       cost: '500000',
       errors: 1,
+      avg_latency_ms: 640,
+      p95_latency_ms: 1800,
     };
     // A clean tenant rollup round-trips.
     expect(consoleUsageRollupViewSchema.parse(safe)).toEqual(safe);

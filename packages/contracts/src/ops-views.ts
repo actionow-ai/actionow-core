@@ -78,6 +78,10 @@ export const usageRollupViewSchema = z.object({
   /** sum(cost) − sum(provider_cost) µUSD — the operator margin (Track 5). */
   margin: z.string(),
   errors: z.number(),
+  /** avg(latency_ms) over the bucket's non-null latencies; `null` when none recorded. */
+  avg_latency_ms: z.number().nullable(),
+  /** percentile_cont(0.95) of latency_ms over the bucket; `null` when none recorded. */
+  p95_latency_ms: z.number().nullable(),
 });
 export type UsageRollupView = z.infer<typeof usageRollupViewSchema>;
 
@@ -206,3 +210,54 @@ export const codexLoginStartViewSchema = z.object({
   state: z.string(),
 });
 export type CodexLoginStartView = z.infer<typeof codexLoginStartViewSchema>;
+
+/**
+ * One upstream channel's live operational health (`GET /admin/health`). Sourced
+ * from the authoritative `channel_health` circuit-breaker joined to
+ * `upstream_channel` — NOT derived from rates. The frontend derives the display
+ * status: `status='disabled'` → 已停用; `cooldown_until > now` → 熔断中 (with the
+ * countdown + `consecutive_failures`); a missing/expired cooldown → 健康. For
+ * subscription channels the FE may overlay `credential_ref` against the
+ * OAuth-session listing to surface 需重新授权.
+ */
+export const channelHealthViewSchema = z.object({
+  channel_id: z.string(),
+  resource_id: z.string(),
+  provider_type: z.string(),
+  /** Operator-set lifecycle status: `active` | `disabled`. */
+  status: z.string(),
+  /** The bound credential (secret_ref / oauth-session id), for FE re-auth overlay; `null` → none. */
+  credential_ref: z.string().nullable(),
+  /** `cooldown_until > now` ⇒ currently cooling (circuit open). ISO string or `null`. */
+  cooldown_until: z.string().nullable(),
+  consecutive_failures: z.number(),
+  last_failure_at: z.string().nullable(),
+});
+export type ChannelHealthView = z.infer<typeof channelHealthViewSchema>;
+
+/**
+ * The ops health snapshot (`GET /admin/health`): a "right now" view of upstream
+ * channel health plus billable throughput over a rolling window. Read-only
+ * assembly — introduces no new metric aggregates beyond the circuit-breaker join
+ * and a windowed `count(*)`.
+ */
+export const opsHealthViewSchema = z.object({
+  /** The rolling window (seconds) `rpm_billable` is counted over. */
+  window_seconds: z.number(),
+  /** Billable `usage_log` requests in the last `window_seconds`, normalized to req/min. */
+  rpm_billable: z.number(),
+  channels: z.array(channelHealthViewSchema),
+});
+export type OpsHealthView = z.infer<typeof opsHealthViewSchema>;
+
+/**
+ * Authoritative platform counts (`GET /admin/summary`) for the overview KPI band.
+ * These are true `count(*)` totals — the FE must use these, never the length of a
+ * single page of `GET /admin/tenants`/`/admin/resources`.
+ */
+export const opsSummaryViewSchema = z.object({
+  tenants: z.number(),
+  resources: z.number(),
+  accounts: z.number(),
+});
+export type OpsSummaryView = z.infer<typeof opsSummaryViewSchema>;

@@ -11,14 +11,13 @@ import { AppSettings } from './features/app/AppSettings';
 import { AppUsage } from './features/app/AppUsage';
 import { AuthPage } from './features/auth/AuthPage';
 import { OAuthCallbackPage } from './features/auth/OAuthCallbackPage';
-import { AnalyticsPage } from './features/console/AnalyticsPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { CatalogPage } from './features/console/CatalogPage';
-import { DashboardPage } from './features/console/DashboardPage';
 import { DifyImportPage } from './features/console/DifyImportPage';
 import { ModifiersPage } from './features/console/ModifiersPage';
 import { OAuthSessionsPage } from './features/console/OAuthSessionsPage';
 import { OfficialPricesPage } from './features/console/OfficialPricesPage';
+import { OverviewPage } from './features/console/OverviewPage';
 import { RedemptionCodesPage } from './features/console/RedemptionCodesPage';
 import { RelayTracesPage } from './features/console/RelayTracesPage';
 import { RouteGroupsPage } from './features/console/RouteGroupsPage';
@@ -60,9 +59,11 @@ export function AppRoutes() {
       {/* Operator admin console. */}
       <Route element={<ProtectedRoute role="admin" />}>
         <Route path="/console" element={<ConsoleLayout />}>
-          <Route index element={<Navigate to="/console/dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="analytics" element={<AnalyticsPage />} />
+          <Route index element={<Navigate to="/console/overview" replace />} />
+          <Route path="overview" element={<OverviewPage />} />
+          {/* dashboard + analytics merged into overview; keep old deep links working. */}
+          <Route path="dashboard" element={<Navigate to="/console/overview" replace />} />
+          <Route path="analytics" element={<Navigate to="/console/overview" replace />} />
           <Route path="relay-traces" element={<RelayTracesPage />} />
           <Route path="catalog" element={<CatalogPage />} />
           {/* Legacy routes redirect into the unified catalog page (single route + ?tab). */}

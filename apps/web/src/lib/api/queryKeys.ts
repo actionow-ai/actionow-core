@@ -30,6 +30,8 @@ export const qk = {
   analyticsUsage: (params: Record<string, unknown>) =>
     ['admin', 'analytics-usage', params] as const,
   relayTraces: (params: Record<string, unknown>) => ['admin', 'relay-traces', params] as const,
+  summary: () => ['admin', 'summary'] as const,
+  health: () => ['admin', 'health'] as const,
 
   // Tenant self-service console plane.
   consoleApiKeys: () => ['console', 'api-keys'] as const,

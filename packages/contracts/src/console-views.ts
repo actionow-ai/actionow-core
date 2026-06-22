@@ -81,6 +81,10 @@ export const consoleUsageRollupViewSchema = z.object({
   output_tokens: z.string(),
   cost: z.string(),
   errors: z.number(),
+  /** avg(latency_ms) over the bucket; `null` when none recorded. (provider_cost/margin still stripped.) */
+  avg_latency_ms: z.number().nullable(),
+  /** percentile_cont(0.95) of latency_ms over the bucket; `null` when none recorded. */
+  p95_latency_ms: z.number().nullable(),
 });
 export type ConsoleUsageRollupView = z.infer<typeof consoleUsageRollupViewSchema>;
 

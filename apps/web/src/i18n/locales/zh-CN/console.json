@@ -148,6 +148,7 @@
     },
     "dashboard": "仪表盘",
     "analytics": "分析",
+    "opsOverview": "概览·分析",
     "relayTraces": "中转追踪",
     "overview": "概览",
     "tusage": "用量",
@@ -179,6 +180,7 @@
   "subtitles": {
     "dashboard": "租户与资源概览,最近任务",
     "analytics": "按时间与维度查看用量、成本与毛利",
+    "opsOverview": "全局用量、成本、毛利与模型健康——单屏总览",
     "relayTraces": "上游中转审计——请求、响应、延迟",
     "overview": "余额、最近任务与流水",
     "tusage": "用量聚合与逐次调用日志",
@@ -219,12 +221,39 @@
     },
     "viewTraces": "追踪"
   },
+  "overview": {
+    "kpi": {
+      "health": "模型健康",
+      "rpm": "RPM 当前",
+      "successRate": "成功率",
+      "avgLatency": "平均延迟",
+      "scale": "租户 · 资源"
+    },
+    "health": {
+      "state": {
+        "healthy": "健康",
+        "cooling": "熔断中",
+        "reauth": "需重新授权",
+        "disabled": "已停用"
+      },
+      "cooldown": "冷却 {{time}} · 连败 {{n}}",
+      "empty": "暂无渠道"
+    },
+    "healthTitle": "模型健康",
+    "rankingTitle": "按成本排名 · 模型",
+    "cols": {
+      "successRate": "成功率",
+      "p95": "p95 延迟"
+    }
+  },
   "analytics": {
     "title": "分析",
     "allTenants": "全部租户",
     "groupByLabel": "分组维度",
     "metricLabel": "指标",
     "groupBy": {
+      "minute": "按分钟",
+      "hour": "按小时",
       "day": "按天",
       "model": "模型",
       "tenant": "租户",
@@ -235,7 +264,8 @@
       "cost": "成本",
       "margin": "毛利",
       "requests": "请求数",
-      "tokens": "Token"
+      "tokens": "Token",
+      "errors": "错误"
     },
     "from": "起",
     "to": "止",
@@ -278,6 +308,12 @@
     "title": "中转追踪",
     "allTenants": "全部租户",
     "providerPlaceholder": "Provider(如 openai)",
+    "providerLabel": "Provider",
+    "jobIdLabel": "任务 ID",
+    "channelIdLabel": "渠道 ID",
+    "statusLabel": "状态",
+    "statusAll": "全部",
+    "statusErrors": "仅错误",
     "from": "起",
     "to": "止",
     "empty": "该区间暂无中转追踪",
@@ -285,6 +321,9 @@
     "cols": {
       "time": "时间",
       "provider": "Provider",
+      "tenant": "租户",
+      "job": "任务",
+      "channel": "渠道",
       "method": "方法",
       "status": "状态",
       "latency": "延迟",
@@ -362,7 +401,9 @@
     "picker": {
       "title": "选择租户",
       "all": "全部租户",
-      "none": "无匹配租户"
+      "none": "无匹配租户",
+      "searchPlaceholder": "搜索租户名 / ID…",
+      "count": "{{n}} 个"
     }
   },
   "accounts": {

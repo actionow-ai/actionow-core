@@ -81,6 +81,8 @@ describe('admin operational view contracts (single source of truth for FE + BE)'
       provider_cost: '1000000',
       margin: '500000',
       errors: 0,
+      avg_latency_ms: 820,
+      p95_latency_ms: null,
     };
     expect(usageRollupViewSchema.parse(r)).toEqual(r);
     expect(() => usageRollupViewSchema.parse({ ...r, margin: 500000 })).toThrow();

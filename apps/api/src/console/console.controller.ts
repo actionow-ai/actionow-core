@@ -143,6 +143,8 @@ function toConsoleUsageRollupView(row: UsageRollupRow): ConsoleUsageRollupView {
     output_tokens: row.outputTokens.toString(),
     cost: row.cost.toString(),
     errors: row.errors,
+    avg_latency_ms: row.avgLatencyMs,
+    p95_latency_ms: row.p95LatencyMs,
   });
 }
 

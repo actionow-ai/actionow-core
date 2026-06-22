@@ -38,8 +38,8 @@ export const ADMIN_NAV: NavGroup[] = [
     key: 'ops',
     icon: SquaresFourIcon,
     items: [
-      { to: '/console/dashboard', labelKey: 'dashboard' },
-      { to: '/console/analytics', labelKey: 'analytics' },
+      // dashboard + analytics merged into a single overview·analytics surface.
+      { to: '/console/overview', labelKey: 'opsOverview' },
       { to: '/console/relay-traces', labelKey: 'relayTraces' },
     ],
   },
@@ -93,7 +93,7 @@ export interface MobileTab {
   icon: Icon;
 }
 export const ADMIN_MOBILE_TABS: MobileTab[] = [
-  { to: '/console/dashboard', labelKey: 'dashboard', icon: SquaresFourIcon },
+  { to: '/console/overview', labelKey: 'opsOverview', icon: SquaresFourIcon },
   { to: '/console/catalog', labelKey: 'catalog', icon: StackIcon },
   { to: '/console/tenants', labelKey: 'tenants', icon: BuildingsIcon },
   { to: '/console/api-keys', labelKey: 'apiKeys', icon: KeyIcon },
