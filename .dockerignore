@@ -1,0 +1,28 @@
+# Build artifacts + deps (reinstalled/rebuilt inside the image)
+node_modules
+**/node_modules
+**/dist
+**/.turbo
+.turbo
+
+# VCS + local tooling
+.git
+.github
+.claude
+.husky
+
+# Test/coverage output
+**/coverage
+**/.vitest
+**/*.tsbuildinfo
+
+# Logs + local env (compose injects env explicitly)
+*.log
+**/*.log
+.env
+**/.env
+!**/.env.example
+
+# Docs (not needed to build/run)
+docs
+*.md

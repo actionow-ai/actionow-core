@@ -21,7 +21,7 @@ import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
-import type { AccountView, TenantView } from '../../lib/api/types';
+import type { AccountView, ProvisionView, TenantView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
 
@@ -58,6 +58,14 @@ export function TenantsPage() {
   const [name, setName] = useState('');
   const [isolation, setIsolation] = useState('field');
 
+  // Provision (atomic onboarding): tenant + account + key in one call. The
+  // result holds the minted key plaintext, shown ONCE in a follow-up dialog.
+  const [provisionOpen, setProvisionOpen] = useState(false);
+  const [pName, setPName] = useState('');
+  const [pCredits, setPCredits] = useState(0);
+  const [pIsolation, setPIsolation] = useState('field');
+  const [provisioned, setProvisioned] = useState<ProvisionView | null>(null);
+
   const create = useMutation({
     mutationFn: () =>
       api.createTenant({ name, isolationMode: isolation as 'field' | 'schema' | 'db' }),
@@ -70,11 +78,37 @@ export function TenantsPage() {
     onError: mutationError(t),
   });
 
+  const provision = useMutation({
+    mutationFn: () =>
+      api.provision({
+        name: pName,
+        isolationMode: pIsolation as 'field' | 'schema' | 'db',
+        credits: pCredits > 0 ? pCredits : undefined,
+      }),
+    onSuccess: async (res) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: qk.tenants() }),
+        qc.invalidateQueries({ queryKey: qk.accounts() }),
+      ]);
+      toast(t('tenants.provision.done'));
+      setProvisionOpen(false);
+      setPName('');
+      setPCredits(0);
+      setProvisioned(res); // surface the one-time key
+    },
+    onError: mutationError(t),
+  });
+
   useSetConsoleAction(
     () => (
-      <Button variant="ghost" onClick={() => setOpen(true)}>
-        <PlusIcon size={14} weight="bold" /> {t('tenants.new')}
-      </Button>
+      <>
+        <Button variant="ghost" onClick={() => setProvisionOpen(true)}>
+          <PlusIcon size={14} weight="bold" /> {t('tenants.provision.action')}
+        </Button>
+        <Button variant="ghost" onClick={() => setOpen(true)}>
+          <PlusIcon size={14} weight="bold" /> {t('tenants.new')}
+        </Button>
+      </>
     ),
     [t],
   );
@@ -133,6 +167,67 @@ export function TenantsPage() {
             { value: 'db', label: t('tenants.isolation.db') },
           ]}
         />
+      </Modal>
+
+      {/* Provision: tenant + account + first API key atomically. */}
+      <Modal
+        open={provisionOpen}
+        title={t('tenants.provision.title')}
+        onClose={() => setProvisionOpen(false)}
+        footer={
+          <Button
+            variant="cta"
+            onClick={() => provision.mutate()}
+            loading={provision.isPending}
+            disabled={pName.trim() === ''}
+          >
+            {t('tenants.provision.submit')}
+          </Button>
+        }
+      >
+        <TextField label={t('tenants.form.name')} value={pName} onChange={setPName} />
+        <NumberField
+          label={t('tenants.provision.credits')}
+          value={pCredits}
+          onChange={setPCredits}
+          min={0}
+        />
+        <SelectField
+          label={t('tenants.form.isolation')}
+          value={pIsolation}
+          onChange={setPIsolation}
+          options={[
+            { value: 'field', label: t('tenants.isolation.field') },
+            { value: 'schema', label: t('tenants.isolation.schema') },
+            { value: 'db', label: t('tenants.isolation.db') },
+          ]}
+        />
+      </Modal>
+
+      {/* One-time reveal of the provisioned key (never shown again). */}
+      <Modal
+        open={provisioned !== null}
+        title={t('tenants.provision.keyTitle')}
+        onClose={() => setProvisioned(null)}
+        footer={
+          <Button variant="cta" onClick={() => setProvisioned(null)}>
+            {t('common.confirm')}
+          </Button>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+          <span style={{ color: 'var(--fail)', fontSize: 'var(--fs-sm)' }}>
+            {t('tenants.provision.keyHint')}
+          </span>
+          {provisioned !== null && (
+            <CopyField
+              value={provisioned.api_key.plaintext}
+              copyLabel={t('common.copy')}
+              copiedLabel={t('common.copied')}
+              failedLabel={t('common.copyFailed')}
+            />
+          )}
+        </div>
       </Modal>
 
       {selected !== null && (

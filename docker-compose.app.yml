@@ -1,0 +1,139 @@
+# Run the WHOLE project in Docker — self-contained, one command:
+#
+#   docker compose -f docker-compose.app.yml up -d --build
+#
+# Brings up its OWN postgres + redis + minio (so it coexists with a host-dev
+# `pnpm infra:up`, which owns host ports 5433/6380/9100) plus api + worker + web.
+# pg/redis are internal-only (the apps reach them by service name); minio is
+# published on 9200/9201 so the browser can fetch persisted media + browse the
+# console. Host ports used: web 8080, api 4000, minio 9200, minio-console 9201.
+#
+# After it's healthy:  http://localhost:8080   (admin@actionow.local / actionow-dev-password)
+#   • web  http://localhost:8080   • api/swagger http://localhost:4000/docs
+#   • minio console http://localhost:9201  (actionow / actionow123)
+#
+# A distinct project name keeps its containers/volumes separate from infra:up.
+name: actionow
+
+x-app-env: &app-env
+  NODE_ENV: development
+  DATABASE_URL: postgresql://actionow:actionow@postgres:5432/actionow
+  REDIS_URL: redis://redis:6379
+  ADMIN_JWT_SECRET: dev-admin-jwt-secret-do-not-use-in-prod
+  STORAGE_PROVIDER: minio
+  STORAGE_BUCKET: actionow
+  STORAGE_REGION: us-east-1
+  STORAGE_ENDPOINT: http://minio:9000
+  STORAGE_ACCESS_KEY_ID: actionow
+  STORAGE_SECRET_ACCESS_KEY: actionow123
+  STORAGE_FORCE_PATH_STYLE: 'true'
+  # Host-reachable base so the browser can GET persisted media (bucket is made
+  # public-read by minio-init). Matches the published minio port below.
+  STORAGE_PUBLIC_BASE_URL: http://localhost:9200/actionow
+  LOG_LEVEL: info
+
+services:
+  # ---- infra (this stack's own; internal-only pg/redis, published minio) ----
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: actionow
+      POSTGRES_PASSWORD: actionow
+      POSTGRES_DB: actionow
+    volumes: ['actionow_pg:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U actionow']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    volumes: ['actionow_redis:/data']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: actionow
+      MINIO_ROOT_PASSWORD: actionow123
+    ports: ['9200:9000', '9201:9001']
+    volumes: ['actionow_minio:/data']
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # One-shot: create the media bucket + make it public-read.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio: { condition: service_healthy }
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - >
+        mc alias set local http://minio:9000 actionow actionow123 &&
+        mc mb --ignore-existing local/actionow &&
+        mc anonymous set download local/actionow &&
+        echo 'minio bucket actionow ready (public-read)'
+    restart: 'no'
+
+  # One-shot: migrate the schema then seed (prints a usable API key in its logs).
+  migrate:
+    build: { context: ., target: api }
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment: *app-env
+    command:
+      ['sh', '-c', 'pnpm --filter @actionow/db db:migrate && pnpm --filter @actionow/api seed']
+    restart: 'no'
+
+  # ---- app ----
+  api:
+    build: { context: ., target: api }
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+      migrate: { condition: service_completed_successfully }
+    environment:
+      <<: *app-env
+      API_PORT: 3000
+    ports: ['4000:3000']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          'fetch("http://localhost:3000/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 25s
+
+  worker:
+    build: { context: ., target: worker }
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+      migrate: { condition: service_completed_successfully }
+    environment: *app-env
+
+  web:
+    build: { context: ., target: web }
+    depends_on:
+      api: { condition: service_healthy }
+    ports: ['8080:80']
+
+volumes:
+  actionow_pg:
+  actionow_redis:
+  actionow_minio:

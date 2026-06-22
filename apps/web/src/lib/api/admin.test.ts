@@ -185,6 +185,91 @@ describe('admin catalog api', () => {
   });
 });
 
+// P0 coverage-gap fixes: write paths the backend already serves but the FE
+// never exposed (provision; pricebook/modifier edit+delete; tenant update).
+describe('admin CRUD-completion (P0 gaps)', () => {
+  it('provision posts to /admin/provision (atomic tenant+account+key)', async () => {
+    const { api, calls } = fakeApis();
+    await api.provision({ name: 'Acme', credits: 100 });
+    expect(calls[0]).toEqual({
+      method: 'POST',
+      path: '/admin/provision',
+      arg: expect.objectContaining({ name: 'Acme', credits: 100 }),
+    });
+  });
+
+  it('updateTenant patches /admin/tenants/:id', async () => {
+    const { api, calls } = fakeApis();
+    await api.updateTenant('t1', { isolationMode: 'schema' });
+    expect(calls[0]).toEqual({
+      method: 'PATCH',
+      path: '/admin/tenants/t1',
+      arg: { isolationMode: 'schema' },
+    });
+  });
+
+  it('updatePricebook patches /admin/pricebook/:id', async () => {
+    const { api, calls } = fakeApis();
+    await api.updatePricebook('pb1', { active: false });
+    expect(calls[0]).toEqual({
+      method: 'PATCH',
+      path: '/admin/pricebook/pb1',
+      arg: { active: false },
+    });
+  });
+
+  it('deletePricebook deletes /admin/pricebook/:id', async () => {
+    const { api, calls } = fakeApis();
+    await api.deletePricebook('pb1');
+    expect(calls[0]).toEqual({ method: 'DELETE', path: '/admin/pricebook/pb1', arg: undefined });
+  });
+
+  it('updateModifier patches /admin/modifiers/:id', async () => {
+    const { api, calls } = fakeApis();
+    await api.updateModifier('m1', { active: false });
+    expect(calls[0]).toEqual({
+      method: 'PATCH',
+      path: '/admin/modifiers/m1',
+      arg: { active: false },
+    });
+  });
+
+  it('deleteModifier deletes /admin/modifiers/:id', async () => {
+    const { api, calls } = fakeApis();
+    await api.deleteModifier('m1');
+    expect(calls[0]).toEqual({ method: 'DELETE', path: '/admin/modifiers/m1', arg: undefined });
+  });
+
+  it('listAdminTokens paginates /admin/tokens (rows)', async () => {
+    const { api, calls } = fakeApis();
+    await expect(api.listAdminTokens()).resolves.toEqual([]);
+    expect(calls[0]?.method).toBe('GET');
+    expect(calls[0]?.path).toBe('/admin/tokens');
+  });
+
+  it('createAdminToken posts to /admin/tokens (plaintext once)', async () => {
+    const { api, calls } = fakeApis();
+    await api.createAdminToken({ name: 'ci-bot' });
+    expect(calls[0]).toEqual({
+      method: 'POST',
+      path: '/admin/tokens',
+      arg: expect.objectContaining({ name: 'ci-bot' }),
+    });
+  });
+
+  it('revokeAdminToken deletes /admin/tokens/:id', async () => {
+    const { api, calls } = fakeApis();
+    await api.revokeAdminToken('tok1');
+    expect(calls[0]).toEqual({ method: 'DELETE', path: '/admin/tokens/tok1', arg: undefined });
+  });
+
+  it('deleteSecret deletes /admin/secrets/:id', async () => {
+    const { api, calls } = fakeApis();
+    await api.deleteSecret('s1');
+    expect(calls[0]).toEqual({ method: 'DELETE', path: '/admin/secrets/s1', arg: undefined });
+  });
+});
+
 describe('admin route-groups api', () => {
   it('addGroupChannel issues a PUT membership upsert (not POST), no idempotency key', async () => {
     const { api, calls } = fakeApis();

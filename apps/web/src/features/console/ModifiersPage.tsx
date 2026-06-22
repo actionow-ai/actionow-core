@@ -1,4 +1,4 @@
-import { PlusIcon, SlidersHorizontalIcon } from '@phosphor-icons/react';
+import { PencilSimpleIcon, PlusIcon, SlidersHorizontalIcon, TrashIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
@@ -10,14 +10,17 @@ import { EntityCard } from '../../components/data/EntityCard';
 import { Money } from '../../components/data/Money';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Modal } from '../../components/ui/Modal';
+import { RowAction } from '../../components/ui/RowAction';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
+import { Toggle } from '../../components/ui/Toggle';
 import { enumLabel, MODIFIER_CREDIT_OPS, MODIFIER_OPS, toOptions } from '../../lib/api/enums';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
-import type { ModifierOp } from '../../lib/api/types';
+import type { ModifierOp, ModifierView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
 /**
@@ -32,6 +35,17 @@ function modifierValueDisplay(op: string, value: string | null): ReactNode {
   return value;
 }
 
+/**
+ * Prefill a form `value` from a stored modifier. Credit ops persist a µcredit
+ * amount, but the form (like create) takes HUMAN credits → divide by 1e6; percent
+ * ops persist a whole-percent int used as-is.
+ */
+function valueForForm(op: string, value: string | null): string {
+  if (value === null) return '';
+  if (MODIFIER_CREDIT_OPS.has(op as ModifierOp)) return String(Number(value) / 1e6);
+  return value;
+}
+
 export function ModifiersPage() {
   const { t } = useTranslation('console');
   const api = useAdminApi();
@@ -42,32 +56,80 @@ export function ModifiersPage() {
   });
 
   const [open, setOpen] = useState(false);
+  // null = create mode; a string id = editing that modifier.
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [scope, setScope] = useState('global');
   const [op, setOp] = useState<ModifierOp>('percent_off');
   const [value, setValue] = useState('');
   const [whenExpr, setWhenExpr] = useState('');
   const [priority, setPriority] = useState('');
+  const [active, setActive] = useState(true);
+  const [deleting, setDeleting] = useState<ModifierView | null>(null);
 
-  const create = useMutation({
-    mutationFn: () =>
-      api.createModifier({
+  const openCreate = () => {
+    setEditingId(null);
+    setScope('global');
+    setOp('percent_off');
+    setValue('');
+    setWhenExpr('');
+    setPriority('');
+    setActive(true);
+    setOpen(true);
+  };
+  const openEdit = (r: ModifierView) => {
+    setEditingId(r.id);
+    setScope(r.scope);
+    setOp(r.op as ModifierOp);
+    setValue(valueForForm(r.op, r.value));
+    setWhenExpr(r.when_expr ?? '');
+    setPriority(String(r.priority));
+    setActive(r.active);
+    setOpen(true);
+  };
+
+  const save = useMutation({
+    mutationFn: () => {
+      const num = value.trim() === '' ? undefined : Number(value);
+      const pri = priority.trim() === '' ? undefined : Number(priority);
+      if (editingId !== null) {
+        // `scope` is not patchable; `whenExpr` may be cleared with null.
+        return api.updateModifier(editingId, {
+          op,
+          value: num,
+          whenExpr: whenExpr.trim() === '' ? null : whenExpr.trim(),
+          priority: pri,
+          active,
+        });
+      }
+      return api.createModifier({
         scope,
         op,
-        value: value.trim() === '' ? undefined : Number(value),
+        value: num,
         whenExpr: whenExpr.trim() === '' ? undefined : whenExpr.trim(),
-        priority: priority.trim() === '' ? undefined : Number(priority),
-      }),
+        priority: pri,
+      });
+    },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: qk.modifiers() });
-      toast(t('modifiers.created'));
+      toast(editingId !== null ? t('modifiers.updated') : t('modifiers.created'));
       setOpen(false);
+    },
+    onError: mutationError(t),
+  });
+
+  const del = useMutation({
+    mutationFn: (id: string) => api.deleteModifier(id),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.modifiers() });
+      toast(t('modifiers.deleted'));
+      setDeleting(null);
     },
     onError: mutationError(t),
   });
 
   useSetConsoleAction(
     () => (
-      <Button variant="ghost" onClick={() => setOpen(true)}>
+      <Button variant="ghost" onClick={openCreate}>
         <PlusIcon size={14} weight="bold" /> {t('modifiers.new')}
       </Button>
     ),
@@ -95,6 +157,21 @@ export function ModifiersPage() {
                 { label: t('modifiers.cols.value'), value: modifierValueDisplay(r.op, r.value) },
                 { label: t('modifiers.cols.priority'), value: String(r.priority) },
               ]}
+              actions={
+                <>
+                  <RowAction
+                    icon={PencilSimpleIcon}
+                    label={t('common.edit')}
+                    onClick={() => openEdit(r)}
+                  />
+                  <RowAction
+                    icon={TrashIcon}
+                    label={t('common.delete')}
+                    danger
+                    onClick={() => setDeleting(r)}
+                  />
+                </>
+              }
             />
           );
         }}
@@ -102,20 +179,48 @@ export function ModifiersPage() {
 
       <Modal
         open={open}
-        title={t('modifiers.new')}
+        title={editingId !== null ? t('modifiers.edit') : t('modifiers.new')}
         onClose={() => setOpen(false)}
         footer={
-          <Button variant="cta" onClick={() => create.mutate()} loading={create.isPending}>
-            {t('modifiers.submit')}
+          <Button variant="cta" onClick={() => save.mutate()} loading={save.isPending}>
+            {editingId !== null ? t('common.save') : t('modifiers.submit')}
           </Button>
         }
       >
-        <TextField label={t('modifiers.form.scope')} value={scope} onChange={setScope} />
-        <SelectField label={t('modifiers.form.op')} value={op} onChange={(v) => setOp(v as ModifierOp)} options={toOptions(MODIFIER_OPS, t)} />
+        {/* Scope identifies the modifier and is immutable once created. */}
+        <TextField
+          label={t('modifiers.form.scope')}
+          value={scope}
+          onChange={setScope}
+          disabled={editingId !== null}
+        />
+        <SelectField
+          label={t('modifiers.form.op')}
+          value={op}
+          onChange={(v) => setOp(v as ModifierOp)}
+          options={toOptions(MODIFIER_OPS, t)}
+        />
         <TextField label={t('modifiers.form.value')} value={value} onChange={setValue} />
         <TextField label={t('modifiers.form.whenExpr')} value={whenExpr} onChange={setWhenExpr} />
         <TextField label={t('modifiers.form.priority')} value={priority} onChange={setPriority} />
+        {editingId !== null && (
+          <Toggle checked={active} onChange={setActive} label={t('modifiers.form.active')} />
+        )}
       </Modal>
+
+      <ConfirmDialog
+        open={deleting !== null}
+        title={t('modifiers.delete.title')}
+        message={t('modifiers.delete.message', { scope: deleting?.scope ?? '' })}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        danger
+        loading={del.isPending}
+        onConfirm={() => {
+          if (deleting !== null) del.mutate(deleting.id);
+        }}
+        onClose={() => setDeleting(null)}
+      />
     </div>
   );
 }

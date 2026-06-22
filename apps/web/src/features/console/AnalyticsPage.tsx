@@ -28,13 +28,21 @@ type Metric = 'cost' | 'margin' | 'requests' | 'tokens';
 const GROUP_BYS: GroupBy[] = ['day', 'model', 'tenant', 'channel', 'api_key'];
 const METRICS: Metric[] = ['cost', 'margin', 'requests', 'tokens'];
 
-/** The integer µ-string for the selected metric of one rollup. */
-export function metricMicro(r: UsageRollupView, metric: Metric): string {
+/**
+ * The integer µ-string for the selected metric of one rollup. Accepts BOTH the
+ * operator rollup (`UsageRollupView`, with `margin`) and the tenant rollup
+ * (`ConsoleUsageRollupView`, which omits `margin`/`provider_cost`) — `margin` is
+ * optional and only the admin page ever selects it.
+ */
+export function metricMicro(
+  r: { cost: string; requests: number; input_tokens: string; output_tokens: string; margin?: string },
+  metric: Metric,
+): string {
   switch (metric) {
     case 'cost':
       return r.cost;
     case 'margin':
-      return r.margin;
+      return r.margin ?? '0';
     case 'requests':
       return String(r.requests);
     case 'tokens':

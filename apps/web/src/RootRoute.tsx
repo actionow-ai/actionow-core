@@ -3,12 +3,12 @@ import { Navigate } from 'react-router-dom';
 import { config } from './config';
 import { LandingPage } from './features/landing/LandingPage';
 import { useAuth } from './lib/auth/AuthProvider';
+import { homePath } from './lib/auth/homePath';
 
-/** Where the root route sends a visitor in `app` deployment mode (no marketing site). */
-export function homePath(user: { role: string } | null): string {
-  if (!user) return '/login';
-  return user.role === 'admin' ? '/console/dashboard' : '/app';
-}
+// `homePath` now lives in `lib/auth/homePath` (so the landing `Nav` can import it
+// without a RootRoute↔LandingPage↔Nav cycle). Re-exported here for the existing
+// callers/tests that import it from this module.
+export { homePath };
 
 /** `app` mode has no Landing — `/` lands the caller at their home. */
 function HomeRedirect() {

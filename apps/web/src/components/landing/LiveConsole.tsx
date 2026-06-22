@@ -11,14 +11,18 @@ const STATS = [
   { key: 'spend', to: 18.6, suffix: 'k' },
 ] as const;
 
-/** Provider-agnostic, full-modal request stream: chat, image, video, audio, embeddings. */
+/**
+ * Provider-agnostic, full-modal request stream: chat, image, video, audio. Every
+ * line is a REAL endpoint — video is the async relay (`/v1/run` → poll `/v1/jobs`),
+ * not an invented `/v1/video/generations` route.
+ */
 const LOG = [
   'POST /v1/chat/completions · gpt-4o · 200 · 142ms',
-  'POST /v1/images/generations · flux · 200 · 1.2s',
-  'POST /v1/video/generations · veo · 202 · queued',
+  'POST /v1/images/generations · seedream · 200 · 1.2s',
+  'POST /v1/run/video-relay · seedance · 202 · queued',
   'POST /v1/audio/speech · tts-1 · 200 · 380ms',
   'POST /v1/chat/completions · claude · 200 · 311ms',
-  'POST /v1/embeddings · text-embed · 200 · 64ms',
+  'GET  /v1/jobs/9f2e · seedance · 200 · ready',
 ];
 
 export function LiveConsole() {

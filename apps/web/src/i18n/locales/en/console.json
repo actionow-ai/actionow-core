@@ -22,7 +22,12 @@
     "brandLead": "Multi-tenant, credit billing, protocol relay, out of the box.",
     "b1": "OpenAI / Anthropic / Gemini compatible endpoints",
     "b2": "Tenant self-service: keys, usage, top-ups",
-    "b3": "Per-model token pricing and reconciliation"
+    "b3": "Per-model token pricing and reconciliation",
+    "callback": {
+      "failedTitle": "Sign-in failed",
+      "failedHint": "We could not complete the sign-in. Please try again.",
+      "backToLogin": "Back to login"
+    }
   },
   "app": {
     "title": "Tenant self-service",
@@ -156,7 +161,8 @@
     "dify": "Dify import",
     "redemptionCodes": "Redemption codes",
     "tmedia": "Media",
-    "oauthSessions": "Credentials"
+    "oauthSessions": "Credentials",
+    "serviceTokens": "Service tokens"
   },
   "topbar": {
     "admin": "Admin",
@@ -183,7 +189,8 @@
     "officialPrices": "Reference model prices",
     "dify": "Import a Dify workflow as a resource",
     "accounts": "Account balance & top-up",
-    "apiKeys": "Issue and manage API keys"
+    "apiKeys": "Issue and manage API keys",
+    "serviceTokens": "M2M credentials for the admin API"
   },
   "dashboard": {
     "stats": {
@@ -305,7 +312,16 @@
     },
     "empty": "No tenants yet",
     "created": "Tenant created",
-    "submit": "Create"
+    "submit": "Create",
+    "provision": {
+      "action": "Provision",
+      "title": "Provision a customer",
+      "credits": "Opening credits",
+      "submit": "Provision",
+      "done": "Tenant provisioned",
+      "keyTitle": "API key — shown once",
+      "keyHint": "Copy this key now; it will not be shown again."
+    }
   },
   "accounts": {
     "title": "Accounts",
@@ -579,6 +595,15 @@
       "fixedCredits": "The flat price in human credits (1 credit = 1,000,000 µcredits). The backend converts it to µcredits.",
       "resourceVersion": "The resource version this price applies to. Defaults to the resource's current version.",
       "version": "Version number for this price entry; bump it to supersede an earlier price."
+    },
+    "deleted": "Price deleted",
+    "actions": {
+      "enable": "Enable",
+      "disable": "Disable"
+    },
+    "delete": {
+      "title": "Delete price?",
+      "message": "Delete the {{method}} price (v{{version}})? This cannot be undone."
     }
   },
   "mock": {
@@ -694,7 +719,8 @@
     "retry": "Retry",
     "copy": "Copy",
     "copied": "Copied",
-    "copyFailed": "Copy failed"
+    "copyFailed": "Copy failed",
+    "save": "Save"
   },
   "confirm": {
     "deleteChannelTitle": "Delete channel?",
@@ -733,7 +759,15 @@
       "op": "Op",
       "value": "Value (optional)",
       "priority": "Priority (optional)",
-      "stackable": "Stackable"
+      "stackable": "Stackable",
+      "active": "Active"
+    },
+    "edit": "Edit modifier",
+    "updated": "Modifier updated",
+    "deleted": "Modifier deleted",
+    "delete": {
+      "title": "Delete modifier?",
+      "message": "Delete the \"{{scope}}\" modifier? This cannot be undone."
     }
   },
   "dify": {
@@ -973,6 +1007,44 @@
       "authJson": "Auth JSON"
     },
     "confirmRevokeTitle": "Revoke credential?",
-    "confirmRevokeMsg": "Revoke {{account}}? Channels using it stop resolving."
+    "confirmRevokeMsg": "Revoke {{account}}? Channels using it stop resolving.",
+    "title": "OAuth sessions"
+  },
+  "tokens": {
+    "new": "New token",
+    "empty": "No service tokens yet",
+    "submit": "Mint token",
+    "revoke": "Revoke",
+    "revoked": "Token revoked",
+    "never": "Never",
+    "cols": {
+      "created": "Created",
+      "expires": "Expires"
+    },
+    "form": {
+      "name": "Name",
+      "expiresAt": "Expires at (optional)"
+    },
+    "reveal": {
+      "title": "Token — shown once",
+      "warn": "Copy this token now; it will not be shown again."
+    },
+    "revokeConfirm": {
+      "title": "Revoke token?",
+      "msg": "Revoke \"{{name}}\"? Integrations using it will stop working."
+    }
+  },
+  "secrets": {
+    "title": "Stored secrets",
+    "empty": "No stored credentials",
+    "revoke": "Revoke",
+    "revoked": "Credential revoked",
+    "cols": {
+      "id": "ID",
+      "provider": "Provider",
+      "created": "Created"
+    },
+    "confirmRevokeTitle": "Revoke credential?",
+    "confirmRevokeMsg": "Revoke the {{provider}} credential? Channels using it will fail until re-bound."
   }
 }

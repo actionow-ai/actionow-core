@@ -16,15 +16,16 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { qk } from '../../lib/api/queryKeys';
 import type { ConsoleAnalyticsQuery, ConsoleUsageLogView } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
-import { formatCreditsSigned } from '../../lib/money';
 import { STALE_VOLATILE } from '../../lib/query';
 import { useUrlState } from '../../lib/useUrlState';
 import { metricMicro } from '../console/AnalyticsPage';
 
 type GroupBy = ConsoleAnalyticsQuery['groupBy'];
-type Metric = 'cost' | 'margin' | 'requests' | 'tokens';
+// NOTE: no `margin` — the tenant view deliberately omits provider_cost/margin
+// (operator-only; exposing them would leak the platform's per-tenant markup).
+type Metric = 'cost' | 'requests' | 'tokens';
 const GROUP_BYS: GroupBy[] = ['day', 'model', 'channel', 'api_key'];
-const METRICS: Metric[] = ['cost', 'margin', 'requests', 'tokens'];
+const METRICS: Metric[] = ['cost', 'requests', 'tokens'];
 
 export function AppUsage() {
   const { t, i18n } = useTranslation('console');
@@ -53,12 +54,6 @@ export function AppUsage() {
 
   const fmtMetric = (micro: string): ReactNode => {
     if (mt === 'cost') return <Money micro={micro} />;
-    if (mt === 'margin')
-      return (
-        <span className="tabular" style={{ color: BigInt(micro) < 0n ? 'var(--fail)' : undefined }}>
-          {formatCreditsSigned(micro, i18n.language)}
-        </span>
-      );
     return (
       <span className="tabular">{new Intl.NumberFormat(i18n.language).format(BigInt(micro))}</span>
     );

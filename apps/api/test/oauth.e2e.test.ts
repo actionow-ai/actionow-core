@@ -69,6 +69,19 @@ function claimsOf(token: string): { sub: string; role: string } {
   return new JwtService({ secret: ADMIN_SECRET }).verify<{ sub: string; role: string }>(token);
 }
 
+/**
+ * The user JWT the callback hands back via a 302 → `/auth/callback#token=…`.
+ * The token rides in the fragment (not the query) so it never hits the server
+ * or access logs on the SPA's next request.
+ */
+function tokenFromCallback(res: { headers: Record<string, string | undefined> }): string {
+  const loc = res.headers.location ?? '';
+  expect(loc.startsWith('/auth/callback#')).toBe(true);
+  const token = new URLSearchParams(loc.slice(loc.indexOf('#') + 1)).get('token');
+  if (token === null || token === '') throw new Error(`no token in callback redirect: ${loc}`);
+  return token;
+}
+
 /** Base64url-encode (no padding) a UTF-8 string. */
 function b64url(s: string): string {
   return Buffer.from(s, 'utf8').toString('base64url');
@@ -209,10 +222,11 @@ describe('GET /auth/oauth/:provider/callback (find-or-create)', () => {
       .get('/auth/oauth/github/callback')
       .query({ code: 'gh-code', state })
       .set('Cookie', `oauth_state=${state}`)
-      .expect(200);
+      .expect(302);
 
-    expect(res.body.token).toBeTypeOf('string');
-    const claims = claimsOf(res.body.token as string);
+    const token = tokenFromCallback(res);
+    expect(token).toBeTypeOf('string');
+    const claims = claimsOf(token);
     expect(claims.role).toBe('user');
 
     // The identity row keys on (provider, sub) and points at the new user.
@@ -244,8 +258,8 @@ describe('GET /auth/oauth/:provider/callback (find-or-create)', () => {
       .get('/auth/oauth/github/callback')
       .query({ code: 'c1', state: s1 })
       .set('Cookie', `oauth_state=${s1}`)
-      .expect(200);
-    const id1 = claimsOf(r1.body.token as string).sub;
+      .expect(302);
+    const id1 = claimsOf(tokenFromCallback(r1)).sub;
 
     // Second callback with the SAME (provider, sub) logs the same user in.
     const second = await request(app.getHttpServer()).get('/auth/oauth/github').expect(302);
@@ -255,8 +269,8 @@ describe('GET /auth/oauth/:provider/callback (find-or-create)', () => {
       .get('/auth/oauth/github/callback')
       .query({ code: 'c2', state: s2 })
       .set('Cookie', `oauth_state=${s2}`)
-      .expect(200);
-    const id2 = claimsOf(r2.body.token as string).sub;
+      .expect(302);
+    const id2 = claimsOf(tokenFromCallback(r2)).sub;
 
     expect(id2).toBe(id1);
     const identities = await db
@@ -287,10 +301,10 @@ describe('GET /auth/oauth/:provider/callback (find-or-create)', () => {
       .get('/auth/oauth/google/callback')
       .query({ code: 'g-code', state })
       .set('Cookie', `oauth_state=${state}; oauth_verifier=ignored`)
-      .expect(200);
+      .expect(302);
 
     // Same user id — the identity was attached to the existing account.
-    expect(claimsOf(res.body.token as string).sub).toBe(existing.id);
+    expect(claimsOf(tokenFromCallback(res)).sub).toBe(existing.id);
     const identities = await db
       .select()
       .from(schema.userIdentity)
@@ -320,10 +334,10 @@ describe('GET /auth/oauth/:provider/callback (find-or-create)', () => {
       .get('/auth/oauth/google/callback')
       .query({ code: 'g-code', state })
       .set('Cookie', `oauth_state=${state}; oauth_verifier=ignored`)
-      .expect(200);
+      .expect(302);
 
     // A DIFFERENT user id — no auto-link on an unverified provider email.
-    const newUserId = claimsOf(res.body.token as string).sub;
+    const newUserId = claimsOf(tokenFromCallback(res)).sub;
     expect(newUserId).not.toBe(existing.id);
     const existingIdentities = await db
       .select()

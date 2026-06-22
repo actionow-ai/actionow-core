@@ -10,6 +10,7 @@ import {
   consoleModelViewSchema,
   consolePaymentViewSchema,
   consoleUsageLogViewSchema,
+  consoleUsageRollupViewSchema,
 } from './console-views.js';
 
 describe('tenant console view contracts (single source of truth for FE + BE)', () => {
@@ -75,6 +76,31 @@ describe('tenant console view contracts (single source of truth for FE + BE)', (
     };
     expect(consoleUsageLogViewSchema.parse(u)).toEqual(u);
     expect(() => consoleUsageLogViewSchema.parse({ ...u, cost: 300000 })).toThrow();
+  });
+
+  it('consoleUsageRollupViewSchema STRIPS operator-only provider_cost/margin (no markup leak to tenants)', () => {
+    const safe = {
+      bucket: '2026-01-01',
+      requests: 12,
+      input_tokens: '1000',
+      output_tokens: '2000',
+      cost: '500000',
+      errors: 1,
+    };
+    // A clean tenant rollup round-trips.
+    expect(consoleUsageRollupViewSchema.parse(safe)).toEqual(safe);
+    // Even if the DB row carries provider_cost/margin, the tenant view must DROP
+    // them — they reveal the platform's per-tenant markup.
+    const parsed = consoleUsageRollupViewSchema.parse({
+      ...safe,
+      provider_cost: '300000',
+      margin: '200000',
+    });
+    expect(parsed).toEqual(safe);
+    expect(parsed).not.toHaveProperty('provider_cost');
+    expect(parsed).not.toHaveProperty('margin');
+    // Money stays a string (BigInt-safe), like the other console views.
+    expect(() => consoleUsageRollupViewSchema.parse({ ...safe, cost: 500000 })).toThrow();
   });
 
   it('consolePaymentViewSchema keeps amount_minor a string and credit_amount nullable', () => {
