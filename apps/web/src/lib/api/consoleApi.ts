@@ -76,6 +76,9 @@ export function makeConsoleApi(sdk: SdkClient, rawClient: ApiClient, onUnauthori
     // (`ConsoleCreateIntentBody`), so the typed SDK POST accepts it directly.
     topup: async (body: ConsoleCreateIntentBody): Promise<ConsoleIntentView> =>
       unwrap(await sdk.POST('/console/payments/intents', { body }), u),
+    // One payment intent's status (poll after a topup to confirm settlement).
+    getPaymentIntent: async (id: string): Promise<ConsolePaymentView> =>
+      unwrap(await sdk.GET('/console/payments/intents/{id}', { params: { path: { id } } }), u),
     // Topup history — cursor-paginated.
     listPayments: async (params: {
       cursor?: string;

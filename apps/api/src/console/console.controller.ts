@@ -383,6 +383,16 @@ export class ConsoleController {
     return mapPageEnvelope(result, (r) => r.id, toPaymentIntentView);
   }
 
+  @Get('payments/intents/:id')
+  @ApiOperation({ summary: 'Status of one of your payment intents (poll after a topup)' })
+  async paymentIntent(
+    @Param('id') id: string,
+    @Req() req: ConsoleRequest,
+  ): Promise<PaymentIntentView> {
+    const ctx = ctxOf(req);
+    return toPaymentIntentView(await this.console.getPaymentIntent(ctx.tenantId, id));
+  }
+
   /**
    * Models visible to your tenant, in the uniform envelope. The visible-models
    * port returns the full visibility-filtered set (small, public + granted), so

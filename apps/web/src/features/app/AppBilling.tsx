@@ -1,7 +1,7 @@
 import { ArrowSquareOutIcon } from '@phosphor-icons/react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { BalanceCard } from '../../components/data/BalanceCard';
@@ -87,6 +87,26 @@ export function AppBilling() {
     staleTime: STALE_VOLATILE,
   });
   const historyRows = history.data?.pages.flatMap((p) => p.rows) ?? [];
+
+  // Poll the freshly-created intent until it settles (provider webhook), then
+  // refresh balance + history so a completed top-up reflects without a reload.
+  const intentId = intent?.intent_id ?? null;
+  const intentStatus = useQuery({
+    queryKey: qk.consolePaymentIntent(intentId ?? ''),
+    queryFn: () => api.getPaymentIntent(intentId ?? ''),
+    enabled: intentId !== null,
+    refetchInterval: (q) => {
+      const s = q.state.data?.status;
+      return s === 'succeeded' || s === 'failed' || s === 'expired' ? false : 3000;
+    },
+  });
+  const settledStatus = intentStatus.data?.status;
+  useEffect(() => {
+    if (settledStatus === 'succeeded') {
+      void qc.invalidateQueries({ queryKey: qk.consoleBalance() });
+      void qc.invalidateQueries({ queryKey: qk.consolePayments() });
+    }
+  }, [settledStatus, qc]);
 
   const histCols: Column<ConsolePaymentView>[] = [
     {
@@ -198,8 +218,23 @@ export function AppBilling() {
               gap: 'var(--s-3)',
             }}
           >
-            <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 'var(--fw-medium)' }}>
-              {t('app.billing.intentCreated')}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 'var(--s-2)',
+              }}
+            >
+              <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 'var(--fw-medium)' }}>
+                {t('app.billing.intentCreated')}
+              </span>
+              {settledStatus !== undefined && (
+                <StatusBadge
+                  tone={payTone(settledStatus)}
+                  label={t('status.' + settledStatus, settledStatus)}
+                />
+              )}
             </div>
             <div
               className="mono"

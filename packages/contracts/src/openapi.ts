@@ -579,6 +579,12 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   // --- console reads (single-object endpoints) ------------------------------
   getOne('/console/balance', 'Your tenant credit balance + held', ConsoleBalance, 'console');
   getOne('/console/me', 'Your own profile', ConsoleMe, 'console');
+  getOne(
+    '/console/payments/intents/{id}',
+    'Status of one of your payment intents',
+    ConsolePayment,
+    'console',
+  );
 
   // --- DELETE (revoke/remove → 204; the FE methods return void) -------------
   del('/admin/resources/{id}/channels/{channelId}', 'Delete a channel', 'catalog');

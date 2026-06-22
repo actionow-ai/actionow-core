@@ -8,6 +8,7 @@ import {
   type FileObject,
   findUserById,
   getAccount,
+  getIntentByIdForTenant,
   type Job,
   type KeysetResult,
   type LedgerRow,
@@ -159,6 +160,17 @@ export class ConsoleService {
   /** The caller-tenant's payment intents (topup history), keyset newest-first. */
   listPayments(tenantId: string, page: PageParams): Promise<KeysetResult<PaymentIntentRow>> {
     return listIntentsByTenant(this.db, tenantId, page);
+  }
+
+  /**
+   * One of the caller-tenant's payment intents by id (status polling after a
+   * topup). Cross-tenant or unknown id → `not_found` (never leaks another
+   * tenant's intent).
+   */
+  async getPaymentIntent(tenantId: string, intentId: string): Promise<PaymentIntentRow> {
+    const intent = await getIntentByIdForTenant(this.db, intentId, tenantId);
+    if (intent === undefined) throw engineNotFound(`payment intent ${intentId} not found`);
+    return intent;
   }
 
   // ----- profile / settings -----
