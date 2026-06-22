@@ -57,6 +57,7 @@ import type {
   TopupBody,
   UpdateApiKeyGroupBody,
   UpdateChannelBody,
+  UpdateCredentialMetaBody,
   UpdateDifyBody,
   UpdateModelBody,
   UpdateModifierBody,
@@ -291,6 +292,9 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     deleteSecret: async (id: string): Promise<void> => {
       unwrap(await sdk.DELETE('/admin/secrets/{id}', { params: { path: { id } } }), u);
     },
+    // Edit a stored credential's metadata (name/notes/group) — never the material.
+    updateSecret: async (id: string, body: UpdateCredentialMetaBody): Promise<SecretView> =>
+      unwrap(await sdk.PATCH('/admin/secrets/{id}', { params: { path: { id } }, body }), u),
 
     listModels: async () => page<ModelView>(await sdk.GET('/admin/models'), u).rows,
     createModel: async (body: CreateModelBody, idempotencyKey?: string) =>
@@ -347,6 +351,12 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     revokeOAuthSession: async (id: string): Promise<void> => {
       unwrap(await sdk.DELETE('/admin/oauth-sessions/{id}', { params: { path: { id } } }), u);
     },
+    // Edit an OAuth session's metadata (name/notes/group) — never the tokens.
+    updateOAuthSession: async (
+      id: string,
+      body: UpdateCredentialMetaBody,
+    ): Promise<OAuthSessionListView> =>
+      unwrap(await sdk.PATCH('/admin/oauth-sessions/{id}', { params: { path: { id } }, body }), u),
     // Turnkey codex login: start (→ authorize_url + sealed state) then complete (code → session).
     startCodexLogin: async (body: CodexLoginStartBody): Promise<CodexLoginStartView> =>
       unwrap(await sdk.POST('/admin/oauth-sessions/codex/login/start', { body }), u),

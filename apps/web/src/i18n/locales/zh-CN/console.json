@@ -140,7 +140,7 @@
   "nav": {
     "groups": {
       "ops": "运营",
-      "catalog": "目录",
+      "catalog": "接入与供给",
       "billing": "计费与路由",
       "tenants": "租户",
       "home": "概览",

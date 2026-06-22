@@ -77,6 +77,7 @@ export type {
   TopupBody,
   UpdateApiKeyGroupBody,
   UpdateChannelBody,
+  UpdateCredentialMetaBody,
   UpdateDifyBody,
   UpdateModelBody,
   UpdateModifierBody,

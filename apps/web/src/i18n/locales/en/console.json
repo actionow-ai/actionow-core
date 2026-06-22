@@ -140,7 +140,7 @@
   "nav": {
     "groups": {
       "ops": "Operations",
-      "catalog": "Catalog",
+      "catalog": "Providers",
       "billing": "Billing & Routing",
       "tenants": "Tenants",
       "home": "Home",
