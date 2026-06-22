@@ -2,12 +2,14 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { SecretSelect } from '../../components/data/SecretSelect';
 import { Button } from '../../components/ui/Button';
 import { JsonField } from '../../components/ui/JsonField';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
+import { Toggle } from '../../components/ui/Toggle';
 import { mutationError } from '../../lib/api/mutationError';
 import type { DifyImportView, DifyPricingModel } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
@@ -20,6 +22,8 @@ export function DifyImportPage() {
   const [endpoint, setEndpoint] = useState('');
   const [yaml, setYaml] = useState('');
   const [pricingModel, setPricingModel] = useState<DifyPricingModel>('fixed');
+  const [serviceKeyRef, setServiceKeyRef] = useState('');
+  const [allowBlockers, setAllowBlockers] = useState(false);
   const [report, setReport] = useState<DifyImportView | null>(null);
 
   const submit = useMutation({
@@ -30,6 +34,10 @@ export function DifyImportPage() {
         yaml,
         endpoint,
         pricingModel,
+        // Optional service-key binding (a stored secret) + allow blocked
+        // workflows (the backend 422s a blocked import otherwise).
+        serviceKeyRef: serviceKeyRef === '' ? undefined : serviceKeyRef,
+        allowBlockers,
       }),
     onSuccess: (r) => { setReport(r); toast(t('dify.imported')); },
     onError: mutationError(t),
@@ -51,6 +59,17 @@ export function DifyImportPage() {
           { value: 'matrix', label: t('dify.pricing.matrix') },
           { value: 'metered', label: t('dify.pricing.metered') },
         ]}
+      />
+      <SecretSelect
+        label={t('dify.form.serviceKeyRef')}
+        value={serviceKeyRef}
+        onChange={setServiceKeyRef}
+        placeholder={t('dify.form.serviceKeyNone')}
+      />
+      <Toggle
+        label={t('dify.form.allowBlockers')}
+        checked={allowBlockers}
+        onChange={setAllowBlockers}
       />
       <div>
         <Button variant="cta" onClick={() => submit.mutate()} loading={submit.isPending}>

@@ -803,7 +803,9 @@
       "endpoint": "Dify Endpoint",
       "yaml": "Workflow YAML",
       "pricingModel": "定价模型",
-      "allowBlockers": "允许阻塞节点"
+      "allowBlockers": "允许阻塞节点",
+      "serviceKeyRef": "服务密钥（可选）",
+      "serviceKeyNone": "不绑定密钥"
     },
     "pricing": {
       "fixed": "固定",

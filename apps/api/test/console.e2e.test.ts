@@ -233,6 +233,23 @@ describe('/console', () => {
     expect(intent?.amountMinor).toBe(1000n);
     // 1000 cents ($10) × 10_000 µUSD = 10_000_000 µUSD.
     expect(intent?.creditAmount).toBe(10_000_000n);
+
+    // The status endpoint returns the intent (for post-topup polling); another
+    // tenant cannot read it (cross-tenant → 404), and it needs a token.
+    const id = String(res.body.intent_id);
+    await request(server()).get(`/console/payments/intents/${id}`).expect(401);
+    const status = await request(server())
+      .get(`/console/payments/intents/${id}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(status.body.id).toBe(id);
+    expect(status.body.status).toBe('created');
+
+    const other = await registerUser('topup-other@example.com');
+    await request(server())
+      .get(`/console/payments/intents/${id}`)
+      .set('authorization', `Bearer ${other}`)
+      .expect(404);
   });
 
   it('usage returns tenant-scoped jobs + ledger and models is an array', async () => {

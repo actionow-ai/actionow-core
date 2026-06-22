@@ -17,6 +17,11 @@ export default defineConfig({
     fileParallelism: false,
   },
   plugins: [
+    // `unplugin-swc`'s vite plugin type skews against vitest's bundled vite
+    // `Plugin` declaration (two copies of vite's types resolve here); the value
+    // is a valid plugin at runtime. `vite` isn't a direct dep so its type can't
+    // be imported to cast — suppress the test-only config type mismatch.
+    // @ts-expect-error -- vite Plugin type skew between unplugin-swc and vitest
     swc.vite({
       jsc: {
         target: 'es2022',

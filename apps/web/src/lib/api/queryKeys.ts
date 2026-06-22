@@ -37,6 +37,7 @@ export const qk = {
   consoleAnalytics: (params: Record<string, unknown>) => ['console', 'analytics', params] as const,
   consoleUsageLog: () => ['console', 'usage-log'] as const,
   consolePayments: () => ['console', 'payments'] as const,
+  consolePaymentIntent: (id: string) => ['console', 'payments', 'intent', id] as const,
   consoleMe: () => ['console', 'me'] as const,
   consoleBalance: () => ['console', 'balance'] as const,
   consoleFiles: (kind?: string) =>
