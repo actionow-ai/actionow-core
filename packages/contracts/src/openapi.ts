@@ -585,6 +585,33 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     ConsolePayment,
     'console',
   );
+  // Console file upload (tenant JWT) — mirrors the data-plane presign/confirm so
+  // a tenant can upload assets from the gallery (img2img inputs, etc.).
+  registry.registerPath({
+    method: 'post',
+    path: '/console/files/presign-upload',
+    summary: 'Mint a presigned upload for your tenant',
+    tags: ['console'],
+    security: [{ bearerAuth: [] }],
+    request: { body: { content: { 'application/json': { schema: PresignReq } } } },
+    responses: {
+      200: {
+        description: 'Presigned upload',
+        content: { 'application/json': { schema: PresignResult } },
+      },
+    },
+  });
+  registry.registerPath({
+    method: 'post',
+    path: '/console/files/{id}/confirm',
+    summary: 'Confirm an uploaded file (head → ready)',
+    tags: ['console'],
+    security: [{ bearerAuth: [] }],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: { description: 'Confirmed file', content: { 'application/json': { schema: FileV } } },
+    },
+  });
 
   // --- DELETE (revoke/remove → 204; the FE methods return void) -------------
   del('/admin/resources/{id}/channels/{channelId}', 'Delete a channel', 'catalog');

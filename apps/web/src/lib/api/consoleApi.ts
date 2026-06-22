@@ -17,7 +17,10 @@ import type {
   ConsoleUsageLogView,
   ConsoleUsageRollupView,
   ConsoleUsageView,
+  FileView,
   Page,
+  PresignUploadBody,
+  PresignUploadResult,
 } from './types';
 
 /**
@@ -88,6 +91,12 @@ export function makeConsoleApi(sdk: SdkClient, rawClient: ApiClient, onUnauthori
         await sdk.GET('/console/payments', { params: { query: params } }),
         u,
       ),
+
+    // Upload: presign → the caller PUTs the bytes to `upload_url` → confirm.
+    presignUpload: async (body: PresignUploadBody): Promise<PresignUploadResult> =>
+      unwrap(await sdk.POST('/console/files/presign-upload', { body }), u),
+    confirmFile: async (id: string): Promise<FileView> =>
+      unwrap(await sdk.POST('/console/files/{id}/confirm', { params: { path: { id } } }), u),
 
     // Asset gallery: the tenant's ready media files (uploaded + generated),
     // cursor-paginated, optionally narrowed to a media kind.

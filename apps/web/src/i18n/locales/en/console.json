@@ -132,7 +132,9 @@
         "video": "Video",
         "file": "File",
         "audio": "Audio"
-      }
+      },
+      "upload": "Upload",
+      "uploaded": "File uploaded"
     }
   },
   "nav": {
