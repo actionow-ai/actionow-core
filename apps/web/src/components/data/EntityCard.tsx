@@ -107,7 +107,13 @@ export function EntityCard({
             if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
           }}
           role="presentation"
-          style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--s-2)', marginTop: 'var(--s-4)' }}
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+            gap: 'var(--s-2)',
+            marginTop: 'var(--s-4)',
+          }}
         >
           {actions}
         </div>

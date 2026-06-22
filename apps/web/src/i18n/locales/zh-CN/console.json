@@ -356,7 +356,12 @@
       "keyTitle": "API 密钥（仅显示一次）",
       "keyHint": "请立即复制此密钥，关闭后将无法再次查看。"
     },
-    "updated": "租户已更新"
+    "updated": "租户已更新",
+    "picker": {
+      "title": "选择租户",
+      "all": "全部租户",
+      "none": "无匹配租户"
+    }
   },
   "accounts": {
     "title": "账户 / 充值",
@@ -756,7 +761,8 @@
     "copied": "已复制",
     "copyFailed": "复制失败",
     "save": "保存",
-    "loadMore": "加载更多"
+    "loadMore": "加载更多",
+    "search": "搜索"
   },
   "confirm": {
     "deleteChannelTitle": "删除通道?",

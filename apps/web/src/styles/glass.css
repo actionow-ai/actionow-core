@@ -81,6 +81,10 @@
   cursor: pointer;
   border: 1px solid transparent;
   white-space: nowrap;
+  /* Never shrink below the label — the global `* { min-width: 0 }` reset would
+     otherwise let a button in a tight flex row collapse to a pill-radius circle
+     with clipped text. */
+  flex-shrink: 0;
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease,
     border-color 0.15s ease, opacity 0.15s ease;
 }

@@ -11,6 +11,7 @@ import { ProviderIcon } from '../../components/data/ProviderIcon';
 import { Button } from '../../components/ui/Button';
 import { ComboboxField } from '../../components/ui/ComboboxField';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { DateField } from '../../components/ui/DateField';
 import { Drawer } from '../../components/ui/Drawer';
 import { FormField, useFieldId } from '../../components/ui/FormField';
 import { NumberField } from '../../components/ui/NumberField';
@@ -218,8 +219,9 @@ export function OfficialPricesPage() {
   );
 }
 
-/** A native date input on the unified field contract (TextField has no date type). */
-function DateField({
+/** The effective-date form field: a labelled `FormField` wrapping the themed
+ *  `DateField` (no native calendar / blue). */
+function EffectiveDateField({
   label,
   value,
   onChange,
@@ -235,21 +237,7 @@ function DateField({
   const fieldId = useFieldId();
   return (
     <FormField id={fieldId} label={label} hint={hint} tooltip={tooltip}>
-      <input
-        id={fieldId}
-        type="date"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="panel"
-        style={{
-          width: '100%',
-          fontSize: 'var(--fs-sm)',
-          color: 'var(--text)',
-          padding: '9px 11px',
-          borderRadius: 'var(--r-sm)',
-          outline: 'none',
-        }}
-      />
+      <DateField value={value} onChange={onChange} ariaLabel={label} placeholder={label} />
     </FormField>
   );
 }
@@ -397,7 +385,7 @@ function OfficialPriceEditor({
         min={0}
         step={0.01}
       />
-      <DateField
+      <EffectiveDateField
         label={t('officialPrices.form.effectiveAt')}
         tooltip={t('officialPrices.tip.effectiveAt')}
         value={effectiveAt}

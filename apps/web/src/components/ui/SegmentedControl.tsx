@@ -1,5 +1,7 @@
 import type { KeyboardEvent } from 'react';
-import { useRef } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
+
+import { useReducedMotion } from '../../lib/motion/useReducedMotion';
 
 export interface Segment {
   value: string;
@@ -8,10 +10,10 @@ export interface Segment {
 
 /**
  * A radiogroup of segment buttons (the design's `.seg`): an inline-flex glass
- * box with a static per-button accent fill on the selected segment — no sliding
- * indicator. On the unified contract: `onChange(value)`. Keyboard: arrow keys
- * move (and wrap) the selection; the active option is the only roving tab stop.
- * Warm `--accent` fill, never blue.
+ * box with a single accent pill that SLIDES to the selected segment. On the
+ * unified contract: `onChange(value)`. Keyboard: arrow keys move (and wrap) the
+ * selection; the active option is the only roving tab stop. Warm `--accent`
+ * fill, never blue. The slide is disabled under `prefers-reduced-motion`.
  */
 export function SegmentedControl({
   value,
@@ -25,10 +27,27 @@ export function SegmentedControl({
   ariaLabel?: string;
 }) {
   const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const reduced = useReducedMotion();
+  const [ind, setInd] = useState<{ x: number; w: number } | null>(null);
   const activeIdx = Math.max(
     options.findIndex((o) => o.value === value),
     0,
   );
+
+  // Track the active button's box so the indicator can translate/scale to it.
+  // Re-measure on selection change AND when the active button resizes (font
+  // load / container width change) via a ResizeObserver.
+  useLayoutEffect(() => {
+    const el = btnRefs.current[activeIdx];
+    if (!el) return;
+    const measure = () => setInd({ x: el.offsetLeft, w: el.offsetWidth });
+    measure();
+    // ResizeObserver is absent in jsdom (tests) — guard it.
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [activeIdx, value, options.length]);
 
   // Move the roving selection AND DOM focus to `next`. The newly-selected button
   // becomes the only tab stop (tabIndex=0) after the re-render, so a keyboard
@@ -61,6 +80,7 @@ export function SegmentedControl({
       role="radiogroup"
       aria-label={ariaLabel}
       style={{
+        position: 'relative',
         display: 'inline-flex',
         gap: 2,
         padding: 3,
@@ -69,6 +89,26 @@ export function SegmentedControl({
         borderRadius: 'var(--r-sm)',
       }}
     >
+      {/* The sliding accent pill — sits behind the labels, animates to the active
+          segment (snaps instantly under reduce-motion). */}
+      <span
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          top: 3,
+          bottom: 3,
+          left: 0,
+          width: ind?.w ?? 0,
+          transform: `translateX(${String(ind?.x ?? 0)}px)`,
+          borderRadius: 'var(--r-xs)',
+          background: 'var(--grad-accent)',
+          zIndex: 0,
+          opacity: ind === null ? 0 : 1,
+          transition: reduced
+            ? 'none'
+            : 'transform var(--dur-base) var(--ease-out), width var(--dur-base) var(--ease-out)',
+        }}
+      />
       {options.map((o, i) => {
         const on = i === activeIdx;
         return (
@@ -84,6 +124,8 @@ export function SegmentedControl({
             onClick={() => onChange(o.value)}
             onKeyDown={onKeyDown}
             style={{
+              position: 'relative',
+              zIndex: 1,
               padding: '7px 14px',
               minHeight: 34,
               borderRadius: 'var(--r-xs)',
@@ -92,9 +134,9 @@ export function SegmentedControl({
               border: 'none',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
-              background: on ? 'var(--grad-accent)' : 'transparent',
+              background: 'transparent',
               color: on ? 'var(--ink)' : 'var(--muted)',
-              transition: 'color 0.15s ease, background 0.15s ease',
+              transition: 'color 0.15s ease',
             }}
           >
             {o.label}

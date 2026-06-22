@@ -105,7 +105,9 @@ export function TopBar({
           display: 'flex',
           alignItems: 'center',
           gap: 'var(--s-2)',
-          flexWrap: 'wrap',
+          // Header stays a single fixed-height row — the title ellipsizes first
+          // (it has minWidth:0), so compact bare filters never wrap or balloon it.
+          flexWrap: 'nowrap',
           minWidth: 0,
         }}
       >

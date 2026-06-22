@@ -356,7 +356,12 @@
       "keyTitle": "API key — shown once",
       "keyHint": "Copy this key now; it will not be shown again."
     },
-    "updated": "Tenant updated"
+    "updated": "Tenant updated",
+    "picker": {
+      "title": "Select tenant",
+      "all": "All tenants",
+      "none": "No tenants match"
+    }
   },
   "accounts": {
     "title": "Accounts",
@@ -756,7 +761,8 @@
     "copied": "Copied",
     "copyFailed": "Copy failed",
     "save": "Save",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "search": "Search"
   },
   "confirm": {
     "deleteChannelTitle": "Delete channel?",
