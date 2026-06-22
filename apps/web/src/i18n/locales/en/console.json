@@ -261,6 +261,17 @@
       "providerCost": "Provider cost",
       "margin": "Margin",
       "errors": "Errors"
+    },
+    "log": {
+      "title": "Per-call log",
+      "empty": "No calls in range",
+      "cols": {
+        "time": "Time",
+        "model": "Model",
+        "tokens": "Tokens",
+        "cost": "Cost",
+        "status": "Status"
+      }
     }
   },
   "relayTraces": {
@@ -814,7 +825,25 @@
       "matrix": "Matrix",
       "metered": "Metered"
     },
-    "report": "Compatibility report"
+    "report": "Compatibility report",
+    "deleted": "Binding deleted",
+    "updated": "Binding updated",
+    "editTitle": "Edit dify binding",
+    "bindings": {
+      "title": "Bound workflows",
+      "empty": "No dify bindings yet"
+    },
+    "cols": {
+      "resource": "Resource",
+      "mode": "Mode",
+      "endpoint": "Endpoint",
+      "pricing": "Pricing",
+      "created": "Created"
+    },
+    "delete": {
+      "title": "Delete binding?",
+      "message": "Delete the dify binding for {{resource}}? This cannot be undone."
+    }
   },
   "status": {
     "succeeded": "Succeeded",

@@ -261,6 +261,17 @@
       "providerCost": "上游成本",
       "margin": "毛利",
       "errors": "错误数"
+    },
+    "log": {
+      "title": "逐次调用日志",
+      "empty": "该范围内暂无调用",
+      "cols": {
+        "time": "时间",
+        "model": "模型",
+        "tokens": "Token",
+        "cost": "花费",
+        "status": "状态"
+      }
     }
   },
   "relayTraces": {
@@ -814,7 +825,25 @@
       "matrix": "矩阵",
       "metered": "按量计费"
     },
-    "report": "兼容性报告"
+    "report": "兼容性报告",
+    "deleted": "绑定已删除",
+    "updated": "绑定已更新",
+    "editTitle": "编辑 Dify 绑定",
+    "bindings": {
+      "title": "已绑定的工作流",
+      "empty": "暂无 Dify 绑定"
+    },
+    "cols": {
+      "resource": "资源",
+      "mode": "模式",
+      "endpoint": "端点",
+      "pricing": "计费",
+      "created": "创建时间"
+    },
+    "delete": {
+      "title": "删除绑定？",
+      "message": "确定删除 {{resource}} 的 Dify 绑定？此操作不可撤销。"
+    }
   },
   "status": {
     "succeeded": "成功",

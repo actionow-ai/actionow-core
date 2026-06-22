@@ -48,6 +48,7 @@ import {
   grantModelSchema,
   syncChannelModelsSchema,
   updateChannelSchema,
+  updateDifySchema,
   updateModelSchema,
   updateModifierSchema,
   updatePricebookSchema,
@@ -55,6 +56,7 @@ import {
 } from './catalog-requests.js';
 import {
   channelViewSchema,
+  difyBindingViewSchema,
   modelGrantViewSchema,
   modelViewSchema,
   modifierViewSchema,
@@ -163,6 +165,8 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const ModelGrant = registry.register('ModelGrantView', modelGrantViewSchema);
   const Pricebook = registry.register('PricebookView', pricebookViewSchema);
   const Modifier = registry.register('ModifierView', modifierViewSchema);
+  const DifyBinding = registry.register('DifyBindingView', difyBindingViewSchema);
+  const UpdateDify = registry.register('UpdateDifyBody', updateDifySchema);
 
   // admin operational views (ops-views)
   const ApiKey = registry.register('ApiKeyView', apiKeyViewSchema);
@@ -801,6 +805,16 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     body: DifyImport,
     created: true,
   });
+  list('/admin/dify', 'List dify bindings', DifyBinding, 'catalog', keyset);
+  write({
+    method: 'patch',
+    path: '/admin/dify/{resourceId}',
+    summary: 'Update a dify binding',
+    tag: 'catalog',
+    body: UpdateDify,
+    response: DifyBinding,
+  });
+  del('/admin/dify/{resourceId}', 'Delete a dify binding', 'catalog');
   write({
     method: 'post',
     path: '/admin/models',
