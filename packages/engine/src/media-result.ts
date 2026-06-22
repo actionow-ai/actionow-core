@@ -137,6 +137,48 @@ export async function persistMediaResult(
   }
 }
 
+/** Default mime per modality for legacy outputs that lack one. */
+const DEFAULT_MIME: Record<Asset['modality'], string> = {
+  image: 'image/png',
+  video: 'video/mp4',
+  audio: 'audio/mpeg',
+  model3d: 'model/gltf-binary',
+};
+
+/**
+ * Read the produced {@link Asset}s from a settled job's `output`, transparently
+ * handling BOTH the canonical P1 MediaResult shape (`{kind:'media', assets[]}`)
+ * AND pre-P1 legacy outputs (`image_url(s)`/`video_url`/`audio_url`). The single
+ * reader every projection (gallery, OpenAI dialects) uses so old + new jobs render
+ * identically. Assets without a usable `url` are dropped.
+ */
+export function assetsFromJobOutput(output: unknown): Asset[] {
+  const rec =
+    typeof output === 'object' && output !== null ? (output as Record<string, unknown>) : {};
+  if (rec.kind === 'media' && Array.isArray(rec.assets)) {
+    return (rec.assets as Asset[]).filter((a) => typeof a.url === 'string' && a.url.length > 0);
+  }
+  // Legacy synthesis (pre-P1 jobs): build assets from the flat url keys.
+  const assets: Asset[] = [];
+  const push = (modality: Asset['modality'], url: unknown): void => {
+    if (typeof url === 'string' && url.length > 0) {
+      assets.push({ role: 'primary', modality, url, mime: DEFAULT_MIME[modality] });
+    }
+  };
+  const arr = rec.image_urls;
+  if (Array.isArray(arr)) for (const u of arr) push('image', u);
+  push('image', rec.image_url);
+  push('video', rec.video_url);
+  push('audio', rec.audio_url);
+  // De-dupe by url, preserving first-seen (image_url == image_urls[0]).
+  const seen = new Set<string>();
+  return assets.filter((a) => {
+    if (a.url === undefined || seen.has(a.url)) return false;
+    seen.add(a.url);
+    return true;
+  });
+}
+
 /**
  * provider_cost (µUSD, integer bigint) = Σ usage[dim] × costPerUnit[dim]. Returns
  * `undefined` when no per-unit cost is configured on the channel (unknown cost →

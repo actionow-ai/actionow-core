@@ -242,8 +242,10 @@ describe('job-exec processor', () => {
 
     const settled = await getJob(db, job.id);
     expect(settled?.status).toBe('succeeded');
-    const output = settled?.output as Record<string, unknown> | undefined;
-    expect(output?.image_url).toContain('https://asset.actionow.ai/');
+    // Output is the canonical MediaResult (P1); the asset URL is the durable one.
+    const output = settled?.output as { kind: string; assets: { url: string }[] } | undefined;
+    expect(output?.kind).toBe('media');
+    expect(output?.assets[0]?.url).toContain('https://asset.actionow.ai/');
     expect(puts).toHaveLength(1);
     const key = puts[0];
     if (key === undefined) throw new Error('no presigned key captured');

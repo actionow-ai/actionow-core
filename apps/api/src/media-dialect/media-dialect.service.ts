@@ -1,8 +1,28 @@
 import type { AdapterRegistry } from '@actionow/adapters';
 import type { StorageProvider } from '@actionow/contracts';
-import { createFileObject, type Database, getJob, type Job, markFileReady } from '@actionow/db';
-import type { JobExecutionContext, PersistMediaFn, RunRequest } from '@actionow/engine';
-import { EngineError, ExecutionService, JobRunner, persistMediaOutput } from '@actionow/engine';
+import {
+  createFileObject,
+  type Database,
+  getJob,
+  insertUsageLog,
+  type Job,
+  markFileReady,
+} from '@actionow/db';
+import type {
+  InsertMediaUsageLogFn,
+  JobExecutionContext,
+  PersistMediaFn,
+  PersistMediaResultFn,
+  RunRequest,
+} from '@actionow/engine';
+import {
+  assetsFromJobOutput,
+  EngineError,
+  ExecutionService,
+  JobRunner,
+  persistMediaOutput,
+  persistMediaResult,
+} from '@actionow/engine';
 import {
   type AppEnv,
   fetchBytesWithTimeout,
@@ -30,15 +50,6 @@ export interface ImagesResponse {
 export interface SpeechResult {
   bytes: Uint8Array;
   contentType: string;
-}
-
-function asString(v: unknown): string | undefined {
-  return typeof v === 'string' && v.length > 0 ? v : undefined;
-}
-
-/** Narrow a jsonb `unknown` (a job's `output`) to a record (else an empty one). */
-function toRecord(v: unknown): Record<string, unknown> {
-  return typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
 }
 
 /** OpenAI `response_format` → an audio content-type (fallback when the relay omits one). */
@@ -80,7 +91,10 @@ export class MediaDialectService {
     if (dto.size !== undefined) inputs.size = dto.size;
     // Per-image hold (the relay meters `{ images: N }` at settle).
     const job = await this.runToTerminal(IMAGE_RESOURCE, inputs, { images: n }, ctx);
-    const urls = imageUrls(toRecord(job.output));
+    const urls = assetsFromJobOutput(job.output)
+      .filter((a) => a.modality === 'image')
+      .map((a) => a.url)
+      .filter((u): u is string => u !== undefined);
     if (urls.length === 0) {
       throw new EngineError({
         code: 'upstream_error',
@@ -109,7 +123,7 @@ export class MediaDialectService {
       { characters: len, audio_seconds: Math.ceil(len / 2) },
       ctx,
     );
-    const audioUrl = asString(toRecord(job.output).audio_url);
+    const audioUrl = assetsFromJobOutput(job.output).find((a) => a.modality === 'audio')?.url;
     if (audioUrl === undefined) {
       throw new EngineError({
         code: 'upstream_error',
@@ -179,6 +193,10 @@ export class MediaDialectService {
   /** A JobRunner whose context is derived from the in-hand RunRequest (no db re-read). */
   private buildRunner(req: RunRequest): JobRunner {
     const persistMedia = this.buildPersistMedia();
+    const persistMediaResultFn = this.buildPersistMediaResult();
+    const insertUsageLogFn: InsertMediaUsageLogFn = async (row) => {
+      await insertUsageLog(this.db, row);
+    };
     const context: JobExecutionContext = {
       accountId: req.accountId,
       providerType: req.resource.providerType,
@@ -196,7 +214,9 @@ export class MediaDialectService {
       proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
       traceUpstream: this.env.RELAY_TRACE === 'full',
       traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
+      insertUsageLog: insertUsageLogFn,
       ...(persistMedia !== undefined ? { persistMedia } : {}),
+      ...(persistMediaResultFn !== undefined ? { persistMediaResult: persistMediaResultFn } : {}),
     });
   }
 
@@ -240,12 +260,48 @@ export class MediaDialectService {
       return result;
     };
   }
-}
 
-/** The relayed image urls (`image_urls[]` preferred, else `[image_url]`). */
-function imageUrls(output: Record<string, unknown>): string[] {
-  const arr = output.image_urls;
-  if (Array.isArray(arr)) return arr.filter((u): u is string => typeof u === 'string');
-  const single = asString(output.image_url);
-  return single !== undefined ? [single] : [];
+  /**
+   * The P1 canonical-result persistence closure (mirrors the worker): copy a
+   * MediaResult's assets to R2 + record a `file_object` per object (with media
+   * dims). Undefined when storage is unconfigured.
+   */
+  private buildPersistMediaResult(): PersistMediaResultFn | undefined {
+    const storage = this.storage;
+    const publicBaseUrl = this.env.STORAGE_PUBLIC_BASE_URL;
+    if (storage === null || publicBaseUrl === undefined) return undefined;
+    const db = this.db;
+    const bucket = this.env.STORAGE_BUCKET ?? '';
+    return async ({ tenantId, jobId, result }) => {
+      const persisted = await persistMediaResult({
+        storage,
+        publicBaseUrl,
+        tenantId,
+        jobId,
+        result,
+        fetchBytes: fetchBytesWithTimeout,
+        putBytes: putBytesWithTimeout,
+      });
+      for (const obj of persisted.objects) {
+        try {
+          const file = await createFileObject(db, {
+            tenantId,
+            provider: storage.kind,
+            bucket,
+            key: obj.key,
+          });
+          await markFileReady(db, file.id, {
+            ...(obj.size !== undefined ? { size: obj.size } : {}),
+            ...(obj.contentType !== undefined ? { contentType: obj.contentType } : {}),
+            ...(obj.width !== undefined ? { width: obj.width } : {}),
+            ...(obj.height !== undefined ? { height: obj.height } : {}),
+            ...(obj.duration !== undefined ? { duration: obj.duration } : {}),
+          });
+        } catch {
+          // best-effort; the asset url is already rewritten.
+        }
+      }
+      return persisted;
+    };
+  }
 }

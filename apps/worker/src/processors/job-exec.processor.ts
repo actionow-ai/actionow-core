@@ -1,5 +1,12 @@
-import { createFileObject, markFileReady } from '@actionow/db';
-import { JobRunner, type PersistMediaFn, persistMediaOutput } from '@actionow/engine';
+import { createFileObject, insertUsageLog, markFileReady } from '@actionow/db';
+import {
+  type InsertMediaUsageLogFn,
+  JobRunner,
+  type PersistMediaFn,
+  persistMediaOutput,
+  persistMediaResult,
+  type PersistMediaResultFn,
+} from '@actionow/engine';
 
 import { loadJobContext } from '../loaders.js';
 import type { WorkerRuntime } from '../runtime.js';
@@ -28,6 +35,11 @@ export interface JobExecProcessor {
  */
 export function createJobExecProcessor(runtime: WorkerRuntime): JobExecProcessor {
   const persistMedia = buildPersistMedia(runtime);
+  const persistMediaResultFn = buildPersistMediaResult(runtime);
+  // P1 metering: every settled media job writes a usage_log row (margin visibility).
+  const insertUsageLogFn: InsertMediaUsageLogFn = async (row) => {
+    await insertUsageLog(runtime.db, row);
+  };
   const runner = new JobRunner({
     db: runtime.db,
     adapters: runtime.adapters,
@@ -37,7 +49,9 @@ export function createJobExecProcessor(runtime: WorkerRuntime): JobExecProcessor
     proxyUrlEnv: runtime.env.UPSTREAM_PROXY_URL,
     traceUpstream: runtime.env.RELAY_TRACE === 'full',
     traceMaxBytes: runtime.env.RELAY_TRACE_MAX_BYTES,
+    insertUsageLog: insertUsageLogFn,
     ...(persistMedia !== undefined ? { persistMedia } : {}),
+    ...(persistMediaResultFn !== undefined ? { persistMediaResult: persistMediaResultFn } : {}),
   });
 
   return {
@@ -89,5 +103,49 @@ function buildPersistMedia(runtime: WorkerRuntime): PersistMediaFn | undefined {
       }
     }
     return result;
+  };
+}
+
+/**
+ * The P1 canonical-result persistence closure: copy a {@link MediaResult}'s
+ * assets to durable storage (`persistMediaResult`) and record ONE `ready`
+ * `file_object` per persisted object — including media metadata (width/height/
+ * duration). This is the SINGLE media `file_object` writer. Best-effort, like
+ * {@link buildPersistMedia}: errors never fail the job. `undefined` when storage
+ * is unconfigured (settle keeps the temp upstream URL).
+ */
+function buildPersistMediaResult(runtime: WorkerRuntime): PersistMediaResultFn | undefined {
+  const { storage, publicBaseUrl, fetchBytes, putBytes } = runtime;
+  if (storage === null || publicBaseUrl === undefined) return undefined;
+  return async ({ tenantId, jobId, result }) => {
+    const persisted = await persistMediaResult({
+      storage,
+      publicBaseUrl,
+      tenantId,
+      jobId,
+      result,
+      fetchBytes,
+      putBytes,
+    });
+    for (const obj of persisted.objects) {
+      try {
+        const file = await createFileObject(runtime.db, {
+          tenantId,
+          provider: storage.kind,
+          bucket: runtime.env.STORAGE_BUCKET ?? '',
+          key: obj.key,
+        });
+        await markFileReady(runtime.db, file.id, {
+          ...(obj.size !== undefined ? { size: obj.size } : {}),
+          ...(obj.contentType !== undefined ? { contentType: obj.contentType } : {}),
+          ...(obj.width !== undefined ? { width: obj.width } : {}),
+          ...(obj.height !== undefined ? { height: obj.height } : {}),
+          ...(obj.duration !== undefined ? { duration: obj.duration } : {}),
+        });
+      } catch {
+        // best-effort: the asset URL is already rewritten; a catalog row miss is non-fatal.
+      }
+    }
+    return persisted;
   };
 }

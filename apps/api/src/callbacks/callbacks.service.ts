@@ -9,6 +9,7 @@ import {
   getActivePricebookEntry,
   getJobByUpstreamHandle,
   getResource,
+  insertUsageLog,
   type Job,
   listApplicableModifiers,
   listChannels,
@@ -16,8 +17,13 @@ import {
   type ModifierRow,
   type PricebookEntryRow,
 } from '@actionow/db';
-import type { JobExecutionContext, PersistMediaFn } from '@actionow/engine';
-import { JobRunner, persistMediaOutput, signPayload } from '@actionow/engine';
+import type {
+  InsertMediaUsageLogFn,
+  JobExecutionContext,
+  PersistMediaFn,
+  PersistMediaResultFn,
+} from '@actionow/engine';
+import { JobRunner, persistMediaOutput, persistMediaResult, signPayload } from '@actionow/engine';
 import {
   type AppEnv,
   fetchBytesWithTimeout,
@@ -169,6 +175,10 @@ export class CallbacksService {
   /** A `JobRunner` bound to this app's deps + the callback context loader. */
   private buildRunner(): JobRunner {
     const persistMedia = this.buildPersistMedia();
+    const persistMediaResultFn = this.buildPersistMediaResult();
+    const insertUsageLogFn: InsertMediaUsageLogFn = async (row) => {
+      await insertUsageLog(this.db, row);
+    };
     return new JobRunner({
       db: this.db,
       adapters: this.adapters,
@@ -178,7 +188,9 @@ export class CallbacksService {
       proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
       traceUpstream: this.env.RELAY_TRACE === 'full',
       traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
+      insertUsageLog: insertUsageLogFn,
       ...(persistMedia !== undefined ? { persistMedia } : {}),
+      ...(persistMediaResultFn !== undefined ? { persistMediaResult: persistMediaResultFn } : {}),
     });
   }
 
@@ -226,6 +238,51 @@ export class CallbacksService {
         }
       }
       return result;
+    };
+  }
+
+  /**
+   * The P1 canonical-result persistence closure for the callback settle path
+   * (mirrors the worker): copy a MediaResult's assets to R2 + record a
+   * `file_object` per object (with media dims). Undefined when storage is
+   * unconfigured (callback settles with the temp upstream URL).
+   */
+  private buildPersistMediaResult(): PersistMediaResultFn | undefined {
+    const storage = this.storage;
+    const publicBaseUrl = this.env.STORAGE_PUBLIC_BASE_URL;
+    if (storage === null || publicBaseUrl === undefined) return undefined;
+    const db = this.db;
+    const bucket = this.env.STORAGE_BUCKET ?? '';
+    return async ({ tenantId, jobId, result }) => {
+      const persisted = await persistMediaResult({
+        storage,
+        publicBaseUrl,
+        tenantId,
+        jobId,
+        result,
+        fetchBytes: fetchBytesWithTimeout,
+        putBytes: putBytesWithTimeout,
+      });
+      for (const obj of persisted.objects) {
+        try {
+          const file = await createFileObject(db, {
+            tenantId,
+            provider: storage.kind,
+            bucket,
+            key: obj.key,
+          });
+          await markFileReady(db, file.id, {
+            ...(obj.size !== undefined ? { size: obj.size } : {}),
+            ...(obj.contentType !== undefined ? { contentType: obj.contentType } : {}),
+            ...(obj.width !== undefined ? { width: obj.width } : {}),
+            ...(obj.height !== undefined ? { height: obj.height } : {}),
+            ...(obj.duration !== undefined ? { duration: obj.duration } : {}),
+          });
+        } catch {
+          // best-effort; the asset url is already rewritten.
+        }
+      }
+      return persisted;
     };
   }
 
