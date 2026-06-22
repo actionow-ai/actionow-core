@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import { useSetConsoleFilters } from '../../components/console/ConsoleChrome';
 import { StatCard } from '../../components/console/StatCard';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
+import { LoadMore } from '../../components/data/LoadMore';
 import { MetricBarChart } from '../../components/data/MetricBarChart';
 import { Money } from '../../components/data/Money';
 import { QueryBoundary } from '../../components/data/QueryBoundary';
@@ -17,7 +18,7 @@ import { FIELD_INPUT_BASE } from '../../components/ui/fieldStyles';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { qk } from '../../lib/api/queryKeys';
-import type { AnalyticsUsageQuery, UsageRollupView } from '../../lib/api/types';
+import type { AnalyticsUsageQuery, UsageLogView, UsageRollupView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { formatCredits, formatCreditsSigned } from '../../lib/money';
 import { STALE_REFERENCE, STALE_VOLATILE } from '../../lib/query';
@@ -94,6 +95,46 @@ export function AnalyticsPage() {
   }, [tenants.data]);
   const bucketLabel = (bucket: string): string =>
     gb === 'tenant' ? (tenantName.get(bucket) ?? bucket) : bucket;
+
+  // Per-call billing log drill-down (wires the previously zero-call listUsage),
+  // scoped to the same tenant filter as the rollups.
+  const log = useInfiniteQuery({
+    queryKey: qk.usage({ tenantId: tenantId === '' ? undefined : tenantId }),
+    queryFn: ({ pageParam }) =>
+      api.listUsage({ tenantId: tenantId === '' ? undefined : tenantId, cursor: pageParam, limit: 50 }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    staleTime: STALE_VOLATILE,
+  });
+  const logRows = log.data?.pages.flatMap((p) => p.rows) ?? [];
+
+  const logCols: Column<UsageLogView>[] = [
+    {
+      key: 'time',
+      header: t('analytics.log.cols.time'),
+      cell: (r) => new Date(r.created_at).toLocaleString(),
+      width: '170px',
+    },
+    { key: 'model', header: t('analytics.log.cols.model'), cell: (r) => <span className="mono">{r.model}</span> },
+    {
+      key: 'tokens',
+      header: t('analytics.log.cols.tokens'),
+      cell: (r) => (r.input_tokens + r.output_tokens).toLocaleString(),
+      width: '110px',
+    },
+    {
+      key: 'cost',
+      header: t('analytics.log.cols.cost'),
+      cell: (r) => <Money micro={r.cost} />,
+      width: '110px',
+    },
+    {
+      key: 'status',
+      header: t('analytics.log.cols.status'),
+      cell: (r) => r.status,
+      width: '96px',
+    },
+  ];
 
   useSetConsoleFilters(
     () => (
@@ -373,6 +414,26 @@ export function AnalyticsPage() {
           empty={t('analytics.chart.empty')}
           searchable
           pageSize={20}
+        />
+      </div>
+
+      {/* Per-call billing log (drill-down) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+        <SectionHeader title={t('analytics.log.title')} />
+        <DataTable
+          columns={logCols}
+          rows={logRows}
+          rowKey={(r) => r.id}
+          loading={log.isLoading}
+          error={log.isError}
+          onRetry={() => void log.refetch()}
+          empty={t('analytics.log.empty')}
+          searchable
+        />
+        <LoadMore
+          hasNextPage={log.hasNextPage}
+          isFetchingNextPage={log.isFetchingNextPage}
+          onLoadMore={() => void log.fetchNextPage()}
         />
       </div>
     </div>

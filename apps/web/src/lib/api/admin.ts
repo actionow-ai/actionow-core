@@ -25,6 +25,7 @@ import type {
   CreateRouteGroupBody,
   CreateSecretBody,
   CreateTenantBody,
+  DifyBindingView,
   DifyImportBody,
   DifyImportView,
   GenerateCodesBody,
@@ -54,6 +55,7 @@ import type {
   TopupBody,
   UpdateApiKeyGroupBody,
   UpdateChannelBody,
+  UpdateDifyBody,
   UpdateModelBody,
   UpdateModifierBody,
   UpdateOfficialPriceBody,
@@ -169,6 +171,18 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     // response (the import path declares only a 201 with no body schema).
     difyImport: (body: DifyImportBody) =>
       rawClient.post<DifyImportView>('/admin/dify/import', body),
+    listDify: async (
+      params: { cursor?: string; limit?: number } = {},
+    ): Promise<Page<DifyBindingView>> =>
+      page<DifyBindingView>(await sdk.GET('/admin/dify', { params: { query: params } }), u),
+    updateDify: async (resourceId: string, body: UpdateDifyBody) =>
+      unwrap(
+        await sdk.PATCH('/admin/dify/{resourceId}', { params: { path: { resourceId } }, body }),
+        u,
+      ),
+    deleteDify: async (resourceId: string): Promise<void> => {
+      unwrap(await sdk.DELETE('/admin/dify/{resourceId}', { params: { path: { resourceId } } }), u);
+    },
 
     listAccounts: async () => page<AccountView>(await sdk.GET('/admin/accounts'), u).rows,
     createAccount: async (body: CreateAccountBody) =>
