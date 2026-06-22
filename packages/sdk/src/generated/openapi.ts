@@ -944,7 +944,10 @@ export interface paths {
         /** List pricing modifiers */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    cursor?: string;
+                    limit?: number | null;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -2742,7 +2745,10 @@ export interface paths {
         /** List the official price catalog */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    cursor?: string;
+                    limit?: number | null;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -3052,7 +3058,10 @@ export interface paths {
         /** List your tenant API keys */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    cursor?: string;
+                    limit?: number | null;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;

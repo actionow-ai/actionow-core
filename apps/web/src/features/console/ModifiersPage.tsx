@@ -1,5 +1,5 @@
 import { PencilSimpleIcon, PlusIcon, SlidersHorizontalIcon, TrashIcon } from '@phosphor-icons/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
 import { CardCollection } from '../../components/data/CardCollection';
 import { EntityCard } from '../../components/data/EntityCard';
+import { LoadMore } from '../../components/data/LoadMore';
 import { Money } from '../../components/data/Money';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
@@ -50,10 +51,13 @@ export function ModifiersPage() {
   const { t } = useTranslation('console');
   const api = useAdminApi();
   const qc = useQueryClient();
-  const { data, isLoading, isError, refetch } = useQuery({
+  const list = useInfiniteQuery({
     queryKey: qk.modifiers(),
-    queryFn: () => api.listModifiers(),
+    queryFn: ({ pageParam }) => api.listModifiers({ cursor: pageParam, limit: 50 }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
+  const rows = list.data?.pages.flatMap((p) => p.rows) ?? [];
 
   const [open, setOpen] = useState(false);
   // null = create mode; a string id = editing that modifier.
@@ -139,10 +143,10 @@ export function ModifiersPage() {
   return (
     <div style={{ height: '100%' }}>
       <CardCollection
-        rows={data ?? []}
-        loading={isLoading}
-        error={isError}
-        onRetry={() => void refetch()}
+        rows={rows}
+        loading={list.isLoading}
+        error={list.isError}
+        onRetry={() => void list.refetch()}
         empty={t('modifiers.empty')}
         renderCard={(r) => {
           const s = r.active ? 'active' : 'inactive';
@@ -175,6 +179,11 @@ export function ModifiersPage() {
             />
           );
         }}
+      />
+      <LoadMore
+        hasNextPage={list.hasNextPage}
+        isFetchingNextPage={list.isFetchingNextPage}
+        onLoadMore={() => void list.fetchNextPage()}
       />
 
       <Modal

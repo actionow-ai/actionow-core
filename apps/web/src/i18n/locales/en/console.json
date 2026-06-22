@@ -89,7 +89,10 @@
         "amount": "Amount",
         "credit": "Credits",
         "status": "Status"
-      }
+      },
+      "balance": "Balance",
+      "held": "Held",
+      "scanQr": "Scan to pay"
     },
     "settings": {
       "profile": "Profile",
@@ -720,7 +723,8 @@
     "copy": "Copy",
     "copied": "Copied",
     "copyFailed": "Copy failed",
-    "save": "Save"
+    "save": "Save",
+    "loadMore": "Load more"
   },
   "confirm": {
     "deleteChannelTitle": "Delete channel?",

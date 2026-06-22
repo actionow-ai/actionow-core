@@ -433,7 +433,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   list('/admin/resources/{id}/channels', 'List a resource’s channels', Channel, 'catalog');
   list('/admin/models', 'List relay models', Model, 'catalog');
   list('/admin/pricebook', 'List pricebook entries', Pricebook, 'pricing', pricebookQuery);
-  list('/admin/modifiers', 'List pricing modifiers', Modifier, 'pricing');
+  list('/admin/modifiers', 'List pricing modifiers', Modifier, 'pricing', keyset);
   list('/admin/api-keys', 'List a tenant’s API keys', ApiKey, 'admin', apiKeysQuery);
   list('/admin/jobs', 'List a tenant’s jobs', Job, 'admin', tenantKeyset);
   list('/admin/ledger', 'List a tenant’s ledger transactions', Ledger, 'admin', tenantKeyset);
@@ -509,9 +509,15 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     RouteGroupChannel,
     'billing',
   );
-  list('/admin/official-prices', 'List the official price catalog', OfficialPrice, 'billing');
+  list(
+    '/admin/official-prices',
+    'List the official price catalog',
+    OfficialPrice,
+    'billing',
+    keyset,
+  );
   list('/admin/models/{name}/grants', 'List a model’s tenant grants', ModelGrant, 'catalog');
-  list('/console/api-keys', 'List your tenant API keys', ConsoleApiKey, 'console');
+  list('/console/api-keys', 'List your tenant API keys', ConsoleApiKey, 'console', keyset);
   list('/console/models', 'Models visible to your tenant', ConsoleModel, 'console');
   list('/console/usage-log', 'Your tenant per-call usage log', ConsoleUsageLog, 'console', keyset);
   list('/console/payments', 'Your tenant payment history', ConsolePayment, 'console', keyset);

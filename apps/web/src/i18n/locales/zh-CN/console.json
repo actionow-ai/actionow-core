@@ -89,7 +89,10 @@
         "amount": "金额",
         "credit": "积分",
         "status": "状态"
-      }
+      },
+      "balance": "余额",
+      "held": "冻结",
+      "scanQr": "扫码支付"
     },
     "settings": {
       "profile": "资料",
@@ -720,7 +723,8 @@
     "copy": "复制",
     "copied": "已复制",
     "copyFailed": "复制失败",
-    "save": "保存"
+    "save": "保存",
+    "loadMore": "加载更多"
   },
   "confirm": {
     "deleteChannelTitle": "删除通道?",
