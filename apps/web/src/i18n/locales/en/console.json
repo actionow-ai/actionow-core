@@ -214,7 +214,8 @@
     "ranking": {
       "title": "Top models by cost",
       "empty": "No usage yet"
-    }
+    },
+    "viewTraces": "Traces"
   },
   "analytics": {
     "title": "Analytics",
@@ -290,7 +291,9 @@
       "reqHeaders": "Request headers",
       "reqBody": "Request body",
       "resBody": "Response body"
-    }
+    },
+    "jobIdPlaceholder": "Job ID",
+    "channelIdPlaceholder": "Channel ID"
   },
   "tenants": {
     "title": "Tenants",
