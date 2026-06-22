@@ -14,14 +14,18 @@ export type FileObject = InferSelectModel<typeof fileObject>;
  */
 export type CreateFileObjectInput = Omit<
   InferInsertModel<typeof fileObject>,
-  'id' | 'status' | 'size' | 'contentType' | 'etag' | 'createdAt'
+  'id' | 'status' | 'size' | 'contentType' | 'etag' | 'width' | 'height' | 'duration' | 'createdAt'
 >;
 
-/** Metadata observed via `head` once an upload completes. */
+/** Metadata observed via `head` once an upload completes (media dims added in P1). */
 export interface FileReadyInput {
   size?: number;
   contentType?: string;
   etag?: string;
+  /** Media metadata (P1) — pixel dims for image/video, seconds for video/audio. */
+  width?: number;
+  height?: number;
+  duration?: number;
 }
 
 /** Insert a `file_object` reference in status `pending`. */
@@ -54,6 +58,9 @@ export async function markFileReady(
       ...(meta.size !== undefined ? { size: meta.size } : {}),
       ...(meta.contentType !== undefined ? { contentType: meta.contentType } : {}),
       ...(meta.etag !== undefined ? { etag: meta.etag } : {}),
+      ...(meta.width !== undefined ? { width: meta.width } : {}),
+      ...(meta.height !== undefined ? { height: meta.height } : {}),
+      ...(meta.duration !== undefined ? { duration: meta.duration } : {}),
     })
     .where(eq(fileObject.id, id))
     .returning();

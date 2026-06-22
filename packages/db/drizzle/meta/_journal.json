@@ -183,6 +183,13 @@
       "when": 1782129864685,
       "tag": "0025_legal_spirit",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1782141047895,
+      "tag": "0026_broken_goliath",
+      "breakpoints": true
     }
   ]
 }
