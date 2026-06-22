@@ -28,6 +28,9 @@ interface AuthCtx {
   onUnauthorized: () => void;
   login: (email: string, password: string) => Promise<AuthUser>;
   register: (email: string, password: string) => Promise<AuthUser>;
+  /** Adopt an already-issued JWT (the OAuth callback hand-off). Validates +
+   *  stores it like a login; throws on a malformed/expired token. */
+  setSession: (token: string) => AuthUser;
   logout: () => void;
 }
 const Ctx = createContext<AuthCtx | null>(null);
@@ -71,16 +74,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [clearToken],
   );
 
-  const authenticate = useCallback(async (path: string, email: string, password: string): Promise<AuthUser> => {
-    const r = await createClient({ getToken: () => null, onUnauthorized: () => undefined }).post<{
-      token: string;
-    }>(`${config.authBase}${path}`, { email, password });
-    const claims = decodeJwt(r.token);
-    if (!claims) throw new ApiError('invalid_input', 'malformed token', 200);
-    localStorage.setItem(TOKEN_KEY, r.token);
-    setToken(r.token);
+  // Validate + persist an issued JWT (shared by login/register and the OAuth
+  // callback). Throws on a malformed/expired token so callers can show an error.
+  const setSession = useCallback((tok: string): AuthUser => {
+    const claims = decodeJwt(tok);
+    if (!claims || isExpired(claims)) throw new ApiError('invalid_input', 'malformed token', 200);
+    localStorage.setItem(TOKEN_KEY, tok);
+    setToken(tok);
     return { id: claims.sub, role: claims.role };
   }, []);
+
+  const authenticate = useCallback(
+    async (path: string, email: string, password: string): Promise<AuthUser> => {
+      const r = await createClient({ getToken: () => null, onUnauthorized: () => undefined }).post<{
+        token: string;
+      }>(`${config.authBase}${path}`, { email, password });
+      return setSession(r.token);
+    },
+    [setSession],
+  );
 
   const login = useCallback((email: string, password: string) => authenticate('/login', email, password), [authenticate]);
   const register = useCallback(
@@ -108,9 +120,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       onUnauthorized: clearToken,
       login,
       register,
+      setSession,
       logout,
     }),
-    [token, client, sdk, clearToken, login, register, logout],
+    [token, client, sdk, clearToken, login, register, setSession, logout],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

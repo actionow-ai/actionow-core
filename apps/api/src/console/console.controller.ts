@@ -17,8 +17,8 @@ import {
   consolePaymentViewSchema,
   type ConsoleUsageLogView,
   consoleUsageLogViewSchema,
-  type UsageRollupView,
-  usageRollupViewSchema,
+  type ConsoleUsageRollupView,
+  consoleUsageRollupViewSchema,
 } from '@actionow/contracts';
 import type {
   ApiKeyRow,
@@ -127,16 +127,18 @@ function toConsoleLedgerView(l: LedgerRow): LedgerView {
   });
 }
 
-/** Project a usage rollup row (bigint sums) to its decimal-string view. */
-function toUsageRollupView(row: UsageRollupRow): UsageRollupView {
-  return usageRollupViewSchema.parse({
+/**
+ * Project a usage rollup row to the TENANT view. Deliberately omits
+ * `provider_cost`/`margin` (operator-only — they reveal the platform's markup);
+ * the console schema strips them even if passed, but we never read them here.
+ */
+function toConsoleUsageRollupView(row: UsageRollupRow): ConsoleUsageRollupView {
+  return consoleUsageRollupViewSchema.parse({
     bucket: row.bucket,
     requests: row.requests,
     input_tokens: row.inputTokens.toString(),
     output_tokens: row.outputTokens.toString(),
     cost: row.cost.toString(),
-    provider_cost: row.providerCost.toString(),
-    margin: row.margin.toString(),
     errors: row.errors,
   });
 }
@@ -313,11 +315,11 @@ export class ConsoleController {
   async analyticsUsage(
     @Req() req: ConsoleRequest,
     @Query() raw: Record<string, string>,
-  ): Promise<UsageRollupView[]> {
+  ): Promise<ConsoleUsageRollupView[]> {
     const ctx = ctxOf(req);
     const q = parseConsoleAnalyticsUsage(raw);
     const rows = await this.console.analyticsUsage(ctx.tenantId, q);
-    return rows.map(toUsageRollupView);
+    return rows.map(toConsoleUsageRollupView);
   }
 
   @Get('usage-log')

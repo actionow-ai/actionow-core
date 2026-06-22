@@ -77,6 +77,7 @@ import {
   consoleModelViewSchema,
   consolePaymentViewSchema,
   consoleUsageLogViewSchema,
+  consoleUsageRollupViewSchema,
 } from './console-views.js';
 import {
   fileUrlResultSchema,
@@ -192,6 +193,10 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const ConsoleLedger = registry.register('ConsoleLedgerView', consoleLedgerViewSchema);
   const ConsoleModel = registry.register('ConsoleModelView', consoleModelViewSchema);
   const ConsoleUsageLog = registry.register('ConsoleUsageLogView', consoleUsageLogViewSchema);
+  const ConsoleUsageRollup = registry.register(
+    'ConsoleUsageRollupView',
+    consoleUsageRollupViewSchema,
+  );
   const ConsolePayment = registry.register('ConsolePaymentView', consolePaymentViewSchema);
   const ConsoleMe = registry.register('ConsoleMeView', consoleMeViewSchema);
   const ConsoleBalance = registry.register('ConsoleBalanceView', consoleBalanceViewSchema);
@@ -560,7 +565,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   getArray(
     '/console/analytics/usage',
     'Your tenant usage rollups',
-    UsageRollup,
+    ConsoleUsageRollup,
     'console',
     consoleAnalyticsQuery,
   );
@@ -577,6 +582,9 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   del('/admin/route-groups/{id}', 'Delete a route group', 'billing');
   del('/admin/route-groups/{id}/channels/{channelId}', 'Remove a group channel', 'billing');
   del('/admin/official-prices/{id}', 'Delete an official price row', 'billing');
+  del('/admin/pricebook/{id}', 'Delete a pricebook entry', 'pricing');
+  del('/admin/modifiers/{id}', 'Delete a pricing modifier', 'pricing');
+  del('/admin/secrets/{id}', 'Revoke an encrypted credential', 'admin');
   del('/admin/models/{name}', 'Delete a relay model', 'catalog');
   del('/admin/models/{name}/grants/{tenantId}', 'Revoke a model grant', 'catalog');
 

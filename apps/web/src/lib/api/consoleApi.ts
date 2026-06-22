@@ -15,9 +15,9 @@ import type {
   ConsoleModelView,
   ConsolePaymentView,
   ConsoleUsageLogView,
+  ConsoleUsageRollupView,
   ConsoleUsageView,
   Page,
-  UsageRollupView,
 } from './types';
 
 /**
@@ -56,8 +56,9 @@ export function makeConsoleApi(sdk: SdkClient, rawClient: ApiClient, onUnauthori
     listModels: async (): Promise<ConsoleModelView[]> =>
       page<ConsoleModelView>(await sdk.GET('/console/models'), u).rows,
 
-    // Tenant usage rollups (raw array, like the admin analytics route).
-    analyticsUsage: async (params: ConsoleAnalyticsQuery): Promise<UsageRollupView[]> =>
+    // Tenant usage rollups (raw array, like the admin analytics route). The
+    // tenant view OMITS provider_cost/margin — no platform-markup leak.
+    analyticsUsage: async (params: ConsoleAnalyticsQuery): Promise<ConsoleUsageRollupView[]> =>
       unwrap(await sdk.GET('/console/analytics/usage', { params: { query: params } }), u),
     // Per-call usage log — cursor-paginated keyset.
     usageLog: async (params: {

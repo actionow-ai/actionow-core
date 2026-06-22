@@ -10,6 +10,7 @@ import { AppOverview } from './features/app/AppOverview';
 import { AppSettings } from './features/app/AppSettings';
 import { AppUsage } from './features/app/AppUsage';
 import { AuthPage } from './features/auth/AuthPage';
+import { OAuthCallbackPage } from './features/auth/OAuthCallbackPage';
 import { AnalyticsPage } from './features/console/AnalyticsPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { CatalogPage } from './features/console/CatalogPage';
@@ -21,6 +22,7 @@ import { OfficialPricesPage } from './features/console/OfficialPricesPage';
 import { RedemptionCodesPage } from './features/console/RedemptionCodesPage';
 import { RelayTracesPage } from './features/console/RelayTracesPage';
 import { RouteGroupsPage } from './features/console/RouteGroupsPage';
+import { ServiceTokensPage } from './features/console/ServiceTokensPage';
 import { TenantsPage } from './features/console/TenantsPage';
 import { ProtectedRoute } from './lib/auth/ProtectedRoute';
 import { RootRoute } from './RootRoute';
@@ -38,6 +40,8 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<RootRoute />} />
       <Route path="/login" element={<AuthPage />} />
+      {/* OAuth hand-off: backend 302s here with the JWT in the URL fragment. */}
+      <Route path="/auth/callback" element={<OAuthCallbackPage />} />
 
       {/* Any authenticated user — the tenant self-service console (/app). */}
       <Route element={<ProtectedRoute />}>
@@ -79,6 +83,7 @@ export function AppRoutes() {
           {/* Accounts merged into the Tenants hub (per-tenant detail drawer). */}
           <Route path="accounts" element={<Navigate to="/console/tenants" replace />} />
           <Route path="api-keys" element={<ApiKeysPage />} />
+          <Route path="tokens" element={<ServiceTokensPage />} />
           <Route path="redemption-codes" element={<RedemptionCodesPage />} />
         </Route>
       </Route>

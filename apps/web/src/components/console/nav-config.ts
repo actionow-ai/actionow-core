@@ -69,6 +69,7 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       { to: '/console/tenants', labelKey: 'tenants' },
       { to: '/console/api-keys', labelKey: 'apiKeys' },
+      { to: '/console/tokens', labelKey: 'serviceTokens' },
       { to: '/console/redemption-codes', labelKey: 'redemptionCodes' },
     ],
   },

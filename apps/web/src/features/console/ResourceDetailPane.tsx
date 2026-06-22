@@ -88,6 +88,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
   const [editing, setEditing] = useState<ChannelView | undefined>(undefined);
   const [pbOpen, setPbOpen] = useState(false);
   const [delTarget, setDelTarget] = useState<ChannelView | undefined>(undefined);
+  const [pbDelTarget, setPbDelTarget] = useState<PricebookView | undefined>(undefined);
 
   const toggleStatus = useMutation({
     mutationFn: (c: ChannelView) =>
@@ -128,6 +129,25 @@ export function ResourceDetailPane({ id }: { id: string }) {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: qk.resources() });
       toast(t('resources.statusUpdated'));
+    },
+    onError: mutationError(t),
+  });
+  // Pricebook entries are versioned (a re-price is a NEW version via PricingModal),
+  // so in-place edits are just enable/disable + delete — closing the price table's
+  // formerly-dead `active` affordance.
+  const togglePbActive = useMutation({
+    mutationFn: (r: PricebookView) => api.updatePricebook(r.id, { active: !r.active }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.pricebook(id) });
+    },
+    onError: mutationError(t),
+  });
+  const deletePb = useMutation({
+    mutationFn: (r: PricebookView) => api.deletePricebook(r.id),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.pricebook(id) });
+      toast(t('pricebook.deleted'));
+      setPbDelTarget(undefined);
     },
     onError: mutationError(t),
   });
@@ -358,6 +378,23 @@ export function ResourceDetailPane({ id }: { id: string }) {
         empty={t('pricebook.empty')}
         searchable
         pageSize={10}
+        actionsWidth="96px"
+        rowActions={(r) => (
+          <div style={{ display: 'flex', gap: 'var(--s-1)' }}>
+            <RowAction
+              icon={r.active ? PauseIcon : PlayIcon}
+              label={r.active ? t('pricebook.actions.disable') : t('pricebook.actions.enable')}
+              loading={togglePbActive.isPending && togglePbActive.variables.id === r.id}
+              onClick={() => togglePbActive.mutate(r)}
+            />
+            <RowAction
+              icon={TrashIcon}
+              label={t('common.delete')}
+              danger
+              onClick={() => setPbDelTarget(r)}
+            />
+          </div>
+        )}
       />
     </>
   );
@@ -398,6 +435,22 @@ export function ResourceDetailPane({ id }: { id: string }) {
           if (delTarget) deleteChannel.mutate(delTarget);
         }}
         onClose={() => setDelTarget(undefined)}
+      />
+      <ConfirmDialog
+        open={pbDelTarget !== undefined}
+        title={t('pricebook.delete.title')}
+        message={t('pricebook.delete.message', {
+          method: pbDelTarget ? enumLabel(t, PRICEBOOK_METHODS, pbDelTarget.method) : '',
+          version: pbDelTarget?.version ?? '',
+        })}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        danger
+        loading={deletePb.isPending}
+        onConfirm={() => {
+          if (pbDelTarget) deletePb.mutate(pbDelTarget);
+        }}
+        onClose={() => setPbDelTarget(undefined)}
       />
     </div>
   );

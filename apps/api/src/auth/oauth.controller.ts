@@ -39,9 +39,10 @@ interface LinkBody {
  * flow — it stashes the CSRF `state` (+ Google PKCE verifier) in short-lived
  * HttpOnly cookies and 302-redirects to the provider. `GET
  * /auth/oauth/:provider/callback` re-asserts `state` against the cookie (a
- * mismatch is a 400), exchanges the code, and returns `{token}` (a real
- * frontend redirect is a follow-up). `POST /auth/link/:provider` (behind the JWT
- * guard) attaches an identity to the current user.
+ * mismatch is a 400), exchanges the code, and 302-redirects to the SPA's
+ * `/auth/callback` with the JWT in the URL fragment (`#token=…`). `POST
+ * /auth/link/:provider` (behind the JWT guard) attaches an identity to the
+ * current user.
  *
  * Cookies are HttpOnly + SameSite=Lax, and Secure in production; the
  * state/verifier are single-use and cleared on callback. No code/token/secret
@@ -97,7 +98,12 @@ export class OauthController {
     }
 
     const result = await this.oauth.callback(provider, code, codeVerifier);
-    res.status(200).json(result);
+    // Hand the JWT to the SPA via a top-level redirect. The token rides in the
+    // URL FRAGMENT (`#token=…`), never the query string, so it is not sent to
+    // the server on the next request nor written to access logs. The SPA's
+    // `/auth/callback` route reads it, stores it, and strips the fragment.
+    // Relative path → same origin as the API (the nginx-served SPA).
+    res.redirect(302, `/auth/callback#token=${encodeURIComponent(result.token)}`);
   }
 
   @Post('link/:provider')

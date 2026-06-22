@@ -67,6 +67,23 @@ export const consoleUsageLogViewSchema = z.object({
 });
 export type ConsoleUsageLogView = z.infer<typeof consoleUsageLogViewSchema>;
 
+/**
+ * One aggregated usage bucket for the caller's tenant (`GET /console/analytics/usage`).
+ * Deliberately a SUBSET of the operator's `UsageRollupView`: it OMITS `provider_cost`
+ * and `margin`, which reveal the platform's per-tenant markup and must never reach a
+ * tenant. zod strips unknown keys, so even if the DB row carries them the mapper drops
+ * them. Token/cost sums are bigint → decimal strings.
+ */
+export const consoleUsageRollupViewSchema = z.object({
+  bucket: z.string(),
+  requests: z.number(),
+  input_tokens: z.string(),
+  output_tokens: z.string(),
+  cost: z.string(),
+  errors: z.number(),
+});
+export type ConsoleUsageRollupView = z.infer<typeof consoleUsageRollupViewSchema>;
+
 /** One payment intent in the caller-tenant's topup history (`GET /console/payments`). Money as decimal strings. */
 export const consolePaymentViewSchema = z.object({
   id: z.string(),

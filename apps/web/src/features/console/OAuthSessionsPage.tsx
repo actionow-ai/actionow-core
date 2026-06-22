@@ -13,11 +13,12 @@ import { Checkbox } from '../../components/ui/Checkbox';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { JsonField, validateJson } from '../../components/ui/JsonField';
 import { Modal } from '../../components/ui/Modal';
+import { SectionHeader } from '../../components/ui/SectionHeader';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
-import type { CreateOAuthSessionBody, OAuthSessionListView } from '../../lib/api/types';
+import type { CreateOAuthSessionBody, OAuthSessionListView, SecretView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
 /**
@@ -38,7 +39,25 @@ export function OAuthSessionsPage() {
   });
   const invalidate = () => qc.invalidateQueries({ queryKey: qk.oauthSessions() });
 
+  // Stored encrypted credentials (provider API keys) — the other half of
+  // "Credentials". Created during channel setup; revocable here.
+  const secrets = useQuery({
+    queryKey: qk.secrets(),
+    queryFn: () => api.listSecrets(),
+  });
+
   const [revokeTarget, setRevokeTarget] = useState<OAuthSessionListView | undefined>(undefined);
+  const [secretRevokeTarget, setSecretRevokeTarget] = useState<SecretView | undefined>(undefined);
+
+  const revokeSecret = useMutation({
+    mutationFn: (id: string) => api.deleteSecret(id),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.secrets() });
+      toast(t('secrets.revoked'));
+      setSecretRevokeTarget(undefined);
+    },
+    onError: mutationError(t),
+  });
 
   // Turnkey codex login.
   const [codexOpen, setCodexOpen] = useState(false);
@@ -170,25 +189,64 @@ export function OAuthSessionsPage() {
     },
   ];
 
+  const secretCols: Column<SecretView>[] = [
+    {
+      key: 'id',
+      header: t('secrets.cols.id'),
+      cell: (r) => <code style={{ fontSize: 'var(--fs-sm)' }}>{r.id}</code>,
+    },
+    { key: 'provider', header: t('secrets.cols.provider'), cell: (r) => r.provider },
+    {
+      key: 'created',
+      header: t('secrets.cols.created'),
+      cell: (r) => fmtDate(r.created_at),
+      width: '170px',
+    },
+  ];
+
   return (
-    <div style={{ height: '100%' }}>
-      <DataTable
-        columns={cols}
-        rows={sessions.data ?? []}
-        rowKey={(r) => r.id}
-        loading={sessions.isLoading}
-        error={sessions.isError}
-        onRetry={() => void sessions.refetch()}
-        empty={t('oauthSessions.empty')}
-        rowActions={(r) => (
-          <Button variant="ghost" size="sm" onClick={() => setRevokeTarget(r)}>
-            <ProhibitIcon size={14} /> {t('oauthSessions.revoke')}
-          </Button>
-        )}
-        actionsWidth="120px"
-        searchable
-        pageSize={20}
-      />
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--s-5)' }}>
+      <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+        <SectionHeader title={t('oauthSessions.title')} />
+        <DataTable
+          columns={cols}
+          rows={sessions.data ?? []}
+          rowKey={(r) => r.id}
+          loading={sessions.isLoading}
+          error={sessions.isError}
+          onRetry={() => void sessions.refetch()}
+          empty={t('oauthSessions.empty')}
+          rowActions={(r) => (
+            <Button variant="ghost" size="sm" onClick={() => setRevokeTarget(r)}>
+              <ProhibitIcon size={14} /> {t('oauthSessions.revoke')}
+            </Button>
+          )}
+          actionsWidth="120px"
+          searchable
+          pageSize={20}
+        />
+      </section>
+
+      <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+        <SectionHeader title={t('secrets.title')} />
+        <DataTable
+          columns={secretCols}
+          rows={secrets.data ?? []}
+          rowKey={(r) => r.id}
+          loading={secrets.isLoading}
+          error={secrets.isError}
+          onRetry={() => void secrets.refetch()}
+          empty={t('secrets.empty')}
+          rowActions={(r) => (
+            <Button variant="ghost" size="sm" onClick={() => setSecretRevokeTarget(r)}>
+              <ProhibitIcon size={14} /> {t('secrets.revoke')}
+            </Button>
+          )}
+          actionsWidth="120px"
+          searchable
+          pageSize={20}
+        />
+      </section>
 
       <Modal
         open={codexOpen}
@@ -292,6 +350,22 @@ export function OAuthSessionsPage() {
           if (revokeTarget) revoke.mutate(revokeTarget.id);
         }}
         onClose={() => setRevokeTarget(undefined)}
+      />
+
+      <ConfirmDialog
+        open={secretRevokeTarget !== undefined}
+        title={t('secrets.confirmRevokeTitle')}
+        message={t('secrets.confirmRevokeMsg', {
+          provider: secretRevokeTarget?.provider ?? secretRevokeTarget?.id ?? '',
+        })}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        danger
+        loading={revokeSecret.isPending}
+        onConfirm={() => {
+          if (secretRevokeTarget !== undefined) revokeSecret.mutate(secretRevokeTarget.id);
+        }}
+        onClose={() => setSecretRevokeTarget(undefined)}
       />
     </div>
   );

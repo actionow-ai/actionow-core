@@ -2,6 +2,8 @@ import { ListIcon, XIcon } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useAuth } from '../../lib/auth/AuthProvider';
+import { homePath } from '../../lib/auth/homePath';
 import { BP } from '../../lib/breakpoints';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 import { Z } from '../../lib/zIndex';
@@ -12,6 +14,11 @@ import { Button } from '../ui/Button';
 
 export function Nav() {
   const { t } = useTranslation('landing');
+  const { user } = useAuth();
+  // Route the CTA by role: anonymous → /login, admin → console, tenant → /app.
+  // (Previously hardcoded `/console`, which bounces non-admins through a wrong
+  // route and anonymous visitors through an extra hop.)
+  const consoleHref = homePath(user);
   const isDesktop = useMediaQuery(BP.md);
   const [open, setOpen] = useState(false);
   // Airy glass over the hero; once scrolled, go opaque so content doesn't bleed through.
@@ -68,7 +75,7 @@ export function Nav() {
             <>
               <LanguageSwitch />
               <ThemeToggle />
-              <Button to="/console">{t('nav.console')}</Button>
+              <Button to={consoleHref}>{t('nav.console')}</Button>
             </>
           ) : (
             <button
@@ -121,7 +128,7 @@ export function Nav() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginTop: 'var(--s-2)' }}>
               <LanguageSwitch />
               <ThemeToggle />
-              <Button to="/console">{t('nav.console')}</Button>
+              <Button to={consoleHref}>{t('nav.console')}</Button>
             </div>
           </div>
         )}

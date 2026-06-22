@@ -8,6 +8,7 @@ export const qk = {
   modifiers: () => ['admin', 'modifiers'] as const,
   secrets: () => ['admin', 'secrets'] as const,
   apiKeys: (tenantId: string) => ['admin', 'api-keys', tenantId] as const,
+  adminTokens: () => ['admin', 'tokens'] as const,
   redemptionCodes: (status?: string) =>
     status === undefined
       ? (['admin', 'redemption-codes'] as const)

@@ -4,6 +4,7 @@ import { page, unwrap } from './sdkClient';
 import type {
   AccountView,
   AddGroupChannelBody,
+  AdminTokenView,
   AnalyticsUsageQuery,
   ApiKeyCreatedView,
   ApiKeyView,
@@ -12,6 +13,7 @@ import type {
   CodexLoginStartBody,
   CodexLoginStartView,
   CreateAccountBody,
+  CreateAdminTokenBody,
   CreateApiKeyBody,
   CreateChannelBody,
   CreateModelBody,
@@ -37,6 +39,8 @@ import type {
   Page,
   PaymentIntentView,
   PricebookView,
+  ProvisionBody,
+  ProvisionView,
   RedemptionCodeView,
   RelayTraceQuery,
   RelayTraceView,
@@ -51,9 +55,12 @@ import type {
   UpdateApiKeyGroupBody,
   UpdateChannelBody,
   UpdateModelBody,
+  UpdateModifierBody,
   UpdateOfficialPriceBody,
+  UpdatePricebookBody,
   UpdateResourceBody,
   UpdateRouteGroupBody,
+  UpdateTenantBody,
   UsageLogView,
   UsageRollupView,
 } from './types';
@@ -83,6 +90,12 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     listTenants: async () => page<TenantView>(await sdk.GET('/admin/tenants'), u).rows,
     createTenant: async (body: CreateTenantBody, idempotencyKey?: string) =>
       unwrap(await sdk.POST('/admin/tenants', { body, headers: idem(idempotencyKey) }), u),
+    // Atomic onboarding: tenant + account + API key in one call. Returns the
+    // key plaintext ONCE (shown then, never again).
+    provision: async (body: ProvisionBody, idempotencyKey?: string): Promise<ProvisionView> =>
+      unwrap(await sdk.POST('/admin/provision', { body, headers: idem(idempotencyKey) }), u),
+    updateTenant: async (id: string, body: UpdateTenantBody) =>
+      unwrap(await sdk.PATCH('/admin/tenants/{id}', { params: { path: { id } }, body }), u),
 
     listResources: async () => page<ResourceView>(await sdk.GET('/admin/resources'), u).rows,
     createResource: async (body: CreateResourceBody, idempotencyKey?: string) =>
@@ -134,10 +147,20 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
       ).rows,
     createPricebook: async (body: CreatePricebookBody, idempotencyKey?: string) =>
       unwrap(await sdk.POST('/admin/pricebook', { body, headers: idem(idempotencyKey) }), u),
+    updatePricebook: async (id: string, body: UpdatePricebookBody) =>
+      unwrap(await sdk.PATCH('/admin/pricebook/{id}', { params: { path: { id } }, body }), u),
+    deletePricebook: async (id: string): Promise<void> => {
+      unwrap(await sdk.DELETE('/admin/pricebook/{id}', { params: { path: { id } } }), u);
+    },
 
     listModifiers: async () => page<ModifierView>(await sdk.GET('/admin/modifiers'), u).rows,
     createModifier: async (body: CreateModifierBody) =>
       unwrap(await sdk.POST('/admin/modifiers', { body }), u),
+    updateModifier: async (id: string, body: UpdateModifierBody) =>
+      unwrap(await sdk.PATCH('/admin/modifiers/{id}', { params: { path: { id } }, body }), u),
+    deleteModifier: async (id: string): Promise<void> => {
+      unwrap(await sdk.DELETE('/admin/modifiers/{id}', { params: { path: { id } } }), u);
+    },
 
     // HYBRID: the dify-import response (`DifyImportView`) isn't a registered path
     // response (the import path declares only a 201 with no body schema).
@@ -173,6 +196,16 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     // Revoke (soft-delete) a key — 204 → void.
     deleteApiKey: async (id: string): Promise<void> => {
       unwrap(await sdk.DELETE('/admin/api-keys/{id}', { params: { path: { id } } }), u);
+    },
+
+    // --- Admin service tokens (M2M credentials for the admin API) ---
+    listAdminTokens: async () => page<AdminTokenView>(await sdk.GET('/admin/tokens'), u).rows,
+    // Mint returns the plaintext (`at_…`) ONCE — the registered path response IS
+    // `{ id, plaintext }`, so the typed SDK returns it directly (no raw needed).
+    createAdminToken: async (body: CreateAdminTokenBody): Promise<ApiKeyCreatedView> =>
+      unwrap(await sdk.POST('/admin/tokens', { body }), u),
+    revokeAdminToken: async (id: string): Promise<void> => {
+      unwrap(await sdk.DELETE('/admin/tokens/{id}', { params: { path: { id } } }), u);
     },
 
     // --- Route groups (billing/routing) ---
@@ -230,6 +263,10 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     // FE consumes the returned `SecretView` — keep on raw.
     createSecret: (body: CreateSecretBody) => rawClient.post<SecretView>('/admin/secrets', body),
     listSecrets: async () => page<SecretView>(await sdk.GET('/admin/secrets'), u).rows,
+    // Revoke (soft-delete) a stored credential — 204 → void.
+    deleteSecret: async (id: string): Promise<void> => {
+      unwrap(await sdk.DELETE('/admin/secrets/{id}', { params: { path: { id } } }), u);
+    },
 
     listModels: async () => page<ModelView>(await sdk.GET('/admin/models'), u).rows,
     createModel: async (body: CreateModelBody, idempotencyKey?: string) =>

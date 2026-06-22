@@ -22,7 +22,12 @@
     "brandLead": "多租户、积分计费、协议中转,开箱即用。",
     "b1": "OpenAI / Anthropic / Gemini 兼容端点",
     "b2": "租户自助:Key、用量、充值",
-    "b3": "按模型 token 计价与对账"
+    "b3": "按模型 token 计价与对账",
+    "callback": {
+      "failedTitle": "登录失败",
+      "failedHint": "未能完成登录，请重试。",
+      "backToLogin": "返回登录"
+    }
   },
   "app": {
     "title": "租户自助控制台",
@@ -156,7 +161,8 @@
     "dify": "Dify 导入",
     "redemptionCodes": "卡密兑换",
     "tmedia": "素材",
-    "oauthSessions": "凭证"
+    "oauthSessions": "凭证",
+    "serviceTokens": "服务令牌"
   },
   "topbar": {
     "admin": "管理员",
@@ -183,7 +189,8 @@
     "officialPrices": "模型参考价格",
     "dify": "把 Dify 工作流导入为资源",
     "accounts": "账户余额与充值",
-    "apiKeys": "签发与管理 API Key"
+    "apiKeys": "签发与管理 API Key",
+    "serviceTokens": "管理 API 的机器对机器（M2M）凭据"
   },
   "dashboard": {
     "stats": {
@@ -305,7 +312,16 @@
     },
     "empty": "暂无租户",
     "created": "租户已创建",
-    "submit": "创建"
+    "submit": "创建",
+    "provision": {
+      "action": "一键开通",
+      "title": "开通客户",
+      "credits": "初始额度",
+      "submit": "开通",
+      "done": "客户已开通",
+      "keyTitle": "API 密钥（仅显示一次）",
+      "keyHint": "请立即复制此密钥，关闭后将无法再次查看。"
+    }
   },
   "accounts": {
     "title": "账户 / 充值",
@@ -579,6 +595,15 @@
       "fixedCredits": "以「人类 credit」表示的固定价格(1 credit = 1,000,000 µcredits)。后端会换算为 µcredits。",
       "resourceVersion": "该定价适用的资源版本。默认取资源的当前版本。",
       "version": "该定价条目的版本号;调高它可覆盖更早的定价。"
+    },
+    "deleted": "价格已删除",
+    "actions": {
+      "enable": "启用",
+      "disable": "停用"
+    },
+    "delete": {
+      "title": "删除价格？",
+      "message": "确定删除 {{method}} 价格（v{{version}}）？此操作不可撤销。"
     }
   },
   "mock": {
@@ -694,7 +719,8 @@
     "retry": "重试",
     "copy": "复制",
     "copied": "已复制",
-    "copyFailed": "复制失败"
+    "copyFailed": "复制失败",
+    "save": "保存"
   },
   "confirm": {
     "deleteChannelTitle": "删除通道?",
@@ -733,7 +759,15 @@
       "op": "操作",
       "value": "值(可空)",
       "priority": "优先级(可空)",
-      "stackable": "可叠加"
+      "stackable": "可叠加",
+      "active": "启用"
+    },
+    "edit": "编辑修饰规则",
+    "updated": "修饰规则已更新",
+    "deleted": "修饰规则已删除",
+    "delete": {
+      "title": "删除修饰规则？",
+      "message": "确定删除「{{scope}}」修饰规则？此操作不可撤销。"
     }
   },
   "dify": {
@@ -973,6 +1007,44 @@
       "authJson": "授权 JSON"
     },
     "confirmRevokeTitle": "撤销凭证?",
-    "confirmRevokeMsg": "确定撤销 {{account}}?使用它的渠道将无法解析。"
+    "confirmRevokeMsg": "确定撤销 {{account}}?使用它的渠道将无法解析。",
+    "title": "OAuth 会话"
+  },
+  "tokens": {
+    "new": "新建令牌",
+    "empty": "暂无服务令牌",
+    "submit": "生成令牌",
+    "revoke": "吊销",
+    "revoked": "令牌已吊销",
+    "never": "永不过期",
+    "cols": {
+      "created": "创建时间",
+      "expires": "过期时间"
+    },
+    "form": {
+      "name": "名称",
+      "expiresAt": "过期时间（可选）"
+    },
+    "reveal": {
+      "title": "令牌（仅显示一次）",
+      "warn": "请立即复制此令牌，关闭后将无法再次查看。"
+    },
+    "revokeConfirm": {
+      "title": "吊销令牌？",
+      "msg": "确定吊销「{{name}}」？使用它的集成将立即失效。"
+    }
+  },
+  "secrets": {
+    "title": "已存凭据",
+    "empty": "暂无已存凭据",
+    "revoke": "吊销",
+    "revoked": "凭据已吊销",
+    "cols": {
+      "id": "ID",
+      "provider": "提供方",
+      "created": "创建时间"
+    },
+    "confirmRevokeTitle": "吊销凭据？",
+    "confirmRevokeMsg": "确定吊销 {{provider}} 凭据？使用它的渠道在重新绑定前将失败。"
   }
 }
