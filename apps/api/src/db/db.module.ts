@@ -1,6 +1,7 @@
 import { createDefaultRegistry } from '@actionow/adapters';
 import type { Database } from '@actionow/db';
 import { createDb } from '@actionow/db';
+import { registerEngineAdapters } from '@actionow/engine';
 import type { AppEnv, RateLimiter } from '@actionow/infra';
 import { createRedis, loadEnv, RedisRateLimiter } from '@actionow/infra';
 import type { Provider } from '@nestjs/common';
@@ -24,7 +25,7 @@ const dbProvider: Provider = {
 
 const adaptersProvider: Provider = {
   provide: ADAPTERS,
-  useFactory: () => createDefaultRegistry(),
+  useFactory: () => registerEngineAdapters(createDefaultRegistry()),
 };
 
 const queueProvider: Provider = {

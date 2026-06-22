@@ -1,4 +1,4 @@
-import type { ProviderAdapter } from '@actionow/adapters';
+import type { AdapterRegistry, ProviderAdapter } from '@actionow/adapters';
 import type {
   AdapterContext,
   PollResult,
@@ -113,4 +113,15 @@ export function createPluginAdapter(): ProviderAdapter {
       return { code: 'upstream_error', message: 'plugin error', retryable: false };
     },
   };
+}
+
+/**
+ * Register the engine-provided adapters (currently the generic plugin adapter)
+ * into an existing registry. Called by the api + worker after
+ * `createDefaultRegistry()` — the adapters package can't depend on the engine, so
+ * the engine's adapters are wired in at the app layer.
+ */
+export function registerEngineAdapters(registry: AdapterRegistry): AdapterRegistry {
+  registry.register(createPluginAdapter());
+  return registry;
 }
