@@ -11,6 +11,7 @@ import { QueryBoundary } from '../../components/data/QueryBoundary';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { TimeSeriesChart } from '../../components/data/TimeSeriesChart';
 import { Button } from '../../components/ui/Button';
+import { FIELD_INPUT_BASE } from '../../components/ui/fieldStyles';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { qk } from '../../lib/api/queryKeys';
@@ -33,12 +34,23 @@ export function AppUsage() {
 
   const [groupBy, setGroupBy] = useUrlState('by', 'day');
   const [metric, setMetric] = useUrlState('metric', 'cost');
+  const [from, setFrom] = useUrlState('from');
+  const [to, setTo] = useUrlState('to');
   const gb = (GROUP_BYS as string[]).includes(groupBy) ? (groupBy as GroupBy) : 'day';
   const mt = (METRICS as string[]).includes(metric) ? (metric as Metric) : 'cost';
 
+  // A YYYY-MM-DD date → ISO instant (day bounds), so a tenant can scope to an
+  // account period; omitted when blank.
+  const params: ConsoleAnalyticsQuery = useMemo(() => {
+    const p: ConsoleAnalyticsQuery = { groupBy: gb };
+    if (from !== '') p.from = `${from}T00:00:00Z`;
+    if (to !== '') p.to = `${to}T23:59:59Z`;
+    return p;
+  }, [gb, from, to]);
+
   const analytics = useQuery({
-    queryKey: qk.consoleAnalytics({ groupBy: gb }),
-    queryFn: () => api.analyticsUsage({ groupBy: gb }),
+    queryKey: qk.consoleAnalytics(params as unknown as Record<string, unknown>),
+    queryFn: () => api.analyticsUsage(params),
     staleTime: STALE_VOLATILE,
   });
   const rows = analytics.data ?? [];
@@ -143,6 +155,44 @@ export function AppUsage() {
           onChange={setMetric}
           options={METRICS.map((m) => ({ value: m, label: t(`analytics.metric.${m}`) }))}
         />
+        <label
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 'var(--s-2)',
+            fontSize: 'var(--fs-sm)',
+            color: 'var(--muted)',
+          }}
+        >
+          {t('analytics.from')}
+          <input
+            type="date"
+            value={from}
+            max={to === '' ? undefined : to}
+            onChange={(e) => setFrom(e.target.value)}
+            className="field"
+            style={{ ...FIELD_INPUT_BASE, width: 'auto' }}
+          />
+        </label>
+        <label
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 'var(--s-2)',
+            fontSize: 'var(--fs-sm)',
+            color: 'var(--muted)',
+          }}
+        >
+          {t('analytics.to')}
+          <input
+            type="date"
+            value={to}
+            min={from === '' ? undefined : from}
+            onChange={(e) => setTo(e.target.value)}
+            className="field"
+            style={{ ...FIELD_INPUT_BASE, width: 'auto' }}
+          />
+        </label>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
