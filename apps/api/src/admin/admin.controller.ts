@@ -5,6 +5,8 @@ import {
   adminTokenViewSchema,
   type ApiKeyView,
   apiKeyViewSchema,
+  type ChannelHealthView,
+  channelHealthViewSchema,
   type ChannelView,
   channelViewSchema,
   type CodexLoginStartView,
@@ -25,6 +27,10 @@ import {
   oauthSessionViewSchema,
   type OfficialPriceView,
   officialPriceViewSchema,
+  type OpsHealthView,
+  opsHealthViewSchema,
+  type OpsSummaryView,
+  opsSummaryViewSchema,
   type PricebookView,
   pricebookViewSchema,
   type ProvisionView,
@@ -50,6 +56,7 @@ import type {
   AccountRow,
   AdminTokenView as AdminTokenRow,
   ApiKeyRow,
+  ChannelHealthRow,
   Job,
   LedgerRow,
   ModelGrantRow,
@@ -987,6 +994,9 @@ export class AdminController {
       ...(q.channelId !== undefined ? { channelId: q.channelId } : {}),
       ...(q.from !== undefined ? { from: new Date(q.from) } : {}),
       ...(q.to !== undefined ? { to: new Date(q.to) } : {}),
+      ...(q.responseStatus !== undefined ? { responseStatus: q.responseStatus } : {}),
+      ...(q.errorsOnly !== undefined ? { errorsOnly: q.errorsOnly } : {}),
+      ...(q.isStream !== undefined ? { isStream: q.isStream } : {}),
     };
     const page = toPageParams({
       ...(q.limit !== undefined ? { limit: String(q.limit) } : {}),
@@ -999,11 +1009,30 @@ export class AdminController {
   // ----- analytics -----
 
   @Get('analytics/usage')
-  @ApiOperation({ summary: 'Usage rollups by day/model/tenant/channel/api-key' })
+  @ApiOperation({ summary: 'Usage rollups by minute/hour/day/model/tenant/channel/api-key' })
   async analyticsUsage(@Query() raw: Record<string, string>): Promise<UsageRollupView[]> {
     const q = parseAnalyticsUsageQuery(raw);
     const rows = await this.admin.analyticsUsage(q);
     return rows.map(toUsageRollupView);
+  }
+
+  // ----- ops snapshot -----
+
+  @Get('summary')
+  @ApiOperation({ summary: 'Authoritative platform counts (tenants/resources/accounts)' })
+  async summary(): Promise<OpsSummaryView> {
+    return opsSummaryViewSchema.parse(await this.admin.opsSummary());
+  }
+
+  @Get('health')
+  @ApiOperation({ summary: 'Live ops health: per-channel circuit-breaker state + billable RPM' })
+  async health(): Promise<OpsHealthView> {
+    const snapshot = await this.admin.opsHealth();
+    return opsHealthViewSchema.parse({
+      window_seconds: snapshot.windowSeconds,
+      rpm_billable: snapshot.rpmBillable,
+      channels: snapshot.channels.map(toChannelHealthView),
+    });
   }
 }
 
@@ -1347,5 +1376,20 @@ function toUsageRollupView(row: UsageRollupRow): UsageRollupView {
     provider_cost: row.providerCost.toString(),
     margin: row.margin.toString(),
     errors: row.errors,
+    avg_latency_ms: row.avgLatencyMs,
+    p95_latency_ms: row.p95LatencyMs,
+  });
+}
+
+function toChannelHealthView(row: ChannelHealthRow): ChannelHealthView {
+  return channelHealthViewSchema.parse({
+    channel_id: row.channelId,
+    resource_id: row.resourceId,
+    provider_type: row.providerType,
+    status: row.status,
+    credential_ref: row.credentialRef,
+    cooldown_until: row.cooldownUntil === null ? null : row.cooldownUntil.toISOString(),
+    consecutive_failures: row.consecutiveFailures,
+    last_failure_at: row.lastFailureAt === null ? null : row.lastFailureAt.toISOString(),
   });
 }

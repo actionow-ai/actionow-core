@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { qk } from '../../lib/api/queryKeys';
 import type { TenantView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { formatCredits } from '../../lib/money';
 import { STALE_REFERENCE } from '../../lib/query';
 import { FIELD_INPUT_BASE } from '../ui/fieldStyles';
 import { Modal } from '../ui/Modal';
@@ -76,9 +77,24 @@ function TenantPickerModal({
   onChange: (v: string) => void;
   placeholder?: string;
 }) {
-  const { t } = useTranslation('console');
+  const { t, i18n } = useTranslation('console');
+  const api = useAdminApi();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
+
+  // Per-tenant balance for the rich rows — fetched only while the picker is open
+  // (cheap reference query, cached); maps tenant_id → µcredit balance string.
+  const { data: accounts } = useQuery({
+    queryKey: qk.accounts(),
+    queryFn: () => api.listAccounts(),
+    staleTime: STALE_REFERENCE,
+    enabled: open,
+  });
+  const balanceByTenant = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const a of accounts ?? []) m.set(a.tenant_id, a.credit_balance);
+    return m;
+  }, [accounts]);
 
   const selected = tenants.find((tn) => tn.id === value);
   const allLabel = placeholder ?? t('tenants.picker.all');
@@ -104,6 +120,9 @@ function TenantPickerModal({
         type="button"
         onClick={() => setOpen(true)}
         aria-label={allLabel}
+        // `.field` gives the bordered glass surface (border/radius/min-height/padding)
+        // so the trigger matches the other field controls; FIELD_INPUT_BASE adds fill.
+        className="field"
         style={{
           ...FIELD_INPUT_BASE,
           display: 'inline-flex',
@@ -123,7 +142,12 @@ function TenantPickerModal({
 
       <Modal open={open} title={t('tenants.picker.title')} onClose={() => setOpen(false)}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-          <TextField label={t('common.search')} value={q} onChange={setQ} placeholder={allLabel} />
+          <TextField
+            label={t('common.search')}
+            value={q}
+            onChange={setQ}
+            placeholder={t('tenants.picker.searchPlaceholder')}
+          />
           <div
             style={{
               maxHeight: '50vh',
@@ -134,13 +158,38 @@ function TenantPickerModal({
             }}
           >
             <PickerRow active={value === ''} onClick={() => pick('')}>
-              {allLabel}
+              <span style={{ fontWeight: 'var(--fw-medium)' }}>{allLabel}</span>
+              <span style={{ flex: 1 }} />
+              <span style={{ color: 'var(--faint)', fontSize: 'var(--fs-caption)' }}>
+                {t('tenants.picker.count', { n: tenants.length })}
+              </span>
             </PickerRow>
-            {filtered.map((tn) => (
-              <PickerRow key={tn.id} active={tn.id === value} onClick={() => pick(tn.id)}>
-                {tn.name}
-              </PickerRow>
-            ))}
+            {filtered.map((tn) => {
+              const bal = balanceByTenant.get(tn.id);
+              return (
+                <PickerRow key={tn.id} active={tn.id === value} onClick={() => pick(tn.id)}>
+                  <span
+                    style={{
+                      fontWeight: 'var(--fw-medium)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {tn.name}
+                  </span>
+                  <span className="mono" style={{ color: 'var(--faint)', fontSize: 'var(--fs-caption)' }}>
+                    {tn.id.slice(0, 8)}
+                  </span>
+                  <span style={{ flex: 1 }} />
+                  {bal !== undefined && (
+                    <span className="tabular" style={{ color: 'var(--muted)', fontSize: 'var(--fs-caption)' }}>
+                      {formatCredits(bal, i18n.language)}
+                    </span>
+                  )}
+                </PickerRow>
+              );
+            })}
             {filtered.length === 0 && (
               <div
                 style={{
@@ -176,7 +225,9 @@ function PickerRow({
       onClick={onClick}
       className="glass-hover"
       style={{
-        display: 'block',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--s-2)',
         width: '100%',
         textAlign: 'left',
         padding: 'var(--s-3)',
@@ -186,7 +237,6 @@ function PickerRow({
         fontSize: 'var(--fs-sm)',
         background: active ? 'var(--hover-bg)' : 'transparent',
         color: active ? 'var(--text)' : 'var(--muted)',
-        fontWeight: active ? 'var(--fw-medium)' : undefined,
       }}
     >
       {children}

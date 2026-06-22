@@ -14,12 +14,13 @@ import { Button } from '../../components/ui/Button';
 import { DateField } from '../../components/ui/DateField';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { metricMicro } from '../../lib/analyticsMetric';
 import { qk } from '../../lib/api/queryKeys';
 import type { ConsoleAnalyticsQuery, ConsoleUsageLogView } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
+import { formatCredits } from '../../lib/money';
 import { STALE_VOLATILE } from '../../lib/query';
 import { useUrlState } from '../../lib/useUrlState';
-import { metricMicro } from '../console/AnalyticsPage';
 
 type GroupBy = ConsoleAnalyticsQuery['groupBy'];
 // NOTE: no `margin` — the tenant view deliberately omits provider_cost/margin
@@ -79,6 +80,10 @@ export function AppUsage() {
       <span className="tabular">{new Intl.NumberFormat(i18n.language).format(BigInt(micro))}</span>
     );
   };
+  const fmtStr = (micro: string): string =>
+    mt === 'cost'
+      ? formatCredits(micro, i18n.language)
+      : new Intl.NumberFormat(i18n.language).format(BigInt(micro));
 
   const series = useMemo(
     () =>
@@ -205,7 +210,7 @@ export function AppUsage() {
           ) : (
             <div className="panel" style={{ borderRadius: 'var(--r-md)', padding: 'var(--s-4)' }}>
               {gb === 'day' ? (
-                <TimeSeriesChart points={series} ariaLabel={chartTitle} />
+                <TimeSeriesChart points={series} ariaLabel={chartTitle} format={fmtStr} />
               ) : (
                 <MetricBarChart bars={bars} format={fmtMetric} topN={10} />
               )}

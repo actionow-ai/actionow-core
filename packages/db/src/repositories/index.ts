@@ -2,6 +2,8 @@ export { holdCredits, releaseHold, topUp } from './account.js';
 export {
   type AccountRow,
   type ApiKeyRow,
+  countAccounts,
+  countTenants,
   createAccount,
   type CreateAccountInput,
   createTenant,
@@ -54,6 +56,8 @@ export {
 } from './auth.js';
 export {
   applicableScopes,
+  type ChannelHealthRow,
+  countResources,
   createDifyBinding,
   createModifier,
   type CreateModifierInput,
@@ -79,6 +83,7 @@ export {
   getSecretRef,
   getSecretRefById,
   listActiveModifiers,
+  listAllChannelsWithHealth,
   listApplicableModifiers,
   listChannels,
   listChannelsForResource,
@@ -270,6 +275,7 @@ export {
 } from './settle.js';
 export type { DbOrTx } from './types.js';
 export {
+  countUsageLogs,
   insertUsageLog,
   type InsertUsageLogInput,
   listUsageLogsByTenant,

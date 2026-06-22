@@ -148,6 +148,7 @@
     },
     "dashboard": "Dashboard",
     "analytics": "Analytics",
+    "opsOverview": "Overview · Analytics",
     "relayTraces": "Relay traces",
     "overview": "Overview",
     "tusage": "Usage",
@@ -179,6 +180,7 @@
   "subtitles": {
     "dashboard": "Tenants & resources overview, recent jobs",
     "analytics": "Usage, cost and margin over time and by dimension",
+    "opsOverview": "Global usage, cost, margin & model health — one screen",
     "relayTraces": "Upstream relay audit — requests, responses, latency",
     "overview": "Balance, recent jobs and ledger",
     "tusage": "Usage aggregation and per-call log",
@@ -219,12 +221,39 @@
     },
     "viewTraces": "Traces"
   },
+  "overview": {
+    "kpi": {
+      "health": "Model health",
+      "rpm": "RPM (now)",
+      "successRate": "Success rate",
+      "avgLatency": "Avg latency",
+      "scale": "Tenants · Resources"
+    },
+    "health": {
+      "state": {
+        "healthy": "Healthy",
+        "cooling": "Cooling",
+        "reauth": "Re-auth needed",
+        "disabled": "Disabled"
+      },
+      "cooldown": "Cooldown {{time}} · {{n}} fails",
+      "empty": "No channels"
+    },
+    "healthTitle": "Model health",
+    "rankingTitle": "Top models by cost",
+    "cols": {
+      "successRate": "Success",
+      "p95": "p95 latency"
+    }
+  },
   "analytics": {
     "title": "Analytics",
     "allTenants": "All tenants",
     "groupByLabel": "Group by",
     "metricLabel": "Metric",
     "groupBy": {
+      "minute": "By minute",
+      "hour": "By hour",
       "day": "By day",
       "model": "Model",
       "tenant": "Tenant",
@@ -235,7 +264,8 @@
       "cost": "Cost",
       "margin": "Margin",
       "requests": "Requests",
-      "tokens": "Tokens"
+      "tokens": "Tokens",
+      "errors": "Errors"
     },
     "from": "From",
     "to": "To",
@@ -278,6 +308,12 @@
     "title": "Relay traces",
     "allTenants": "All tenants",
     "providerPlaceholder": "Provider (e.g. openai)",
+    "providerLabel": "Provider",
+    "jobIdLabel": "Job ID",
+    "channelIdLabel": "Channel ID",
+    "statusLabel": "Status",
+    "statusAll": "All",
+    "statusErrors": "Errors only",
     "from": "From",
     "to": "To",
     "empty": "No relay traces in this range",
@@ -285,6 +321,9 @@
     "cols": {
       "time": "Time",
       "provider": "Provider",
+      "tenant": "Tenant",
+      "job": "Job",
+      "channel": "Channel",
       "method": "Method",
       "status": "Status",
       "latency": "Latency",
@@ -362,7 +401,9 @@
     "picker": {
       "title": "Select tenant",
       "all": "All tenants",
-      "none": "No tenants match"
+      "none": "No tenants match",
+      "searchPlaceholder": "Search name / ID…",
+      "count": "{{n}}"
     }
   },
   "accounts": {

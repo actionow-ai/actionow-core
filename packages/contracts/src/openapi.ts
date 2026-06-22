@@ -95,12 +95,15 @@ import {
 import { errorViewSchema } from './error-view.js';
 import {
   apiKeyViewSchema,
+  channelHealthViewSchema,
   codexLoginStartViewSchema,
   difyImportViewSchema,
   jobViewSchema,
   ledgerViewSchema,
   oauthSessionListViewSchema,
   oauthSessionViewSchema,
+  opsHealthViewSchema,
+  opsSummaryViewSchema,
   paymentIntentViewSchema,
   redeemCodesResultSchema,
   redemptionCodeViewSchema,
@@ -184,6 +187,10 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const OAuthSession = registry.register('OAuthSessionView', oauthSessionViewSchema);
   const OAuthSessionList = registry.register('OAuthSessionListView', oauthSessionListViewSchema);
   const CodexLoginStartV = registry.register('CodexLoginStartView', codexLoginStartViewSchema);
+  // ops health snapshot + platform counts (overview KPI band / model-health card)
+  registry.register('ChannelHealthView', channelHealthViewSchema);
+  const OpsHealth = registry.register('OpsHealthView', opsHealthViewSchema);
+  const OpsSummary = registry.register('OpsSummaryView', opsSummaryViewSchema);
 
   // billing & routing views (billing-views)
   const RouteGroup = registry.register('RouteGroupView', routeGroupViewSchema);
@@ -496,6 +503,9 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     channelId: z.string().optional(),
     from: z.string().optional(),
     to: z.string().optional(),
+    responseStatus: z.coerce.number().optional(),
+    errorsOnly: z.enum(['true', 'false']).optional(),
+    isStream: z.enum(['true', 'false']).optional(),
     cursor: z.string().optional(),
     limit: z.coerce.number().optional(),
   });
@@ -555,13 +565,13 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   // Query shapes are inline (mirroring the backend admin-DTO query schemas, which
   // live in the API package, not the contracts) so the SDK types `params.query`.
   const adminAnalyticsQuery = z.object({
-    groupBy: z.enum(['day', 'model', 'tenant', 'channel', 'api_key']),
+    groupBy: z.enum(['minute', 'hour', 'day', 'model', 'tenant', 'channel', 'api_key']),
     tenantId: z.string().optional(),
     from: z.string().optional(),
     to: z.string().optional(),
   });
   const consoleAnalyticsQuery = z.object({
-    groupBy: z.enum(['day', 'model', 'channel', 'api_key']),
+    groupBy: z.enum(['minute', 'hour', 'day', 'model', 'channel', 'api_key']),
     from: z.string().optional(),
     to: z.string().optional(),
   });
@@ -578,6 +588,15 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     ConsoleUsageRollup,
     'console',
     consoleAnalyticsQuery,
+  );
+
+  // --- ops snapshot (single-object reads) -----------------------------------
+  getOne('/admin/summary', 'Authoritative platform counts', OpsSummary, 'admin');
+  getOne(
+    '/admin/health',
+    'Live ops health (channel circuit-breaker + billable RPM)',
+    OpsHealth,
+    'admin',
   );
 
   // --- console reads (single-object endpoints) ------------------------------

@@ -11,6 +11,11 @@ import {
   type AccountRow,
   addChannelToGroup,
   type ApiKeyRow,
+  type ChannelHealthRow,
+  countAccounts,
+  countResources,
+  countTenants,
+  countUsageLogs,
   createAccount,
   createApiKey,
   type CreatedApiKey,
@@ -48,6 +53,7 @@ import {
   type KeysetResult,
   type LedgerRow,
   listAccounts,
+  listAllChannelsWithHealth,
   listApiKeys,
   listChannelsForResource,
   listGroupChannels,
@@ -1549,6 +1555,36 @@ export class AdminService {
     if (q.from !== undefined) query.from = new Date(q.from);
     if (q.to !== undefined) query.to = new Date(q.to);
     return rollupUsage(this.db, query);
+  }
+
+  // ----- ops snapshot -----
+
+  /** Authoritative platform counts for the overview KPI band (true `count(*)`). */
+  async opsSummary(): Promise<{ tenants: number; resources: number; accounts: number }> {
+    const [tenants, resources, accounts] = await Promise.all([
+      countTenants(this.db),
+      countResources(this.db),
+      countAccounts(this.db),
+    ]);
+    return { tenants, resources, accounts };
+  }
+
+  /**
+   * Read-only ops health snapshot: per-channel circuit-breaker state +
+   * billable throughput normalized to req/min over the last `windowSeconds`.
+   * Introduces no new aggregates beyond the channel-health join and a windowed
+   * `count(*)`.
+   */
+  async opsHealth(
+    windowSeconds = 60,
+  ): Promise<{ windowSeconds: number; rpmBillable: number; channels: ChannelHealthRow[] }> {
+    const from = new Date(Date.now() - windowSeconds * 1000);
+    const [count, channels] = await Promise.all([
+      countUsageLogs(this.db, { from }),
+      listAllChannelsWithHealth(this.db),
+    ]);
+    const rpmBillable = windowSeconds === 0 ? 0 : Math.round((count / windowSeconds) * 60);
+    return { windowSeconds, rpmBillable, channels };
   }
 }
 

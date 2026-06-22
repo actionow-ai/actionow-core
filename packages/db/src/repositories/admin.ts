@@ -1,5 +1,5 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { account, apiKey, ledgerTxn, tenant } from '../schema/index.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
@@ -40,6 +40,15 @@ export async function listTenants(db: DbOrTx, page: PageParams): Promise<KeysetR
     where: isNull(tenant.deletedAt),
     page,
   });
+}
+
+/** Count live tenants (excludes soft-deleted) — authoritative total for the ops summary. */
+export async function countTenants(db: DbOrTx): Promise<number> {
+  const rows = await db
+    .select({ n: sql<string>`count(*)` })
+    .from(tenant)
+    .where(isNull(tenant.deletedAt));
+  return Number(rows[0]?.n ?? 0);
 }
 
 /** Fetch a live tenant by id (soft-deleted → `undefined`). */
@@ -124,6 +133,15 @@ export async function listAccounts(
     where: isNull(account.deletedAt),
     page,
   });
+}
+
+/** Count live accounts (excludes soft-deleted) — authoritative total for the ops summary. */
+export async function countAccounts(db: DbOrTx): Promise<number> {
+  const rows = await db
+    .select({ n: sql<string>`count(*)` })
+    .from(account)
+    .where(isNull(account.deletedAt));
+  return Number(rows[0]?.n ?? 0);
 }
 
 /**

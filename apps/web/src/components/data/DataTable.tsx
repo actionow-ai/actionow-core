@@ -38,6 +38,8 @@ export interface Column<T> {
   header: ReactNode;
   cell: (row: T) => ReactNode;
   width?: string;
+  /** Horizontal alignment of the header + cells (numeric columns → `right`). */
+  align?: 'left' | 'right' | 'center';
   /** Pin this column to an edge during horizontal scroll. */
   sticky?: 'left' | 'right';
   /** When false, the column can't be hidden via the columns menu. Default true. */
@@ -518,6 +520,7 @@ export function DataTable<T>({
                     style={{
                       ...headerCellStyle,
                       width: c.width,
+                      ...(c.align !== undefined ? { textAlign: c.align } : {}),
                       ...stickyCellStyle(c.sticky, true),
                     }}
                   >
@@ -624,6 +627,7 @@ export function DataTable<T>({
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
+                            ...(c.align !== undefined ? { textAlign: c.align } : {}),
                           }}
                         >
                           {c.cell(r)}

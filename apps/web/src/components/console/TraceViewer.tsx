@@ -1,7 +1,10 @@
+import { CheckIcon, CopyIcon } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { RelayTraceView } from '../../lib/api/types';
+import { CopyField } from '../data/CopyField';
 import type { PillTone } from '../ui/Pill';
 import { Pill } from '../ui/Pill';
 
@@ -45,24 +48,58 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function CodeBlock({ text }: { text: string }) {
+  const { t } = useTranslation('console');
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* insecure origin / denied — leave the icon as-is */
+    }
+  };
   return (
-    <pre
-      className="mono panel"
-      style={{
-        margin: 0,
-        padding: 'var(--s-3)',
-        borderRadius: 'var(--r-sm)',
-        fontSize: 'var(--fs-caption)',
-        lineHeight: 1.5,
-        color: 'var(--text)',
-        maxHeight: 280,
-        overflow: 'auto',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-      }}
-    >
-      {text}
-    </pre>
+    <div style={{ position: 'relative' }}>
+      <button
+        type="button"
+        className="row-action hit-slop"
+        aria-label={copied ? t('common.copied') : t('common.copy')}
+        title={copied ? t('common.copied') : t('common.copy')}
+        onClick={() => void copy()}
+        style={{
+          position: 'absolute',
+          top: 'var(--s-2)',
+          right: 'var(--s-2)',
+          zIndex: 1,
+          ...(copied ? { color: 'var(--ok)' } : {}),
+        }}
+      >
+        {copied ? (
+          <CheckIcon size={15} weight="bold" aria-hidden="true" />
+        ) : (
+          <CopyIcon size={15} weight="bold" aria-hidden="true" />
+        )}
+      </button>
+      <pre
+        className="mono panel"
+        style={{
+          margin: 0,
+          padding: 'var(--s-3)',
+          paddingRight: 'var(--s-6)',
+          borderRadius: 'var(--r-sm)',
+          fontSize: 'var(--fs-caption)',
+          lineHeight: 1.5,
+          color: 'var(--text)',
+          maxHeight: 280,
+          overflow: 'auto',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+        }}
+      >
+        {text}
+      </pre>
+    </div>
   );
 }
 
@@ -115,12 +152,12 @@ export function TraceViewer({ trace }: { trace: RelayTraceView }) {
       </div>
 
       <Section label={t('relayTraces.viewer.url')}>
-        <code
-          className="mono"
-          style={{ fontSize: 'var(--fs-sm)', wordBreak: 'break-all', color: 'var(--text)' }}
-        >
-          {trace.url}
-        </code>
+        <CopyField
+          value={trace.url}
+          copyLabel={t('common.copy')}
+          copiedLabel={t('common.copied')}
+          failedLabel={t('common.copyFailed')}
+        />
       </Section>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s-4)' }}>
@@ -138,11 +175,13 @@ export function TraceViewer({ trace }: { trace: RelayTraceView }) {
               >
                 {m.label}
               </div>
-              <div
-                className="mono"
-                style={{ fontSize: 'var(--fs-sm)', marginTop: 2, wordBreak: 'break-all' }}
-              >
-                {m.value}
+              <div style={{ marginTop: 4 }}>
+                <CopyField
+                  value={m.value ?? ''}
+                  copyLabel={t('common.copy')}
+                  copiedLabel={t('common.copied')}
+                  failedLabel={t('common.copyFailed')}
+                />
               </div>
             </div>
           ))}

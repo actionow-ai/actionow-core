@@ -1,5 +1,5 @@
 import type { InferSelectModel, SQL } from 'drizzle-orm';
-import { and, eq, gte, lte } from 'drizzle-orm';
+import { and, eq, gte, isNotNull, lte, or, sql } from 'drizzle-orm';
 
 import { relayTrace } from '../schema/index.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
@@ -78,6 +78,12 @@ export interface RelayTraceFilter {
   readonly from?: Date | undefined;
   /** Inclusive upper bound on `created_at` (`<= to`). */
   readonly to?: Date | undefined;
+  /** Exact `response_status` match (e.g. 503). */
+  readonly responseStatus?: number | undefined;
+  /** Failures only: `response_status >= 400` OR a non-null `error`. */
+  readonly errorsOnly?: boolean | undefined;
+  /** Restrict to streaming (`true`) or non-streaming (`false`) calls. */
+  readonly isStream?: boolean | undefined;
 }
 
 /**
@@ -102,6 +108,15 @@ export async function listRelayTraces(
   if (filter.channelId !== undefined) predicates.push(eq(relayTrace.channelId, filter.channelId));
   if (filter.from !== undefined) predicates.push(gte(relayTrace.createdAt, filter.from));
   if (filter.to !== undefined) predicates.push(lte(relayTrace.createdAt, filter.to));
+  if (filter.responseStatus !== undefined) {
+    predicates.push(eq(relayTrace.responseStatus, filter.responseStatus));
+  }
+  if (filter.isStream !== undefined) predicates.push(eq(relayTrace.isStream, filter.isStream));
+  if (filter.errorsOnly === true) {
+    // A failure = a non-2xx/3xx upstream status OR a captured transport error.
+    const errPred = or(sql`${relayTrace.responseStatus} >= 400`, isNotNull(relayTrace.error));
+    if (errPred !== undefined) predicates.push(errPred);
+  }
   const where = predicates.length === 0 ? undefined : and(...predicates);
 
   return keysetPage<RelayTraceRow>(db, {

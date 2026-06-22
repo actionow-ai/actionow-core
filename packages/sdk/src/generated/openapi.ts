@@ -2417,6 +2417,9 @@ export interface paths {
                     channelId?: string;
                     from?: string;
                     to?: string;
+                    responseStatus?: number | null;
+                    errorsOnly?: "true" | "false";
+                    isStream?: "true" | "false";
                     cursor?: string;
                     limit?: number | null;
                 };
@@ -4101,7 +4104,7 @@ export interface paths {
         get: {
             parameters: {
                 query: {
-                    groupBy: "day" | "model" | "tenant" | "channel" | "api_key";
+                    groupBy: "minute" | "hour" | "day" | "model" | "tenant" | "channel" | "api_key";
                     tenantId?: string;
                     from?: string;
                     to?: string;
@@ -4187,7 +4190,7 @@ export interface paths {
         get: {
             parameters: {
                 query: {
-                    groupBy: "day" | "model" | "channel" | "api_key";
+                    groupBy: "minute" | "hour" | "day" | "model" | "channel" | "api_key";
                     from?: string;
                     to?: string;
                 };
@@ -4204,6 +4207,168 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ConsoleUsageRollupView"][];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Authoritative platform counts */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Authoritative platform counts */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpsSummaryView"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Live ops health (channel circuit-breaker + billable RPM) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Live ops health (channel circuit-breaker + billable RPM) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpsHealthView"];
                     };
                 };
                 /** @description Invalid input */
@@ -8068,6 +8233,8 @@ export interface components {
             provider_cost: string;
             margin: string;
             errors: number;
+            avg_latency_ms: number | null;
+            p95_latency_ms: number | null;
         };
         PaymentIntentView: {
             id: string;
@@ -8145,6 +8312,35 @@ export interface components {
         CodexLoginStartView: {
             authorize_url: string;
             state: string;
+        };
+        ChannelHealthView: {
+            channel_id: string;
+            resource_id: string;
+            provider_type: string;
+            status: string;
+            credential_ref: string | null;
+            cooldown_until: string | null;
+            consecutive_failures: number;
+            last_failure_at: string | null;
+        };
+        OpsHealthView: {
+            window_seconds: number;
+            rpm_billable: number;
+            channels: {
+                channel_id: string;
+                resource_id: string;
+                provider_type: string;
+                status: string;
+                credential_ref: string | null;
+                cooldown_until: string | null;
+                consecutive_failures: number;
+                last_failure_at: string | null;
+            }[];
+        };
+        OpsSummaryView: {
+            tenants: number;
+            resources: number;
+            accounts: number;
         };
         RouteGroupView: {
             id: string;
@@ -8224,6 +8420,8 @@ export interface components {
             output_tokens: string;
             cost: string;
             errors: number;
+            avg_latency_ms: number | null;
+            p95_latency_ms: number | null;
         };
         ConsolePaymentView: {
             id: string;

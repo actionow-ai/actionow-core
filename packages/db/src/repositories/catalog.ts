@@ -1,6 +1,6 @@
 import type { Markup, PriceSpec } from '@actionow/contracts';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq, gt, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import { PgTransaction } from 'drizzle-orm/pg-core';
 
 import {
@@ -398,6 +398,51 @@ export async function listCooledDownChannelIds(
   return rows.map((r) => r.channelId);
 }
 
+/** One non-deleted channel joined to its (optional) circuit-breaker health row. */
+export interface ChannelHealthRow {
+  channelId: string;
+  resourceId: string;
+  providerType: string;
+  status: string;
+  credentialRef: string | null;
+  consecutiveFailures: number;
+  cooldownUntil: Date | null;
+  lastFailureAt: Date | null;
+}
+
+/**
+ * List EVERY non-deleted `upstream_channel` left-joined to its `channel_health`
+ * row (absent → healthy, surfaced as null cooldown / 0 failures). Powers the
+ * read-only `GET /admin/health` ops snapshot; ordered by resource then channel.
+ */
+export async function listAllChannelsWithHealth(db: DbOrTx): Promise<ChannelHealthRow[]> {
+  const rows = await db
+    .select({
+      channelId: upstreamChannel.id,
+      resourceId: upstreamChannel.resourceId,
+      providerType: upstreamChannel.providerType,
+      status: upstreamChannel.status,
+      credentialRef: upstreamChannel.credentialRef,
+      consecutiveFailures: channelHealth.consecutiveFailures,
+      cooldownUntil: channelHealth.cooldownUntil,
+      lastFailureAt: channelHealth.lastFailureAt,
+    })
+    .from(upstreamChannel)
+    .leftJoin(channelHealth, eq(channelHealth.channelId, upstreamChannel.id))
+    .where(isNull(upstreamChannel.deletedAt))
+    .orderBy(upstreamChannel.resourceId, upstreamChannel.id);
+  return rows.map((r) => ({
+    channelId: r.channelId,
+    resourceId: r.resourceId,
+    providerType: r.providerType,
+    status: r.status,
+    credentialRef: r.credentialRef,
+    consecutiveFailures: r.consecutiveFailures ?? 0,
+    cooldownUntil: r.cooldownUntil,
+    lastFailureAt: r.lastFailureAt,
+  }));
+}
+
 /**
  * List EVERY active modifier, highest `priority` first (no scope filtering).
  *
@@ -618,6 +663,15 @@ export async function listResources(db: DbOrTx, page: PageParams): Promise<Keyse
     where: isNull(resource.deletedAt),
     page,
   });
+}
+
+/** Count live resources (excludes soft-deleted) — authoritative total for the ops summary. */
+export async function countResources(db: DbOrTx): Promise<number> {
+  const rows = await db
+    .select({ n: sql<string>`count(*)` })
+    .from(resource)
+    .where(isNull(resource.deletedAt));
+  return Number(rows[0]?.n ?? 0);
 }
 
 /**

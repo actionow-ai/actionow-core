@@ -10,6 +10,7 @@ export type {
   AddGroupChannelBody,
   AdminTokenView,
   ApiKeyView,
+  ChannelHealthView,
   ChannelView,
   CodexLoginCompleteBody,
   CodexLoginStartBody,
@@ -57,6 +58,8 @@ export type {
   OAuthSessionListView,
   OAuthSessionView,
   OfficialPriceView,
+  OpsHealthView,
+  OpsSummaryView,
   PaymentIntentView,
   PresignUploadBody,
   PresignUploadResult,
@@ -133,7 +136,7 @@ export interface SyncChannelModelsResult {
 }
 
 export interface AnalyticsUsageQuery {
-  groupBy: 'day' | 'model' | 'tenant' | 'channel' | 'api_key';
+  groupBy: 'minute' | 'hour' | 'day' | 'model' | 'tenant' | 'channel' | 'api_key';
   tenantId?: string;
   from?: string;
   to?: string;
@@ -148,6 +151,11 @@ export interface RelayTraceQuery {
   channelId?: string;
   from?: string;
   to?: string;
+  /** Exact upstream status code. */
+  responseStatus?: number;
+  /** `true` → only failures (status >= 400 or a captured error). */
+  errorsOnly?: boolean;
+  isStream?: boolean;
   limit?: number;
   cursor?: string;
 }
@@ -174,7 +182,7 @@ export interface ConsoleUsageView {
 // narrows `provider` to the payment-provider enum (see the re-export at the top).
 /** Tenant analytics query (no tenantId — the token scopes it; no `tenant` groupBy). */
 export interface ConsoleAnalyticsQuery {
-  groupBy: 'day' | 'model' | 'channel' | 'api_key';
+  groupBy: 'minute' | 'hour' | 'day' | 'model' | 'channel' | 'api_key';
   from?: string;
   to?: string;
 }

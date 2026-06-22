@@ -37,6 +37,8 @@ import type {
   OAuthSessionListView,
   OAuthSessionView,
   OfficialPriceView,
+  OpsHealthView,
+  OpsSummaryView,
   Page,
   PaymentIntentView,
   PricebookView,
@@ -360,6 +362,11 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     analyticsUsage: async (params: AnalyticsUsageQuery): Promise<UsageRollupView[]> =>
       unwrap(await sdk.GET('/admin/analytics/usage', { params: { query: params } }), u),
 
+    // Authoritative platform counts for the overview KPI band (true count(*)).
+    getSummary: async (): Promise<OpsSummaryView> => unwrap(await sdk.GET('/admin/summary'), u),
+    // Live ops health: per-channel circuit-breaker state + billable RPM.
+    getHealth: async (): Promise<OpsHealthView> => unwrap(await sdk.GET('/admin/health'), u),
+
     listRelayTraces: async ({
       tenantId,
       jobId,
@@ -367,13 +374,30 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
       channelId,
       from,
       to,
+      responseStatus,
+      errorsOnly,
+      isStream,
       limit,
       cursor,
     }: RelayTraceQuery): Promise<Page<RelayTraceView>> =>
       page<RelayTraceView>(
         await sdk.GET('/admin/relay-traces', {
           params: {
-            query: { tenantId, jobId, providerType, channelId, from, to, limit, cursor },
+            query: {
+              tenantId,
+              jobId,
+              providerType,
+              channelId,
+              from,
+              to,
+              ...(responseStatus !== undefined ? { responseStatus } : {}),
+              ...(errorsOnly ? { errorsOnly: 'true' as const } : {}),
+              ...(isStream !== undefined
+                ? { isStream: isStream ? ('true' as const) : ('false' as const) }
+                : {}),
+              limit,
+              cursor,
+            },
           },
         }),
         u,

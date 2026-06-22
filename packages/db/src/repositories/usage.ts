@@ -100,12 +100,16 @@ export interface UsageRollupRow {
   margin: bigint;
   /** `count(*)` where `status <> 'succeeded'`. */
   errors: number;
+  /** `avg(latency_ms)` over non-null latencies in the bucket, rounded to ms; `null` when none. */
+  avgLatencyMs: number | null;
+  /** `percentile_cont(0.95)` of latency_ms over the bucket, rounded to ms; `null` when none. */
+  p95LatencyMs: number | null;
 }
 
 /** Inputs to {@link rollupUsage}. */
 export interface UsageRollupQuery {
-  /** Dimension to GROUP BY. */
-  groupBy: 'day' | 'model' | 'tenant' | 'channel' | 'api_key';
+  /** Dimension to GROUP BY. Time grains (`minute`/`hour`/`day`) drive trends incl. RPM. */
+  groupBy: 'minute' | 'hour' | 'day' | 'model' | 'tenant' | 'channel' | 'api_key';
   /** Restrict to one tenant (omit for a global, cross-tenant rollup). */
   tenantId?: string | undefined;
   /** Inclusive lower bound on `created_at`. */
@@ -127,11 +131,17 @@ interface RawRollupRow {
   cost: string | number | null;
   providerCost: string | number | null;
   errors: string | number | null;
+  avgLatencyMs: string | number | null;
+  p95LatencyMs: string | number | null;
 }
 
 /** The SQL expression that yields the `bucket` string for a given dimension. */
 function bucketExpr(groupBy: UsageRollupQuery['groupBy']): SQL<string> {
   switch (groupBy) {
+    case 'minute':
+      return sql<string>`to_char(date_trunc('minute', ${usageLog.createdAt}), 'YYYY-MM-DD"T"HH24:MI')`;
+    case 'hour':
+      return sql<string>`to_char(date_trunc('hour', ${usageLog.createdAt}), 'YYYY-MM-DD"T"HH24:00')`;
     case 'day':
       return sql<string>`to_char(date_trunc('day', ${usageLog.createdAt}), 'YYYY-MM-DD')`;
     case 'model':
@@ -172,6 +182,12 @@ export async function rollupUsage(db: DbOrTx, q: UsageRollupQuery): Promise<Usag
       // A NULL provider_cost (unknown channel cost) contributes 0 to the sum.
       providerCost: sql<string>`coalesce(sum(${usageLog.providerCost}), 0)`,
       errors: sql<string>`count(*) filter (where ${usageLog.status} <> 'succeeded')`,
+      // Latency aggregates ignore NULL latency_ms (avg/percentile_cont skip nulls);
+      // an all-null bucket yields NULL → mapped to `null` below.
+      avgLatencyMs: sql<string | null>`avg(${usageLog.latencyMs})`,
+      p95LatencyMs: sql<
+        string | null
+      >`percentile_cont(0.95) within group (order by ${usageLog.latencyMs})`,
     })
     .from(usageLog)
     .where(where)
@@ -191,6 +207,29 @@ export async function rollupUsage(db: DbOrTx, q: UsageRollupQuery): Promise<Usag
       // margin = sum(cost) − sum(provider_cost), computed in bigint (never float).
       margin: cost - providerCost,
       errors: Number(r.errors ?? 0),
+      avgLatencyMs: r.avgLatencyMs == null ? null : Math.round(Number(r.avgLatencyMs)),
+      p95LatencyMs: r.p95LatencyMs == null ? null : Math.round(Number(r.p95LatencyMs)),
     };
   });
+}
+
+/**
+ * Count `usage_log` rows in a `created_at` window (optionally one tenant) — the
+ * billable-throughput primitive behind RPM. Cheap `count(*)` over the
+ * `(tenant_id, created_at)` / `created_at` index; returns a plain number.
+ */
+export async function countUsageLogs(
+  db: DbOrTx,
+  opts: { from?: Date | undefined; to?: Date | undefined; tenantId?: string | undefined },
+): Promise<number> {
+  const predicates: SQL[] = [];
+  if (opts.tenantId !== undefined) predicates.push(eq(usageLog.tenantId, opts.tenantId));
+  if (opts.from !== undefined) predicates.push(gte(usageLog.createdAt, opts.from));
+  if (opts.to !== undefined) predicates.push(lt(usageLog.createdAt, opts.to));
+  const where = predicates.length > 0 ? and(...predicates) : undefined;
+  const rows = await db
+    .select({ n: sql<string>`count(*)` })
+    .from(usageLog)
+    .where(where);
+  return Number(rows[0]?.n ?? 0);
 }

@@ -14,6 +14,8 @@ function row(bucket: string, cost: string, margin = '0'): UsageRollupView {
     provider_cost: '0',
     margin,
     errors: 0,
+    avg_latency_ms: null,
+    p95_latency_ms: null,
   };
 }
 

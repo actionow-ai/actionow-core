@@ -131,7 +131,7 @@ export type CodexLoginComplete = z.infer<typeof codexLoginCompleteSchema>;
 
 /** `GET /admin/analytics/usage` — usage rollup query. */
 export const analyticsUsageQuerySchema = z.object({
-  groupBy: z.enum(['day', 'model', 'tenant', 'channel', 'api_key']),
+  groupBy: z.enum(['minute', 'hour', 'day', 'model', 'tenant', 'channel', 'api_key']),
   tenantId: z.string().uuid().optional(),
   from: z.string().datetime().optional(), // ISO 8601
   to: z.string().datetime().optional(),
@@ -151,6 +151,18 @@ export const relayTraceQuerySchema = z.object({
   channelId: z.string().uuid().optional(),
   from: z.string().datetime().optional(), // ISO 8601
   to: z.string().datetime().optional(),
+  /** Exact upstream status code (e.g. 503). */
+  responseStatus: z.coerce.number().int().optional(),
+  /** `true` → only failures (status >= 400 or a captured error). */
+  errorsOnly: z
+    .enum(['true', 'false'])
+    .transform((v) => v === 'true')
+    .optional(),
+  /** Restrict to streaming / non-streaming calls. */
+  isStream: z
+    .enum(['true', 'false'])
+    .transform((v) => v === 'true')
+    .optional(),
   limit: z.coerce.number().int().positive().optional(),
   cursor: z.string().optional(),
 });
