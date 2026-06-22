@@ -1,4 +1,5 @@
 import type { HttpClient } from './http.js';
+import type { MediaResult } from './media-result.js';
 
 export const EXEC_MODES = ['blocking', 'stream', 'async-poll', 'async-callback'] as const;
 export type ExecMode = (typeof EXEC_MODES)[number];
@@ -71,6 +72,8 @@ export interface SyncResult {
   kind: 'sync';
   output: Record<string, unknown>;
   usage: UsageVector;
+  /** Canonical media result when this is a media job (P1); the engine prefers it over `output`. */
+  mediaResult?: MediaResult;
 }
 export interface UpstreamJobHandle {
   kind: 'async';
@@ -86,6 +89,8 @@ export interface PollResult {
   output?: Record<string, unknown>;
   usage?: UsageVector;
   error?: UnifiedError;
+  /** Canonical media result for a succeeded media job (P1). */
+  mediaResult?: MediaResult;
 }
 export interface CallbackResult extends PollResult {
   upstreamJobId: string;
