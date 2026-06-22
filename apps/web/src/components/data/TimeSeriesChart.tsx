@@ -83,6 +83,11 @@ export function TimeSeriesChart({
         strokeLinecap="round"
         vectorEffect="non-scaling-stroke"
       />
+      {/* A polyline of one vertex draws nothing, so a lone point would render a
+          blank chart — mark it with a dot so a single day/bucket stays visible. */}
+      {points.length === 1 && (
+        <circle cx={xFor(0)} cy={yFor(values[0])} r={4} fill="var(--accent)" stroke="none" />
+      )}
     </svg>
   );
 }

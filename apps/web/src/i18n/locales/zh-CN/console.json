@@ -329,6 +329,7 @@
       "id": "租户 ID",
       "account": "账户",
       "noAccount": "该租户还没有账户",
+      "accountError": "无法加载该租户的账户。",
       "tabsLabel": "租户详情",
       "ledger": "流水",
       "payments": "支付",
@@ -345,6 +346,7 @@
       }
     },
     "empty": "暂无租户",
+    "balancesError": "无法加载租户余额 —— 信用额度可能缺失。",
     "created": "租户已创建",
     "submit": "创建",
     "provision": {
@@ -507,7 +509,9 @@
       "visibility": "可见性",
       "inputPrice": "输入价",
       "outputPrice": "输出价",
-      "status": "状态"
+      "status": "状态",
+      "nameRequired": "请填写名称。",
+      "resourceRequired": "请选择一个资源。"
     },
     "tip": {
       "name": "调用方请求时使用的唯一模型 id(如 anthropic/claude-3-5-sonnet)。创建后不可更改。",

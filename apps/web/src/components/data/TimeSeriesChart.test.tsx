@@ -45,3 +45,25 @@ describe('TimeSeriesChart scaling', () => {
     expect(yPos).toBeLessThan(baseline); // positive sits above it
   });
 });
+
+describe('TimeSeriesChart single point', () => {
+  it('renders a visible marker for a lone point (a 1-vertex polyline draws nothing)', () => {
+    const { container } = render(<TimeSeriesChart points={[{ label: 'only', micro: '5000000' }]} />);
+    const circle = container.querySelector('circle');
+    expect(circle).not.toBeNull();
+    // A single point is centered horizontally (xFor → VW/2 = 300).
+    expect(Number(circle?.getAttribute('cx'))).toBe(300);
+  });
+
+  it('draws no point markers for a multi-point series, keeping the line clean', () => {
+    const { container } = render(
+      <TimeSeriesChart
+        points={[
+          { label: 'a', micro: '1000000' },
+          { label: 'b', micro: '2000000' },
+        ]}
+      />,
+    );
+    expect(container.querySelector('circle')).toBeNull();
+  });
+});

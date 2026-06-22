@@ -374,14 +374,16 @@ export function AnalyticsPage() {
                   <div
                     style={{
                       display: 'flex',
-                      justifyContent: 'space-between',
+                      // One bucket has start === end — center the lone date instead
+                      // of printing the same label at both ends.
+                      justifyContent: series.length === 1 ? 'center' : 'space-between',
                       marginTop: 'var(--s-2)',
                       fontSize: 'var(--fs-caption)',
                       color: 'var(--faint)',
                     }}
                   >
                     <span>{series[0]?.label}</span>
-                    <span>{series[series.length - 1]?.label}</span>
+                    {series.length > 1 && <span>{series[series.length - 1]?.label}</span>}
                   </div>
                 </>
               ) : (

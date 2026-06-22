@@ -113,6 +113,10 @@ export function Nav() {
               display: 'flex',
               flexDirection: 'column',
               gap: 'var(--s-2)',
+              // Near-opaque overlay so the hero headline doesn't read through the
+              // open menu (the transparent --glass-bg let content bleed through).
+              background: 'var(--overlay-bg)',
+              zIndex: Z.popover,
             }}
           >
             {links.map((l) => (

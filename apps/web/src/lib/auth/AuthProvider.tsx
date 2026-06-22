@@ -62,16 +62,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
   }, []);
 
+  // A 401 only forces logout when the token is actually absent/expired. A 401
+  // with a still-valid JWT means "not authorized for THIS resource" (e.g. an
+  // admin hitting a tenant-scoped /console/* endpoint) — surface the error to
+  // the query instead of nuking a valid session.
+  const handleUnauthorized = useCallback(() => {
+    const tok = tokenRef.current;
+    const claims = tok !== null ? decodeJwt(tok) : null;
+    if (tok === null || claims === null || isExpired(claims)) clearToken();
+  }, [clearToken]);
+
   const client = useMemo<ApiClient>(
-    () => createClient({ getToken: () => tokenRef.current, onUnauthorized: clearToken }),
-    [clearToken],
+    () => createClient({ getToken: () => tokenRef.current, onUnauthorized: handleUnauthorized }),
+    [handleUnauthorized],
   );
 
   // The typed SDK client reads the token PER REQUEST via the same ref, so it
-  // survives token changes without rebuilding (only `clearToken` is a dep).
+  // survives token changes without rebuilding (only the callback is a dep).
   const sdk = useMemo<SdkClient>(
-    () => createSdkClient({ getToken: () => tokenRef.current, onUnauthorized: clearToken }),
-    [clearToken],
+    () => createSdkClient({ getToken: () => tokenRef.current, onUnauthorized: handleUnauthorized }),
+    [handleUnauthorized],
   );
 
   // Validate + persist an issued JWT (shared by login/register and the OAuth
@@ -117,13 +127,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthed: token !== null,
       client,
       sdk,
-      onUnauthorized: clearToken,
+      onUnauthorized: handleUnauthorized,
       login,
       register,
       setSession,
       logout,
     }),
-    [token, client, sdk, clearToken, login, register, setSession, logout],
+    [token, client, sdk, handleUnauthorized, login, register, setSession, logout],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

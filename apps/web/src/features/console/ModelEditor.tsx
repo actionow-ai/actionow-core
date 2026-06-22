@@ -69,6 +69,9 @@ export function ModelEditor({
   // A stable idempotency key for this editor instance (remounted per open via
   // `key`), so an accidental double-submit of a create replays instead of dupes.
   const [idemKey] = useState(() => crypto.randomUUID());
+  // Set true on a Save attempt so required-field errors appear only after submit,
+  // not on first paint.
+  const [attempted, setAttempted] = useState(false);
 
   // Seed the form once the edited model lands. Prices arrive as decimal strings
   // (µcredit/token) → parse to integers for the NumberFields.
@@ -125,13 +128,23 @@ export function ModelEditor({
 
   const resourceOptions = (resources.data ?? []).map((r) => ({ value: r.id, label: r.id }));
 
+  // Create mode requires a name + a resource; edit mode has both fixed/read-only.
+  const nameMissing = !editing && nameField.trim() === '';
+  const resourceMissing = !editing && resourceId === '';
+  const canSave = !nameMissing && !resourceMissing;
+  // Validate client-side first so a missing field shows inline instead of a 400.
+  const onSave = () => {
+    setAttempted(true);
+    if (canSave) save.mutate();
+  };
+
   return (
     <Drawer
       open={open}
       title={t(editing ? 'models.editTitle' : 'models.new')}
       onClose={onClose}
       footer={
-        <Button variant="cta" onClick={() => save.mutate()} loading={save.isPending}>
+        <Button variant="cta" onClick={onSave} loading={save.isPending}>
           {t('models.save')}
         </Button>
       }
@@ -145,6 +158,7 @@ export function ModelEditor({
           value={nameField}
           onChange={setNameField}
           required
+          error={attempted && nameMissing ? t('models.form.nameRequired') : undefined}
         />
       )}
 
@@ -164,6 +178,7 @@ export function ModelEditor({
           onChange={setResourceId}
           options={resourceOptions}
           placeholder={t('models.form.resourcePlaceholder')}
+          error={attempted && resourceMissing ? t('models.form.resourceRequired') : undefined}
         />
       )}
 

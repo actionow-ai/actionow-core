@@ -434,6 +434,25 @@ export function DataTable<T>({
   const colCount =
     visibleColumns.length + (selectable === true ? 1 : 0) + (rowActions !== undefined ? 1 : 0);
 
+  // Content floor: with `table-layout: fixed`, a width-less column (e.g. `name`)
+  // absorbs leftover space and clamps to 0px once the container is narrower than
+  // the sum of fixed widths (the global `* { min-width: 0 }` reset lets it
+  // collapse instead of scrolling). Floor the table at the sum of declared
+  // widths so it scrolls horizontally and no column disappears.
+  const DEFAULT_COL_W = 160;
+  const pxWidth = (w?: string) => {
+    const m = w !== undefined ? /^(\d+)px$/.exec(w) : null;
+    return m ? Number(m[1]) : DEFAULT_COL_W;
+  };
+  const actionsPx = (() => {
+    const m = actionsWidth !== undefined ? /^(\d+)px$/.exec(actionsWidth) : null;
+    return m ? Number(m[1]) : 80;
+  })();
+  const contentMinWidth =
+    visibleColumns.reduce((sum, c) => sum + pxWidth(c.width), 0) +
+    (selectable === true ? 44 : 0) +
+    (rowActions !== undefined ? actionsPx : 0);
+
   return (
     <div
       style={
@@ -457,7 +476,7 @@ export function DataTable<T>({
         <table
           style={{
             width: '100%',
-            minWidth: 520,
+            minWidth: Math.max(520, contentMinWidth),
             borderCollapse: 'separate',
             borderSpacing: 0,
             tableLayout: 'fixed',

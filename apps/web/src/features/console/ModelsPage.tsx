@@ -109,6 +109,9 @@ export function ModelsPage() {
     {
       key: 'name',
       header: t('models.cols.model'),
+      // The identity column — give it an explicit width so it never becomes the
+      // sole auto-column that collapses to 0px under table-layout:fixed (Fix 4).
+      width: '200px',
       sortable: true,
       sortValue: (m) => m.name,
       cell: (m) => (

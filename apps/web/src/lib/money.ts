@@ -11,6 +11,13 @@ export function formatCredits(micro: string, locale = 'zh-CN', maxFrac = 2): str
   const whole = digits.slice(0, digits.length - MICRO_DIGITS);
   const fracFull = digits.slice(digits.length - MICRO_DIGITS);
   const frac = fracFull.slice(0, maxFrac).replace(/0+$/, '');
+  // A non-zero amount that truncates to 0 at `maxFrac` would read as a flat "0"
+  // next to a non-empty bar — emit a "smaller than the smallest representable"
+  // sentinel instead (e.g. `<0.01`, negatives `>-0.01`).
+  if (/[1-9]/.test(digits) && whole === '0' && frac === '') {
+    const min = maxFrac === 0 ? '1' : `0.${'0'.repeat(maxFrac - 1)}1`;
+    return neg ? `>-${min}` : `<${min}`;
+  }
   const grouped = new Intl.NumberFormat(locale).format(BigInt(whole));
   return (neg ? '-' : '') + grouped + (frac ? `.${frac}` : '');
 }
@@ -32,5 +39,8 @@ export function compareMicroDesc(a: string, b: string): number {
  */
 export function formatCreditsSigned(micro: string, locale = 'zh-CN', maxFrac = 2): string {
   const base = formatCredits(micro, locale, maxFrac);
-  return BigInt(micro) > 0n ? `+${base}` : base; // negatives already carry '-'; zero stays unsigned
+  // The sub-cent sentinels (`<0.01` / `>-0.01`) already encode direction — don't
+  // prefix a '+'. negatives already carry '-'; zero stays unsigned.
+  if (base.startsWith('<') || base.startsWith('>')) return base;
+  return BigInt(micro) > 0n ? `+${base}` : base;
 }
