@@ -401,38 +401,8 @@ describe('JobRunner.settle — applied-modifier serialization (async path)', () 
   });
 });
 
-describe('JobRunner.settle — optional persistMedia rewrite (async path)', () => {
-  it('rewrites media output via persistMedia before settling', async () => {
-    const s = await seed(1_000_000n);
-    const job = await makeQueuedJob(s, 1_000n);
-    const adapters = new AdapterRegistry();
-    adapters.register(createAsyncMediaMock({ readyAfterPolls: 0 }));
-    const runner = new JobRunner({
-      db,
-      adapters,
-      loadContext: () => Promise.resolve(contextFor(s)),
-      resolveSecret: () => Promise.resolve(undefined),
-      http: { request: () => Promise.reject(new Error('no http')) },
-      maxPolls: 5,
-      pollIntervalMs: 0,
-      sleep: () => Promise.resolve(),
-      persistMedia: ({ output, tenantId, jobId }) =>
-        Promise.resolve({
-          persisted: true,
-          output: { ...output, image_url: `https://asset.actionow.ai/${tenantId}/${jobId}.png` },
-          objects: [{ key: `${tenantId}/${jobId}.png`, contentType: 'image/png', size: 3 }],
-        }),
-    });
-
-    await runner.process(job.id);
-
-    const settled = await getJob(db, job.id);
-    expect(settled?.status).toBe('succeeded');
-    const output = settled?.output as Record<string, unknown> | undefined;
-    expect(output?.image_url).toBe(`https://asset.actionow.ai/${s.tenantId}/${job.id}.png`);
-  });
-
-  it('settles with the unchanged output when persistMedia is not injected (no-op)', async () => {
+describe('JobRunner.settle — optional media persistence (async path)', () => {
+  it('settles with the unchanged output when persistMediaResult is not injected (no-op)', async () => {
     const s = await seed(1_000_000n);
     const job = await makeQueuedJob(s, 1_000n);
     const adapters = new AdapterRegistry();

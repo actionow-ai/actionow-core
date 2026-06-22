@@ -2,7 +2,6 @@ export * from './dify-registration.js';
 export * from './errors.js';
 export * from './execution-service.js';
 export * from './job-runner.js';
-export * from './media-persistence.js';
 export * from './media-result.js';
 export * from './oauth/codex.js';
 export * from './payment-service.js';

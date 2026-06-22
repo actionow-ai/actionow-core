@@ -20,10 +20,9 @@ import {
 import type {
   InsertMediaUsageLogFn,
   JobExecutionContext,
-  PersistMediaFn,
   PersistMediaResultFn,
 } from '@actionow/engine';
-import { JobRunner, persistMediaOutput, persistMediaResult, signPayload } from '@actionow/engine';
+import { JobRunner, persistMediaResult, signPayload } from '@actionow/engine';
 import {
   type AppEnv,
   fetchBytesWithTimeout,
@@ -174,7 +173,6 @@ export class CallbacksService {
 
   /** A `JobRunner` bound to this app's deps + the callback context loader. */
   private buildRunner(): JobRunner {
-    const persistMedia = this.buildPersistMedia();
     const persistMediaResultFn = this.buildPersistMediaResult();
     const insertUsageLogFn: InsertMediaUsageLogFn = async (row) => {
       await insertUsageLog(this.db, row);
@@ -189,56 +187,8 @@ export class CallbacksService {
       traceUpstream: this.env.RELAY_TRACE === 'full',
       traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
       insertUsageLog: insertUsageLogFn,
-      ...(persistMedia !== undefined ? { persistMedia } : {}),
       ...(persistMediaResultFn !== undefined ? { persistMediaResult: persistMediaResultFn } : {}),
     });
-  }
-
-  /**
-   * Best-effort media persistence for the webhook-driven settle path: copy
-   * upstream media URLs into R2 and rewrite them to the public base URL. Returns
-   * `undefined` (no rewrite) when storage or the public base URL is unconfigured,
-   * so a callback still settles with the temp upstream URL. `persistMediaOutput`
-   * swallows its own errors (Task 8); the byte transfer is timeout-bounded.
-   *
-   * After the copy, a `ready` `file_object` row is recorded per persisted object so
-   * the tenant's media catalog tracks it (Task 11). The row creation is best-effort:
-   * the output URL is already rewritten, so a catalog-row miss never fails settle.
-   */
-  private buildPersistMedia(): PersistMediaFn | undefined {
-    const storage = this.storage;
-    const publicBaseUrl = this.env.STORAGE_PUBLIC_BASE_URL;
-    if (storage === null || publicBaseUrl === undefined) return undefined;
-    const db = this.db;
-    const bucket = this.env.STORAGE_BUCKET ?? '';
-    return async ({ tenantId, jobId, output }) => {
-      const result = await persistMediaOutput({
-        storage,
-        publicBaseUrl,
-        tenantId,
-        jobId,
-        output,
-        fetchBytes: fetchBytesWithTimeout,
-        putBytes: putBytesWithTimeout,
-      });
-      for (const obj of result.objects) {
-        try {
-          const file = await createFileObject(db, {
-            tenantId,
-            provider: storage.kind,
-            bucket,
-            key: obj.key,
-          });
-          await markFileReady(db, file.id, {
-            ...(obj.size !== undefined ? { size: obj.size } : {}),
-            ...(obj.contentType !== undefined ? { contentType: obj.contentType } : {}),
-          });
-        } catch {
-          // best-effort: the output URL is already rewritten; a catalog row miss is non-fatal.
-        }
-      }
-      return result;
-    };
   }
 
   /**

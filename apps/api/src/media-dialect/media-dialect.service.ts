@@ -11,7 +11,6 @@ import {
 import type {
   InsertMediaUsageLogFn,
   JobExecutionContext,
-  PersistMediaFn,
   PersistMediaResultFn,
   RunRequest,
 } from '@actionow/engine';
@@ -20,7 +19,6 @@ import {
   EngineError,
   ExecutionService,
   JobRunner,
-  persistMediaOutput,
   persistMediaResult,
 } from '@actionow/engine';
 import {
@@ -192,7 +190,6 @@ export class MediaDialectService {
 
   /** A JobRunner whose context is derived from the in-hand RunRequest (no db re-read). */
   private buildRunner(req: RunRequest): JobRunner {
-    const persistMedia = this.buildPersistMedia();
     const persistMediaResultFn = this.buildPersistMediaResult();
     const insertUsageLogFn: InsertMediaUsageLogFn = async (row) => {
       await insertUsageLog(this.db, row);
@@ -215,50 +212,8 @@ export class MediaDialectService {
       traceUpstream: this.env.RELAY_TRACE === 'full',
       traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
       insertUsageLog: insertUsageLogFn,
-      ...(persistMedia !== undefined ? { persistMedia } : {}),
       ...(persistMediaResultFn !== undefined ? { persistMediaResult: persistMediaResultFn } : {}),
     });
-  }
-
-  /**
-   * Media persistence (copy upstream media to R2 + record `file_object`); mirrors
-   * {@link CallbacksService}. Undefined when storage / the public base is
-   * unconfigured, so the job settles with the temp upstream url.
-   */
-  private buildPersistMedia(): PersistMediaFn | undefined {
-    const storage = this.storage;
-    const publicBaseUrl = this.env.STORAGE_PUBLIC_BASE_URL;
-    if (storage === null || publicBaseUrl === undefined) return undefined;
-    const db = this.db;
-    const bucket = this.env.STORAGE_BUCKET ?? '';
-    return async ({ tenantId, jobId, output }) => {
-      const result = await persistMediaOutput({
-        storage,
-        publicBaseUrl,
-        tenantId,
-        jobId,
-        output,
-        fetchBytes: fetchBytesWithTimeout,
-        putBytes: putBytesWithTimeout,
-      });
-      for (const obj of result.objects) {
-        try {
-          const file = await createFileObject(db, {
-            tenantId,
-            provider: storage.kind,
-            bucket,
-            key: obj.key,
-          });
-          await markFileReady(db, file.id, {
-            ...(obj.size !== undefined ? { size: obj.size } : {}),
-            ...(obj.contentType !== undefined ? { contentType: obj.contentType } : {}),
-          });
-        } catch {
-          // best-effort; the output url is already rewritten.
-        }
-      }
-      return result;
-    };
   }
 
   /**

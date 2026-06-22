@@ -1,8 +1,14 @@
 import type { Asset, MediaResult, StorageProvider } from '@actionow/contracts';
 
-// Reuse the byte-IO hook types from the legacy module (removed in P1 Task 9) so
-// the barrel doesn't re-export colliding names while both modules coexist.
-import type { FetchBytes, FetchedBytes, PutBytes } from './media-persistence.js';
+/** The bytes + content type sourced from an upstream URL (or decoded from b64). */
+export interface FetchedBytes {
+  bytes: Uint8Array;
+  contentType?: string;
+}
+/** Upload bytes to a presigned PUT URL (injected so the engine stays infra-free). */
+export type PutBytes = (url: string, bytes: Uint8Array, contentType?: string) => Promise<void>;
+/** Download an upstream media URL's bytes (injected). */
+export type FetchBytes = (url: string) => Promise<FetchedBytes>;
 
 /** A persisted R2 object the caller turns into a `file_object` row (P1: + media dims). */
 export interface PersistedMediaObject {

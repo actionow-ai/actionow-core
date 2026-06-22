@@ -27,7 +27,6 @@ import {
 
 import { EngineError } from './errors.js';
 import type { RunChannel } from './execution-service.js';
-import type { PersistMediaResult } from './media-persistence.js';
 import { meterMedia, type PersistedMediaObject } from './media-result.js';
 import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
 import { type TraceContext, TracingHttpClient } from './relay-trace.js';
@@ -51,18 +50,6 @@ export interface JobExecutionContext {
 }
 
 export type ExecutionContextLoader = (job: Job) => Promise<JobExecutionContext>;
-
-/**
- * Persist media outputs to durable storage, returning a (possibly) rewritten
- * output. Optional injected dependency; absent → no rewrite. Best-effort: the
- * concrete hook never throws (it falls back to the temp upstream URL), so
- * settle proceeds regardless. Wired in Task 10 over a real StorageProvider.
- */
-export type PersistMediaFn = (input: {
-  tenantId: string;
-  jobId: string;
-  output: Record<string, unknown>;
-}) => Promise<PersistMediaResult>;
 
 /**
  * Persist a canonical {@link MediaResult}'s assets to durable storage (P1),
@@ -103,9 +90,7 @@ export interface JobRunnerDeps {
   rng?: () => number;
   /** Global egress proxy fallback (UPSTREAM_PROXY_URL) when a channel has no proxyRef. */
   proxyUrlEnv?: string | undefined;
-  /** Persist media outputs before settle (rewrites temp upstream URLs to durable ones). */
-  persistMedia?: PersistMediaFn | undefined;
-  /** Persist a canonical MediaResult's assets before settle (P1; preferred over `persistMedia`). */
+  /** Persist a canonical MediaResult's assets before settle (P1). */
   persistMediaResult?: PersistMediaResultFn | undefined;
   /** Write a usage_log row for a settled media job (P1 metering — media margin visibility). */
   insertUsageLog?: InsertMediaUsageLogFn | undefined;
@@ -285,10 +270,10 @@ export class JobRunner {
     const usage: UsageVector = result.usage ?? {};
     let output = result.output ?? {};
     const isMedia = result.mediaResult !== undefined;
-    // Best-effort media persistence BEFORE the settle write. Prefer the canonical
-    // MediaResult path (P1): persist its assets and store the rewritten result as
-    // `output`. Fall back to the legacy output-URL rewrite for any non-MediaResult
-    // media job. Both hooks never throw; settle proceeds regardless.
+    // Best-effort media persistence BEFORE the settle write: persist the canonical
+    // MediaResult's assets to durable storage and store the rewritten result as
+    // `output`. Absent dep (non-media setups / tests) → output unchanged. The hook
+    // never throws (falls back to the temp upstream URL); settle proceeds regardless.
     if (result.mediaResult !== undefined && this.deps.persistMediaResult !== undefined) {
       const persisted = await this.deps.persistMediaResult({
         tenantId: job.tenantId,
@@ -296,13 +281,6 @@ export class JobRunner {
         result: result.mediaResult,
       });
       output = persisted.result;
-    } else if (this.deps.persistMedia !== undefined) {
-      const persisted = await this.deps.persistMedia({
-        tenantId: job.tenantId,
-        jobId: job.id,
-        output,
-      });
-      output = persisted.output;
     }
     // Cost is computed from `usage` + `job.inputs`, so rewriting `output` does
     // not affect pricing.
