@@ -166,6 +166,7 @@
     "routeGroups": "分组",
     "officialPrices": "官方价格",
     "dify": "Dify 导入",
+    "plugins": "插件",
     "redemptionCodes": "卡密兑换",
     "tmedia": "素材",
     "oauthSessions": "凭证",
@@ -196,6 +197,7 @@
     "routeGroups": "路由分组与渠道成员",
     "officialPrices": "模型参考价格",
     "dify": "把 Dify 工作流导入为资源",
+    "plugins": "供给插件：manifest + 沙箱 handler，归一异构上游",
     "accounts": "账户余额与充值",
     "apiKeys": "签发与管理 API Key",
     "serviceTokens": "管理 API 的机器对机器（M2M）凭据"
@@ -906,6 +908,47 @@
     "delete": {
       "title": "删除绑定？",
       "message": "确定删除 {{resource}} 的 Dify 绑定？此操作不可撤销。"
+    }
+  },
+  "plugins": {
+    "new": "新建插件",
+    "editTitle": "编辑插件",
+    "empty": "暂无插件",
+    "created": "插件已创建",
+    "updated": "插件已更新",
+    "deleted": "插件已删除",
+    "builtin": "内置",
+    "custom": "自定义",
+    "cols": {
+      "name": "名称",
+      "modalities": "模态",
+      "protocol": "协议",
+      "auth": "鉴权",
+      "version": "版本",
+      "kind": "类型",
+      "status": "状态"
+    },
+    "form": {
+      "slug": "标识(slug)",
+      "slugRequired": "请填写 slug。",
+      "label": "名称",
+      "labelRequired": "请填写名称。",
+      "modalities": "模态",
+      "protocol": "协议",
+      "auth": "鉴权策略",
+      "handler": "Handler(沙箱 JS)",
+      "handlerHint": "导出 mapRequest/mapResponse（及异步的 mapSubmit/mapPollRequest/mapPoll）。在沙箱中运行，无密钥、无网络。"
+    },
+    "test": {
+      "title": "测试面板",
+      "fn": "Handler 函数",
+      "arg": "样例参数(JSON)",
+      "run": "运行测试",
+      "badArg": "样例参数不是合法 JSON。"
+    },
+    "delete": {
+      "title": "删除插件？",
+      "message": "确定删除插件 {{name}} 吗？此操作不可撤销。"
     }
   },
   "status": {

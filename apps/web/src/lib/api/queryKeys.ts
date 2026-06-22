@@ -15,6 +15,7 @@ export const qk = {
       ? (['admin', 'redemption-codes'] as const)
       : (['admin', 'redemption-codes', status] as const),
   oauthSessions: () => ['admin', 'oauth-sessions'] as const,
+  plugins: () => ['admin', 'plugins'] as const,
   routeGroups: () => ['admin', 'route-groups'] as const,
   routeGroupChannels: (id: string) => ['admin', 'route-groups', id, 'channels'] as const,
   /** No params → the bare prefix (invalidates every param variant); with params → the specific filtered key. */

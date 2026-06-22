@@ -46,6 +46,7 @@ export const ADMIN_NAV: NavGroup[] = [
     icon: StackIcon,
     items: [
       { to: '/console/catalog', labelKey: 'resources' },
+      { to: '/console/plugins', labelKey: 'plugins' },
       { to: '/console/dify', labelKey: 'dify' },
       { to: '/console/oauth-sessions', labelKey: 'oauthSessions' },
     ],
