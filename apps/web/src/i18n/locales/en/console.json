@@ -504,6 +504,9 @@
     "actions": {
       "setStatus": "Status"
     },
+    "cards": {
+      "modelsN": "{{n}} models"
+    },
     "statusUpdated": "Resource status updated",
     "sections": {
       "overview": "Overview",
@@ -520,7 +523,8 @@
       "channelAdded": "Channel added",
       "addPrice": "Add price",
       "priceAdded": "Price added",
-      "pick": "Select a resource to view details"
+      "pick": "Select a resource to view details",
+      "notFound": "Resource not found — it may have been deleted."
     }
   },
   "models": {
@@ -603,6 +607,7 @@
     "created": "Channel created",
     "updated": "Channel updated",
     "deleted": "Channel deleted",
+    "statusUpdated": "Channel status updated",
     "synced": "Synced {{total}} model(s)",
     "form": {
       "provider": "Provider type",

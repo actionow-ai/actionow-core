@@ -24,6 +24,7 @@ import { toast } from '../../components/ui/toast';
 import {
   CHANNEL_STATUSES,
   enumLabel,
+  MODALITIES,
   PRICEBOOK_METHODS,
   PRICEBOOK_TIMINGS,
   toOptions,
@@ -84,11 +85,13 @@ export function ResourceDetailPane({ id }: { id: string }) {
     onError: mutationError(t),
   });
   const bulkSetStatus = useMutation({
+    // allSettled so one failed channel doesn't abort the rest of the batch.
     mutationFn: async ({ rows, status }: { rows: ChannelView[]; status: ChannelStatus }) => {
-      await Promise.all(rows.map((c) => api.updateChannel(id, c.id, { status })));
+      await Promise.allSettled(rows.map((c) => api.updateChannel(id, c.id, { status })));
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: qk.channels(id) });
+      toast(t('channels.statusUpdated'));
     },
     onError: mutationError(t),
   });
@@ -155,10 +158,15 @@ export function ResourceDetailPane({ id }: { id: string }) {
       header: t('channels.cols.weight'),
       cell: (r) => String(r.weight),
       width: '64px',
+      sortable: true,
+      sortValue: (r) => r.weight,
     },
     {
       key: 'cost',
       header: t('channels.cols.cost'),
+      sortable: true,
+      // Sort by input cost (µUSD/1M); unset sorts as -1 so priced channels lead.
+      sortValue: (r) => (r.input_cost_per_1m === null ? -1 : Number(r.input_cost_per_1m)),
       cell: (r) => {
         // µUSD/1M strings → human USD for display; '—' per side when unset.
         const usd = (m: string | null) =>
@@ -241,7 +249,8 @@ export function ResourceDetailPane({ id }: { id: string }) {
             }}
           >
             <span>
-              {resource.modality} · {resource.provider_type} · {resource.exec_modes.join(', ')}
+              {enumLabel(t, MODALITIES, resource.modality)} · {resource.provider_type} ·{' '}
+              {resource.exec_modes.join(', ')}
             </span>
             <StatusBadge
               tone={statusTone(resource.status)}
@@ -302,6 +311,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
               label={
                 r.status === 'active' ? t('channels.actions.disable') : t('channels.actions.enable')
               }
+              loading={toggleStatus.isPending && toggleStatus.variables.id === r.id}
               onClick={() => toggleStatus.mutate(r)}
             />
             <RowAction
@@ -383,6 +393,27 @@ export function ResourceDetailPane({ id }: { id: string }) {
       />
     </>
   );
+
+  // A stale `?id` deep link (resource since deleted) resolves to no row once the
+  // list has loaded — show a not-found state instead of a header with a bare id.
+  if (!resources.isLoading && !resources.isError && resource === undefined) {
+    return (
+      <div
+        className="panel"
+        style={{
+          height: '100%',
+          display: 'grid',
+          placeItems: 'center',
+          borderRadius: 'var(--r-md)',
+          color: 'var(--muted)',
+          fontSize: 'var(--fs-sm)',
+          padding: 'var(--s-6)',
+        }}
+      >
+        {t('resources.detail.notFound')}
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>

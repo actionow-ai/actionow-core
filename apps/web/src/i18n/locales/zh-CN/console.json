@@ -504,6 +504,9 @@
     "actions": {
       "setStatus": "状态"
     },
+    "cards": {
+      "modelsN": "{{n}} 模型"
+    },
     "statusUpdated": "资源状态已更新",
     "sections": {
       "overview": "概览",
@@ -520,7 +523,8 @@
       "channelAdded": "通道已添加",
       "addPrice": "添加定价",
       "priceAdded": "定价已添加",
-      "pick": "从左侧选择一个资源查看详情"
+      "pick": "从左侧选择一个资源查看详情",
+      "notFound": "未找到该资源——可能已被删除。"
     }
   },
   "models": {
@@ -603,6 +607,7 @@
     "created": "通道已创建",
     "updated": "通道已更新",
     "deleted": "通道已删除",
+    "statusUpdated": "通道状态已更新",
     "synced": "已同步 {{total}} 个模型",
     "form": {
       "provider": "Provider 类型",

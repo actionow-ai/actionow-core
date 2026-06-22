@@ -180,10 +180,10 @@ export function OfficialPricesPage() {
         searchable
         actionsWidth="92px"
         rowActions={(r) => (
-          <div style={{ display: 'flex', gap: 'var(--s-1)' }}>
+          <>
             <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={() => setEditId(r.id)} />
             <RowAction icon={TrashIcon} label={t('common.delete')} danger onClick={() => setDelTarget(r)} />
-          </div>
+          </>
         )}
       />
       <LoadMore
