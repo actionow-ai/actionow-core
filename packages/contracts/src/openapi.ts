@@ -18,6 +18,7 @@ import {
   provisionSchema,
   topupSchema,
   updateApiKeyGroupSchema,
+  updateCredentialMetaSchema,
   updateTenantSchema,
 } from './admin-requests.js';
 import {
@@ -239,6 +240,10 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const CreateAdminToken = registry.register('CreateAdminTokenBody', createAdminTokenSchema);
   const ProvisionReq = registry.register('ProvisionBody', provisionSchema);
   const CreateOAuthSession = registry.register('CreateOAuthSessionBody', createOAuthSessionSchema);
+  const UpdateCredentialMeta = registry.register(
+    'UpdateCredentialMetaBody',
+    updateCredentialMetaSchema,
+  );
   const CodexLoginStartReq = registry.register('CodexLoginStartBody', codexLoginStartSchema);
   const CodexLoginCompleteReq = registry.register(
     'CodexLoginCompleteBody',
@@ -495,6 +500,23 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     body: CodexLoginCompleteReq,
     response: OAuthSession,
     created: true,
+  });
+  // Credential metadata edits (name/notes/group) — never the token/secret material.
+  write({
+    method: 'patch',
+    path: '/admin/oauth-sessions/{id}',
+    summary: 'Edit an OAuth session’s metadata (name/notes/group)',
+    tag: 'admin',
+    body: UpdateCredentialMeta,
+    response: OAuthSessionList,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/secrets/{id}',
+    summary: 'Edit a stored credential’s metadata (name/notes/group)',
+    tag: 'admin',
+    body: UpdateCredentialMeta,
+    response: Secret,
   });
   const relayQuery = z.object({
     tenantId: z.string().optional(),

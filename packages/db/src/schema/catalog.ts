@@ -150,6 +150,11 @@ export const secretRef = pgTable('secret_ref', {
   id: uuid('id').primaryKey().defaultRandom(),
   provider: text('provider').notNull(), // env | enc | oauth | vault
   locator: text('locator').notNull(),
+  // Operator-editable metadata (catalog redesign): human name, free-form notes, and
+  // a free-text group tag for organizing/filtering credentials. All nullable.
+  name: text('name'),
+  notes: text('notes'),
+  groupTag: text('group_tag'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),

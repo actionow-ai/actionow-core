@@ -161,6 +161,8 @@ import {
   updateApiKeyGroupSchema,
   type UpdateChannelDto,
   updateChannelSchema,
+  type UpdateCredentialMetaDto,
+  updateCredentialMetaSchema,
   type UpdateModelDto,
   updateModelSchema,
   type UpdateModifierDto,
@@ -424,6 +426,9 @@ export class AdminController {
     return secretViewSchema.parse({
       id: row.id,
       provider: row.provider,
+      name: row.name,
+      notes: row.notes,
+      group: row.groupTag,
       created_at: row.createdAt.toISOString(),
     });
   }
@@ -451,6 +456,15 @@ export class AdminController {
   })
   async revokeSecret(@Param('id') id: string): Promise<void> {
     await this.admin.revokeSecret(id);
+  }
+
+  @Patch('secrets/:id')
+  @ApiOperation({ summary: 'Edit a credential’s metadata (name/notes/group) — never the material' })
+  async updateSecret(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateCredentialMetaSchema)) dto: UpdateCredentialMetaDto,
+  ): Promise<SecretMetadataView> {
+    return toSecretMetadataView(await this.admin.updateSecretMeta(id, dto));
   }
 
   // ----- oauth sessions (BYO subscription) -----
@@ -484,6 +498,17 @@ export class AdminController {
   })
   async revokeOAuthSession(@Param('id') id: string): Promise<void> {
     await this.admin.revokeOAuthSession(id);
+  }
+
+  @Patch('oauth-sessions/:id')
+  @ApiOperation({
+    summary: 'Edit an OAuth session’s metadata (name/notes/group) — never the tokens',
+  })
+  async updateOAuthSession(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateCredentialMetaSchema)) dto: UpdateCredentialMetaDto,
+  ): Promise<OAuthSessionListView> {
+    return toOAuthSessionListView(await this.admin.updateOAuthSessionMeta(id, dto));
   }
 
   @Post('oauth-sessions/codex/login/start')
@@ -1195,6 +1220,9 @@ function toOAuthSessionListView(row: OAuthSessionListRow): OAuthSessionListView 
     provider_kind: row.providerKind,
     account_label: row.accountLabel,
     account_id: row.accountId,
+    name: row.name,
+    notes: row.notes,
+    group: row.groupTag,
     status: row.status,
     expires_at: row.expiresAt === null ? null : row.expiresAt.toISOString(),
     last_refresh_at: row.lastRefreshAt === null ? null : row.lastRefreshAt.toISOString(),

@@ -763,6 +763,10 @@ export interface SecretRefView {
   readonly id: string;
   readonly provider: string;
   readonly locator: string;
+  /** Operator-editable metadata (catalog redesign). */
+  readonly name: string | null;
+  readonly notes: string | null;
+  readonly groupTag: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -772,6 +776,9 @@ const SECRET_REF_VIEW_COLUMNS = {
   id: secretRef.id,
   provider: secretRef.provider,
   locator: secretRef.locator,
+  name: secretRef.name,
+  notes: secretRef.notes,
+  groupTag: secretRef.groupTag,
   createdAt: secretRef.createdAt,
   updatedAt: secretRef.updatedAt,
 } as const;
@@ -828,6 +835,32 @@ export async function softDeleteSecretRef(db: DbOrTx, id: string): Promise<strin
     .where(and(eq(secretRef.id, id), isNull(secretRef.deletedAt)))
     .returning({ id: secretRef.id });
   return rows[0]?.id;
+}
+
+/**
+ * Update a `secret_ref`'s operator metadata (name/notes/group_tag) only — never the
+ * material. Returns the updated id, or `undefined` if not found / soft-deleted. Each
+ * present key is set (including explicit `null` to clear).
+ */
+export async function updateSecretRefMeta(
+  db: DbOrTx,
+  id: string,
+  meta: {
+    readonly name?: string | null | undefined;
+    readonly notes?: string | null | undefined;
+    readonly group?: string | null | undefined;
+  },
+): Promise<SecretRefView | undefined> {
+  const set: Partial<InferInsertModel<typeof secretRef>> = { updatedAt: new Date() };
+  if (meta.name !== undefined) set.name = meta.name;
+  if (meta.notes !== undefined) set.notes = meta.notes;
+  if (meta.group !== undefined) set.groupTag = meta.group;
+  const rows = await db
+    .update(secretRef)
+    .set(set)
+    .where(and(eq(secretRef.id, id), isNull(secretRef.deletedAt)))
+    .returning(SECRET_REF_VIEW_COLUMNS);
+  return rows[0];
 }
 
 /** Fields a caller supplies to {@link createSecretRef}. */

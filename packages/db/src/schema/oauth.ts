@@ -18,6 +18,11 @@ export const oauthSession = pgTable(
     providerKind: text('provider_kind').notNull(),
     accountLabel: text('account_label'),
     accountId: text('account_id'),
+    // Operator-editable metadata (catalog redesign): human name, free-form notes,
+    // and a free-text group tag for organizing/filtering credentials. All nullable.
+    name: text('name'),
+    notes: text('notes'),
+    groupTag: text('group_tag'),
     accessEnc: text('access_enc').notNull(),
     refreshEnc: text('refresh_enc').notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }),

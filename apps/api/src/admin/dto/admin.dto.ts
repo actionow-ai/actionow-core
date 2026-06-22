@@ -23,6 +23,7 @@ import {
   topupSchema,
   updateApiKeyGroupSchema,
   updateChannelSchema,
+  updateCredentialMetaSchema,
   updateDifySchema,
   updateModelSchema,
   updateModifierSchema,
@@ -80,6 +81,7 @@ export {
   topupSchema,
   updateApiKeyGroupSchema,
   updateChannelSchema,
+  updateCredentialMetaSchema,
   updateDifySchema,
   updateModelSchema,
   updateModifierSchema,
@@ -89,6 +91,7 @@ export {
   updateRouteGroupSchema,
   updateTenantSchema,
 };
+export type UpdateCredentialMetaDto = z.infer<typeof updateCredentialMetaSchema>;
 
 export type CreateTenantDto = z.infer<typeof createTenantSchema>;
 export type UpdateTenantDto = z.infer<typeof updateTenantSchema>;
