@@ -9586,6 +9586,7 @@ export interface components {
             resource_id: string;
             input_price: string;
             output_price: string;
+            rate_limit: number | null;
             status: string;
             created_at: string;
         };
@@ -10312,6 +10313,7 @@ export interface components {
             visibility?: "public" | "tenant";
             inputPrice?: number;
             outputPrice?: number;
+            rateLimit?: number;
             /** @enum {string} */
             status?: "active" | "disabled";
         };
@@ -10324,6 +10326,7 @@ export interface components {
             outputPrice?: number;
             /** @enum {string} */
             visibility?: "public" | "tenant";
+            rateLimit?: number | null;
             /** @enum {string} */
             status?: "active" | "disabled";
         };

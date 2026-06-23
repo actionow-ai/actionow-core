@@ -71,6 +71,8 @@ export function ModelEditor({
   const [visibility, setVisibility] = useState<Visibility>('public');
   const [inputPrice, setInputPrice] = useState(0);
   const [outputPrice, setOutputPrice] = useState(0);
+  // Per-model rate limit (requests/min); 0 = no model-specific cap.
+  const [rateLimit, setRateLimit] = useState(0);
   const [status, setStatus] = useState<ModelStatus>('active');
   // A stable idempotency key for this editor instance (remounted per open via
   // `key`), so an accidental double-submit of a create replays instead of dupes.
@@ -95,6 +97,7 @@ export function ModelEditor({
     setVisibility(m.visibility === 'tenant' ? 'tenant' : 'public');
     setInputPrice(Number(m.input_price));
     setOutputPrice(Number(m.output_price));
+    setRateLimit(m.rate_limit ?? 0);
     setStatus(m.status === 'disabled' ? 'disabled' : 'active');
   }, [editing, m]);
 
@@ -106,6 +109,7 @@ export function ModelEditor({
         visibility,
         inputPrice,
         outputPrice,
+        rateLimit: rateLimit > 0 ? rateLimit : null,
         status,
       }),
     onSuccess: async () => {
@@ -131,6 +135,7 @@ export function ModelEditor({
           visibility,
           inputPrice,
           outputPrice,
+          ...(rateLimit > 0 ? { rateLimit } : {}),
           status: statusOverride,
         },
         idemKey,
@@ -294,6 +299,15 @@ export function ModelEditor({
         hint={t('models.tip.priceEquiv', { n: outputPrice })}
         value={outputPrice}
         onChange={setOutputPrice}
+        min={0}
+        step={1}
+      />
+      <NumberField
+        label={t('models.form.rateLimit')}
+        tooltip={t('models.tip.rateLimit')}
+        hint={t('models.tip.rateLimitHint')}
+        value={rateLimit}
+        onChange={setRateLimit}
         min={0}
         step={1}
       />

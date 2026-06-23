@@ -1576,6 +1576,7 @@ function toModelView(row: ModelRow): ModelView {
     resource_id: row.resourceId,
     input_price: row.inputPrice.toString(),
     output_price: row.outputPrice.toString(),
+    rate_limit: row.rateLimit,
     status: row.status,
     created_at: row.createdAt.toISOString(),
   });

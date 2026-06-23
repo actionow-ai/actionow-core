@@ -366,6 +366,10 @@
           "output_price": {
             "type": "string"
           },
+          "rate_limit": {
+            "type": "number",
+            "nullable": true
+          },
           "status": {
             "type": "string"
           },
@@ -383,6 +387,7 @@
           "resource_id",
           "input_price",
           "output_price",
+          "rate_limit",
           "status",
           "created_at"
         ]
@@ -3251,6 +3256,12 @@
             "type": "integer",
             "minimum": 0
           },
+          "rateLimit": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 1000000
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -3291,6 +3302,13 @@
               "public",
               "tenant"
             ]
+          },
+          "rateLimit": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 1000000
           },
           "status": {
             "type": "string",

@@ -1,0 +1,1 @@
+ALTER TABLE "model" ADD COLUMN "rate_limit" integer;
