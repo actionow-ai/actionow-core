@@ -1,4 +1,5 @@
 import {
+  createModel,
   createPricebookEntry,
   createResource,
   createSecretRef,
@@ -32,9 +33,14 @@ import {
  */
 
 /** A frozen `io_schema` snapshot for a text (chat) resource version. */
+// Chat/text resources are driven by the OpenAI/Anthropic/Gemini DIALECT relays
+// (`/v1/chat/completions` etc.), which build the upstream request from the chat
+// IR (messages) — NOT from `io_schema.inputs`. A `prompt`-required io_schema here
+// would make the chat relay reject every call ("prompt: Required"), so chat
+// resources carry an EMPTY io_schema (matching the seeded chat-codex resource).
 const TEXT_IO = {
-  inputs: [{ key: 'prompt', type: 'string', required: true }],
-  outputs: [{ key: 'text', type: 'string' }],
+  inputs: [],
+  outputs: [],
 };
 /** A frozen `io_schema` snapshot for an image resource version. */
 const IMAGE_IO = {
@@ -322,5 +328,23 @@ export async function seedProviders(db: Database, opts: SeedProvidersOptions): P
       weight: 1,
       status: 'active',
     });
+
+    // Chat/text resources need a `model` row so the dialect relays
+    // (`/v1/chat/completions` etc.) can resolve the requested model NAME →
+    // this resource → its channel. Without it a freshly-seeded direct/relay
+    // chat provider is unroutable. The model name mirrors the channel's vendor
+    // model id. (Media resources route by resource, not model name — skipped.)
+    if (s.modality === 'text') {
+      await createModel(db, {
+        name: s.model,
+        resourceId: s.id,
+        modality: 'chat',
+        capabilities: { tools: true, vision: true, json: true, stream: true },
+        visibility: 'public',
+        inputPrice: 1n,
+        outputPrice: 1n,
+        status: 'active',
+      });
+    }
   }
 }

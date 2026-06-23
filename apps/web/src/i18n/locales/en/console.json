@@ -842,6 +842,7 @@
     "new": "New modifier",
     "empty": "No modifiers yet",
     "created": "Modifier created",
+    "valueRequired": "Enter a value (every modifier op needs one).",
     "submit": "Create",
     "cols": {
       "scope": "Scope",
