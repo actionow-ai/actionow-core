@@ -12,7 +12,7 @@ import {
 } from '@actionow/db';
 import type { JobQueuePort, RunOutcome, RunRequest, StreamOutcome } from '@actionow/engine';
 import { ExecutionService } from '@actionow/engine';
-import { type AppEnv, FetchHttpClient } from '@actionow/infra';
+import { type AppEnv, createHttpClient } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { TenantContext } from '../auth/auth.service.js';
@@ -41,7 +41,7 @@ export type { RunBody };
  */
 @Injectable()
 export class RunService {
-  private readonly http = new FetchHttpClient();
+  private readonly http = createHttpClient();
 
   constructor(
     @Inject(DB) private readonly db: Database,

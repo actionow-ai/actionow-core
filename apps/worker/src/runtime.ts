@@ -5,9 +5,9 @@ import type { FetchBytes, PutBytes } from '@actionow/engine';
 import { registerEngineAdapters } from '@actionow/engine';
 import {
   type AppEnv,
+  createHttpClient,
   createS3StorageProvider,
   fetchBytesWithTimeout,
-  FetchHttpClient,
   loadEnv,
   putBytesWithTimeout,
   storageConfigFromEnv,
@@ -50,7 +50,7 @@ export function createWorkerRuntime(): WorkerRuntime {
     env,
     db,
     adapters: registerEngineAdapters(createDefaultRegistry()),
-    http: new FetchHttpClient(),
+    http: createHttpClient(),
     // A channel's `credential_ref` is a `secret_ref` uuid: the resolver
     // dereferences that row → `SECRET_<locator>`/`<locator>` for `provider=env`
     // (Phase-5 vault deref returns undefined). A non-uuid ref (e.g. the literal

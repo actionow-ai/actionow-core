@@ -1,4 +1,5 @@
 export { type AppEnv, loadEnv, storageConfigFromEnv } from './config.js';
+export * from './curl-http.js';
 export * from './http.js';
 export * from './media-bytes.js';
 export * from './password.js';

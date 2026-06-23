@@ -23,8 +23,8 @@ import {
 } from '@actionow/engine';
 import {
   type AppEnv,
+  createHttpClient,
   fetchBytesWithTimeout,
-  FetchHttpClient,
   putBytesWithTimeout,
 } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
@@ -71,7 +71,7 @@ const CONTENT_TYPE_BY_FORMAT: Record<string, string> = {
  */
 @Injectable()
 export class MediaDialectService {
-  private readonly http = new FetchHttpClient();
+  private readonly http = createHttpClient();
 
   constructor(
     @Inject(DB) private readonly db: Database,

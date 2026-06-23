@@ -84,7 +84,9 @@ describe('irToResponsesBody', () => {
     // params + invariants.
     expect(body.store).toBe(false);
     expect(body.stream).toBe(false);
-    expect(body.max_output_tokens).toBe(256);
+    // `max_output_tokens` is NEVER forwarded — the private codex backend rejects
+    // it ("Unsupported parameter") even when the IR carries maxOutputTokens.
+    expect('max_output_tokens' in body).toBe(false);
     expect(body.temperature).toBe(0.5);
     expect(body.top_p).toBe(0.9);
     expect(body.model).toBe('gpt-5-codex');
