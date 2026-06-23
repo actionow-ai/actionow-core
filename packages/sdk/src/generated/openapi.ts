@@ -9349,7 +9349,7 @@ export interface components {
             whenExpr?: string;
             /** @enum {string} */
             op: "override_rate" | "percent_off" | "flat_off" | "percent_add";
-            value?: number;
+            value: number;
             stackable?: boolean;
             priority?: number;
             version?: number;

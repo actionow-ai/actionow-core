@@ -152,11 +152,12 @@ export const createModifierSchema = z.object({
   whenExpr: z.string().optional(),
   op: z.enum(['override_rate', 'percent_off', 'flat_off', 'percent_add']),
   /**
-   * For percent ops (`percent_off`/`percent_add`) this is a whole-percent int.
-   * For credit ops (`flat_off`/`override_rate`) this is a HUMAN-credit amount
-   * the controller converts to µcredits.
+   * REQUIRED — every op needs a value: percent ops (`percent_off`/`percent_add`)
+   * take a whole-percent int; credit ops (`flat_off`/`override_rate`) take a
+   * HUMAN-credit amount the controller converts to µcredits. (A value-less
+   * modifier would throw `invalid_pricing` on EVERY settle — a pricing footgun.)
    */
-  value: z.number().optional(),
+  value: z.number(),
   stackable: z.boolean().optional(),
   priority: z.number().int().optional(),
   version: z.number().int().positive().optional(),

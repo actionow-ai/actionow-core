@@ -842,6 +842,7 @@
     "new": "新建规则",
     "empty": "暂无规则",
     "created": "规则已创建",
+    "valueRequired": "请填写数值（所有调价类型都需要数值）。",
     "submit": "创建",
     "cols": {
       "scope": "范围",

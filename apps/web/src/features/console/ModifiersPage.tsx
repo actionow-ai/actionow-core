@@ -105,6 +105,9 @@ export function ModifiersPage() {
           active,
         });
       }
+      // Every op needs a value; reject an empty one before the request (a
+      // value-less modifier would break pricing at settle).
+      if (num === undefined) throw new Error(t('modifiers.valueRequired'));
       return api.createModifier({
         scope,
         op,

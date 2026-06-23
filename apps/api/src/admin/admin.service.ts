@@ -1173,8 +1173,8 @@ export class AdminService {
     });
   }
 
-  private modifierValue(dto: CreateModifierDto): bigint | null {
-    if (dto.value === undefined) return null;
+  private modifierValue(dto: CreateModifierDto): bigint {
+    // `value` is required by createModifierSchema (every op needs one).
     return CREDIT_VALUE_OPS.has(dto.op) ? creditsToMicro(dto.value) : BigInt(Math.round(dto.value));
   }
 
