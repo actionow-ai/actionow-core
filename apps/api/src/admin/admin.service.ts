@@ -140,7 +140,7 @@ import {
   runHandler,
   SandboxError,
 } from '@actionow/engine';
-import { type AppEnv, FetchHttpClient } from '@actionow/infra';
+import { type AppEnv, createHttpClient } from '@actionow/infra';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { engineInvalidInput, engineNotFound } from '../common/errors.js';
@@ -284,7 +284,7 @@ export class AdminService {
   ) {
     // Default to a real fetch client so existing constructions/tests that don't
     // wire an HTTP provider keep working; the OAuth-login e2e overrides it.
-    this.http = http ?? new FetchHttpClient();
+    this.http = http ?? createHttpClient();
   }
 
   // ----- tenants -----

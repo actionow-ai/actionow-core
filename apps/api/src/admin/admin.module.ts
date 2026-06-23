@@ -1,4 +1,4 @@
-import { type AppEnv, FetchHttpClient } from '@actionow/infra';
+import { type AppEnv, createHttpClient } from '@actionow/infra';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 
@@ -58,7 +58,7 @@ import {
     { provide: KNOWN_MODELS, useValue: new Set<string>() },
     // The shared HttpClient for the codex OAuth code-exchange; overridable in
     // tests (the OAuth-login e2e injects a fake — no real network call).
-    { provide: HTTP, useValue: new FetchHttpClient() },
+    { provide: HTTP, useValue: createHttpClient() },
   ],
   // AdminTokenAuthService is exported alongside AdminGuard: any module that reuses
   // the guard (e.g. PaymentsModule) must be able to resolve the guard's deps.

@@ -65,7 +65,6 @@ export interface ResponsesBody {
   tools?: Record<string, unknown>[];
   temperature?: number;
   top_p?: number;
-  max_output_tokens?: number;
 }
 
 /** Join all text parts of an IR message into one string. */
@@ -191,9 +190,10 @@ export function irToResponsesBody(ir: ChatRequest, opts: ResponsesBodyOpts): Res
     if (params.topP !== undefined) {
       body.top_p = params.topP;
     }
-    if (params.maxOutputTokens !== undefined) {
-      body.max_output_tokens = params.maxOutputTokens;
-    }
+    // NOTE: the private ChatGPT codex backend REJECTS `max_output_tokens`
+    // ("Unsupported parameter") even though the public Responses API accepts it,
+    // so we never forward it. Output is bounded by the credit hold + settle, not
+    // an upstream cap. (Verified against the live backend, 2026-06-23.)
   }
   return body;
 }

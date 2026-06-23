@@ -25,8 +25,8 @@ import type {
 import { JobRunner, persistMediaResult, signPayload } from '@actionow/engine';
 import {
   type AppEnv,
+  createHttpClient,
   fetchBytesWithTimeout,
-  FetchHttpClient,
   putBytesWithTimeout,
 } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
@@ -53,7 +53,7 @@ const TIMESTAMP_WINDOW_MS = 5 * 60_000;
  */
 @Injectable()
 export class CallbacksService {
-  private readonly http = new FetchHttpClient();
+  private readonly http = createHttpClient();
 
   constructor(
     @Inject(DB) private readonly db: Database,

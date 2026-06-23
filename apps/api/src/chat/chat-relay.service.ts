@@ -16,7 +16,7 @@ import {
 } from '@actionow/db';
 import type { ChatRunOutcome, ChatStreamOutcome, JobQueuePort, RunRequest } from '@actionow/engine';
 import { ExecutionService } from '@actionow/engine';
-import { type AppEnv, FetchHttpClient } from '@actionow/infra';
+import { type AppEnv, createHttpClient } from '@actionow/infra';
 import { normalizeRequest, readCapabilities } from '@actionow/llm-protocol';
 import { Inject, Injectable } from '@nestjs/common';
 
@@ -66,7 +66,7 @@ const ESTIMATE_INPUT_PADDING = 2;
  */
 @Injectable()
 export class ChatRelayService {
-  private readonly http = new FetchHttpClient();
+  private readonly http = createHttpClient();
 
   constructor(
     @Inject(DB) private readonly db: Database,
