@@ -36,10 +36,11 @@ export function AppOverview() {
   const held = balanceQ.data?.held ?? '0';
 
   const jobCols: Column<ConsoleJobView>[] = [
-    { key: 'resource', header: t('app.overview.cols.resource'), cell: (r) => r.resource_id },
+    { key: 'resource', header: t('app.overview.cols.resource'), grow: true, cell: (r) => r.resource_id },
     {
       key: 'status',
       header: t('app.overview.cols.status'),
+      noClip: true,
       cell: (r) => (
         <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
       ),
@@ -49,6 +50,7 @@ export function AppOverview() {
     {
       key: 'cost',
       header: t('app.overview.cols.cost'),
+      numeric: true,
       cell: (r) => (r.cost !== null ? <Money micro={r.cost} /> : '—'),
       width: '110px',
     },
@@ -61,10 +63,11 @@ export function AppOverview() {
   ];
 
   const ledgerCols: Column<ConsoleLedgerView>[] = [
-    { key: 'type', header: t('app.overview.cols.type'), cell: (r) => r.type },
+    { key: 'type', header: t('app.overview.cols.type'), grow: true, cell: (r) => r.type },
     {
       key: 'delta',
       header: t('app.overview.cols.delta'),
+      numeric: true,
       cell: (r) => (
         <span
           className="tabular"
@@ -78,6 +81,7 @@ export function AppOverview() {
     {
       key: 'balance',
       header: t('app.overview.cols.balance'),
+      numeric: true,
       cell: (r) => <Money micro={r.balance_after} />,
       width: '120px',
     },

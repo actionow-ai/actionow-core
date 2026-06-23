@@ -70,6 +70,9 @@
   --shadow-accent-card: 0 12px 30px rgba(255, 176, 10, 0.18);
   --glow-accent-strong: 0 0 14px rgba(255, 176, 10, 0.55);
   --scrim: rgba(0, 0, 0, 0.45);
+  /* Subtle neutral edge for a horizontally-scrolled pinned table column — much
+     softer than --scrim so it reads as a hairline, not a heavy gold seam. */
+  --sticky-seam: rgba(0, 0, 0, 0.22);
   --log-ok: #9bdcb0;
 
   /* dark (default) */
@@ -150,6 +153,8 @@
   --shadow-accent-card: 0 12px 30px rgba(245, 158, 11, 0.16);
   --glow-accent-strong: 0 0 14px rgba(245, 158, 11, 0.4);
   --scrim: rgba(40, 30, 5, 0.32);
+  /* Light-mode pinned-column edge: a faint neutral hairline. */
+  --sticky-seam: rgba(0, 0, 0, 0.12);
 }
 
 * {

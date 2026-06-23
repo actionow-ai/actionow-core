@@ -120,19 +120,16 @@ export function FaultPoliciesPage() {
     {
       key: 'status',
       header: t('faultPolicies.cols.status'),
+      noClip: true,
       cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
       width: '100px',
     },
   ];
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: 'var(--s-2) var(--s-3) var(--s-4)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)', marginBottom: 'var(--s-3)' }}>
-        <h1 style={{ margin: 0, fontSize: 'var(--fs-md)', fontWeight: 'var(--fw-semibold)' }}>
-          {t('faultPolicies.title')}
-        </h1>
-      </div>
-
+    // Consistent with the sibling list pages: no own scroll/padding wrapper, no
+    // in-page title (the TopBar renders the title + subtitle).
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
       <DataTable
         columns={cols}
         rows={data ?? []}

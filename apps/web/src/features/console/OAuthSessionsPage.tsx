@@ -201,10 +201,16 @@ export function OAuthSessionsPage() {
   const fmtDate = (s: string | null) => (s !== null ? new Date(s).toLocaleString(i18n.language) : '—');
 
   const metaCols = <T extends { name: string | null; notes: string | null; group: string | null }>(): Column<T>[] => [
-    { key: 'name', header: t('credentials.name'), cell: (r) => r.name ?? <span style={{ color: 'var(--faint)' }}>—</span> },
+    {
+      key: 'name',
+      header: t('credentials.name'),
+      width: '180px',
+      cell: (r) => r.name ?? <span style={{ color: 'var(--faint)' }}>—</span>,
+    },
     {
       key: 'group',
       header: t('credentials.group'),
+      noClip: true,
       cell: (r) =>
         r.group !== null ? <span className="chip">{r.group}</span> : <span style={{ color: 'var(--faint)' }}>—</span>,
       width: '120px',
@@ -216,21 +222,24 @@ export function OAuthSessionsPage() {
     {
       key: 'provider',
       header: t('oauthSessions.cols.provider'),
+      noClip: true,
       cell: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}>
           <ProviderIcon provider={r.provider_kind} size={16} />
-          <span>{r.provider_kind}</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.provider_kind}</span>
         </span>
       ),
       width: '160px',
     },
-    { key: 'account', header: t('oauthSessions.cols.account'), cell: (r) => r.account_label ?? '—' },
+    // account is the elastic column.
+    { key: 'account', header: t('oauthSessions.cols.account'), grow: true, cell: (r) => r.account_label ?? '—' },
     ...metaCols<OAuthSessionListView>().slice(1),
     {
       key: 'status',
       header: t('oauthSessions.cols.status'),
+      noClip: true,
       cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
-      width: '120px',
+      width: '148px',
     },
     { key: 'expires', header: t('oauthSessions.cols.expires'), cell: (r) => fmtDate(r.expires_at), align: 'right', width: '170px' },
   ];
@@ -240,17 +249,21 @@ export function OAuthSessionsPage() {
     {
       key: 'provider',
       header: t('secrets.cols.provider'),
+      noClip: true,
       cell: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}>
           <ProviderIcon provider={r.provider} size={16} />
-          <span>{r.provider}</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.provider}</span>
         </span>
       ),
       width: '160px',
     },
+    // The copy-field id is the elastic column and must never be ellipsis-clipped.
     {
       key: 'id',
       header: t('secrets.cols.id'),
+      grow: true,
+      noClip: true,
       cell: (r) => (
         <CopyField value={r.id} copyLabel={t('common.copy')} copiedLabel={t('common.copied')} failedLabel={t('common.copyFailed')} />
       ),
@@ -282,6 +295,7 @@ export function OAuthSessionsPage() {
             onRetry={() => void sessions.refetch()}
             empty={t('oauthSessions.empty')}
             selectable
+            actionsWidth="96px"
             bulkActions={(rows, clear) => (
               <Button variant="ghost" onClick={() => void bulkRevoke(rows.map((r) => r.id), 'oauth', clear)}>
                 {t('credentials.bulkRevoke', { n: rows.length })}
@@ -315,6 +329,7 @@ export function OAuthSessionsPage() {
             onRetry={() => void secrets.refetch()}
             empty={t('secrets.empty')}
             selectable
+            actionsWidth="96px"
             bulkActions={(rows, clear) => (
               <Button variant="ghost" onClick={() => void bulkRevoke(rows.map((r) => r.id), 'secrets', clear)}>
                 {t('credentials.bulkRevoke', { n: rows.length })}

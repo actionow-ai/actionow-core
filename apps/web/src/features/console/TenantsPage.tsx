@@ -393,16 +393,18 @@ function TenantDetailDrawer({
       cell: (r) => new Date(r.created_at).toLocaleDateString(),
       width: '104px',
     },
-    { key: 'type', header: t('tenants.detail.cols.type'), cell: (r) => r.type },
+    { key: 'type', header: t('tenants.detail.cols.type'), grow: true, cell: (r) => r.type },
     {
       key: 'delta',
       header: t('tenants.detail.cols.delta'),
+      numeric: true,
       cell: (r) => <Money micro={r.credits_delta} />,
       width: '110px',
     },
     {
       key: 'balance',
       header: t('tenants.detail.cols.balanceAfter'),
+      numeric: true,
       cell: (r) => <Money micro={r.balance_after} />,
       width: '110px',
     },
@@ -414,10 +416,11 @@ function TenantDetailDrawer({
       cell: (r) => new Date(r.created_at).toLocaleDateString(),
       width: '104px',
     },
-    { key: 'provider', header: t('tenants.detail.cols.provider'), cell: (r) => r.provider },
+    { key: 'provider', header: t('tenants.detail.cols.provider'), grow: true, cell: (r) => r.provider },
     {
       key: 'amount',
       header: t('tenants.detail.cols.amount'),
+      numeric: true,
       cell: (r) => (
         <span className="tabular">
           {(Number(r.amount_minor) / 100).toFixed(2)} {r.currency.toUpperCase()}
@@ -428,6 +431,7 @@ function TenantDetailDrawer({
     {
       key: 'status',
       header: t('tenants.detail.cols.status'),
+      noClip: true,
       cell: (r) => (
         <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
       ),

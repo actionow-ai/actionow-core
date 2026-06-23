@@ -24,9 +24,10 @@ export function AppModels() {
     {
       key: 'name',
       header: t('app.models.cols.name'),
+      grow: true,
       cell: (r) => <span className="mono">{r.name}</span>,
     },
-    { key: 'display', header: t('app.models.cols.display'), cell: (r) => r.display || '—' },
+    { key: 'display', header: t('app.models.cols.display'), width: '180px', cell: (r) => r.display || '—' },
     {
       key: 'modality',
       header: t('app.models.cols.modality'),
@@ -36,6 +37,7 @@ export function AppModels() {
     {
       key: 'visibility',
       header: t('app.models.cols.visibility'),
+      noClip: true,
       cell: (r) => (
         <StatusBadge
           tone={r.visibility === 'public' ? 'ok' : 'idle'}
@@ -50,12 +52,14 @@ export function AppModels() {
       // on the wire — read it as a record and chip the known flags that are on.
       key: 'capabilities',
       header: t('app.models.cols.capabilities'),
+      width: '230px',
+      noClip: true,
       cell: (r) => {
         const caps = (r.capabilities ?? {}) as Record<string, unknown>;
         const active = CAPABILITIES.filter((c) => caps[c.key] === true);
         if (active.length === 0) return '—';
         return (
-          <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 'var(--s-1)' }}>
+          <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s-1)' }}>
             {active.map((c) => (
               <span key={c.key} className="chip">
                 {t(c.labelKey)}

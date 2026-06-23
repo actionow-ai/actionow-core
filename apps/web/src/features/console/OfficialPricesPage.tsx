@@ -97,6 +97,7 @@ export function OfficialPricesPage() {
     {
       key: 'model_slug',
       header: t('officialPrices.cols.modelSlug'),
+      grow: true,
       sortable: true,
       sortValue: (r) => r.model_slug,
       cell: (r) => <strong>{r.model_slug}</strong>,
@@ -104,12 +105,15 @@ export function OfficialPricesPage() {
     {
       key: 'display_name',
       header: t('officialPrices.cols.displayName'),
+      width: '220px',
       cell: (r) => r.display_name ?? '—',
     },
     {
       key: 'input',
       header: t('officialPrices.cols.inputPrice'),
       sortable: true,
+      numeric: true,
+      noClip: true,
       sortValue: (r) => Number(r.input_price_per_1m),
       cell: (r) => (
         <span className="tabular">
@@ -123,6 +127,8 @@ export function OfficialPricesPage() {
       key: 'output',
       header: t('officialPrices.cols.outputPrice'),
       sortable: true,
+      numeric: true,
+      noClip: true,
       sortValue: (r) => Number(r.output_price_per_1m),
       cell: (r) => (
         <span className="tabular">
@@ -162,13 +168,9 @@ export function OfficialPricesPage() {
   ];
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: 'var(--s-2) var(--s-3) var(--s-4)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)', marginBottom: 'var(--s-3)' }}>
-        <h1 style={{ margin: 0, fontSize: 'var(--fs-md)', fontWeight: 'var(--fw-semibold)' }}>
-          {t('officialPrices.title')}
-        </h1>
-      </div>
-
+    // Consistent with the sibling list pages: no own scroll/padding wrapper, no
+    // in-page title (the TopBar renders the title + subtitle).
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
       <DataTable
         columns={cols}
         rows={rows}

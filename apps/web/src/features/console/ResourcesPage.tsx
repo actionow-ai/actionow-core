@@ -254,13 +254,14 @@ export function ResourcesPage() {
 }
 
 // A scroll column in the master-detail. `overflowX: hidden` keeps a card's
-// hover-lift shadow from triggering a horizontal scrollbar; the asymmetric
-// padding (wider sides + bottom) gives the shadow + selected ring room so they
-// aren't clipped at the scroll edges, while content still reads as filling.
+// hover-lift shadow from triggering a horizontal scrollbar. No horizontal inset
+// — the main content area already has its own gutter (ConsoleLayout), so the
+// list/detail read edge-to-edge; a small top/bottom pad keeps the first card's
+// hover-lift and the last card's shadow from clipping at the scroll edges.
 const SCROLL_COL: CSSProperties = {
   height: '100%',
   minHeight: 0,
   overflowY: 'auto',
   overflowX: 'hidden',
-  padding: 'var(--s-2) var(--s-3) var(--s-4)',
+  padding: 'var(--s-1) 0 var(--s-4)',
 };

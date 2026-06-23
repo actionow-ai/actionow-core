@@ -98,24 +98,22 @@ export function ProxiesPage() {
       cell: (r) => <span className="mono">{r.scheme}</span>,
       width: '110px',
     },
-    { key: 'host', header: t('proxies.cols.host'), cell: (r) => <span className="mono">{r.host}</span> },
+    { key: 'host', header: t('proxies.cols.host'), grow: true, cell: (r) => <span className="mono">{r.host}</span> },
     {
       key: 'status',
       header: t('proxies.cols.status'),
+      noClip: true,
       cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
       width: '100px',
     },
-    { key: 'health', header: t('proxies.cols.health'), cell: (r) => <HealthPill p={r} />, width: '120px' },
+    { key: 'health', header: t('proxies.cols.health'), noClip: true, cell: (r) => <HealthPill p={r} />, width: '120px' },
   ];
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: 'var(--s-2) var(--s-3) var(--s-4)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)', marginBottom: 'var(--s-3)' }}>
-        <h1 style={{ margin: 0, fontSize: 'var(--fs-md)', fontWeight: 'var(--fw-semibold)' }}>
-          {t('proxies.title')}
-        </h1>
-      </div>
-
+    // Matches the sibling list pages (Plugins): no own scroll/padding wrapper and
+    // no in-page title — ConsoleLayout scrolls the view and the TopBar renders the
+    // "代理" title + subtitle.
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
       <DataTable
         columns={cols}
         rows={data ?? []}
@@ -124,7 +122,7 @@ export function ProxiesPage() {
         empty={t('proxies.empty')}
         searchable
         pageSize={20}
-        actionsWidth="150px"
+        actionsWidth="120px"
         rowActions={(r) => (
           <>
             <RowAction
