@@ -161,7 +161,7 @@
     "accounts": "Accounts",
     "apiKeys": "API Keys",
     "catalog": "Catalog",
-    "resources": "Resources",
+    "resources": "Model service",
     "models": "Models",
     "modifiers": "Modifiers",
     "routeGroups": "Groups",
@@ -195,7 +195,7 @@
     "tsettings": "Your profile and password",
     "tenants": "Create and view tenants",
     "catalog": "Models & resources — channels and pricing",
-    "resources": "Models, upstream channels & pricing",
+    "resources": "Platforms → channels → models: upstream routes and the models they serve",
     "models": "Relay models, tenant grants & token pricing",
     "modifiers": "Global and scoped pricing rules",
     "routeGroups": "Route groups & channel membership",
@@ -532,7 +532,10 @@
       "addPrice": "Add price",
       "priceAdded": "Price added",
       "pick": "Select a resource to view details",
-      "notFound": "Resource not found — it may have been deleted."
+      "notFound": "Resource not found — it may have been deleted.",
+      "servedModels": "Models",
+      "noChannelModels": "No models on this channel yet",
+      "pickChannel": "Select a channel on the left to view its models"
     }
   },
   "models": {
@@ -565,7 +568,9 @@
       "inputPrice": "Input price",
       "outputPrice": "Output price",
       "visibility": "Visibility",
-      "status": "Status"
+      "status": "Status",
+      "rateLimit": "Rate limit",
+      "fallback": "Fallback"
     },
     "form": {
       "name": "Name",
@@ -624,6 +629,19 @@
       "deleteMsg": "Permanently delete model {{name}}? This frees the name for re-create and cannot be undone.",
       "revokeTitle": "Revoke grant?",
       "revokeMsg": "Revoke access for {{tenant}}? They will no longer be able to use this model."
+    },
+    "link": "Link model",
+    "unlink": "Unlink",
+    "linked": "Linked",
+    "unlinked": "Unlinked",
+    "linkTitle": "Link a model to {{channel}}",
+    "allLinked": "All platform models are already linked to this channel",
+    "unpriced": "Unpriced",
+    "servedChannels": "Served by",
+    "noServingChannel": "No dedicated channel (falls back to platform)",
+    "unlinkHint": "Unlinking only removes this model from “{{channel}}” — it does not delete the model.",
+    "detail": {
+      "price": "Price in/out"
     }
   },
   "channels": {
@@ -790,15 +808,16 @@
     }
   },
   "credentials": {
-    "new": "New credential",
-    "pickExisting": "Select an existing credential",
-    "value": "Secret value",
-    "label": "Label (optional)",
-    "save": "Create credential",
-    "created": "Credential created",
-    "tip": {
-      "value": "The plaintext API key or secret. It is encrypted on save and never shown again — only its id is kept as a reference."
-    }
+    "tabsLabel": "Credential type",
+    "name": "Name",
+    "group": "Group",
+    "groupHint": "Free-text tag for filtering / organizing",
+    "notes": "Notes",
+    "edit": "Edit",
+    "editTitle": "Edit credential",
+    "saved": "Saved",
+    "bulkRevoke": "Revoke {{n}}",
+    "bulkRevoked": "Revoked {{n}}"
   },
   "pricebook": {
     "empty": "No pricing yet",
@@ -1283,18 +1302,6 @@
       "copied": "Copied",
       "done": "Done"
     }
-  },
-  "credentials": {
-    "tabsLabel": "Credential type",
-    "name": "Name",
-    "group": "Group",
-    "groupHint": "Free-text tag for filtering / organizing",
-    "notes": "Notes",
-    "edit": "Edit",
-    "editTitle": "Edit credential",
-    "saved": "Saved",
-    "bulkRevoke": "Revoke {{n}}",
-    "bulkRevoked": "Revoked {{n}}"
   },
   "oauthSessions": {
     "revoke": "Revoke",

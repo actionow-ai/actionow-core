@@ -13,9 +13,11 @@ import { useTranslation } from 'react-i18next';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { ProviderIcon } from '../../components/data/ProviderIcon';
+import { QueryBoundary } from '../../components/data/QueryBoundary';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Modal } from '../../components/ui/Modal';
 import { RowAction } from '../../components/ui/RowAction';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SelectField } from '../../components/ui/SelectField';
@@ -30,11 +32,15 @@ import {
 } from '../../lib/api/enums';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
-import type { ChannelStatus, ChannelView, PricebookView } from '../../lib/api/types';
+import type { ChannelStatus, ChannelView, ModelView, PricebookView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
 import { useUrlState } from '../../lib/useUrlState';
+import { ChannelCard } from './ChannelCard';
 import { ChannelEditor } from './ChannelEditor';
+import { ModelDetailDrawer } from './ModelDetailDrawer';
+import { ModelEditor } from './ModelEditor';
+import { ModelGrid } from './ModelGrid';
 import { ModelsSection } from './ModelsSection';
 import { PricingModal } from './PricingModal';
 
@@ -138,6 +144,65 @@ export function ResourceDetailPane({ id }: { id: string }) {
       await qc.invalidateQueries({ queryKey: qk.pricebook(id) });
       toast(t('pricebook.deleted'));
       setPbDelTarget(undefined);
+    },
+    onError: mutationError(t),
+  });
+
+  // --- Platform two-pane (catalog supply-hierarchy, kind='model') -----------
+  // Selected channel lives in url-state (`?cid=`) so it's deep-linkable; defaults
+  // to the first channel once they load.
+  const [cid, setCid] = useUrlState('cid');
+  const channelRows = channels.data ?? [];
+  const selectedChannel =
+    channelRows.find((c) => c.id === cid) ?? (cid === '' ? channelRows[0] : undefined);
+
+  // Platform model catalog — the "link existing" picker + name resolution.
+  const models = useQuery({
+    queryKey: qk.models(),
+    queryFn: () => api.listModels(),
+    staleTime: STALE_REFERENCE,
+    enabled: id !== '',
+  });
+  const platformModels = (models.data ?? []).filter((m) => m.resource_id === id);
+  const channelName = (channelId: string): string => {
+    const c = channelRows.find((x) => x.id === channelId);
+    return c ? c.provider_type : channelId.slice(0, 8);
+  };
+
+  const [modelTarget, setModelTarget] = useState<ModelView | undefined>(undefined);
+  // The model being edited: a model name, the sentinel 'new' (create), or undefined (closed).
+  const [modelEdit, setModelEdit] = useState<string | undefined>(undefined);
+  const [linkOpen, setLinkOpen] = useState(false);
+
+  const linkModel = useMutation({
+    mutationFn: ({ channelId, modelId }: { channelId: string; modelId: string }) =>
+      api.linkChannelModel(id, channelId, modelId),
+    onSuccess: async (_r, { channelId }) => {
+      await qc.invalidateQueries({ queryKey: qk.channelModels(channelId) });
+      await qc.invalidateQueries({ queryKey: qk.channels(id) });
+      toast(t('models.linked'));
+    },
+    onError: mutationError(t),
+  });
+  const unlinkModel = useMutation({
+    mutationFn: ({ channelId, modelId }: { channelId: string; modelId: string }) =>
+      api.unlinkChannelModel(id, channelId, modelId),
+    onSuccess: async (_r, { channelId }) => {
+      await qc.invalidateQueries({ queryKey: qk.channelModels(channelId) });
+      await qc.invalidateQueries({ queryKey: qk.channels(id) });
+      toast(t('models.unlinked'));
+      setModelTarget(undefined);
+    },
+    onError: mutationError(t),
+  });
+  // Sync this channel's models then refresh its grid + the channel card count.
+  const syncChannel = useMutation({
+    mutationFn: (channelId: string) => api.syncChannelModels(id, channelId, {}),
+    onSuccess: async (res, channelId) => {
+      await qc.invalidateQueries({ queryKey: qk.channelModels(channelId) });
+      await qc.invalidateQueries({ queryKey: qk.channels(id) });
+      await qc.invalidateQueries({ queryKey: qk.models() });
+      toast(t('channels.synced', { total: res.total }));
     },
     onError: mutationError(t),
   });
@@ -432,23 +497,108 @@ export function ResourceDetailPane({ id }: { id: string }) {
         )}
       </div>
 
-      <SegmentedControl
-        ariaLabel={t('resources.detail.tabsLabel')}
-        value={dt}
-        onChange={setDtab}
-        options={DETAIL_TABS.map((tb) => ({ value: tb, label: t(`resources.sections.${tb}`) }))}
-      />
+      {resource?.kind === 'model' ? (
+        // Supply-hierarchy two-pane: channel cards (left) │ selected channel's
+        // served-model grid (right). Models live on the channel; pricing is per
+        // model (card + popup), so there's no standalone 定价 tab here.
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(230px, 0.4fr) minmax(0, 1fr)',
+            gap: 'var(--s-4)',
+            alignItems: 'start',
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
+            <Button
+              onClick={() => {
+                setEditing(undefined);
+                setChOpen(true);
+              }}
+            >
+              <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('resources.detail.addChannel')}
+            </Button>
+            <QueryBoundary query={channels}>
+              {channelRows.length === 0 ? (
+                <div
+                  className="panel"
+                  style={{
+                    borderRadius: 'var(--r-md)',
+                    padding: 'var(--s-5)',
+                    textAlign: 'center',
+                    color: 'var(--muted)',
+                    fontSize: 'var(--fs-sm)',
+                  }}
+                >
+                  {t('channels.empty')}
+                </div>
+              ) : (
+                channelRows.map((c) => (
+                  <ChannelCard
+                    key={c.id}
+                    channel={c}
+                    selected={c.id === selectedChannel?.id}
+                    onSelect={() => setCid(c.id)}
+                    onEdit={() => {
+                      setEditing(c);
+                      setChOpen(true);
+                    }}
+                    onToggle={() => toggleStatus.mutate(c)}
+                    onSync={() => syncChannel.mutate(c.id)}
+                    onDelete={() => setDelTarget(c)}
+                    toggling={toggleStatus.isPending && toggleStatus.variables.id === c.id}
+                    syncing={syncChannel.isPending && syncChannel.variables === c.id}
+                  />
+                ))
+              )}
+            </QueryBoundary>
+          </div>
 
-      {dt === 'channels' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>{channelsPanel}</div>
-      )}
-      {dt === 'pricing' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>{pricingPanel}</div>
-      )}
-      {dt === 'models' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-          <ModelsSection resourceId={id} />
+          {selectedChannel !== undefined ? (
+            <ModelGrid
+              resourceId={id}
+              channel={selectedChannel}
+              onSync={() => syncChannel.mutate(selectedChannel.id)}
+              onAddModel={() => setLinkOpen(true)}
+              onSelectModel={setModelTarget}
+              syncing={syncChannel.isPending && syncChannel.variables === selectedChannel.id}
+            />
+          ) : (
+            <div
+              className="panel"
+              style={{
+                borderRadius: 'var(--r-md)',
+                padding: 'var(--s-6)',
+                display: 'grid',
+                placeItems: 'center',
+                color: 'var(--muted)',
+                fontSize: 'var(--fs-sm)',
+              }}
+            >
+              {t('resources.detail.pickChannel')}
+            </div>
+          )}
         </div>
+      ) : (
+        <>
+          <SegmentedControl
+            ariaLabel={t('resources.detail.tabsLabel')}
+            value={dt}
+            onChange={setDtab}
+            options={DETAIL_TABS.map((tb) => ({ value: tb, label: t(`resources.sections.${tb}`) }))}
+          />
+          {dt === 'channels' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>{channelsPanel}</div>
+          )}
+          {dt === 'pricing' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>{pricingPanel}</div>
+          )}
+          {dt === 'models' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+              <ModelsSection resourceId={id} />
+            </div>
+          )}
+        </>
       )}
 
       <ChannelEditor
@@ -496,6 +646,88 @@ export function ResourceDetailPane({ id }: { id: string }) {
         }}
         onClose={() => setPbDelTarget(undefined)}
       />
+
+      {modelTarget !== undefined && selectedChannel !== undefined && (
+        <ModelDetailDrawer
+          model={modelTarget}
+          channelLabel={selectedChannel.provider_type}
+          servedChannelLabels={modelTarget.served_channel_ids.map(channelName)}
+          unlinking={unlinkModel.isPending}
+          onEdit={() => {
+            setModelEdit(modelTarget.name);
+            setModelTarget(undefined);
+          }}
+          onUnlink={() =>
+            unlinkModel.mutate({ channelId: selectedChannel.id, modelId: modelTarget.id })
+          }
+          onClose={() => setModelTarget(undefined)}
+        />
+      )}
+
+      {modelEdit !== undefined && (
+        <ModelEditor
+          key={modelEdit}
+          name={modelEdit === 'new' ? undefined : modelEdit}
+          open
+          fixedResourceId={id}
+          onClose={() => setModelEdit(undefined)}
+        />
+      )}
+
+      {linkOpen && selectedChannel !== undefined && (
+        <Modal
+          open
+          title={t('models.linkTitle', { channel: selectedChannel.provider_type })}
+          onClose={() => setLinkOpen(false)}
+          footer={
+            <Button variant="ghost" onClick={() => setModelEdit('new')}>
+              <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('models.new')}
+            </Button>
+          }
+        >
+          <QueryBoundary query={models}>
+            {(() => {
+              const linked = new Set(
+                (qc.getQueryData<ModelView[]>(qk.channelModels(selectedChannel.id)) ?? []).map(
+                  (m) => m.id,
+                ),
+              );
+              const candidates = platformModels.filter((m) => !linked.has(m.id));
+              if (candidates.length === 0) {
+                return (
+                  <p style={{ color: 'var(--muted)', fontSize: 'var(--fs-sm)' }}>
+                    {t('models.allLinked')}
+                  </p>
+                );
+              }
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
+                  {candidates.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className="entity-card is-clickable"
+                      style={{ textAlign: 'left', padding: 'var(--s-3) var(--s-4)', cursor: 'pointer' }}
+                      onClick={() => {
+                        linkModel.mutate(
+                          { channelId: selectedChannel.id, modelId: m.id },
+                          { onSuccess: () => setLinkOpen(false) },
+                        );
+                      }}
+                    >
+                      <span style={{ fontWeight: 'var(--fw-medium)' }}>{m.name}</span>
+                      <span style={{ color: 'var(--muted)' }}>
+                        {' '}
+                        · {enumLabel(t, MODALITIES, m.modality)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+          </QueryBoundary>
+        </Modal>
+      )}
     </div>
   );
 }
