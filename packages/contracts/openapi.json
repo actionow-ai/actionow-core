@@ -370,6 +370,13 @@
             "type": "number",
             "nullable": true
           },
+          "fallback_models": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
           "status": {
             "type": "string"
           },
@@ -388,6 +395,7 @@
           "input_price",
           "output_price",
           "rate_limit",
+          "fallback_models",
           "status",
           "created_at"
         ]
@@ -3262,6 +3270,14 @@
             "exclusiveMinimum": true,
             "maximum": 1000000
           },
+          "fallbackModels": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 10
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -3309,6 +3325,15 @@
             "minimum": 0,
             "exclusiveMinimum": true,
             "maximum": 1000000
+          },
+          "fallbackModels": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 10
           },
           "status": {
             "type": "string",

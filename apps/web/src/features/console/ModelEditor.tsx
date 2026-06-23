@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { CapabilitiesField } from '../../components/data/CapabilitiesField';
 import { Button } from '../../components/ui/Button';
+import { ChipsField } from '../../components/ui/ChipsField';
 import { Drawer } from '../../components/ui/Drawer';
 import { NumberField } from '../../components/ui/NumberField';
 import { SelectField } from '../../components/ui/SelectField';
@@ -73,6 +74,8 @@ export function ModelEditor({
   const [outputPrice, setOutputPrice] = useState(0);
   // Per-model rate limit (requests/min); 0 = no model-specific cap.
   const [rateLimit, setRateLimit] = useState(0);
+  // Ordered model-degradation chain (模型降级链); [] = none.
+  const [fallbackModels, setFallbackModels] = useState<string[]>([]);
   const [status, setStatus] = useState<ModelStatus>('active');
   // A stable idempotency key for this editor instance (remounted per open via
   // `key`), so an accidental double-submit of a create replays instead of dupes.
@@ -98,6 +101,7 @@ export function ModelEditor({
     setInputPrice(Number(m.input_price));
     setOutputPrice(Number(m.output_price));
     setRateLimit(m.rate_limit ?? 0);
+    setFallbackModels(m.fallback_models ?? []);
     setStatus(m.status === 'disabled' ? 'disabled' : 'active');
   }, [editing, m]);
 
@@ -110,6 +114,7 @@ export function ModelEditor({
         inputPrice,
         outputPrice,
         rateLimit: rateLimit > 0 ? rateLimit : null,
+        fallbackModels: fallbackModels.length > 0 ? fallbackModels : null,
         status,
       }),
     onSuccess: async () => {
@@ -136,6 +141,7 @@ export function ModelEditor({
           inputPrice,
           outputPrice,
           ...(rateLimit > 0 ? { rateLimit } : {}),
+          ...(fallbackModels.length > 0 ? { fallbackModels } : {}),
           status: statusOverride,
         },
         idemKey,
@@ -310,6 +316,13 @@ export function ModelEditor({
         onChange={setRateLimit}
         min={0}
         step={1}
+      />
+      <ChipsField
+        label={t('models.form.fallbackModels')}
+        tooltip={t('models.tip.fallbackModels')}
+        value={fallbackModels}
+        onChange={setFallbackModels}
+        placeholder={t('models.form.fallbackModelsPlaceholder')}
       />
 
       <SelectField

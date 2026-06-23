@@ -1577,6 +1577,7 @@ function toModelView(row: ModelRow): ModelView {
     input_price: row.inputPrice.toString(),
     output_price: row.outputPrice.toString(),
     rate_limit: row.rateLimit,
+    fallback_models: row.fallbackModels,
     status: row.status,
     created_at: row.createdAt.toISOString(),
   });

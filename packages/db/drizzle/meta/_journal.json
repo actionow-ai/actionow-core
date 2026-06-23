@@ -225,6 +225,13 @@
       "when": 1782201233935,
       "tag": "0031_damp_dreadnoughts",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1782203136641,
+      "tag": "0032_modern_cardiac",
+      "breakpoints": true
     }
   ]
 }

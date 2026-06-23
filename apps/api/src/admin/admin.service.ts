@@ -1288,6 +1288,7 @@ export class AdminService {
       ...(dto.inputPrice !== undefined ? { inputPrice: BigInt(dto.inputPrice) } : {}),
       ...(dto.outputPrice !== undefined ? { outputPrice: BigInt(dto.outputPrice) } : {}),
       ...(dto.rateLimit !== undefined ? { rateLimit: dto.rateLimit } : {}),
+      ...(dto.fallbackModels !== undefined ? { fallbackModels: dto.fallbackModels } : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
     };
     return createModel(this.db, input);
@@ -1319,6 +1320,7 @@ export class AdminService {
       outputPrice?: bigint;
       visibility?: string;
       rateLimit?: number | null;
+      fallbackModels?: string[] | null;
       status?: string;
     } = {};
     if (dto.display !== undefined) patch.display = dto.display;
@@ -1327,6 +1329,7 @@ export class AdminService {
     if (dto.outputPrice !== undefined) patch.outputPrice = BigInt(dto.outputPrice);
     if (dto.visibility !== undefined) patch.visibility = dto.visibility;
     if (dto.rateLimit !== undefined) patch.rateLimit = dto.rateLimit;
+    if (dto.fallbackModels !== undefined) patch.fallbackModels = dto.fallbackModels;
     if (dto.status !== undefined) patch.status = dto.status;
     const row = await updateModel(this.db, name, patch);
     if (row === undefined) {

@@ -166,6 +166,7 @@ export {
   type CreateModelInput,
   deleteModelGrant,
   getModelByName,
+  getModelFallbacks,
   getModelRateLimit,
   grantModel,
   listModelGrants,

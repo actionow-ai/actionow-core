@@ -9587,6 +9587,7 @@ export interface components {
             input_price: string;
             output_price: string;
             rate_limit: number | null;
+            fallback_models: string[] | null;
             status: string;
             created_at: string;
         };
@@ -10314,6 +10315,7 @@ export interface components {
             inputPrice?: number;
             outputPrice?: number;
             rateLimit?: number;
+            fallbackModels?: string[];
             /** @enum {string} */
             status?: "active" | "disabled";
         };
@@ -10327,6 +10329,7 @@ export interface components {
             /** @enum {string} */
             visibility?: "public" | "tenant";
             rateLimit?: number | null;
+            fallbackModels?: string[] | null;
             /** @enum {string} */
             status?: "active" | "disabled";
         };

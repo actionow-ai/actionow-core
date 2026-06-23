@@ -576,6 +576,8 @@
       "inputPrice": "输入价",
       "outputPrice": "输出价",
       "rateLimit": "限流(次/分钟)",
+      "fallbackModels": "降级目标链",
+      "fallbackModelsPlaceholder": "输入备选模型名,回车添加(按顺序降级)",
       "status": "状态",
       "nameRequired": "请填写名称。",
       "resourceRequired": "请选择一个资源。"
@@ -594,6 +596,7 @@
       "priceEquiv": "µcredits / token · ≈ {{n}} credits / 1,000,000 tokens",
       "rateLimit": "该模型每租户每分钟的最大请求数(模型限流)。在租户/资源限流之上叠加。",
       "rateLimitHint": "0 = 不设模型级限流。",
+      "fallbackModels": "模型降级链:阻塞式 chat 在本模型所有渠道都失败(可重试)时,按顺序改用这些备选模型。仅作用于非流式。",
       "status": "已停用的模型对调用方不可见。"
     },
     "actions": {
