@@ -7,13 +7,14 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { resource } from './catalog.js';
+import { resource, upstreamChannel } from './catalog.js';
 import { tenant } from './identity.js';
 
 /**
@@ -99,4 +100,30 @@ export const modelGrant = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('model_grant_model_tenant_idx').on(t.modelId, t.tenantId)],
+);
+
+/**
+ * Channel↔model membership (catalog supply-hierarchy): which `upstream_channel`
+ * serves which {@link model}. Seeded by `syncChannelModels`, operator-editable;
+ * models stay platform-scoped (`model.resource_id`). Presence = "this channel can
+ * serve this model" — routing prefers a model's linked channels and falls back to
+ * the platform's others (see `ChannelRoutingService`). Defined here (not in
+ * catalog.ts) to avoid a schema import cycle: model.ts already imports catalog.ts.
+ */
+export const channelModel = pgTable(
+  'channel_model',
+  {
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => upstreamChannel.id),
+    modelId: uuid('model_id')
+      .notNull()
+      .references(() => model.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.channelId, t.modelId] }),
+    index('channel_model_model_idx').on(t.modelId),
+    index('channel_model_channel_idx').on(t.channelId),
+  ],
 );

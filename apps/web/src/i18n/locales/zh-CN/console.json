@@ -161,7 +161,7 @@
     "accounts": "账户 / 充值",
     "apiKeys": "API Keys",
     "catalog": "目录",
-    "resources": "资源",
+    "resources": "模型服务",
     "models": "模型",
     "modifiers": "调价规则",
     "routeGroups": "分组",
@@ -195,7 +195,7 @@
     "tsettings": "你的资料与密码",
     "tenants": "创建与查看租户",
     "catalog": "模型与资源——通道与定价",
-    "resources": "模型、上游通道与定价",
+    "resources": "平台 → 通道 → 模型：上游通道与所服务的模型",
     "models": "中转模型、租户授权与 token 计价",
     "modifiers": "全局与范围化的调价规则",
     "routeGroups": "路由分组与渠道成员",
@@ -532,7 +532,10 @@
       "addPrice": "添加定价",
       "priceAdded": "定价已添加",
       "pick": "从左侧选择一个资源查看详情",
-      "notFound": "未找到该资源——可能已被删除。"
+      "notFound": "未找到该资源——可能已被删除。",
+      "servedModels": "模型",
+      "noChannelModels": "该通道暂无模型",
+      "pickChannel": "选择左侧通道查看其模型"
     }
   },
   "models": {
@@ -565,7 +568,9 @@
       "inputPrice": "输入价",
       "outputPrice": "输出价",
       "visibility": "可见性",
-      "status": "状态"
+      "status": "状态",
+      "rateLimit": "限流",
+      "fallback": "降级链"
     },
     "form": {
       "name": "名称",
@@ -624,6 +629,19 @@
       "deleteMsg": "确定永久删除模型 {{name}} 吗?删除后该名称可被重新创建,此操作不可撤销。",
       "revokeTitle": "撤销授权?",
       "revokeMsg": "确定撤销 {{tenant}} 的访问权吗?该租户将无法再使用此模型。"
+    },
+    "link": "关联模型",
+    "unlink": "解绑",
+    "linked": "已关联",
+    "unlinked": "已解绑",
+    "linkTitle": "关联模型到 {{channel}}",
+    "allLinked": "该通道已关联全部平台模型",
+    "unpriced": "未定价",
+    "servedChannels": "服务通道",
+    "noServingChannel": "无专属通道（回退到平台通道）",
+    "unlinkHint": "解绑只移除该模型与「{{channel}}」的关联，不会删除模型本身。",
+    "detail": {
+      "price": "价格 入/出"
     }
   },
   "channels": {
@@ -790,15 +808,16 @@
     }
   },
   "credentials": {
-    "new": "新建凭证",
-    "pickExisting": "选择已有凭证",
-    "value": "密文值",
-    "label": "标签(可空)",
-    "save": "创建凭证",
-    "created": "凭证已创建",
-    "tip": {
-      "value": "明文 API Key 或密钥。保存时即加密,之后不再回显——仅保留其 id 作为引用。"
-    }
+    "tabsLabel": "凭证类型",
+    "name": "名称",
+    "group": "分组",
+    "groupHint": "自由标签，便于筛选 / 归类",
+    "notes": "备注",
+    "edit": "编辑",
+    "editTitle": "编辑凭证",
+    "saved": "已保存",
+    "bulkRevoke": "撤销 {{n}}",
+    "bulkRevoked": "已撤销 {{n}} 项"
   },
   "pricebook": {
     "empty": "暂无定价",
@@ -1283,18 +1302,6 @@
       "copied": "已复制",
       "done": "完成"
     }
-  },
-  "credentials": {
-    "tabsLabel": "凭证类型",
-    "name": "名称",
-    "group": "分组",
-    "groupHint": "自由标签，便于筛选 / 归类",
-    "notes": "备注",
-    "edit": "编辑",
-    "editTitle": "编辑凭证",
-    "saved": "已保存",
-    "bulkRevoke": "撤销 {{n}}",
-    "bulkRevoked": "已撤销 {{n}} 项"
   },
   "oauthSessions": {
     "revoke": "撤销",

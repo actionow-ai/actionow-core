@@ -314,6 +314,9 @@
           "fault_policy_id": {
             "type": "string",
             "nullable": true
+          },
+          "model_count": {
+            "type": "number"
           }
         },
         "required": [
@@ -329,7 +332,8 @@
           "status",
           "input_cost_per_1m",
           "output_cost_per_1m",
-          "fault_policy_id"
+          "fault_policy_id",
+          "model_count"
         ]
       },
       "ModelView": {
@@ -377,6 +381,12 @@
               "type": "string"
             }
           },
+          "served_channel_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "status": {
             "type": "string"
           },
@@ -396,6 +406,7 @@
           "output_price",
           "rate_limit",
           "fallback_models",
+          "served_channel_ids",
           "status",
           "created_at"
         ]

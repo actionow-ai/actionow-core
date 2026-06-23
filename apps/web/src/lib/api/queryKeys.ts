@@ -4,6 +4,7 @@ export const qk = {
   accounts: () => ['admin', 'accounts'] as const,
   resources: () => ['admin', 'resources'] as const,
   channels: (resourceId: string) => ['admin', 'resources', resourceId, 'channels'] as const,
+  channelModels: (channelId: string) => ['admin', 'channels', channelId, 'models'] as const,
   pricebook: (resourceId: string) => ['admin', 'pricebook', resourceId] as const,
   modifiers: () => ['admin', 'modifiers'] as const,
   difyBindings: () => ['admin', 'dify'] as const,

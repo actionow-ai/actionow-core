@@ -160,6 +160,25 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
         body,
       ),
 
+    // Channel↔model links (catalog supply-hierarchy). RAW: these admin routes
+    // aren't in the generated SDK path set (gen-openapi registers a fixed set),
+    // but their bodies/views are contract types.
+    listChannelModels: (resourceId: string, channelId: string) =>
+      rawClient.get<ModelView[]>(`/admin/resources/${resourceId}/channels/${channelId}/models`),
+    linkChannelModel: (resourceId: string, channelId: string, modelId: string) =>
+      rawClient.post<{ ok: true }>(`/admin/resources/${resourceId}/channels/${channelId}/models`, {
+        model_id: modelId,
+      }),
+    unlinkChannelModel: async (
+      resourceId: string,
+      channelId: string,
+      modelId: string,
+    ): Promise<void> => {
+      await rawClient.delete<unknown>(
+        `/admin/resources/${resourceId}/channels/${channelId}/models/${encodeURIComponent(modelId)}`,
+      );
+    },
+
     listPricebook: async (resourceId: string) =>
       page<PricebookView>(
         await sdk.GET('/admin/pricebook', { params: { query: { resourceId } } }),

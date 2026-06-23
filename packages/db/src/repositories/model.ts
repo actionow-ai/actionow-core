@@ -1,7 +1,7 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
-import { model, modelGrant } from '../schema/index.js';
+import { channelModel, model, modelGrant } from '../schema/index.js';
 import { matchOfficialPrice } from './official-price.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
@@ -332,6 +332,130 @@ export async function getModelByName(db: DbOrTx, name: string): Promise<ModelRow
     .where(and(eq(model.name, name), isNull(model.deletedAt)))
     .limit(1);
   return rows[0];
+}
+
+/** Fetch a live model by `id` (soft-deleted → `undefined`); used to validate a link request. */
+export async function getModelById(db: DbOrTx, id: string): Promise<ModelRow | undefined> {
+  const rows = await db
+    .select()
+    .from(model)
+    .where(and(eq(model.id, id), isNull(model.deletedAt)))
+    .limit(1);
+  return rows[0];
+}
+
+// --- channel↔model links (catalog supply-hierarchy) -----------------------
+
+/** Link a channel to a model (idempotent on the composite PK). */
+export async function linkChannelModel(
+  db: DbOrTx,
+  channelId: string,
+  modelId: string,
+): Promise<void> {
+  await db.insert(channelModel).values({ channelId, modelId }).onConflictDoNothing();
+}
+
+/** Remove one channel↔model link (idempotent). */
+export async function unlinkChannelModel(
+  db: DbOrTx,
+  channelId: string,
+  modelId: string,
+): Promise<void> {
+  await db
+    .delete(channelModel)
+    .where(and(eq(channelModel.channelId, channelId), eq(channelModel.modelId, modelId)));
+}
+
+/** Remove ALL links for a channel (called when a channel is deleted). */
+export async function unlinkAllForChannel(db: DbOrTx, channelId: string): Promise<void> {
+  await db.delete(channelModel).where(eq(channelModel.channelId, channelId));
+}
+
+/** The LIVE models a channel serves (right-panel grid), newest link first. */
+export async function listChannelModels(db: DbOrTx, channelId: string): Promise<ModelRow[]> {
+  return db
+    .select({
+      id: model.id,
+      name: model.name,
+      display: model.display,
+      modality: model.modality,
+      capabilities: model.capabilities,
+      visibility: model.visibility,
+      resourceId: model.resourceId,
+      inputPrice: model.inputPrice,
+      outputPrice: model.outputPrice,
+      needsPricing: model.needsPricing,
+      rateLimit: model.rateLimit,
+      fallbackModels: model.fallbackModels,
+      status: model.status,
+      createdAt: model.createdAt,
+      deletedAt: model.deletedAt,
+    })
+    .from(model)
+    .innerJoin(channelModel, eq(channelModel.modelId, model.id))
+    .where(and(eq(channelModel.channelId, channelId), isNull(model.deletedAt)))
+    .orderBy(desc(channelModel.createdAt));
+}
+
+/** The channel ids that serve a model (inverse — routing + the popup's 服务通道). */
+export async function listModelChannels(db: DbOrTx, modelId: string): Promise<string[]> {
+  const rows = await db
+    .select({ channelId: channelModel.channelId })
+    .from(channelModel)
+    .where(eq(channelModel.modelId, modelId));
+  return rows.map((r) => r.channelId);
+}
+
+/** Per-channel link counts for a set of channels (batch — `model_count` in channel views). */
+export async function countModelsByChannelIds(
+  db: DbOrTx,
+  channelIds: string[],
+): Promise<Map<string, number>> {
+  if (channelIds.length === 0) return new Map();
+  const rows = await db
+    .select({ channelId: channelModel.channelId, n: sql<number>`count(*)::int` })
+    .from(channelModel)
+    .innerJoin(model, and(eq(model.id, channelModel.modelId), isNull(model.deletedAt)))
+    .where(inArray(channelModel.channelId, channelIds))
+    .groupBy(channelModel.channelId);
+  return new Map(rows.map((r) => [r.channelId, r.n]));
+}
+
+/** Served-channel ids for a set of models (batch — `served_channel_ids` in model views). */
+export async function channelIdsByModelIds(
+  db: DbOrTx,
+  modelIds: string[],
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (modelIds.length === 0) return out;
+  const rows = await db
+    .select({ modelId: channelModel.modelId, channelId: channelModel.channelId })
+    .from(channelModel)
+    .where(inArray(channelModel.modelId, modelIds));
+  for (const r of rows) {
+    const list = out.get(r.modelId) ?? [];
+    list.push(r.channelId);
+    out.set(r.modelId, list);
+  }
+  return out;
+}
+
+/** Link a channel to every LIVE model named in `names` (batch — used by sync). */
+export async function linkChannelModelsByNames(
+  db: DbOrTx,
+  channelId: string,
+  names: string[],
+): Promise<void> {
+  if (names.length === 0) return;
+  const ids = await db
+    .select({ id: model.id })
+    .from(model)
+    .where(and(inArray(model.name, names), isNull(model.deletedAt)));
+  if (ids.length === 0) return;
+  await db
+    .insert(channelModel)
+    .values(ids.map((r) => ({ channelId, modelId: r.id })))
+    .onConflictDoNothing();
 }
 
 /**
