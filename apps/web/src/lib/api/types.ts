@@ -57,6 +57,7 @@ export type {
   JobView,
   LedgerView,
   ModelGrantView,
+  ModelHealthView,
   ModelTestRequest,
   ModelTestResult,
   ModelView,

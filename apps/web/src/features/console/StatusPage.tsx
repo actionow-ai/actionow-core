@@ -1,0 +1,185 @@
+import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { Pill, type PillTone } from '../../components/ui/Pill';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { qk } from '../../lib/api/queryKeys';
+import type { ModelHealthView } from '../../lib/api/types';
+import { useAdminApi } from '../../lib/api/useAdminApi';
+
+/** Availability % → a tone: ≥99 ok, ≥95 wait, else fail. */
+function availabilityTone(pct: number): PillTone {
+  if (pct >= 99) return 'ok';
+  if (pct >= 95) return 'wait';
+  return 'fail';
+}
+
+/** Last-call status → a tone for the header dot. */
+function statusTone(s: string | null): PillTone {
+  if (s === 'succeeded') return 'ok';
+  if (s === 'failed') return 'fail';
+  if (s === null) return 'idle';
+  return 'wait';
+}
+
+function fmtLatency(ms: number | null): string {
+  return ms === null ? '—' : `${String(ms)}ms`;
+}
+
+/**
+ * AI SERVICES STATUS — per-model availability/latency/uptime derived from real
+ * `usage_log` traffic over a 7/15/30-day window (no synthetic probing). Each
+ * model is a card with availability, avg/p95 latency, last-call status, and a
+ * per-day uptime sparkline. Mirrors the public status-monitor pattern.
+ */
+export function StatusPage() {
+  const { t } = useTranslation('console');
+  const api = useAdminApi();
+  const [days, setDays] = useState(7);
+
+  const { data, isLoading } = useQuery({
+    queryKey: qk.modelHealth(days),
+    queryFn: () => api.modelHealth(days),
+    refetchInterval: 60_000, // live-ish: refresh each minute
+  });
+
+  const models = data ?? [];
+  const down = models.filter((m) => m.last_status === 'failed').length;
+  const overallTone: PillTone = models.length === 0 ? 'idle' : down > 0 ? 'fail' : 'ok';
+
+  return (
+    <div style={{ height: '100%', overflowY: 'auto', padding: 'var(--s-2) var(--s-3) var(--s-4)' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--s-3)',
+          marginBottom: 'var(--s-3)',
+          flexWrap: 'wrap',
+        }}
+      >
+        <h1 style={{ margin: 0, fontSize: 'var(--fs-md)', fontWeight: 'var(--fw-semibold)' }}>
+          {t('status.title')}
+        </h1>
+        <Pill tone={overallTone} dot>
+          {models.length === 0
+            ? t('status.noData')
+            : down > 0
+              ? t('status.degraded', { n: down })
+              : t('status.operational')}
+        </Pill>
+        <div style={{ marginLeft: 'auto' }}>
+          <SegmentedControl
+            ariaLabel={t('status.window')}
+            value={String(days)}
+            onChange={(v) => setDays(Number(v))}
+            options={[
+              { value: '7', label: t('status.days', { n: 7 }) },
+              { value: '15', label: t('status.days', { n: 15 }) },
+              { value: '30', label: t('status.days', { n: 30 }) },
+            ]}
+          />
+        </div>
+      </div>
+
+      {isLoading ? (
+        <p style={{ color: 'var(--muted)' }}>{t('common.loading')}</p>
+      ) : models.length === 0 ? (
+        <p style={{ color: 'var(--muted)' }}>{t('status.empty')}</p>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+            gap: 'var(--s-3)',
+          }}
+        >
+          {models.map((m) => (
+            <ModelCard key={m.model} m={m} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ModelCard({ m }: { m: ModelHealthView }) {
+  const { t } = useTranslation('console');
+  return (
+    <div
+      className="panel"
+      style={{
+        padding: 'var(--s-3)',
+        borderRadius: 'var(--r-md)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--s-3)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+        <strong style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {m.model}
+        </strong>
+        <Pill tone={statusTone(m.last_status)} dot>
+          {m.last_status === null ? t('status.idle') : t('status.last.' + m.last_status, m.last_status)}
+        </Pill>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--s-3)' }}>
+        <span
+          className="tabular"
+          style={{
+            fontSize: 'var(--fs-lg)',
+            fontWeight: 'var(--fw-semibold)',
+            color: `var(--${availabilityTone(m.availability_pct)})`,
+          }}
+        >
+          {m.availability_pct.toFixed(2)}%
+        </span>
+        <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>
+          {t('status.availability')}
+        </span>
+      </div>
+
+      <Sparkline history={m.history} />
+
+      <div style={{ display: 'flex', gap: 'var(--s-4)', fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>
+        <span>{t('status.avgLatency')}: <span className="tabular">{fmtLatency(m.avg_latency_ms)}</span></span>
+        <span>p95: <span className="tabular">{fmtLatency(m.p95_latency_ms)}</span></span>
+      </div>
+      <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>
+        {t('status.requests', { total: m.total, errors: m.errors })}
+      </div>
+    </div>
+  );
+}
+
+/** Per-day uptime bars (oldest→newest): green = clean, amber = some errors, red = all errors, grey = no data. */
+function Sparkline({ history }: { history: ModelHealthView['history'] }) {
+  const { t } = useTranslation('console');
+  if (history.length === 0) {
+    return <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>{t('status.noHistory')}</div>;
+  }
+  return (
+    <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 28 }}>
+      {history.map((b) => {
+        const errRate = b.total > 0 ? b.errors / b.total : 0;
+        const tone = b.total === 0 ? '--idle' : errRate === 0 ? '--ok' : errRate >= 1 ? '--fail' : '--wait';
+        return (
+          <div
+            key={b.day}
+            title={`${b.day}: ${String(b.total - b.errors)}/${String(b.total)} ok`}
+            style={{
+              flex: 1,
+              minWidth: 3,
+              height: '100%',
+              borderRadius: 2,
+              background: `color-mix(in srgb, var(${tone}) 70%, transparent)`,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}

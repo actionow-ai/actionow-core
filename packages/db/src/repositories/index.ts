@@ -188,6 +188,12 @@ export {
   type UpsertModelsFromSyncResult,
 } from './model.js';
 export {
+  listModelHealth,
+  listModelHealthHistory,
+  type ModelHealthBucket,
+  type ModelHealthRow,
+} from './model-health.js';
+export {
   claimRefreshLock,
   createOAuthSession,
   type CreateOAuthSessionInput,

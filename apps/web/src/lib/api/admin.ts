@@ -36,6 +36,7 @@ import type {
   JobView,
   LedgerView,
   ModelGrantView,
+  ModelHealthView,
   ModelTestRequest,
   ModelTestResult,
   ModelView,
@@ -254,6 +255,10 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     deleteFaultPolicy: async (id: string): Promise<void> => {
       unwrap(await sdk.DELETE('/admin/fault-policies/{id}', { params: { path: { id } } }), u);
     },
+
+    // --- Model health status page (持续健康监控) ---
+    modelHealth: async (days = 7): Promise<ModelHealthView[]> =>
+      unwrap(await sdk.GET('/admin/health/models', { params: { query: { days } } }), u),
 
     // --- Managed egress proxies (代理) ---
     listProxies: async () => page<ProxyView>(await sdk.GET('/admin/proxies'), u).rows,

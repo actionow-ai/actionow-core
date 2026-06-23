@@ -20,6 +20,7 @@ export const qk = {
   routeGroupChannels: (id: string) => ['admin', 'route-groups', id, 'channels'] as const,
   faultPolicies: () => ['admin', 'fault-policies'] as const,
   proxies: () => ['admin', 'proxies'] as const,
+  modelHealth: (days: number) => ['admin', 'model-health', days] as const,
   /** No params → the bare prefix (invalidates every param variant); with params → the specific filtered key. */
   officialPrices: (params?: Record<string, unknown>) =>
     params === undefined

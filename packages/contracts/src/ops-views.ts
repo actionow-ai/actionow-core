@@ -258,6 +258,33 @@ export const opsHealthViewSchema = z.object({
 });
 export type OpsHealthView = z.infer<typeof opsHealthViewSchema>;
 
+/** One daily uptime bucket for a model's status-page sparkline. */
+export const modelHealthBucketSchema = z.object({
+  /** `YYYY-MM-DD` (UTC). */
+  day: z.string(),
+  total: z.number(),
+  errors: z.number(),
+});
+
+/**
+ * Per-model health for the status page (`GET /admin/health/models`), derived
+ * from real `usage_log` traffic over the requested window. `availability_pct`
+ * is `(total - errors) / total × 100` (100 when no traffic). `history` is the
+ * per-day uptime series (oldest→newest) for the sparkline.
+ */
+export const modelHealthViewSchema = z.object({
+  model: z.string(),
+  total: z.number(),
+  errors: z.number(),
+  availability_pct: z.number(),
+  avg_latency_ms: z.number().nullable(),
+  p95_latency_ms: z.number().nullable(),
+  last_status: z.string().nullable(),
+  last_seen_at: z.string().nullable(),
+  history: z.array(modelHealthBucketSchema),
+});
+export type ModelHealthView = z.infer<typeof modelHealthViewSchema>;
+
 /**
  * Authoritative platform counts (`GET /admin/summary`) for the overview KPI band.
  * These are true `count(*)` totals — the FE must use these, never the length of a
