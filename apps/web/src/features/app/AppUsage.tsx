@@ -112,24 +112,28 @@ export function AppUsage() {
     {
       key: 'tokens',
       header: t('app.usage.cols.tokens'),
+      numeric: true,
       cell: (r) => (r.input_tokens + r.output_tokens).toLocaleString(),
       width: '110px',
     },
     {
       key: 'cost',
       header: t('app.usage.cols.cost'),
+      numeric: true,
       cell: (r) => <Money micro={r.cost} />,
       width: '110px',
     },
     {
       key: 'latency',
       header: t('app.usage.cols.latency'),
+      numeric: true,
       cell: (r) => (r.latency_ms !== null ? `${String(r.latency_ms)} ms` : '—'),
       width: '96px',
     },
     {
       key: 'status',
       header: t('app.usage.cols.status'),
+      noClip: true,
       cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
       width: '110px',
     },

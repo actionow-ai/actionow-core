@@ -91,11 +91,11 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
     {
       key: 'name',
       header: t('models.cols.model'),
-      width: '220px',
+      grow: true,
       sortable: true,
       sortValue: (m) => m.name,
       cell: (m) => (
-        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <span>
           <strong>{m.name}</strong>
           {m.display !== null && m.display !== '' && (
             <span style={{ color: 'var(--muted)' }}> · {m.display}</span>
@@ -108,6 +108,7 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
       key: 'capabilities',
       header: t('models.cols.capabilities'),
       width: '128px',
+      noClip: true,
       cell: (m) => {
         const active = CAPABILITIES.filter((c) => Object.hasOwn(m.capabilities, c.key) && m.capabilities[c.key]);
         if (active.length === 0) return '—';
@@ -129,7 +130,8 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
     {
       key: 'inputPrice',
       header: t('models.cols.inputPrice'),
-      align: 'right',
+      numeric: true,
+      noClip: true,
       width: '116px',
       sortable: true,
       sortValue: (m) => Number(m.input_price),
@@ -143,7 +145,8 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
     {
       key: 'outputPrice',
       header: t('models.cols.outputPrice'),
-      align: 'right',
+      numeric: true,
+      noClip: true,
       width: '116px',
       sortable: true,
       sortValue: (m) => Number(m.output_price),
@@ -158,23 +161,20 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
       key: 'visibility',
       header: t('models.cols.visibility'),
       width: '110px',
+      noClip: true,
       cell: (m) => <span className="chip">{enumLabel(t, VISIBILITIES, m.visibility)}</span>,
     },
     {
       key: 'status',
       header: t('models.cols.status'),
       width: '100px',
+      noClip: true,
       cell: (m) => <StatusBadge tone={statusTone(m.status)} label={t('status.' + m.status, m.status)} />,
     },
   ];
 
   return (
     <>
-      <div>
-        <Button onClick={() => setEdit(NEW)}>
-          <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('models.new')}
-        </Button>
-      </div>
       <DataTable
         columns={cols}
         rows={rows}
@@ -186,6 +186,12 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
         searchable
         selectable
         pageSize={20}
+        toolbarActions={
+          <Button onClick={() => setEdit(NEW)}>
+            <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('models.new')}
+          </Button>
+        }
+        actionsWidth="132px"
         rowActions={(m) => (
           <>
             <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={() => setEdit(m.name)} />

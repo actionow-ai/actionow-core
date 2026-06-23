@@ -246,8 +246,8 @@
 
 /* Compact icon button for DataTable row-actions cells (see RowAction). */
 .row-action {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
   border-radius: var(--r-sm);
   border: 1px solid transparent;

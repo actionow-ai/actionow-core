@@ -118,12 +118,13 @@ export function AppBilling() {
     {
       key: 'provider',
       header: t('app.billing.cols.provider'),
+      grow: true,
       cell: (r) => r.provider,
-      width: '110px',
     },
     {
       key: 'amount',
       header: t('app.billing.cols.amount'),
+      numeric: true,
       cell: (r) => (
         <span className="tabular">
           {(Number(r.amount_minor) / 100).toFixed(2)} {r.currency.toUpperCase()}
@@ -134,12 +135,14 @@ export function AppBilling() {
     {
       key: 'credit',
       header: t('app.billing.cols.credit'),
+      numeric: true,
       cell: (r) => (r.credit_amount !== null ? <Money micro={r.credit_amount} /> : '—'),
       width: '110px',
     },
     {
       key: 'status',
       header: t('app.billing.cols.status'),
+      noClip: true,
       cell: (r) => (
         <StatusBadge tone={payTone(r.status)} label={t('status.' + r.status, r.status)} />
       ),

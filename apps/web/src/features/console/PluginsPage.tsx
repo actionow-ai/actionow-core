@@ -86,6 +86,7 @@ export function PluginsPage() {
     {
       key: 'label',
       header: t('plugins.cols.name'),
+      grow: true,
       cell: (p) => (
         <span>
           <strong>{p.label}</strong>
@@ -96,21 +97,24 @@ export function PluginsPage() {
     {
       key: 'modalities',
       header: t('plugins.cols.modalities'),
+      noClip: true,
       cell: (p) => p.modalities.join(', ') || '—',
       width: '160px',
     },
-    { key: 'protocol', header: t('plugins.cols.protocol'), cell: (p) => p.protocol, width: '110px' },
+    { key: 'protocol', header: t('plugins.cols.protocol'), cell: (p) => p.protocol, width: '120px' },
     {
       key: 'auth',
       header: t('plugins.cols.auth'),
+      noClip: true,
       cell: (p) => <span className="chip">{p.auth_strategy}</span>,
-      width: '140px',
+      width: '150px',
     },
     { key: 'version', header: t('plugins.cols.version'), cell: (p) => `v${String(p.version)}`, width: '72px' },
     {
       key: 'kind',
       header: t('plugins.cols.kind'),
-      width: '96px',
+      width: '104px',
+      noClip: true,
       cell: (p) => (
         <span className="chip">{p.builtin ? t('plugins.builtin') : t('plugins.custom')}</span>
       ),
@@ -118,7 +122,8 @@ export function PluginsPage() {
     {
       key: 'status',
       header: t('plugins.cols.status'),
-      width: '96px',
+      width: '110px',
+      noClip: true,
       cell: (p) => <StatusBadge tone={statusTone(p.status)} label={t('status.' + p.status, p.status)} />,
     },
   ];

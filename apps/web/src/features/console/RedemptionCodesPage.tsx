@@ -96,23 +96,28 @@ export function RedemptionCodesPage() {
     {
       key: 'code',
       header: t('redemptionCodes.cols.code'),
+      grow: true,
+      noClip: true,
       cell: (r) => <code style={{ fontSize: 'var(--fs-sm)' }}>{r.code}</code>,
     },
     {
       key: 'credit',
       header: t('redemptionCodes.cols.creditAmount'),
+      numeric: true,
       cell: (r) => <Money micro={r.credit_amount} />,
       width: '120px',
     },
     {
       key: 'status',
       header: t('redemptionCodes.cols.status'),
+      noClip: true,
       cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
       width: '120px',
     },
     {
       key: 'redeemedBy',
       header: t('redemptionCodes.cols.redeemedBy'),
+      width: '200px',
       cell: (r) => r.redeemed_by_tenant ?? '—',
     },
     {

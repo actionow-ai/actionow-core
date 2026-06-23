@@ -13,7 +13,6 @@ import { useTranslation } from 'react-i18next';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { ProviderIcon } from '../../components/data/ProviderIcon';
-import { QueryBoundary } from '../../components/data/QueryBoundary';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -39,10 +38,13 @@ import { ChannelEditor } from './ChannelEditor';
 import { ModelsSection } from './ModelsSection';
 import { PricingModal } from './PricingModal';
 
-const DETAIL_TABS = ['overview', 'channels', 'pricing', 'models'] as const;
+// Ordered to read as the supply pipeline 插件→通道→模型: a resource's channels
+// (upstream routes) come first, the models they serve next, pricing last. The
+// former 概览 tab is gone — its identity + status control now live in the header.
+const DETAIL_TABS = ['channels', 'models', 'pricing'] as const;
 type DetailTab = (typeof DETAIL_TABS)[number];
 
-/** The right pane of the Resources master-detail: a persistent header bar + a sub-tab strip (概览/通道/定价/模型). Models nest here (catalog redesign). */
+/** The right pane of the Resources master-detail: a header bar carrying the resource identity + status control, then a sub-tab strip (通道/模型/定价). Models nest here (catalog redesign). */
 export function ResourceDetailPane({ id }: { id: string }) {
   const { t } = useTranslation('console');
   const api = useAdminApi();
@@ -65,10 +67,10 @@ export function ResourceDetailPane({ id }: { id: string }) {
     enabled: id !== '',
   });
 
-  const [dtab, setDtab] = useUrlState('dtab', 'overview');
+  const [dtab, setDtab] = useUrlState('dtab', 'channels');
   const dt: DetailTab = (DETAIL_TABS as readonly string[]).includes(dtab)
     ? (dtab as DetailTab)
-    : 'overview';
+    : 'channels';
 
   const [chOpen, setChOpen] = useState(false);
   const [editing, setEditing] = useState<ChannelView | undefined>(undefined);
@@ -144,20 +146,24 @@ export function ResourceDetailPane({ id }: { id: string }) {
     {
       key: 'provider',
       header: t('channels.cols.provider'),
+      width: '170px',
+      noClip: true,
       cell: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}>
           <ProviderIcon provider={r.provider_type} size={18} />
-          {r.provider_type}
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.provider_type}</span>
         </span>
       ),
     },
-    { key: 'endpoint', header: t('channels.cols.endpoint'), cell: (r) => r.endpoint ?? '—' },
-    { key: 'model', header: t('channels.cols.model'), cell: (r) => r.model ?? '—' },
+    // endpoint is the elastic column (long URLs); the rest are width-capped.
+    { key: 'endpoint', header: t('channels.cols.endpoint'), grow: true, cell: (r) => r.endpoint ?? '—' },
+    { key: 'model', header: t('channels.cols.model'), width: '150px', cell: (r) => r.model ?? '—' },
     {
       key: 'weight',
       header: t('channels.cols.weight'),
       cell: (r) => String(r.weight),
-      width: '64px',
+      width: '72px',
+      numeric: true,
       sortable: true,
       sortValue: (r) => r.weight,
     },
@@ -165,6 +171,8 @@ export function ResourceDetailPane({ id }: { id: string }) {
       key: 'cost',
       header: t('channels.cols.cost'),
       sortable: true,
+      numeric: true,
+      noClip: true,
       // Sort by input cost (µUSD/1M); unset sorts as -1 so priced channels lead.
       sortValue: (r) => (r.input_cost_per_1m === null ? -1 : Number(r.input_cost_per_1m)),
       cell: (r) => {
@@ -178,19 +186,21 @@ export function ResourceDetailPane({ id }: { id: string }) {
           </span>
         );
       },
-      width: '120px',
+      width: '130px',
     },
     {
       key: 'status',
       header: t('channels.cols.status'),
+      noClip: true,
       cell: (r) => (
         <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
       ),
-      width: '96px',
+      width: '100px',
     },
   ];
 
   const pbCols: Column<PricebookView>[] = [
+    // method is the elastic column; the rest are width-capped.
     {
       key: 'method',
       header: t('pricebook.cols.method'),
@@ -199,12 +209,21 @@ export function ResourceDetailPane({ id }: { id: string }) {
     {
       key: 'timing',
       header: t('pricebook.cols.timing'),
+      width: '150px',
       cell: (r) => enumLabel(t, PRICEBOOK_TIMINGS, r.timing),
     },
-    { key: 'version', header: t('pricebook.cols.version'), cell: (r) => String(r.version) },
+    {
+      key: 'version',
+      header: t('pricebook.cols.version'),
+      width: '90px',
+      numeric: true,
+      cell: (r) => String(r.version),
+    },
     {
       key: 'active',
       header: t('pricebook.cols.active'),
+      width: '120px',
+      noClip: true,
       cell: (r) => {
         const s = r.active ? 'active' : 'inactive';
         return <StatusBadge tone={statusTone(s)} label={t('status.' + s, s)} />;
@@ -212,79 +231,8 @@ export function ResourceDetailPane({ id }: { id: string }) {
     },
   ];
 
-  const overviewPanel = (
-    <div
-      className="panel"
-      style={{
-        borderRadius: 'var(--r-md)',
-        padding: 'var(--s-4)',
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 'var(--s-3)',
-      }}
-    >
-      {resource && <ProviderIcon provider={resource.provider_type} size={28} />}
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div
-          style={{
-            fontSize: 'var(--fs-lg)',
-            fontWeight: 'var(--fw-semibold)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {id}
-        </div>
-        {resource && (
-          <div
-            style={{
-              fontSize: 'var(--fs-sm)',
-              color: 'var(--muted)',
-              marginTop: 6,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              flexWrap: 'wrap',
-            }}
-          >
-            <span>
-              {enumLabel(t, MODALITIES, resource.modality)} · {resource.provider_type} ·{' '}
-              {resource.exec_modes.join(', ')}
-            </span>
-            <StatusBadge
-              tone={statusTone(resource.status)}
-              label={t('status.' + resource.status, resource.status)}
-            />
-            <span style={{ color: 'var(--faint)' }}>v{resource.current_version}</span>
-          </div>
-        )}
-        {resource && (
-          <div style={{ marginTop: 'var(--s-3)', maxWidth: 220 }}>
-            <SelectField
-              label={t('resources.actions.setStatus')}
-              value={resource.status === 'active' ? 'active' : 'disabled'}
-              onChange={(v) => setResourceStatus.mutate(v as ChannelStatus)}
-              options={toOptions(CHANNEL_STATUSES, t)}
-            />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   const channelsPanel = (
     <>
-      <div>
-        <Button
-          onClick={() => {
-            setEditing(undefined);
-            setChOpen(true);
-          }}
-        >
-          <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('resources.detail.addChannel')}
-        </Button>
-      </div>
       <DataTable
         columns={chCols}
         rows={channels.data ?? []}
@@ -294,7 +242,18 @@ export function ResourceDetailPane({ id }: { id: string }) {
         onRetry={() => void channels.refetch()}
         empty={t('channels.empty')}
         searchable
-        actionsWidth="164px"
+        toolbarActions={
+          <Button
+            onClick={() => {
+              setEditing(undefined);
+              setChOpen(true);
+            }}
+          >
+            <PlusIcon size={14} weight="bold" aria-hidden="true" />{' '}
+            {t('resources.detail.addChannel')}
+          </Button>
+        }
+        actionsWidth="160px"
         selectable
         rowActions={(r) => (
           <>
@@ -358,11 +317,6 @@ export function ResourceDetailPane({ id }: { id: string }) {
 
   const pricingPanel = (
     <>
-      <div>
-        <Button onClick={() => setPbOpen(true)}>
-          <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('resources.detail.addPrice')}
-        </Button>
-      </div>
       <DataTable
         columns={pbCols}
         rows={pricebook.data ?? []}
@@ -373,6 +327,11 @@ export function ResourceDetailPane({ id }: { id: string }) {
         empty={t('pricebook.empty')}
         searchable
         pageSize={10}
+        toolbarActions={
+          <Button onClick={() => setPbOpen(true)}>
+            <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('resources.detail.addPrice')}
+          </Button>
+        }
         actionsWidth="96px"
         rowActions={(r) => (
           <>
@@ -417,24 +376,60 @@ export function ResourceDetailPane({ id }: { id: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-      {/* Persistent header bar: resource identity + live status. */}
+      {/* Header bar (former 概览 tab folded in): identity + meta + the status
+          control, so there's no redundant overview tab restating the same row. */}
       <div
         style={{
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           gap: 'var(--s-3)',
-          paddingBottom: 'var(--s-2)',
+          paddingBottom: 'var(--s-3)',
           borderBottom: '1px solid var(--row-bd)',
         }}
       >
-        {resource && <ProviderIcon provider={resource.provider_type} size={22} />}
-        <span style={{ fontSize: 'var(--fs-lg)', fontWeight: 'var(--fw-semibold)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {id}
-        </span>
+        {resource && <ProviderIcon provider={resource.provider_type} size={28} />}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div
+            style={{
+              fontSize: 'var(--fs-lg)',
+              fontWeight: 'var(--fw-semibold)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {id}
+          </div>
+          {resource && (
+            <div
+              style={{
+                fontSize: 'var(--fs-sm)',
+                color: 'var(--muted)',
+                marginTop: 6,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                flexWrap: 'wrap',
+              }}
+            >
+              <span>
+                {enumLabel(t, MODALITIES, resource.modality)} · {resource.provider_type} ·{' '}
+                {resource.exec_modes.join(', ')}
+              </span>
+              <span style={{ color: 'var(--faint)' }}>v{resource.current_version}</span>
+            </div>
+          )}
+        </div>
         {resource && (
-          <StatusBadge tone={statusTone(resource.status)} label={t('status.' + resource.status, resource.status)} />
+          <div style={{ flexShrink: 0, minWidth: 150 }}>
+            <SelectField
+              label={t('resources.actions.setStatus')}
+              value={resource.status === 'active' ? 'active' : 'disabled'}
+              onChange={(v) => setResourceStatus.mutate(v as ChannelStatus)}
+              options={toOptions(CHANNEL_STATUSES, t)}
+            />
+          </div>
         )}
-        {resource && <span style={{ color: 'var(--faint)', fontSize: 'var(--fs-caption)' }}>v{resource.current_version}</span>}
       </div>
 
       <SegmentedControl
@@ -444,7 +439,6 @@ export function ResourceDetailPane({ id }: { id: string }) {
         options={DETAIL_TABS.map((tb) => ({ value: tb, label: t(`resources.sections.${tb}`) }))}
       />
 
-      {dt === 'overview' && <QueryBoundary query={resources}>{overviewPanel}</QueryBoundary>}
       {dt === 'channels' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>{channelsPanel}</div>
       )}

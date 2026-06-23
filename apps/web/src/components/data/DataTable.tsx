@@ -40,6 +40,27 @@ export interface Column<T> {
   width?: string;
   /** Horizontal alignment of the header + cells (numeric columns → `right`). */
   align?: 'left' | 'right' | 'center';
+  /**
+   * Numeric column: implies `align: 'right'` and applies tabular figures so
+   * digits line up. Shorthand for counts/latency/cost columns.
+   */
+  numeric?: boolean;
+  /**
+   * Opt out of the single-line ellipsis clamp for this column's cells. Set on
+   * columns whose cell is an atomic widget that must not be cut off — status
+   * pills/badges, chip clusters, copy fields, capability icon rows. The cell
+   * still stays on one line (`whiteSpace: nowrap`) but is never `overflow:
+   * hidden`/ellipsized, so e.g. a `needs_reauth` pill isn't shown as `needs_reaut…`.
+   */
+  noClip?: boolean;
+  /**
+   * The elastic column that absorbs leftover width. With `table-layout: fixed`,
+   * width-less columns otherwise split the slack evenly (a bare identity column
+   * showing `—` ends up huge on wide tables). Mark ONE column `grow` (else the
+   * first column is treated as elastic) and give the rest widths; width-less
+   * non-grow columns fall back to a sensible default instead of spreading.
+   */
+  grow?: boolean;
   /** Pin this column to an edge during horizontal scroll. */
   sticky?: 'left' | 'right';
   /** When false, the column can't be hidden via the columns menu. Default true. */
@@ -82,23 +103,57 @@ export interface DataTableProps<T> {
   bulkActions?: (selected: T[], clear: () => void) => ReactNode;
   /** Show the "columns" visibility menu. */
   columnToggle?: boolean;
+  /**
+   * Table-affecting actions (e.g. a "新建/添加X" button) rendered right-aligned
+   * inside the toolbar row, next to the search box — instead of floating above
+   * the table in their own row. The toolbar renders whenever this is set.
+   */
+  toolbarActions?: ReactNode;
 }
 
-/** A subtle shadow on a pinned column edge so scrolled cells don't read as flush. */
-const STICKY_LEFT_SHADOW = '2px 0 4px -2px var(--scrim)';
-const STICKY_RIGHT_SHADOW = '-2px 0 4px -2px var(--scrim)';
+/** Default fixed width for a width-less, non-`grow` column (keeps wide tables from spreading). */
+const DEFAULT_COL_W = 160;
 
-function stickyCellStyle(sticky: Column<unknown>['sticky'], header: boolean): CSSProperties {
+/** A subtle, neutral shadow on a pinned column edge so scrolled cells don't read as flush. */
+const STICKY_LEFT_SHADOW = '2px 0 4px -2px var(--sticky-seam)';
+const STICKY_RIGHT_SHADOW = '-2px 0 4px -2px var(--sticky-seam)';
+
+/** Which horizontal edges currently hide scrolled content under a pinned column. */
+interface ScrollEdges {
+  /** Content is hidden to the LEFT (scrolled right) → the left-pinned column overlaps it. */
+  left: boolean;
+  /** Content is hidden to the RIGHT → the right-pinned column overlaps it. */
+  right: boolean;
+}
+
+/** No-scroll edges: also the safe default so the helper can never read `.left` off undefined. */
+const NO_EDGES: ScrollEdges = { left: false, right: false };
+
+function stickyCellStyle(
+  sticky: Column<unknown>['sticky'],
+  header: boolean,
+  edges: ScrollEdges = NO_EDGES,
+  rowBg?: string,
+): CSSProperties {
   if (sticky === undefined) return {};
+  // Only treat the column as "floating" (opaque backing + edge shadow) when
+  // content actually scrolls under it on that side. At rest the pinned cell is
+  // flush with its row — no darker block, no shadow seam over the last column.
+  const floating = sticky === 'left' ? edges.left : edges.right;
   return {
     position: 'sticky',
     left: sticky === 'left' ? 0 : undefined,
     right: sticky === 'right' ? 0 : undefined,
     zIndex: header ? 3 : 1,
     // Near-opaque (not the semi-transparent --panel-bg) so a pinned column/header
-    // can't faintly show scrolled content through its edge.
-    background: 'var(--overlay-bg)',
-    boxShadow: sticky === 'left' ? STICKY_LEFT_SHADOW : STICKY_RIGHT_SHADOW,
+    // can't faintly show scrolled content through its edge — but only while
+    // floating. Header cells fall back to their own --overlay-bg (headerCellStyle).
+    background: floating ? (rowBg ?? 'var(--overlay-bg)') : header ? undefined : rowBg,
+    boxShadow: floating
+      ? sticky === 'left'
+        ? STICKY_LEFT_SHADOW
+        : STICKY_RIGHT_SHADOW
+      : undefined,
   };
 }
 
@@ -121,6 +176,7 @@ export function DataTable<T>({
   selectable,
   bulkActions,
   columnToggle,
+  toolbarActions,
 }: DataTableProps<T>) {
   const { t } = useTranslation('console');
   const isDesktop = useMediaQuery(BP.md);
@@ -140,6 +196,11 @@ export function DataTable<T>({
   const [sort, setSort] = useState<{ key: string; dir: SortDirection }>({ key: '', dir: 'none' });
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  // Horizontal-scroll edges drive the pinned-column floating treatment, so the
+  // sticky checkbox/actions columns only paint a backing + shadow when content
+  // is actually scrolled under them (no false seam when the table fits).
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState<ScrollEdges>(NO_EDGES);
 
   // Columns currently rendered (visibility menu drops hidden ones).
   const visibleColumns = useMemo(
@@ -180,6 +241,26 @@ export function DataTable<T>({
   useEffect(() => {
     setPage(1);
   }, [query]);
+
+  // Track which horizontal edges hide scrolled content so pinned columns only
+  // float (backing + shadow) when needed. Re-measures on scroll, on resize, and
+  // when the rendered rows/columns change (which can add/remove overflow).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el === null) return;
+    const measure = () => {
+      const max = el.scrollWidth - el.clientWidth;
+      setEdges({ left: el.scrollLeft > 1, right: el.scrollLeft < max - 1 });
+    };
+    measure();
+    el.addEventListener('scroll', measure, { passive: true });
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', measure);
+      ro.disconnect();
+    };
+  }, [visibleColumns.length, paged.length, selectable, rowActions, isDesktop]);
 
   // --- Selection ----------------------------------------------------------
   const pageKeys = useMemo(() => paged.map((r) => rowKey(r)), [paged, rowKey]);
@@ -261,9 +342,12 @@ export function DataTable<T>({
     };
   };
 
-  // Toolbar above the table (search + columns menu); rendered when any apply.
+  // Toolbar above the table (search + table-affecting actions + columns menu);
+  // rendered when any apply. `toolbarActions` (e.g. a "新建/添加X" button) sit
+  // right-aligned next to the search box instead of floating above the table.
+  const showColumnsMenu = columnToggle === true && hideableColumns.length > 0;
   const toolbar =
-    searchable === true || (columnToggle === true && hideableColumns.length > 0) ? (
+    searchable === true || showColumnsMenu || toolbarActions !== undefined ? (
       <div
         style={{
           display: 'flex',
@@ -276,7 +360,12 @@ export function DataTable<T>({
           <SearchBox value={query} onChange={setQuery} placeholder={t('table.search')} />
         )}
         <div style={{ flex: 1 }} />
-        {columnToggle === true && hideableColumns.length > 0 && (
+        {toolbarActions !== undefined && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', flexShrink: 0 }}>
+            {toolbarActions}
+          </div>
+        )}
+        {showColumnsMenu && (
           <ColumnsMenu
             label={t('table.columns')}
             columns={hideableColumns}
@@ -383,7 +472,12 @@ export function DataTable<T>({
                         }}
                       >
                         {restCols.map((c) => (
-                          <Field key={c.key} header={c.header} value={c.cell(r)} />
+                          <Field
+                            key={c.key}
+                            header={c.header}
+                            value={c.cell(r)}
+                            noClip={c.noClip === true}
+                          />
                         ))}
                       </div>
                     )}
@@ -441,7 +535,6 @@ export function DataTable<T>({
   // the sum of fixed widths (the global `* { min-width: 0 }` reset lets it
   // collapse instead of scrolling). Floor the table at the sum of declared
   // widths so it scrolls horizontally and no column disappears.
-  const DEFAULT_COL_W = 160;
   const pxWidth = (w?: string) => {
     const m = w !== undefined ? /^(\d+)px$/.exec(w) : null;
     return m ? Number(m[1]) : DEFAULT_COL_W;
@@ -450,6 +543,24 @@ export function DataTable<T>({
     const m = actionsWidth !== undefined ? /^(\d+)px$/.exec(actionsWidth) : null;
     return m ? Number(m[1]) : 80;
   })();
+  // Exactly one elastic column absorbs leftover width; the rest are fixed. Without
+  // this, every width-less column splits the slack evenly and a bare identity
+  // column showing `—` balloons on wide tables. Honor an explicit `grow`; else the
+  // first visible column is elastic. A width-less, non-elastic column renders at
+  // DEFAULT_COL_W rather than spreading.
+  // The elastic column is width-less (it absorbs slack). Prefer an explicit
+  // `grow` (its width, if any, is dropped); else the first naturally width-less
+  // column. If every column has a width and none is `grow`, there's no elastic
+  // column and the fixed widths scale to fill (the page's choice).
+  const growKey = (
+    visibleColumns.find((c) => c.grow) ?? visibleColumns.find((c) => c.width === undefined)
+  )?.key;
+  const effectiveWidth = (c: Column<T>): string | undefined =>
+    c.key === growKey ? undefined : (c.width ?? `${String(DEFAULT_COL_W)}px`);
+  // `numeric` columns right-align by default; an explicit `align` always wins.
+  const colAlign = (c: Column<T>): 'left' | 'right' | 'center' | undefined =>
+    c.align ?? (c.numeric === true ? 'right' : undefined);
+  const actionsCellWidth = actionsWidth ?? `${String(actionsPx)}px`;
   const contentMinWidth =
     visibleColumns.reduce((sum, c) => sum + pxWidth(c.width), 0) +
     (selectable === true ? 44 : 0) +
@@ -466,6 +577,7 @@ export function DataTable<T>({
       {toolbar}
       {bulkBar}
       <div
+        ref={scrollRef}
         className="panel"
         style={{
           borderRadius: 'var(--r-md)',
@@ -492,7 +604,7 @@ export function DataTable<T>({
                   style={{
                     ...headerCellStyle,
                     width: 44,
-                    ...stickyCellStyle('left', true),
+                    ...stickyCellStyle('left', true, edges),
                   }}
                 >
                   <span onClick={stop} onKeyDown={stopKey} role="presentation">
@@ -519,9 +631,9 @@ export function DataTable<T>({
                     aria-sort={c.sortable === true ? ariaSort : undefined}
                     style={{
                       ...headerCellStyle,
-                      width: c.width,
-                      ...(c.align !== undefined ? { textAlign: c.align } : {}),
-                      ...stickyCellStyle(c.sticky, true),
+                      width: effectiveWidth(c),
+                      ...(colAlign(c) !== undefined ? { textAlign: colAlign(c) } : {}),
+                      ...stickyCellStyle(c.sticky, true, edges),
                     }}
                   >
                     {c.sortable === true ? (
@@ -558,8 +670,8 @@ export function DataTable<T>({
                   aria-hidden="true"
                   style={{
                     ...headerCellStyle,
-                    width: actionsWidth ?? 1,
-                    ...stickyCellStyle('right', true),
+                    width: actionsCellWidth,
+                    ...stickyCellStyle('right', true, edges),
                   }}
                 />
               )}
@@ -601,8 +713,7 @@ export function DataTable<T>({
                       <td
                         style={{
                           ...bodyCellStyle,
-                          ...stickyCellStyle('left', false),
-                          background: rowBg ?? 'var(--overlay-bg)',
+                          ...stickyCellStyle('left', false, edges, rowBg),
                         }}
                       >
                         <span onClick={stop} onKeyDown={stopKey} role="presentation">
@@ -619,19 +730,21 @@ export function DataTable<T>({
                         key={c.key}
                         style={{
                           ...bodyCellStyle,
-                          ...stickyCellStyle(c.sticky, false),
-                          ...(c.sticky !== undefined
-                            ? { background: rowBg ?? 'var(--overlay-bg)' }
-                            : null),
+                          ...stickyCellStyle(c.sticky, false, edges, rowBg),
                         }}
                       >
                         <div
+                          className={c.numeric === true ? 'tabular' : undefined}
                           style={{
                             minWidth: 0,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
-                            ...(c.align !== undefined ? { textAlign: c.align } : {}),
+                            // Atomic-widget cells (pills/badges/chips/copy fields)
+                            // opt out of the ellipsis clamp so they're never cut
+                            // off mid-content; text/id cells keep it.
+                            ...(c.noClip === true
+                              ? {}
+                              : { overflow: 'hidden', textOverflow: 'ellipsis' }),
+                            ...(colAlign(c) !== undefined ? { textAlign: colAlign(c) } : {}),
                           }}
                         >
                           {c.cell(r)}
@@ -642,18 +755,27 @@ export function DataTable<T>({
                       <td
                         style={{
                           ...bodyCellStyle,
-                          ...stickyCellStyle('right', false),
-                          background: rowBg ?? 'var(--overlay-bg)',
+                          ...stickyCellStyle('right', false, edges, rowBg),
                           whiteSpace: 'nowrap',
-                          width: actionsWidth ?? 1,
+                          width: actionsCellWidth,
                           textAlign: 'right',
+                          // Tighter than a data cell: the icon buttons carry their
+                          // own visual padding, so the reserved `actionsWidth` is
+                          // (almost) all usable and the icons never spill left over
+                          // the previous column.
+                          paddingLeft: 'var(--s-2)',
+                          paddingRight: 'var(--s-3)',
                         }}
                       >
                         <span
                           onClick={stop}
                           onKeyDown={stopKey}
                           role="presentation"
-                          style={{ display: 'inline-flex', gap: 'var(--s-2)' }}
+                          style={{
+                            display: 'inline-flex',
+                            gap: 'var(--s-1)',
+                            justifyContent: 'flex-end',
+                          }}
                         >
                           {rowActions(r)}
                         </span>
@@ -993,8 +1115,17 @@ function PagerButton({
 }
 
 /** One `LABEL …… value` line inside a mobile card — value right-aligned and
- * ellipsized so two fields pack into a 2-up grid without overflowing. */
-function Field({ header, value }: { header: ReactNode; value: ReactNode }) {
+ * ellipsized so two fields pack into a 2-up grid without overflowing. `noClip`
+ * columns (pills/badges/chips) keep their value intact (no ellipsis) and may wrap. */
+function Field({
+  header,
+  value,
+  noClip,
+}: {
+  header: ReactNode;
+  value: ReactNode;
+  noClip?: boolean;
+}) {
   return (
     <div
       style={{
@@ -1021,9 +1152,9 @@ function Field({ header, value }: { header: ReactNode; value: ReactNode }) {
           fontSize: 'var(--fs-sm)',
           minWidth: 0,
           textAlign: 'right',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
+          ...(noClip === true
+            ? {}
+            : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
         }}
       >
         {value}
