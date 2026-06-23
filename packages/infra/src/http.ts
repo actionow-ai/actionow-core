@@ -90,27 +90,35 @@ function buildInit(
  */
 async function* iterateUtf8(
   body: ReadableStream<Uint8Array>,
-  idle?: { controller: AbortController; idleMs: number },
+  idle?: { controller: AbortController; idleMs: number; firstChunkDeadline?: number },
 ): AsyncIterable<string> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
+  let first = true;
   try {
     for (;;) {
-      // Each read is bounded by the inter-chunk idle timeout when configured: on
-      // timeout the fetch is aborted (tearing down the connection) and a
-      // StreamIdleTimeoutError is thrown. The abandoned read is swallowed so its
-      // eventual rejection (from the abort) is never unhandled.
+      // Each read is bounded by a timeout when configured: the FIRST chunk shares
+      // ONE time-to-first-token budget with the header wait (`firstChunkDeadline`,
+      // a wall-clock deadline so connection→first-token can't exceed TTFT), and
+      // subsequent chunks use the inter-chunk idle window. On timeout the fetch is
+      // aborted (tearing down the connection) and a StreamIdleTimeoutError is
+      // thrown. The abandoned read is swallowed so its eventual rejection (from
+      // the abort) is never unhandled.
       const readPromise = reader.read();
       let result: Awaited<typeof readPromise>;
       if (idle === undefined) {
         result = await readPromise;
       } else {
+        const windowMs =
+          first && idle.firstChunkDeadline !== undefined
+            ? Math.max(1, idle.firstChunkDeadline - Date.now())
+            : idle.idleMs;
         let timer: ReturnType<typeof setTimeout> | undefined;
         const timeout = new Promise<never>((_resolve, reject) => {
           timer = setTimeout(() => {
             idle.controller.abort();
-            reject(new StreamIdleTimeoutError(idle.idleMs));
-          }, idle.idleMs);
+            reject(new StreamIdleTimeoutError(windowMs));
+          }, windowMs);
         });
         try {
           result = await Promise.race([readPromise, timeout]);
@@ -121,6 +129,7 @@ async function* iterateUtf8(
           if (timer !== undefined) clearTimeout(timer);
         }
       }
+      first = false;
       const { done, value } = result;
       if (done) {
         break;
@@ -185,6 +194,9 @@ export class FetchHttpClient implements HttpClient {
 
   async request(req: HttpRequest): Promise<HttpResponse> {
     const controller = new AbortController();
+    // NOTE: `req.connectTimeoutMs` is NOT separately enforced here — global fetch
+    // has no per-request connect deadline; the whole-request `timeoutMs` bounds it.
+    // The curl egress (CurlHttpClient) honors it via `--connect-timeout`.
     const timeoutMs = req.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const timer = setTimeout(() => {
       controller.abort();
@@ -228,13 +240,21 @@ export class FetchHttpClient implements HttpClient {
   async stream(req: HttpRequest): Promise<HttpStreamResponse> {
     const agent = req.proxyUrl === undefined ? undefined : this.agentFor(req.proxyUrl);
     const idleMs = req.idleTimeoutMs ?? this.streamIdleTimeoutMs;
+    // Time-to-first-token: when set, ONE wall-clock deadline spans
+    // connection→headers→first chunk, so the header wait and the first body read
+    // share a single TTFT budget (not 2× the window). The header wait uses the
+    // remaining budget; absent TTFT → the header wait + first chunk fall back to
+    // the inter-chunk idle window (legacy behavior).
+    const firstChunkDeadline =
+      req.firstChunkTimeoutMs !== undefined ? Date.now() + req.firstChunkTimeoutMs : undefined;
+    const headerWindowMs = req.firstChunkTimeoutMs ?? idleMs;
 
     // Bound time-to-headers too: abort if the upstream accepts the connection
-    // but never sends a response within the idle window.
+    // but never sends a response within the (remaining) TTFT window.
     const controller = new AbortController();
     const headerTimer = setTimeout(() => {
       controller.abort();
-    }, idleMs);
+    }, headerWindowMs);
     let res: Response;
     try {
       res = await fetch(req.url, buildInit(req, agent, controller.signal));
@@ -242,7 +262,14 @@ export class FetchHttpClient implements HttpClient {
       clearTimeout(headerTimer);
     }
 
-    const lines = res.body === null ? emptyLines : iterateUtf8(res.body, { controller, idleMs });
+    const lines =
+      res.body === null
+        ? emptyLines
+        : iterateUtf8(res.body, {
+            controller,
+            idleMs,
+            ...(firstChunkDeadline !== undefined ? { firstChunkDeadline } : {}),
+          });
     return { status: res.status, ok: res.ok, lines };
   }
 }

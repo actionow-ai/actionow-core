@@ -29,6 +29,12 @@ function headerArgs(headers: Record<string, string>): string[] {
   return Object.entries(headers).flatMap(([k, v]) => ['-H', `${k}: ${v}`]);
 }
 
+/** `--connect-timeout <s>` when the request carries a TCP/TLS connect deadline (fault policy). */
+function connectTimeoutArgs(req: HttpRequest): string[] {
+  if (req.connectTimeoutMs === undefined) return [];
+  return ['--connect-timeout', String(Math.max(1, Math.ceil(req.connectTimeoutMs / 1000)))];
+}
+
 /**
  * `HttpClient` that egresses via the `curl` binary (a child process) instead of
  * Node's `fetch`. A DEV/sandbox fallback for environments where Node's outbound
@@ -47,6 +53,7 @@ export class CurlHttpClient implements HttpClient {
       req.method,
       '--max-time',
       String(Math.ceil(timeoutMs / 1000)),
+      ...connectTimeoutArgs(req),
       ...headerArgs(headers),
       ...(req.proxyUrl !== undefined ? ['-x', req.proxyUrl] : []),
       ...(body !== undefined ? ['--data-binary', '@-'] : []),
@@ -83,6 +90,7 @@ export class CurlHttpClient implements HttpClient {
       req.method,
       '--max-time',
       String(Math.ceil((req.idleTimeoutMs ?? DEFAULT_STREAM_MAX_MS) / 1000) || 300),
+      ...connectTimeoutArgs(req),
       ...headerArgs(headers),
       ...(req.proxyUrl !== undefined ? ['-x', req.proxyUrl] : []),
       ...(body !== undefined ? ['--data-binary', '@-'] : []),

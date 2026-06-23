@@ -36,6 +36,7 @@ describe('catalog view contracts', () => {
       status: 'active',
       input_cost_per_1m: null,
       output_cost_per_1m: null,
+      fault_policy_id: null,
     };
     expect(channelViewSchema.parse(c)).toEqual(c);
   });

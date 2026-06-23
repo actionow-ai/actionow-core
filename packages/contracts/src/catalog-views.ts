@@ -39,6 +39,8 @@ export const channelViewSchema = z.object({
   input_cost_per_1m: z.string().nullable(),
   /** Operator cost µUSD/1M OUTPUT tokens (decimal string), null when unset. */
   output_cost_per_1m: z.string().nullable(),
+  /** Bound fault-tolerance policy id (调用容错), null when unbound. */
+  fault_policy_id: z.string().nullable(),
 });
 export type ChannelView = z.infer<typeof channelViewSchema>;
 

@@ -11,6 +11,8 @@ import {
   channelViewSchema,
   type CodexLoginStartView,
   codexLoginStartViewSchema,
+  type FaultPolicyView,
+  faultPolicyViewSchema,
   type JobView,
   jobViewSchema,
   type LedgerView,
@@ -61,6 +63,7 @@ import type {
   AdminTokenView as AdminTokenRow,
   ApiKeyRow,
   ChannelHealthRow,
+  FaultPolicyRow,
   Job,
   LedgerRow,
   ModelGrantRow,
@@ -128,6 +131,8 @@ import {
   createApiKeySchema,
   type CreateChannelDto,
   createChannelSchema,
+  type CreateFaultPolicyDto,
+  createFaultPolicySchema,
   type CreateModelDto,
   createModelSchema,
   type CreateModifierDto,
@@ -174,6 +179,8 @@ import {
   updateChannelSchema,
   type UpdateCredentialMetaDto,
   updateCredentialMetaSchema,
+  type UpdateFaultPolicyDto,
+  updateFaultPolicySchema,
   type UpdateModelDto,
   updateModelSchema,
   type UpdateModifierDto,
@@ -982,6 +989,54 @@ export class AdminController {
     await this.admin.deleteOfficialPrice(id);
   }
 
+  // ----- fault policies (调用容错) -----
+
+  @Post('fault-policies')
+  @HttpCode(201)
+  @Idempotent()
+  @ApiOperation({
+    summary: 'Create a fault-tolerance policy (retry/backoff/timeouts; name unique)',
+  })
+  async createFaultPolicy(
+    @Body(new ZodBody(createFaultPolicySchema)) dto: CreateFaultPolicyDto,
+  ): Promise<FaultPolicyView> {
+    return toFaultPolicyView(await this.admin.createFaultPolicy(dto));
+  }
+
+  @Get('fault-policies')
+  @ApiOperation({ summary: 'List fault-tolerance policies (paginated)' })
+  async listFaultPolicies(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<FaultPolicyView>> {
+    const result = await this.admin.listFaultPolicies(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toFaultPolicyView);
+  }
+
+  @Get('fault-policies/:id')
+  @ApiOperation({ summary: 'Get one fault policy by id or 404' })
+  async getFaultPolicy(@Param('id') id: string): Promise<FaultPolicyView> {
+    return toFaultPolicyView(await this.admin.getFaultPolicy(id));
+  }
+
+  @Patch('fault-policies/:id')
+  @ApiOperation({ summary: 'Update a fault policy (retry/backoff/timeouts/triggers/status)' })
+  async updateFaultPolicy(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateFaultPolicySchema)) dto: UpdateFaultPolicyDto,
+  ): Promise<FaultPolicyView> {
+    return toFaultPolicyView(await this.admin.updateFaultPolicy(id, dto));
+  }
+
+  @Delete('fault-policies/:id')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: 'Soft-delete a fault policy (bound channels fall back to engine defaults)',
+  })
+  async deleteFaultPolicy(@Param('id') id: string): Promise<void> {
+    await this.admin.deleteFaultPolicy(id);
+  }
+
   // ----- route groups (分组; Track 3) -----
 
   @Post('route-groups')
@@ -1353,6 +1408,28 @@ function toChannelView(row: UpstreamChannelRow): ChannelView {
     status: row.status,
     input_cost_per_1m: row.inputCostPer1m === null ? null : row.inputCostPer1m.toString(),
     output_cost_per_1m: row.outputCostPer1m === null ? null : row.outputCostPer1m.toString(),
+    fault_policy_id: row.faultPolicyId,
+  });
+}
+
+function toFaultPolicyView(row: FaultPolicyRow): FaultPolicyView {
+  return faultPolicyViewSchema.parse({
+    id: row.id,
+    name: row.name,
+    fast_fail: row.fastFail,
+    retry_count: row.retryCount,
+    backoff_type: row.backoffType,
+    backoff_ms: row.backoffMs,
+    connect_timeout_ms: row.connectTimeoutMs,
+    ttft_timeout_ms: row.ttftTimeoutMs,
+    total_timeout_ms: row.totalTimeoutMs,
+    idle_timeout_ms: row.idleTimeoutMs,
+    retry_codes: row.retryCodes,
+    retry_messages: row.retryMessages,
+    status: row.status,
+    description: row.description,
+    created_at: row.createdAt.toISOString(),
+    updated_at: row.updatedAt.toISOString(),
   });
 }
 

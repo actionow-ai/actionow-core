@@ -16,6 +16,7 @@ import type {
   CreateAdminTokenBody,
   CreateApiKeyBody,
   CreateChannelBody,
+  CreateFaultPolicyBody,
   CreateModelBody,
   CreateModifierBody,
   CreateOAuthSessionBody,
@@ -29,6 +30,7 @@ import type {
   DifyBindingView,
   DifyImportBody,
   DifyImportView,
+  FaultPolicyView,
   GenerateCodesBody,
   JobView,
   LedgerView,
@@ -65,6 +67,7 @@ import type {
   UpdateChannelBody,
   UpdateCredentialMetaBody,
   UpdateDifyBody,
+  UpdateFaultPolicyBody,
   UpdateModelBody,
   UpdateModifierBody,
   UpdateOfficialPriceBody,
@@ -233,6 +236,19 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
       unwrap(await sdk.POST('/admin/tokens', { body }), u),
     revokeAdminToken: async (id: string): Promise<void> => {
       unwrap(await sdk.DELETE('/admin/tokens/{id}', { params: { path: { id } } }), u);
+    },
+
+    // --- Fault-tolerance policies (调用容错) ---
+    listFaultPolicies: async () =>
+      page<FaultPolicyView>(await sdk.GET('/admin/fault-policies'), u).rows,
+    createFaultPolicy: async (body: CreateFaultPolicyBody, idempotencyKey?: string) =>
+      unwrap(await sdk.POST('/admin/fault-policies', { body, headers: idem(idempotencyKey) }), u),
+    getFaultPolicy: async (id: string) =>
+      unwrap(await sdk.GET('/admin/fault-policies/{id}', { params: { path: { id } } }), u),
+    updateFaultPolicy: async (id: string, body: UpdateFaultPolicyBody) =>
+      unwrap(await sdk.PATCH('/admin/fault-policies/{id}', { params: { path: { id } }, body }), u),
+    deleteFaultPolicy: async (id: string): Promise<void> => {
+      unwrap(await sdk.DELETE('/admin/fault-policies/{id}', { params: { path: { id } } }), u);
     },
 
     // --- Route groups (billing/routing) ---

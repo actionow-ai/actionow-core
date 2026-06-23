@@ -10,6 +10,7 @@ export * from './console-requests.js';
 export * from './console-views.js';
 export * from './data-plane.js';
 export * from './error-view.js';
+export * from './fault-policy.js';
 export * from './http.js';
 export * from './io-schema.js';
 export * from './job.js';

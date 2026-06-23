@@ -11,6 +11,19 @@ export interface HttpRequest {
    * configured `streamIdleTimeoutMs`. Does not apply to buffered `request()`.
    */
   idleTimeoutMs?: number;
+  /**
+   * Time-to-first-token timeout for `stream()` (ms): bounds the window from
+   * connection to the FIRST body chunk (and time-to-headers) separately from the
+   * inter-chunk {@link idleTimeoutMs}. Set by the fault policy's `ttftTimeoutMs`.
+   * Unset → the first chunk shares `idleTimeoutMs`. No effect on `request()`.
+   */
+  firstChunkTimeoutMs?: number;
+  /**
+   * TCP/TLS connect timeout (ms). Best-effort: the curl egress enforces it via
+   * `--connect-timeout`; the fetch client relies on `timeoutMs` (no per-request
+   * connect deadline). Set by the fault policy's `connectTimeoutMs`.
+   */
+  connectTimeoutMs?: number;
   /** Optional per-request HTTP(S) proxy URL; the FetchHttpClient routes via an undici ProxyAgent. */
   proxyUrl?: string;
 }

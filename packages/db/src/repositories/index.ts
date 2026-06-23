@@ -122,6 +122,17 @@ export {
   type UpstreamChannelRow,
 } from './catalog.js';
 export {
+  createFaultPolicy,
+  type CreateFaultPolicyInput,
+  type FaultPolicyRow,
+  getFaultPoliciesByIds,
+  getFaultPolicyById,
+  listFaultPolicies,
+  softDeleteFaultPolicy,
+  updateFaultPolicy,
+  type UpdateFaultPolicyInput,
+} from './fault-policy.js';
+export {
   createFileObject,
   type CreateFileObjectInput,
   type FileObject,

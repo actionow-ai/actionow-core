@@ -310,6 +310,10 @@
           "output_cost_per_1m": {
             "type": "string",
             "nullable": true
+          },
+          "fault_policy_id": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -324,7 +328,8 @@
           "weight",
           "status",
           "input_cost_per_1m",
-          "output_cost_per_1m"
+          "output_cost_per_1m",
+          "fault_policy_id"
         ]
       },
       "ModelView": {
@@ -2918,6 +2923,10 @@
           "outputCostUsdPer1m": {
             "type": "number",
             "minimum": 0
+          },
+          "faultPolicyId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": [
@@ -2975,6 +2984,11 @@
             "type": "number",
             "nullable": true,
             "minimum": 0
+          },
+          "faultPolicyId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
           }
         }
       },
@@ -3430,6 +3444,260 @@
             "type": "integer",
             "minimum": 0,
             "exclusiveMinimum": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "FaultPolicyView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fast_fail": {
+            "type": "boolean"
+          },
+          "retry_count": {
+            "type": "number"
+          },
+          "backoff_type": {
+            "type": "string"
+          },
+          "backoff_ms": {
+            "type": "number"
+          },
+          "connect_timeout_ms": {
+            "type": "number",
+            "nullable": true
+          },
+          "ttft_timeout_ms": {
+            "type": "number",
+            "nullable": true
+          },
+          "total_timeout_ms": {
+            "type": "number",
+            "nullable": true
+          },
+          "idle_timeout_ms": {
+            "type": "number",
+            "nullable": true
+          },
+          "retry_codes": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "number"
+            }
+          },
+          "retry_messages": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "fast_fail",
+          "retry_count",
+          "backoff_type",
+          "backoff_ms",
+          "connect_timeout_ms",
+          "ttft_timeout_ms",
+          "total_timeout_ms",
+          "idle_timeout_ms",
+          "retry_codes",
+          "retry_messages",
+          "status",
+          "description",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "CreateFaultPolicyBody": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fastFail": {
+            "type": "boolean"
+          },
+          "retryCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "backoffType": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "exponential"
+            ]
+          },
+          "backoffMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 600000
+          },
+          "connectTimeoutMs": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 3600000
+          },
+          "ttftTimeoutMs": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 3600000
+          },
+          "totalTimeoutMs": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 3600000
+          },
+          "idleTimeoutMs": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 3600000
+          },
+          "retryCodes": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 599
+            },
+            "maxItems": 50
+          },
+          "retryMessages": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "maxItems": 50
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateFaultPolicyBody": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fastFail": {
+            "type": "boolean"
+          },
+          "retryCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "backoffType": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "exponential"
+            ]
+          },
+          "backoffMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 600000
+          },
+          "connectTimeoutMs": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 3600000
+          },
+          "ttftTimeoutMs": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 3600000
+          },
+          "totalTimeoutMs": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 3600000
+          },
+          "idleTimeoutMs": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 3600000
+          },
+          "retryCodes": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 599
+            },
+            "maxItems": 50
+          },
+          "retryMessages": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "maxItems": 50
           },
           "status": {
             "type": "string",
@@ -6927,6 +7195,413 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/fault-policies": {
+      "get": {
+        "summary": "List fault-tolerance policies",
+        "tags": [
+          "catalog"
+        ],
+        "responses": {
+          "200": {
+            "description": "List fault-tolerance policies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FaultPolicyView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a fault-tolerance policy",
+        "tags": [
+          "catalog"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFaultPolicyBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Create a fault-tolerance policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaultPolicyView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/fault-policies/{id}": {
+      "get": {
+        "summary": "Get one fault policy",
+        "tags": [
+          "catalog"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get one fault policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaultPolicyView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a fault-tolerance policy",
+        "tags": [
+          "catalog"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFaultPolicyBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Update a fault-tolerance policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaultPolicyView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a fault-tolerance policy",
+        "tags": [
+          "catalog"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Delete a fault-tolerance policy"
           },
           "400": {
             "description": "Invalid input",

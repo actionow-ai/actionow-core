@@ -9,6 +9,7 @@ import type { ChannelView } from '../../lib/api/types';
 const mockApi = vi.hoisted(() => ({
   listModels: vi.fn(() => Promise.resolve([])),
   listSecrets: vi.fn(() => Promise.resolve([])),
+  listFaultPolicies: vi.fn(() => Promise.resolve([])),
   createSecret: vi.fn(() => Promise.resolve({ id: 's1', provider: 'openai', created_at: '' })),
   updateChannel: vi.fn(() => Promise.resolve({})),
   createChannel: vi.fn(() => Promise.resolve({})),
@@ -39,6 +40,7 @@ const channel: ChannelView = {
   status: 'active',
   input_cost_per_1m: '500000',
   output_cost_per_1m: null,
+  fault_policy_id: null,
 };
 
 describe('ChannelEditor cost fields', () => {
