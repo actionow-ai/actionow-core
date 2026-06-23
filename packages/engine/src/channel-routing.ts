@@ -1,9 +1,26 @@
-import {
-  isRetryableAdapterError,
-  routeWithFailover,
-  type WeightedChannel,
-} from '@actionow/adapters';
+import { AdapterError, routeWithFailover, type WeightedChannel } from '@actionow/adapters';
 import { type DbOrTx, listCooledDownChannelIds, recordChannelFailure } from '@actionow/db';
+
+import { EngineError } from './errors.js';
+
+/**
+ * The CROSS-channel failover verdict: should this error cause the router to cool
+ * down the channel and try the next one?
+ *
+ * - An {@link AdapterError}/{@link EngineError} carries an explicit `retryable`
+ *   verdict — honor it (a `content_filtered`/`invalid_input`/`unauthorized` must
+ *   NOT failover; a `rate_limited`/`upstream_error` should).
+ * - ANY OTHER thrown value is a RAW transport failure (a `fetch` AbortError, DNS
+ *   failure, ECONNRESET — never wrapped in an AdapterError) → the channel is
+ *   effectively unreachable, so cool it down and cascade to the next channel.
+ *   (`isRetryableAdapterError` returned `false` for these, hard-failing the whole
+ *   request on a single dead channel — this widens it to a proper failover.)
+ */
+export function isFailoverRetryable(err: unknown): boolean {
+  if (err instanceof AdapterError) return err.unified.retryable;
+  if (err instanceof EngineError) return err.unified.retryable;
+  return true;
+}
 
 /**
  * The minimal channel shape the router needs: `id` (cooldown), `weight`
@@ -81,7 +98,7 @@ export async function routeBlocking<C extends RoutableChannel, R>(
       try {
         return await attempt(value);
       } catch (err) {
-        if (isRetryableAdapterError(err)) {
+        if (isFailoverRetryable(err)) {
           try {
             await recordChannelFailure(deps.db, channel.id, deps.now());
           } catch {
@@ -91,6 +108,6 @@ export async function routeBlocking<C extends RoutableChannel, R>(
         throw err;
       }
     },
-    isRetryableAdapterError,
+    isFailoverRetryable,
   );
 }

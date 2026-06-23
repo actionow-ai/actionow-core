@@ -16,6 +16,7 @@ vi.mock('@actionow/db', () => ({
 }));
 
 const { availableChannels, routeBlocking } = await import('../src/channel-routing.js');
+const { EngineError } = await import('../src/errors.js');
 
 const deps = {
   db: {} as DbOrTx,
@@ -76,6 +77,28 @@ describe('routeBlocking', () => {
         return Promise.resolve(ch.id);
       }),
     ).rejects.toThrow('bad');
+    expect(failureCalls).toEqual([]);
+  });
+
+  it('fails over + cools down on a RAW transport error (not an AdapterError)', async () => {
+    // A fetch AbortError / ECONNRESET / DNS failure surfaces as a plain Error; a
+    // dead channel must cascade to the next one, not hard-fail the request.
+    const result = await routeBlocking(deps, chans, (ch) => {
+      if (ch.id === 'a') throw new Error('ECONNRESET');
+      return Promise.resolve(ch.id);
+    });
+    expect(result).toBe('b');
+    expect(failureCalls).toEqual(['a']);
+  });
+
+  it('does NOT fail over on a non-retryable EngineError (honors its verdict)', async () => {
+    await expect(
+      routeBlocking(deps, chans, (ch) => {
+        if (ch.id === 'a')
+          throw new EngineError({ code: 'invalid_input', message: 'nope', retryable: false });
+        return Promise.resolve(ch.id);
+      }),
+    ).rejects.toThrow('nope');
     expect(failureCalls).toEqual([]);
   });
 

@@ -1,5 +1,5 @@
 import type { AdapterRegistry } from '@actionow/adapters';
-import { isRetryableAdapterError, orderForFailover } from '@actionow/adapters';
+import { orderForFailover } from '@actionow/adapters';
 import type {
   AdapterContext,
   ChatRequest,
@@ -20,7 +20,7 @@ import {
 } from '@actionow/db';
 import { type MicroCredits, priceProviderCost } from '@actionow/domain';
 
-import { availableChannels } from './channel-routing.js';
+import { availableChannels, isFailoverRetryable } from './channel-routing.js';
 import { EngineError } from './errors.js';
 import type { RunChannel, RunRequest } from './execution-service.js';
 import { wrapHttpWithTimeouts } from './fault-policy.js';
@@ -333,7 +333,7 @@ export async function* createChatSettlingStream(
         servedChannel = channel;
         break;
       } catch (err) {
-        if (isRetryableAdapterError(err) && !isLast) {
+        if (isFailoverRetryable(err) && !isLast) {
           await recordFailureSafe(channel.id);
           lastError = toUnified(err);
           continue;
