@@ -19,6 +19,7 @@ import { OAuthSessionsPage } from './features/console/OAuthSessionsPage';
 import { OfficialPricesPage } from './features/console/OfficialPricesPage';
 import { OverviewPage } from './features/console/OverviewPage';
 import { PluginsPage } from './features/console/PluginsPage';
+import { ProxiesPage } from './features/console/ProxiesPage';
 import { RedemptionCodesPage } from './features/console/RedemptionCodesPage';
 import { RelayTracesPage } from './features/console/RelayTracesPage';
 import { ResourcesPage } from './features/console/ResourcesPage';
@@ -72,6 +73,7 @@ export function AppRoutes() {
           <Route path="resources/:id" element={<ResourceRedirect />} />
           <Route path="models" element={<Navigate to="/console/catalog" replace />} />
           <Route path="plugins" element={<PluginsPage />} />
+          <Route path="proxies" element={<ProxiesPage />} />
           <Route path="modifiers" element={<ModifiersPage />} />
           {/* Billing & routing: live on the real /admin/route-groups and
               /admin/official-prices endpoints (via useAdminApi). */}

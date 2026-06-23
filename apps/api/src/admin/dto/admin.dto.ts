@@ -13,6 +13,7 @@ import {
   createOfficialPriceSchema,
   createPluginRequestSchema,
   createPricebookSchema,
+  createProxySchema,
   createResourceSchema,
   createRouteGroupSchema,
   createSecretSchema,
@@ -22,6 +23,7 @@ import {
   grantModelSchema,
   modelTestRequestSchema,
   provisionSchema,
+  proxyProbeRequestSchema,
   syncChannelModelsSchema,
   testPluginRequestSchema,
   topupSchema,
@@ -35,6 +37,7 @@ import {
   updateOfficialPriceSchema,
   updatePluginRequestSchema,
   updatePricebookSchema,
+  updateProxySchema,
   updateResourceSchema,
   updateRouteGroupSchema,
   updateTenantSchema,
@@ -77,6 +80,7 @@ export {
   createOfficialPriceSchema,
   createPluginRequestSchema,
   createPricebookSchema,
+  createProxySchema,
   createResourceSchema,
   createRouteGroupSchema,
   createSecretSchema,
@@ -86,6 +90,7 @@ export {
   grantModelSchema,
   modelTestRequestSchema,
   provisionSchema,
+  proxyProbeRequestSchema,
   syncChannelModelsSchema,
   testPluginRequestSchema,
   topupSchema,
@@ -99,6 +104,7 @@ export {
   updateOfficialPriceSchema,
   updatePluginRequestSchema,
   updatePricebookSchema,
+  updateProxySchema,
   updateResourceSchema,
   updateRouteGroupSchema,
   updateTenantSchema,
@@ -132,6 +138,9 @@ export type GrantModelDto = z.infer<typeof grantModelSchema>;
 export type ModelTestDto = z.infer<typeof modelTestRequestSchema>;
 export type CreateFaultPolicyDto = z.infer<typeof createFaultPolicySchema>;
 export type UpdateFaultPolicyDto = z.infer<typeof updateFaultPolicySchema>;
+export type CreateProxyDto = z.infer<typeof createProxySchema>;
+export type UpdateProxyDto = z.infer<typeof updateProxySchema>;
+export type ProxyProbeDto = z.infer<typeof proxyProbeRequestSchema>;
 export type CreateSecretDto = z.infer<typeof createSecretSchema>;
 export type GenerateCodesDto = z.infer<typeof generateCodesSchema>;
 export type ProvisionDto = z.infer<typeof provisionSchema>;

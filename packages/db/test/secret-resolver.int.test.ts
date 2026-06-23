@@ -4,8 +4,11 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
-import { createSecretRef, resolveSecretRef } from '../src/repositories/index.js';
+import { createProxy, createSecretRef, resolveSecretRef } from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
+
+/** A valid 32-byte base64 AES key for the proxy encryption cases. */
+const KEY = Buffer.alloc(32, 7).toString('base64');
 
 let container: StartedPostgreSqlContainer;
 let client: ReturnType<typeof postgres>;
@@ -25,9 +28,11 @@ afterAll(async () => {
 
 afterEach(async () => {
   await client`TRUNCATE TABLE secret_ref RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE proxy RESTART IDENTITY CASCADE`;
   // Clear any env keys this suite sets so cases don't leak into each other.
   delete process.env.SECRET_DEMO_KEY;
   delete process.env.SECRET_LITERAL_REF;
+  delete process.env.SECRET_ENCRYPTION_KEY;
 });
 
 describe('resolveSecretRef', () => {
@@ -58,5 +63,25 @@ describe('resolveSecretRef', () => {
     process.env.SECRET_DEMO_KEY = 'val';
 
     await expect(resolveSecretRef(db, ref.id)).resolves.toBeUndefined();
+  });
+
+  it('resolves an ACTIVE managed proxy id to its decrypted URL', async () => {
+    process.env.SECRET_ENCRYPTION_KEY = KEY;
+    const url = 'http://user:pass@proxy.example:8080';
+    const px = await createProxy(db, { name: 'p1', url, keyB64: KEY });
+
+    await expect(resolveSecretRef(db, px.id)).resolves.toBe(url);
+  });
+
+  it('returns undefined for a DISABLED proxy (→ engine falls back to no/global proxy)', async () => {
+    process.env.SECRET_ENCRYPTION_KEY = KEY;
+    const px = await createProxy(db, {
+      name: 'p2',
+      url: 'socks5://proxy.example:1080',
+      keyB64: KEY,
+      status: 'disabled',
+    });
+
+    await expect(resolveSecretRef(db, px.id)).resolves.toBeUndefined();
   });
 });

@@ -1,7 +1,7 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 import { decryptSecret, encryptSecret } from '../crypto.js';
-import { secretMaterial, secretRef } from '../schema/index.js';
+import { proxy, secretMaterial, secretRef } from '../schema/index.js';
 import { getSecretRef, type SecretRefRow } from './catalog.js';
 import { getDecryptedOAuthSession } from './oauth-session.js';
 import type { DbOrTx } from './types.js';
@@ -87,10 +87,36 @@ export async function resolveSecretRef(db: DbOrTx, ref: string): Promise<string 
       // TODO(Phase 5): vault-backed (`provider === 'vault'`) resolution.
       return undefined;
     }
-    // uuid-shaped but no secret_ref row: fall through to the literal lookup,
-    // which will not match (the formatted uuid is not an env key) → undefined.
+    // uuid-shaped but no secret_ref row: it may be a MANAGED PROXY id
+    // (`upstream_channel.proxy_ref = proxy.id`). An ACTIVE proxy resolves to its
+    // AES-GCM-decrypted URL; a disabled/soft-deleted proxy resolves to undefined
+    // (→ the engine falls back to the global UPSTREAM_PROXY_URL / no proxy).
+    const proxyUrl = await resolveProxyRef(db, ref);
+    if (proxyUrl !== undefined) return proxyUrl;
+    // else fall through to the literal env lookup (won't match a uuid) → undefined.
   }
   return fromEnv(ref);
+}
+
+/**
+ * Resolve a uuid `ref` that names an ACTIVE managed {@link proxy} to its
+ * decrypted URL. A non-active / soft-deleted / missing proxy, a missing
+ * encryption key, or a decrypt error all resolve to `undefined` (never throw).
+ */
+async function resolveProxyRef(db: DbOrTx, ref: string): Promise<string | undefined> {
+  const [row] = await db
+    .select()
+    .from(proxy)
+    .where(and(eq(proxy.id, ref), isNull(proxy.deletedAt)))
+    .limit(1);
+  if (row?.status !== 'active') return undefined;
+  const keyB64 = process.env.SECRET_ENCRYPTION_KEY;
+  if (keyB64 === undefined || keyB64 === '') return undefined;
+  try {
+    return decryptSecret(row.encryptedUrl, keyB64);
+  } catch {
+    return undefined;
+  }
 }
 
 /** Fields a caller supplies to {@link createEncryptedSecret}. */
