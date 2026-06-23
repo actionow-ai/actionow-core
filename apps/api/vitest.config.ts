@@ -19,12 +19,17 @@ export default defineConfig({
   plugins: [
     // `unplugin-swc`'s vite plugin compiles with `emitDecoratorMetadata` so
     // NestJS DI works under vitest (esbuild alone drops the metadata).
+    // Cast through unknown→never: unplugin-swc's Plugin type is structurally
+    // compatible but doesn't unify with the resolved vite PluginOption union when
+    // multiple vite versions are hoisted in the monorepo, and `vite` isn't a
+    // direct dep here so PluginOption can't be named. `never` is assignable to the
+    // PluginOption[] element, keeping the config valid + skew-proof.
     swc.vite({
       jsc: {
         target: 'es2022',
         parser: { syntax: 'typescript', decorators: true },
         transform: { legacyDecorator: true, decoratorMetadata: true },
       },
-    }),
+    }) as unknown as never,
   ],
 });
