@@ -17,6 +17,7 @@ import {
   ledgerViewSchema,
   type ModelGrantView,
   modelGrantViewSchema,
+  type ModelTestResult,
   type ModelView,
   modelViewSchema,
   type ModifierView,
@@ -151,6 +152,8 @@ import {
   generateCodesSchema,
   type GrantModelDto,
   grantModelSchema,
+  type ModelTestDto,
+  modelTestRequestSchema,
   type OfficialPricesQueryDto,
   officialPricesQuerySchema,
   type ProvisionDto,
@@ -188,6 +191,7 @@ import {
   type UpdateTenantDto,
   updateTenantSchema,
 } from './dto/admin.dto.js';
+import { ModelTestService } from './model-test.service.js';
 
 // ----- JSON views (bigint money serialized as decimal µcredit strings) -----
 // TenantView / AccountView are defined ONCE as zod schemas in
@@ -257,6 +261,7 @@ export class AdminController {
   constructor(
     private readonly admin: AdminService,
     private readonly tokens: AdminTokenService,
+    private readonly modelTest: ModelTestService,
   ) {}
 
   // ----- tenants -----
@@ -793,6 +798,17 @@ export class AdminController {
   @ApiOperation({ summary: 'Register a relay model (name → chat resource)' })
   async createModel(@Body(new ZodBody(createModelSchema)) dto: CreateModelDto): Promise<ModelView> {
     return toModelView(await this.admin.createModel(dto));
+  }
+
+  @Post('models/test')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Probe a candidate model (connectivity + functional) before adding it',
+  })
+  async testModel(
+    @Body(new ZodBody(modelTestRequestSchema)) dto: ModelTestDto,
+  ): Promise<ModelTestResult> {
+    return this.modelTest.test(dto);
   }
 
   @Get('models')

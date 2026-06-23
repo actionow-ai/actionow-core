@@ -33,6 +33,8 @@ import type {
   JobView,
   LedgerView,
   ModelGrantView,
+  ModelTestRequest,
+  ModelTestResult,
   ModelView,
   ModifierView,
   OAuthSessionListView,
@@ -322,6 +324,10 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     listModels: async () => page<ModelView>(await sdk.GET('/admin/models'), u).rows,
     createModel: async (body: CreateModelBody, idempotencyKey?: string) =>
       unwrap(await sdk.POST('/admin/models', { body, headers: idem(idempotencyKey) }), u),
+    // Pre-add probe: connectivity + functional test of a CANDIDATE model (the
+    // `model` need not exist yet) against the resource's channel.
+    testModel: async (body: ModelTestRequest): Promise<ModelTestResult> =>
+      unwrap(await sdk.POST('/admin/models/test', { body }), u),
     getModel: async (name: string) =>
       unwrap(await sdk.GET('/admin/models/{name}', { params: { path: { name } } }), u),
     updateModel: async (name: string, body: UpdateModelBody) =>

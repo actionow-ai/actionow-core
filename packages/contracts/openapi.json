@@ -3299,6 +3299,99 @@
           "tenantId"
         ]
       },
+      "ModelTestBody": {
+        "type": "object",
+        "properties": {
+          "resourceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "channelId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "resourceId",
+          "model"
+        ]
+      },
+      "ModelTestResult": {
+        "type": "object",
+        "properties": {
+          "modality": {
+            "type": "string"
+          },
+          "channelId": {
+            "type": "string"
+          },
+          "providerType": {
+            "type": "string"
+          },
+          "connectivity": {
+            "type": "object",
+            "properties": {
+              "ok": {
+                "type": "boolean"
+              },
+              "message": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "ok",
+              "message"
+            ]
+          },
+          "functional": {
+            "type": "object",
+            "properties": {
+              "ok": {
+                "type": "boolean"
+              },
+              "message": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "ok",
+              "message"
+            ]
+          },
+          "sample": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            }
+          },
+          "elapsedMs": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "modality",
+          "channelId",
+          "providerType",
+          "connectivity",
+          "functional",
+          "elapsedMs"
+        ]
+      },
       "CreateRouteGroupBody": {
         "type": "object",
         "properties": {
@@ -11792,6 +11885,86 @@
         "responses": {
           "204": {
             "description": "Delete a dify binding"
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/models/test": {
+      "post": {
+        "summary": "Probe a candidate model (connectivity + functional) before adding it",
+        "tags": [
+          "catalog"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelTestBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Probe a candidate model (connectivity + functional) before adding it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelTestResult"
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid input",

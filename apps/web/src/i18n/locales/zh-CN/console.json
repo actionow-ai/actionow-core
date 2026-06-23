@@ -540,6 +540,18 @@
     "deleted": "模型已删除",
     "statusUpdated": "模型状态已更新",
     "perTok": "/tok",
+    "test": {
+      "hint": "添加前会先对该模型做连通性 + 功能性测试，通过后自动添加。",
+      "testAndAdd": "测试并添加",
+      "retry": "重新测试",
+      "addDisabled": "仍然添加（禁用）",
+      "connectivity": "连通性",
+      "functional": "功能性",
+      "pass": "通过",
+      "failLeg": "未通过",
+      "sample": "生成样例",
+      "meta": "{{provider}} · 渠道 {{channel}} · 耗时 {{ms}}ms"
+    },
     "cols": {
       "model": "模型",
       "modality": "模态",

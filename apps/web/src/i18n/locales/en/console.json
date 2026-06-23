@@ -540,6 +540,18 @@
     "deleted": "Model deleted",
     "statusUpdated": "Model status updated",
     "perTok": "/tok",
+    "test": {
+      "hint": "Before adding, the model is probed for connectivity + functionality; it is added automatically on a pass.",
+      "testAndAdd": "Test & add",
+      "retry": "Re-test",
+      "addDisabled": "Add anyway (disabled)",
+      "connectivity": "Connectivity",
+      "functional": "Functional",
+      "pass": "Pass",
+      "failLeg": "Fail",
+      "sample": "Generated sample",
+      "meta": "{{provider}} · channel {{channel}} · {{ms}}ms"
+    },
     "cols": {
       "model": "Model",
       "modality": "Modality",

@@ -19,6 +19,7 @@ import {
   difyImportSchema,
   generateCodesSchema,
   grantModelSchema,
+  modelTestRequestSchema,
   provisionSchema,
   syncChannelModelsSchema,
   testPluginRequestSchema,
@@ -80,6 +81,7 @@ export {
   difyImportSchema,
   generateCodesSchema,
   grantModelSchema,
+  modelTestRequestSchema,
   provisionSchema,
   syncChannelModelsSchema,
   testPluginRequestSchema,
@@ -123,6 +125,7 @@ export type UpdateDifyDto = z.infer<typeof updateDifySchema>;
 export type CreateModelDto = z.infer<typeof createModelSchema>;
 export type UpdateModelDto = z.infer<typeof updateModelSchema>;
 export type GrantModelDto = z.infer<typeof grantModelSchema>;
+export type ModelTestDto = z.infer<typeof modelTestRequestSchema>;
 export type CreateSecretDto = z.infer<typeof createSecretSchema>;
 export type GenerateCodesDto = z.infer<typeof generateCodesSchema>;
 export type ProvisionDto = z.infer<typeof provisionSchema>;
