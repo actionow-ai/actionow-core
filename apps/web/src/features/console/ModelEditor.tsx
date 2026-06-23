@@ -12,8 +12,10 @@ import { toast } from '../../components/ui/toast';
 import { MODALITIES, MODEL_STATUSES, toOptions, VISIBILITIES } from '../../lib/api/enums';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
+import type { ModelTestResult } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
+import { ModelTestPanel } from './ModelTestPanel';
 
 type Visibility = 'public' | 'tenant';
 type ModelStatus = 'active' | 'disabled';
@@ -76,6 +78,8 @@ export function ModelEditor({
   // Set true on a Save attempt so required-field errors appear only after submit,
   // not on first paint.
   const [attempted, setAttempted] = useState(false);
+  // The latest probe result (create flow). `null` = not yet tested this session.
+  const [testResult, setTestResult] = useState<ModelTestResult | null>(null);
 
   // Seed the form once the edited model lands. Prices arrive as decimal strings
   // (µcredit/token) → parse to integers for the NumberFields.
@@ -94,19 +98,30 @@ export function ModelEditor({
     setStatus(m.status === 'disabled' ? 'disabled' : 'active');
   }, [editing, m]);
 
-  const save = useMutation({
-    mutationFn: () => {
-      if (editing) {
-        return api.updateModel(name, {
-          display: display.trim() === '' ? null : display.trim(),
-          capabilities,
-          visibility,
-          inputPrice,
-          outputPrice,
-          status,
-        });
-      }
-      return api.createModel(
+  const update = useMutation({
+    mutationFn: () =>
+      api.updateModel(name!, {
+        display: display.trim() === '' ? null : display.trim(),
+        capabilities,
+        visibility,
+        inputPrice,
+        outputPrice,
+        status,
+      }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.models() });
+      await qc.invalidateQueries({ queryKey: qk.model(name!) });
+      toast(t('models.updated'));
+      onClose();
+    },
+    onError: mutationError(t),
+  });
+
+  // Create with an explicit status — the chosen status on a passing test, forced
+  // to `disabled` when the operator adds a model that failed its probe.
+  const create = useMutation({
+    mutationFn: (statusOverride: ModelStatus) =>
+      api.createModel(
         {
           name: nameField.trim(),
           resourceId,
@@ -116,16 +131,26 @@ export function ModelEditor({
           visibility,
           inputPrice,
           outputPrice,
-          status,
+          status: statusOverride,
         },
         idemKey,
-      );
-    },
+      ),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: qk.models() });
-      if (editing) await qc.invalidateQueries({ queryKey: qk.model(name) });
-      toast(t(editing ? 'models.updated' : 'models.created'));
+      toast(t('models.created'));
       onClose();
+    },
+    onError: mutationError(t),
+  });
+
+  // Probe the candidate against its resource channel. On a clean pass (both legs
+  // green) the model is created immediately at the chosen status; otherwise the
+  // result panel renders and the operator decides whether to force-add it.
+  const test = useMutation({
+    mutationFn: () => api.testModel({ resourceId, model: nameField.trim() }),
+    onSuccess: (res) => {
+      setTestResult(res);
+      if (res.connectivity.ok && res.functional.ok) create.mutate(status);
     },
     onError: mutationError(t),
   });
@@ -136,11 +161,19 @@ export function ModelEditor({
   const nameMissing = !editing && nameField.trim() === '';
   const resourceMissing = !editing && resourceId === '';
   const canSave = !nameMissing && !resourceMissing;
-  // Validate client-side first so a missing field shows inline instead of a 400.
-  const onSave = () => {
+  // Editing the candidate invalidates a prior probe result — clear it so a stale
+  // verdict can never gate a different model/resource/modality.
+  useEffect(() => {
+    setTestResult(null);
+  }, [nameField, resourceId, modality]);
+  // Create: validate, then PROBE (the probe's onSuccess creates on a clean pass).
+  const onTestAndAdd = () => {
     setAttempted(true);
-    if (canSave) save.mutate();
+    if (canSave) test.mutate();
   };
+  // A probe ran but didn't fully pass → the operator may still force-add.
+  const probeFailed =
+    testResult !== null && !(testResult.connectivity.ok && testResult.functional.ok);
 
   return (
     <Drawer
@@ -148,9 +181,28 @@ export function ModelEditor({
       title={t(editing ? 'models.editTitle' : 'models.new')}
       onClose={onClose}
       footer={
-        <Button variant="cta" onClick={onSave} loading={save.isPending}>
-          {t('models.save')}
-        </Button>
+        editing ? (
+          <Button variant="cta" onClick={() => update.mutate()} loading={update.isPending}>
+            {t('models.save')}
+          </Button>
+        ) : probeFailed ? (
+          <div style={{ display: 'flex', gap: 'var(--s-2)', justifyContent: 'flex-end' }}>
+            <Button variant="ghost" onClick={() => test.mutate()} loading={test.isPending}>
+              {t('models.test.retry')}
+            </Button>
+            <Button variant="cta" onClick={() => create.mutate('disabled')} loading={create.isPending}>
+              {t('models.test.addDisabled')}
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="cta"
+            onClick={onTestAndAdd}
+            loading={test.isPending || create.isPending}
+          >
+            {t('models.test.testAndAdd')}
+          </Button>
+        )
       }
     >
       {editing ? (
@@ -253,6 +305,13 @@ export function ModelEditor({
         onChange={(v) => setStatus(v as ModelStatus)}
         options={toOptions(MODEL_STATUSES, t)}
       />
+
+      {!editing && (
+        <p style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)', margin: '4px 0 0' }}>
+          {t('models.test.hint')}
+        </p>
+      )}
+      {testResult !== null && <ModelTestPanel result={testResult} />}
     </Drawer>
   );
 }

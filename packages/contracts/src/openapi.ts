@@ -94,6 +94,7 @@ import {
   runResponseSchema,
 } from './data-plane.js';
 import { errorViewSchema } from './error-view.js';
+import { modelTestRequestSchema, modelTestResultSchema } from './model-test.js';
 import {
   apiKeyViewSchema,
   channelHealthViewSchema,
@@ -275,6 +276,8 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const CreateModel = registry.register('CreateModelBody', createModelSchema);
   const UpdateModel = registry.register('UpdateModelBody', updateModelSchema);
   const GrantModel = registry.register('GrantModelBody', grantModelSchema);
+  const ModelTest = registry.register('ModelTestBody', modelTestRequestSchema);
+  const ModelTestResult = registry.register('ModelTestResult', modelTestResultSchema);
   // billing & routing (billing-requests)
   const CreateRouteGroup = registry.register('CreateRouteGroupBody', createRouteGroupSchema);
   const UpdateRouteGroup = registry.register('UpdateRouteGroupBody', updateRouteGroupSchema);
@@ -904,6 +907,14 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     body: CreateModel,
     response: Model,
     created: true,
+  });
+  write({
+    method: 'post',
+    path: '/admin/models/test',
+    summary: 'Probe a candidate model (connectivity + functional) before adding it',
+    tag: 'catalog',
+    body: ModelTest,
+    response: ModelTestResult,
   });
   write({
     method: 'patch',

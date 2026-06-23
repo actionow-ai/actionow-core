@@ -7383,6 +7383,91 @@ export interface paths {
         };
         trace?: never;
     };
+    "/admin/models/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Probe a candidate model (connectivity + functional) before adding it */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ModelTestBody"];
+                };
+            };
+            responses: {
+                /** @description Probe a candidate model (connectivity + functional) before adding it */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ModelTestResult"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/console/api-keys/{id}/rotate": {
         parameters: {
             query?: never;
@@ -9407,6 +9492,31 @@ export interface components {
         GrantModelBody: {
             /** Format: uuid */
             tenantId: string;
+        };
+        ModelTestBody: {
+            resourceId: string;
+            model: string;
+            channelId?: string;
+        };
+        ModelTestResult: {
+            modality: string;
+            channelId: string;
+            providerType: string;
+            connectivity: {
+                ok: boolean;
+                message: string;
+                code?: string;
+            };
+            functional: {
+                ok: boolean;
+                message: string;
+                code?: string;
+            };
+            sample?: {
+                text?: string;
+                url?: string;
+            };
+            elapsedMs: number;
         };
         CreateRouteGroupBody: {
             name: string;

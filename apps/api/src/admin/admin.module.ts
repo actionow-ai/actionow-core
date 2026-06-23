@@ -22,6 +22,7 @@ import {
   AdminTokenAuthService,
   defaultAdminTokenAuthRepo,
 } from './auth/admin-token-auth.service.js';
+import { ModelTestService } from './model-test.service.js';
 
 /**
  * Admin surface (Phase 5). `POST /admin/auth/login` issues a JWT; the
@@ -44,6 +45,7 @@ import {
     AdminService,
     AdminDifyService,
     AdminTokenService,
+    ModelTestService,
     AdminGuard,
     // M2M service-token auth: the guard delegates `at_`-prefixed credentials to
     // this service, which looks them up via the (overridable) repo.
