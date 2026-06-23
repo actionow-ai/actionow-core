@@ -1,5 +1,7 @@
 import {
   type Database,
+  type FaultPolicyRow,
+  getFaultPoliciesByIds,
   getRouteGroupById,
   getRouteGroupByName,
   type GroupChannelForResource,
@@ -7,7 +9,7 @@ import {
   listGroupChannelsForResource,
   type UpstreamChannelRow,
 } from '@actionow/db';
-import type { RunChannel } from '@actionow/engine';
+import type { FaultPolicy, RunChannel } from '@actionow/engine';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { DB } from './tokens.js';
@@ -82,14 +84,41 @@ export class ChannelRoutingService {
 
     if (groupId !== null) {
       const grouped = await listGroupChannelsForResource(this.db, resourceId, groupId);
-      if (grouped.length > 0) return grouped.map(toRunChannelFromGroup);
+      if (grouped.length > 0) {
+        return this.attachFaultPolicies(grouped.map(toRunChannelFromGroup), grouped);
+      }
     }
 
     // Ungrouped fallback (compat): the group has no members for this resource
     // (or no group resolved at all) → route over ALL active channels at the
     // degenerate single tier (priority 0, channel.weight).
     const all = await listChannels(this.db, resourceId);
-    return all.map(toRunChannelFromChannel);
+    return this.attachFaultPolicies(all.map(toRunChannelFromChannel), all);
+  }
+
+  /**
+   * Resolve each channel's bound `fault_policy` (调用容错) and attach it to the
+   * {@link RunChannel} the engine consumes. Batch-loaded by id (no N+1); a
+   * soft-deleted OR disabled policy is treated as ABSENT → the engine applies its
+   * defaults (single attempt + client-wide timeouts). `rows[i].id` aligns with
+   * `channels[i].id` (same source rows), so the bind is by channel id.
+   */
+  private async attachFaultPolicies(
+    channels: RunChannel[],
+    rows: readonly { id: string; faultPolicyId: string | null }[],
+  ): Promise<RunChannel[]> {
+    const ids = rows.map((r) => r.faultPolicyId).filter((x): x is string => x !== null);
+    if (ids.length === 0) return channels;
+    const policies = await getFaultPoliciesByIds(this.db, ids);
+    const byChannel = new Map(rows.map((r) => [r.id, r.faultPolicyId]));
+    for (const ch of channels) {
+      const pid = byChannel.get(ch.id);
+      if (pid === undefined || pid === null) continue;
+      const row = policies.get(pid);
+      if (row?.status !== 'active') continue;
+      ch.faultPolicy = toFaultPolicy(row);
+    }
+    return channels;
   }
 
   /**
@@ -181,4 +210,21 @@ function toRunChannelFromChannel(row: UpstreamChannelRow): RunChannel {
     inputCostPer1m: row.inputCostPer1m,
     outputCostPer1m: row.outputCostPer1m,
   };
+}
+
+/** Map a `fault_policy` row → the engine-facing {@link FaultPolicy} (nulls → omitted). */
+function toFaultPolicy(row: FaultPolicyRow): FaultPolicy {
+  const policy: FaultPolicy = {
+    fastFail: row.fastFail,
+    retryCount: row.retryCount,
+    backoffType: row.backoffType === 'exponential' ? 'exponential' : 'fixed',
+    backoffMs: row.backoffMs,
+  };
+  if (row.connectTimeoutMs !== null) policy.connectTimeoutMs = row.connectTimeoutMs;
+  if (row.ttftTimeoutMs !== null) policy.ttftTimeoutMs = row.ttftTimeoutMs;
+  if (row.totalTimeoutMs !== null) policy.totalTimeoutMs = row.totalTimeoutMs;
+  if (row.idleTimeoutMs !== null) policy.idleTimeoutMs = row.idleTimeoutMs;
+  if (row.retryCodes !== null) policy.retryCodes = row.retryCodes;
+  if (row.retryMessages !== null) policy.retryMessages = row.retryMessages;
+  return policy;
 }

@@ -94,6 +94,11 @@ import {
   runResponseSchema,
 } from './data-plane.js';
 import { errorViewSchema } from './error-view.js';
+import {
+  createFaultPolicySchema,
+  faultPolicyViewSchema,
+  updateFaultPolicySchema,
+} from './fault-policy.js';
 import { modelTestRequestSchema, modelTestResultSchema } from './model-test.js';
 import {
   apiKeyViewSchema,
@@ -281,6 +286,9 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   // billing & routing (billing-requests)
   const CreateRouteGroup = registry.register('CreateRouteGroupBody', createRouteGroupSchema);
   const UpdateRouteGroup = registry.register('UpdateRouteGroupBody', updateRouteGroupSchema);
+  const FaultPolicy = registry.register('FaultPolicyView', faultPolicyViewSchema);
+  const CreateFaultPolicy = registry.register('CreateFaultPolicyBody', createFaultPolicySchema);
+  const UpdateFaultPolicy = registry.register('UpdateFaultPolicyBody', updateFaultPolicySchema);
   const AddGroupChannel = registry.register('AddGroupChannelBody', addGroupChannelSchema);
   const CreateOfficialPrice = registry.register(
     'CreateOfficialPriceBody',
@@ -553,6 +561,8 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     'admin',
     relayQuery,
   );
+  list('/admin/fault-policies', 'List fault-tolerance policies', FaultPolicy, 'catalog');
+  getOne('/admin/fault-policies/{id}', 'Get one fault policy', FaultPolicy, 'catalog');
   list('/admin/route-groups', 'List route groups', RouteGroup, 'billing');
   list(
     '/admin/route-groups/{id}/channels',
@@ -932,6 +942,26 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     body: GrantModel,
     created: true,
   });
+
+  // fault-tolerance policies (调用容错)
+  write({
+    method: 'post',
+    path: '/admin/fault-policies',
+    summary: 'Create a fault-tolerance policy',
+    tag: 'catalog',
+    body: CreateFaultPolicy,
+    response: FaultPolicy,
+    created: true,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/fault-policies/{id}',
+    summary: 'Update a fault-tolerance policy',
+    tag: 'catalog',
+    body: UpdateFaultPolicy,
+    response: FaultPolicy,
+  });
+  del('/admin/fault-policies/{id}', 'Delete a fault-tolerance policy', 'catalog');
 
   // billing & routing
   write({

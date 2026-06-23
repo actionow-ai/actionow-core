@@ -6,6 +6,7 @@ import {
   createAdminTokenSchema,
   createApiKeySchema,
   createChannelSchema,
+  createFaultPolicySchema,
   createModelSchema,
   createModifierSchema,
   createOAuthSessionSchema,
@@ -28,6 +29,7 @@ import {
   updateChannelSchema,
   updateCredentialMetaSchema,
   updateDifySchema,
+  updateFaultPolicySchema,
   updateModelSchema,
   updateModifierSchema,
   updateOfficialPriceSchema,
@@ -68,6 +70,7 @@ export {
   createAdminTokenSchema,
   createApiKeySchema,
   createChannelSchema,
+  createFaultPolicySchema,
   createModelSchema,
   createModifierSchema,
   createOAuthSessionSchema,
@@ -90,6 +93,7 @@ export {
   updateChannelSchema,
   updateCredentialMetaSchema,
   updateDifySchema,
+  updateFaultPolicySchema,
   updateModelSchema,
   updateModifierSchema,
   updateOfficialPriceSchema,
@@ -126,6 +130,8 @@ export type CreateModelDto = z.infer<typeof createModelSchema>;
 export type UpdateModelDto = z.infer<typeof updateModelSchema>;
 export type GrantModelDto = z.infer<typeof grantModelSchema>;
 export type ModelTestDto = z.infer<typeof modelTestRequestSchema>;
+export type CreateFaultPolicyDto = z.infer<typeof createFaultPolicySchema>;
+export type UpdateFaultPolicyDto = z.infer<typeof updateFaultPolicySchema>;
 export type CreateSecretDto = z.infer<typeof createSecretSchema>;
 export type GenerateCodesDto = z.infer<typeof generateCodesSchema>;
 export type ProvisionDto = z.infer<typeof provisionSchema>;

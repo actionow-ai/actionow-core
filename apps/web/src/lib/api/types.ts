@@ -35,6 +35,7 @@ export type {
   CreateApiKeyBody,
   // --- catalog request bodies (catalog-requests) ---
   CreateChannelBody,
+  CreateFaultPolicyBody,
   CreateModelBody,
   CreateModifierBody,
   CreateOAuthSessionBody,
@@ -49,6 +50,7 @@ export type {
   DifyBindingView,
   DifyImportBody,
   DifyImportView,
+  FaultPolicyView,
   FileView,
   GenerateCodesBody,
   JobView,
@@ -85,6 +87,7 @@ export type {
   UpdateChannelBody,
   UpdateCredentialMetaBody,
   UpdateDifyBody,
+  UpdateFaultPolicyBody,
   UpdateModelBody,
   UpdateModifierBody,
   UpdateOfficialPriceBody,

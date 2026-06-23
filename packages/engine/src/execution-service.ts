@@ -42,6 +42,7 @@ import {
 
 import { routeBlocking } from './channel-routing.js';
 import { EngineError, engineError } from './errors.js';
+import { type FaultPolicy, runWithFaultPolicy, wrapHttpWithTimeouts } from './fault-policy.js';
 import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
 import { type TraceContext, TracingHttpClient } from './relay-trace.js';
 import { createChatSettlingStream, createSettlingStream } from './stream.js';
@@ -86,6 +87,12 @@ export interface RunChannel {
   inputCostPer1m?: bigint | null | undefined;
   /** The operator's cost on this channel in µUSD per 1M OUTPUT tokens (Track 5). `null`/absent → 0. */
   outputCostPer1m?: bigint | null | undefined;
+  /**
+   * Resolved fault-tolerance policy (调用容错) for this channel — same-channel
+   * retry + backoff + per-attempt timeouts + retry triggers. The API loader sets
+   * it from `upstream_channel.fault_policy_id`; absent → engine defaults.
+   */
+  faultPolicy?: FaultPolicy | undefined;
 }
 
 /** The frozen resource snapshot the caller passes for this run. */
@@ -452,10 +459,13 @@ export class ExecutionService {
               `channel adapter ${adapter.providerType} cannot chat`,
             );
           }
-          const r = await adapter.chat.bind(adapter)(
-            ir,
-            await this.buildContext(req, channel, jobId),
-          );
+          // Bind in this (narrowed) scope — `.bind` is exempt from unbound-method;
+          // the bound fn is then safe to call inside the retry closure.
+          const boundChat = adapter.chat.bind(adapter);
+          const ctx = await this.buildContext(req, channel, jobId);
+          // Same-channel retry + backoff per the channel's fault policy; the
+          // cross-channel failover (routeBlocking) handles its final throw.
+          const r = await runWithFaultPolicy(channel.faultPolicy, () => boundChat(ir, ctx));
           served = channel;
           return r;
         },
@@ -646,13 +656,16 @@ export class ExecutionService {
           // Select the adapter per channel so channels under one resource can
           // target different providers (cross-provider failover).
           const adapter = this.deps.adapters.get(channel.providerType ?? req.resource.providerType);
-          const r = await adapter.submit({
-            resourceId: req.resource.id,
-            modality: req.resource.modality,
-            inputs,
-            execMode: req.execMode,
-            ctx: await this.buildContext(req, channel, jobId),
-          });
+          const ctx = await this.buildContext(req, channel, jobId);
+          const r = await runWithFaultPolicy(channel.faultPolicy, () =>
+            adapter.submit({
+              resourceId: req.resource.id,
+              modality: req.resource.modality,
+              inputs,
+              execMode: req.execMode,
+              ctx,
+            }),
+          );
           served = channel;
           return r;
         },
@@ -802,12 +815,17 @@ export class ExecutionService {
     const providerType = channel.providerType ?? req.resource.providerType;
     const ctx: AdapterContext = {
       providerType,
-      http: this.maybeTrace({
-        tenantId: req.tenantId,
-        jobId,
-        channelId: channel.id,
-        providerType,
-      }),
+      // Per-attempt timeouts from the channel's fault policy are layered OVER the
+      // trace wrapper so every adapter request inherits them without per-adapter changes.
+      http: wrapHttpWithTimeouts(
+        this.maybeTrace({
+          tenantId: req.tenantId,
+          jobId,
+          channelId: channel.id,
+          providerType,
+        }),
+        channel.faultPolicy,
+      ),
     };
     if (channel.model !== undefined) ctx.model = channel.model;
     if (channel.endpoint !== undefined) ctx.endpoint = channel.endpoint;

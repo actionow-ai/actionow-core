@@ -12,6 +12,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { faultPolicy } from './fault-policy.js';
 import { tenant } from './identity.js';
 import { providerPlugin } from './plugin.js';
 
@@ -97,6 +98,12 @@ export const upstreamChannel = pgTable(
      */
     pluginId: uuid('plugin_id').references(() => providerPlugin.id),
     pluginVersion: integer('plugin_version'),
+    /**
+     * Fault-tolerance policy binding (调用容错): when set, the engine applies this
+     * `fault_policy`'s same-channel retry + backoff + per-attempt timeouts to this
+     * channel. Null → engine defaults (a single attempt + client-wide timeouts).
+     */
+    faultPolicyId: uuid('fault_policy_id').references(() => faultPolicy.id),
     /** Trust posture (spec §2 axis E): trusted (first-party) | untrusted (relay). */
     trust: text('trust').notNull().default('trusted'),
     /** Relay model-name remapping (untrusted relays): our model → upstream model. */

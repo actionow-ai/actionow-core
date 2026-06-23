@@ -61,7 +61,19 @@ export function ChannelEditor({
     .filter((m) => m.resource_id === resourceId)
     .map((m) => m.name);
 
+  // Fault-tolerance policies bindable to this channel (调用容错). '' = unbound.
+  const faultPolicies = useQuery({
+    queryKey: qk.faultPolicies(),
+    queryFn: () => api.listFaultPolicies(),
+    staleTime: STALE_REFERENCE,
+  });
+  const faultPolicyOptions = [
+    { value: '', label: t('channels.form.faultPolicyNone') },
+    ...(faultPolicies.data ?? []).map((p) => ({ value: p.id, label: p.name })),
+  ];
+
   const [providerType, setProviderType] = useState(channel?.provider_type ?? '');
+  const [faultPolicyId, setFaultPolicyId] = useState(channel?.fault_policy_id ?? '');
   const [endpoint, setEndpoint] = useState(channel?.endpoint ?? '');
   const [model, setModel] = useState(channel?.model ?? '');
   const [proxyRef, setProxyRef] = useState(channel?.proxy_ref ?? '');
@@ -124,6 +136,8 @@ export function ChannelEditor({
             ...base,
             inputCostUsdPer1m: inputCostUsd > 0 ? inputCostUsd : null,
             outputCostUsdPer1m: outputCostUsd > 0 ? outputCostUsd : null,
+            // null unbinds a previously-set policy → engine defaults.
+            faultPolicyId: faultPolicyId === '' ? null : faultPolicyId,
           })
         : api.createChannel(
             resourceId,
@@ -132,6 +146,7 @@ export function ChannelEditor({
               providerType,
               inputCostUsdPer1m: inputCostUsd > 0 ? inputCostUsd : undefined,
               outputCostUsdPer1m: outputCostUsd > 0 ? outputCostUsd : undefined,
+              ...(faultPolicyId === '' ? {} : { faultPolicyId }),
             },
             idemKey,
           );
@@ -214,6 +229,13 @@ export function ChannelEditor({
         value={status}
         onChange={(v) => setStatus(v as ChannelStatus)}
         options={toOptions(CHANNEL_STATUSES, t)}
+      />
+      <SelectField
+        label={t('channels.form.faultPolicy')}
+        tooltip={t('channels.tip.faultPolicy')}
+        value={faultPolicyId}
+        onChange={setFaultPolicyId}
+        options={faultPolicyOptions}
       />
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--s-2)' }}>
         <div style={{ flex: 1, minWidth: 0 }}>

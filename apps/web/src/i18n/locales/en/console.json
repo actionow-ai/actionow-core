@@ -164,6 +164,7 @@
     "models": "Models",
     "modifiers": "Modifiers",
     "routeGroups": "Groups",
+    "faultPolicies": "Fault tolerance",
     "officialPrices": "Official prices",
     "dify": "Dify import",
     "plugins": "Plugins",
@@ -195,6 +196,7 @@
     "models": "Relay models, tenant grants & token pricing",
     "modifiers": "Global and scoped pricing rules",
     "routeGroups": "Route groups & channel membership",
+    "faultPolicies": "Retry / backoff / timeouts / fallback — per-channel fault tolerance",
     "officialPrices": "Reference model prices",
     "dify": "Import a Dify workflow as a resource",
     "plugins": "Provider plugins: manifest + sandboxed handler over heterogeneous upstreams",
@@ -633,6 +635,8 @@
       "inputCost": "Input cost",
       "outputCost": "Output cost",
       "status": "Status",
+      "faultPolicy": "Fault-tolerance policy",
+      "faultPolicyNone": "None (engine defaults)",
       "config": "Config"
     },
     "tip": {
@@ -646,6 +650,7 @@
       "costUnit": "USD per 1M tokens",
       "status": "Disabled channels are skipped by routing.",
       "credentialRef": "Id of the encrypted secret holding this channel's API key. Use \"New credential\" to create one.",
+      "faultPolicy": "Bind a fault-tolerance policy — same-channel retry + backoff + per-attempt timeouts. Leave empty for engine defaults (single attempt).",
       "config": "Provider-specific key/value settings for this channel (e.g. async submit/poll paths)."
     },
     "actions": {
@@ -666,6 +671,66 @@
       "status": "Status"
     },
     "empty": "No upstream channels yet"
+  },
+  "faultPolicies": {
+    "title": "Fault tolerance",
+    "new": "New policy",
+    "editTitle": "Edit fault policy",
+    "save": "Save policy",
+    "empty": "No fault policies yet",
+    "created": "Policy created",
+    "updated": "Policy updated",
+    "deleted": "Policy deleted",
+    "timeoutSummary": "conn {{connect}} · ttft {{ttft}} · total {{total}} · idle {{idle}}",
+    "triggerSummary": "{{codes}} code / {{msgs}} msg",
+    "mode": {
+      "retry": "Retry on error",
+      "fastFail": "Fast fail",
+      "retryN": "Retry {{n}}×"
+    },
+    "backoff": {
+      "fixed": "Fixed",
+      "exponential": "Exponential"
+    },
+    "cols": {
+      "name": "Name",
+      "mode": "Mode",
+      "backoff": "Backoff",
+      "timeouts": "Timeouts",
+      "triggers": "Retry triggers",
+      "status": "Status"
+    },
+    "form": {
+      "name": "Policy name",
+      "nameRequired": "Policy name is required",
+      "mode": "Fault-tolerance type",
+      "retryCount": "Retry count",
+      "backoffType": "Backoff type",
+      "backoffMs": "Backoff interval (ms)",
+      "connectMs": "Connect timeout (ms)",
+      "ttftMs": "Time-to-first-token (ms)",
+      "totalMs": "Total request timeout (ms)",
+      "idleMs": "Read-idle timeout (ms)",
+      "retryCodes": "Retry on codes",
+      "retryCodesPlaceholder": "e.g. 500, 429, 404 — Enter to add",
+      "retryMessages": "Retry on messages",
+      "retryMessagesPlaceholder": "e.g. Internal server error — Enter to add",
+      "status": "Status",
+      "description": "Description"
+    },
+    "tip": {
+      "mode": "Retry on error: re-try the SAME channel per the settings below when a trigger matches. Fast fail: return the first error (cross-channel failover still applies).",
+      "backoffMs": "Delay between retries; exponential doubles it each attempt.",
+      "timeoutZero": "0 = use the client default.",
+      "ttft": "Max wait for the first streamed token (0 = default). Critical for streaming LLMs.",
+      "idle": "Max idle between streamed chunks (0 = default).",
+      "retryCodes": "Retry only when the HTTP status matches one of these (can include normally-non-retryable codes like 404); empty → the adapter's built-in verdict.",
+      "retryMessages": "Retry when the error message contains any of these substrings (case-insensitive)."
+    },
+    "confirm": {
+      "deleteTitle": "Delete fault policy",
+      "deleteMsg": "Delete policy \"{{name}}\"? Bound channels fall back to engine defaults."
+    }
   },
   "credentials": {
     "new": "New credential",

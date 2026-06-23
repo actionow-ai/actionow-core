@@ -23,6 +23,7 @@ import { type MicroCredits, priceProviderCost } from '@actionow/domain';
 import { availableChannels } from './channel-routing.js';
 import { EngineError } from './errors.js';
 import type { RunChannel, RunRequest } from './execution-service.js';
+import { wrapHttpWithTimeouts } from './fault-policy.js';
 import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
 import { type TraceContext, TracingHttpClient } from './relay-trace.js';
 
@@ -529,12 +530,17 @@ async function buildContext(
   const providerType = channel?.providerType ?? deps.req.resource.providerType;
   const ctx: AdapterContext = {
     providerType: deps.req.resource.providerType,
-    http: maybeTrace(deps, {
-      tenantId: deps.req.tenantId,
-      jobId: deps.jobId,
-      providerType,
-      ...(channel !== undefined ? { channelId: channel.id } : {}),
-    }),
+    // Layer the channel's fault-policy timeouts (TTFT / idle / total) OVER the
+    // trace wrapper so the stream honors the time-to-first-token deadline.
+    http: wrapHttpWithTimeouts(
+      maybeTrace(deps, {
+        tenantId: deps.req.tenantId,
+        jobId: deps.jobId,
+        providerType,
+        ...(channel !== undefined ? { channelId: channel.id } : {}),
+      }),
+      channel?.faultPolicy,
+    ),
   };
   if (channel === undefined) {
     // No channel: the global egress proxy fallback still applies.

@@ -295,6 +295,8 @@ export interface UpdateUpstreamChannelInput {
   readonly inputCostPer1m?: bigint | null | undefined;
   /** Operator cost on this channel in µUSD/1M OUTPUT tokens (Track 5); `null` clears it. */
   readonly outputCostPer1m?: bigint | null | undefined;
+  /** Fault-tolerance policy binding (调用容错); `null` unbinds → engine defaults. */
+  readonly faultPolicyId?: string | null | undefined;
 }
 
 /** Patch an `upstream_channel` row (only the supplied fields), returning the new row. */
@@ -313,6 +315,7 @@ export async function updateUpstreamChannel(
   if (patch.status !== undefined) set.status = patch.status;
   if (patch.inputCostPer1m !== undefined) set.inputCostPer1m = patch.inputCostPer1m;
   if (patch.outputCostPer1m !== undefined) set.outputCostPer1m = patch.outputCostPer1m;
+  if (patch.faultPolicyId !== undefined) set.faultPolicyId = patch.faultPolicyId;
   if (Object.keys(set).length === 0) {
     const rows = await db
       .select()
@@ -909,6 +912,8 @@ export interface CreateUpstreamChannelInput {
   readonly inputCostPer1m?: bigint | null | undefined;
   /** Operator cost on this channel in µUSD per 1M OUTPUT tokens (Track 5); null → unknown (0). */
   readonly outputCostPer1m?: bigint | null | undefined;
+  /** Fault-tolerance policy binding (调用容错); null → engine defaults. */
+  readonly faultPolicyId?: string | null | undefined;
 }
 
 /** Insert an `upstream_channel` routing row for a resource. */
@@ -930,6 +935,7 @@ export async function createUpstreamChannel(
       status: input.status ?? 'active',
       inputCostPer1m: input.inputCostPer1m ?? null,
       outputCostPer1m: input.outputCostPer1m ?? null,
+      faultPolicyId: input.faultPolicyId ?? null,
     })
     .returning();
   const row = rows[0];

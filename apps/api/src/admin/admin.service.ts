@@ -24,6 +24,8 @@ import {
   createApiKey,
   type CreatedApiKey,
   createEncryptedSecret,
+  createFaultPolicy,
+  type CreateFaultPolicyInput,
   createModel,
   type CreateModelInput,
   createModifier,
@@ -43,8 +45,10 @@ import {
   decryptSecret,
   deleteModelGrant,
   encryptSecret,
+  type FaultPolicyRow,
   getAccount,
   getChannelById,
+  getFaultPolicyById,
   getModelByName,
   getModifierById,
   getOfficialPriceById,
@@ -62,6 +66,7 @@ import {
   listAllChannelsWithHealth,
   listApiKeys,
   listChannelsForResource,
+  listFaultPolicies,
   listGroupChannels,
   listJobs,
   listLedger,
@@ -101,6 +106,7 @@ import {
   setApiKeyGroup,
   softDeleteApiKey,
   softDeleteChannel,
+  softDeleteFaultPolicy,
   softDeleteModel,
   softDeleteModifier,
   softDeleteOAuthSession,
@@ -111,6 +117,8 @@ import {
   softDeleteSecretRef,
   type TenantRow,
   topUp,
+  updateFaultPolicy,
+  type UpdateFaultPolicyInput,
   updateModel,
   updateModifier,
   updateOAuthSessionMeta,
@@ -153,6 +161,7 @@ import type {
   CreateAccountDto,
   CreateApiKeyDto,
   CreateChannelDto,
+  CreateFaultPolicyDto,
   CreateModelDto,
   CreateModifierDto,
   CreateOAuthSessionDto,
@@ -169,6 +178,7 @@ import type {
   TopupDto,
   UpdateApiKeyGroupDto,
   UpdateChannelDto,
+  UpdateFaultPolicyDto,
   UpdateModelDto,
   UpdateModifierDto,
   UpdateOfficialPriceDto,
@@ -867,6 +877,7 @@ export class AdminService {
       ...(dto.outputCostUsdPer1m !== undefined
         ? { outputCostPer1m: usdPer1mToMicro(dto.outputCostUsdPer1m) }
         : {}),
+      ...(dto.faultPolicyId !== undefined ? { faultPolicyId: dto.faultPolicyId } : {}),
     });
   }
 
@@ -903,6 +914,7 @@ export class AdminService {
       patch.outputCostPer1m =
         dto.outputCostUsdPer1m === null ? null : usdPer1mToMicro(dto.outputCostUsdPer1m);
     }
+    if (dto.faultPolicyId !== undefined) patch.faultPolicyId = dto.faultPolicyId;
     const row = await updateUpstreamChannel(this.db, channelId, patch);
     if (row === undefined) {
       throw engineNotFound(`channel ${channelId} not found`);
@@ -1497,6 +1509,86 @@ export class AdminService {
     if (deleted === undefined) {
       throw engineNotFound(`official price ${id} not found`);
     }
+    return { id: deleted };
+  }
+
+  // ----- fault policies (调用容错) -----
+
+  /**
+   * Create a fault-tolerance policy. All fields pass through as data (no money
+   * conversion). A `(name)` collision among LIVE policies (partial-unique index)
+   * maps to a clean 400 via the shared {@link isUniqueViolation} 23505 walk.
+   */
+  async createFaultPolicy(dto: CreateFaultPolicyDto): Promise<FaultPolicyRow> {
+    const input: CreateFaultPolicyInput = {
+      name: dto.name,
+      ...(dto.fastFail !== undefined ? { fastFail: dto.fastFail } : {}),
+      ...(dto.retryCount !== undefined ? { retryCount: dto.retryCount } : {}),
+      ...(dto.backoffType !== undefined ? { backoffType: dto.backoffType } : {}),
+      ...(dto.backoffMs !== undefined ? { backoffMs: dto.backoffMs } : {}),
+      ...(dto.connectTimeoutMs !== undefined ? { connectTimeoutMs: dto.connectTimeoutMs } : {}),
+      ...(dto.ttftTimeoutMs !== undefined ? { ttftTimeoutMs: dto.ttftTimeoutMs } : {}),
+      ...(dto.totalTimeoutMs !== undefined ? { totalTimeoutMs: dto.totalTimeoutMs } : {}),
+      ...(dto.idleTimeoutMs !== undefined ? { idleTimeoutMs: dto.idleTimeoutMs } : {}),
+      ...(dto.retryCodes !== undefined ? { retryCodes: dto.retryCodes } : {}),
+      ...(dto.retryMessages !== undefined ? { retryMessages: dto.retryMessages } : {}),
+      ...(dto.status !== undefined ? { status: dto.status } : {}),
+      ...(dto.description !== undefined ? { description: dto.description } : {}),
+    };
+    try {
+      return await createFaultPolicy(this.db, input);
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw engineInvalidInput(`fault policy '${dto.name}' already exists`);
+      }
+      throw err;
+    }
+  }
+
+  listFaultPolicies(page: PageParams): Promise<KeysetResult<FaultPolicyRow>> {
+    return listFaultPolicies(this.db, page);
+  }
+
+  /** Fetch one fault policy by id, or `resource_not_found` (404) when absent/soft-deleted. */
+  async getFaultPolicy(id: string): Promise<FaultPolicyRow> {
+    const row = await getFaultPolicyById(this.db, id);
+    if (row === undefined) throw engineNotFound(`fault policy ${id} not found`);
+    return row;
+  }
+
+  /** Patch a fault policy; nullable timeouts/triggers/description may be cleared. 404 when absent. */
+  async updateFaultPolicy(id: string, dto: UpdateFaultPolicyDto): Promise<FaultPolicyRow> {
+    const patch: { -readonly [K in keyof UpdateFaultPolicyInput]: UpdateFaultPolicyInput[K] } = {};
+    if (dto.name !== undefined) patch.name = dto.name;
+    if (dto.fastFail !== undefined) patch.fastFail = dto.fastFail;
+    if (dto.retryCount !== undefined) patch.retryCount = dto.retryCount;
+    if (dto.backoffType !== undefined) patch.backoffType = dto.backoffType;
+    if (dto.backoffMs !== undefined) patch.backoffMs = dto.backoffMs;
+    if (dto.connectTimeoutMs !== undefined) patch.connectTimeoutMs = dto.connectTimeoutMs;
+    if (dto.ttftTimeoutMs !== undefined) patch.ttftTimeoutMs = dto.ttftTimeoutMs;
+    if (dto.totalTimeoutMs !== undefined) patch.totalTimeoutMs = dto.totalTimeoutMs;
+    if (dto.idleTimeoutMs !== undefined) patch.idleTimeoutMs = dto.idleTimeoutMs;
+    if (dto.retryCodes !== undefined) patch.retryCodes = dto.retryCodes;
+    if (dto.retryMessages !== undefined) patch.retryMessages = dto.retryMessages;
+    if (dto.status !== undefined) patch.status = dto.status;
+    if (dto.description !== undefined) patch.description = dto.description;
+    let row: FaultPolicyRow | undefined;
+    try {
+      row = await updateFaultPolicy(this.db, id, patch);
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw engineInvalidInput(`fault policy '${dto.name ?? ''}' already exists`);
+      }
+      throw err;
+    }
+    if (row === undefined) throw engineNotFound(`fault policy ${id} not found`);
+    return row;
+  }
+
+  /** Revoke (soft-delete) a fault policy. Bound channels treat it as absent → engine defaults. 404 when absent. */
+  async deleteFaultPolicy(id: string): Promise<{ id: string }> {
+    const deleted = await softDeleteFaultPolicy(this.db, id);
+    if (deleted === undefined) throw engineNotFound(`fault policy ${id} not found`);
     return { id: deleted };
   }
 

@@ -65,6 +65,8 @@ export const createChannelSchema = z.object({
   inputCostUsdPer1m: z.number().nonnegative().optional(),
   /** The operator's cost in HUMAN USD per 1M OUTPUT tokens → µUSD/1M (Track 5). */
   outputCostUsdPer1m: z.number().nonnegative().optional(),
+  /** Bind a fault-tolerance policy (调用容错) — a `fault_policy` id; omitted → engine defaults. */
+  faultPolicyId: z.string().uuid().optional(),
 });
 export type CreateChannelBody = z.infer<typeof createChannelSchema>;
 
@@ -85,6 +87,8 @@ export const updateChannelSchema = z.object({
   inputCostUsdPer1m: z.number().nonnegative().nullable().optional(),
   /** Operator cost in HUMAN USD/1M OUTPUT tokens → µUSD/1M (Track 5); `null` clears it. */
   outputCostUsdPer1m: z.number().nonnegative().nullable().optional(),
+  /** Bind/unbind a fault-tolerance policy (调用容错); a `fault_policy` id, or `null` to unbind. */
+  faultPolicyId: z.string().uuid().nullable().optional(),
 });
 export type UpdateChannelBody = z.infer<typeof updateChannelSchema>;
 

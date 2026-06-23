@@ -58,6 +58,7 @@ export const ADMIN_NAV: NavGroup[] = [
       // labelKey `routeGroups` (not `groups`) avoids colliding with the
       // `nav.groups.*` group-label namespace in the i18n bundle.
       { to: '/console/groups', labelKey: 'routeGroups' },
+      { to: '/console/fault-policies', labelKey: 'faultPolicies' },
       { to: '/console/official-prices', labelKey: 'officialPrices' },
       { to: '/console/modifiers', labelKey: 'modifiers' },
     ],

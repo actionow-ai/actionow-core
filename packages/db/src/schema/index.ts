@@ -1,6 +1,7 @@
 export * from './accounts.js';
 export * from './catalog.js';
 export * from './execution.js';
+export * from './fault-policy.js';
 export * from './identity.js';
 export * from './model.js';
 export * from './oauth.js';

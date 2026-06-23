@@ -204,6 +204,13 @@
       "when": 1782146701279,
       "tag": "0028_big_wrecking_crew",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1782188759427,
+      "tag": "0029_lowly_gideon",
+      "breakpoints": true
     }
   ]
 }
