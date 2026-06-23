@@ -7,6 +7,7 @@ import {
   type GroupChannelForResource,
   listChannels,
   listGroupChannelsForResource,
+  listModelChannels,
   type UpstreamChannelRow,
 } from '@actionow/db';
 import type { FaultPolicy, RunChannel } from '@actionow/engine';
@@ -24,6 +25,15 @@ export const DEFAULT_ROUTE_GROUP_NAME = 'default';
  * (×1.0), preserving every existing cost assertion (the regression invariant).
  */
 export const NEUTRAL_GROUP_RATIO_BPS = 10000;
+
+/**
+ * Catalog supply-hierarchy: channels NOT linked to the requested model are pushed
+ * to this far-lower priority tier, so the engine's priority-tiered failover tries
+ * a model's LINKED channels first and only falls back to the platform's other
+ * channels when the linked ones are exhausted/cooling. A no-op when the model has
+ * no links (or none of the candidates is linked) → full platform fallback.
+ */
+export const UNLINKED_PRIORITY_OFFSET = 1_000_000;
 
 /**
  * Resolves the GROUP-SCOPED channel candidate set for a relay/run request
@@ -78,22 +88,46 @@ export class ChannelRoutingService {
   async candidatesFor(
     resourceId: string,
     routeGroupId: string | null | undefined,
+    modelId?: string,
   ): Promise<RunChannel[]> {
     // `routeGroupId` (string|null|undefined) ?? default (string|null) → string|null.
     const groupId = routeGroupId ?? (await this.resolveDefaultGroupId());
 
-    if (groupId !== null) {
-      const grouped = await listGroupChannelsForResource(this.db, resourceId, groupId);
-      if (grouped.length > 0) {
-        return this.attachFaultPolicies(grouped.map(toRunChannelFromGroup), grouped);
-      }
+    let base: RunChannel[];
+    const grouped =
+      groupId !== null ? await listGroupChannelsForResource(this.db, resourceId, groupId) : [];
+    if (grouped.length > 0) {
+      base = await this.attachFaultPolicies(grouped.map(toRunChannelFromGroup), grouped);
+    } else {
+      // Ungrouped fallback (compat): the group has no members for this resource
+      // (or no group resolved at all) → route over ALL active channels at the
+      // degenerate single tier (priority 0, channel.weight).
+      const all = await listChannels(this.db, resourceId);
+      base = await this.attachFaultPolicies(all.map(toRunChannelFromChannel), all);
     }
 
-    // Ungrouped fallback (compat): the group has no members for this resource
-    // (or no group resolved at all) → route over ALL active channels at the
-    // degenerate single tier (priority 0, channel.weight).
-    const all = await listChannels(this.db, resourceId);
-    return this.attachFaultPolicies(all.map(toRunChannelFromChannel), all);
+    return this.preferLinkedChannels(base, modelId);
+  }
+
+  /**
+   * Catalog supply-hierarchy (模型服务): demote channels NOT linked to `modelId`
+   * to a lower priority tier so the engine prefers a model's linked channels and
+   * falls back to the platform's others only when the linked ones are exhausted.
+   * No-op when `modelId` is absent, the model has no links, or NONE of the current
+   * candidates is linked (then every candidate stays at its tier — full fallback,
+   * preserving the pre-link behaviour for un-synced/un-curated platforms).
+   */
+  private async preferLinkedChannels(
+    channels: RunChannel[],
+    modelId?: string,
+  ): Promise<RunChannel[]> {
+    if (modelId === undefined || channels.length === 0) return channels;
+    const linked = new Set(await listModelChannels(this.db, modelId));
+    if (linked.size === 0 || !channels.some((c) => linked.has(c.id))) return channels;
+    for (const c of channels) {
+      if (!linked.has(c.id)) c.priority = (c.priority ?? 0) + UNLINKED_PRIORITY_OFFSET;
+    }
+    return channels;
   }
 
   /**

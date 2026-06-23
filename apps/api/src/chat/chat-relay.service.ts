@@ -194,7 +194,11 @@ export class ChatRelayService {
     // channels of the resource are routable, each carrying its per-(group,channel)
     // priority/weight for the engine's priority-tiered fallback. Falls back to ALL
     // active channels when the group has no members for the resource (compat).
-    const channels = await this.routing.candidatesFor(resourceId, ctx.routeGroupId);
+    const channels = await this.routing.candidatesFor(
+      resourceId,
+      ctx.routeGroupId,
+      resolved.modelId,
+    );
     if (channels.length === 0) {
       throw engineNotFound(`no active upstream channel for chat resource ${resourceId}`);
     }
