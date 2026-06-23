@@ -231,6 +231,8 @@ export const createModelSchema = z.object({
   outputPrice: z.number().int().nonnegative().optional(),
   /** Per-model rate limit in requests/minute (模型限流); omitted → no model-specific cap. */
   rateLimit: z.number().int().positive().max(1_000_000).optional(),
+  /** Ordered model-degradation chain (模型降级链): fallback model names, tried in order on failure. */
+  fallbackModels: z.array(z.string().min(1)).max(10).optional(),
   status: z.enum(['active', 'disabled']).optional(),
 });
 export type CreateModelBody = z.infer<typeof createModelSchema>;
@@ -249,6 +251,8 @@ export const updateModelSchema = z.object({
   visibility: z.enum(['public', 'tenant']).optional(),
   /** Per-model rate limit in requests/minute (模型限流); `null` clears it. */
   rateLimit: z.number().int().positive().max(1_000_000).nullable().optional(),
+  /** Ordered model-degradation chain (模型降级链); `null`/[] clears it. */
+  fallbackModels: z.array(z.string().min(1)).max(10).nullable().optional(),
   status: z.enum(['active', 'disabled']).optional(),
 });
 export type UpdateModelBody = z.infer<typeof updateModelSchema>;

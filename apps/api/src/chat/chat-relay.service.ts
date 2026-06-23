@@ -9,13 +9,14 @@ import type {
 } from '@actionow/contracts';
 import {
   type Database,
+  getModelFallbacks,
   getResource,
   getResourceVersion,
   listApplicableModifiers,
   type ModifierRow,
 } from '@actionow/db';
 import type { ChatRunOutcome, ChatStreamOutcome, JobQueuePort, RunRequest } from '@actionow/engine';
-import { ExecutionService } from '@actionow/engine';
+import { EngineError, ExecutionService } from '@actionow/engine';
 import { type AppEnv, createHttpClient } from '@actionow/infra';
 import { normalizeRequest, readCapabilities } from '@actionow/llm-protocol';
 import { Inject, Injectable } from '@nestjs/common';
@@ -57,6 +58,24 @@ const ESTIMATE_BYTES_PER_TOKEN = 4;
 const ESTIMATE_INPUT_PADDING = 2;
 
 /**
+ * Unified-error codes that trigger MODEL degradation (模型降级链): UPSTREAM-side
+ * failures where another model may succeed. Client-side codes (`invalid_input`,
+ * `unauthorized`, `content_filtered`, `insufficient_credits`, `resource_not_found`)
+ * do NOT fall back — the request itself, or the account, is the problem.
+ */
+const DEGRADE_CODES: ReadonlySet<string> = new Set([
+  'upstream_error',
+  'upstream_timeout',
+  'rate_limited',
+  'job_failed',
+]);
+
+/** Whether a failed model attempt should degrade to the next model in the chain. */
+function shouldDegradeToNextModel(err: unknown): boolean {
+  return err instanceof EngineError && DEGRADE_CODES.has(err.unified.code);
+}
+
+/**
  * Funnels each dialect endpoint into the engine: resolves a model name → a chat
  * `resourceId` + capabilities, gates the IR via {@link normalizeRequest}, builds
  * a {@link RunRequest} for that resource (the same catalog loads as
@@ -89,15 +108,41 @@ export class ChatRelayService {
     return this.buildService().runChatStream(req);
   }
 
-  /** Run a blocking IR chat for the resolved model (hold → chat → settle-once). */
+  /**
+   * Run a blocking IR chat for the resolved model (hold → chat → settle-once),
+   * with MODEL-DEGRADATION fallback (模型降级链): on a RETRYABLE failure (all of
+   * a model's channels exhausted), retry with each `fallback_models` name in
+   * order. Each attempt is self-contained — `runChat` holds, routes, and either
+   * settles or RELEASES the hold on failure — so attempts never double-charge.
+   * A non-retryable error (invalid input / content filtered) does NOT fall back.
+   * Each attempt uses a distinct idempotency key so a failed claim can't block
+   * the next model. (Streaming has no model fallback — it commits mid-stream.)
+   */
   async chat(
     modelName: string,
     ir: ChatRequest,
     ctx: TenantContext,
     idempotencyKey?: string,
   ): Promise<ChatRunOutcome> {
-    const req = await this.buildChatRunRequest(modelName, ir, ctx, 'blocking', idempotencyKey);
-    return this.buildService().runChat(req);
+    const chain = [modelName, ...(await getModelFallbacks(this.db, modelName))];
+    let lastError: unknown;
+    for (const [i, model] of chain.entries()) {
+      const isLast = i === chain.length - 1;
+      // Distinct per-attempt idempotency key — a fallback is a NEW upstream op.
+      const idem =
+        idempotencyKey === undefined || i === 0
+          ? idempotencyKey
+          : `${idempotencyKey}:fb${String(i)}`;
+      try {
+        const req = await this.buildChatRunRequest(model, ir, ctx, 'blocking', idem);
+        return await this.buildService().runChat(req);
+      } catch (err) {
+        lastError = err;
+        if (isLast || !shouldDegradeToNextModel(err)) throw err;
+        // else: this model's upstream failed (exhausted/timeout/5xx) → next model.
+      }
+    }
+    throw lastError;
   }
 
   /** Construct an {@link ExecutionService} bound to this app's shared deps. */

@@ -57,6 +57,8 @@ export const modelViewSchema = z.object({
   output_price: z.string(),
   /** Per-model rate limit (requests/min); null when no model-specific cap. */
   rate_limit: z.number().nullable(),
+  /** Ordered model-degradation chain (模型降级链); null when none. */
+  fallback_models: z.array(z.string()).nullable(),
   status: z.string(),
   created_at: z.string(),
 });

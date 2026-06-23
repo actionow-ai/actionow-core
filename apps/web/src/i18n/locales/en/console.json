@@ -576,6 +576,8 @@
       "inputPrice": "Input price",
       "outputPrice": "Output price",
       "rateLimit": "Rate limit (req/min)",
+      "fallbackModels": "Fallback chain",
+      "fallbackModelsPlaceholder": "Fallback model names — Enter to add (tried in order)",
       "status": "Status",
       "nameRequired": "Name is required.",
       "resourceRequired": "Select a resource."
@@ -594,6 +596,7 @@
       "priceEquiv": "µcredits / token · ≈ {{n}} credits / 1,000,000 tokens",
       "rateLimit": "Max requests/min per tenant for this model (model rate limit). Stacks on top of the tenant/resource limits.",
       "rateLimitHint": "0 = no model-specific limit.",
+      "fallbackModels": "Model degradation chain: when a BLOCKING chat exhausts all of this model's channels (retryably), retry these models in order. Non-streaming only.",
       "status": "Disabled models are hidden from callers."
     },
     "actions": {

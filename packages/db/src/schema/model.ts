@@ -57,6 +57,13 @@ export const model = pgTable(
      * caps. Null → no model-specific cap (the resource/tenant defaults apply).
      */
     rateLimit: integer('rate_limit'),
+    /**
+     * Ordered model-degradation chain (模型降级链): when a BLOCKING chat for this
+     * model fails retryably (all its channels exhausted), the relay retries with
+     * each model name here in order. Null/[] → no fallback. Each must be another
+     * routable model the tenant can use.
+     */
+    fallbackModels: jsonb('fallback_models').$type<string[]>(),
     // status allowed values: active | disabled (create default + admin DTO + sync insert)
     status: text('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

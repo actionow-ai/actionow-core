@@ -24,6 +24,8 @@ export interface CreateModelInput {
   readonly outputPrice?: bigint | undefined;
   /** Per-model rate limit (requests/min); null/omitted → no model-specific cap. */
   readonly rateLimit?: number | null | undefined;
+  /** Ordered model-degradation chain (模型降级链); null/omitted → no fallback. */
+  readonly fallbackModels?: string[] | null | undefined;
   readonly status?: string | undefined;
 }
 
@@ -41,6 +43,7 @@ export async function createModel(db: DbOrTx, input: CreateModelInput): Promise<
       ...(input.inputPrice !== undefined ? { inputPrice: input.inputPrice } : {}),
       ...(input.outputPrice !== undefined ? { outputPrice: input.outputPrice } : {}),
       ...(input.rateLimit !== undefined ? { rateLimit: input.rateLimit } : {}),
+      ...(input.fallbackModels !== undefined ? { fallbackModels: input.fallbackModels } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
     })
     .returning();
@@ -345,6 +348,20 @@ export async function getModelRateLimit(db: DbOrTx, name: string): Promise<numbe
   return rows[0]?.rateLimit ?? null;
 }
 
+/**
+ * The ordered model-degradation chain (模型降级链) for a LIVE, ACTIVE model by
+ * name, or `[]` when none / absent / disabled. A focused projection for the
+ * relay's blocking-chat fallback loop.
+ */
+export async function getModelFallbacks(db: DbOrTx, name: string): Promise<string[]> {
+  const rows = await db
+    .select({ fallbackModels: model.fallbackModels })
+    .from(model)
+    .where(and(eq(model.name, name), isNull(model.deletedAt), eq(model.status, 'active')))
+    .limit(1);
+  return rows[0]?.fallbackModels ?? [];
+}
+
 /** Mutable fields of a {@link model} (admin PATCH); omitted keys are unchanged. */
 export interface UpdateModelInput {
   readonly display?: string | null | undefined;
@@ -357,6 +374,8 @@ export interface UpdateModelInput {
   readonly visibility?: string | undefined;
   /** Per-model rate limit (requests/min); `null` clears it. */
   readonly rateLimit?: number | null | undefined;
+  /** Ordered model-degradation chain; `null` clears it. */
+  readonly fallbackModels?: string[] | null | undefined;
   /** `active` | `disabled`. */
   readonly status?: string | undefined;
 }
@@ -380,6 +399,7 @@ export async function updateModel(
   if (patch.outputPrice !== undefined) set.outputPrice = patch.outputPrice;
   if (patch.visibility !== undefined) set.visibility = patch.visibility;
   if (patch.rateLimit !== undefined) set.rateLimit = patch.rateLimit;
+  if (patch.fallbackModels !== undefined) set.fallbackModels = patch.fallbackModels;
   if (patch.status !== undefined) set.status = patch.status;
   if (Object.keys(set).length === 0) {
     return getModelByName(db, name);
