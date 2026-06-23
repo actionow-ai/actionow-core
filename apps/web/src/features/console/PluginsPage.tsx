@@ -8,6 +8,7 @@ import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
+import { CodeEditor } from '../../components/ui/CodeEditor';
 import { ChipsField } from '../../components/ui/ChipsField';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Drawer } from '../../components/ui/Drawer';
@@ -304,14 +305,10 @@ function PluginEditor({
       />
 
       <FormField id={handlerId} label={t('plugins.form.handler')} hint={t('plugins.form.handlerHint')}>
-        <textarea
-          id={handlerId}
-          className="field mono"
+        <CodeEditor
           value={handler}
-          onChange={(e) => setHandler(e.target.value)}
-          spellCheck={false}
-          rows={12}
-          style={{ fontSize: 'var(--fs-sm)', width: '100%', resize: 'vertical' }}
+          onChange={setHandler}
+          ariaLabel={t('plugins.form.handler')}
         />
       </FormField>
 
