@@ -232,6 +232,13 @@
       "when": 1782203136641,
       "tag": "0032_modern_cardiac",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1782225806236,
+      "tag": "0033_awesome_sphinx",
+      "breakpoints": true
     }
   ]
 }
