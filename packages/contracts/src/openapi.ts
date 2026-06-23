@@ -107,6 +107,7 @@ import {
   difyImportViewSchema,
   jobViewSchema,
   ledgerViewSchema,
+  modelHealthViewSchema,
   oauthSessionListViewSchema,
   oauthSessionViewSchema,
   opsHealthViewSchema,
@@ -215,6 +216,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   // ops health snapshot + platform counts (overview KPI band / model-health card)
   registry.register('ChannelHealthView', channelHealthViewSchema);
   const OpsHealth = registry.register('OpsHealthView', opsHealthViewSchema);
+  const ModelHealth = registry.register('ModelHealthView', modelHealthViewSchema);
   const OpsSummary = registry.register('OpsSummaryView', opsSummaryViewSchema);
 
   // billing & routing views (billing-views)
@@ -683,6 +685,13 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     'Live ops health (channel circuit-breaker + billable RPM)',
     OpsHealth,
     'admin',
+  );
+  getArray(
+    '/admin/health/models',
+    'Per-model health from real traffic (status page): availability, latency, uptime history',
+    ModelHealth,
+    'admin',
+    z.object({ days: z.coerce.number().int().min(1).max(90).optional() }),
   );
 
   // --- console reads (single-object endpoints) ------------------------------

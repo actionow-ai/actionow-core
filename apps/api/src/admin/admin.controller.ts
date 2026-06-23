@@ -19,6 +19,8 @@ import {
   ledgerViewSchema,
   type ModelGrantView,
   modelGrantViewSchema,
+  type ModelHealthView,
+  modelHealthViewSchema,
   type ModelTestResult,
   type ModelView,
   modelViewSchema,
@@ -69,6 +71,8 @@ import type {
   Job,
   LedgerRow,
   ModelGrantRow,
+  ModelHealthBucket,
+  ModelHealthRow,
   ModelRow,
   ModifierRow,
   OAuthSessionListRow,
@@ -1242,6 +1246,19 @@ export class AdminController {
       channels: snapshot.channels.map(toChannelHealthView),
     });
   }
+
+  @Get('health/models')
+  @ApiOperation({
+    summary:
+      'Per-model health (status page): availability, latency, uptime history from real traffic',
+  })
+  async modelHealth(@Query('days') days?: string): Promise<ModelHealthView[]> {
+    // Clamp the window to [1, 90] days; default 7.
+    const parsed = days === undefined ? 7 : Number(days);
+    const window = Number.isFinite(parsed) ? Math.min(90, Math.max(1, Math.trunc(parsed))) : 7;
+    const report = await this.admin.modelHealthReport(window);
+    return report.map(toModelHealthView);
+  }
 }
 
 /**
@@ -1662,5 +1679,26 @@ function toChannelHealthView(row: ChannelHealthRow): ChannelHealthView {
     cooldown_until: row.cooldownUntil === null ? null : row.cooldownUntil.toISOString(),
     consecutive_failures: row.consecutiveFailures,
     last_failure_at: row.lastFailureAt === null ? null : row.lastFailureAt.toISOString(),
+  });
+}
+
+function toModelHealthView(r: {
+  summary: ModelHealthRow;
+  history: ModelHealthBucket[];
+}): ModelHealthView {
+  const { summary, history } = r;
+  // Availability = succeeded / total; 100% when there was no traffic.
+  const availability =
+    summary.total > 0 ? ((summary.total - summary.errors) / summary.total) * 100 : 100;
+  return modelHealthViewSchema.parse({
+    model: summary.model,
+    total: summary.total,
+    errors: summary.errors,
+    availability_pct: Math.round(availability * 100) / 100,
+    avg_latency_ms: summary.avgLatencyMs,
+    p95_latency_ms: summary.p95LatencyMs,
+    last_status: summary.lastStatus,
+    last_seen_at: summary.lastSeenAt === null ? null : summary.lastSeenAt.toISOString(),
+    history: history.map((b) => ({ day: b.day, total: b.total, errors: b.errors })),
   });
 }

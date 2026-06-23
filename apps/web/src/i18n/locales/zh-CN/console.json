@@ -149,6 +149,7 @@
     "dashboard": "仪表盘",
     "analytics": "分析",
     "opsOverview": "概览·分析",
+    "status": "服务状态",
     "relayTraces": "中转追踪",
     "overview": "概览",
     "tusage": "用量",
@@ -184,6 +185,7 @@
     "dashboard": "租户与资源概览,最近任务",
     "analytics": "按时间与维度查看用量、成本与毛利",
     "opsOverview": "全局用量、成本、毛利与模型健康——单屏总览",
+    "status": "各模型可用性、延迟与正常运行时间(基于真实流量)",
     "relayTraces": "上游中转审计——请求、响应、延迟",
     "overview": "余额、最近任务与流水",
     "tusage": "用量聚合与逐次调用日志",
@@ -1096,7 +1098,24 @@
     "inactive": "未启用",
     "canceled": "已取消",
     "unused": "未兑换",
-    "redeemed": "已兑换"
+    "redeemed": "已兑换",
+    "title": "服务状态",
+    "operational": "运行正常",
+    "degraded": "{{n}} 个模型异常",
+    "noData": "暂无数据",
+    "window": "时间窗口",
+    "days": "{{n}} 天",
+    "empty": "窗口内暂无调用流量;先产生一些请求,这里就会显示各模型的可用性与延迟。",
+    "availability": "可用性",
+    "avgLatency": "平均延迟",
+    "requests": "{{total}} 次调用 · {{errors}} 次失败",
+    "noHistory": "暂无历史",
+    "idle": "无流量",
+    "last": {
+      "succeeded": "正常",
+      "failed": "失败",
+      "canceled": "已取消"
+    }
   },
   "enums": {
     "modality": {

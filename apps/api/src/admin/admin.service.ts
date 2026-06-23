@@ -74,6 +74,8 @@ import {
   listJobs,
   listLedger,
   listModelGrants,
+  listModelHealth,
+  listModelHealthHistory,
   listModels,
   listModifiers,
   listOAuthSessions,
@@ -89,6 +91,8 @@ import {
   listTenants,
   listUsageLogsGlobal,
   type ModelGrantRow,
+  type ModelHealthBucket,
+  type ModelHealthRow,
   type ModelRow,
   type ModifierRow,
   normalizeModelSlug,
@@ -1296,6 +1300,28 @@ export class AdminService {
 
   listModels(page: PageParams): Promise<KeysetResult<ModelRow>> {
     return listModels(this.db, page);
+  }
+
+  /**
+   * Per-model health for the status page, derived from real `usage_log` traffic
+   * over the last `days` (no synthetic probing). Joins the per-model summary with
+   * its per-day uptime history for the sparkline.
+   */
+  async modelHealthReport(
+    days: number,
+  ): Promise<{ summary: ModelHealthRow; history: ModelHealthBucket[] }[]> {
+    const since = new Date(Date.now() - days * 86_400_000);
+    const [summaries, history] = await Promise.all([
+      listModelHealth(this.db, since),
+      listModelHealthHistory(this.db, since),
+    ]);
+    const byModel = new Map<string, ModelHealthBucket[]>();
+    for (const b of history) {
+      const arr = byModel.get(b.model) ?? [];
+      arr.push(b);
+      byModel.set(b.model, arr);
+    }
+    return summaries.map((summary) => ({ summary, history: byModel.get(summary.model) ?? [] }));
   }
 
   /** Fetch one model by its unique `name`, or `resource_not_found` (404) when absent. */

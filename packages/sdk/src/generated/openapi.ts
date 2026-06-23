@@ -5866,6 +5866,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/health/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Per-model health from real traffic (status page): availability, latency, uptime history */
+        get: {
+            parameters: {
+                query?: {
+                    days?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Per-model health from real traffic (status page): availability, latency, uptime history */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ModelHealthView"][];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/console/balance": {
         parameters: {
             query?: never;
@@ -9921,6 +10004,21 @@ export interface components {
                 cooldown_until: string | null;
                 consecutive_failures: number;
                 last_failure_at: string | null;
+            }[];
+        };
+        ModelHealthView: {
+            model: string;
+            total: number;
+            errors: number;
+            availability_pct: number;
+            avg_latency_ms: number | null;
+            p95_latency_ms: number | null;
+            last_status: string | null;
+            last_seen_at: string | null;
+            history: {
+                day: string;
+                total: number;
+                errors: number;
             }[];
         };
         OpsSummaryView: {

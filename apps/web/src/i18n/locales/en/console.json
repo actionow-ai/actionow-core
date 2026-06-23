@@ -149,6 +149,7 @@
     "dashboard": "Dashboard",
     "analytics": "Analytics",
     "opsOverview": "Overview · Analytics",
+    "status": "Status",
     "relayTraces": "Relay traces",
     "overview": "Overview",
     "tusage": "Usage",
@@ -184,6 +185,7 @@
     "dashboard": "Tenants & resources overview, recent jobs",
     "analytics": "Usage, cost and margin over time and by dimension",
     "opsOverview": "Global usage, cost, margin & model health — one screen",
+    "status": "Per-model availability, latency & uptime (from real traffic)",
     "relayTraces": "Upstream relay audit — requests, responses, latency",
     "overview": "Balance, recent jobs and ledger",
     "tusage": "Usage aggregation and per-call log",
@@ -1096,7 +1098,24 @@
     "inactive": "Inactive",
     "canceled": "Canceled",
     "unused": "Unused",
-    "redeemed": "Redeemed"
+    "redeemed": "Redeemed",
+    "title": "Service status",
+    "operational": "Operational",
+    "degraded": "{{n}} model(s) failing",
+    "noData": "No data",
+    "window": "Window",
+    "days": "{{n}}d",
+    "empty": "No traffic in this window yet — make some requests and per-model availability + latency will show here.",
+    "availability": "availability",
+    "avgLatency": "avg latency",
+    "requests": "{{total}} calls · {{errors}} failed",
+    "noHistory": "No history",
+    "idle": "Idle",
+    "last": {
+      "succeeded": "OK",
+      "failed": "Failing",
+      "canceled": "Canceled"
+    }
   },
   "enums": {
     "modality": {

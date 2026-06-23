@@ -25,6 +25,7 @@ import { RelayTracesPage } from './features/console/RelayTracesPage';
 import { ResourcesPage } from './features/console/ResourcesPage';
 import { RouteGroupsPage } from './features/console/RouteGroupsPage';
 import { ServiceTokensPage } from './features/console/ServiceTokensPage';
+import { StatusPage } from './features/console/StatusPage';
 import { TenantsPage } from './features/console/TenantsPage';
 import { ProtectedRoute } from './lib/auth/ProtectedRoute';
 import { RootRoute } from './RootRoute';
@@ -65,6 +66,7 @@ export function AppRoutes() {
           {/* dashboard + analytics merged into overview; keep old deep links working. */}
           <Route path="dashboard" element={<Navigate to="/console/overview" replace />} />
           <Route path="analytics" element={<Navigate to="/console/overview" replace />} />
+          <Route path="status" element={<StatusPage />} />
           <Route path="relay-traces" element={<RelayTracesPage />} />
           {/* Catalog = the Resources master-detail; relay models nest inside each resource's detail pane. */}
           <Route path="catalog" element={<ResourcesPage />} />

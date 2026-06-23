@@ -800,6 +800,22 @@ export class ExecutionService {
         ? { outbox: { url: req.callbackUrl, payload: { job_id: jobId, error: unified } } }
         : {}),
     });
+    // Mirror a FAILED usage_log row for relay calls (best-effort, cost 0) so the
+    // status page's per-model availability counts failures, not just successes.
+    // Gated on `usageLogModel` (relay only), symmetric with the success mirror.
+    if (req.usageLogModel !== undefined) {
+      try {
+        await insertUsageLog(this.deps.db, {
+          tenantId: req.tenantId,
+          model: req.usageLogModel,
+          cost: 0n,
+          status: 'failed',
+          ...(req.usageLogApiKeyId !== undefined ? { apiKeyId: req.usageLogApiKeyId } : {}),
+        });
+      } catch {
+        // Best-effort observability — never let a usage-log error mask the failure.
+      }
+    }
   }
 
   /** Build the per-attempt adapter context, resolving the channel secret. */
