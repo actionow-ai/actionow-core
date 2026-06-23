@@ -16,7 +16,9 @@ import {
   addChannelToGroup,
   type ApiKeyRow,
   type ChannelHealthRow,
+  channelIdsByModelIds,
   countAccounts,
+  countModelsByChannelIds,
   countResources,
   countTenants,
   countUsageLogs,
@@ -51,6 +53,7 @@ import {
   getAccount,
   getChannelById,
   getFaultPolicyById,
+  getModelById,
   getModelByName,
   getModifierById,
   getOfficialPriceById,
@@ -65,10 +68,12 @@ import {
   type Job,
   type KeysetResult,
   type LedgerRow,
+  linkChannelModel,
   linkChannelModelsByNames,
   listAccounts,
   listAllChannelsWithHealth,
   listApiKeys,
+  listChannelModels,
   listChannelsForResource,
   listFaultPolicies,
   listGroupChannels,
@@ -130,6 +135,7 @@ import {
   type TenantRow,
   topUp,
   unlinkAllForChannel,
+  unlinkChannelModel,
   updateFaultPolicy,
   type UpdateFaultPolicyInput,
   updateModel,
@@ -976,6 +982,40 @@ export class AdminService {
     // once the channel is gone; also keeps model_count / routing correct).
     await unlinkAllForChannel(this.db, channelId);
     return { id };
+  }
+
+  // --- channel↔model links (catalog supply-hierarchy) -----------------------
+
+  /** Per-channel link counts (batch) for populating `model_count` in channel views. */
+  async modelCountsByChannels(channelIds: string[]): Promise<Map<string, number>> {
+    return countModelsByChannelIds(this.db, channelIds);
+  }
+
+  /** Served-channel ids (batch) for populating `served_channel_ids` in model views. */
+  async servedChannelsByModels(modelIds: string[]): Promise<Map<string, string[]>> {
+    return channelIdsByModelIds(this.db, modelIds);
+  }
+
+  /** The models a channel serves (right-panel grid); 404s if the channel ∉ resource. */
+  async listChannelModels(resourceId: string, channelId: string): Promise<ModelRow[]> {
+    await this.getChannel(resourceId, channelId);
+    return listChannelModels(this.db, channelId);
+  }
+
+  /** Link an existing platform model to a channel; validates the channel + same-platform model. */
+  async linkChannelModel(resourceId: string, channelId: string, modelId: string): Promise<void> {
+    await this.getChannel(resourceId, channelId);
+    const m = await getModelById(this.db, modelId);
+    if (m?.resourceId !== resourceId) {
+      throw engineInvalidInput('model must belong to the same platform as the channel');
+    }
+    await linkChannelModel(this.db, channelId, modelId);
+  }
+
+  /** Remove a channel↔model link; 404s if the channel ∉ resource. */
+  async unlinkChannelModel(resourceId: string, channelId: string, modelId: string): Promise<void> {
+    await this.getChannel(resourceId, channelId);
+    await unlinkChannelModel(this.db, channelId, modelId);
   }
 
   /**

@@ -7,6 +7,8 @@ import {
   apiKeyViewSchema,
   type ChannelHealthView,
   channelHealthViewSchema,
+  type ChannelModelLinkInput,
+  channelModelLinkInputSchema,
   type ChannelView,
   channelViewSchema,
   type CodexLoginStartView,
@@ -629,7 +631,12 @@ export class AdminController {
     @Query('limit') limit?: string,
   ): Promise<PageEnvelope<ChannelView>> {
     const result = await this.admin.listResourceChannels(id, toPageParams({ cursor, limit }));
-    return mapPageEnvelope(result, (r) => r.id, toChannelView);
+    const counts = await this.admin.modelCountsByChannels(result.rows.map((r) => r.id));
+    return mapPageEnvelope(
+      result,
+      (r) => r.id,
+      (r) => toChannelView(r, counts.get(r.id) ?? 0),
+    );
   }
 
   @Get('resources/:id/channels/:channelId')
@@ -638,7 +645,43 @@ export class AdminController {
     @Param('id') id: string,
     @Param('channelId') channelId: string,
   ): Promise<ChannelView> {
-    return toChannelView(await this.admin.getChannel(id, channelId));
+    const row = await this.admin.getChannel(id, channelId);
+    const counts = await this.admin.modelCountsByChannels([row.id]);
+    return toChannelView(row, counts.get(row.id) ?? 0);
+  }
+
+  @Get('resources/:id/channels/:channelId/models')
+  @ApiOperation({ summary: 'List the models a channel serves (channel_model links)' })
+  async listChannelModels(
+    @Param('id') id: string,
+    @Param('channelId') channelId: string,
+  ): Promise<ModelView[]> {
+    const rows = await this.admin.listChannelModels(id, channelId);
+    const served = await this.admin.servedChannelsByModels(rows.map((r) => r.id));
+    return rows.map((r) => toModelView(r, served.get(r.id) ?? []));
+  }
+
+  @Post('resources/:id/channels/:channelId/models')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Link an existing platform model to a channel' })
+  async linkChannelModel(
+    @Param('id') id: string,
+    @Param('channelId') channelId: string,
+    @Body(new ZodBody(channelModelLinkInputSchema)) dto: ChannelModelLinkInput,
+  ): Promise<{ ok: true }> {
+    await this.admin.linkChannelModel(id, channelId, dto.model_id);
+    return { ok: true };
+  }
+
+  @Delete('resources/:id/channels/:channelId/models/:modelId')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Unlink a model from a channel (does not delete the model)' })
+  async unlinkChannelModel(
+    @Param('id') id: string,
+    @Param('channelId') channelId: string,
+    @Param('modelId') modelId: string,
+  ): Promise<void> {
+    await this.admin.unlinkChannelModel(id, channelId, modelId);
   }
 
   @Patch('resources/:id/channels/:channelId')
@@ -838,13 +881,20 @@ export class AdminController {
     @Query('limit') limit?: string,
   ): Promise<PageEnvelope<ModelView>> {
     const result = await this.admin.listModels(toPageParams({ cursor, limit }));
-    return mapPageEnvelope(result, (r) => r.id, toModelView);
+    const served = await this.admin.servedChannelsByModels(result.rows.map((r) => r.id));
+    return mapPageEnvelope(
+      result,
+      (r) => r.id,
+      (r) => toModelView(r, served.get(r.id) ?? []),
+    );
   }
 
   @Get('models/:name')
   @ApiOperation({ summary: 'Get one relay model by name or 404' })
   async getModel(@Param('name') name: string): Promise<ModelView> {
-    return toModelView(await this.admin.getModel(name));
+    const row = await this.admin.getModel(name);
+    const served = await this.admin.servedChannelsByModels([row.id]);
+    return toModelView(row, served.get(row.id) ?? []);
   }
 
   @Patch('models/:name')
@@ -1472,7 +1522,7 @@ function toResourceView(row: Resource): ResourceView {
   });
 }
 
-function toChannelView(row: UpstreamChannelRow): ChannelView {
+function toChannelView(row: UpstreamChannelRow, modelCount = 0): ChannelView {
   return channelViewSchema.parse({
     id: row.id,
     resource_id: row.resourceId,
@@ -1487,6 +1537,7 @@ function toChannelView(row: UpstreamChannelRow): ChannelView {
     input_cost_per_1m: row.inputCostPer1m === null ? null : row.inputCostPer1m.toString(),
     output_cost_per_1m: row.outputCostPer1m === null ? null : row.outputCostPer1m.toString(),
     fault_policy_id: row.faultPolicyId,
+    model_count: modelCount,
   });
 }
 
@@ -1582,7 +1633,7 @@ function toJobView(row: Job): JobView {
   });
 }
 
-function toModelView(row: ModelRow): ModelView {
+function toModelView(row: ModelRow, servedChannelIds: string[] = []): ModelView {
   return modelViewSchema.parse({
     id: row.id,
     name: row.name,
@@ -1595,6 +1646,7 @@ function toModelView(row: ModelRow): ModelView {
     output_price: row.outputPrice.toString(),
     rate_limit: row.rateLimit,
     fallback_models: row.fallbackModels,
+    served_channel_ids: servedChannelIds,
     status: row.status,
     created_at: row.createdAt.toISOString(),
   });

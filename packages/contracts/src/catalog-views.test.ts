@@ -16,6 +16,7 @@ describe('catalog view contracts', () => {
       output_price: '15000000',
       rate_limit: null,
       fallback_models: null,
+      served_channel_ids: [],
       status: 'active',
       created_at: '2026-01-01T00:00:00Z',
     };
@@ -39,6 +40,7 @@ describe('catalog view contracts', () => {
       input_cost_per_1m: null,
       output_cost_per_1m: null,
       fault_policy_id: null,
+      model_count: 0,
     };
     expect(channelViewSchema.parse(c)).toEqual(c);
   });

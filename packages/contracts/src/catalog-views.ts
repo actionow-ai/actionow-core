@@ -41,8 +41,16 @@ export const channelViewSchema = z.object({
   output_cost_per_1m: z.string().nullable(),
   /** Bound fault-tolerance policy id (调用容错), null when unbound. */
   fault_policy_id: z.string().nullable(),
+  /** Count of models this channel serves (channel_model links; catalog supply-hierarchy). */
+  model_count: z.number(),
 });
 export type ChannelView = z.infer<typeof channelViewSchema>;
+
+/** `POST /admin/resources/:id/channels/:channelId/models` body: link an existing model. */
+export const channelModelLinkInputSchema = z.object({
+  model_id: z.string(),
+});
+export type ChannelModelLinkInput = z.infer<typeof channelModelLinkInputSchema>;
 
 /** A relay model as served by `GET /admin/models[/:name]`. Prices are µcredit strings. */
 export const modelViewSchema = z.object({
@@ -59,6 +67,8 @@ export const modelViewSchema = z.object({
   rate_limit: z.number().nullable(),
   /** Ordered model-degradation chain (模型降级链); null when none. */
   fallback_models: z.array(z.string()).nullable(),
+  /** Channel ids that serve this model (inverse channel_model links; popup 服务通道). */
+  served_channel_ids: z.array(z.string()),
   status: z.string(),
   created_at: z.string(),
 });

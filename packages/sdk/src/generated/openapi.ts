@@ -9656,6 +9656,7 @@ export interface components {
             input_cost_per_1m: string | null;
             output_cost_per_1m: string | null;
             fault_policy_id: string | null;
+            model_count: number;
         };
         ModelView: {
             id: string;
@@ -9671,6 +9672,7 @@ export interface components {
             output_price: string;
             rate_limit: number | null;
             fallback_models: string[] | null;
+            served_channel_ids: string[];
             status: string;
             created_at: string;
         };

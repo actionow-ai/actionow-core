@@ -299,3 +299,92 @@ describe('D2: model_grant list / revoke', () => {
     await auth(request(app.getHttpServer()).get('/admin/models/nope/grants')).expect(404);
   });
 });
+
+describe('channel↔model links (catalog supply-hierarchy)', () => {
+  it('links a model to a channel, reflects it in views, then unlinks', async () => {
+    const ch = await auth(
+      request(app.getHttpServer())
+        .post('/admin/resources/gpt4o-res/channels')
+        .send({ providerType: 'openai' }),
+    ).expect(201);
+    const channelId = ch.body.id as string;
+
+    const m = await auth(
+      request(app.getHttpServer())
+        .post('/admin/models')
+        .send({ name: 'link-m', resourceId: 'gpt4o-res' }),
+    ).expect(201);
+    const modelId = m.body.id as string;
+
+    // Link → 201
+    await auth(
+      request(app.getHttpServer())
+        .post(`/admin/resources/gpt4o-res/channels/${channelId}/models`)
+        .send({ model_id: modelId }),
+    ).expect(201);
+
+    // Channel's model grid lists the model + the model carries the inverse link.
+    const grid = await auth(
+      request(app.getHttpServer()).get(`/admin/resources/gpt4o-res/channels/${channelId}/models`),
+    ).expect(200);
+    expect(grid.body).toHaveLength(1);
+    expect(grid.body[0].id).toBe(modelId);
+    expect(grid.body[0].served_channel_ids).toContain(channelId);
+
+    // Channel view shows model_count = 1.
+    const channels = await auth(
+      request(app.getHttpServer()).get('/admin/resources/gpt4o-res/channels'),
+    ).expect(200);
+    const row = (channels.body.data as { id: string; model_count: number }[]).find(
+      (c) => c.id === channelId,
+    );
+    expect(row?.model_count).toBe(1);
+
+    // Unlink → 204 → grid empty (the model itself still exists).
+    await auth(
+      request(app.getHttpServer()).delete(
+        `/admin/resources/gpt4o-res/channels/${channelId}/models/${modelId}`,
+      ),
+    ).expect(204);
+    const empty = await auth(
+      request(app.getHttpServer()).get(`/admin/resources/gpt4o-res/channels/${channelId}/models`),
+    ).expect(200);
+    expect(empty.body).toHaveLength(0);
+    await auth(request(app.getHttpServer()).get('/admin/models/link-m')).expect(200);
+  });
+
+  it('rejects linking a model from a different platform (400)', async () => {
+    // A second platform + its model.
+    await auth(
+      request(app.getHttpServer())
+        .post('/admin/resources')
+        .send({
+          id: 'other-res',
+          tenantId,
+          kind: 'model',
+          modality: 'text',
+          providerType: 'openai',
+          execModes: ['blocking'],
+          ioSchema: { inputs: [], outputs: [] },
+        }),
+    ).expect(201);
+    const otherModel = await auth(
+      request(app.getHttpServer())
+        .post('/admin/models')
+        .send({ name: 'other-m', resourceId: 'other-res' }),
+    ).expect(201);
+    const ch = await auth(
+      request(app.getHttpServer())
+        .post('/admin/resources/gpt4o-res/channels')
+        .send({ providerType: 'openai' }),
+    ).expect(201);
+    const channelId = ch.body.id as string;
+    const otherModelId = otherModel.body.id as string;
+
+    await auth(
+      request(app.getHttpServer())
+        .post(`/admin/resources/gpt4o-res/channels/${channelId}/models`)
+        .send({ model_id: otherModelId }),
+    ).expect(400);
+  });
+});
