@@ -22,6 +22,8 @@ export interface CreateModelInput {
   readonly inputPrice?: bigint | undefined;
   /** µUSD per 1M output tokens integer. Defaults to 0. */
   readonly outputPrice?: bigint | undefined;
+  /** Per-model rate limit (requests/min); null/omitted → no model-specific cap. */
+  readonly rateLimit?: number | null | undefined;
   readonly status?: string | undefined;
 }
 
@@ -38,6 +40,7 @@ export async function createModel(db: DbOrTx, input: CreateModelInput): Promise<
       ...(input.visibility !== undefined ? { visibility: input.visibility } : {}),
       ...(input.inputPrice !== undefined ? { inputPrice: input.inputPrice } : {}),
       ...(input.outputPrice !== undefined ? { outputPrice: input.outputPrice } : {}),
+      ...(input.rateLimit !== undefined ? { rateLimit: input.rateLimit } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
     })
     .returning();
@@ -328,6 +331,20 @@ export async function getModelByName(db: DbOrTx, name: string): Promise<ModelRow
   return rows[0];
 }
 
+/**
+ * The per-model rate limit (requests/min) for a LIVE, ACTIVE model by name, or
+ * `null` when the model has no cap / is absent / disabled. A focused projection
+ * (not the whole row) for the relay's RateLimitGuard hot path.
+ */
+export async function getModelRateLimit(db: DbOrTx, name: string): Promise<number | null> {
+  const rows = await db
+    .select({ rateLimit: model.rateLimit })
+    .from(model)
+    .where(and(eq(model.name, name), isNull(model.deletedAt), eq(model.status, 'active')))
+    .limit(1);
+  return rows[0]?.rateLimit ?? null;
+}
+
 /** Mutable fields of a {@link model} (admin PATCH); omitted keys are unchanged. */
 export interface UpdateModelInput {
   readonly display?: string | null | undefined;
@@ -338,6 +355,8 @@ export interface UpdateModelInput {
   readonly outputPrice?: bigint | undefined;
   /** `public` | `tenant`. */
   readonly visibility?: string | undefined;
+  /** Per-model rate limit (requests/min); `null` clears it. */
+  readonly rateLimit?: number | null | undefined;
   /** `active` | `disabled`. */
   readonly status?: string | undefined;
 }
@@ -360,6 +379,7 @@ export async function updateModel(
   if (patch.inputPrice !== undefined) set.inputPrice = patch.inputPrice;
   if (patch.outputPrice !== undefined) set.outputPrice = patch.outputPrice;
   if (patch.visibility !== undefined) set.visibility = patch.visibility;
+  if (patch.rateLimit !== undefined) set.rateLimit = patch.rateLimit;
   if (patch.status !== undefined) set.status = patch.status;
   if (Object.keys(set).length === 0) {
     return getModelByName(db, name);

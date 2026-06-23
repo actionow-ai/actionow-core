@@ -575,6 +575,7 @@
       "visibility": "可见性",
       "inputPrice": "输入价",
       "outputPrice": "输出价",
+      "rateLimit": "限流(次/分钟)",
       "status": "状态",
       "nameRequired": "请填写名称。",
       "resourceRequired": "请选择一个资源。"
@@ -591,6 +592,8 @@
       "visibilityTenant": "仅租户可见:在授权抽屉中按租户授予访问权。",
       "price": "价格,单位为每 token 的 µcredits。1 credit = 1,000,000 µcredits。",
       "priceEquiv": "µcredits / token · ≈ {{n}} credits / 1,000,000 tokens",
+      "rateLimit": "该模型每租户每分钟的最大请求数(模型限流)。在租户/资源限流之上叠加。",
+      "rateLimitHint": "0 = 不设模型级限流。",
       "status": "已停用的模型对调用方不可见。"
     },
     "actions": {

@@ -575,6 +575,7 @@
       "visibility": "Visibility",
       "inputPrice": "Input price",
       "outputPrice": "Output price",
+      "rateLimit": "Rate limit (req/min)",
       "status": "Status",
       "nameRequired": "Name is required.",
       "resourceRequired": "Select a resource."
@@ -591,6 +592,8 @@
       "visibilityTenant": "Tenant-only: grant access per tenant from the grants drawer.",
       "price": "Price in µcredits per token. 1 credit = 1,000,000 µcredits.",
       "priceEquiv": "µcredits / token · ≈ {{n}} credits / 1,000,000 tokens",
+      "rateLimit": "Max requests/min per tenant for this model (model rate limit). Stacks on top of the tenant/resource limits.",
+      "rateLimitHint": "0 = no model-specific limit.",
       "status": "Disabled models are hidden from callers."
     },
     "actions": {

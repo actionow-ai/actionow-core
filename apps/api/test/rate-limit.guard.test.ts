@@ -1,7 +1,13 @@
 import type { RateLimiter, RateLimitResult } from '@actionow/infra';
 import type { ExecutionContext } from '@nestjs/common';
 import type { Request } from 'express';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The guard reads a model's per-model limit via this repo fn; stub it.
+const { getModelRateLimit } = vi.hoisted(() => ({
+  getModelRateLimit: vi.fn<(db: unknown, name: string) => Promise<number | null>>(),
+}));
+vi.mock('@actionow/db', () => ({ getModelRateLimit }));
 
 import type { ApiKeyContext, AuthedRequest } from '../src/auth/api-key.guard.js';
 import { RateLimitGuard } from '../src/auth/rate-limit.guard.js';
@@ -13,8 +19,12 @@ interface GuardEnv {
 
 const env: GuardEnv = { RATE_LIMIT_TENANT_PER_MIN: 100, RATE_LIMIT_RESOURCE_PER_MIN: 60 };
 
-function ctxWith(auth: ApiKeyContext | undefined, resourceId = 'res-1'): ExecutionContext {
-  const req = { params: { resourceId }, auth } as unknown as AuthedRequest;
+function ctxWith(
+  auth: ApiKeyContext | undefined,
+  resourceId = 'res-1',
+  body?: Record<string, unknown>,
+): ExecutionContext {
+  const req = { params: { resourceId }, auth, body } as unknown as AuthedRequest;
   return {
     switchToHttp: () => ({ getRequest: () => req as Request }),
   } as unknown as ExecutionContext;
@@ -41,8 +51,13 @@ function makeLimiter(impl: (key: string, limit: number) => RateLimitResult): Rat
 }
 
 function guard(limiter: RateLimiter): RateLimitGuard {
-  return new RateLimitGuard(limiter, env as never);
+  return new RateLimitGuard(limiter, env as never, {} as never);
 }
+
+beforeEach(() => {
+  getModelRateLimit.mockReset();
+  getModelRateLimit.mockResolvedValue(null);
+});
 
 describe('RateLimitGuard', () => {
   it('allows when both buckets are under budget', async () => {
@@ -107,5 +122,41 @@ describe('RateLimitGuard', () => {
     await expect(g.canActivate(ctxWith(undefined))).rejects.toMatchObject({
       unified: { code: 'unauthorized' },
     });
+  });
+
+  it('consults a per-(tenant,model) bucket when the body names a model with a limit', async () => {
+    getModelRateLimit.mockResolvedValue(5);
+    const keys: string[] = [];
+    const g = guard(
+      makeLimiter((key) => {
+        keys.push(key);
+        return allow();
+      }),
+    );
+    await g.canActivate(ctxWith(authCtx, 'res-1', { model: 'gpt-x' }));
+    expect(keys).toEqual(expect.arrayContaining(['rl:model:t1:gpt-x']));
+  });
+
+  it('429 when the per-model bucket is exceeded', async () => {
+    getModelRateLimit.mockResolvedValue(5);
+    const g = guard(makeLimiter((key) => (key.startsWith('rl:model:') ? block(2_000) : allow())));
+    await expect(
+      g.canActivate(ctxWith(authCtx, 'res-1', { model: 'gpt-x' })),
+    ).rejects.toMatchObject({
+      unified: { code: 'rate_limited', retryAfterMs: 2_000 },
+    });
+  });
+
+  it('skips the per-model bucket when the model has no limit', async () => {
+    getModelRateLimit.mockResolvedValue(null);
+    const keys: string[] = [];
+    const g = guard(
+      makeLimiter((key) => {
+        keys.push(key);
+        return allow();
+      }),
+    );
+    await g.canActivate(ctxWith(authCtx, 'res-1', { model: 'gpt-x' }));
+    expect(keys.some((k) => k.startsWith('rl:model:'))).toBe(false);
   });
 });

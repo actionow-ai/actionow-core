@@ -55,6 +55,8 @@ export const modelViewSchema = z.object({
   resource_id: z.string(),
   input_price: z.string(),
   output_price: z.string(),
+  /** Per-model rate limit (requests/min); null when no model-specific cap. */
+  rate_limit: z.number().nullable(),
   status: z.string(),
   created_at: z.string(),
 });

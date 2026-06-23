@@ -4,6 +4,7 @@ import {
   boolean,
   check,
   index,
+  integer,
   jsonb,
   pgTable,
   text,
@@ -50,6 +51,12 @@ export const model = pgTable(
     // slug (Track 2; spec D7). Such a model is created `disabled` and is NEVER
     // billable at 0 — it stays out of routing until an admin prices it.
     needsPricing: boolean('needs_pricing').notNull().default(false),
+    /**
+     * Per-model rate limit in requests/minute (模型限流): a per-(tenant, model)
+     * cap enforced by the relay's RateLimitGuard ON TOP of the tenant/resource
+     * caps. Null → no model-specific cap (the resource/tenant defaults apply).
+     */
+    rateLimit: integer('rate_limit'),
     // status allowed values: active | disabled (create default + admin DTO + sync insert)
     status: text('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

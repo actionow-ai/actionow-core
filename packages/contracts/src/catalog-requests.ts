@@ -229,6 +229,8 @@ export const createModelSchema = z.object({
   inputPrice: z.number().int().nonnegative().optional(),
   /** µcredit-per-OUTPUT-token (integer). Same convention. Defaults to 0. */
   outputPrice: z.number().int().nonnegative().optional(),
+  /** Per-model rate limit in requests/minute (模型限流); omitted → no model-specific cap. */
+  rateLimit: z.number().int().positive().max(1_000_000).optional(),
   status: z.enum(['active', 'disabled']).optional(),
 });
 export type CreateModelBody = z.infer<typeof createModelSchema>;
@@ -245,6 +247,8 @@ export const updateModelSchema = z.object({
   inputPrice: z.number().int().nonnegative().optional(),
   outputPrice: z.number().int().nonnegative().optional(),
   visibility: z.enum(['public', 'tenant']).optional(),
+  /** Per-model rate limit in requests/minute (模型限流); `null` clears it. */
+  rateLimit: z.number().int().positive().max(1_000_000).nullable().optional(),
   status: z.enum(['active', 'disabled']).optional(),
 });
 export type UpdateModelBody = z.infer<typeof updateModelSchema>;
