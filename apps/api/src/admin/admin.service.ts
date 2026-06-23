@@ -65,6 +65,7 @@ import {
   type Job,
   type KeysetResult,
   type LedgerRow,
+  linkChannelModelsByNames,
   listAccounts,
   listAllChannelsWithHealth,
   listApiKeys,
@@ -128,6 +129,7 @@ import {
   softDeleteSecretRef,
   type TenantRow,
   topUp,
+  unlinkAllForChannel,
   updateFaultPolicy,
   type UpdateFaultPolicyInput,
   updateModel,
@@ -970,6 +972,9 @@ export class AdminService {
     if (id === undefined) {
       throw engineNotFound(`channel ${channelId} not found for resource ${resourceId}`);
     }
+    // Drop this channel's model links (pure join data — no reason to keep them
+    // once the channel is gone; also keeps model_count / routing correct).
+    await unlinkAllForChannel(this.db, channelId);
     return { id };
   }
 
@@ -1041,6 +1046,10 @@ export class AdminService {
         ? { defaultOutputPrice: BigInt(dto.defaultOutputPrice) }
         : {}),
     });
+
+    // Catalog supply-hierarchy: a synced channel now OWNS the models it
+    // discovered — link them so they show in its model grid + route preferentially.
+    await linkChannelModelsByNames(this.db, channelId, [...result.created, ...result.updated]);
 
     return {
       resource_id: resourceId,
