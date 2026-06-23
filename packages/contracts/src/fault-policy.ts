@@ -17,7 +17,7 @@ export const createFaultPolicySchema = z.object({
   /** Surface the first error immediately (no same-channel retry). Default false. */
   fastFail: z.boolean().optional(),
   /** SAME-channel retry attempts after the first failure. Default 0. */
-  retryCount: z.number().int().min(0).max(20).optional(),
+  retryCount: z.number().int().min(0).max(10).optional(),
   backoffType: z.enum(BACKOFF_TYPES).optional(),
   /** Base backoff interval (ms); exponential doubles it per retry. Default 0. */
   backoffMs: z.number().int().nonnegative().max(600_000).optional(),
@@ -42,7 +42,7 @@ export type CreateFaultPolicyBody = z.infer<typeof createFaultPolicySchema>;
 export const updateFaultPolicySchema = z.object({
   name: z.string().min(1).optional(),
   fastFail: z.boolean().optional(),
-  retryCount: z.number().int().min(0).max(20).optional(),
+  retryCount: z.number().int().min(0).max(10).optional(),
   backoffType: z.enum(BACKOFF_TYPES).optional(),
   backoffMs: z.number().int().nonnegative().max(600_000).optional(),
   connectTimeoutMs: timeoutMs.nullable().optional(),

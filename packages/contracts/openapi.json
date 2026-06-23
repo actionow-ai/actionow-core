@@ -3555,7 +3555,7 @@
           "retryCount": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 20
+            "maximum": 10
           },
           "backoffType": {
             "type": "string",
@@ -3641,7 +3641,7 @@
           "retryCount": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 20
+            "maximum": 10
           },
           "backoffType": {
             "type": "string",

@@ -307,6 +307,33 @@ describe('FetchHttpClient.stream', () => {
     expect(cancelled).toBe(true);
   });
 
+  it('aborts on the TTFT window when firstChunkTimeoutMs is shorter than idleTimeoutMs', async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(): void {
+        // Headers arrive (fetch resolves) but NO body chunk is ever sent.
+      },
+    });
+    const stalled = { status: 200, ok: true, body } as unknown as Response;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(stalled));
+
+    const client = new FetchHttpClient();
+    const res = await client.stream({
+      method: 'POST',
+      url: 'https://x.test/stream',
+      firstChunkTimeoutMs: 30, // TTFT
+      idleTimeoutMs: 5000, // much longer inter-chunk idle
+    });
+
+    const start = Date.now();
+    await expect(
+      (async (): Promise<void> => {
+        for await (const _chunk of res.lines) void _chunk;
+      })(),
+    ).rejects.toMatchObject({ unified: { code: 'upstream_timeout', retryable: true } });
+    // Fired on the 30ms TTFT window, NOT the 5000ms idle window.
+    expect(Date.now() - start).toBeLessThan(1000);
+  });
+
   it('does not abort a stream that keeps sending within the idle window', async () => {
     const encoder = new TextEncoder();
     const body = new ReadableStream<Uint8Array>({

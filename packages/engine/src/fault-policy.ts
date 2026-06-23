@@ -125,12 +125,22 @@ export function shouldRetrySameChannel(err: unknown, policy: FaultPolicy): boole
   return false;
 }
 
-/** Backoff delay (ms) before the `attemptIndex`-th retry (1-based): fixed or exponential. */
-function backoffMsFor(policy: FaultPolicy, attemptIndex: number): number {
+/**
+ * Hard cap on a SINGLE backoff delay (ms). Bounds exponential growth: without
+ * it, `backoffMs` × 2^(retryCount-1) at the schema maxes would sleep for ages
+ * and pin the request's credit hold. 60s/attempt keeps the worst case to
+ * `retryCount × (60s + per-attempt timeout)`.
+ */
+const MAX_BACKOFF_MS = 60_000;
+
+/** Backoff delay (ms) before the `attemptNumber`-th retry (1-based), capped at {@link MAX_BACKOFF_MS}. */
+function backoffMsFor(policy: FaultPolicy, attemptNumber: number): number {
   if (policy.backoffMs <= 0) return 0;
-  return policy.backoffType === 'exponential'
-    ? policy.backoffMs * 2 ** (attemptIndex - 1)
-    : policy.backoffMs;
+  const raw =
+    policy.backoffType === 'exponential'
+      ? policy.backoffMs * 2 ** (attemptNumber - 1)
+      : policy.backoffMs;
+  return Math.min(raw, MAX_BACKOFF_MS);
 }
 
 /**

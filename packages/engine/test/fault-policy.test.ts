@@ -84,6 +84,20 @@ describe('runWithFaultPolicy', () => {
     expect(clock.delays).toEqual([100, 200, 400]);
   });
 
+  it('CAPS exponential backoff so a runaway policy cannot sleep for ages', async () => {
+    const attempt = vi.fn().mockRejectedValue(adapterErr('rate_limited'));
+    const clock = fakeClock();
+    await expect(
+      runWithFaultPolicy(
+        { ...base, retryCount: 3, backoffType: 'exponential', backoffMs: 30_000 },
+        attempt,
+        clock,
+      ),
+    ).rejects.toThrow();
+    // 30s, 60s, then 120s clamped to the 60s cap.
+    expect(clock.delays).toEqual([30_000, 60_000, 60_000]);
+  });
+
   it('does not retry an error that fails the trigger match (codes configured)', async () => {
     // Only 500 triggers a retry; a 429 (rate_limited) must NOT be retried.
     const attempt = vi.fn().mockRejectedValue(adapterErr('rate_limited'));
@@ -125,6 +139,16 @@ describe('shouldRetrySameChannel', () => {
     expect(shouldRetrySameChannel(adapterErr('upstream_error', 'bad gateway', false), policy)).toBe(
       false,
     );
+  });
+
+  it('matches on EITHER a code OR a message when both trigger sets are configured', () => {
+    const policy = { ...base, retryCount: 1, retryCodes: [500], retryMessages: ['boom'] };
+    // message matches (code does not) → retry
+    expect(shouldRetrySameChannel(adapterErr('rate_limited', 'boom', false), policy)).toBe(true);
+    // code matches (500 → upstream_error; message does not) → retry
+    expect(shouldRetrySameChannel(adapterErr('upstream_error', 'slow', false), policy)).toBe(true);
+    // neither matches → no retry
+    expect(shouldRetrySameChannel(adapterErr('rate_limited', 'slow', false), policy)).toBe(false);
   });
 
   it('returns false under fastFail or zero retryCount', () => {
