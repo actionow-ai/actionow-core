@@ -23,6 +23,7 @@ import type {
   CreateOfficialPriceBody,
   CreatePluginRequest,
   CreatePricebookBody,
+  CreateProxyBody,
   CreateResourceBody,
   CreateRouteGroupBody,
   CreateSecretBody,
@@ -50,6 +51,8 @@ import type {
   ProviderPluginView,
   ProvisionBody,
   ProvisionView,
+  ProxyProbeBody,
+  ProxyView,
   RedemptionCodeView,
   RelayTraceQuery,
   RelayTraceView,
@@ -73,6 +76,7 @@ import type {
   UpdateOfficialPriceBody,
   UpdatePluginRequest,
   UpdatePricebookBody,
+  UpdateProxyBody,
   UpdateResourceBody,
   UpdateRouteGroupBody,
   UpdateTenantBody,
@@ -250,6 +254,20 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     deleteFaultPolicy: async (id: string): Promise<void> => {
       unwrap(await sdk.DELETE('/admin/fault-policies/{id}', { params: { path: { id } } }), u);
     },
+
+    // --- Managed egress proxies (代理) ---
+    listProxies: async () => page<ProxyView>(await sdk.GET('/admin/proxies'), u).rows,
+    createProxy: async (body: CreateProxyBody, idempotencyKey?: string) =>
+      unwrap(await sdk.POST('/admin/proxies', { body, headers: idem(idempotencyKey) }), u),
+    getProxy: async (id: string) =>
+      unwrap(await sdk.GET('/admin/proxies/{id}', { params: { path: { id } } }), u),
+    updateProxy: async (id: string, body: UpdateProxyBody) =>
+      unwrap(await sdk.PATCH('/admin/proxies/{id}', { params: { path: { id } }, body }), u),
+    deleteProxy: async (id: string): Promise<void> => {
+      unwrap(await sdk.DELETE('/admin/proxies/{id}', { params: { path: { id } } }), u);
+    },
+    probeProxy: async (id: string, body: ProxyProbeBody = {}): Promise<ProxyView> =>
+      unwrap(await sdk.POST('/admin/proxies/{id}/probe', { params: { path: { id } }, body }), u),
 
     // --- Route groups (billing/routing) ---
     listRouteGroups: async () => page<RouteGroupView>(await sdk.GET('/admin/route-groups'), u).rows,

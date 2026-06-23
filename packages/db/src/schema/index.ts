@@ -9,6 +9,7 @@ export * from './official-price.js';
 export * from './payment.js';
 export * from './plugin.js';
 export * from './pricing.js';
+export * from './proxy.js';
 export * from './redemption.js';
 export * from './relay-trace.js';
 export * from './route-group.js';

@@ -35,6 +35,8 @@ import {
   type CreateOfficialPriceInput,
   createPlugin,
   createPricebookEntry,
+  createProxy,
+  type CreateProxyInput,
   createRedemptionCode,
   createResource,
   createRouteGroup,
@@ -54,6 +56,7 @@ import {
   getOfficialPriceById,
   getPluginById,
   getPricebookEntryById,
+  getProxyById,
   getResource,
   getRouteGroupById,
   getSecretRefById,
@@ -77,6 +80,7 @@ import {
   listOfficialPrices,
   listPlugins,
   listPricebookEntries,
+  listProxies,
   listRedemptionCodes,
   listRelayTraces,
   listResources,
@@ -93,6 +97,8 @@ import {
   type PageParams,
   type PricebookEntryRow,
   type ProviderPluginRow,
+  type ProxyRow,
+  recordProxyHealth,
   type RedemptionCodeRow,
   type RelayTraceFilter,
   type RelayTraceRow,
@@ -113,6 +119,7 @@ import {
   softDeleteOfficialPrice,
   softDeletePlugin,
   softDeletePricebookEntry,
+  softDeleteProxy,
   softDeleteRouteGroup,
   softDeleteSecretRef,
   type TenantRow,
@@ -125,6 +132,8 @@ import {
   updateOfficialPrice,
   updatePlugin,
   updatePricebookEntry,
+  updateProxy,
+  type UpdateProxyInput,
   updateResource,
   updateRouteGroup,
   updateSecretRefMeta,
@@ -167,6 +176,7 @@ import type {
   CreateOAuthSessionDto,
   CreateOfficialPriceDto,
   CreatePricebookDto,
+  CreateProxyDto,
   CreateResourceDto,
   CreateRouteGroupDto,
   CreateSecretDto,
@@ -174,6 +184,7 @@ import type {
   GenerateCodesDto,
   GrantModelDto,
   ProvisionDto,
+  ProxyProbeDto,
   SyncChannelModelsDto,
   TopupDto,
   UpdateApiKeyGroupDto,
@@ -183,6 +194,7 @@ import type {
   UpdateModifierDto,
   UpdateOfficialPriceDto,
   UpdatePricebookDto,
+  UpdateProxyDto,
   UpdateResourceDto,
   UpdateRouteGroupDto,
   UpdateTenantDto,
@@ -269,6 +281,14 @@ export interface ProvisionResult {
   tenant: TenantRow;
   account: AccountRow;
   apiKey: CreatedApiKey;
+}
+
+/** Neutral, no-auth 204 endpoint a proxy probe fetches to prove reachability. */
+const DEFAULT_PROXY_PROBE_URL = 'https://www.gstatic.com/generate_204';
+
+/** Redact `scheme://user:pass@` credentials from a proxy probe error before persisting it. */
+function sanitizeProxyError(message: string): string {
+  return message.replace(/:\/\/[^/@\s]+@/g, '://***@').slice(0, 500);
 }
 
 /**
@@ -1510,6 +1530,129 @@ export class AdminService {
       throw engineNotFound(`official price ${id} not found`);
     }
     return { id: deleted };
+  }
+
+  // ----- proxies (代理) -----
+
+  /** Validate + return the AES master key, or a clean 400 (mirrors createSecret). */
+  private requireEncryptionKey(): string {
+    const keyB64 = this.env.SECRET_ENCRYPTION_KEY;
+    if (keyB64 === undefined || keyB64 === '') {
+      throw engineInvalidInput('SECRET_ENCRYPTION_KEY is not configured');
+    }
+    if (Buffer.from(keyB64, 'base64').length !== 32) {
+      throw engineInvalidInput('SECRET_ENCRYPTION_KEY must be a base64-encoded 32-byte key');
+    }
+    return keyB64;
+  }
+
+  /** Create a managed proxy (URL encrypted at rest). Duplicate name → clean 400. */
+  async createProxy(dto: CreateProxyDto): Promise<ProxyRow> {
+    const keyB64 = this.requireEncryptionKey();
+    const input: CreateProxyInput = {
+      name: dto.name,
+      url: dto.url,
+      keyB64,
+      ...(dto.status !== undefined ? { status: dto.status } : {}),
+      ...(dto.description !== undefined ? { description: dto.description } : {}),
+    };
+    try {
+      return await createProxy(this.db, input);
+    } catch (err) {
+      if (isUniqueViolation(err)) throw engineInvalidInput(`proxy '${dto.name}' already exists`);
+      throw err;
+    }
+  }
+
+  listProxies(page: PageParams): Promise<KeysetResult<ProxyRow>> {
+    return listProxies(this.db, page);
+  }
+
+  async getProxy(id: string): Promise<ProxyRow> {
+    const row = await getProxyById(this.db, id);
+    if (row === undefined) throw engineNotFound(`proxy ${id} not found`);
+    return row;
+  }
+
+  /** Patch a proxy; supplying `url` re-encrypts it (requires the master key). 404 when absent. */
+  async updateProxy(id: string, dto: UpdateProxyDto): Promise<ProxyRow> {
+    const patch: { -readonly [K in keyof UpdateProxyInput]: UpdateProxyInput[K] } = {};
+    if (dto.name !== undefined) patch.name = dto.name;
+    if (dto.status !== undefined) patch.status = dto.status;
+    if (dto.description !== undefined) patch.description = dto.description;
+    if (dto.url !== undefined) {
+      patch.url = dto.url;
+      patch.keyB64 = this.requireEncryptionKey();
+    }
+    let row: ProxyRow | undefined;
+    try {
+      row = await updateProxy(this.db, id, patch);
+    } catch (err) {
+      if (isUniqueViolation(err))
+        throw engineInvalidInput(`proxy '${dto.name ?? ''}' already exists`);
+      throw err;
+    }
+    if (row === undefined) throw engineNotFound(`proxy ${id} not found`);
+    return row;
+  }
+
+  async deleteProxy(id: string): Promise<{ id: string }> {
+    const deleted = await softDeleteProxy(this.db, id);
+    if (deleted === undefined) throw engineNotFound(`proxy ${id} not found`);
+    return { id: deleted };
+  }
+
+  /**
+   * Probe a proxy's reachability: decrypt its URL and GET `probeUrl` THROUGH it.
+   * ANY HTTP response = reachable (the proxy connected upstream); a transport
+   * throw = failing. Records health/latency/error (credentials redacted) and
+   * returns the updated row. Note: SOCKS proxies are only exercised when egress
+   * is curl (`HTTP_EGRESS=curl`); the undici client handles HTTP/HTTPS proxies.
+   */
+  async probeProxy(id: string, dto: ProxyProbeDto): Promise<ProxyRow> {
+    const row = await getProxyById(this.db, id);
+    if (row === undefined) throw engineNotFound(`proxy ${id} not found`);
+    const keyB64 = this.requireEncryptionKey();
+    let url: string;
+    try {
+      url = decryptSecret(row.encryptedUrl, keyB64);
+    } catch {
+      throw engineInvalidInput('failed to decrypt proxy URL (wrong SECRET_ENCRYPTION_KEY?)');
+    }
+    const probeUrl = dto.probeUrl ?? DEFAULT_PROXY_PROBE_URL;
+    const timeoutMs = dto.timeoutMs ?? 10_000;
+    const now = new Date();
+    const start = Date.now();
+    try {
+      const res = await this.http.request({
+        method: 'GET',
+        url: probeUrl,
+        proxyUrl: url,
+        timeoutMs,
+      });
+      // A real HTTP response (ANY status — even 4xx/5xx) means the proxy reached
+      // upstream → reachable. The curl egress reports `status: 0` for a proxy
+      // CONNECT failure (it doesn't throw), so guard on `status > 0`.
+      if (res.status > 0) {
+        const updated = await recordProxyHealth(this.db, id, {
+          healthy: true,
+          latencyMs: Date.now() - start,
+          error: null,
+          now,
+        });
+        return updated ?? row;
+      }
+      const updated = await recordProxyHealth(this.db, id, {
+        healthy: false,
+        error: 'failed to connect through proxy',
+        now,
+      });
+      return updated ?? row;
+    } catch (err) {
+      const message = sanitizeProxyError(err instanceof Error ? err.message : String(err));
+      const updated = await recordProxyHealth(this.db, id, { healthy: false, error: message, now });
+      return updated ?? row;
+    }
   }
 
   // ----- fault policies (调用容错) -----

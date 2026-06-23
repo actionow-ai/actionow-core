@@ -40,6 +40,8 @@ import {
   providerPluginViewSchema,
   type ProvisionView,
   provisionViewSchema,
+  type ProxyView,
+  proxyViewSchema,
   type RedemptionCodeView,
   redemptionCodeViewSchema,
   type ResourceView,
@@ -73,6 +75,7 @@ import type {
   OfficialModelPriceRow,
   PricebookEntryRow,
   ProviderPluginRow,
+  ProxyRow,
   RedemptionCodeRow,
   Resource,
   RouteGroupChannelRow,
@@ -145,6 +148,8 @@ import {
   createPluginRequestSchema,
   type CreatePricebookDto,
   createPricebookSchema,
+  type CreateProxyDto,
+  createProxySchema,
   type CreateResourceDto,
   createResourceSchema,
   type CreateRouteGroupDto,
@@ -163,6 +168,8 @@ import {
   officialPricesQuerySchema,
   type ProvisionDto,
   provisionSchema,
+  type ProxyProbeDto,
+  proxyProbeRequestSchema,
   type RedemptionCodesQueryDto,
   redemptionCodesQuerySchema,
   type RelayTraceQueryDto,
@@ -191,6 +198,8 @@ import {
   updatePluginRequestSchema,
   type UpdatePricebookDto,
   updatePricebookSchema,
+  type UpdateProxyDto,
+  updateProxySchema,
   type UpdateResourceDto,
   updateResourceSchema,
   type UpdateRouteGroupDto,
@@ -989,6 +998,58 @@ export class AdminController {
     await this.admin.deleteOfficialPrice(id);
   }
 
+  // ----- proxies (代理) -----
+
+  @Post('proxies')
+  @HttpCode(201)
+  @Idempotent()
+  @ApiOperation({ summary: 'Create a managed egress proxy (URL encrypted at rest; name unique)' })
+  async createProxy(@Body(new ZodBody(createProxySchema)) dto: CreateProxyDto): Promise<ProxyView> {
+    return toProxyView(await this.admin.createProxy(dto));
+  }
+
+  @Get('proxies')
+  @ApiOperation({ summary: 'List managed egress proxies (paginated; credentials never returned)' })
+  async listProxies(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ProxyView>> {
+    const result = await this.admin.listProxies(toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toProxyView);
+  }
+
+  @Get('proxies/:id')
+  @ApiOperation({ summary: 'Get one proxy by id or 404' })
+  async getProxy(@Param('id') id: string): Promise<ProxyView> {
+    return toProxyView(await this.admin.getProxy(id));
+  }
+
+  @Patch('proxies/:id')
+  @ApiOperation({ summary: 'Update a proxy (name/url/status/description; url re-encrypts)' })
+  async updateProxy(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateProxySchema)) dto: UpdateProxyDto,
+  ): Promise<ProxyView> {
+    return toProxyView(await this.admin.updateProxy(id, dto));
+  }
+
+  @Post('proxies/:id/probe')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Probe a proxy and record its health (latency/reachability)' })
+  async probeProxy(
+    @Param('id') id: string,
+    @Body(new ZodBody(proxyProbeRequestSchema)) dto: ProxyProbeDto,
+  ): Promise<ProxyView> {
+    return toProxyView(await this.admin.probeProxy(id, dto));
+  }
+
+  @Delete('proxies/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete a proxy (bound channels fall back to no proxy)' })
+  async deleteProxy(@Param('id') id: string): Promise<void> {
+    await this.admin.deleteProxy(id);
+  }
+
   // ----- fault policies (调用容错) -----
 
   @Post('fault-policies')
@@ -1409,6 +1470,23 @@ function toChannelView(row: UpstreamChannelRow): ChannelView {
     input_cost_per_1m: row.inputCostPer1m === null ? null : row.inputCostPer1m.toString(),
     output_cost_per_1m: row.outputCostPer1m === null ? null : row.outputCostPer1m.toString(),
     fault_policy_id: row.faultPolicyId,
+  });
+}
+
+function toProxyView(row: ProxyRow): ProxyView {
+  return proxyViewSchema.parse({
+    id: row.id,
+    name: row.name,
+    scheme: row.scheme,
+    host: row.host,
+    status: row.status,
+    healthy: row.healthy,
+    last_checked_at: row.lastCheckedAt === null ? null : row.lastCheckedAt.toISOString(),
+    last_latency_ms: row.lastLatencyMs,
+    last_error: row.lastError,
+    description: row.description,
+    created_at: row.createdAt.toISOString(),
+    updated_at: row.updatedAt.toISOString(),
   });
 }
 

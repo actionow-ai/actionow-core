@@ -126,6 +126,12 @@ import {
   testPluginResponseSchema,
   updatePluginRequestSchema,
 } from './provider-plugin.js';
+import {
+  createProxySchema,
+  proxyProbeRequestSchema,
+  proxyViewSchema,
+  updateProxySchema,
+} from './proxy.js';
 
 /**
  * BUILD-TIME ONLY. This module turns the pure zod view contracts into an OpenAPI
@@ -289,6 +295,10 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const FaultPolicy = registry.register('FaultPolicyView', faultPolicyViewSchema);
   const CreateFaultPolicy = registry.register('CreateFaultPolicyBody', createFaultPolicySchema);
   const UpdateFaultPolicy = registry.register('UpdateFaultPolicyBody', updateFaultPolicySchema);
+  const Proxy = registry.register('ProxyView', proxyViewSchema);
+  const CreateProxy = registry.register('CreateProxyBody', createProxySchema);
+  const UpdateProxy = registry.register('UpdateProxyBody', updateProxySchema);
+  const ProxyProbe = registry.register('ProxyProbeBody', proxyProbeRequestSchema);
   const AddGroupChannel = registry.register('AddGroupChannelBody', addGroupChannelSchema);
   const CreateOfficialPrice = registry.register(
     'CreateOfficialPriceBody',
@@ -563,6 +573,8 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   );
   list('/admin/fault-policies', 'List fault-tolerance policies', FaultPolicy, 'catalog');
   getOne('/admin/fault-policies/{id}', 'Get one fault policy', FaultPolicy, 'catalog');
+  list('/admin/proxies', 'List managed egress proxies', Proxy, 'catalog');
+  getOne('/admin/proxies/{id}', 'Get one proxy', Proxy, 'catalog');
   list('/admin/route-groups', 'List route groups', RouteGroup, 'billing');
   list(
     '/admin/route-groups/{id}/channels',
@@ -962,6 +974,34 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     response: FaultPolicy,
   });
   del('/admin/fault-policies/{id}', 'Delete a fault-tolerance policy', 'catalog');
+
+  // managed egress proxies (代理)
+  write({
+    method: 'post',
+    path: '/admin/proxies',
+    summary: 'Create a managed egress proxy',
+    tag: 'catalog',
+    body: CreateProxy,
+    response: Proxy,
+    created: true,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/proxies/{id}',
+    summary: 'Update a managed proxy',
+    tag: 'catalog',
+    body: UpdateProxy,
+    response: Proxy,
+  });
+  write({
+    method: 'post',
+    path: '/admin/proxies/{id}/probe',
+    summary: 'Probe a proxy and record its health',
+    tag: 'catalog',
+    body: ProxyProbe,
+    response: Proxy,
+  });
+  del('/admin/proxies/{id}', 'Delete a managed proxy', 'catalog');
 
   // billing & routing
   write({

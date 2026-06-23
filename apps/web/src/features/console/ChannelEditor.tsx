@@ -72,6 +72,18 @@ export function ChannelEditor({
     ...(faultPolicies.data ?? []).map((p) => ({ value: p.id, label: p.name })),
   ];
 
+  // Managed egress proxies (代理) — picking one sets proxyRef to its id; a raw
+  // env/locator can still be typed in the advanced field below.
+  const proxies = useQuery({
+    queryKey: qk.proxies(),
+    queryFn: () => api.listProxies(),
+    staleTime: STALE_REFERENCE,
+  });
+  const proxyOptions = [
+    { value: '', label: t('channels.form.proxyNone') },
+    ...(proxies.data ?? []).map((p) => ({ value: p.id, label: `${p.name} · ${p.scheme} ${p.host}` })),
+  ];
+
   const [providerType, setProviderType] = useState(channel?.provider_type ?? '');
   const [faultPolicyId, setFaultPolicyId] = useState(channel?.fault_policy_id ?? '');
   const [endpoint, setEndpoint] = useState(channel?.endpoint ?? '');
@@ -192,9 +204,17 @@ export function ChannelEditor({
         value={model}
         onChange={setModel}
       />
+      <SelectField
+        label={t('channels.form.proxy')}
+        tooltip={t('channels.tip.proxy')}
+        value={(proxies.data ?? []).some((p) => p.id === proxyRef) ? proxyRef : ''}
+        onChange={setProxyRef}
+        options={proxyOptions}
+      />
       <TextField
         label={t('channels.form.proxyRef')}
         tooltip={t('channels.tip.proxyRef')}
+        hint={t('channels.tip.proxyRefAdvanced')}
         value={proxyRef}
         onChange={setProxyRef}
       />

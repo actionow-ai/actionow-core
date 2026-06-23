@@ -251,6 +251,19 @@ export {
   type UpdatePluginInput,
   upsertBuiltinPlugin,
 } from './plugin.js';
+export {
+  createProxy,
+  type CreateProxyInput,
+  getProxyById,
+  listProxies,
+  parseProxyUrl,
+  type ProxyRow,
+  recordProxyHealth,
+  type RecordProxyHealthInput,
+  softDeleteProxy,
+  updateProxy,
+  type UpdateProxyInput,
+} from './proxy.js';
 export { type ExpiredHold, listExpiredHolds } from './reaper.js';
 export {
   claimRedemptionCode,
