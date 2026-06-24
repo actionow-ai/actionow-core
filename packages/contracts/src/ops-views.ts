@@ -31,6 +31,8 @@ export type ApiKeyView = z.infer<typeof apiKeyViewSchema>;
 export const jobViewSchema = z.object({
   job_id: z.string(),
   tenant_id: z.string(),
+  /** The end-user (subject) this job was attributed to (记录系统); `null` → tenant-level. */
+  subject_id: z.string().nullable(),
   resource_id: z.string(),
   status: z.string(),
   exec_mode: z.string(),
@@ -44,6 +46,8 @@ export const ledgerViewSchema = z.object({
   id: z.string(),
   tenant_id: z.string(),
   account_id: z.string(),
+  /** The end-user (subject) this money movement was attributed to (记录系统); `null` → pool. */
+  subject_id: z.string().nullable(),
   type: z.string(),
   credits_delta: z.string(),
   balance_after: z.string(),
@@ -57,6 +61,8 @@ export type LedgerView = z.infer<typeof ledgerViewSchema>;
 export const usageLogViewSchema = z.object({
   id: z.string(),
   tenant_id: z.string(),
+  /** The end-user (subject) this call was attributed to (记录系统); `null` → tenant-level. */
+  subject_id: z.string().nullable(),
   model: z.string(),
   input_tokens: z.number(),
   output_tokens: z.number(),
@@ -300,3 +306,41 @@ export const opsSummaryViewSchema = z.object({
   accounts: z.number(),
 });
 export type OpsSummaryView = z.infer<typeof opsSummaryViewSchema>;
+
+/**
+ * One audit-log record (记录系统; `GET /admin/audit-log`) — an actor-attributed
+ * who-changed-what entry over money/governance/identity mutations. `meta` is
+ * free-form non-secret context (amounts, ids, before/after, cascade counts);
+ * `actor_id` is an operator/user id or `null` for system actions.
+ */
+export const auditLogViewSchema = z.object({
+  id: z.string(),
+  created_at: z.string(),
+  actor_type: z.string(),
+  actor_id: z.string().nullable(),
+  tenant_id: z.string().nullable(),
+  subject_id: z.string().nullable(),
+  action: z.string(),
+  target_type: z.string(),
+  target_id: z.string().nullable(),
+  meta: z.unknown(),
+  request_id: z.string().nullable(),
+});
+export type AuditLogView = z.infer<typeof auditLogViewSchema>;
+
+/**
+ * One reconcile row (记录系统; `GET /admin/records/reconcile`): an account or
+ * sub-wallet's stored balance vs the sum of its ledger deltas. `drift` =
+ * `balance − ledger_sum` (µcredit strings). A non-zero drift flags an integrity
+ * gap; in v1 a positive `hold`-class drift is expected (holds aren't ledgered) —
+ * full zero-drift is the records-v2 double-entry goal.
+ */
+export const reconcileRowViewSchema = z.object({
+  kind: z.string(), // 'account' | 'sub_account'
+  account_id: z.string(),
+  subject_id: z.string().nullable(),
+  balance: z.string(),
+  ledger_sum: z.string(),
+  drift: z.string(),
+});
+export type ReconcileRowView = z.infer<typeof reconcileRowViewSchema>;

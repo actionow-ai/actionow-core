@@ -158,6 +158,7 @@
     "opsOverview": "概览·分析",
     "status": "服务状态",
     "relayTraces": "中转追踪",
+    "auditLog": "审计日志",
     "overview": "概览",
     "tusage": "用量",
     "tkeys": "API Keys",
@@ -197,6 +198,7 @@
     "opsOverview": "全局用量、成本、毛利与模型健康——单屏总览",
     "status": "各模型可用性、延迟与正常运行时间(基于真实流量)",
     "relayTraces": "上游中转审计——请求、响应、延迟",
+    "auditLog": "谁在何时改了什么——资金 / 治理 / 身份变更的操作审计",
     "overview": "余额、最近任务与流水",
     "tusage": "用量聚合与逐次调用日志",
     "tkeys": "签发与管理你的 API Key",
@@ -415,6 +417,7 @@
         "type": "类型",
         "delta": "变动",
         "balanceAfter": "余额",
+        "subject": "终端用户",
         "provider": "提供方",
         "amount": "金额",
         "status": "状态"
@@ -784,6 +787,32 @@
       "status": "状态"
     },
     "empty": "暂无上游通道"
+  },
+  "auditLog": {
+    "title": "审计日志",
+    "empty": "暂无审计记录",
+    "allTenants": "全部租户",
+    "actionPlaceholder": "动作(如 tenant.topup)",
+    "targetPlaceholder": "目标类型",
+    "from": "起",
+    "to": "止",
+    "actor": {
+      "all": "全部",
+      "operator": "运营",
+      "member": "终端用户",
+      "system": "系统"
+    },
+    "cols": {
+      "time": "时间",
+      "actor": "操作者",
+      "action": "动作",
+      "target": "目标",
+      "scope": "租户 / 终端用户",
+      "meta": "详情"
+    },
+    "detail": {
+      "title": "审计详情"
+    }
   },
   "limitPlans": {
     "title": "额度套餐",

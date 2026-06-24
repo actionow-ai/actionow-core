@@ -505,6 +505,19 @@ function TenantDetailDrawer({
     },
     { key: 'type', header: t('tenants.detail.cols.type'), grow: true, cell: (r) => r.type },
     {
+      key: 'subject',
+      header: t('tenants.detail.cols.subject'),
+      cell: (r) =>
+        r.subject_id === null ? (
+          <span style={{ color: 'var(--faint)' }}>—</span>
+        ) : (
+          <span className="mono" style={{ fontSize: 'var(--fs-caption)' }} title={r.subject_id}>
+            {r.subject_id.slice(0, 8)}
+          </span>
+        ),
+      width: '96px',
+    },
+    {
       key: 'delta',
       header: t('tenants.detail.cols.delta'),
       numeric: true,

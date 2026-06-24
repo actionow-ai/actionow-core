@@ -19,6 +19,7 @@ describe('admin operational view contracts (single source of truth for FE + BE)'
       status: 'active',
       route_group_id: null,
       limit_plan_id: null,
+      subject_id: null,
       created_at: '2026-01-01T00:00:00Z',
     };
     expect(apiKeyViewSchema.parse(k)).toEqual(k);
@@ -29,6 +30,7 @@ describe('admin operational view contracts (single source of truth for FE + BE)'
     const j = {
       job_id: 'j1',
       tenant_id: 't1',
+      subject_id: null,
       resource_id: 'r1',
       status: 'succeeded',
       exec_mode: 'sync',
@@ -45,6 +47,7 @@ describe('admin operational view contracts (single source of truth for FE + BE)'
       id: 'l1',
       tenant_id: 't1',
       account_id: 'a1',
+      subject_id: null,
       type: 'topup',
       credits_delta: '1000000',
       balance_after: '1000000',
@@ -60,6 +63,7 @@ describe('admin operational view contracts (single source of truth for FE + BE)'
     const u = {
       id: 'u1',
       tenant_id: 't1',
+      subject_id: null,
       model: 'gpt-4o',
       input_tokens: 10,
       output_tokens: 20,

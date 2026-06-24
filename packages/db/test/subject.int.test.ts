@@ -1,10 +1,13 @@
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import { eq } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
+  createAccount,
+  createSubAccount,
   createSubject,
   createSubjectIdentity,
   createUser,
@@ -12,6 +15,8 @@ import {
   findSubjectByEmail,
   findSubjectByExternalId,
   findSubjectsByIdentity,
+  getAccount,
+  getSubAccount,
   getSubjectById,
   listSubjectsByTenant,
   resolveIdentityLink,
@@ -113,8 +118,8 @@ describe('softDeleteSubject', () => {
     const tenantId = await makeTenant();
     const s = await createSubject(db, { tenantId, externalId: 'u1' });
 
-    const id = await softDeleteSubject(db, tenantId, s.id);
-    expect(id).toBe(s.id);
+    const res = await softDeleteSubject(db, tenantId, s.id);
+    expect(res?.id).toBe(s.id);
 
     // live reads no longer see it
     expect(await getSubjectById(db, tenantId, s.id)).toBeUndefined();
@@ -122,6 +127,34 @@ describe('softDeleteSubject', () => {
 
     // the external_id is free again (partial unique excludes soft-deleted rows)
     await expect(createSubject(db, { tenantId, externalId: 'u1' })).resolves.toBeTruthy();
+  });
+
+  it('cascades: sweeps the sub-wallet to the tenant pool + disables subject keys', async () => {
+    const tenantId = await makeTenant();
+    const pool = await createAccount(db, { tenantId, creditBalance: 0n });
+    const s = await createSubject(db, { tenantId, externalId: 'u1' });
+    await createSubAccount(db, { tenantId, subjectId: s.id, creditBalance: 1_000_000n });
+    // two subject-scoped api keys (one already-deleted → only the live one is disabled)
+    await db.insert(schema.apiKey).values({ tenantId, subjectId: s.id, hash: 'live-hash' });
+    await db
+      .insert(schema.apiKey)
+      .values({ tenantId, subjectId: s.id, hash: 'dead-hash', deletedAt: new Date() });
+
+    const res = await softDeleteSubject(db, tenantId, s.id);
+    expect(res?.sweptMicro).toBe(1_000_000n);
+    expect(res?.disabledKeys).toBe(1);
+
+    // the swept credits landed in the tenant pool; the sub-wallet is drained
+    expect((await getAccount(db, pool.id))?.creditBalance).toBe(1_000_000n);
+    expect((await getSubAccount(db, tenantId, s.id))?.creditBalance).toBe(0n);
+
+    // the previously-live subject key is now disabled + soft-deleted
+    const live = await db
+      .select({ status: schema.apiKey.status, deletedAt: schema.apiKey.deletedAt })
+      .from(schema.apiKey)
+      .where(eq(schema.apiKey.hash, 'live-hash'));
+    expect(live[0]?.status).toBe('disabled');
+    expect(live[0]?.deletedAt).not.toBeNull();
   });
 });
 

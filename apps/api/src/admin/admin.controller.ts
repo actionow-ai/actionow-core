@@ -5,6 +5,8 @@ import {
   adminTokenViewSchema,
   type ApiKeyView,
   apiKeyViewSchema,
+  type AuditLogView,
+  auditLogViewSchema,
   type ChannelHealthView,
   channelHealthViewSchema,
   type ChannelModelLinkInput,
@@ -58,6 +60,8 @@ import {
   provisionViewSchema,
   type ProxyView,
   proxyViewSchema,
+  type ReconcileRowView,
+  reconcileRowViewSchema,
   type RedemptionCodeView,
   redemptionCodeViewSchema,
   type ResourceView,
@@ -84,6 +88,7 @@ import type {
   AccountRow,
   AdminTokenView as AdminTokenRow,
   ApiKeyRow,
+  AuditLogRow,
   ChannelHealthRow,
   FaultPolicyRow,
   IconAssetRow,
@@ -104,6 +109,7 @@ import type {
   PricebookEntryRow,
   ProviderPluginRow,
   ProxyRow,
+  ReconcileRow,
   RedemptionCodeRow,
   Resource,
   RouteGroupChannelRow,
@@ -133,6 +139,8 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { Audit } from '../audit/audit.decorator.js';
+import { AuditInterceptor } from '../audit/audit.interceptor.js';
 import { engineInvalidInput, engineUnauthorized } from '../common/errors.js';
 import { IdempotencyInterceptor } from '../common/idempotency.interceptor.js';
 import { Idempotent } from '../common/idempotent.decorator.js';
@@ -320,6 +328,9 @@ interface SecretMetadataView {
 // with `@Idempotent()` (the non-secret allowlist below); every other route is
 // untouched. Secret-returning POSTs are deliberately left undecorated.
 @UseInterceptors(IdempotencyInterceptor)
+// 记录系统: `@Audit(...)`-decorated mutation handlers emit an audit_log row after
+// success (actor = req.admin operator). Undecorated routes are untouched.
+@UseInterceptors(AuditInterceptor)
 @Controller('admin')
 export class AdminController {
   constructor(
@@ -334,6 +345,14 @@ export class AdminController {
   @HttpCode(201)
   @Idempotent()
   @ApiOperation({ summary: 'Create a tenant' })
+  @Audit({
+    action: 'tenant.create',
+    target: 'tenant',
+    resolve: ({ result }) => {
+      const r = result as { id?: string; name?: string };
+      return { tenantId: r.id ?? null, targetId: r.id ?? null, meta: { name: r.name } };
+    },
+  })
   async createTenant(
     @Body(new ZodBody(createTenantSchema)) dto: CreateTenantDto,
   ): Promise<TenantView> {
@@ -345,6 +364,18 @@ export class AdminController {
   @ApiOperation({
     summary:
       'Provision a customer atomically — tenant + account + API key in one call (plaintext key returned once)',
+  })
+  @Audit({
+    action: 'tenant.provision',
+    target: 'tenant',
+    resolve: ({ result }) => {
+      const r = result as { tenant?: { id?: string }; account?: { id?: string } };
+      return {
+        tenantId: r.tenant?.id ?? null,
+        targetId: r.tenant?.id ?? null,
+        meta: { accountId: r.account?.id },
+      };
+    },
   })
   async provision(@Body(new ZodBody(provisionSchema)) dto: ProvisionDto): Promise<ProvisionView> {
     return toProvisionView(await this.admin.provision(dto));
@@ -368,6 +399,15 @@ export class AdminController {
 
   @Patch('tenants/:id')
   @ApiOperation({ summary: 'Update a tenant (isolation mode)' })
+  @Audit({
+    action: 'tenant.update',
+    target: 'tenant',
+    resolve: ({ params, body }) => ({
+      tenantId: params.id ?? null,
+      targetId: params.id ?? null,
+      meta: { ...(body as Record<string, unknown>) },
+    }),
+  })
   async updateTenant(
     @Param('id') id: string,
     @Body(new ZodBody(updateTenantSchema)) dto: UpdateTenantDto,
@@ -381,6 +421,14 @@ export class AdminController {
   @HttpCode(201)
   @Idempotent()
   @ApiOperation({ summary: 'Create a subject (end-user) under a tenant' })
+  @Audit({
+    action: 'subject.create',
+    target: 'subject',
+    resolve: ({ params, result }) => {
+      const r = result as { id?: string };
+      return { tenantId: params.id ?? null, subjectId: r.id ?? null, targetId: r.id ?? null };
+    },
+  })
   async createSubject(
     @Param('id') tenantId: string,
     @Body(new ZodBody(createSubjectSchema)) dto: CreateSubjectDto,
@@ -407,6 +455,16 @@ export class AdminController {
 
   @Patch('tenants/:id/users/:sid')
   @ApiOperation({ summary: 'Update a subject (display name / status / plan / email)' })
+  @Audit({
+    action: 'subject.update',
+    target: 'subject',
+    resolve: ({ params, body }) => ({
+      tenantId: params.id ?? null,
+      subjectId: params.sid ?? null,
+      targetId: params.sid ?? null,
+      meta: { ...(body as Record<string, unknown>) },
+    }),
+  })
   async updateSubject(
     @Param('id') tenantId: string,
     @Param('sid') sid: string,
@@ -418,8 +476,27 @@ export class AdminController {
   @Delete('tenants/:id/users/:sid')
   @HttpCode(204)
   @ApiOperation({ summary: 'Soft-delete a subject (frees its external_id/email)' })
-  async deleteSubject(@Param('id') tenantId: string, @Param('sid') sid: string): Promise<void> {
-    await this.admin.deleteSubject(tenantId, sid);
+  @Audit({
+    action: 'subject.delete',
+    target: 'subject',
+    resolve: ({ params, req }) => ({
+      tenantId: params.id ?? null,
+      subjectId: params.sid ?? null,
+      targetId: params.sid ?? null,
+      meta: (req as { auditMeta?: Record<string, unknown> }).auditMeta,
+    }),
+  })
+  async deleteSubject(
+    @Param('id') tenantId: string,
+    @Param('sid') sid: string,
+    @Req() req: AdminRequest,
+  ): Promise<void> {
+    const cascade = await this.admin.deleteSubject(tenantId, sid);
+    // Stash the cascade summary so the audit interceptor records it as meta.
+    (req as AdminRequest & { auditMeta?: Record<string, unknown> }).auditMeta = {
+      sweptMicro: cascade.sweptMicro.toString(),
+      disabledKeys: cascade.disabledKeys,
+    };
   }
 
   // ----- subject sub-wallets (HARD mode; unified tenancy G-E) -----
@@ -428,6 +505,19 @@ export class AdminController {
   @HttpCode(201)
   @Idempotent()
   @ApiOperation({ summary: 'Open a HARD sub-wallet for a subject (optional opening balance)' })
+  @Audit({
+    action: 'sub_account.open',
+    target: 'sub_account',
+    resolve: ({ params, result, body }) => {
+      const r = result as { id?: string };
+      return {
+        tenantId: params.id ?? null,
+        subjectId: params.sid ?? null,
+        targetId: r.id ?? null,
+        meta: { ...(body as Record<string, unknown>) },
+      };
+    },
+  })
   async createSubAccount(
     @Param('id') tenantId: string,
     @Param('sid') sid: string,
@@ -449,6 +539,16 @@ export class AdminController {
   @HttpCode(200)
   @Idempotent()
   @ApiOperation({ summary: "Credit a subject's sub-wallet (credits → µcredits)" })
+  @Audit({
+    action: 'sub_account.topup',
+    target: 'sub_account',
+    resolve: ({ params, body }) => ({
+      tenantId: params.id ?? null,
+      subjectId: params.sid ?? null,
+      targetId: params.sid ?? null,
+      meta: { ...(body as Record<string, unknown>) },
+    }),
+  })
   async topupSubAccount(
     @Param('id') tenantId: string,
     @Param('sid') sid: string,
@@ -461,6 +561,16 @@ export class AdminController {
   @Post('tenants/:id/users/:sid/sub-account/transfer')
   @HttpCode(200)
   @ApiOperation({ summary: 'Transfer credits between the tenant pool and a sub-wallet' })
+  @Audit({
+    action: 'sub_account.transfer',
+    target: 'sub_account',
+    resolve: ({ params, body }) => ({
+      tenantId: params.id ?? null,
+      subjectId: params.sid ?? null,
+      targetId: params.sid ?? null,
+      meta: { ...(body as Record<string, unknown>) },
+    }),
+  })
   async transferCredits(
     @Param('id') tenantId: string,
     @Param('sid') sid: string,
@@ -476,6 +586,14 @@ export class AdminController {
   @HttpCode(201)
   @Idempotent()
   @ApiOperation({ summary: 'Create an account (opening balance in credits)' })
+  @Audit({
+    action: 'account.create',
+    target: 'account',
+    resolve: ({ result }) => {
+      const r = result as { id?: string; tenant_id?: string };
+      return { tenantId: r.tenant_id ?? null, targetId: r.id ?? null };
+    },
+  })
   async createAccount(
     @Body(new ZodBody(createAccountSchema)) dto: CreateAccountDto,
   ): Promise<AccountView> {
@@ -486,6 +604,14 @@ export class AdminController {
   @HttpCode(200)
   @Idempotent()
   @ApiOperation({ summary: 'Top up an account (amount in credits → µcredits)' })
+  @Audit({
+    action: 'account.topup',
+    target: 'account',
+    resolve: ({ params, body }) => ({
+      targetId: params.id ?? null,
+      meta: { ...(body as Record<string, unknown>) },
+    }),
+  })
   async topup(
     @Param('id') id: string,
     @Body(new ZodBody(topupSchema)) dto: TopupDto,
@@ -519,6 +645,20 @@ export class AdminController {
   @Post('api-keys')
   @HttpCode(201)
   @ApiOperation({ summary: 'Mint an API key (plaintext returned once)' })
+  @Audit({
+    action: 'api_key.create',
+    target: 'api_key',
+    // NEVER record the plaintext — only the id + scope.
+    resolve: ({ result, body }) => {
+      const r = result as { id?: string };
+      const b = body as { tenantId?: string; subjectId?: string };
+      return {
+        tenantId: b.tenantId ?? null,
+        subjectId: b.subjectId ?? null,
+        targetId: r.id ?? null,
+      };
+    },
+  })
   async createApiKey(
     @Body(new ZodBody(createApiKeySchema)) dto: CreateApiKeyDto,
   ): Promise<ApiKeyCreatedView> {
@@ -539,6 +679,14 @@ export class AdminController {
 
   @Patch('api-keys/:id/group')
   @ApiOperation({ summary: "(Re)bind an API key's route group (routeGroupId: uuid | null)" })
+  @Audit({
+    action: 'api_key.group_bind',
+    target: 'api_key',
+    resolve: ({ params, body }) => ({
+      targetId: params.id ?? null,
+      meta: { ...(body as Record<string, unknown>) },
+    }),
+  })
   async bindApiKeyGroup(
     @Param('id') id: string,
     @Body(new ZodBody(updateApiKeyGroupSchema)) dto: UpdateApiKeyGroupDto,
@@ -550,6 +698,11 @@ export class AdminController {
   @Delete('api-keys/:id')
   @HttpCode(204)
   @ApiOperation({ summary: 'Revoke (soft-delete) an API key — the key is rejected with 401 after' })
+  @Audit({
+    action: 'api_key.revoke',
+    target: 'api_key',
+    resolve: ({ params }) => ({ targetId: params.id ?? null }),
+  })
   async revokeApiKey(@Param('id') id: string): Promise<void> {
     await this.admin.revokeApiKey(id);
   }
@@ -986,6 +1139,14 @@ export class AdminController {
   @Post('limit-plans')
   @HttpCode(201)
   @ApiOperation({ summary: 'Create a limit plan (+ rules)' })
+  @Audit({
+    action: 'limit_plan.create',
+    target: 'limit_plan',
+    resolve: ({ result }) => {
+      const r = result as { id?: string; name?: string };
+      return { targetId: r.id ?? null, meta: { name: r.name } };
+    },
+  })
   async createLimitPlan(
     @Body(new ZodBody(createLimitPlanRequestSchema)) dto: CreateLimitPlanDto,
   ): Promise<LimitPlanView> {
@@ -1000,6 +1161,17 @@ export class AdminController {
 
   @Patch('limit-plans/:id')
   @ApiOperation({ summary: 'Update a limit plan; a present `rules` REPLACES the rule set' })
+  @Audit({
+    action: 'limit_plan.update',
+    target: 'limit_plan',
+    resolve: ({ params, body }) => {
+      const b = body as { name?: string; status?: string; rules?: unknown[] };
+      return {
+        targetId: params.id ?? null,
+        meta: { name: b.name, status: b.status, ruleCount: b.rules?.length },
+      };
+    },
+  })
   async updateLimitPlan(
     @Param('id') id: string,
     @Body(new ZodBody(updateLimitPlanRequestSchema)) dto: UpdateLimitPlanDto,
@@ -1010,6 +1182,11 @@ export class AdminController {
   @Delete('limit-plans/:id')
   @HttpCode(204)
   @ApiOperation({ summary: 'Soft-delete a limit plan' })
+  @Audit({
+    action: 'limit_plan.delete',
+    target: 'limit_plan',
+    resolve: ({ params }) => ({ targetId: params.id ?? null }),
+  })
   async deleteLimitPlan(@Param('id') id: string): Promise<void> {
     await this.admin.deleteLimitPlan(id);
   }
@@ -1043,8 +1220,54 @@ export class AdminController {
     return (await this.admin.listLimitAlerts()).map(toLimitAlertView);
   }
 
+  // ----- records (审计日志 + reconcile) -----
+
+  @Get('audit-log')
+  @ApiOperation({
+    summary: 'Audit log (记录系统) — who-changed-what, keyset-paginated, filterable',
+  })
+  async listAuditLog(
+    @Query('tenantId') tenantId?: string,
+    @Query('subjectId') subjectId?: string,
+    @Query('actorType') actorType?: string,
+    @Query('action') action?: string,
+    @Query('targetType') targetType?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<AuditLogView>> {
+    const result = await this.admin.listAuditLog(
+      {
+        ...(tenantId !== undefined ? { tenantId } : {}),
+        ...(subjectId !== undefined ? { subjectId } : {}),
+        ...(actorType !== undefined ? { actorType } : {}),
+        ...(action !== undefined ? { action } : {}),
+        ...(targetType !== undefined ? { targetType } : {}),
+        ...(from !== undefined ? { from: new Date(from) } : {}),
+        ...(to !== undefined ? { to: new Date(to) } : {}),
+      },
+      toPageParams({ cursor, limit }),
+    );
+    return mapPageEnvelope(result, (r) => r.id, toAuditLogView);
+  }
+
+  @Get('records/reconcile')
+  @ApiOperation({ summary: "A tenant's account balance(s) vs ledger sum (记录系统 reconcile)" })
+  async reconcile(@Query('tenantId') tenantId: string): Promise<ReconcileRowView[]> {
+    return (await this.admin.reconcile(tenantId)).map(toReconcileRowView);
+  }
+
   @Post('api-keys/:id/limit-plan')
   @ApiOperation({ summary: "Bind/unbind a key's limit plan (planId null = clear)" })
+  @Audit({
+    action: 'api_key.limit_plan_bind',
+    target: 'api_key',
+    resolve: ({ params, body }) => ({
+      targetId: params.id ?? null,
+      meta: { planId: (body as { planId?: string | null }).planId },
+    }),
+  })
   async setApiKeyLimitPlan(
     @Param('id') id: string,
     @Body(new ZodBody(setLimitPlanRequestSchema)) dto: SetLimitPlanDto,
@@ -1055,6 +1278,15 @@ export class AdminController {
 
   @Post('tenants/:id/limit-plan')
   @ApiOperation({ summary: "Bind/unbind a tenant's limit plan (planId null = clear)" })
+  @Audit({
+    action: 'tenant.limit_plan_bind',
+    target: 'tenant',
+    resolve: ({ params, body }) => ({
+      tenantId: params.id ?? null,
+      targetId: params.id ?? null,
+      meta: { planId: (body as { planId?: string | null }).planId },
+    }),
+  })
   async setTenantLimitPlan(
     @Param('id') id: string,
     @Body(new ZodBody(setLimitPlanRequestSchema)) dto: SetLimitPlanDto,
@@ -1177,6 +1409,18 @@ export class AdminController {
   @HttpCode(201)
   @Idempotent()
   @ApiOperation({ summary: 'Grant a tenant-visibility model to a tenant' })
+  @Audit({
+    action: 'model_grant.create',
+    target: 'model_grant',
+    resolve: ({ params, body }) => {
+      const b = body as { tenantId?: string };
+      return {
+        tenantId: b.tenantId ?? null,
+        targetId: params.name ?? null,
+        meta: { model: params.name },
+      };
+    },
+  })
   async grantModel(
     @Param('name') name: string,
     @Body(new ZodBody(grantModelSchema)) dto: GrantModelDto,
@@ -1201,6 +1445,15 @@ export class AdminController {
   @Delete('models/:name/grants/:tenantId')
   @HttpCode(204)
   @ApiOperation({ summary: 'Revoke (hard-delete) a tenant grant of a model' })
+  @Audit({
+    action: 'model_grant.revoke',
+    target: 'model_grant',
+    resolve: ({ params }) => ({
+      tenantId: params.tenantId ?? null,
+      targetId: params.name ?? null,
+      meta: { model: params.name },
+    }),
+  })
   async deleteModelGrant(
     @Param('name') name: string,
     @Param('tenantId') tenantId: string,
@@ -1791,6 +2044,33 @@ function toLimitPlanView(p: {
   });
 }
 
+function toAuditLogView(row: AuditLogRow): AuditLogView {
+  return auditLogViewSchema.parse({
+    id: row.id,
+    created_at: row.createdAt.toISOString(),
+    actor_type: row.actorType,
+    actor_id: row.actorId,
+    tenant_id: row.tenantId,
+    subject_id: row.subjectId,
+    action: row.action,
+    target_type: row.targetType,
+    target_id: row.targetId,
+    meta: row.meta,
+    request_id: row.requestId,
+  });
+}
+
+function toReconcileRowView(r: ReconcileRow): ReconcileRowView {
+  return reconcileRowViewSchema.parse({
+    kind: r.kind,
+    account_id: r.accountId,
+    subject_id: r.subjectId,
+    balance: r.balance.toString(),
+    ledger_sum: r.ledgerSum.toString(),
+    drift: r.drift.toString(),
+  });
+}
+
 function toLimitRuleStatusView(r: LimitRuleStatus): LimitRuleStatusView {
   return limitRuleStatusViewSchema.parse({
     dimension: r.dimension,
@@ -1987,6 +2267,7 @@ function toLedgerView(row: LedgerRow): LedgerView {
     id: row.id,
     tenant_id: row.tenantId,
     account_id: row.accountId,
+    subject_id: row.subjectId,
     type: row.type,
     credits_delta: row.creditsDelta.toString(),
     balance_after: row.balanceAfter.toString(),
@@ -2000,6 +2281,7 @@ function toJobView(row: Job): JobView {
   return jobViewSchema.parse({
     job_id: row.id,
     tenant_id: row.tenantId,
+    subject_id: row.subjectId,
     resource_id: row.resourceId,
     status: row.status,
     exec_mode: row.execMode,
@@ -2076,6 +2358,7 @@ function toUsageLogView(row: UsageLogRow): UsageLogView {
   return usageLogViewSchema.parse({
     id: row.id,
     tenant_id: row.tenantId,
+    subject_id: row.subjectId,
     model: row.model,
     input_tokens: row.inputTokens,
     output_tokens: row.outputTokens,

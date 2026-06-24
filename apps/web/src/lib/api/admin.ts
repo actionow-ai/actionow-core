@@ -8,6 +8,7 @@ import type {
   AnalyticsUsageQuery,
   ApiKeyCreatedView,
   ApiKeyView,
+  AuditLogView,
   ChannelView,
   CodexLoginCompleteBody,
   CodexLoginStartBody,
@@ -61,6 +62,7 @@ import type {
   ProvisionView,
   ProxyProbeBody,
   ProxyView,
+  ReconcileRowView,
   RedemptionCodeView,
   RelayTraceQuery,
   RelayTraceView,
@@ -356,6 +358,23 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
       rawClient.post<{ ok: true }>(`/admin/api-keys/${id}/limit-plan`, { planId }),
     setTenantLimitPlan: (id: string, planId: string | null): Promise<{ ok: true }> =>
       rawClient.post<{ ok: true }>(`/admin/tenants/${id}/limit-plan`, { planId }),
+
+    // --- Records (记录系统: 审计日志 + reconcile). RAW: admin routes not in the SDK path set. ---
+    listAuditLog: async (
+      params: Record<string, string | undefined> = {},
+    ): Promise<Page<AuditLogView>> => {
+      const qs = new URLSearchParams();
+      for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== '') qs.set(k, v);
+      const q = qs.toString();
+      const env = await rawClient.get<{ data: AuditLogView[]; next_cursor: string | null }>(
+        `/admin/audit-log${q ? `?${q}` : ''}`,
+      );
+      return { rows: env.data, nextCursor: env.next_cursor };
+    },
+    reconcile: (tenantId: string): Promise<ReconcileRowView[]> =>
+      rawClient.get<ReconcileRowView[]>(
+        `/admin/records/reconcile?tenantId=${encodeURIComponent(tenantId)}`,
+      ),
 
     // --- Model health status page (持续健康监控) ---
     modelHealth: async (days = 7): Promise<ModelHealthView[]> =>

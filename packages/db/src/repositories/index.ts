@@ -31,6 +31,15 @@ export {
   softDeleteAdminToken,
 } from './admin-token.js';
 export {
+  appendAuditLog,
+  type AppendAuditLogInput,
+  type AuditLogFilter,
+  type AuditLogRow,
+  listAuditLog,
+  type ReconcileRow,
+  reconcileTenant,
+} from './audit.js';
+export {
   type ApiKeyRecord,
   type ApiKeyView,
   createApiKey,
@@ -394,6 +403,7 @@ export {
   resolveIdentityLink,
   resolveOrCreateSubject,
   softDeleteSubject,
+  type SubjectDeleteResult,
   type SubjectIdentityInput,
   type SubjectRow,
   updateSubject,

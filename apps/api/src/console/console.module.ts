@@ -2,6 +2,7 @@ import type { AppEnv } from '@actionow/infra';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 
+import { AuditModule } from '../audit/audit.module.js';
 import { ENV } from '../common/tokens.js';
 import { FilesModule } from '../files/files.module.js';
 import { PaymentsModule } from '../payments/payments.module.js';
@@ -25,6 +26,7 @@ import { MODELS_PORT, realModelsPort } from './models.port.js';
     PaymentsModule,
     // Reuse FilesService (exported) for the tenant console upload presign/confirm.
     FilesModule,
+    AuditModule,
     JwtModule.registerAsync({
       inject: [ENV],
       useFactory: (env: AppEnv) => ({ secret: env.ADMIN_JWT_SECRET }),

@@ -10,6 +10,8 @@ export type {
   AddGroupChannelBody,
   AdminTokenView,
   ApiKeyView,
+  // --- records (记录系统) ---
+  AuditLogView,
   ChannelHealthView,
   ChannelView,
   CodexLoginCompleteBody,
@@ -89,6 +91,7 @@ export type {
   ProvisionView,
   ProxyProbeBody,
   ProxyView,
+  ReconcileRowView,
   RedemptionCodeView,
   RelayTraceView,
   ResourceView,

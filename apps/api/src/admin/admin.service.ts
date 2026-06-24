@@ -16,6 +16,8 @@ import {
   addChannelToGroup,
   anyResourceTenantId,
   type ApiKeyRow,
+  type AuditLogFilter,
+  type AuditLogRow,
   type ChannelHealthRow,
   channelIdsByModelIds,
   countAccounts,
@@ -91,6 +93,7 @@ import {
   listAccounts,
   listAllChannelsWithHealth,
   listApiKeys,
+  listAuditLog,
   listChannelModels,
   listChannelsByPlugin,
   listChannelsForResource,
@@ -135,6 +138,8 @@ import {
   type PricebookEntryRow,
   type ProviderPluginRow,
   type ProxyRow,
+  type ReconcileRow,
+  reconcileTenant,
   recordProxyHealth,
   type RedemptionCodeRow,
   type RelayTraceFilter,
@@ -165,6 +170,7 @@ import {
   softDeleteSecretRef,
   softDeleteSubject,
   type SubAccountRow,
+  type SubjectDeleteResult,
   type SubjectRow,
   type TenantRow,
   topUp,
@@ -502,10 +508,15 @@ export class AdminService {
     return row;
   }
 
-  /** Soft-delete a subject (tenant-scoped); 404 when absent (idempotent second call). */
-  async deleteSubject(tenantId: string, id: string): Promise<void> {
+  /**
+   * Soft-delete a subject (tenant-scoped) + cascade (sweep sub-wallet → pool,
+   * disable subject keys); 404 when absent (idempotent second call). Returns the
+   * cascade summary for the audit record.
+   */
+  async deleteSubject(tenantId: string, id: string): Promise<SubjectDeleteResult> {
     const deleted = await softDeleteSubject(this.db, tenantId, id);
     if (deleted === undefined) throw engineNotFound(`subject ${id} not found`);
+    return deleted;
   }
 
   // ----- subject sub-wallets (HARD mode; unified tenancy G-E) -----
@@ -966,6 +977,16 @@ export class AdminService {
 
   listLimitAlerts(): Promise<LimitAlertRow[]> {
     return listLimitAlerts(this.db);
+  }
+
+  // ----- records (审计日志 + reconcile) -----
+
+  listAuditLog(filter: AuditLogFilter, page: PageParams): Promise<KeysetResult<AuditLogRow>> {
+    return listAuditLog(this.db, filter, page);
+  }
+
+  reconcile(tenantId: string): Promise<ReconcileRow[]> {
+    return reconcileTenant(this.db, tenantId);
   }
 
   async setApiKeyLimitPlan(apiKeyId: string, planId: string | null): Promise<void> {

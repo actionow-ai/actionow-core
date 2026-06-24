@@ -133,7 +133,7 @@ export default tseslint.config(
                 ['pkg', { package: 'infra' }],
               ],
             },
-            // engine: orchestration over contracts, domain, db, adapters, infra, dify.
+            // engine: orchestration over contracts, domain, db, adapters, infra, dify, payments.
             {
               from: [['pkg', { package: 'engine' }]],
               allow: [
@@ -144,6 +144,8 @@ export default tseslint.config(
                 ['pkg', { package: 'adapters' }],
                 ['pkg', { package: 'infra' }],
                 ['pkg', { package: 'dify' }],
+                // PaymentService (engine) orchestrates the provider registry types.
+                ['pkg', { package: 'payments' }],
               ],
             },
             // apps (api, worker): any package + any app.

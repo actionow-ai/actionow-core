@@ -79,6 +79,12 @@ export const paymentEvent = pgTable(
     paymentIntentId: uuid('payment_intent_id').references(() => paymentIntent.id, {
       onDelete: 'set null',
     }),
+    // Scope snapshots (记录系统 M-2b): copied from the resolved intent at insert so the
+    // payment audit event stays scopable even after the intent is pruned (the
+    // payment_intent_id FK above is ON DELETE SET NULL). Nullable for an
+    // unresolved event. ON DELETE SET NULL keeps the audit row past tenant/subject deletion.
+    tenantId: uuid('tenant_id').references(() => tenant.id, { onDelete: 'set null' }),
+    subjectId: uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),
     provider: text('provider').notNull(),
     providerEventId: text('provider_event_id').notNull(),
     type: text('type').notNull(),
@@ -90,5 +96,6 @@ export const paymentEvent = pgTable(
   (t) => [
     uniqueIndex('payment_event_provider_event').on(t.provider, t.providerEventId),
     index('payment_event_intent_idx').on(t.paymentIntentId),
+    index('payment_event_tenant_idx').on(t.tenantId),
   ],
 );
