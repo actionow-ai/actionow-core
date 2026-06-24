@@ -66,6 +66,10 @@ export const providerPluginViewSchema = z.object({
   builtin: z.boolean(),
   /** Selectable icon key (icon_asset.key); null → derived from slug. */
   icon: z.string().nullable(),
+  /** Live channels bound to this plugin (模型接入 card stat). */
+  channel_count: z.number(),
+  /** Distinct live models served across this plugin's channels (card stat + default sort). */
+  model_count: z.number(),
   status: z.string(),
   created_at: z.string(),
   updated_at: z.string(),

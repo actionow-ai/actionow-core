@@ -1,10 +1,45 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 
-import { providerPlugin, providerPluginVersion } from '../schema/index.js';
+import {
+  channelModel,
+  model,
+  providerPlugin,
+  providerPluginVersion,
+  upstreamChannel,
+} from '../schema/index.js';
 import type { DbOrTx } from './types.js';
 
 export type ProviderPluginRow = InferSelectModel<typeof providerPlugin>;
+
+/** Per-plugin live channel + distinct-model counts (模型接入 card stats). */
+export interface PluginCounts {
+  channels: number;
+  models: number;
+}
+
+/**
+ * Count, per plugin, its LIVE bound channels and the DISTINCT live models those
+ * channels serve — backs the plugin card's `通道 N · 模型 M` + the default
+ * model-count sort. A model linked to several of a plugin's channels counts once.
+ */
+export async function countByPlugin(db: DbOrTx): Promise<Map<string, PluginCounts>> {
+  const rows = await db
+    .select({
+      pid: upstreamChannel.pluginId,
+      channels: sql<number>`count(distinct ${upstreamChannel.id})::int`,
+      models: sql<number>`count(distinct ${model.id})::int`,
+    })
+    .from(upstreamChannel)
+    .leftJoin(channelModel, eq(channelModel.channelId, upstreamChannel.id))
+    .leftJoin(model, and(eq(model.id, channelModel.modelId), isNull(model.deletedAt)))
+    .where(and(isNull(upstreamChannel.deletedAt), isNotNull(upstreamChannel.pluginId)))
+    .groupBy(upstreamChannel.pluginId);
+  const out = new Map<string, PluginCounts>();
+  for (const r of rows)
+    if (r.pid !== null) out.set(r.pid, { channels: r.channels, models: r.models });
+  return out;
+}
 
 /** Write the immutable version-history snapshot for a plugin row (spec §3.6 freeze). */
 async function snapshotVersion(db: DbOrTx, row: ProviderPluginRow): Promise<void> {

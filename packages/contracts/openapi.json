@@ -1267,6 +1267,12 @@
             "type": "string",
             "nullable": true
           },
+          "channel_count": {
+            "type": "number"
+          },
+          "model_count": {
+            "type": "number"
+          },
           "status": {
             "type": "string"
           },
@@ -1289,6 +1295,8 @@
           "version",
           "builtin",
           "icon",
+          "channel_count",
+          "model_count",
           "status",
           "created_at",
           "updated_at"
