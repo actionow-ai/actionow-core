@@ -679,7 +679,8 @@
     "searchPlugins": "搜索插件",
     "searchChannels": "搜索通道",
     "searchModels": "搜索模型",
-    "filterAll": "全部"
+    "filterAll": "全部",
+    "channelsN": "{{n}} 通道"
   },
   "channels": {
     "addTitle": "添加通道",

@@ -260,12 +260,14 @@ export {
   setIntentStatus,
 } from './payments.js';
 export {
+  countByPlugin,
   createPlugin,
   type CreatePluginInput,
   getPluginById,
   getPluginBySlug,
   getPluginVersion,
   listPlugins,
+  type PluginCounts,
   type ProviderPluginRow,
   softDeletePlugin,
   updatePlugin,

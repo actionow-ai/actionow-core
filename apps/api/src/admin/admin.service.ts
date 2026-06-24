@@ -19,6 +19,7 @@ import {
   type ChannelHealthRow,
   channelIdsByModelIds,
   countAccounts,
+  countByPlugin,
   countModelsByChannelIds,
   countResources,
   countTenants,
@@ -110,6 +111,7 @@ import {
   type OAuthSessionListRow,
   type OfficialModelPriceRow,
   type PageParams,
+  type PluginCounts,
   type PricebookEntryRow,
   type ProviderPluginRow,
   type ProxyRow,
@@ -718,6 +720,11 @@ export class AdminService {
 
   listPlugins(): Promise<ProviderPluginRow[]> {
     return listPlugins(this.db);
+  }
+
+  /** Per-plugin live channel + distinct-model counts (模型接入 card stats). */
+  pluginCounts(): Promise<Map<string, PluginCounts>> {
+    return countByPlugin(this.db);
   }
 
   createPlugin(dto: CreatePluginRequest): Promise<ProviderPluginRow> {

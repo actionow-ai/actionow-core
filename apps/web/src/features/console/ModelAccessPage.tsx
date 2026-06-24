@@ -74,14 +74,23 @@ export function ModelAccessPage() {
     staleTime: STALE_REFERENCE,
   });
   const pluginRows = plugins.data ?? [];
-  const selectedPlugin =
-    pluginRows.find((p) => p.id === pluginId) ?? (pluginId === '' ? pluginRows[0] : undefined);
   const pluginFacets = useFacets(pluginRows, pluginFacetDefs(t));
   const pq = pluginQ.trim().toLowerCase();
-  const filteredPlugins = pluginRows.filter(
-    (p) =>
-      (pq === '' || `${p.label} ${p.slug}`.toLowerCase().includes(pq)) && pluginFacets.match(p),
-  );
+  // Default order: most models first (then most channels), label as the tiebreak.
+  const filteredPlugins = pluginRows
+    .filter(
+      (p) =>
+        (pq === '' || `${p.label} ${p.slug}`.toLowerCase().includes(pq)) && pluginFacets.match(p),
+    )
+    .sort(
+      (a, b) =>
+        b.model_count - a.model_count ||
+        b.channel_count - a.channel_count ||
+        a.label.localeCompare(b.label),
+    );
+  // Default selection follows the sorted view (the top card), not slug order.
+  const selectedPlugin =
+    pluginRows.find((p) => p.id === pluginId) ?? (pluginId === '' ? filteredPlugins[0] : undefined);
 
   const channels = useQuery({
     queryKey: qk.pluginChannels(selectedPlugin?.id ?? ''),
@@ -89,15 +98,18 @@ export function ModelAccessPage() {
     enabled: selectedPlugin !== undefined,
   });
   const channelRows = channels.data ?? [];
-  const selectedChannel =
-    channelRows.find((c) => c.id === cid) ?? (cid === '' ? channelRows[0] : undefined);
   const channelFacets = useFacets(channelRows, channelFacetDefs(t));
   const cq = channelQ.trim().toLowerCase();
-  const filteredChannels = channelRows.filter(
-    (c) =>
-      (cq === '' || `${c.provider_type} ${c.endpoint ?? ''}`.toLowerCase().includes(cq)) &&
-      channelFacets.match(c),
-  );
+  // Default order: most models first.
+  const filteredChannels = channelRows
+    .filter(
+      (c) =>
+        (cq === '' || `${c.provider_type} ${c.endpoint ?? ''}`.toLowerCase().includes(cq)) &&
+        channelFacets.match(c),
+    )
+    .sort((a, b) => b.model_count - a.model_count);
+  const selectedChannel =
+    channelRows.find((c) => c.id === cid) ?? (cid === '' ? filteredChannels[0] : undefined);
 
   // The selected channel's models — fetched here (deduped with ModelGrid's same
   // query key) so the column header can build model facets; the list filters by
@@ -218,8 +230,9 @@ export function ModelAccessPage() {
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: 'var(--s-1)', marginTop: 6, flexWrap: 'wrap' }}>
+                    <span className="chip">{t('modelAccess.channelsN', { n: p.channel_count })}</span>
+                    <span className="chip">{t('resources.cards.modelsN', { n: p.model_count })}</span>
                     <span className="chip">{p.builtin ? t('plugins.builtin') : t('plugins.custom')}</span>
-                    {p.modalities.length > 0 && <span className="chip">{p.modalities.join(', ')}</span>}
                   </div>
                 </div>
               );

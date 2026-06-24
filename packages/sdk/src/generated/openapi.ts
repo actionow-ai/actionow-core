@@ -9885,6 +9885,8 @@ export interface components {
             version: number;
             builtin: boolean;
             icon: string | null;
+            channel_count: number;
+            model_count: number;
             status: string;
             created_at: string;
             updated_at: string;

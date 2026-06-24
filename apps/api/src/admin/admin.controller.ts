@@ -846,9 +846,10 @@ export class AdminController {
   // ----- provider plugins (P2) -----
 
   @Get('plugins')
-  @ApiOperation({ summary: 'List provider plugins (manifest + handler)' })
+  @ApiOperation({ summary: 'List provider plugins (manifest + handler) with channel/model counts' })
   async listPlugins(): Promise<ProviderPluginView[]> {
-    return (await this.admin.listPlugins()).map(toPluginView);
+    const [rows, counts] = await Promise.all([this.admin.listPlugins(), this.admin.pluginCounts()]);
+    return rows.map((r) => toPluginView(r, counts.get(r.id)));
   }
 
   @Get('plugins/:id/channels')
@@ -1513,7 +1514,10 @@ function toIconAssetView(row: IconAssetRow): IconAssetView {
   });
 }
 
-function toPluginView(row: ProviderPluginRow): ProviderPluginView {
+function toPluginView(
+  row: ProviderPluginRow,
+  counts: { channels: number; models: number } = { channels: 0, models: 0 },
+): ProviderPluginView {
   return providerPluginViewSchema.parse({
     id: row.id,
     slug: row.slug,
@@ -1526,6 +1530,8 @@ function toPluginView(row: ProviderPluginRow): ProviderPluginView {
     version: row.version,
     builtin: row.builtin,
     icon: row.icon,
+    channel_count: counts.channels,
+    model_count: counts.models,
     status: row.status,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
