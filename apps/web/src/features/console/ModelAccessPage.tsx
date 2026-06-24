@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CSSProperties } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
 import { BrandIcon } from '../../components/data/BrandIcon';
@@ -16,7 +17,6 @@ import { qk } from '../../lib/api/queryKeys';
 import type { ChannelView, ModelView, ProviderPluginView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
-import { useUrlState } from '../../lib/useUrlState';
 import { ChannelCard } from './ChannelCard';
 import { ChannelEditor } from './ChannelEditor';
 import { ModelEditor } from './ModelEditor';
@@ -35,8 +35,32 @@ export function ModelAccessPage() {
   const { t } = useTranslation('console');
   const api = useAdminApi();
   const qc = useQueryClient();
-  const [pluginId, setPluginId] = useUrlState('plugin');
-  const [cid, setCid] = useUrlState('cid');
+  // `plugin` + `cid` live in one URL so a plugin switch can set the plugin AND
+  // clear the channel in a SINGLE navigate — two separate `useUrlState` setters
+  // in one handler would each read the render-time snapshot and clobber each other.
+  const [params, setParams] = useSearchParams();
+  const pluginId = params.get('plugin') ?? '';
+  const cid = params.get('cid') ?? '';
+  const selectPlugin = (id: string): void =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('plugin', id);
+        next.delete('cid');
+        return next;
+      },
+      { replace: true },
+    );
+  const setCid = (id: string): void =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id === '') next.delete('cid');
+        else next.set('cid', id);
+        return next;
+      },
+      { replace: true },
+    );
 
   const plugins = useQuery({
     queryKey: qk.plugins(),
@@ -119,15 +143,11 @@ export function ModelAccessPage() {
               role="button"
               tabIndex={0}
               aria-pressed={active}
-              onClick={() => {
-                setPluginId(p.id);
-                setCid('');
-              }}
+              onClick={() => selectPlugin(p.id)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  setPluginId(p.id);
-                  setCid('');
+                  selectPlugin(p.id);
                 }
               }}
               style={{ padding: 'var(--s-3) var(--s-4)' }}
