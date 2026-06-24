@@ -197,3 +197,37 @@ export const userIdentity = pgTable(
     index('user_identity_user_idx').on(t.userId),
   ],
 );
+
+/**
+ * A federated identity linking a {@link subject} (end-user) to an external
+ * provider (unified tenancy G-F, M-Y), mirroring {@link userIdentity}. Two
+ * subjects in DIFFERENT tenants are the SAME human iff they share
+ * `(provider, provider_user_id)` — the cross-tenant federation key (resolve-only;
+ * never a wallet/permission merge). When a `userIdentity` and a `subjectIdentity`
+ * share `(provider, provider_user_id)`, the operator and the end-user are the
+ * same person (the user↔subject link). Cascades on subject deletion.
+ */
+// immutable: no updated_at (a federated identity link is never mutated in place)
+export const subjectIdentity = pgTable(
+  'subject_identity',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    subjectId: uuid('subject_id')
+      .notNull()
+      .references(() => subject.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(),
+    providerUserId: text('provider_user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // One link per (provider identity, subject); the same identity MAY map to
+    // several subjects (one per tenant) — that's exactly cross-tenant federation.
+    uniqueIndex('subject_identity_provider_sub_subject_idx').on(
+      t.provider,
+      t.providerUserId,
+      t.subjectId,
+    ),
+    index('subject_identity_provider_user_idx').on(t.provider, t.providerUserId),
+    index('subject_identity_subject_idx').on(t.subjectId),
+  ],
+);

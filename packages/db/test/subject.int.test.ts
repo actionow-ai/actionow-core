@@ -6,10 +6,15 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   createSubject,
+  createSubjectIdentity,
+  createUser,
+  createUserIdentity,
   findSubjectByEmail,
   findSubjectByExternalId,
+  findSubjectsByIdentity,
   getSubjectById,
   listSubjectsByTenant,
+  resolveIdentityLink,
   resolveOrCreateSubject,
   softDeleteSubject,
   updateSubject,
@@ -35,7 +40,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE subject, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE subject_identity, user_identity, subject, "user", tenant RESTART IDENTITY CASCADE`;
 });
 
 async function makeTenant(name = 'acme'): Promise<string> {
@@ -155,5 +160,46 @@ describe('resolveOrCreateSubject (Model-B)', () => {
     const created = await resolveOrCreateSubject(db, t.id, 'auto-1');
     expect(created?.externalId).toBe('auto-1');
     expect((await resolveOrCreateSubject(db, t.id, 'auto-1'))?.id).toBe(created?.id);
+  });
+});
+
+describe('identity layer (federation + user↔subject)', () => {
+  it('federates subjects across tenants by a shared provider identity', async () => {
+    const a = await makeTenant('a');
+    const b = await makeTenant('b');
+    const sa = await createSubject(db, { tenantId: a, externalId: 'ua' });
+    const sb = await createSubject(db, { tenantId: b, externalId: 'ub' });
+    await createSubjectIdentity(db, {
+      subjectId: sa.id,
+      provider: 'sso',
+      providerUserId: 'person-1',
+    });
+    await createSubjectIdentity(db, {
+      subjectId: sb.id,
+      provider: 'sso',
+      providerUserId: 'person-1',
+    });
+    // a different human under tenant a
+    const sc = await createSubject(db, { tenantId: a, externalId: 'uc' });
+    await createSubjectIdentity(db, {
+      subjectId: sc.id,
+      provider: 'sso',
+      providerUserId: 'person-2',
+    });
+
+    const fed = await findSubjectsByIdentity(db, 'sso', 'person-1');
+    expect(fed.map((s) => s.id).sort()).toEqual([sa.id, sb.id].sort());
+  });
+
+  it('resolveIdentityLink ties federated subjects to the operator user sharing the identity', async () => {
+    const tenantId = await makeTenant('acme');
+    const subj = await createSubject(db, { tenantId, externalId: 'u1' });
+    await createSubjectIdentity(db, { subjectId: subj.id, provider: 'sso', providerUserId: 'p9' });
+    const u = await createUser(db, { email: 'op@example.com', role: 'admin' });
+    await createUserIdentity(db, { userId: u.id, provider: 'sso', providerUserId: 'p9' });
+
+    const link = await resolveIdentityLink(db, 'sso', 'p9');
+    expect(link.subjects.map((s) => s.id)).toEqual([subj.id]);
+    expect(link.userId).toBe(u.id);
   });
 });

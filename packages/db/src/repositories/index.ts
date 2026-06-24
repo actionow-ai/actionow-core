@@ -384,13 +384,17 @@ export {
 } from './sub-account.js';
 export {
   createSubject,
+  createSubjectIdentity,
   type CreateSubjectInput,
   findSubjectByEmail,
   findSubjectByExternalId,
+  findSubjectsByIdentity,
   getSubjectById,
   listSubjectsByTenant,
+  resolveIdentityLink,
   resolveOrCreateSubject,
   softDeleteSubject,
+  type SubjectIdentityInput,
   type SubjectRow,
   updateSubject,
   type UpdateSubjectInput,

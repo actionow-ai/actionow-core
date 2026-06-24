@@ -1,7 +1,7 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 
-import { subject, tenant } from '../schema/index.js';
+import { subject, subjectIdentity, tenant, userIdentity } from '../schema/index.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
@@ -189,4 +189,80 @@ export async function resolveOrCreateSubject(
   if (!jit) return null;
 
   return createSubject(db, { tenantId, externalId });
+}
+
+// ── identity layer (federation + user↔subject; unified tenancy G-F, M-Y) ─────
+
+/** Fields a caller supplies to {@link createSubjectIdentity}. */
+export interface SubjectIdentityInput {
+  readonly subjectId: string;
+  readonly provider: string;
+  readonly providerUserId: string;
+}
+
+/** Link a subject to an external provider identity (cross-tenant federation key). */
+export async function createSubjectIdentity(
+  db: DbOrTx,
+  input: SubjectIdentityInput,
+): Promise<{ id: string }> {
+  const rows = await db
+    .insert(subjectIdentity)
+    .values({
+      subjectId: input.subjectId,
+      provider: input.provider,
+      providerUserId: input.providerUserId,
+    })
+    .returning({ id: subjectIdentity.id });
+  const row = rows[0];
+  if (!row) throw new Error('createSubjectIdentity: insert returned no row');
+  return { id: row.id };
+}
+
+/**
+ * All LIVE subjects federated under one provider identity — the cross-tenant
+ * "same human" set (resolve-only; never merges money/permissions). Empty when
+ * no subject is linked to `(provider, provider_user_id)`.
+ */
+export async function findSubjectsByIdentity(
+  db: DbOrTx,
+  provider: string,
+  providerUserId: string,
+): Promise<SubjectRow[]> {
+  const links = await db
+    .select({ subjectId: subjectIdentity.subjectId })
+    .from(subjectIdentity)
+    .where(
+      and(
+        eq(subjectIdentity.provider, provider),
+        eq(subjectIdentity.providerUserId, providerUserId),
+      ),
+    );
+  const ids = links.map((l) => l.subjectId);
+  if (ids.length === 0) return [];
+  return db
+    .select()
+    .from(subject)
+    .where(and(inArray(subject.id, ids), isNull(subject.deletedAt)));
+}
+
+/**
+ * Resolve the unified "person" behind a provider identity: the federated
+ * subjects (across tenants) PLUS the operator `user.id` that shares the same
+ * `(provider, provider_user_id)` (the user↔subject link), or `null`. The two
+ * principals stay separate — this is a resolution overlay, not a merge.
+ */
+export async function resolveIdentityLink(
+  db: DbOrTx,
+  provider: string,
+  providerUserId: string,
+): Promise<{ subjects: SubjectRow[]; userId: string | null }> {
+  const subjects = await findSubjectsByIdentity(db, provider, providerUserId);
+  const u = await db
+    .select({ id: userIdentity.userId })
+    .from(userIdentity)
+    .where(
+      and(eq(userIdentity.provider, provider), eq(userIdentity.providerUserId, providerUserId)),
+    )
+    .limit(1);
+  return { subjects, userId: u[0]?.id ?? null };
 }

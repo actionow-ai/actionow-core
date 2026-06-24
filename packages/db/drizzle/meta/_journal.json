@@ -309,6 +309,13 @@
       "when": 1782318622685,
       "tag": "0043_sub_account",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1782319958303,
+      "tag": "0044_subject_identity",
+      "breakpoints": true
     }
   ]
 }
