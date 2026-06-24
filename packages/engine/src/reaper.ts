@@ -35,6 +35,7 @@ export class Reaper {
       const { settled } = await failJob(db, {
         jobId: hold.jobId,
         accountId: hold.accountId,
+        tenantId: hold.tenantId,
         holdAmount: hold.holdAmount,
         to: 'canceled',
         error: EXPIRED_HOLD_ERROR,

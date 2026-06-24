@@ -513,6 +513,7 @@ export class ExecutionService {
       await failJob(this.deps.db, {
         jobId: job.id,
         accountId: req.accountId,
+        tenantId: req.tenantId,
         holdAmount,
         to: 'failed',
         error: {
@@ -535,6 +536,7 @@ export class ExecutionService {
       await failJob(this.deps.db, {
         jobId: job.id,
         accountId: req.accountId,
+        tenantId: req.tenantId,
         holdAmount,
         to: 'failed',
         error: { code: 'internal_error', message: 'failed to enqueue async job', retryable: true },
@@ -681,6 +683,7 @@ export class ExecutionService {
       await failJob(this.deps.db, {
         jobId,
         accountId: req.accountId,
+        tenantId: req.tenantId,
         holdAmount,
         to: 'failed',
         error: { code: 'internal_error', message: 'blocking adapter returned async handle' },
@@ -793,6 +796,7 @@ export class ExecutionService {
     await failJob(this.deps.db, {
       jobId,
       accountId: req.accountId,
+      tenantId: req.tenantId,
       holdAmount,
       to: 'failed',
       error: unified,

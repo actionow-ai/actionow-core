@@ -55,6 +55,7 @@ export class JobsService {
     await failJob(this.db, {
       jobId: job.id,
       accountId: ctx.accountId,
+      tenantId: ctx.tenantId,
       holdAmount: job.quotedCredits ?? 0n,
       to: 'canceled',
       error: { code: 'job_failed', message: 'canceled by client', retryable: false },

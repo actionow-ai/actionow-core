@@ -96,6 +96,7 @@ export async function settleJob(db: DbOrTx, p: SettleJobInput): Promise<{ settle
 export interface FailJobInput {
   jobId: string;
   accountId: string;
+  tenantId: string;
   /** Amount to release (the hold), without charging the balance. */
   holdAmount: bigint;
   to: Extract<JobStatus, 'failed' | 'canceled'>;
@@ -116,10 +117,16 @@ export async function failJob(db: DbOrTx, p: FailJobInput): Promise<{ settled: b
     });
     if (!moved) return { settled: false };
 
-    await tx
+    const rows = await tx
       .update(account)
       .set({ creditHeld: sql`${account.creditHeld} - ${p.holdAmount}` })
-      .where(eq(account.id, p.accountId));
+      // Scope the hold-release to (account, tenant) — defense-in-depth (P2-8),
+      // mirroring settleJob. A mismatch matches 0 rows → throw → the whole
+      // failJob (incl. the status transition) rolls back.
+      .where(and(eq(account.id, p.accountId), eq(account.tenantId, p.tenantId)))
+      .returning({ id: account.id });
+
+    if (!rows[0]) throw new Error(`failJob: account ${p.accountId} not found`);
 
     if (p.outbox) {
       await tx.insert(webhookOutbox).values({

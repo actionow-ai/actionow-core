@@ -335,6 +335,7 @@ export class JobRunner {
     return failJob(this.deps.db, {
       jobId: job.id,
       accountId: ctx.accountId,
+      tenantId: job.tenantId,
       holdAmount: job.quotedCredits ?? 0n,
       to: 'failed',
       error: error ?? null,

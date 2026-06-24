@@ -227,6 +227,7 @@ describe('failJob', () => {
     const r = await failJob(db, {
       jobId: id,
       accountId: s.accountId,
+      tenantId: s.tenantId,
       holdAmount: 500_000n,
       to: 'failed',
       error: { code: 'upstream_error', message: 'boom' },
@@ -262,11 +263,33 @@ describe('failJob', () => {
     const r = await failJob(db, {
       jobId: id,
       accountId: s.accountId,
+      tenantId: s.tenantId,
       holdAmount: 500_000n,
       to: 'canceled',
     });
 
     expect(r).toEqual({ settled: false });
     expect(await readAccount(s.accountId)).toEqual(before);
+  });
+
+  it('rejects a cross-tenant fail: a wrong tenantId releases nothing and throws (P2-8)', async () => {
+    const a = await seed(1_000_000n);
+    const id = await makeHeldJob(a, 500_000n);
+    const [tb] = await db.insert(tenant).values({ name: 'beta' }).returning();
+    if (!tb) throw new Error('tenant b insert returned no row');
+
+    await expect(
+      failJob(db, {
+        jobId: id,
+        accountId: a.accountId,
+        tenantId: tb.id, // wrong tenant for this account
+        holdAmount: 500_000n,
+        to: 'canceled',
+      }),
+    ).rejects.toThrow();
+
+    // the whole tx rolled back: hold untouched, job still queued
+    expect(await readAccount(a.accountId)).toEqual({ balance: 1_000_000n, held: 500_000n });
+    expect((await getJob(db, id))?.status).toBe('queued');
   });
 });

@@ -496,6 +496,7 @@ async function failStream(deps: SettlingStreamDeps, error: UnifiedError): Promis
   await failJob(deps.db, {
     jobId: deps.jobId,
     accountId: deps.req.accountId,
+    tenantId: deps.req.tenantId,
     holdAmount: deps.holdAmount,
     to: 'failed',
     error,
