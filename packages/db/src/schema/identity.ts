@@ -12,6 +12,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { limitPlan } from './limit.js';
 import { routeGroup } from './route-group.js';
 
 export const tenant = pgTable('tenant', {
@@ -41,6 +42,9 @@ export const apiKey = pgTable(
     // customer-price ratio. The `() =>` FK callback is lazy, so the cross-file
     // import does not run at module-init (no ESM cycle hazard).
     routeGroupId: uuid('route_group_id').references(() => routeGroup.id),
+    // The limit plan (额度套餐) bound to this key (governance-limits). NULLABLE →
+    // null means no per-key limits; the tenant's plan (if any) still applies.
+    limitPlanId: uuid('limit_plan_id').references(() => limitPlan.id),
     rateLimit: bigint('rate_limit', { mode: 'number' }),
     // status allowed values: active | disabled (createApiKey default + disableApiKeyForTenant)
     status: text('status').notNull().default('active'),

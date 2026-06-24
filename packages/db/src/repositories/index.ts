@@ -166,6 +166,31 @@ export {
 } from './job.js';
 export { appendLedger, type LedgerInput } from './ledger.js';
 export {
+  createLimitPlan,
+  getLimitPlanById,
+  getUsage,
+  incrUsage,
+  type LimitAlertRow,
+  type LimitPlanRow,
+  type LimitRuleInput,
+  type LimitRuleRow,
+  type LimitUsageRow,
+  listLimitAlerts,
+  listLimitPlans,
+  listRulesByPlan,
+  listRulesByPlanIds,
+  listUsageForSubject,
+  periodKeyFor,
+  periodStartFor,
+  recordLimitAlert,
+  replacePlanRules,
+  resolveEffectiveRules,
+  softDeleteLimitPlan,
+  updateLimitPlan,
+  type UpdateLimitPlanInput,
+  type UsageKey,
+} from './limit.js';
+export {
   channelIdsByModelIds,
   countModelsByChannelIds,
   createModel,
