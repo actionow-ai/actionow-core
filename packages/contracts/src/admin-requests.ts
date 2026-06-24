@@ -89,6 +89,11 @@ export const createApiKeySchema = z.object({
    * the group exists.
    */
   routeGroupId: z.string().uuid().optional(),
+  /**
+   * The subject (end-user) to scope this key to (unified tenancy G-B); omitted →
+   * a tenant-level key. The service validates the subject belongs to the tenant.
+   */
+  subjectId: z.string().uuid().optional(),
 });
 export type CreateApiKeyBody = z.infer<typeof createApiKeySchema>;
 

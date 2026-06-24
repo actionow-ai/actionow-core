@@ -1618,6 +1618,7 @@ function toApiKeyView(row: Omit<ApiKeyRow, 'hash'>): ApiKeyView {
     status: row.status,
     route_group_id: row.routeGroupId,
     limit_plan_id: row.limitPlanId,
+    subject_id: row.subjectId,
     created_at: row.createdAt.toISOString(),
   });
 }

@@ -21,6 +21,8 @@ export const apiKeyViewSchema = z.object({
   route_group_id: z.string().nullable(),
   /** The bound limit plan (额度套餐); `null` → no per-key governance plan. */
   limit_plan_id: z.string().nullable(),
+  /** The subject (end-user) this key is scoped to (unified tenancy G-B); `null` → tenant-level. */
+  subject_id: z.string().nullable(),
   created_at: z.string(),
 });
 export type ApiKeyView = z.infer<typeof apiKeyViewSchema>;

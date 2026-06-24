@@ -549,10 +549,17 @@ export class AdminService {
     if (dto.routeGroupId !== undefined) {
       await this.requireRouteGroup(dto.routeGroupId);
     }
+    // A subject-scoped key (unified tenancy G-B): the subject must belong to the
+    // same tenant (→ 404 otherwise), so a key can never be bound cross-tenant.
+    if (dto.subjectId !== undefined) {
+      const subj = await getSubjectById(this.db, dto.tenantId, dto.subjectId);
+      if (subj === undefined) throw engineNotFound(`subject ${dto.subjectId} not found`);
+    }
     const created = await createApiKey(this.db, {
       tenantId: dto.tenantId,
       resourceAllowlist: dto.resourceAllowlist,
       rateLimit: dto.rateLimit,
+      subjectId: dto.subjectId,
     });
     if (dto.routeGroupId !== undefined) {
       await setApiKeyGroup(this.db, created.id, dto.routeGroupId);

@@ -1312,4 +1312,33 @@ describe('G-A: tenant subjects (end-users) CRUD', () => {
     const sid = created.body.id as string;
     await auth(request(app.getHttpServer()).get(`/admin/tenants/${b}/users/${sid}`)).expect(404);
   });
+
+  it('mints a subject-scoped api key and surfaces subject_id on the key view (G-B)', async () => {
+    const tenantId = await makeTenant('subj-key');
+    const created = await auth(
+      request(app.getHttpServer())
+        .post(`/admin/tenants/${tenantId}/users`)
+        .send({ externalId: 'eu' }),
+    ).expect(201);
+    const sid = created.body.id as string;
+
+    const keyRes = await auth(
+      request(app.getHttpServer()).post('/admin/api-keys').send({ tenantId, subjectId: sid }),
+    ).expect(201);
+    expect(keyRes.body.plaintext).toMatch(/^ak_/);
+
+    const list = await auth(
+      request(app.getHttpServer()).get('/admin/api-keys').query({ tenantId }),
+    ).expect(200);
+    expect(list.body.data).toHaveLength(1);
+    expect(list.body.data[0].subject_id).toBe(sid);
+
+    // a subject from another tenant cannot be bound → 404.
+    const other = await makeTenant('subj-key-other');
+    await auth(
+      request(app.getHttpServer())
+        .post('/admin/api-keys')
+        .send({ tenantId: other, subjectId: sid }),
+    ).expect(404);
+  });
 });

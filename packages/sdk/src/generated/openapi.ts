@@ -10129,6 +10129,7 @@ export interface components {
             status: string;
             route_group_id: string | null;
             limit_plan_id: string | null;
+            subject_id: string | null;
             created_at: string;
         };
         JobView: {
@@ -10656,6 +10657,8 @@ export interface components {
             rateLimit?: number;
             /** Format: uuid */
             routeGroupId?: string;
+            /** Format: uuid */
+            subjectId?: string;
         };
         UpdateApiKeyGroupBody: {
             /** Format: uuid */
