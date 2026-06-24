@@ -121,6 +121,12 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     listResources: async () => page<ResourceView>(await sdk.GET('/admin/resources'), u).rows,
     createResource: async (body: CreateResourceBody, idempotencyKey?: string) =>
       unwrap(await sdk.POST('/admin/resources', { body, headers: idem(idempotencyKey) }), u),
+    // Reuse-or-create a platform for (providerType, modality) — 模型接入 auto-onboarding.
+    // Admin-only, not in the SDK → rawClient.
+    ensureResource: (body: { providerType: string; modality: string }): Promise<ResourceView> =>
+      rawClient.post<ResourceView>('/admin/resources/ensure', body),
+    // The provider types the backend's adapter registry actually serves (real channel options).
+    listProviderTypes: (): Promise<string[]> => rawClient.get<string[]>('/admin/provider-types'),
     updateResource: async (id: string, body: UpdateResourceBody) =>
       unwrap(await sdk.PATCH('/admin/resources/{id}', { params: { path: { id } }, body }), u),
     createChannel: async (resourceId: string, body: CreateChannelBody, idempotencyKey?: string) =>

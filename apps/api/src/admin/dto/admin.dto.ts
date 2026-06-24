@@ -19,6 +19,7 @@ import {
   createSecretSchema,
   createTenantSchema,
   difyImportSchema,
+  ensureResourceSchema,
   generateCodesSchema,
   grantModelSchema,
   modelTestRequestSchema,
@@ -86,6 +87,7 @@ export {
   createSecretSchema,
   createTenantSchema,
   difyImportSchema,
+  ensureResourceSchema,
   generateCodesSchema,
   grantModelSchema,
   modelTestRequestSchema,
@@ -123,6 +125,7 @@ export type CreateAdminTokenDto = z.infer<typeof createAdminTokenSchema>;
 export type UpdateApiKeyGroupDto = z.infer<typeof updateApiKeyGroupSchema>;
 export type CreateResourceDto = z.infer<typeof createResourceSchema>;
 export type UpdateResourceDto = z.infer<typeof updateResourceSchema>;
+export type EnsureResourceDto = z.infer<typeof ensureResourceSchema>;
 export type CreateChannelDto = z.infer<typeof createChannelSchema>;
 export type UpdateChannelDto = z.infer<typeof updateChannelSchema>;
 export type SyncChannelModelsDto = z.infer<typeof syncChannelModelsSchema>;

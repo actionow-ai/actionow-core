@@ -55,6 +55,7 @@ export {
   type UserRecord,
 } from './auth.js';
 export {
+  anyResourceTenantId,
   applicableScopes,
   type ChannelHealthRow,
   countResources,
@@ -70,6 +71,7 @@ export {
   createUpstreamChannel,
   type CreateUpstreamChannelInput,
   type DifyBindingRow,
+  findResourceByProviderModality,
   getAccountByTenant,
   getActivePricebookEntry,
   getChannelById,

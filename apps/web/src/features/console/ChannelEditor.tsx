@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { IconPicker } from '../../components/data/IconPicker';
@@ -25,6 +25,22 @@ const ASYNC_MEDIA_PRESET = {
   pollPath: '/api/v1/tasks/{id}',
   signatureHeader: 'X-Signature',
   timestampHeader: 'X-Timestamp',
+};
+
+/**
+ * The live `provider_type` a built-in plugin's channels route through, so the
+ * channel form can auto-fill it from the chosen plugin (the operator no longer
+ * hand-types it). Native chat plugins → their code adapter; the generic async
+ * relay → `async-media`; everything else is left blank for the operator to pick
+ * from the real provider-types list.
+ */
+const PROVIDER_BY_PLUGIN_SLUG: Record<string, string> = {
+  'native-openai': 'openai',
+  'native-anthropic': 'anthropic',
+  'native-google': 'gemini',
+  'codex-cli': 'codex-oauth',
+  'async-media-relay': 'async-media',
+  'openai-images': 'openai',
 };
 
 /**
@@ -80,6 +96,17 @@ export function ChannelEditor({
     { value: '', label: t('channels.form.pluginNone') },
     ...(plugins.data ?? []).map((p) => ({ value: p.id, label: p.label })),
   ];
+  const selectedPlugin = (plugins.data ?? []).find((p) => p.id === pluginId);
+
+  // Real provider types from the backend adapter registry (merged with the
+  // common-vendor hints) — the source for the provider dropdown (#4).
+  const providerTypes = useQuery({
+    queryKey: qk.providerTypes(),
+    queryFn: () => api.listProviderTypes(),
+    staleTime: STALE_REFERENCE,
+    enabled: open,
+  });
+  const providerOptions = [...new Set([...(providerTypes.data ?? []), ...COMMON_PROVIDERS])];
 
   // Model suggestions = this resource's already-registered model names (free
   // entry still allowed, so an upstream-only model can be typed).
@@ -116,6 +143,9 @@ export function ChannelEditor({
   ];
 
   const [providerType, setProviderType] = useState(channel?.provider_type ?? '');
+  // The platform modality to auto-create/reuse under (3-pane create only). Seeded
+  // from the chosen plugin's modalities; drives `ensureResource`.
+  const [modality, setModality] = useState('text');
   const [faultPolicyId, setFaultPolicyId] = useState(channel?.fault_policy_id ?? '');
   const [endpoint, setEndpoint] = useState(channel?.endpoint ?? '');
   const [model, setModel] = useState(channel?.model ?? '');
@@ -137,6 +167,17 @@ export function ChannelEditor({
   // A stable idempotency key for this editor instance (remounted per open via
   // `key`), so an accidental double-submit of a create replays instead of dupes.
   const [idemKey] = useState(() => crypto.randomUUID());
+
+  // 3-pane create: when the bound plugin resolves, auto-fill the provider (from
+  // PROVIDER_BY_PLUGIN_SLUG) + default the modality to the plugin's first — both
+  // still operator-editable. Runs only on a plugin change, so it never clobbers
+  // a manual edit mid-form.
+  useEffect(() => {
+    if (editing || resourceId !== undefined || selectedPlugin === undefined) return;
+    const derived = PROVIDER_BY_PLUGIN_SLUG[selectedPlugin.slug];
+    if (derived) setProviderType(derived);
+    if (selectedPlugin.modalities.length > 0) setModality(selectedPlugin.modalities[0]);
+  }, [pluginId, plugins.data, editing, resourceId, selectedPlugin]);
 
   const [credOpen, setCredOpen] = useState(false);
   const [credValue, setCredValue] = useState('');
@@ -161,7 +202,7 @@ export function ChannelEditor({
   });
 
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: async (): Promise<ChannelView> => {
       const cfg = objectFromRows(configRows);
       // `providerType` is immutable after creation (the backend strips it from a
       // PATCH), so it lives only on the create branch — never in the shared body.
@@ -176,34 +217,43 @@ export function ChannelEditor({
       };
       // Cost diverges by verb: a PATCH sends `null` to clear a previously-set
       // cost, but a create omits it entirely (the schema rejects `null`).
-      return editing
-        ? api.updateChannel(effectiveResourceId, channel.id, {
-            ...base,
-            inputCostUsdPer1m: inputCostUsd > 0 ? inputCostUsd : null,
-            outputCostUsdPer1m: outputCostUsd > 0 ? outputCostUsd : null,
-            // null unbinds a previously-set policy → engine defaults.
-            faultPolicyId: faultPolicyId === '' ? null : faultPolicyId,
-            // null clears a previously-set icon → derived from plugin/provider.
-            icon,
-            // null unbinds the plugin grouping.
-            pluginId: pluginId === '' ? null : pluginId,
-          })
-        : api.createChannel(
-            effectiveResourceId,
-            {
-              ...base,
-              providerType,
-              inputCostUsdPer1m: inputCostUsd > 0 ? inputCostUsd : undefined,
-              outputCostUsdPer1m: outputCostUsd > 0 ? outputCostUsd : undefined,
-              ...(faultPolicyId === '' ? {} : { faultPolicyId }),
-              ...(icon !== null ? { icon } : {}),
-              ...(pluginId === '' ? {} : { pluginId }),
-            },
-            idemKey,
-          );
+      if (editing) {
+        return api.updateChannel(effectiveResourceId, channel.id, {
+          ...base,
+          inputCostUsdPer1m: inputCostUsd > 0 ? inputCostUsd : null,
+          outputCostUsdPer1m: outputCostUsd > 0 ? outputCostUsd : null,
+          // null unbinds a previously-set policy → engine defaults.
+          faultPolicyId: faultPolicyId === '' ? null : faultPolicyId,
+          // null clears a previously-set icon → derived from plugin/provider.
+          icon,
+          // null unbinds the plugin grouping.
+          pluginId: pluginId === '' ? null : pluginId,
+        });
+      }
+      // Create: resolve the platform — an explicit pick, else auto reuse/create
+      // one for (provider, modality) so the operator never hand-creates a platform.
+      let targetResourceId = effectiveResourceId;
+      if (targetResourceId === '') {
+        const r = await api.ensureResource({ providerType, modality: modality || 'text' });
+        targetResourceId = r.id;
+      }
+      return api.createChannel(
+        targetResourceId,
+        {
+          ...base,
+          providerType,
+          inputCostUsdPer1m: inputCostUsd > 0 ? inputCostUsd : undefined,
+          outputCostUsdPer1m: outputCostUsd > 0 ? outputCostUsd : undefined,
+          ...(faultPolicyId === '' ? {} : { faultPolicyId }),
+          ...(icon !== null ? { icon } : {}),
+          ...(pluginId === '' ? {} : { pluginId }),
+        },
+        idemKey,
+      );
     },
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: qk.channels(effectiveResourceId) });
+    onSuccess: async (saved) => {
+      await qc.invalidateQueries({ queryKey: qk.channels(saved.resource_id) });
+      await qc.invalidateQueries({ queryKey: qk.resources() });
       if (pluginId !== '') await qc.invalidateQueries({ queryKey: qk.pluginChannels(pluginId) });
       if (presetPluginId !== undefined && presetPluginId !== pluginId)
         await qc.invalidateQueries({ queryKey: qk.pluginChannels(presetPluginId) });
@@ -219,26 +269,11 @@ export function ChannelEditor({
       title={t(editing ? 'channels.editTitle' : 'channels.addTitle')}
       onClose={onClose}
       footer={
-        <Button
-          variant="cta"
-          onClick={() => save.mutate()}
-          loading={save.isPending}
-          disabled={needResourcePick && effectiveResourceId === ''}
-        >
+        <Button variant="cta" onClick={() => save.mutate()} loading={save.isPending}>
           {t('channels.save')}
         </Button>
       }
     >
-      {needResourcePick && (
-        <SelectField
-          label={t('channels.form.platform')}
-          tooltip={t('channels.tip.platform')}
-          value={pickedResourceId}
-          onChange={setPickedResourceId}
-          options={(resources.data ?? []).map((r) => ({ value: r.id, label: r.id }))}
-          placeholder={t('channels.form.platformPlaceholder')}
-        />
-      )}
       <SelectField
         label={t('channels.form.plugin')}
         tooltip={t('channels.tip.plugin')}
@@ -246,11 +281,33 @@ export function ChannelEditor({
         onChange={setPluginId}
         options={pluginOptions}
       />
+      {needResourcePick && selectedPlugin !== undefined && selectedPlugin.modalities.length > 1 && (
+        <SelectField
+          label={t('channels.form.modality')}
+          tooltip={t('channels.tip.modality')}
+          value={modality}
+          onChange={setModality}
+          options={selectedPlugin.modalities.map((m) => ({ value: m, label: m }))}
+        />
+      )}
+      {needResourcePick && (
+        <SelectField
+          label={t('channels.form.platform')}
+          tooltip={t('channels.tip.platformAuto')}
+          hint={pickedResourceId === '' ? t('channels.form.platformAutoHint') : undefined}
+          value={pickedResourceId}
+          onChange={setPickedResourceId}
+          options={[
+            { value: '', label: t('channels.form.platformAuto') },
+            ...(resources.data ?? []).map((r) => ({ value: r.id, label: r.id })),
+          ]}
+        />
+      )}
       <ComboboxField
         label={t('channels.form.provider')}
         tooltip={t('channels.tip.provider')}
-        hint={editing ? t('channels.tip.providerFixed') : COMMON_PROVIDERS.join(' · ')}
-        options={[...COMMON_PROVIDERS]}
+        hint={editing ? t('channels.tip.providerFixed') : t('channels.tip.providerAuto')}
+        options={providerOptions}
         value={providerType}
         onChange={setProviderType}
         disabled={editing}

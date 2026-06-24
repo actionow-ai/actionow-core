@@ -75,6 +75,17 @@ export const createChannelSchema = z.object({
 export type CreateChannelBody = z.infer<typeof createChannelSchema>;
 
 /**
+ * `POST /admin/resources/ensure` — reuse-or-create a platform (resource) for a
+ * `(providerType, modality)` pair so the 模型接入 channel-add flow never makes the
+ * operator hand-create a platform. Returns the existing or newly-created resource.
+ */
+export const ensureResourceSchema = z.object({
+  providerType: z.string().min(1),
+  modality: z.string().min(1),
+});
+export type EnsureResourceBody = z.infer<typeof ensureResourceSchema>;
+
+/**
  * `PATCH /admin/resources/:id/channels/:channelId` — patch a channel. Every
  * field is optional (omitted = unchanged); a nullable field may be set to `null`
  * to clear it.

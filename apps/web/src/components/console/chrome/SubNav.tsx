@@ -13,7 +13,10 @@ export function SubNav({ pathname }: { pathname: string }) {
   const reduced = useReducedMotion();
   const { groups } = useNavConfig();
   const group = groupForPath(pathname, groups);
-  const activeIdx = group.items.findIndex((it) => pathname.startsWith(it.to));
+  // Hidden items still own their active-state (groupForPath matches them) but are
+  // never rendered — so the sliding highlight + the list use the visible subset.
+  const items = group.items.filter((it) => it.hidden !== true);
+  const activeIdx = items.findIndex((it) => pathname.startsWith(it.to));
 
   return (
     <div
@@ -49,7 +52,7 @@ export function SubNav({ pathname }: { pathname: string }) {
             transition: reduced ? 'none' : 'transform var(--dur-base) var(--ease-out)',
           }}
         />
-        {group.items.map((it) => (
+        {items.map((it) => (
           <NavLink
             key={it.to}
             to={it.to}

@@ -11,6 +11,8 @@ import {
 export interface NavItem {
   to: string;
   labelKey: string;
+  /** Reachable + group-owning for active-state, but NOT rendered in the nav (contextual entry). */
+  hidden?: boolean;
 }
 export interface NavGroup {
   key: string;
@@ -56,7 +58,9 @@ export const ADMIN_NAV: NavGroup[] = [
       // 模型接入: the 3-pane plugin→通道→模型 management (插件 folds in here; platform
       // + pricing live on the secondary /console/platforms view).
       { to: '/console/catalog', labelKey: 'modelAccess' },
-      { to: '/console/platforms', labelKey: 'platforms' },
+      // 平台与定价 is a contextual/advanced surface entered from inside 模型接入
+      // (header link) — owns its active-state but is hidden from the nav.
+      { to: '/console/platforms', labelKey: 'platforms', hidden: true },
       { to: '/console/proxies', labelKey: 'proxies' },
       { to: '/console/dify', labelKey: 'dify' },
       { to: '/console/oauth-sessions', labelKey: 'oauthSessions' },

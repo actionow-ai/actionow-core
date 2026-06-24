@@ -19,6 +19,7 @@ export const qk = {
   plugins: () => ['admin', 'plugins'] as const,
   pluginChannels: (id: string) => ['admin', 'plugins', id, 'channels'] as const,
   icons: () => ['admin', 'icons'] as const,
+  providerTypes: () => ['admin', 'provider-types'] as const,
   routeGroups: () => ['admin', 'route-groups'] as const,
   routeGroupChannels: (id: string) => ['admin', 'route-groups', id, 'channels'] as const,
   faultPolicies: () => ['admin', 'fault-policies'] as const,
