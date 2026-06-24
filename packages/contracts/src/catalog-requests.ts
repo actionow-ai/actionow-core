@@ -233,6 +233,14 @@ export const createModelSchema = z.object({
   rateLimit: z.number().int().positive().max(1_000_000).optional(),
   /** Ordered model-degradation chain (模型降级链): fallback model names, tried in order on failure. */
   fallbackModels: z.array(z.string().min(1)).max(10).optional(),
+  /** Free-form catalog tags for faceting (推荐/便宜/长上下文…). */
+  tags: z.array(z.string().min(1)).max(20).optional(),
+  /** Developer/maker (anthropic/alibaba/z-ai…); the catalog 开发者 axis (distinct from provider_type). */
+  maker: z.string().optional(),
+  /** Max context window in tokens (上下文 facet). */
+  contextLength: z.number().int().positive().optional(),
+  /** Reasoning mode (推理): none | optional | always. */
+  reasoning: z.enum(['none', 'optional', 'always']).optional(),
   status: z.enum(['active', 'disabled']).optional(),
 });
 export type CreateModelBody = z.infer<typeof createModelSchema>;
@@ -253,6 +261,14 @@ export const updateModelSchema = z.object({
   rateLimit: z.number().int().positive().max(1_000_000).nullable().optional(),
   /** Ordered model-degradation chain (模型降级链); `null`/[] clears it. */
   fallbackModels: z.array(z.string().min(1)).max(10).nullable().optional(),
+  /** Free-form catalog tags; replaces the set. */
+  tags: z.array(z.string().min(1)).max(20).optional(),
+  /** Developer/maker; `null` clears it. */
+  maker: z.string().nullable().optional(),
+  /** Max context window in tokens; `null` clears it. */
+  contextLength: z.number().int().positive().nullable().optional(),
+  /** Reasoning mode (推理): none | optional | always; `null` clears it. */
+  reasoning: z.enum(['none', 'optional', 'always']).nullable().optional(),
   status: z.enum(['active', 'disabled']).optional(),
 });
 export type UpdateModelBody = z.infer<typeof updateModelSchema>;

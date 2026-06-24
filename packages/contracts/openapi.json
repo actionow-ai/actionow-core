@@ -387,6 +387,24 @@
               "type": "string"
             }
           },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maker": {
+            "type": "string",
+            "nullable": true
+          },
+          "context_length": {
+            "type": "number",
+            "nullable": true
+          },
+          "reasoning": {
+            "type": "string",
+            "nullable": true
+          },
           "status": {
             "type": "string"
           },
@@ -407,6 +425,10 @@
           "rate_limit",
           "fallback_models",
           "served_channel_ids",
+          "tags",
+          "maker",
+          "context_length",
+          "reasoning",
           "status",
           "created_at"
         ]
@@ -2119,13 +2141,35 @@
           },
           "visibility": {
             "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maker": {
+            "type": "string",
+            "nullable": true
+          },
+          "context_length": {
+            "type": "number",
+            "nullable": true
+          },
+          "reasoning": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
           "name",
           "display",
           "modality",
-          "visibility"
+          "visibility",
+          "tags",
+          "maker",
+          "context_length",
+          "reasoning"
         ]
       },
       "ConsoleUsageLogView": {
@@ -3355,6 +3399,30 @@
             },
             "maxItems": 10
           },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 20
+          },
+          "maker": {
+            "type": "string"
+          },
+          "contextLength": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "reasoning": {
+            "type": "string",
+            "enum": [
+              "none",
+              "optional",
+              "always"
+            ]
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -3411,6 +3479,33 @@
               "minLength": 1
             },
             "maxItems": 10
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 20
+          },
+          "maker": {
+            "type": "string",
+            "nullable": true
+          },
+          "contextLength": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "reasoning": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "none",
+              "optional",
+              "always"
+            ]
           },
           "status": {
             "type": "string",

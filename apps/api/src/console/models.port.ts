@@ -12,6 +12,11 @@ export interface ModelView {
   readonly modality: string;
   readonly capabilities: unknown;
   readonly visibility: string;
+  /** Catalog facets (catalog-tags-ia). */
+  readonly tags: string[];
+  readonly maker: string | null;
+  readonly contextLength: number | null;
+  readonly reasoning: string | null;
 }
 
 /**
@@ -50,6 +55,10 @@ export const realModelsPort: ModelsPort = {
       modality: m.modality,
       capabilities: m.capabilities,
       visibility: m.visibility,
+      tags: m.tags,
+      maker: m.maker,
+      contextLength: m.contextLength,
+      reasoning: m.reasoning,
     }));
   },
 };

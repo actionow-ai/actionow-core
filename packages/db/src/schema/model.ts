@@ -65,6 +65,21 @@ export const model = pgTable(
      * routable model the tenant can use.
      */
     fallbackModels: jsonb('fallback_models').$type<string[]>(),
+    /**
+     * Catalog metadata (ZenMux-style facets; catalog-tags-ia). All additive,
+     * nullable/defaulted — they enrich browsing/filtering, never gate routing.
+     */
+    // Free-form operator tags for faceting (推荐/便宜/长上下文/代码…).
+    tags: text('tags')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    // The model's developer/maker (anthropic/alibaba/z-ai…) — the 开发者 axis; distinct from provider_type (= protocol/adapter).
+    maker: text('maker'),
+    // Max context window in tokens (上下文 facet); null when unknown.
+    contextLength: integer('context_length'),
+    // Reasoning mode: none | optional | always (无/可切换/始终); null when unset.
+    reasoning: text('reasoning'),
     // status allowed values: active | disabled (create default + admin DTO + sync insert)
     status: text('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

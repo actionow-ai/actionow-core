@@ -9673,6 +9673,10 @@ export interface components {
             rate_limit: number | null;
             fallback_models: string[] | null;
             served_channel_ids: string[];
+            tags: string[];
+            maker: string | null;
+            context_length: number | null;
+            reasoning: string | null;
             status: string;
             created_at: string;
         };
@@ -10088,6 +10092,10 @@ export interface components {
             modality: string;
             capabilities?: unknown;
             visibility: string;
+            tags: string[];
+            maker: string | null;
+            context_length: number | null;
+            reasoning: string | null;
         };
         ConsoleUsageLogView: {
             id: string;
@@ -10416,6 +10424,11 @@ export interface components {
             outputPrice?: number;
             rateLimit?: number;
             fallbackModels?: string[];
+            tags?: string[];
+            maker?: string;
+            contextLength?: number;
+            /** @enum {string} */
+            reasoning?: "none" | "optional" | "always";
             /** @enum {string} */
             status?: "active" | "disabled";
         };
@@ -10430,6 +10443,11 @@ export interface components {
             visibility?: "public" | "tenant";
             rateLimit?: number | null;
             fallbackModels?: string[] | null;
+            tags?: string[];
+            maker?: string | null;
+            contextLength?: number | null;
+            /** @enum {string|null} */
+            reasoning?: "none" | "optional" | "always" | null;
             /** @enum {string} */
             status?: "active" | "disabled";
         };

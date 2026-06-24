@@ -69,6 +69,14 @@ export const modelViewSchema = z.object({
   fallback_models: z.array(z.string()).nullable(),
   /** Channel ids that serve this model (inverse channel_model links; popup 服务通道). */
   served_channel_ids: z.array(z.string()),
+  /** Free-form catalog tags for faceting (catalog-tags-ia). */
+  tags: z.array(z.string()),
+  /** Developer/maker (开发者 facet); null when unset. */
+  maker: z.string().nullable(),
+  /** Max context window in tokens (上下文 facet); null when unknown. */
+  context_length: z.number().nullable(),
+  /** Reasoning mode (推理): none | optional | always; null when unset. */
+  reasoning: z.string().nullable(),
   status: z.string(),
   created_at: z.string(),
 });

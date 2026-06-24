@@ -17,6 +17,10 @@ describe('catalog view contracts', () => {
       rate_limit: null,
       fallback_models: null,
       served_channel_ids: [],
+      tags: ['推荐'],
+      maker: 'z-ai',
+      context_length: 1000000,
+      reasoning: 'optional',
       status: 'active',
       created_at: '2026-01-01T00:00:00Z',
     };

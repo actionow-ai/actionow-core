@@ -1342,6 +1342,10 @@ export class AdminService {
       ...(dto.outputPrice !== undefined ? { outputPrice: BigInt(dto.outputPrice) } : {}),
       ...(dto.rateLimit !== undefined ? { rateLimit: dto.rateLimit } : {}),
       ...(dto.fallbackModels !== undefined ? { fallbackModels: dto.fallbackModels } : {}),
+      ...(dto.tags !== undefined ? { tags: dto.tags } : {}),
+      ...(dto.maker !== undefined ? { maker: dto.maker } : {}),
+      ...(dto.contextLength !== undefined ? { contextLength: dto.contextLength } : {}),
+      ...(dto.reasoning !== undefined ? { reasoning: dto.reasoning } : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
     };
     return createModel(this.db, input);
@@ -1396,6 +1400,10 @@ export class AdminService {
       visibility?: string;
       rateLimit?: number | null;
       fallbackModels?: string[] | null;
+      tags?: string[];
+      maker?: string | null;
+      contextLength?: number | null;
+      reasoning?: string | null;
       status?: string;
     } = {};
     if (dto.display !== undefined) patch.display = dto.display;
@@ -1405,6 +1413,10 @@ export class AdminService {
     if (dto.visibility !== undefined) patch.visibility = dto.visibility;
     if (dto.rateLimit !== undefined) patch.rateLimit = dto.rateLimit;
     if (dto.fallbackModels !== undefined) patch.fallbackModels = dto.fallbackModels;
+    if (dto.tags !== undefined) patch.tags = dto.tags;
+    if (dto.maker !== undefined) patch.maker = dto.maker;
+    if (dto.contextLength !== undefined) patch.contextLength = dto.contextLength;
+    if (dto.reasoning !== undefined) patch.reasoning = dto.reasoning;
     if (dto.status !== undefined) patch.status = dto.status;
     const row = await updateModel(this.db, name, patch);
     if (row === undefined) {

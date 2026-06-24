@@ -1647,6 +1647,10 @@ function toModelView(row: ModelRow, servedChannelIds: string[] = []): ModelView 
     rate_limit: row.rateLimit,
     fallback_models: row.fallbackModels,
     served_channel_ids: servedChannelIds,
+    tags: row.tags,
+    maker: row.maker,
+    context_length: row.contextLength,
+    reasoning: row.reasoning,
     status: row.status,
     created_at: row.createdAt.toISOString(),
   });
