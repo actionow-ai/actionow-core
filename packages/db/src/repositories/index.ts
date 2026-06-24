@@ -371,6 +371,18 @@ export {
   settleJob,
   type SettleJobInput,
 } from './settle.js';
+export {
+  createSubject,
+  type CreateSubjectInput,
+  findSubjectByEmail,
+  findSubjectByExternalId,
+  getSubjectById,
+  listSubjectsByTenant,
+  softDeleteSubject,
+  type SubjectRow,
+  updateSubject,
+  type UpdateSubjectInput,
+} from './subject.js';
 export type { DbOrTx } from './types.js';
 export {
   countUsageLogs,

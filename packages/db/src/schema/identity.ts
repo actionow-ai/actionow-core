@@ -121,6 +121,49 @@ export const adminToken = pgTable(
 );
 
 /**
+ * A **subject** — the END-USER of a third-party app (tenant), the single new
+ * principal of the unified A+B tenancy. Distinct from {@link user} (operators):
+ * subjects are tenant-scoped, soft-deletable, and their auth fields are all
+ * nullable. Model A populates `email`/`password_hash` (a member login); Model B
+ * populates `external_id` (the app-owned handle). `limit_plan_id` binds a
+ * per-subject governance plan (lives HERE, not on the sub-wallet, so a SHARED
+ * subject without a wallet can still have caps). Email is unique PER TENANT (not
+ * global like {@link user}) so the same human is a separate subject per product.
+ */
+export const subject = pgTable(
+  'subject',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenant.id),
+    // Model-B handle (app-owned identity); NULL for a pure Model-A subject.
+    externalId: text('external_id'),
+    // Model-A login; NULL for a pure Model-B subject. Per-tenant unique (live).
+    email: text('email'),
+    passwordHash: text('password_hash'),
+    displayName: text('display_name'),
+    // Per-subject governance plan (额度套餐). NULL → inherit tenant/key caps only.
+    limitPlanId: uuid('limit_plan_id').references(() => limitPlan.id),
+    // status allowed values: active | disabled
+    status: text('status').notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('subject_tenant_idx').on(t.tenantId),
+    uniqueIndex('subject_tenant_external_id_idx')
+      .on(t.tenantId, t.externalId)
+      .where(sql`external_id IS NOT NULL AND deleted_at IS NULL`),
+    uniqueIndex('subject_tenant_email_idx')
+      .on(t.tenantId, t.email)
+      .where(sql`email IS NOT NULL AND deleted_at IS NULL`),
+    check('subject_status_allowed', sql`${t.status} IN ('active', 'disabled')`),
+  ],
+);
+
+/**
  * A federated identity linking a {@link user} to an external OAuth provider
  * (Phase 9). Keyed on `(provider, provider_user_id)` — the provider's stable
  * subject id, NEVER the email — so a provider account links to exactly one
