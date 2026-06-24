@@ -29,6 +29,10 @@ export interface ApiKeyContext {
    * ratio (Track 5).
    */
   readonly routeGroupId: string | null;
+  /** The key's bound limit plan (额度套餐); `null` → no per-key limits. */
+  readonly limitPlanId: string | null;
+  /** The tenant's bound limit plan (on its account); `null` → no tenant limits. */
+  readonly tenantLimitPlanId: string | null;
 }
 
 /** An express request carrying the guard-populated {@link ApiKeyContext}. */
@@ -42,7 +46,10 @@ export interface AuthedRequest extends Request {
  */
 export interface ApiKeyRepo {
   findApiKeyByHash(db: Database, hash: string): Promise<ApiKeyRecord | undefined>;
-  getAccountByTenant(db: Database, tenantId: string): Promise<{ id: string } | undefined>;
+  getAccountByTenant(
+    db: Database,
+    tenantId: string,
+  ): Promise<{ id: string; limitPlanId: string | null } | undefined>;
 }
 
 /** Production repo wired to the real `@actionow/db` functions. */
@@ -105,6 +112,8 @@ export class ApiKeyGuard implements CanActivate {
       resourceAllowlist: record.resourceAllowlist,
       rateLimit: record.rateLimit,
       routeGroupId: record.routeGroupId,
+      limitPlanId: record.limitPlanId,
+      tenantLimitPlanId: account.limitPlanId,
     };
     return true;
   }
@@ -136,6 +145,8 @@ export class ApiKeyGuard implements CanActivate {
       // No key was presented → no bound group; routing resolves the `default`
       // group (or falls back to all channels) for the dev tenant.
       routeGroupId: null,
+      limitPlanId: null,
+      tenantLimitPlanId: account.limitPlanId,
     };
   }
 

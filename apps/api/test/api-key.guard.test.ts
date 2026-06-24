@@ -28,13 +28,14 @@ function repoWithKey(record: Partial<ApiKeyRecord> = {}): ApiKeyRepo {
     rateLimit: null,
     status: 'active',
     routeGroupId: null,
+    limitPlanId: null,
     ...record,
   };
   return {
     findApiKeyByHash: (_db, hash): Promise<ApiKeyRecord | undefined> =>
       Promise.resolve(hash === validHash ? full : undefined),
-    getAccountByTenant: (): Promise<{ id: string } | undefined> =>
-      Promise.resolve({ id: 'account-1' }),
+    getAccountByTenant: (): Promise<{ id: string; limitPlanId: string | null } | undefined> =>
+      Promise.resolve({ id: 'account-1', limitPlanId: null }),
   };
 }
 
@@ -146,6 +147,7 @@ describe('ApiKeyGuard', () => {
           rateLimit: null,
           status: 'active',
           routeGroupId: null,
+          limitPlanId: null,
         }),
       getAccountByTenant: (): Promise<{ id: string } | undefined> => Promise.resolve(undefined),
     } as unknown as ApiKeyRepo;

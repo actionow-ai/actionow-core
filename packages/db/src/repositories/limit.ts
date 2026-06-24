@@ -1,7 +1,15 @@
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
-import { account, apiKey, limitAlert, limitPlan, limitRule, limitUsage } from '../schema/index.js';
+import {
+  account,
+  apiKey,
+  limitAlert,
+  limitPlan,
+  limitRule,
+  limitUsage,
+  usageLog,
+} from '../schema/index.js';
 import type { DbOrTx } from './types.js';
 
 export type LimitPlanRow = InferSelectModel<typeof limitPlan>;
@@ -247,6 +255,42 @@ export async function incrUsage(
     })
     .returning({ used: limitUsage.used });
   return rows[0]?.used ?? delta;
+}
+
+/**
+ * Windowed usage over `usage_log` for a ROLLING period (not materialized): the
+ * `spend` (Σcost µUSD), `requests` (count), or `tokens` (Σ input+output) for a
+ * subject since `since`, optionally narrowed to a model. Used by the guard's
+ * rolling_24h / rolling_30d rules.
+ */
+export async function windowedUsage(
+  db: DbOrTx,
+  opts: {
+    subjectType: string;
+    subjectId: string;
+    dimension: string;
+    since: Date;
+    modelScope?: string | null;
+  },
+): Promise<bigint> {
+  const subjectCol = opts.subjectType === 'key' ? usageLog.apiKeyId : usageLog.tenantId;
+  const expr =
+    opts.dimension === 'spend'
+      ? sql<string>`coalesce(sum(${usageLog.cost}), 0)`
+      : opts.dimension === 'tokens'
+        ? sql<string>`coalesce(sum(${usageLog.inputTokens} + ${usageLog.outputTokens}), 0)`
+        : sql<string>`count(*)`;
+  const rows = await db
+    .select({ v: expr })
+    .from(usageLog)
+    .where(
+      and(
+        eq(subjectCol, opts.subjectId),
+        sql`${usageLog.createdAt} >= ${opts.since}`,
+        opts.modelScope ? eq(usageLog.model, opts.modelScope) : undefined,
+      ),
+    );
+  return BigInt(rows[0]?.v ?? '0');
 }
 
 /** All usage rows for a subject (the usage-vs-cap UI). */

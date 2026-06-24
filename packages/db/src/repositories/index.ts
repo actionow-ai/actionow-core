@@ -192,6 +192,7 @@ export {
   updateLimitPlan,
   type UpdateLimitPlanInput,
   type UsageKey,
+  windowedUsage,
 } from './limit.js';
 export {
   channelIdsByModelIds,

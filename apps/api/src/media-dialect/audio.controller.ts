@@ -4,7 +4,7 @@ import type { Request, Response } from 'express';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
-import { RateLimitGuard } from '../auth/rate-limit.guard.js';
+import { GovernanceGuard } from '../auth/governance.guard.js';
 import { ZodBody } from '../common/zod.pipe.js';
 import { type AudioSpeechDto, audioSpeechSchema } from './dto/media-dialect.dto.js';
 import { MediaDialectService } from './media-dialect.service.js';
@@ -20,7 +20,7 @@ import { MediaDialectService } from './media-dialect.service.js';
  */
 @ApiTags('v1')
 @ApiBearerAuth('api-key')
-@UseGuards(ApiKeyGuard, RateLimitGuard)
+@UseGuards(ApiKeyGuard, GovernanceGuard)
 @Controller('v1/audio')
 export class AudioController {
   constructor(

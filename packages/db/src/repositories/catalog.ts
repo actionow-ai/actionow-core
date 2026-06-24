@@ -538,9 +538,9 @@ export async function listApplicableModifiers(
 export async function getAccountByTenant(
   db: DbOrTx,
   tenantId: string,
-): Promise<{ id: string } | undefined> {
+): Promise<{ id: string; limitPlanId: string | null } | undefined> {
   const rows = await db
-    .select({ id: account.id })
+    .select({ id: account.id, limitPlanId: account.limitPlanId })
     .from(account)
     .where(and(eq(account.tenantId, tenantId), isNull(account.deletedAt)))
     .limit(1);

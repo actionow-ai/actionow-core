@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
-import { RateLimitGuard } from '../auth/rate-limit.guard.js';
+import { GovernanceGuard } from '../auth/governance.guard.js';
 import { ChannelRoutingService } from '../common/channel-routing.service.js';
 import { FilesModule } from '../files/files.module.js';
 import { ResourcesController } from './resources.controller.js';
@@ -24,7 +24,7 @@ import { RunService } from './run.service.js';
     AuthService,
     ChannelRoutingService,
     ApiKeyGuard,
-    RateLimitGuard,
+    GovernanceGuard,
   ],
   // Exported so the OpenAI media dialect (MediaDialectModule) can reuse
   // `RunService.resolveRunRequest` to build a run for its in-process sync runner.

@@ -6,7 +6,7 @@ import type { Request, Response } from 'express';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
-import { RateLimitGuard } from '../auth/rate-limit.guard.js';
+import { GovernanceGuard } from '../auth/governance.guard.js';
 import { ZodBody } from '../common/zod.pipe.js';
 import type { RunBody } from './run.service.js';
 import { RunBodySchema, RunService } from './run.service.js';
@@ -20,12 +20,12 @@ interface RunResponse {
   cost?: { credits: string };
 }
 
-// ApiKeyGuard authenticates the request and sets req.auth; RateLimitGuard runs
+// ApiKeyGuard authenticates the request and sets req.auth; GovernanceGuard runs
 // second (guards execute in declaration order) and reads the authenticated
 // tenant + the key's rate limit off req.auth.
 @ApiTags('v1')
 @ApiBearerAuth('api-key')
-@UseGuards(ApiKeyGuard, RateLimitGuard)
+@UseGuards(ApiKeyGuard, GovernanceGuard)
 @Controller('v1/run')
 export class RunController {
   constructor(

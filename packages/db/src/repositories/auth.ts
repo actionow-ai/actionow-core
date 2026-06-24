@@ -30,6 +30,8 @@ export interface ApiKeyRecord {
   readonly status: string;
   /** The bound route group (Track 3); `null` → the `default` group at routing time. */
   readonly routeGroupId: string | null;
+  /** The bound limit plan (额度套餐; governance-limits); `null` → no per-key limits. */
+  readonly limitPlanId: string | null;
 }
 
 /** Compute the stored lookup hash for an API key (sha256 hex of the plaintext). */
@@ -78,6 +80,7 @@ export async function findApiKeyByHash(
       rateLimit: apiKey.rateLimit,
       status: apiKey.status,
       routeGroupId: apiKey.routeGroupId,
+      limitPlanId: apiKey.limitPlanId,
     })
     .from(apiKey)
     .where(and(eq(apiKey.hash, hash), isNull(apiKey.deletedAt)))

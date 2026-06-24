@@ -5,7 +5,7 @@ import type { Request, Response } from 'express';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
-import { RateLimitGuard } from '../auth/rate-limit.guard.js';
+import { GovernanceGuard } from '../auth/governance.guard.js';
 import { idempotencyKeyHeader } from '../common/idempotency.interceptor.js';
 import { ChatRelayService } from './chat-relay.service.js';
 import { pipeSse } from './sse.js';
@@ -20,7 +20,7 @@ import { pipeSse } from './sse.js';
  */
 @ApiTags('v1')
 @ApiBearerAuth('api-key')
-@UseGuards(ApiKeyGuard, RateLimitGuard)
+@UseGuards(ApiKeyGuard, GovernanceGuard)
 @Controller('v1/chat')
 export class OpenAIChatController {
   constructor(

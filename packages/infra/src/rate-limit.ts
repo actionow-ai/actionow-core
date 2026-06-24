@@ -103,6 +103,92 @@ function isRateLimitRedis(redis: RateLimitRedis | EvalCapableRedis): redis is Ra
   return typeof (redis as RateLimitRedis).incrementWindow === 'function';
 }
 
+/** A single acquired concurrency slot; `release` is idempotent. */
+export interface ConcurrencySlot {
+  /** True when the slot was within `max` (the request may proceed). */
+  ok: boolean;
+  /** Free the slot — call in a `finally`/response-finish handler. No-op when `!ok`. */
+  release: () => Promise<void>;
+}
+
+/**
+ * An in-flight (concurrency) limiter: `acquire` takes one slot for `key` and
+ * reports whether the count stayed within `max`. Backed by a Redis counter
+ * (INCR/DECR) with a safety TTL so a leaked slot self-heals.
+ */
+export interface ConcurrencyLimiter {
+  acquire(key: string, max: number): Promise<ConcurrencySlot>;
+}
+
+// INCR + set a safety TTL on first hit (so a crashed request can't pin a slot
+// forever). DECR on release, clamped at 0.
+const CONC_INCR_LUA = `
+local n = redis.call('INCR', KEYS[1])
+if n == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
+return n
+`;
+const CONC_DECR_LUA = `
+local n = redis.call('DECR', KEYS[1])
+if n < 0 then redis.call('SET', KEYS[1], 0); n = 0 end
+return n
+`;
+
+/** Redis-backed {@link ConcurrencyLimiter}. */
+export class RedisConcurrencyLimiter implements ConcurrencyLimiter {
+  constructor(
+    private readonly redis: EvalCapableRedis,
+    private readonly safetyTtlMs = 120_000,
+  ) {}
+
+  private decr(key: string): Promise<unknown> {
+    return this.redis.eval(CONC_DECR_LUA, 1, key);
+  }
+
+  async acquire(key: string, max: number): Promise<ConcurrencySlot> {
+    if (max <= 0) return { ok: false, release: () => Promise.resolve() };
+    const n = (await this.redis.eval(CONC_INCR_LUA, 1, key, this.safetyTtlMs)) as number;
+    if (n > max) {
+      await this.decr(key);
+      return { ok: false, release: () => Promise.resolve() };
+    }
+    let released = false;
+    return {
+      ok: true,
+      release: async () => {
+        if (released) return;
+        released = true;
+        await this.decr(key);
+      },
+    };
+  }
+}
+
+/** Deterministic in-memory {@link ConcurrencyLimiter} for tests. */
+export class FakeConcurrencyLimiter implements ConcurrencyLimiter {
+  private readonly counts = new Map<string, number>();
+
+  acquire(key: string, max: number): Promise<ConcurrencySlot> {
+    if (max <= 0) return Promise.resolve({ ok: false, release: () => Promise.resolve() });
+    const n = (this.counts.get(key) ?? 0) + 1;
+    this.counts.set(key, n);
+    if (n > max) {
+      this.counts.set(key, n - 1);
+      return Promise.resolve({ ok: false, release: () => Promise.resolve() });
+    }
+    let released = false;
+    return Promise.resolve({
+      ok: true,
+      release: () => {
+        if (!released) {
+          released = true;
+          this.counts.set(key, Math.max(0, (this.counts.get(key) ?? 1) - 1));
+        }
+        return Promise.resolve();
+      },
+    });
+  }
+}
+
 /**
  * Deterministic in-memory {@link RateLimitRedis} for tests. Mirrors the Lua
  * semantics: INCR creates the key with a TTL on the first hit, the TTL is fixed
