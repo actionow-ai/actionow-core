@@ -14,11 +14,12 @@ import { OAuthCallbackPage } from './features/auth/OAuthCallbackPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { DifyImportPage } from './features/console/DifyImportPage';
 import { FaultPoliciesPage } from './features/console/FaultPoliciesPage';
+import { ModelAccessPage } from './features/console/ModelAccessPage';
+import { ModelsCatalogPage } from './features/console/ModelsCatalogPage';
 import { ModifiersPage } from './features/console/ModifiersPage';
 import { OAuthSessionsPage } from './features/console/OAuthSessionsPage';
 import { OfficialPricesPage } from './features/console/OfficialPricesPage';
 import { OverviewPage } from './features/console/OverviewPage';
-import { PluginsPage } from './features/console/PluginsPage';
 import { ProxiesPage } from './features/console/ProxiesPage';
 import { RedemptionCodesPage } from './features/console/RedemptionCodesPage';
 import { RelayTracesPage } from './features/console/RelayTracesPage';
@@ -30,10 +31,10 @@ import { TenantsPage } from './features/console/TenantsPage';
 import { ProtectedRoute } from './lib/auth/ProtectedRoute';
 import { RootRoute } from './RootRoute';
 
-/** Redirect the legacy `/console/resources/:id` deep link into the catalog route, preserving the selected resource as `?id`. */
+/** Redirect the legacy `/console/resources/:id` deep link into the platforms route, preserving the selected resource as `?id`. */
 function ResourceRedirect() {
   const { id } = useParams();
-  return <Navigate to={`/console/catalog?id=${encodeURIComponent(id ?? '')}`} replace />;
+  return <Navigate to={`/console/platforms?id=${encodeURIComponent(id ?? '')}`} replace />;
 }
 
 export function AppRoutes() {
@@ -68,13 +69,15 @@ export function AppRoutes() {
           <Route path="analytics" element={<Navigate to="/console/overview" replace />} />
           <Route path="status" element={<StatusPage />} />
           <Route path="relay-traces" element={<RelayTracesPage />} />
-          {/* Catalog = the Resources master-detail; relay models nest inside each resource's detail pane. */}
-          <Route path="catalog" element={<ResourcesPage />} />
-          {/* Legacy routes redirect into the catalog page (resources are the catalog now). */}
-          <Route path="resources" element={<Navigate to="/console/catalog" replace />} />
+          {/* 模型接入 = the 3-pane (plugin → channel → model); the standalone 插件 page folds in here. */}
+          <Route path="catalog" element={<ModelAccessPage />} />
+          {/* Platform & pricing = the resource master-detail (pricebook + resource CRUD), secondary surface. */}
+          <Route path="platforms" element={<ResourcesPage />} />
+          {/* Legacy routes redirect into their new homes. */}
+          <Route path="resources" element={<Navigate to="/console/platforms" replace />} />
           <Route path="resources/:id" element={<ResourceRedirect />} />
-          <Route path="models" element={<Navigate to="/console/catalog" replace />} />
-          <Route path="plugins" element={<PluginsPage />} />
+          <Route path="plugins" element={<Navigate to="/console/catalog" replace />} />
+          <Route path="models" element={<ModelsCatalogPage />} />
           <Route path="proxies" element={<ProxiesPage />} />
           <Route path="modifiers" element={<ModifiersPage />} />
           {/* Billing & routing: live on the real /admin/route-groups and

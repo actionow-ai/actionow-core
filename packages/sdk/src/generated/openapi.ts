@@ -9657,6 +9657,8 @@ export interface components {
             output_cost_per_1m: string | null;
             fault_policy_id: string | null;
             model_count: number;
+            icon: string | null;
+            plugin_id: string | null;
         };
         ModelView: {
             id: string;
@@ -9673,6 +9675,11 @@ export interface components {
             rate_limit: number | null;
             fallback_models: string[] | null;
             served_channel_ids: string[];
+            tags: string[];
+            maker: string | null;
+            context_length: number | null;
+            reasoning: string | null;
+            icon: string | null;
             status: string;
             created_at: string;
         };
@@ -9877,6 +9884,7 @@ export interface components {
             handler: string;
             version: number;
             builtin: boolean;
+            icon: string | null;
             status: string;
             created_at: string;
             updated_at: string;
@@ -9915,6 +9923,7 @@ export interface components {
                 }[];
             };
             handler: string;
+            icon?: string;
         };
         UpdatePluginBody: {
             label?: string;
@@ -9949,6 +9958,7 @@ export interface components {
                 }[];
             };
             handler?: string;
+            icon?: string | null;
             status?: string;
         };
         TestPluginBody: {
@@ -10088,6 +10098,10 @@ export interface components {
             modality: string;
             capabilities?: unknown;
             visibility: string;
+            tags: string[];
+            maker: string | null;
+            context_length: number | null;
+            reasoning: string | null;
         };
         ConsoleUsageLogView: {
             id: string;
@@ -10324,6 +10338,9 @@ export interface components {
             outputCostUsdPer1m?: number;
             /** Format: uuid */
             faultPolicyId?: string;
+            icon?: string;
+            /** Format: uuid */
+            pluginId?: string;
         };
         UpdateChannelBody: {
             /** Format: uuid */
@@ -10341,6 +10358,9 @@ export interface components {
             outputCostUsdPer1m?: number | null;
             /** Format: uuid */
             faultPolicyId?: string | null;
+            icon?: string | null;
+            /** Format: uuid */
+            pluginId?: string | null;
         };
         SyncChannelModelsBody: {
             defaultInputPrice?: number;
@@ -10416,6 +10436,12 @@ export interface components {
             outputPrice?: number;
             rateLimit?: number;
             fallbackModels?: string[];
+            tags?: string[];
+            maker?: string;
+            contextLength?: number;
+            /** @enum {string} */
+            reasoning?: "none" | "optional" | "always";
+            icon?: string;
             /** @enum {string} */
             status?: "active" | "disabled";
         };
@@ -10430,6 +10456,12 @@ export interface components {
             visibility?: "public" | "tenant";
             rateLimit?: number | null;
             fallbackModels?: string[] | null;
+            tags?: string[];
+            maker?: string | null;
+            contextLength?: number | null;
+            /** @enum {string|null} */
+            reasoning?: "none" | "optional" | "always" | null;
+            icon?: string | null;
             /** @enum {string} */
             status?: "active" | "disabled";
         };

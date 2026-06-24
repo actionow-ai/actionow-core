@@ -17,6 +17,11 @@ describe('catalog view contracts', () => {
       rate_limit: null,
       fallback_models: null,
       served_channel_ids: [],
+      tags: ['推荐'],
+      maker: 'z-ai',
+      context_length: 1000000,
+      reasoning: 'optional',
+      icon: 'openai',
       status: 'active',
       created_at: '2026-01-01T00:00:00Z',
     };
@@ -41,6 +46,8 @@ describe('catalog view contracts', () => {
       output_cost_per_1m: null,
       fault_policy_id: null,
       model_count: 0,
+      icon: null,
+      plugin_id: null,
     };
     expect(channelViewSchema.parse(c)).toEqual(c);
   });

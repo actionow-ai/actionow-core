@@ -144,7 +144,9 @@
       "billing": "计费与路由",
       "tenants": "租户",
       "home": "概览",
-      "account": "账户"
+      "account": "账户",
+      "models": "模型",
+      "access": "接入设置"
     },
     "dashboard": "仪表盘",
     "analytics": "分析",
@@ -173,7 +175,9 @@
     "redemptionCodes": "卡密兑换",
     "tmedia": "素材",
     "oauthSessions": "凭证",
-    "serviceTokens": "服务令牌"
+    "serviceTokens": "服务令牌",
+    "modelAccess": "模型接入",
+    "platforms": "平台与定价"
   },
   "topbar": {
     "admin": "管理员",
@@ -196,7 +200,7 @@
     "tenants": "创建与查看租户",
     "catalog": "模型与资源——通道与定价",
     "resources": "平台 → 通道 → 模型：上游通道与所服务的模型",
-    "models": "中转模型、租户授权与 token 计价",
+    "models": "模型目录：按标签 / 能力 / 开发者过滤",
     "modifiers": "全局与范围化的调价规则",
     "routeGroups": "路由分组与渠道成员",
     "faultPolicies": "重试 / 退避 / 超时 / 降级——按渠道的容错策略",
@@ -206,7 +210,9 @@
     "proxies": "出网代理：加密存储、健康探测，按渠道绑定",
     "accounts": "账户余额与充值",
     "apiKeys": "签发与管理 API Key",
-    "serviceTokens": "管理 API 的机器对机器（M2M）凭据"
+    "serviceTokens": "管理 API 的机器对机器（M2M）凭据",
+    "modelAccess": "插件 → 通道 → 模型：三栏式接入管理",
+    "platforms": "平台与定价：资源、上游与定价手册"
   },
   "dashboard": {
     "stats": {
@@ -587,7 +593,13 @@
       "fallbackModelsPlaceholder": "输入备选模型名,回车添加(按顺序降级)",
       "status": "状态",
       "nameRequired": "请填写名称。",
-      "resourceRequired": "请选择一个资源。"
+      "resourceRequired": "请选择一个资源。",
+      "tags": "标签",
+      "tagsPlaceholder": "输入后回车,如 推荐 / 便宜 / 长上下文",
+      "maker": "开发者",
+      "contextLength": "上下文长度(tokens)",
+      "reasoning": "推理",
+      "icon": "图标"
     },
     "tip": {
       "name": "调用方请求时使用的唯一模型 id(如 anthropic/claude-3-5-sonnet)。创建后不可更改。",
@@ -604,7 +616,12 @@
       "rateLimit": "该模型每租户每分钟的最大请求数(模型限流)。在租户/资源限流之上叠加。",
       "rateLimitHint": "0 = 不设模型级限流。",
       "fallbackModels": "模型降级链:阻塞式 chat 在本模型所有渠道都失败(可重试)时,按顺序改用这些备选模型。仅作用于非流式。",
-      "status": "已停用的模型对调用方不可见。"
+      "status": "已停用的模型对调用方不可见。",
+      "tags": "自由标签,用于目录过滤(推荐/便宜/代码/角色扮演…)",
+      "maker": "模型的制造方(anthropic/alibaba/z-ai…),用于按厂商筛选",
+      "contextLength": "最大上下文窗口(token 数);0 表示未知",
+      "reasoning": "推理模式:无 / 可切换 / 始终开启",
+      "icon": "为该模型选择品牌图标;留空则继承其渠道 / 插件图标"
     },
     "actions": {
       "grants": "授权",
@@ -642,7 +659,21 @@
     "unlinkHint": "解绑只移除该模型与「{{channel}}」的关联，不会删除模型本身。",
     "detail": {
       "price": "价格 入/出"
+    },
+    "reasoning": {
+      "unset": "未设置",
+      "none": "无推理",
+      "optional": "可切换推理",
+      "always": "始终开启推理"
     }
+  },
+  "modelAccess": {
+    "platforms": "平台与定价",
+    "pickPlugin": "从左侧选择一个插件",
+    "channels": "通道",
+    "addChannel": "添加通道",
+    "noChannels": "该插件下暂无通道",
+    "pickChannel": "选择一个通道查看其模型"
   },
   "channels": {
     "addTitle": "添加通道",
@@ -654,7 +685,12 @@
     "statusUpdated": "通道状态已更新",
     "synced": "已同步 {{total}} 个模型",
     "form": {
+      "platform": "平台",
+      "platformPlaceholder": "选择该通道所属平台",
+      "plugin": "插件",
+      "pluginNone": "未分配",
       "provider": "Provider 类型",
+      "icon": "图标",
       "endpoint": "端点",
       "model": "模型",
       "proxyRef": "代理 Ref",
@@ -670,7 +706,10 @@
       "config": "配置"
     },
     "tip": {
+      "platform": "该通道所属的平台(资源/上游)。路由按平台聚合通道。",
+      "plugin": "该通道归属的插件(模型接入三栏分组)。原生厂商通道仍按 Provider 类型路由,不走沙箱。",
       "provider": "该通道的上游 Provider(自由文本,如 openai、anthropic)。Logo 据此解析。",
+      "icon": "为该通道选择品牌图标;留空则按插件 / Provider 推导",
       "providerFixed": "Provider 创建后不可更改。",
       "endpoint": "该通道的 Base URL 覆盖。留空则使用 Provider 默认值。",
       "model": "要调用的上游模型名(如 gpt-4o)。留空则使用资源默认值。",
@@ -1087,6 +1126,8 @@
       "slugRequired": "请填写 slug。",
       "label": "名称",
       "labelRequired": "请填写名称。",
+      "icon": "图标",
+      "iconHint": "为该插件选择品牌图标;留空则按 slug 推导",
       "modalities": "模态",
       "protocol": "协议",
       "auth": "鉴权策略",
@@ -1379,5 +1420,12 @@
     },
     "confirmRevokeTitle": "吊销凭据？",
     "confirmRevokeMsg": "确定吊销 {{provider}} 凭据？使用它的渠道在重新绑定前将失败。"
+  },
+  "facets": {
+    "modality": "模态",
+    "maker": "开发者",
+    "capability": "能力",
+    "tag": "标签",
+    "clear": "清除筛选(共 {{n}} 个)"
   }
 }

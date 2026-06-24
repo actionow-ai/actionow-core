@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { CapabilitiesField } from '../../components/data/CapabilitiesField';
+import { IconPicker } from '../../components/data/IconPicker';
 import { Button } from '../../components/ui/Button';
 import { ChipsField } from '../../components/ui/ChipsField';
 import { Drawer } from '../../components/ui/Drawer';
@@ -76,6 +77,14 @@ export function ModelEditor({
   const [rateLimit, setRateLimit] = useState(0);
   // Ordered model-degradation chain (模型降级链); [] = none.
   const [fallbackModels, setFallbackModels] = useState<string[]>([]);
+  // Catalog facets (catalog-tags-ia): free-form tags, maker/developer, context
+  // window (0 = unset), reasoning mode ('' = unset).
+  const [tags, setTags] = useState<string[]>([]);
+  const [maker, setMaker] = useState('');
+  const [contextLength, setContextLength] = useState(0);
+  const [reasoning, setReasoning] = useState('');
+  // Selectable brand icon (icon_asset.key); null → inherit channel/plugin icon.
+  const [icon, setIcon] = useState<string | null>(null);
   const [status, setStatus] = useState<ModelStatus>('active');
   // A stable idempotency key for this editor instance (remounted per open via
   // `key`), so an accidental double-submit of a create replays instead of dupes.
@@ -102,6 +111,11 @@ export function ModelEditor({
     setOutputPrice(Number(m.output_price));
     setRateLimit(m.rate_limit ?? 0);
     setFallbackModels(m.fallback_models ?? []);
+    setTags(m.tags);
+    setMaker(m.maker ?? '');
+    setContextLength(m.context_length ?? 0);
+    setReasoning(m.reasoning ?? '');
+    setIcon(m.icon ?? null);
     setStatus(m.status === 'disabled' ? 'disabled' : 'active');
   }, [editing, m]);
 
@@ -115,6 +129,11 @@ export function ModelEditor({
         outputPrice,
         rateLimit: rateLimit > 0 ? rateLimit : null,
         fallbackModels: fallbackModels.length > 0 ? fallbackModels : null,
+        tags,
+        maker: maker.trim() === '' ? null : maker.trim(),
+        contextLength: contextLength > 0 ? contextLength : null,
+        reasoning: reasoning === '' ? null : (reasoning as 'none' | 'optional' | 'always'),
+        icon,
         status,
       }),
     onSuccess: async () => {
@@ -142,6 +161,11 @@ export function ModelEditor({
           outputPrice,
           ...(rateLimit > 0 ? { rateLimit } : {}),
           ...(fallbackModels.length > 0 ? { fallbackModels } : {}),
+          ...(tags.length > 0 ? { tags } : {}),
+          ...(maker.trim() !== '' ? { maker: maker.trim() } : {}),
+          ...(contextLength > 0 ? { contextLength } : {}),
+          ...(reasoning !== '' ? { reasoning: reasoning as 'none' | 'optional' | 'always' } : {}),
+          ...(icon !== null ? { icon } : {}),
           status: statusOverride,
         },
         idemKey,
@@ -323,6 +347,47 @@ export function ModelEditor({
         value={fallbackModels}
         onChange={setFallbackModels}
         placeholder={t('models.form.fallbackModelsPlaceholder')}
+      />
+
+      <ChipsField
+        label={t('models.form.tags')}
+        tooltip={t('models.tip.tags')}
+        value={tags}
+        onChange={setTags}
+        placeholder={t('models.form.tagsPlaceholder')}
+      />
+      <TextField
+        label={t('models.form.maker')}
+        hint={t('models.tip.maker')}
+        value={maker}
+        onChange={setMaker}
+      />
+      <IconPicker
+        label={t('models.form.icon')}
+        hint={t('models.tip.icon')}
+        value={icon}
+        onChange={setIcon}
+        fallbacks={[maker, modality]}
+      />
+      <NumberField
+        label={t('models.form.contextLength')}
+        hint={t('models.tip.contextLength')}
+        value={contextLength}
+        onChange={setContextLength}
+        min={0}
+        step={1000}
+      />
+      <SelectField
+        label={t('models.form.reasoning')}
+        tooltip={t('models.tip.reasoning')}
+        value={reasoning}
+        onChange={setReasoning}
+        options={[
+          { value: '', label: t('models.reasoning.unset') },
+          { value: 'none', label: t('models.reasoning.none') },
+          { value: 'optional', label: t('models.reasoning.optional') },
+          { value: 'always', label: t('models.reasoning.always') },
+        ]}
       />
 
       <SelectField

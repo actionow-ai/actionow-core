@@ -86,6 +86,7 @@ export {
   listAllChannelsWithHealth,
   listApplicableModifiers,
   listChannels,
+  listChannelsByPlugin,
   listChannelsForResource,
   listCooledDownChannelIds,
   listDifyBindings,
@@ -142,6 +143,7 @@ export {
   type ListFilesFilter,
   markFileReady,
 } from './files.js';
+export { type IconAssetRow, listIconAssets, upsertIconAsset } from './icon.js';
 export { claimIdempotency, type ClaimResult } from './idempotency.js';
 export {
   getIdempotentResponse,

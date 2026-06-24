@@ -317,6 +317,14 @@
           },
           "model_count": {
             "type": "number"
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "plugin_id": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -333,7 +341,9 @@
           "input_cost_per_1m",
           "output_cost_per_1m",
           "fault_policy_id",
-          "model_count"
+          "model_count",
+          "icon",
+          "plugin_id"
         ]
       },
       "ModelView": {
@@ -387,6 +397,28 @@
               "type": "string"
             }
           },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maker": {
+            "type": "string",
+            "nullable": true
+          },
+          "context_length": {
+            "type": "number",
+            "nullable": true
+          },
+          "reasoning": {
+            "type": "string",
+            "nullable": true
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
           "status": {
             "type": "string"
           },
@@ -407,6 +439,11 @@
           "rate_limit",
           "fallback_models",
           "served_channel_ids",
+          "tags",
+          "maker",
+          "context_length",
+          "reasoning",
+          "icon",
           "status",
           "created_at"
         ]
@@ -1226,6 +1263,10 @@
           "builtin": {
             "type": "boolean"
           },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
           "status": {
             "type": "string"
           },
@@ -1247,6 +1288,7 @@
           "handler",
           "version",
           "builtin",
+          "icon",
           "status",
           "created_at",
           "updated_at"
@@ -1397,6 +1439,9 @@
           "handler": {
             "type": "string",
             "minLength": 1
+          },
+          "icon": {
+            "type": "string"
           }
         },
         "required": [
@@ -1547,6 +1592,10 @@
           "handler": {
             "type": "string",
             "minLength": 1
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
           },
           "status": {
             "type": "string"
@@ -2119,13 +2168,35 @@
           },
           "visibility": {
             "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maker": {
+            "type": "string",
+            "nullable": true
+          },
+          "context_length": {
+            "type": "number",
+            "nullable": true
+          },
+          "reasoning": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
           "name",
           "display",
           "modality",
-          "visibility"
+          "visibility",
+          "tags",
+          "maker",
+          "context_length",
+          "reasoning"
         ]
       },
       "ConsoleUsageLogView": {
@@ -3017,6 +3088,13 @@
           "faultPolicyId": {
             "type": "string",
             "format": "uuid"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": [
@@ -3076,6 +3154,15 @@
             "minimum": 0
           },
           "faultPolicyId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "pluginId": {
             "type": "string",
             "nullable": true,
             "format": "uuid"
@@ -3355,6 +3442,33 @@
             },
             "maxItems": 10
           },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 20
+          },
+          "maker": {
+            "type": "string"
+          },
+          "contextLength": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "reasoning": {
+            "type": "string",
+            "enum": [
+              "none",
+              "optional",
+              "always"
+            ]
+          },
+          "icon": {
+            "type": "string"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -3411,6 +3525,37 @@
               "minLength": 1
             },
             "maxItems": 10
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 20
+          },
+          "maker": {
+            "type": "string",
+            "nullable": true
+          },
+          "contextLength": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "reasoning": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "none",
+              "optional",
+              "always"
+            ]
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
           },
           "status": {
             "type": "string",

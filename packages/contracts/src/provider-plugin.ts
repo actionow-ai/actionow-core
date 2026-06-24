@@ -64,6 +64,8 @@ export const providerPluginViewSchema = z.object({
   handler: z.string(),
   version: z.number().int(),
   builtin: z.boolean(),
+  /** Selectable icon key (icon_asset.key); null → derived from slug. */
+  icon: z.string().nullable(),
   status: z.string(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -75,6 +77,7 @@ export const createPluginRequestSchema = z.object({
   label: z.string().min(1),
   manifest: pluginManifestSchema,
   handler: z.string().min(1),
+  icon: z.string().optional(),
 });
 export type CreatePluginRequest = z.infer<typeof createPluginRequestSchema>;
 
@@ -82,6 +85,7 @@ export const updatePluginRequestSchema = z.object({
   label: z.string().min(1).optional(),
   manifest: pluginManifestSchema.optional(),
   handler: z.string().min(1).optional(),
+  icon: z.string().nullable().optional(),
   status: z.string().optional(),
 });
 export type UpdatePluginRequest = z.infer<typeof updatePluginRequestSchema>;

@@ -65,6 +65,7 @@ import {
   getSecretRefById,
   getTenant,
   grantModel,
+  type IconAssetRow,
   type Job,
   type KeysetResult,
   type LedgerRow,
@@ -74,9 +75,11 @@ import {
   listAllChannelsWithHealth,
   listApiKeys,
   listChannelModels,
+  listChannelsByPlugin,
   listChannelsForResource,
   listFaultPolicies,
   listGroupChannels,
+  listIconAssets,
   listJobs,
   listLedger,
   listModelGrants,
@@ -655,6 +658,18 @@ export class AdminService {
     return row;
   }
 
+  // ----- icon catalog (selectable brand icons) -----
+
+  /** The seeded selectable icon catalog (plugin/channel/model icon picker). */
+  listIcons(): Promise<IconAssetRow[]> {
+    return listIconAssets(this.db);
+  }
+
+  /** Every channel bound to a plugin (across resources) — 模型接入 3-pane middle column. */
+  listPluginChannels(pluginId: string): Promise<UpstreamChannelRow[]> {
+    return listChannelsByPlugin(this.db, pluginId);
+  }
+
   // ----- provider plugins (P2) -----
 
   listPlugins(): Promise<ProviderPluginRow[]> {
@@ -670,6 +685,7 @@ export class AdminService {
       authStrategy: dto.manifest.authStrategy,
       manifest: dto.manifest,
       handler: dto.handler,
+      ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
     });
   }
 
@@ -685,6 +701,7 @@ export class AdminService {
           }
         : {}),
       ...(dto.handler !== undefined ? { handler: dto.handler } : {}),
+      ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
     });
     if (row === undefined) throw engineNotFound(`plugin ${id} not found`);
@@ -910,6 +927,8 @@ export class AdminService {
         ? { outputCostPer1m: usdPer1mToMicro(dto.outputCostUsdPer1m) }
         : {}),
       ...(dto.faultPolicyId !== undefined ? { faultPolicyId: dto.faultPolicyId } : {}),
+      ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
+      ...(dto.pluginId !== undefined ? { pluginId: dto.pluginId } : {}),
     });
   }
 
@@ -947,6 +966,8 @@ export class AdminService {
         dto.outputCostUsdPer1m === null ? null : usdPer1mToMicro(dto.outputCostUsdPer1m);
     }
     if (dto.faultPolicyId !== undefined) patch.faultPolicyId = dto.faultPolicyId;
+    if (dto.icon !== undefined) patch.icon = dto.icon;
+    if (dto.pluginId !== undefined) patch.pluginId = dto.pluginId;
     const row = await updateUpstreamChannel(this.db, channelId, patch);
     if (row === undefined) {
       throw engineNotFound(`channel ${channelId} not found`);
@@ -1342,6 +1363,11 @@ export class AdminService {
       ...(dto.outputPrice !== undefined ? { outputPrice: BigInt(dto.outputPrice) } : {}),
       ...(dto.rateLimit !== undefined ? { rateLimit: dto.rateLimit } : {}),
       ...(dto.fallbackModels !== undefined ? { fallbackModels: dto.fallbackModels } : {}),
+      ...(dto.tags !== undefined ? { tags: dto.tags } : {}),
+      ...(dto.maker !== undefined ? { maker: dto.maker } : {}),
+      ...(dto.contextLength !== undefined ? { contextLength: dto.contextLength } : {}),
+      ...(dto.reasoning !== undefined ? { reasoning: dto.reasoning } : {}),
+      ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
     };
     return createModel(this.db, input);
@@ -1396,6 +1422,11 @@ export class AdminService {
       visibility?: string;
       rateLimit?: number | null;
       fallbackModels?: string[] | null;
+      tags?: string[];
+      maker?: string | null;
+      contextLength?: number | null;
+      reasoning?: string | null;
+      icon?: string | null;
       status?: string;
     } = {};
     if (dto.display !== undefined) patch.display = dto.display;
@@ -1405,6 +1436,11 @@ export class AdminService {
     if (dto.visibility !== undefined) patch.visibility = dto.visibility;
     if (dto.rateLimit !== undefined) patch.rateLimit = dto.rateLimit;
     if (dto.fallbackModels !== undefined) patch.fallbackModels = dto.fallbackModels;
+    if (dto.tags !== undefined) patch.tags = dto.tags;
+    if (dto.maker !== undefined) patch.maker = dto.maker;
+    if (dto.contextLength !== undefined) patch.contextLength = dto.contextLength;
+    if (dto.reasoning !== undefined) patch.reasoning = dto.reasoning;
+    if (dto.icon !== undefined) patch.icon = dto.icon;
     if (dto.status !== undefined) patch.status = dto.status;
     const row = await updateModel(this.db, name, patch);
     if (row === undefined) {

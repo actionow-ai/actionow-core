@@ -43,8 +43,22 @@ export const channelViewSchema = z.object({
   fault_policy_id: z.string().nullable(),
   /** Count of models this channel serves (channel_model links; catalog supply-hierarchy). */
   model_count: z.number(),
+  /** Selectable icon key (icon_asset.key); null → derived from plugin/provider. */
+  icon: z.string().nullable(),
+  /** Owning provider-plugin id (模型接入 3-pane grouping); null → unassigned. */
+  plugin_id: z.string().nullable(),
 });
 export type ChannelView = z.infer<typeof channelViewSchema>;
+
+/** One selectable icon (`GET /admin/icons`) for the plugin/channel/model picker. */
+export const iconAssetViewSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  category: z.string(),
+  /** Inline custom SVG markup; null → frontend renders via its brand registry/monogram. */
+  svg: z.string().nullable(),
+});
+export type IconAssetView = z.infer<typeof iconAssetViewSchema>;
 
 /** `POST /admin/resources/:id/channels/:channelId/models` body: link an existing model. */
 export const channelModelLinkInputSchema = z.object({
@@ -69,6 +83,16 @@ export const modelViewSchema = z.object({
   fallback_models: z.array(z.string()).nullable(),
   /** Channel ids that serve this model (inverse channel_model links; popup 服务通道). */
   served_channel_ids: z.array(z.string()),
+  /** Free-form catalog tags for faceting (catalog-tags-ia). */
+  tags: z.array(z.string()),
+  /** Developer/maker (开发者 facet); null when unset. */
+  maker: z.string().nullable(),
+  /** Max context window in tokens (上下文 facet); null when unknown. */
+  context_length: z.number().nullable(),
+  /** Reasoning mode (推理): none | optional | always; null when unset. */
+  reasoning: z.string().nullable(),
+  /** Selectable icon key (icon_asset.key); null → inherit channel/plugin icon. */
+  icon: z.string().nullable(),
   status: z.string(),
   created_at: z.string(),
 });

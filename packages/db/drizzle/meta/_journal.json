@@ -239,6 +239,20 @@
       "when": 1782225806236,
       "tag": "0033_awesome_sphinx",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1782267553507,
+      "tag": "0034_wise_molecule_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1782273583137,
+      "tag": "0035_bizarre_matthew_murdock",
+      "breakpoints": true
     }
   ]
 }

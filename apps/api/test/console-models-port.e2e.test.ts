@@ -86,6 +86,10 @@ const oneModelPort = {
         modality: 'chat',
         capabilities: { tools: true },
         visibility: 'public',
+        tags: [],
+        maker: null,
+        contextLength: null,
+        reasoning: null,
       },
     ]),
 };

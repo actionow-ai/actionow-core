@@ -144,7 +144,9 @@
       "billing": "Billing & Routing",
       "tenants": "Tenants",
       "home": "Home",
-      "account": "Account"
+      "account": "Account",
+      "models": "Models",
+      "access": "Access"
     },
     "dashboard": "Dashboard",
     "analytics": "Analytics",
@@ -173,7 +175,9 @@
     "redemptionCodes": "Redemption codes",
     "tmedia": "Media",
     "oauthSessions": "Credentials",
-    "serviceTokens": "Service tokens"
+    "serviceTokens": "Service tokens",
+    "modelAccess": "Model onboarding",
+    "platforms": "Platforms & pricing"
   },
   "topbar": {
     "admin": "Admin",
@@ -196,7 +200,7 @@
     "tenants": "Create and view tenants",
     "catalog": "Models & resources — channels and pricing",
     "resources": "Platforms → channels → models: upstream routes and the models they serve",
-    "models": "Relay models, tenant grants & token pricing",
+    "models": "The model catalog — filter by tag / capability / developer",
     "modifiers": "Global and scoped pricing rules",
     "routeGroups": "Route groups & channel membership",
     "faultPolicies": "Retry / backoff / timeouts / fallback — per-channel fault tolerance",
@@ -206,7 +210,9 @@
     "proxies": "Egress proxies: encrypted at rest, health-probed, bound per channel",
     "accounts": "Account balance & top-up",
     "apiKeys": "Issue and manage API keys",
-    "serviceTokens": "M2M credentials for the admin API"
+    "serviceTokens": "M2M credentials for the admin API",
+    "modelAccess": "Plugin → channel → model: the 3-pane onboarding surface",
+    "platforms": "Platforms & pricing: resources, upstreams and the pricebook"
   },
   "dashboard": {
     "stats": {
@@ -587,7 +593,13 @@
       "fallbackModelsPlaceholder": "Fallback model names — Enter to add (tried in order)",
       "status": "Status",
       "nameRequired": "Name is required.",
-      "resourceRequired": "Select a resource."
+      "resourceRequired": "Select a resource.",
+      "tags": "Tags",
+      "tagsPlaceholder": "Enter to add — e.g. recommended / cheap / long-context",
+      "maker": "Developer",
+      "contextLength": "Context length (tokens)",
+      "reasoning": "Reasoning",
+      "icon": "Icon"
     },
     "tip": {
       "name": "The unique model id callers request (e.g. anthropic/claude-3-5-sonnet). Immutable after creation.",
@@ -604,7 +616,12 @@
       "rateLimit": "Max requests/min per tenant for this model (model rate limit). Stacks on top of the tenant/resource limits.",
       "rateLimitHint": "0 = no model-specific limit.",
       "fallbackModels": "Model degradation chain: when a BLOCKING chat exhausts all of this model's channels (retryably), retry these models in order. Non-streaming only.",
-      "status": "Disabled models are hidden from callers."
+      "status": "Disabled models are hidden from callers.",
+      "tags": "Free-form tags for catalog filtering (recommended/cheap/code/roleplay…)",
+      "maker": "The model's maker (anthropic/alibaba/z-ai…) — filter by developer",
+      "contextLength": "Max context window (tokens); 0 = unknown",
+      "reasoning": "Reasoning mode: none / optional / always-on",
+      "icon": "Pick a brand icon for this model; leave empty to inherit its channel/plugin icon"
     },
     "actions": {
       "grants": "Grants",
@@ -642,7 +659,21 @@
     "unlinkHint": "Unlinking only removes this model from “{{channel}}” — it does not delete the model.",
     "detail": {
       "price": "Price in/out"
+    },
+    "reasoning": {
+      "unset": "Unset",
+      "none": "No reasoning",
+      "optional": "Switchable reasoning",
+      "always": "Always-on reasoning"
     }
+  },
+  "modelAccess": {
+    "platforms": "Platforms & pricing",
+    "pickPlugin": "Pick a plugin on the left",
+    "channels": "Channels",
+    "addChannel": "Add channel",
+    "noChannels": "No channels under this plugin yet",
+    "pickChannel": "Pick a channel to see its models"
   },
   "channels": {
     "addTitle": "Add channel",
@@ -654,7 +685,12 @@
     "statusUpdated": "Channel status updated",
     "synced": "Synced {{total}} model(s)",
     "form": {
+      "platform": "Platform",
+      "platformPlaceholder": "Pick the platform this channel belongs to",
+      "plugin": "Plugin",
+      "pluginNone": "Unassigned",
       "provider": "Provider type",
+      "icon": "Icon",
       "endpoint": "Endpoint",
       "model": "Model",
       "proxyRef": "Proxy ref",
@@ -670,7 +706,10 @@
       "config": "Config"
     },
     "tip": {
+      "platform": "The platform (resource/upstream) this channel belongs to. Routing aggregates channels per platform.",
+      "plugin": "The plugin this channel groups under (模型接入 3-pane grouping). Native vendor channels still route by provider_type — they don't run the sandbox.",
       "provider": "Free-text upstream provider for this channel (e.g. openai, anthropic). The logo resolves from this value.",
+      "icon": "Pick a brand icon for this channel; leave empty to derive it from the plugin/provider.",
       "providerFixed": "Provider is fixed after creation.",
       "endpoint": "Override base URL for this channel. Leave empty to use the provider default.",
       "model": "Upstream model name to call (e.g. gpt-4o). Leave empty to use the resource default.",
@@ -1087,6 +1126,8 @@
       "slugRequired": "Enter a slug.",
       "label": "Label",
       "labelRequired": "Enter a label.",
+      "icon": "Icon",
+      "iconHint": "Pick a brand icon for this plugin; leave empty to derive it from the slug.",
       "modalities": "Modalities",
       "protocol": "Protocol",
       "auth": "Auth strategy",
@@ -1379,5 +1420,12 @@
     },
     "confirmRevokeTitle": "Revoke credential?",
     "confirmRevokeMsg": "Revoke the {{provider}} credential? Channels using it will fail until re-bound."
+  },
+  "facets": {
+    "modality": "Modality",
+    "maker": "Developer",
+    "capability": "Capability",
+    "tag": "Tags",
+    "clear": "Clear filters ({{n}})"
   }
 }

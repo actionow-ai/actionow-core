@@ -196,7 +196,9 @@
   font-size: var(--fs-caption);
   font-weight: 600;
   color: var(--text);
-  background: var(--panel-bg);
+  /* Opaque (not the semi-transparent --panel-bg) so the slide-out tip never
+     reads as a translucent dark blob over the SubNav painted beside the rail. */
+  background: var(--overlay-bg);
   border: 1px solid var(--panel-bd);
   box-shadow: var(--glass-shadow);
   white-space: nowrap;
@@ -321,6 +323,26 @@
   border-color: rgba(255, 255, 255, 0.14);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
+
+/* Icon picker — a wrap grid of selectable brand tiles (IconPicker). */
+.icon-pick-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.icon-pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border-radius: var(--r-sm);
+  background: transparent;
+  border: 1px solid var(--panel-bd);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.icon-pick:hover { border-color: var(--hover-bd); background: var(--hover-bg); }
+.icon-pick.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 
 /* Auto-scrolling provider strip — keeps a long vendor list compact in the hero. */
 .logo-marquee {

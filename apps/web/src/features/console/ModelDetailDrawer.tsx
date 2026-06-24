@@ -61,6 +61,26 @@ export function ModelDetailDrawer({
     >
       <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 'var(--s-3) var(--s-4)', fontSize: 'var(--fs-sm)' }}>
         <Row label={t('models.cols.modality')}>{enumLabel(t, MODALITIES, model.modality)}</Row>
+        {model.maker !== null && <Row label={t('models.form.maker')}>{model.maker}</Row>}
+        {model.context_length !== null && (
+          <Row label={t('models.form.contextLength')}>
+            <span className="tabular">{model.context_length.toLocaleString()}</span>
+          </Row>
+        )}
+        {model.reasoning !== null && (
+          <Row label={t('models.form.reasoning')}>{t('models.reasoning.' + model.reasoning, model.reasoning)}</Row>
+        )}
+        {model.tags.length > 0 && (
+          <Row label={t('models.form.tags')}>
+            <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s-1)' }}>
+              {model.tags.map((tg) => (
+                <span key={tg} className="chip">
+                  {tg}
+                </span>
+              ))}
+            </span>
+          </Row>
+        )}
         <Row label={t('models.cols.capabilities')}>
           {caps.length === 0 ? (
             '—'

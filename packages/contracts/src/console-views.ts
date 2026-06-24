@@ -51,6 +51,11 @@ export const consoleModelViewSchema = z.object({
   modality: z.string(),
   capabilities: z.unknown(),
   visibility: z.string(),
+  /** Catalog facets (catalog-tags-ia): free-form tags, maker, context window, reasoning mode. */
+  tags: z.array(z.string()),
+  maker: z.string().nullable(),
+  context_length: z.number().nullable(),
+  reasoning: z.string().nullable(),
 });
 export type ConsoleModelView = z.infer<typeof consoleModelViewSchema>;
 

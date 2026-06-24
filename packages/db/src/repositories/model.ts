@@ -26,6 +26,16 @@ export interface CreateModelInput {
   readonly rateLimit?: number | null | undefined;
   /** Ordered model-degradation chain (模型降级链); null/omitted → no fallback. */
   readonly fallbackModels?: string[] | null | undefined;
+  /** Free-form catalog tags (推荐/便宜/长上下文…); omitted → `[]`. */
+  readonly tags?: string[] | undefined;
+  /** Developer/maker (anthropic/alibaba/z-ai…); omitted/null → unset. */
+  readonly maker?: string | null | undefined;
+  /** Max context window (tokens); omitted/null → unset. */
+  readonly contextLength?: number | null | undefined;
+  /** Reasoning mode: none | optional | always; omitted/null → unset. */
+  readonly reasoning?: string | null | undefined;
+  /** Selectable icon key (icon_asset.key); omitted/null → unset. */
+  readonly icon?: string | null | undefined;
   readonly status?: string | undefined;
 }
 
@@ -44,6 +54,11 @@ export async function createModel(db: DbOrTx, input: CreateModelInput): Promise<
       ...(input.outputPrice !== undefined ? { outputPrice: input.outputPrice } : {}),
       ...(input.rateLimit !== undefined ? { rateLimit: input.rateLimit } : {}),
       ...(input.fallbackModels !== undefined ? { fallbackModels: input.fallbackModels } : {}),
+      ...(input.tags !== undefined ? { tags: input.tags } : {}),
+      ...(input.maker !== undefined ? { maker: input.maker } : {}),
+      ...(input.contextLength !== undefined ? { contextLength: input.contextLength } : {}),
+      ...(input.reasoning !== undefined ? { reasoning: input.reasoning } : {}),
+      ...(input.icon !== undefined ? { icon: input.icon } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
     })
     .returning();
@@ -272,6 +287,10 @@ export interface ModelView {
   readonly visibility: string;
   readonly inputPrice: bigint;
   readonly outputPrice: bigint;
+  readonly tags: string[];
+  readonly maker: string | null;
+  readonly contextLength: number | null;
+  readonly reasoning: string | null;
 }
 
 /**
@@ -302,6 +321,10 @@ export async function listVisibleModels(db: DbOrTx, tenantId: string): Promise<M
       visibility: model.visibility,
       inputPrice: model.inputPrice,
       outputPrice: model.outputPrice,
+      tags: model.tags,
+      maker: model.maker,
+      contextLength: model.contextLength,
+      reasoning: model.reasoning,
     })
     .from(model)
     .where(and(eq(model.status, 'active'), visibility, isNull(model.deletedAt)))
@@ -387,6 +410,11 @@ export async function listChannelModels(db: DbOrTx, channelId: string): Promise<
       needsPricing: model.needsPricing,
       rateLimit: model.rateLimit,
       fallbackModels: model.fallbackModels,
+      tags: model.tags,
+      maker: model.maker,
+      contextLength: model.contextLength,
+      reasoning: model.reasoning,
+      icon: model.icon,
       status: model.status,
       createdAt: model.createdAt,
       deletedAt: model.deletedAt,
@@ -500,6 +528,16 @@ export interface UpdateModelInput {
   readonly rateLimit?: number | null | undefined;
   /** Ordered model-degradation chain; `null` clears it. */
   readonly fallbackModels?: string[] | null | undefined;
+  /** Free-form catalog tags; replaces the set. */
+  readonly tags?: string[] | undefined;
+  /** Developer/maker; `null` clears it. */
+  readonly maker?: string | null | undefined;
+  /** Max context window (tokens); `null` clears it. */
+  readonly contextLength?: number | null | undefined;
+  /** Reasoning mode; `null` clears it. */
+  readonly reasoning?: string | null | undefined;
+  /** Selectable icon key (icon_asset.key); `null` clears it. */
+  readonly icon?: string | null | undefined;
   /** `active` | `disabled`. */
   readonly status?: string | undefined;
 }
@@ -524,6 +562,11 @@ export async function updateModel(
   if (patch.visibility !== undefined) set.visibility = patch.visibility;
   if (patch.rateLimit !== undefined) set.rateLimit = patch.rateLimit;
   if (patch.fallbackModels !== undefined) set.fallbackModels = patch.fallbackModels;
+  if (patch.tags !== undefined) set.tags = patch.tags;
+  if (patch.maker !== undefined) set.maker = patch.maker;
+  if (patch.contextLength !== undefined) set.contextLength = patch.contextLength;
+  if (patch.reasoning !== undefined) set.reasoning = patch.reasoning;
+  if (patch.icon !== undefined) set.icon = patch.icon;
   if (patch.status !== undefined) set.status = patch.status;
   if (Object.keys(set).length === 0) {
     return getModelByName(db, name);

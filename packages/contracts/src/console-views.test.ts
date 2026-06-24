@@ -59,6 +59,10 @@ describe('tenant console view contracts (single source of truth for FE + BE)', (
       modality: 'text',
       capabilities: { tools: true },
       visibility: 'public',
+      tags: ['推荐'],
+      maker: 'openai',
+      context_length: 128000,
+      reasoning: null,
     };
     expect(consoleModelViewSchema.parse(m)).toEqual(m);
   });

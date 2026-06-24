@@ -42,6 +42,8 @@ const channel: ChannelView = {
   output_cost_per_1m: null,
   fault_policy_id: null,
   model_count: 0,
+  icon: null,
+  plugin_id: null,
 };
 
 describe('ChannelEditor cost fields', () => {

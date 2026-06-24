@@ -15,6 +15,7 @@ import {
   listVisibleModels,
   resolveModelForTenant,
   softDeleteModel,
+  updateModel,
   upsertModelsFromSync,
 } from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
@@ -279,5 +280,44 @@ describe('createModel after soft-delete (partial unique on name)', () => {
     expect(allRows).toHaveLength(2);
     const old = allRows.find((m) => m.id === original.id);
     expect(old?.deletedAt).not.toBeNull();
+  });
+});
+
+describe('catalog facets (tags/maker/context_length/reasoning)', () => {
+  it('round-trips on create + update, and surfaces in listVisibleModels', async () => {
+    const t = await makeTenant();
+    const r = await makeChatResource(t, 'glm-res');
+    await createModel(db, {
+      name: 'glm-5.2',
+      resourceId: r,
+      maker: 'z-ai',
+      tags: ['推荐', '长上下文'],
+      contextLength: 1_000_000,
+      reasoning: 'optional',
+    });
+
+    const created = await getModelByName(db, 'glm-5.2');
+    expect(created?.maker).toBe('z-ai');
+    expect(created?.tags).toEqual(['推荐', '长上下文']);
+    expect(created?.contextLength).toBe(1_000_000);
+    expect(created?.reasoning).toBe('optional');
+
+    // defaults: a model created without tags gets [] (not null).
+    await createModel(db, { name: 'bare', resourceId: r });
+    expect((await getModelByName(db, 'bare'))?.tags).toEqual([]);
+
+    // update replaces tags + clears maker.
+    await updateModel(db, 'glm-5.2', { tags: ['便宜'], maker: null, reasoning: 'always' });
+    const patched = await getModelByName(db, 'glm-5.2');
+    expect(patched?.tags).toEqual(['便宜']);
+    expect(patched?.maker).toBeNull();
+    expect(patched?.reasoning).toBe('always');
+
+    // visible-models projection carries the facets.
+    const visible = await listVisibleModels(db, t);
+    const v = visible.find((m) => m.name === 'glm-5.2');
+    expect(v?.maker).toBeNull();
+    expect(v?.tags).toEqual(['便宜']);
+    expect(v?.contextLength).toBe(1_000_000);
   });
 });
