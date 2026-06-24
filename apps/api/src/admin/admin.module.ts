@@ -2,6 +2,7 @@ import { type AppEnv, createHttpClient } from '@actionow/infra';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 
+import { AuditModule } from '../audit/audit.module.js';
 import { LoginThrottleGuard } from '../auth/login-throttle.guard.js';
 import { IdempotencyInterceptor } from '../common/idempotency.interceptor.js';
 import { ENV, HTTP, KNOWN_MODELS } from '../common/tokens.js';
@@ -38,6 +39,7 @@ import { ModelTestService } from './model-test.service.js';
       inject: [ENV],
       useFactory: (env: AppEnv) => ({ secret: env.ADMIN_JWT_SECRET }),
     }),
+    AuditModule,
   ],
   controllers: [AdminAuthController, AdminController, AdminDifyController],
   providers: [
