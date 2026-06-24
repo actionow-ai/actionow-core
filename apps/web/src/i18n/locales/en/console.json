@@ -1394,5 +1394,12 @@
     },
     "confirmRevokeTitle": "Revoke credential?",
     "confirmRevokeMsg": "Revoke the {{provider}} credential? Channels using it will fail until re-bound."
+  },
+  "facets": {
+    "modality": "Modality",
+    "maker": "Developer",
+    "capability": "Capability",
+    "tag": "Tags",
+    "clear": "Clear filters ({{n}})"
   }
 }

@@ -9,6 +9,7 @@ import { qk } from '../../lib/api/queryKeys';
 import type { ConsoleModelView } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
 import { STALE_REFERENCE } from '../../lib/query';
+import { useModelFacets } from '../console/useModelFacets';
 
 export function AppModels() {
   const { t } = useTranslation('console');
@@ -20,6 +21,8 @@ export function AppModels() {
     staleTime: STALE_REFERENCE,
   });
 
+  const { node: facetBar, filtered } = useModelFacets(models.data ?? []);
+
   const cols: Column<ConsoleModelView>[] = [
     {
       key: 'name',
@@ -28,11 +31,30 @@ export function AppModels() {
       cell: (r) => <span className="mono">{r.name}</span>,
     },
     { key: 'display', header: t('app.models.cols.display'), width: '180px', cell: (r) => r.display || '—' },
+    { key: 'maker', header: t('facets.maker'), width: '120px', cell: (r) => r.maker ?? '—' },
     {
       key: 'modality',
       header: t('app.models.cols.modality'),
       cell: (r) => enumLabel(t, MODALITIES, r.modality),
-      width: '110px',
+      width: '100px',
+    },
+    {
+      key: 'tags',
+      header: t('facets.tag'),
+      width: '180px',
+      noClip: true,
+      cell: (r) =>
+        r.tags.length === 0 ? (
+          '—'
+        ) : (
+          <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s-1)' }}>
+            {r.tags.map((tg) => (
+              <span key={tg} className="chip">
+                {tg}
+              </span>
+            ))}
+          </span>
+        ),
     },
     {
       key: 'visibility',
@@ -72,16 +94,19 @@ export function AppModels() {
   ];
 
   return (
-    <DataTable
-      columns={cols}
-      rows={models.data ?? []}
-      rowKey={(r) => r.name}
-      loading={models.isLoading}
-      error={models.isError}
-      onRetry={() => void models.refetch()}
-      empty={t('app.models.empty')}
-      searchable
-      pageSize={20}
-    />
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {facetBar}
+      <DataTable
+        columns={cols}
+        rows={filtered}
+        rowKey={(r) => r.name}
+        loading={models.isLoading}
+        error={models.isError}
+        onRetry={() => void models.refetch()}
+        empty={t('app.models.empty')}
+        searchable
+        pageSize={20}
+      />
+    </div>
   );
 }

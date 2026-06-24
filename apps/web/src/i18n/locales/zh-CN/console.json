@@ -1394,5 +1394,12 @@
     },
     "confirmRevokeTitle": "吊销凭据？",
     "confirmRevokeMsg": "确定吊销 {{provider}} 凭据？使用它的渠道在重新绑定前将失败。"
+  },
+  "facets": {
+    "modality": "模态",
+    "maker": "开发者",
+    "capability": "能力",
+    "tag": "标签",
+    "clear": "清除筛选(共 {{n}} 个)"
   }
 }
