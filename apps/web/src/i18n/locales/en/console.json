@@ -669,16 +669,24 @@
   },
   "modelAccess": {
     "platforms": "Platforms & pricing",
+    "plugins": "Plugins",
+    "models": "Models",
     "pickPlugin": "Pick a plugin on the left",
     "channels": "Channels",
     "addChannel": "Add channel",
     "noChannels": "No channels under this plugin yet",
-    "pickChannel": "Pick a channel to see its models"
+    "pickChannel": "Pick a channel to see its models",
+    "searchPlugins": "Search plugins",
+    "searchChannels": "Search channels",
+    "searchModels": "Search models",
+    "filterAll": "All"
   },
   "channels": {
     "addTitle": "Add channel",
     "editTitle": "Edit channel",
     "save": "Save channel",
+    "advancedShow": "Advanced (cost / proxy locator / protocol config)",
+    "advancedHide": "Hide advanced",
     "created": "Channel created",
     "updated": "Channel updated",
     "deleted": "Channel deleted",
