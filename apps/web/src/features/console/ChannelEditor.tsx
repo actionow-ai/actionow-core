@@ -108,17 +108,6 @@ export function ChannelEditor({
   });
   const providerOptions = [...new Set([...(providerTypes.data ?? []), ...COMMON_PROVIDERS])];
 
-  // Model suggestions = this resource's already-registered model names (free
-  // entry still allowed, so an upstream-only model can be typed).
-  const models = useQuery({
-    queryKey: qk.models(),
-    queryFn: () => api.listModels(),
-    staleTime: STALE_REFERENCE,
-  });
-  const modelOptions = (models.data ?? [])
-    .filter((m) => m.resource_id === effectiveResourceId)
-    .map((m) => m.name);
-
   // Fault-tolerance policies bindable to this channel (调用容错). '' = unbound.
   const faultPolicies = useQuery({
     queryKey: qk.faultPolicies(),
@@ -148,7 +137,6 @@ export function ChannelEditor({
   const [modality, setModality] = useState('text');
   const [faultPolicyId, setFaultPolicyId] = useState(channel?.fault_policy_id ?? '');
   const [endpoint, setEndpoint] = useState(channel?.endpoint ?? '');
-  const [model, setModel] = useState(channel?.model ?? '');
   const [proxyRef, setProxyRef] = useState(channel?.proxy_ref ?? '');
   const [credentialRef, setCredentialRef] = useState(channel?.credential_ref ?? '');
   const [weight, setWeight] = useState(channel?.weight ?? 1);
@@ -164,6 +152,9 @@ export function ChannelEditor({
   const [configRows, setConfigRows] = useState<KvRow[]>(rowsFromObject(channel?.config));
   // Selectable brand icon (icon_asset.key); null → derived from plugin/provider.
   const [icon, setIcon] = useState<string | null>(channel?.icon ?? null);
+  // Advanced section (per-channel cost / raw proxy locator / protocol config) —
+  // collapsed by default so the create form stays connection-focused.
+  const [showAdvanced, setShowAdvanced] = useState(false);
   // A stable idempotency key for this editor instance (remounted per open via
   // `key`), so an accidental double-submit of a create replays instead of dupes.
   const [idemKey] = useState(() => crypto.randomUUID());
@@ -208,7 +199,6 @@ export function ChannelEditor({
       // PATCH), so it lives only on the create branch — never in the shared body.
       const base = {
         endpoint: endpoint.trim() === '' ? undefined : endpoint.trim(),
-        model: model.trim() === '' ? undefined : model.trim(),
         proxyRef: proxyRef.trim() === '' ? undefined : proxyRef.trim(),
         credentialRef: credentialRef.trim() === '' ? undefined : credentialRef.trim(),
         weight,
@@ -325,26 +315,12 @@ export function ChannelEditor({
         value={endpoint}
         onChange={setEndpoint}
       />
-      <ComboboxField
-        label={t('channels.form.model')}
-        tooltip={t('channels.tip.model')}
-        options={modelOptions}
-        value={model}
-        onChange={setModel}
-      />
       <SelectField
         label={t('channels.form.proxy')}
         tooltip={t('channels.tip.proxy')}
         value={(proxies.data ?? []).some((p) => p.id === proxyRef) ? proxyRef : ''}
         onChange={setProxyRef}
         options={proxyOptions}
-      />
-      <TextField
-        label={t('channels.form.proxyRef')}
-        tooltip={t('channels.tip.proxyRef')}
-        hint={t('channels.tip.proxyRefAdvanced')}
-        value={proxyRef}
-        onChange={setProxyRef}
       />
       <NumberField
         label={t('channels.form.weight')}
@@ -353,24 +329,6 @@ export function ChannelEditor({
         onChange={setWeight}
         min={1}
       />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--s-3)' }}>
-        <NumberField
-          label={t('channels.form.inputCost')}
-          tooltip={t('channels.tip.cost')}
-          hint={t('channels.tip.costUnit')}
-          value={inputCostUsd}
-          onChange={setInputCostUsd}
-          min={0}
-          step={0.01}
-        />
-        <NumberField
-          label={t('channels.form.outputCost')}
-          value={outputCostUsd}
-          onChange={setOutputCostUsd}
-          min={0}
-          step={0.01}
-        />
-      </div>
       <SelectField
         label={t('channels.form.status')}
         tooltip={t('channels.tip.status')}
@@ -423,13 +381,45 @@ export function ChannelEditor({
           </Button>
         </div>
       )}
-      <KeyValueEditor
-        label={t('channels.form.config')}
-        tooltip={t('channels.tip.config')}
-        value={configRows}
-        onChange={setConfigRows}
-        presets={[{ label: t('channels.preset.asyncMedia'), value: ASYNC_MEDIA_PRESET }]}
-      />
+      <Button variant="ghost" onClick={() => setShowAdvanced((v) => !v)}>
+        {showAdvanced ? t('channels.advancedHide') : t('channels.advancedShow')}
+      </Button>
+      {showAdvanced && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--s-3)' }}>
+            <NumberField
+              label={t('channels.form.inputCost')}
+              tooltip={t('channels.tip.cost')}
+              hint={t('channels.tip.costUnit')}
+              value={inputCostUsd}
+              onChange={setInputCostUsd}
+              min={0}
+              step={0.01}
+            />
+            <NumberField
+              label={t('channels.form.outputCost')}
+              value={outputCostUsd}
+              onChange={setOutputCostUsd}
+              min={0}
+              step={0.01}
+            />
+          </div>
+          <TextField
+            label={t('channels.form.proxyRef')}
+            tooltip={t('channels.tip.proxyRef')}
+            hint={t('channels.tip.proxyRefAdvanced')}
+            value={proxyRef}
+            onChange={setProxyRef}
+          />
+          <KeyValueEditor
+            label={t('channels.form.config')}
+            tooltip={t('channels.tip.config')}
+            value={configRows}
+            onChange={setConfigRows}
+            presets={[{ label: t('channels.preset.asyncMedia'), value: ASYNC_MEDIA_PRESET }]}
+          />
+        </>
+      )}
     </Drawer>
   );
 }

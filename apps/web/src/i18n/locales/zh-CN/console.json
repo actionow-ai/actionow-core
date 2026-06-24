@@ -669,16 +669,24 @@
   },
   "modelAccess": {
     "platforms": "平台与定价",
+    "plugins": "插件",
+    "models": "模型",
     "pickPlugin": "从左侧选择一个插件",
     "channels": "通道",
     "addChannel": "添加通道",
     "noChannels": "该插件下暂无通道",
-    "pickChannel": "选择一个通道查看其模型"
+    "pickChannel": "选择一个通道查看其模型",
+    "searchPlugins": "搜索插件",
+    "searchChannels": "搜索通道",
+    "searchModels": "搜索模型",
+    "filterAll": "全部"
   },
   "channels": {
     "addTitle": "添加通道",
     "editTitle": "编辑通道",
     "save": "保存通道",
+    "advancedShow": "高级设置(成本 / 代理定位 / 协议配置)",
+    "advancedHide": "收起高级设置",
     "created": "通道已创建",
     "updated": "通道已更新",
     "deleted": "通道已删除",

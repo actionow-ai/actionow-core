@@ -28,6 +28,14 @@ export function ModelGrid({
   onAddModel,
   onSelectModel,
   syncing,
+  /** 'grid' = card grid (platform detail); 'list' = single-column list (3-pane right column). */
+  variant = 'grid',
+  /** When false, the caller renders the title + sync/link actions (3-pane column header). */
+  showHeader = true,
+  /** Filter served models by name/maker substring. */
+  search = '',
+  /** Filter served models by status ('' = all). */
+  statusFilter = '',
 }: {
   resourceId: string;
   channel: ChannelView;
@@ -35,6 +43,10 @@ export function ModelGrid({
   onAddModel: () => void;
   onSelectModel: (m: ModelView) => void;
   syncing?: boolean;
+  variant?: 'grid' | 'list';
+  showHeader?: boolean;
+  search?: string;
+  statusFilter?: string;
 }) {
   const { t } = useTranslation('console');
   const api = useAdminApi();
@@ -43,23 +55,32 @@ export function ModelGrid({
     queryFn: () => api.listChannelModels(resourceId, channel.id),
   });
 
+  const q = search.trim().toLowerCase();
+  const rows = (query.data ?? []).filter(
+    (m) =>
+      (q === '' || `${m.name} ${m.maker ?? ''}`.toLowerCase().includes(q)) &&
+      (statusFilter === '' || m.status === statusFilter),
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
-        <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', fontWeight: 'var(--fw-medium)' }}>
-          {t('resources.detail.servedModels')} · {channel.provider_type}
-        </span>
-        <span style={{ flex: 1 }} />
-        <Button variant="ghost" size="sm" onClick={onSync} loading={syncing}>
-          <ArrowsClockwiseIcon size={14} weight="bold" aria-hidden="true" /> {t('channels.actions.syncModels')}
-        </Button>
-        <Button variant="ghost" size="sm" onClick={onAddModel}>
-          <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('models.link')}
-        </Button>
-      </div>
+      {showHeader && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+          <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', fontWeight: 'var(--fw-medium)' }}>
+            {t('resources.detail.servedModels')} · {channel.provider_type}
+          </span>
+          <span style={{ flex: 1 }} />
+          <Button variant="ghost" size="sm" onClick={onSync} loading={syncing}>
+            <ArrowsClockwiseIcon size={14} weight="bold" aria-hidden="true" /> {t('channels.actions.syncModels')}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onAddModel}>
+            <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('models.link')}
+          </Button>
+        </div>
+      )}
 
       <QueryBoundary query={query}>
-        {(query.data ?? []).length === 0 ? (
+        {rows.length === 0 ? (
           <div
             className="panel"
             style={{
@@ -74,13 +95,17 @@ export function ModelGrid({
           </div>
         ) : (
           <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-              gap: 'var(--s-3)',
-            }}
+            style={
+              variant === 'list'
+                ? { display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }
+                : {
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                    gap: 'var(--s-3)',
+                  }
+            }
           >
-            {(query.data ?? []).map((m) => (
+            {rows.map((m) => (
               <ModelCard
                 key={m.id}
                 model={m}

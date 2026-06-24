@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -49,6 +49,8 @@ const channel: ChannelView = {
 describe('ChannelEditor cost fields', () => {
   it('seeds the operator-cost field from a µUSD string as USD (500000µUSD → 0.5)', async () => {
     renderEd(<ChannelEditor resourceId="r1" channel={channel} open onClose={() => undefined} />);
+    // Per-channel cost now lives behind the advanced toggle.
+    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
     expect(await screen.findByDisplayValue('0.5')).toBeInTheDocument();
   });
 });
