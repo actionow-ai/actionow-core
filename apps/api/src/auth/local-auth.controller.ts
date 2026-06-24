@@ -16,6 +16,20 @@ interface CredentialsBody {
   password?: unknown;
 }
 
+/** The member (end-user) auth body — credentials PLUS the tenant to scope to. */
+interface MemberBody extends CredentialsBody {
+  tenantId?: unknown;
+}
+
+/** Validate a required `tenantId` string, or throw `invalid_input`. */
+function parseTenantId(body: MemberBody): string {
+  const { tenantId } = body;
+  if (typeof tenantId !== 'string' || tenantId === '') {
+    throw engineInvalidInput('tenantId is required');
+  }
+  return tenantId;
+}
+
 /** Validate the shared `{email, password}` body shape, or throw `invalid_input`. */
 function parseCredentials(body: CredentialsBody): { email: string; password: string } {
   const { email, password } = body;
@@ -70,5 +84,19 @@ export class LocalAuthController {
   @ApiOperation({ summary: 'Exchange email + password for a JWT' })
   async login(@Body() body: CredentialsBody): Promise<AuthResult> {
     return this.auth.login(parseCredentials(body));
+  }
+
+  @Post('register-member')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Register an end-user (member) under an existing tenant (G-F)' })
+  async registerMember(@Body() body: MemberBody): Promise<AuthResult> {
+    return this.auth.registerMember({ ...parseRegistration(body), tenantId: parseTenantId(body) });
+  }
+
+  @Post('login-member')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Exchange a tenant + email + password for a member JWT' })
+  async loginMember(@Body() body: MemberBody): Promise<AuthResult> {
+    return this.auth.loginMember({ ...parseCredentials(body), tenantId: parseTenantId(body) });
   }
 }

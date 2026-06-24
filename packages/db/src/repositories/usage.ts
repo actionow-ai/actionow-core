@@ -30,6 +30,8 @@ export interface InsertUsageLogInput {
   readonly providerType?: string | undefined;
   /** The api_key that made this call (P1c); omit or pass undefined when no key. */
   readonly apiKeyId?: string | undefined;
+  /** The subject (end-user) this call is attributed to (unified tenancy G-B); null → tenant-level. */
+  readonly subjectId?: string | null | undefined;
 }
 
 /** Insert one per-call `usage_log` row and return it. */
@@ -48,6 +50,7 @@ export async function insertUsageLog(db: DbOrTx, input: InsertUsageLogInput): Pr
       channelId: input.channelId ?? null,
       providerType: input.providerType ?? null,
       apiKeyId: input.apiKeyId ?? null,
+      subjectId: input.subjectId ?? null,
     })
     .returning();
   const row = rows[0];
@@ -57,6 +60,7 @@ export async function insertUsageLog(db: DbOrTx, input: InsertUsageLogInput): Pr
   await accrueLimitUsage(db, {
     tenantId: row.tenantId,
     apiKeyId: row.apiKeyId,
+    subjectId: row.subjectId,
     model: row.model,
     cost: row.cost,
     tokens: BigInt((input.inputTokens ?? 0) + (input.outputTokens ?? 0)),

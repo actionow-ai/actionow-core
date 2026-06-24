@@ -1,10 +1,21 @@
 import type { JobStatus } from '@actionow/contracts';
-import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import type { InferInsertModel, InferSelectModel, SQL } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import { job } from '../schema/index.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
+
+/**
+ * Read-path subject isolation (unified tenancy §4b): when a subject is in scope
+ * (a subject-scoped api-key), restrict reads to that subject's own rows PLUS
+ * tenant-shared rows (`subject_id IS NULL`, created by tenant-level keys). A
+ * `null` subject (tenant-level caller) imposes no extra filter — the operator/
+ * tenant key sees every row. Cross-subject rows are excluded → a GET on one 404s.
+ */
+function jobSubjectScope(subjectId: string | null): SQL | undefined {
+  return subjectId === null ? undefined : or(eq(job.subjectId, subjectId), isNull(job.subjectId));
+}
 
 export type Job = InferSelectModel<typeof job>;
 
@@ -62,16 +73,21 @@ export async function getJob(db: DbOrTx, jobId: string): Promise<Job | undefined
   return rows[0];
 }
 
-/** Fetch a job by id scoped to a tenant (tenant predicate in SQL), or `undefined`. */
+/**
+ * Fetch a job by id scoped to a tenant (and, when given, a subject — §4b read
+ * isolation). A subject-scoped caller that names another subject's job gets
+ * `undefined` (→ 404).
+ */
 export async function getJobForTenant(
   db: DbOrTx,
   jobId: string,
   tenantId: string,
+  subjectId: string | null = null,
 ): Promise<Job | undefined> {
   const rows = await db
     .select()
     .from(job)
-    .where(and(eq(job.id, jobId), eq(job.tenantId, tenantId)))
+    .where(and(eq(job.id, jobId), eq(job.tenantId, tenantId), jobSubjectScope(subjectId)))
     .limit(1);
   return rows[0];
 }
@@ -115,12 +131,13 @@ export async function listJobs(
   db: DbOrTx,
   tenantId: string,
   page: PageParams,
+  subjectId: string | null = null,
 ): Promise<KeysetResult<Job>> {
   return keysetPage<Job>(db, {
     table: job,
     createdAtCol: job.createdAt,
     idCol: job.id,
-    where: eq(job.tenantId, tenantId),
+    where: and(eq(job.tenantId, tenantId), jobSubjectScope(subjectId)),
     page,
   });
 }

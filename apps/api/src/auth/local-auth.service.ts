@@ -1,5 +1,18 @@
-import type { CreateUserInput, Database, UserRecord } from '@actionow/db';
-import { createAccount, createTenant, createUser, findUserByEmail } from '@actionow/db';
+import type {
+  CreateSubjectInput,
+  CreateUserInput,
+  Database,
+  SubjectRow,
+  UserRecord,
+} from '@actionow/db';
+import {
+  createAccount,
+  createSubject,
+  createTenant,
+  createUser,
+  findSubjectByEmail,
+  findUserByEmail,
+} from '@actionow/db';
 import type { AppEnv } from '@actionow/infra';
 import { hashPassword, verifyPassword } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
@@ -27,6 +40,24 @@ export interface Credentials {
   password: string;
 }
 
+/** Member (end-user) credentials — a tenant-scoped login (unified tenancy G-F). */
+export interface MemberCredentials {
+  email: string;
+  password: string;
+  tenantId: string;
+}
+
+/**
+ * The claims in a MEMBER (end-user) JWT. `typ:'subject'` distinguishes it from an
+ * operator token so the Admin/Console guards reject it (spec §5.2); `sub` is the
+ * subject id and `tenant_id` scopes it to one tenant.
+ */
+export interface MemberClaims {
+  sub: string;
+  tenant_id: string;
+  typ: 'subject';
+}
+
 /**
  * The db surface the unified auth service depends on. Extracted to an interface
  * so unit tests inject a fake repo instead of a live database. Mirrors the
@@ -37,6 +68,12 @@ export interface LocalAuthRepo {
   createUser(db: Database, input: CreateUserInput): Promise<UserRecord>;
   createTenant(db: Database, input: { name: string }): Promise<{ id: string }>;
   createAccount(db: Database, input: { tenantId: string }): Promise<{ id: string }>;
+  findSubjectByEmail(
+    db: Database,
+    tenantId: string,
+    email: string,
+  ): Promise<SubjectRow | undefined>;
+  createSubject(db: Database, input: CreateSubjectInput): Promise<SubjectRow>;
 }
 
 /** Production repo wired to the real `@actionow/db` functions. */
@@ -45,6 +82,8 @@ export const defaultLocalAuthRepo: LocalAuthRepo = {
   createUser,
   createTenant: (db, input) => createTenant(db, input),
   createAccount: (db, input) => createAccount(db, input),
+  findSubjectByEmail,
+  createSubject,
 };
 
 /** DI token for the (overridable) {@link LocalAuthRepo}. */
@@ -118,6 +157,57 @@ export class LocalAuthService {
   /** Sign a `{sub, role}` JWT for a user (shared by register/login + OAuth). */
   async issueToken(user: Pick<UserRecord, 'id' | 'role'>): Promise<AuthResult> {
     const claims: AuthClaims = { sub: user.id, role: user.role };
+    const token = await this.jwt.signAsync(claims, {
+      secret: this.env.ADMIN_JWT_SECRET,
+      expiresIn: TOKEN_TTL,
+    });
+    return { token };
+  }
+
+  /**
+   * Register a MEMBER (end-user) under an EXISTING tenant (Model-A; unified
+   * tenancy G-F) — creates a `subject` (NOT a tenant, unlike {@link register}),
+   * rejecting a duplicate email within that tenant, and returns a member JWT.
+   */
+  async registerMember(creds: MemberCredentials): Promise<AuthResult> {
+    const existing = await this.repo.findSubjectByEmail(this.db, creds.tenantId, creds.email);
+    if (existing !== undefined) {
+      throw engineInvalidInput('email already registered for this tenant');
+    }
+    let subject: SubjectRow;
+    try {
+      subject = await this.repo.createSubject(this.db, {
+        tenantId: creds.tenantId,
+        email: creds.email,
+        passwordHash: hashPassword(creds.password),
+      });
+    } catch {
+      // The only expected failure here is the tenant FK (unknown tenant); surface
+      // a clean 400 rather than a 500.
+      throw engineInvalidInput('unknown tenant');
+    }
+    return this.issueMemberToken(subject);
+  }
+
+  /**
+   * Authenticate a MEMBER by `(tenant, email, password)`. Uniform `unauthorized`
+   * for an unknown email, disabled/credential-less subject, or wrong password.
+   */
+  async loginMember(creds: MemberCredentials): Promise<AuthResult> {
+    const subject = await this.repo.findSubjectByEmail(this.db, creds.tenantId, creds.email);
+    if (
+      subject?.status !== 'active' ||
+      subject.passwordHash === null ||
+      !verifyPassword(subject.passwordHash, creds.password)
+    ) {
+      throw engineUnauthorized('invalid credentials');
+    }
+    return this.issueMemberToken(subject);
+  }
+
+  /** Sign a member (end-user) JWT carrying `typ:'subject'` (rejected by operator guards). */
+  async issueMemberToken(subject: Pick<SubjectRow, 'id' | 'tenantId'>): Promise<AuthResult> {
+    const claims: MemberClaims = { sub: subject.id, tenant_id: subject.tenantId, typ: 'subject' };
     const token = await this.jwt.signAsync(claims, {
       secret: this.env.ADMIN_JWT_SECRET,
       expiresIn: TOKEN_TTL,

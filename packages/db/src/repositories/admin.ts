@@ -165,6 +165,7 @@ export async function listApiKeys(
       status: apiKey.status,
       routeGroupId: apiKey.routeGroupId,
       limitPlanId: apiKey.limitPlanId,
+      subjectId: apiKey.subjectId,
       createdAt: apiKey.createdAt,
       updatedAt: apiKey.updatedAt,
       deletedAt: apiKey.deletedAt,

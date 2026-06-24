@@ -28,6 +28,7 @@ import type {
   CreateResourceBody,
   CreateRouteGroupBody,
   CreateSecretBody,
+  CreateSubjectBody,
   CreateTenantBody,
   DifyBindingView,
   DifyImportBody,
@@ -67,6 +68,7 @@ import type {
   RouteGroupChannelView,
   RouteGroupView,
   SecretView,
+  SubjectView,
   SyncChannelModelsBody,
   SyncChannelModelsResult,
   TenantView,
@@ -87,6 +89,7 @@ import type {
   UpdateProxyBody,
   UpdateResourceBody,
   UpdateRouteGroupBody,
+  UpdateSubjectBody,
   UpdateTenantBody,
   UsageLogView,
   UsageRollupView,
@@ -123,6 +126,38 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
       unwrap(await sdk.POST('/admin/provision', { body, headers: idem(idempotencyKey) }), u),
     updateTenant: async (id: string, body: UpdateTenantBody) =>
       unwrap(await sdk.PATCH('/admin/tenants/{id}', { params: { path: { id } }, body }), u),
+
+    // tenant subjects (end-users; unified tenancy G-A)
+    listSubjects: async (tenantId: string) =>
+      page<SubjectView>(
+        await sdk.GET('/admin/tenants/{id}/users', { params: { path: { id: tenantId } } }),
+        u,
+      ).rows,
+    createSubject: async (tenantId: string, body: CreateSubjectBody, idempotencyKey?: string) =>
+      unwrap(
+        await sdk.POST('/admin/tenants/{id}/users', {
+          params: { path: { id: tenantId } },
+          body,
+          headers: idem(idempotencyKey),
+        }),
+        u,
+      ),
+    updateSubject: async (tenantId: string, sid: string, body: UpdateSubjectBody) =>
+      unwrap(
+        await sdk.PATCH('/admin/tenants/{id}/users/{sid}', {
+          params: { path: { id: tenantId, sid } },
+          body,
+        }),
+        u,
+      ),
+    deleteSubject: async (tenantId: string, sid: string): Promise<void> => {
+      unwrap(
+        await sdk.DELETE('/admin/tenants/{id}/users/{sid}', {
+          params: { path: { id: tenantId, sid } },
+        }),
+        u,
+      );
+    },
 
     listResources: async () => page<ResourceView>(await sdk.GET('/admin/resources'), u).rows,
     createResource: async (body: CreateResourceBody, idempotencyKey?: string) =>

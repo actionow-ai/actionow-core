@@ -7,8 +7,12 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   createJob,
+  createSubAccount,
+  createSubject,
   failJob,
   getJob,
+  getJobForTenant,
+  getSubAccount,
   holdCredits,
   listJobs,
   settleJob,
@@ -35,7 +39,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE webhook_outbox, ledger_txn, job, account, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE webhook_outbox, ledger_txn, job, sub_account, subject, account, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
 });
 
 interface Seed {
@@ -129,6 +133,37 @@ describe('createJob / getJob / transitionJob / listJobs', () => {
     expect(jobs).toHaveLength(2);
     expect(hasMore).toBe(false);
   });
+
+  it('§4b: a subject-scoped read sees its own + tenant-shared jobs, never another subject’s', async () => {
+    const s = await seed(1_000_000n);
+    const subA = await createSubject(db, { tenantId: s.tenantId, externalId: 'a' });
+    const subB = await createSubject(db, { tenantId: s.tenantId, externalId: 'b' });
+    const mk = (subjectId: string | null) =>
+      createJob(db, {
+        tenantId: s.tenantId,
+        resourceId: s.resourceId,
+        resourceVersion: 1,
+        execMode: 'blocking',
+        inputs: { p: 'x' },
+        quotedCredits: 0n,
+        subjectId,
+      });
+    const ja = await mk(subA.id);
+    const jb = await mk(subB.id);
+    const jt = await mk(null); // tenant-shared (NULL subject)
+
+    // subject A sees its own + tenant-shared, NOT subject B's.
+    const listA = await listJobs(db, s.tenantId, { limit: 10 }, subA.id);
+    expect(listA.rows.map((r) => r.id).sort()).toEqual([ja.id, jt.id].sort());
+
+    // a tenant-level read (null subject) still sees all three.
+    expect((await listJobs(db, s.tenantId, { limit: 10 })).rows).toHaveLength(3);
+
+    // cross-subject GET 404s; own + shared resolve.
+    expect(await getJobForTenant(db, jb.id, s.tenantId, subA.id)).toBeUndefined();
+    expect((await getJobForTenant(db, ja.id, s.tenantId, subA.id))?.id).toBe(ja.id);
+    expect((await getJobForTenant(db, jt.id, s.tenantId, subA.id))?.id).toBe(jt.id);
+  });
 });
 
 describe('settleJob', () => {
@@ -197,6 +232,51 @@ describe('settleJob', () => {
     expect(settleRows).toHaveLength(1);
   });
 
+  it('§G-E HARD: a subject job holds + settles against its sub-wallet, leaving the pool untouched', async () => {
+    const s = await seed(1_000_000n); // tenant pool = 1M
+    const subj = await createSubject(db, { tenantId: s.tenantId, externalId: 'h' });
+    await createSubAccount(db, {
+      tenantId: s.tenantId,
+      subjectId: subj.id,
+      creditBalance: 800_000n,
+    });
+
+    // hold via the branching holdCredits → routes to the sub-wallet (HARD).
+    expect(await holdCredits(db, s.accountId, 500_000n, s.tenantId, subj.id)).toBe(true);
+    const id = (
+      await createJob(db, {
+        tenantId: s.tenantId,
+        resourceId: s.resourceId,
+        resourceVersion: 1,
+        execMode: 'blocking',
+        inputs: { p: 'x' },
+        quotedCredits: 500_000n,
+        subjectId: subj.id,
+      })
+    ).id;
+
+    await settleJob(db, {
+      jobId: id,
+      accountId: s.accountId,
+      tenantId: s.tenantId,
+      subjectId: subj.id,
+      holdAmount: 500_000n,
+      finalCost: 300_000n,
+      usage: {},
+      output: {},
+    });
+
+    // sub-wallet debited (800k − 300k), hold cleared; tenant pool untouched.
+    const sub = await getSubAccount(db, s.tenantId, subj.id);
+    expect(sub?.creditBalance).toBe(500_000n);
+    expect(sub?.creditHeld).toBe(0n);
+    expect(await readAccount(s.accountId)).toEqual({ balance: 1_000_000n, held: 0n });
+
+    // the settle ledger row is attributed to the subject.
+    const ledger = await db.select().from(ledgerTxn).where(eq(ledgerTxn.jobId, id));
+    expect(ledger.find((l) => l.type === 'settle')?.subjectId).toBe(subj.id);
+  });
+
   it('writes a webhook_outbox row in the same tx when outbox is supplied', async () => {
     const s = await seed(1_000_000n);
     const id = await makeHeldJob(s, 500_000n);
@@ -227,6 +307,7 @@ describe('failJob', () => {
     const r = await failJob(db, {
       jobId: id,
       accountId: s.accountId,
+      tenantId: s.tenantId,
       holdAmount: 500_000n,
       to: 'failed',
       error: { code: 'upstream_error', message: 'boom' },
@@ -262,11 +343,33 @@ describe('failJob', () => {
     const r = await failJob(db, {
       jobId: id,
       accountId: s.accountId,
+      tenantId: s.tenantId,
       holdAmount: 500_000n,
       to: 'canceled',
     });
 
     expect(r).toEqual({ settled: false });
     expect(await readAccount(s.accountId)).toEqual(before);
+  });
+
+  it('rejects a cross-tenant fail: a wrong tenantId releases nothing and throws (P2-8)', async () => {
+    const a = await seed(1_000_000n);
+    const id = await makeHeldJob(a, 500_000n);
+    const [tb] = await db.insert(tenant).values({ name: 'beta' }).returning();
+    if (!tb) throw new Error('tenant b insert returned no row');
+
+    await expect(
+      failJob(db, {
+        jobId: id,
+        accountId: a.accountId,
+        tenantId: tb.id, // wrong tenant for this account
+        holdAmount: 500_000n,
+        to: 'canceled',
+      }),
+    ).rejects.toThrow();
+
+    // the whole tx rolled back: hold untouched, job still queued
+    expect(await readAccount(a.accountId)).toEqual({ balance: 1_000_000n, held: 500_000n });
+    expect((await getJob(db, id))?.status).toBe('queued');
   });
 });

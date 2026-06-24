@@ -1,0 +1,2 @@
+ALTER TABLE "limit_alert" ADD CONSTRAINT "limit_alert_subject_type_allowed" CHECK ("limit_alert"."subject_type" IN ('key', 'tenant', 'subject'));--> statement-breakpoint
+ALTER TABLE "limit_usage" ADD CONSTRAINT "limit_usage_subject_type_allowed" CHECK ("limit_usage"."subject_type" IN ('key', 'tenant', 'subject'));

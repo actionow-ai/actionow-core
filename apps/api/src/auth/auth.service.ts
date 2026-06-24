@@ -16,6 +16,12 @@ export interface TenantContext {
    * group-scoped channel candidate set + priority-tiered fallback.
    */
   routeGroupId?: string | null;
+  /**
+   * The subject (end-user) this request is attributed to (unified tenancy G-B);
+   * `null`/absent → tenant-level. Drives per-subject wallet/governance/read-scope
+   * downstream.
+   */
+  subjectId?: string | null;
 }
 
 /**
@@ -41,6 +47,9 @@ export class AuthService {
       // The key's bound group (`null` → resolve `default` at routing time). The
       // relay/run services read this to scope the channel candidate set (Track 4).
       routeGroupId: auth.routeGroupId,
+      // The subject (end-user) the key is scoped to (`null` → tenant-level). The
+      // data plane attributes spend/usage and scopes reads to this subject (G-B).
+      subjectId: auth.subjectId,
     };
     // `apiKeyId` is null on the `x-tenant-id` dev fallback (no key presented);
     // omit it then so the optional field stays absent (exactOptionalPropertyTypes).

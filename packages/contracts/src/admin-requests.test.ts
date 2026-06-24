@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createApiKeySchema,
+  createSubjectSchema,
   createTenantSchema,
   generateCodesSchema,
   topupSchema,
   updateApiKeyGroupSchema,
+  updateSubjectSchema,
 } from './admin-requests.js';
 
 describe('admin request contracts', () => {
@@ -37,5 +39,20 @@ describe('admin request contracts', () => {
     expect(generateCodesSchema.parse(ok)).toEqual(ok);
     expect(() => generateCodesSchema.parse({ count: 0, creditsPerCode: 10 })).toThrow();
     expect(() => generateCodesSchema.parse({ count: 1001, creditsPerCode: 10 })).toThrow();
+  });
+
+  it('createSubjectSchema requires at least one of externalId or email', () => {
+    expect(createSubjectSchema.parse({ externalId: 'u1' })).toEqual({ externalId: 'u1' });
+    expect(createSubjectSchema.parse({ email: 'a@b.com' })).toEqual({ email: 'a@b.com' });
+    expect(() => createSubjectSchema.parse({ displayName: 'no id' })).toThrow();
+    expect(() => createSubjectSchema.parse({ email: 'not-an-email' })).toThrow();
+  });
+
+  it('updateSubjectSchema accepts nullable clears and a status enum', () => {
+    expect(updateSubjectSchema.parse({ displayName: null, status: 'disabled' })).toEqual({
+      displayName: null,
+      status: 'disabled',
+    });
+    expect(() => updateSubjectSchema.parse({ status: 'bogus' })).toThrow();
   });
 });

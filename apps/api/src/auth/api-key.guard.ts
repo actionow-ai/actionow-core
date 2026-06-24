@@ -33,6 +33,14 @@ export interface ApiKeyContext {
   readonly limitPlanId: string | null;
   /** The tenant's bound limit plan (on its account); `null` → no tenant limits. */
   readonly tenantLimitPlanId: string | null;
+  /**
+   * The subject (end-user) this key is scoped to (unified tenancy G-B); `null` →
+   * a tenant-level key (today's behavior). When set, the data plane attributes
+   * spend/usage to this subject and read endpoints scope to it (§4b).
+   */
+  readonly subjectId: string | null;
+  /** The subject's bound limit plan (额度套餐); `null` → none / tenant-level key. */
+  readonly subjectLimitPlanId: string | null;
 }
 
 /** An express request carrying the guard-populated {@link ApiKeyContext}. */
@@ -98,6 +106,13 @@ export class ApiKeyGuard implements CanActivate {
       throw engineUnauthorized('invalid or disabled API key');
     }
 
+    // A subject-scoped key whose subject is disabled/soft-deleted authenticates
+    // as unusable (unified tenancy G-B): the end-user's access is revoked even if
+    // the raw key string is still valid.
+    if (record.subjectId !== null && record.subjectActive !== true) {
+      throw engineUnauthorized('the api key’s end-user is disabled');
+    }
+
     this.enforceAllowlist(record.resourceAllowlist, resourceParam(req));
 
     const account = await this.repo.getAccountByTenant(this.db, record.tenantId);
@@ -114,6 +129,8 @@ export class ApiKeyGuard implements CanActivate {
       routeGroupId: record.routeGroupId,
       limitPlanId: record.limitPlanId,
       tenantLimitPlanId: account.limitPlanId,
+      subjectId: record.subjectId,
+      subjectLimitPlanId: record.subjectLimitPlanId,
     };
     return true;
   }
@@ -147,6 +164,8 @@ export class ApiKeyGuard implements CanActivate {
       routeGroupId: null,
       limitPlanId: null,
       tenantLimitPlanId: account.limitPlanId,
+      subjectId: null,
+      subjectLimitPlanId: null,
     };
   }
 

@@ -9,6 +9,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   createApiKey,
+  createSubject,
   createUser,
   createUserIdentity,
   findApiKeyByHash,
@@ -16,6 +17,7 @@ import {
   findUserById,
   findUserByIdentity,
   linkIdentityTx,
+  softDeleteSubject,
 } from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
 
@@ -38,7 +40,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE api_key, user_identity, "user", account, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE api_key, subject, user_identity, "user", account, tenant RESTART IDENTITY CASCADE`;
 });
 
 async function makeTenant(): Promise<string> {
@@ -105,6 +107,32 @@ describe('findApiKeyByHash', () => {
   it('returns undefined for an unknown hash', async () => {
     const found = await findApiKeyByHash(db, 'deadbeef');
     expect(found).toBeUndefined();
+  });
+
+  it('a tenant-level key reports subjectId=null, subjectActive=null', async () => {
+    const tenantId = await makeTenant();
+    const { plaintext } = await createApiKey(db, { tenantId });
+    const found = await findApiKeyByHash(db, createHash('sha256').update(plaintext).digest('hex'));
+    expect(found?.subjectId).toBeNull();
+    expect(found?.subjectActive).toBeNull();
+    expect(found?.subjectLimitPlanId).toBeNull();
+  });
+
+  it('a subject-scoped key hydrates the subject (active) + reflects deletion', async () => {
+    const tenantId = await makeTenant();
+    const s = await createSubject(db, { tenantId, externalId: 'u1' });
+    const { plaintext } = await createApiKey(db, { tenantId, subjectId: s.id });
+    const hash = createHash('sha256').update(plaintext).digest('hex');
+
+    const live = await findApiKeyByHash(db, hash);
+    expect(live?.subjectId).toBe(s.id);
+    expect(live?.subjectActive).toBe(true);
+
+    // soft-deleting the subject makes the key's subject inactive (guard will reject).
+    await softDeleteSubject(db, tenantId, s.id);
+    const dead = await findApiKeyByHash(db, hash);
+    expect(dead?.subjectId).toBe(s.id);
+    expect(dead?.subjectActive).toBe(false);
   });
 });
 

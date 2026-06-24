@@ -52,6 +52,7 @@ export type {
   // --- billing request bodies (billing-requests) ---
   CreateRouteGroupBody,
   CreateSecretBody,
+  CreateSubjectBody,
   CreateTenantBody,
   DifyBindingView,
   DifyImportBody,
@@ -94,6 +95,7 @@ export type {
   RouteGroupChannelView,
   RouteGroupView,
   SecretView,
+  SubjectView,
   SyncChannelModelsBody,
   TenantView,
   TestPluginRequest,
@@ -113,6 +115,7 @@ export type {
   UpdateProxyBody,
   UpdateResourceBody,
   UpdateRouteGroupBody,
+  UpdateSubjectBody,
   UpdateTenantBody,
   UsageLogView,
   UsageRollupView,

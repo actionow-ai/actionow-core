@@ -15,6 +15,7 @@ const key: ApiKeyView = {
   status: 'active',
   route_group_id: 'g1',
   limit_plan_id: null,
+  subject_id: null,
   created_at: '2026-06-01T00:00:00Z',
 };
 const groups: RouteGroupView[] = [

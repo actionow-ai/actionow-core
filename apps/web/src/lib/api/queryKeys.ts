@@ -1,6 +1,7 @@
 /** Single source of truth for TanStack Query cache keys (admin plane). */
 export const qk = {
   tenants: () => ['admin', 'tenants'] as const,
+  subjects: (tenantId: string) => ['admin', 'tenants', tenantId, 'subjects'] as const,
   accounts: () => ['admin', 'accounts'] as const,
   resources: () => ['admin', 'resources'] as const,
   channels: (resourceId: string) => ['admin', 'resources', resourceId, 'channels'] as const,

@@ -1,7 +1,17 @@
 import { sql } from 'drizzle-orm';
-import { bigint, check, pgTable, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  check,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
-import { tenant } from './identity.js';
+import { subject, tenant } from './identity.js';
 import { limitPlan } from './limit.js';
 
 export const account = pgTable(
@@ -23,6 +33,13 @@ export const account = pgTable(
     // The tenant-level limit plan (额度套餐) — applies to every key of this tenant
     // (governance-limits). NULLABLE → no tenant-level limits.
     limitPlanId: uuid('limit_plan_id').references(() => limitPlan.id),
+    // Per-account config bag (unified tenancy M-X). Holds e.g. `wallet_mode`
+    // (decision #3: SHARED default vs HARD) for the tenant's subjects. Additive;
+    // `{}` default = today's behavior.
+    config: jsonb('config')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
@@ -30,5 +47,48 @@ export const account = pgTable(
     check('account_balance_ge_held', sql`${t.creditBalance} >= ${t.creditHeld}`),
     // account_tenant_unique also serves as the FK index on tenant_id
     uniqueIndex('account_tenant_unique').on(t.tenantId),
+  ],
+);
+
+/**
+ * A **per-subject sub-wallet** (unified tenancy G-E, HARD mode). An end-user
+ * (`subject`) optionally has prepaid credits of their own, held/settled against
+ * THIS row instead of the tenant pool. Mirrors `account`'s money invariants
+ * exactly (balance ≥ held ≥ 0) so the same atomic no-oversell `UPDATE` applies.
+ * Absence of a row = SHARED mode (the subject draws the tenant `account`).
+ * The governance plan is NOT here — it lives on `subject.limit_plan_id` so a
+ * SHARED subject can still have caps.
+ */
+export const subAccount = pgTable(
+  'sub_account',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenant.id),
+    subjectId: uuid('subject_id')
+      .notNull()
+      .references(() => subject.id),
+    creditBalance: bigint('credit_balance', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
+    creditHeld: bigint('credit_held', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
+    // status allowed values: active | disabled
+    status: text('status').notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex('sub_account_tenant_subject_unique')
+      .on(t.tenantId, t.subjectId)
+      .where(sql`deleted_at IS NULL`),
+    index('sub_account_subject_idx').on(t.subjectId),
+    check('sub_account_balance_ge_held', sql`${t.creditBalance} >= ${t.creditHeld}`),
+    check('sub_account_balance_ge0', sql`${t.creditBalance} >= 0`),
+    check('sub_account_held_ge0', sql`${t.creditHeld} >= 0`),
+    check('sub_account_status_allowed', sql`${t.status} IN ('active', 'disabled')`),
   ],
 );

@@ -424,6 +424,7 @@ async function mirrorChatUsageLog(
   try {
     await insertUsageLog(deps.db, {
       tenantId: deps.req.tenantId,
+      subjectId: deps.req.subjectId ?? null,
       model,
       inputTokens: usage?.input_tokens ?? 0,
       outputTokens: usage?.output_tokens ?? 0,
@@ -477,6 +478,7 @@ async function settleStream(
     jobId: deps.jobId,
     accountId: deps.req.accountId,
     tenantId: deps.req.tenantId,
+    subjectId: deps.req.subjectId ?? null,
     holdAmount: deps.holdAmount,
     finalCost,
     usage: usage ?? {},
@@ -496,6 +498,8 @@ async function failStream(deps: SettlingStreamDeps, error: UnifiedError): Promis
   await failJob(deps.db, {
     jobId: deps.jobId,
     accountId: deps.req.accountId,
+    tenantId: deps.req.tenantId,
+    subjectId: deps.req.subjectId ?? null,
     holdAmount: deps.holdAmount,
     to: 'failed',
     error,

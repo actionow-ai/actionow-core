@@ -64,12 +64,20 @@ export class ConsoleGuard implements CanActivate {
       throw engineUnauthorized('missing console token');
     }
 
-    let claims: AuthClaims;
+    let claims: AuthClaims & { typ?: string };
     try {
-      claims = await this.jwt.verifyAsync<AuthClaims>(token, { secret: this.env.ADMIN_JWT_SECRET });
+      claims = await this.jwt.verifyAsync<AuthClaims & { typ?: string }>(token, {
+        secret: this.env.ADMIN_JWT_SECRET,
+      });
     } catch {
       // Covers expiry, bad signature, and malformed tokens — fail closed.
       throw engineUnauthorized('invalid or expired console token');
+    }
+    // A member (end-user) token (`typ:'subject'`, unified tenancy G-F) is NOT an
+    // operator console token — reject it before any user lookup (spec §5.2). The
+    // end-user console (G-F) authenticates members on its own dedicated path.
+    if (claims.typ === 'subject') {
+      throw engineUnauthorized('member tokens cannot access the operator console');
     }
 
     const user = await this.repo.findUserById(this.db, claims.sub);

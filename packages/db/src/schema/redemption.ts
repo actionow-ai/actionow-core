@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { bigint, check, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
-import { tenant } from './identity.js';
+import { subject, tenant } from './identity.js';
 
 /**
  * A redemption code / 卡密 (§C.3). `code` is the PK (the claim key); a claim is
@@ -21,6 +21,8 @@ export const redemptionCode = pgTable(
     // `expired` is a computed claim outcome, never a persisted status.
     status: text('status').notNull().default('unused'),
     redeemedByTenant: uuid('redeemed_by_tenant').references(() => tenant.id),
+    // The subject (end-user) that redeemed this code (unified tenancy G-E); null → tenant-level.
+    subjectId: uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),
     redeemedAt: timestamp('redeemed_at', { withTimezone: true }),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -28,6 +30,7 @@ export const redemptionCode = pgTable(
   },
   (t) => [
     index('redemption_code_redeemed_by_tenant_idx').on(t.redeemedByTenant),
+    index('redemption_code_subject_idx').on(t.subjectId),
     check('redemption_code_status_allowed', sql`${t.status} IN ('unused', 'redeemed')`),
   ],
 );

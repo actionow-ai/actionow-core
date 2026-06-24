@@ -47,6 +47,8 @@ import {
   createResource,
   createRouteGroup,
   type CreateRouteGroupInput,
+  createSubAccount,
+  createSubject,
   createTenant,
   createUpstreamChannel,
   type Database,
@@ -69,6 +71,8 @@ import {
   getResource,
   getRouteGroupById,
   getSecretRefById,
+  getSubAccount,
+  getSubjectById,
   getTenant,
   grantModel,
   type IconAssetRow,
@@ -114,6 +118,7 @@ import {
   listRulesByPlan,
   listRulesByPlanIds,
   listSecretRefs,
+  listSubjectsByTenant,
   listTenants,
   listUsageForSubject,
   listUsageLogsGlobal,
@@ -158,8 +163,13 @@ import {
   softDeleteProxy,
   softDeleteRouteGroup,
   softDeleteSecretRef,
+  softDeleteSubject,
+  type SubAccountRow,
+  type SubjectRow,
   type TenantRow,
   topUp,
+  topupSubAccount,
+  transferCredits,
   unlinkAllForChannel,
   unlinkChannelModel,
   updateFaultPolicy,
@@ -176,6 +186,7 @@ import {
   updateResource,
   updateRouteGroup,
   updateSecretRefMeta,
+  updateSubject,
   updateTenant,
   updateUpstreamChannel,
   type UpdateUpstreamChannelInput,
@@ -220,6 +231,8 @@ import type {
   CreateResourceDto,
   CreateRouteGroupDto,
   CreateSecretDto,
+  CreateSubAccountDto,
+  CreateSubjectDto,
   CreateTenantDto,
   EnsureResourceDto,
   GenerateCodesDto,
@@ -228,6 +241,8 @@ import type {
   ProxyProbeDto,
   SyncChannelModelsDto,
   TopupDto,
+  TopupSubAccountDto,
+  TransferCreditsDto,
   UpdateApiKeyGroupDto,
   UpdateChannelDto,
   UpdateFaultPolicyDto,
@@ -239,6 +254,7 @@ import type {
   UpdateProxyDto,
   UpdateResourceDto,
   UpdateRouteGroupDto,
+  UpdateSubjectDto,
   UpdateTenantDto,
 } from './dto/admin.dto.js';
 
@@ -448,6 +464,99 @@ export class AdminService {
     return row;
   }
 
+  // ----- tenant subjects (end-users; unified tenancy G-A) -----
+
+  /** Create a subject under a tenant (404 if the tenant is absent/soft-deleted). */
+  async createSubject(tenantId: string, dto: CreateSubjectDto): Promise<SubjectRow> {
+    await this.getTenant(tenantId);
+    return createSubject(this.db, {
+      tenantId,
+      externalId: dto.externalId,
+      email: dto.email,
+      displayName: dto.displayName,
+      limitPlanId: dto.limitPlanId,
+    });
+  }
+
+  /** List a tenant's live subjects, keyset-paginated. */
+  listSubjects(tenantId: string, page: PageParams): Promise<KeysetResult<SubjectRow>> {
+    return listSubjectsByTenant(this.db, tenantId, page);
+  }
+
+  /** Fetch one subject by id (tenant-scoped), or 404. */
+  async getSubject(tenantId: string, id: string): Promise<SubjectRow> {
+    const row = await getSubjectById(this.db, tenantId, id);
+    if (row === undefined) throw engineNotFound(`subject ${id} not found`);
+    return row;
+  }
+
+  /** Patch a subject (tenant-scoped); 404 when absent. `external_id` is immutable. */
+  async updateSubject(tenantId: string, id: string, dto: UpdateSubjectDto): Promise<SubjectRow> {
+    const row = await updateSubject(this.db, tenantId, id, {
+      email: dto.email,
+      displayName: dto.displayName,
+      limitPlanId: dto.limitPlanId,
+      status: dto.status,
+    });
+    if (row === undefined) throw engineNotFound(`subject ${id} not found`);
+    return row;
+  }
+
+  /** Soft-delete a subject (tenant-scoped); 404 when absent (idempotent second call). */
+  async deleteSubject(tenantId: string, id: string): Promise<void> {
+    const deleted = await softDeleteSubject(this.db, tenantId, id);
+    if (deleted === undefined) throw engineNotFound(`subject ${id} not found`);
+  }
+
+  // ----- subject sub-wallets (HARD mode; unified tenancy G-E) -----
+
+  /** Open a HARD sub-wallet for a subject (404 if the subject isn't in the tenant). */
+  async createSubAccount(
+    tenantId: string,
+    subjectId: string,
+    dto: CreateSubAccountDto,
+  ): Promise<SubAccountRow> {
+    await this.getSubject(tenantId, subjectId);
+    const creditBalance = dto.credits === undefined ? undefined : creditsToMicro(dto.credits);
+    return createSubAccount(this.db, {
+      tenantId,
+      subjectId,
+      ...(creditBalance !== undefined ? { creditBalance } : {}),
+    });
+  }
+
+  /** The subject's sub-wallet (balance/held), or 404 when none. */
+  async getSubAccount(tenantId: string, subjectId: string): Promise<SubAccountRow> {
+    const sub = await getSubAccount(this.db, tenantId, subjectId);
+    if (sub === undefined) throw engineNotFound(`sub-wallet for subject ${subjectId} not found`);
+    return sub;
+  }
+
+  /** Credit a subject's sub-wallet (404 when none). Returns the new µcredit balance. */
+  async topupSubAccount(
+    tenantId: string,
+    subjectId: string,
+    dto: TopupSubAccountDto,
+  ): Promise<bigint> {
+    await this.getSubAccount(tenantId, subjectId);
+    return topupSubAccount(this.db, tenantId, subjectId, creditsToMicro(dto.credits));
+  }
+
+  /** Transfer credits between the tenant pool and the subject's sub-wallet (404 when none). */
+  async transferCredits(
+    tenantId: string,
+    subjectId: string,
+    dto: TransferCreditsDto,
+  ): Promise<void> {
+    await this.getSubAccount(tenantId, subjectId);
+    await transferCredits(this.db, {
+      tenantId,
+      subjectId,
+      amount: creditsToMicro(dto.credits),
+      direction: dto.direction,
+    });
+  }
+
   // ----- accounts -----
 
   createAccount(dto: CreateAccountDto): Promise<AccountRow> {
@@ -497,10 +606,17 @@ export class AdminService {
     if (dto.routeGroupId !== undefined) {
       await this.requireRouteGroup(dto.routeGroupId);
     }
+    // A subject-scoped key (unified tenancy G-B): the subject must belong to the
+    // same tenant (→ 404 otherwise), so a key can never be bound cross-tenant.
+    if (dto.subjectId !== undefined) {
+      const subj = await getSubjectById(this.db, dto.tenantId, dto.subjectId);
+      if (subj === undefined) throw engineNotFound(`subject ${dto.subjectId} not found`);
+    }
     const created = await createApiKey(this.db, {
       tenantId: dto.tenantId,
       resourceAllowlist: dto.resourceAllowlist,
       rateLimit: dto.rateLimit,
+      subjectId: dto.subjectId,
     });
     if (dto.routeGroupId !== undefined) {
       await setApiKeyGroup(this.db, created.id, dto.routeGroupId);

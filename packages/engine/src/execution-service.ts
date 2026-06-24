@@ -114,6 +114,8 @@ export interface RunRequest {
   execMode: ExecMode;
   tenantId: string;
   accountId: string;
+  /** The subject (end-user) this run is attributed to (unified tenancy G-B); null → tenant-level. */
+  subjectId?: string | null | undefined;
   callbackUrl?: string | undefined;
   idempotencyKey?: string | undefined;
   endUser?: string | undefined;
@@ -254,7 +256,13 @@ export class ExecutionService {
     // 1. Idempotency: if the key was already claimed, replay the original job.
     if (req.idempotencyKey !== undefined) {
       const probeJobId = randomUUID();
-      const claim = await claimIdempotency(db, req.tenantId, req.idempotencyKey, probeJobId);
+      const claim = await claimIdempotency(
+        db,
+        req.tenantId,
+        req.idempotencyKey,
+        probeJobId,
+        req.subjectId ?? null,
+      );
       if (!claim.claimed) {
         const existing =
           claim.existingJobId === undefined ? undefined : await getJob(db, claim.existingJobId);
@@ -304,7 +312,13 @@ export class ExecutionService {
     if (req.idempotencyKey !== undefined) {
       // We own the key iff this insert claimed it; the claim row then points at
       // the `jobId` we generated above (and pass to `createJob`).
-      const claim = await claimIdempotency(db, req.tenantId, req.idempotencyKey, jobId);
+      const claim = await claimIdempotency(
+        db,
+        req.tenantId,
+        req.idempotencyKey,
+        jobId,
+        req.subjectId ?? null,
+      );
       if (!claim.claimed) {
         throw engineError('invalid_input', 'idempotency key already used for a stream run');
       }
@@ -343,7 +357,13 @@ export class ExecutionService {
     // stream-mode key cannot re-open a live stream, so a reused key surfaces as
     // an invalid_input rather than silently double-charging a second stream.
     if (req.idempotencyKey !== undefined) {
-      const claim = await claimIdempotency(db, req.tenantId, req.idempotencyKey, jobId);
+      const claim = await claimIdempotency(
+        db,
+        req.tenantId,
+        req.idempotencyKey,
+        jobId,
+        req.subjectId ?? null,
+      );
       if (!claim.claimed) {
         throw engineError('invalid_input', 'idempotency key already used for a stream run');
       }
@@ -395,7 +415,13 @@ export class ExecutionService {
 
     if (req.idempotencyKey !== undefined) {
       const probeJobId = randomUUID();
-      const claim = await claimIdempotency(db, req.tenantId, req.idempotencyKey, probeJobId);
+      const claim = await claimIdempotency(
+        db,
+        req.tenantId,
+        req.idempotencyKey,
+        probeJobId,
+        req.subjectId ?? null,
+      );
       if (!claim.claimed) {
         const existing =
           claim.existingJobId === undefined ? undefined : await getJob(db, claim.existingJobId);
@@ -513,6 +539,8 @@ export class ExecutionService {
       await failJob(this.deps.db, {
         jobId: job.id,
         accountId: req.accountId,
+        tenantId: req.tenantId,
+        subjectId: req.subjectId ?? null,
         holdAmount,
         to: 'failed',
         error: {
@@ -535,6 +563,8 @@ export class ExecutionService {
       await failJob(this.deps.db, {
         jobId: job.id,
         accountId: req.accountId,
+        tenantId: req.tenantId,
+        subjectId: req.subjectId ?? null,
         holdAmount,
         to: 'failed',
         error: { code: 'internal_error', message: 'failed to enqueue async job', retryable: true },
@@ -574,7 +604,13 @@ export class ExecutionService {
     // 4. Atomic hold. False → insufficient_credits, NO job created. Scoped to the
     // request's tenant (P2-8 defense-in-depth) so a mismatched account/tenant
     // never reserves another tenant's credit.
-    const held = await holdCredits(db, req.accountId, holdAmount, req.tenantId);
+    const held = await holdCredits(
+      db,
+      req.accountId,
+      holdAmount,
+      req.tenantId,
+      req.subjectId ?? null,
+    );
     if (!held) {
       throw engineError('insufficient_credits', 'insufficient credits for hold');
     }
@@ -627,6 +663,7 @@ export class ExecutionService {
       callbackUrl: req.callbackUrl ?? null,
       idempotencyKey: req.idempotencyKey ?? null,
       endUser: req.endUser ?? null,
+      subjectId: req.subjectId ?? null,
     });
   }
 
@@ -681,6 +718,8 @@ export class ExecutionService {
       await failJob(this.deps.db, {
         jobId,
         accountId: req.accountId,
+        tenantId: req.tenantId,
+        subjectId: req.subjectId ?? null,
         holdAmount,
         to: 'failed',
         error: { code: 'internal_error', message: 'blocking adapter returned async handle' },
@@ -717,6 +756,7 @@ export class ExecutionService {
       jobId,
       accountId: req.accountId,
       tenantId: req.tenantId,
+      subjectId: req.subjectId ?? null,
       holdAmount,
       finalCost,
       usage: result.usage,
@@ -762,6 +802,7 @@ export class ExecutionService {
       await insertUsageLog(this.deps.db, {
         tenantId: req.tenantId,
         model: req.usageLogModel,
+        subjectId: req.subjectId ?? null,
         inputTokens: usage.input_tokens ?? 0,
         outputTokens: usage.output_tokens ?? 0,
         cost: finalCost,
@@ -793,6 +834,8 @@ export class ExecutionService {
     await failJob(this.deps.db, {
       jobId,
       accountId: req.accountId,
+      tenantId: req.tenantId,
+      subjectId: req.subjectId ?? null,
       holdAmount,
       to: 'failed',
       error: unified,
@@ -808,6 +851,7 @@ export class ExecutionService {
         await insertUsageLog(this.deps.db, {
           tenantId: req.tenantId,
           model: req.usageLogModel,
+          subjectId: req.subjectId ?? null,
           cost: 0n,
           status: 'failed',
           ...(req.usageLogApiKeyId !== undefined ? { apiKeyId: req.usageLogApiKeyId } : {}),

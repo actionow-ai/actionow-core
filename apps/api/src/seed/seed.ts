@@ -8,6 +8,7 @@ import {
   createResource,
   createRouteGroup,
   createSecretRef,
+  createSubject,
   createTenant,
   createUpstreamChannel,
   createUser,
@@ -17,6 +18,7 @@ import {
   getRouteGroupByName,
   listApiKeys,
   listChannels,
+  listSubjectsByTenant,
   listTenants,
   setApiKeyGroup,
   topUp,
@@ -200,6 +202,15 @@ export async function seedAll(db: Database, options: SeedOptions = {}): Promise<
   if (existingKeys.length === 0) {
     const created = await createApiKey(db, { tenantId });
     apiKey = created.plaintext;
+  }
+
+  // 6a. Demo subjects (end-users; unified tenancy G-A) — idempotent identity
+  //     rows so the operator end-user hub has seed data. All subject_id columns
+  //     on jobs/usage stay NULL (no data-plane/money behavior change).
+  const { rows: existingSubjects } = await listSubjectsByTenant(db, tenantId, { limit: 1 });
+  if (existingSubjects.length === 0) {
+    await createSubject(db, { tenantId, externalId: 'demo-user-1', displayName: 'Demo User One' });
+    await createSubject(db, { tenantId, externalId: 'demo-user-2', displayName: 'Demo User Two' });
   }
 
   // 6. Track 3: the well-known `default` route group (ratio 10000), the seeded

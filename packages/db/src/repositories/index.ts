@@ -371,6 +371,34 @@ export {
   settleJob,
   type SettleJobInput,
 } from './settle.js';
+export {
+  createSubAccount,
+  getSubAccount,
+  holdSubAccount,
+  releaseSubAccountHold,
+  settleSubAccount,
+  type SubAccountRow,
+  topupSubAccount,
+  transferCredits,
+  type TransferDirection,
+} from './sub-account.js';
+export {
+  createSubject,
+  createSubjectIdentity,
+  type CreateSubjectInput,
+  findSubjectByEmail,
+  findSubjectByExternalId,
+  findSubjectsByIdentity,
+  getSubjectById,
+  listSubjectsByTenant,
+  resolveIdentityLink,
+  resolveOrCreateSubject,
+  softDeleteSubject,
+  type SubjectIdentityInput,
+  type SubjectRow,
+  updateSubject,
+  type UpdateSubjectInput,
+} from './subject.js';
 export type { DbOrTx } from './types.js';
 export {
   countUsageLogs,

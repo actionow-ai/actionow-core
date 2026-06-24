@@ -12,7 +12,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { tenant } from './identity.js';
+import { subject, tenant } from './identity.js';
 
 /**
  * A single payment attempt against one provider. `provider_ref` is the
@@ -33,6 +33,8 @@ export const paymentIntent = pgTable(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenant.id),
+    // The subject (end-user) a topup is routed to (unified tenancy G-E); null → tenant pool.
+    subjectId: uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),
     provider: text('provider').notNull(), // stripe|alipay|wechat|crypto
     providerRef: text('provider_ref').notNull(),
     purpose: text('purpose').notNull(), // topup|order|subscription
@@ -50,6 +52,7 @@ export const paymentIntent = pgTable(
   (t) => [
     uniqueIndex('payment_intent_provider_ref').on(t.provider, t.providerRef),
     index('payment_intent_tenant_idx').on(t.tenantId),
+    index('payment_intent_subject_idx').on(t.subjectId),
     check(
       'payment_intent_status_allowed',
       sql`${t.status} IN ('created', 'pending', 'succeeded', 'failed', 'expired', 'refunded')`,

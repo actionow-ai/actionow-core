@@ -3,12 +3,14 @@ import type { ExecMode, IoSchema, Modifier, PricebookEntry, RunBody } from '@act
 import { runBodySchema } from '@actionow/contracts';
 import {
   type Database,
+  findSubjectByExternalId,
   getActivePricebookEntry,
   getResource,
   getResourceVersion,
   listApplicableModifiers,
   type ModifierRow,
   type PricebookEntryRow,
+  resolveOrCreateSubject,
 } from '@actionow/db';
 import type { JobQueuePort, RunOutcome, RunRequest, StreamOutcome } from '@actionow/engine';
 import { ExecutionService } from '@actionow/engine';
@@ -17,7 +19,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { TenantContext } from '../auth/auth.service.js';
 import { ChannelRoutingService } from '../common/channel-routing.service.js';
-import { engineInvalidInput, engineNotFound } from '../common/errors.js';
+import { engineInvalidInput, engineNotFound, engineUnauthorized } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
 import { ADAPTERS, DB, ENV, JOB_QUEUE } from '../common/tokens.js';
 import { FilesService } from '../files/files.service.js';
@@ -117,6 +119,40 @@ export class RunService {
    * (no schema change this track). Wiring the group into the async worker path
    * is deferred to a follow-up (it needs a `job.route_group_id` column).
    */
+  /**
+   * Resolve the subject (end-user) a run attributes to (unified tenancy G-B/G-C):
+   * - A subject-scoped key fixes the subject. If `end_user` names a DIFFERENT
+   *   subject → 401 (escalation guard: a key bound to one end-user must never act
+   *   as another).
+   * - A tenant-level key may attribute via `end_user` (the Model-B `external_id`
+   *   handle): resolve it, JIT-provisioning when the tenant opted in; an unknown
+   *   handle with JIT off → `invalid_input` (never silently skip a paying user).
+   * - No subject key and no `end_user` → `null` (tenant-level, today's behavior).
+   */
+  private async resolveSubject(ctx: TenantContext, body: RunBody): Promise<string | null> {
+    const externalId =
+      typeof body.end_user === 'string' && body.end_user !== '' ? body.end_user : undefined;
+
+    if (ctx.subjectId != null) {
+      if (externalId !== undefined) {
+        const named = await findSubjectByExternalId(this.db, ctx.tenantId, externalId);
+        if (named !== undefined && named.id !== ctx.subjectId) {
+          throw engineUnauthorized('the api key is scoped to a different end-user');
+        }
+      }
+      return ctx.subjectId;
+    }
+
+    if (externalId === undefined) return null;
+    const subj = await resolveOrCreateSubject(this.db, ctx.tenantId, externalId);
+    if (subj === null) {
+      throw engineInvalidInput(
+        `unknown end_user '${externalId}' (end-user auto-provisioning is disabled for this tenant)`,
+      );
+    }
+    return subj.id;
+  }
+
   private async buildRequest(
     resourceId: string,
     body: RunBody,
@@ -180,6 +216,7 @@ export class RunService {
       execMode,
       tenantId: ctx.tenantId,
       accountId: ctx.accountId,
+      subjectId: await this.resolveSubject(ctx, body),
       callbackUrl: body.callback_url,
       idempotencyKey: body.idempotency_key,
       endUser: body.end_user,

@@ -267,6 +267,55 @@
       "when": 1782289209609,
       "tag": "0037_concerned_eternity",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1782313007180,
+      "tag": "0038_subject",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1782313742388,
+      "tag": "0039_subject_id_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1782315613242,
+      "tag": "0040_idempotency_subject",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1782317717525,
+      "tag": "0041_config_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1782318247444,
+      "tag": "0042_limit_subject_type_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1782318622685,
+      "tag": "0043_sub_account",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1782319958303,
+      "tag": "0044_subject_identity",
+      "breakpoints": true
     }
   ]
 }

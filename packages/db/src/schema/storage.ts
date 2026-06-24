@@ -10,7 +10,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { tenant } from './identity.js';
+import { subject, tenant } from './identity.js';
 
 /**
  * A reference to an object stored in an S3-compatible bucket. Actionow persists
@@ -28,6 +28,8 @@ export const fileObject = pgTable(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenant.id),
+    // The subject (end-user) that owns this asset (unified tenancy G-B); null → tenant-level.
+    subjectId: uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),
     provider: text('provider').notNull(),
     bucket: text('bucket').notNull(),
     key: text('key').notNull(),
@@ -45,6 +47,7 @@ export const fileObject = pgTable(
   },
   (t) => [
     index('file_object_tenant_idx').on(t.tenantId),
+    index('file_object_subject_idx').on(t.subjectId),
     check('file_object_status_allowed', sql`${t.status} IN ('pending', 'ready')`),
   ],
 );

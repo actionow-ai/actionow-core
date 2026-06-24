@@ -19,6 +19,13 @@ export const tenant = pgTable('tenant', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   isolationMode: text('isolation_mode').notNull().default('field'),
+  // Per-tenant config bag (unified tenancy M-X). Holds e.g.
+  // `jit_provisioning_enabled` (decision #1: Model-B auto-create a subject for an
+  // unknown external_id). Additive; `{}` default = today's behavior (JIT off).
+  config: jsonb('config')
+    .$type<Record<string, unknown>>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -45,6 +52,9 @@ export const apiKey = pgTable(
     // The limit plan (额度套餐) bound to this key (governance-limits). NULLABLE →
     // null means no per-key limits; the tenant's plan (if any) still applies.
     limitPlanId: uuid('limit_plan_id').references(() => limitPlan.id),
+    // The subject (end-user) this key is scoped to (unified tenancy G-B). NULL →
+    // a tenant-level key (today's behavior). Lazy `() =>` FK avoids any ESM cycle.
+    subjectId: uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),
     rateLimit: bigint('rate_limit', { mode: 'number' }),
     // status allowed values: active | disabled (createApiKey default + disableApiKeyForTenant)
     status: text('status').notNull().default('active'),
@@ -55,6 +65,7 @@ export const apiKey = pgTable(
   (t) => [
     uniqueIndex('api_key_hash_idx').on(t.hash),
     index('api_key_tenant_idx').on(t.tenantId),
+    index('api_key_subject_idx').on(t.subjectId),
     check('api_key_status_allowed', sql`${t.status} IN ('active', 'disabled')`),
   ],
 );
@@ -121,6 +132,49 @@ export const adminToken = pgTable(
 );
 
 /**
+ * A **subject** — the END-USER of a third-party app (tenant), the single new
+ * principal of the unified A+B tenancy. Distinct from {@link user} (operators):
+ * subjects are tenant-scoped, soft-deletable, and their auth fields are all
+ * nullable. Model A populates `email`/`password_hash` (a member login); Model B
+ * populates `external_id` (the app-owned handle). `limit_plan_id` binds a
+ * per-subject governance plan (lives HERE, not on the sub-wallet, so a SHARED
+ * subject without a wallet can still have caps). Email is unique PER TENANT (not
+ * global like {@link user}) so the same human is a separate subject per product.
+ */
+export const subject = pgTable(
+  'subject',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenant.id),
+    // Model-B handle (app-owned identity); NULL for a pure Model-A subject.
+    externalId: text('external_id'),
+    // Model-A login; NULL for a pure Model-B subject. Per-tenant unique (live).
+    email: text('email'),
+    passwordHash: text('password_hash'),
+    displayName: text('display_name'),
+    // Per-subject governance plan (额度套餐). NULL → inherit tenant/key caps only.
+    limitPlanId: uuid('limit_plan_id').references(() => limitPlan.id),
+    // status allowed values: active | disabled
+    status: text('status').notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('subject_tenant_idx').on(t.tenantId),
+    uniqueIndex('subject_tenant_external_id_idx')
+      .on(t.tenantId, t.externalId)
+      .where(sql`external_id IS NOT NULL AND deleted_at IS NULL`),
+    uniqueIndex('subject_tenant_email_idx')
+      .on(t.tenantId, t.email)
+      .where(sql`email IS NOT NULL AND deleted_at IS NULL`),
+    check('subject_status_allowed', sql`${t.status} IN ('active', 'disabled')`),
+  ],
+);
+
+/**
  * A federated identity linking a {@link user} to an external OAuth provider
  * (Phase 9). Keyed on `(provider, provider_user_id)` — the provider's stable
  * subject id, NEVER the email — so a provider account links to exactly one
@@ -141,5 +195,39 @@ export const userIdentity = pgTable(
   (t) => [
     uniqueIndex('user_identity_provider_sub_idx').on(t.provider, t.providerUserId),
     index('user_identity_user_idx').on(t.userId),
+  ],
+);
+
+/**
+ * A federated identity linking a {@link subject} (end-user) to an external
+ * provider (unified tenancy G-F, M-Y), mirroring {@link userIdentity}. Two
+ * subjects in DIFFERENT tenants are the SAME human iff they share
+ * `(provider, provider_user_id)` — the cross-tenant federation key (resolve-only;
+ * never a wallet/permission merge). When a `userIdentity` and a `subjectIdentity`
+ * share `(provider, provider_user_id)`, the operator and the end-user are the
+ * same person (the user↔subject link). Cascades on subject deletion.
+ */
+// immutable: no updated_at (a federated identity link is never mutated in place)
+export const subjectIdentity = pgTable(
+  'subject_identity',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    subjectId: uuid('subject_id')
+      .notNull()
+      .references(() => subject.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(),
+    providerUserId: text('provider_user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // One link per (provider identity, subject); the same identity MAY map to
+    // several subjects (one per tenant) — that's exactly cross-tenant federation.
+    uniqueIndex('subject_identity_provider_sub_subject_idx').on(
+      t.provider,
+      t.providerUserId,
+      t.subjectId,
+    ),
+    index('subject_identity_provider_user_idx').on(t.provider, t.providerUserId),
+    index('subject_identity_subject_idx').on(t.subjectId),
   ],
 );

@@ -83,6 +83,8 @@ export class FilesService {
     const key = buildKey(ctx.tenantId, body.filename);
     const file = await createFileObject(this.db, {
       tenantId: ctx.tenantId,
+      // Stamp the owning subject (§4b) so the asset is isolated to this end-user.
+      subjectId: ctx.subjectId ?? null,
       provider: storage.kind,
       bucket: this.bucket(),
       key,
@@ -105,7 +107,7 @@ export class FilesService {
    */
   async confirm(id: string, ctx: TenantContext): Promise<FileView> {
     const storage = this.requireStorage();
-    const file = await this.requireFile(id, ctx.tenantId);
+    const file = await this.requireFile(id, ctx);
 
     const head = await storage.head(file.key);
     if (!head.exists) {
@@ -124,7 +126,7 @@ export class FilesService {
   /** Mint a presigned GET URL for a tenant-owned file. 404 if not visible. */
   async getUrl(id: string, ctx: TenantContext): Promise<FileUrlResult> {
     const storage = this.requireStorage();
-    const file = await this.requireFile(id, ctx.tenantId);
+    const file = await this.requireFile(id, ctx);
     const presign = await storage.presignGet(file.key);
     return { url: presign.url, expires_in: presign.expiresIn };
   }
@@ -140,7 +142,13 @@ export class FilesService {
     filter: ListFilesFilter,
     page: PageParams,
   ): Promise<PageEnvelope<FileView>> {
-    const result = await listFilesByTenant(this.db, ctx.tenantId, filter, page);
+    const result = await listFilesByTenant(
+      this.db,
+      ctx.tenantId,
+      filter,
+      page,
+      ctx.subjectId ?? null,
+    );
     return mapPageEnvelope(result, (r) => r.id, toView);
   }
 
@@ -185,7 +193,9 @@ export class FilesService {
       throw engineInvalidInput(`input "${fieldKey}" must be a file id`);
     }
     const storage = this.requireStorage();
-    const file = await getFileObject(this.db, value, ctx.tenantId);
+    // §4b: scope to the calling subject so a subject-scoped run cannot reference
+    // another subject's file_id (cross-subject input exfiltration).
+    const file = await getFileObject(this.db, value, ctx.tenantId, ctx.subjectId ?? null);
     if (file === undefined) {
       throw engineInvalidInput(`file ${value} not found for input "${fieldKey}"`);
     }
@@ -196,9 +206,13 @@ export class FilesService {
     return presign.url;
   }
 
-  /** Tenant-scoped fetch or 404 (cross-tenant ids are indistinguishable from missing). */
-  private async requireFile(id: string, tenantId: string): Promise<FileObject> {
-    const file = await getFileObject(this.db, id, tenantId);
+  /**
+   * Tenant + subject-scoped fetch or 404 (§4b): a cross-tenant OR cross-subject
+   * id is indistinguishable from missing. A subject-scoped caller can only reach
+   * its own files plus tenant-shared (NULL-subject) ones.
+   */
+  private async requireFile(id: string, ctx: TenantContext): Promise<FileObject> {
+    const file = await getFileObject(this.db, id, ctx.tenantId, ctx.subjectId ?? null);
     if (file === undefined) {
       throw engineNotFound(`file ${id} not found`);
     }

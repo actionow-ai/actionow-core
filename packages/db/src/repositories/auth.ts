@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 
 import { and, eq, isNull } from 'drizzle-orm';
 
-import { apiKey, user, userIdentity } from '../schema/index.js';
+import { apiKey, subject, user, userIdentity } from '../schema/index.js';
 import type { DbOrTx } from './types.js';
 
 /** Fields a caller supplies to {@link createApiKey}. */
@@ -12,6 +12,8 @@ export interface CreateApiKeyInput {
   readonly resourceAllowlist?: readonly string[] | undefined;
   /** Per-(tenant,resource) requests-per-minute cap; `null`/omitted → default. */
   readonly rateLimit?: number | undefined;
+  /** The subject (end-user) this key is scoped to (unified tenancy G-B); null → tenant-level. */
+  readonly subjectId?: string | null | undefined;
 }
 
 /** The created key's id plus its ONE-TIME plaintext (never re-derivable). */
@@ -32,6 +34,16 @@ export interface ApiKeyRecord {
   readonly routeGroupId: string | null;
   /** The bound limit plan (额度套餐; governance-limits); `null` → no per-key limits. */
   readonly limitPlanId: string | null;
+  /** The subject (end-user) this key is scoped to (unified tenancy G-B); `null` → tenant-level. */
+  readonly subjectId: string | null;
+  /**
+   * Whether the bound subject is usable: `null` for a tenant-level key (no
+   * subject); otherwise `true` iff the subject row is live + `status='active'`.
+   * The guard rejects a subject-scoped key whose subject is `false`.
+   */
+  readonly subjectActive: boolean | null;
+  /** The subject's bound limit plan (额度套餐); `null` → none / tenant-level key. */
+  readonly subjectLimitPlanId: string | null;
 }
 
 /** Compute the stored lookup hash for an API key (sha256 hex of the plaintext). */
@@ -55,6 +67,7 @@ export async function createApiKey(db: DbOrTx, input: CreateApiKeyInput): Promis
       hash,
       resourceAllowlist: input.resourceAllowlist ? [...input.resourceAllowlist] : [],
       rateLimit: input.rateLimit ?? null,
+      subjectId: input.subjectId ?? null,
     })
     .returning({ id: apiKey.id });
 
@@ -72,6 +85,9 @@ export async function findApiKeyByHash(
   db: DbOrTx,
   hash: string,
 ): Promise<ApiKeyRecord | undefined> {
+  // LEFT JOIN the subject so a subject-scoped key resolves its subject's
+  // liveness + bound plan in one round-trip; a tenant-level key (subject_id
+  // NULL) joins to no row and reports subjectActive=null.
   const rows = await db
     .select({
       id: apiKey.id,
@@ -81,11 +97,30 @@ export async function findApiKeyByHash(
       status: apiKey.status,
       routeGroupId: apiKey.routeGroupId,
       limitPlanId: apiKey.limitPlanId,
+      subjectId: apiKey.subjectId,
+      subjectStatus: subject.status,
+      subjectDeletedAt: subject.deletedAt,
+      subjectLimitPlanId: subject.limitPlanId,
     })
     .from(apiKey)
+    .leftJoin(subject, eq(subject.id, apiKey.subjectId))
     .where(and(eq(apiKey.hash, hash), isNull(apiKey.deletedAt)))
     .limit(1);
-  return rows[0];
+  const r = rows[0];
+  if (!r) return undefined;
+  return {
+    id: r.id,
+    tenantId: r.tenantId,
+    resourceAllowlist: r.resourceAllowlist,
+    rateLimit: r.rateLimit,
+    status: r.status,
+    routeGroupId: r.routeGroupId,
+    limitPlanId: r.limitPlanId,
+    subjectId: r.subjectId,
+    subjectActive:
+      r.subjectId === null ? null : r.subjectStatus === 'active' && r.subjectDeletedAt === null,
+    subjectLimitPlanId: r.subjectLimitPlanId ?? null,
+  };
 }
 
 /** The tenant-scoped view of an `api_key` row (no `hash`). */
@@ -97,6 +132,8 @@ export interface ApiKeyView {
   readonly status: string;
   /** The bound route group (Track 3); `null` → the `default` group at routing time. */
   readonly routeGroupId: string | null;
+  /** The subject (end-user) this key is scoped to (unified tenancy G-B); `null` → tenant-level. */
+  readonly subjectId: string | null;
   readonly createdAt: Date;
 }
 
@@ -107,6 +144,7 @@ const API_KEY_VIEW_COLUMNS = {
   rateLimit: apiKey.rateLimit,
   status: apiKey.status,
   routeGroupId: apiKey.routeGroupId,
+  subjectId: apiKey.subjectId,
   createdAt: apiKey.createdAt,
 } as const;
 
@@ -198,6 +236,7 @@ export async function rotateApiKeyForTenant(
       tenantId,
       resourceAllowlist: existing.resourceAllowlist,
       rateLimit: existing.rateLimit ?? undefined,
+      subjectId: existing.subjectId,
     });
     await disableApiKeyForTenant(tx, keyId, tenantId);
     return created;
