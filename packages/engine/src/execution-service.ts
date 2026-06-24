@@ -114,6 +114,8 @@ export interface RunRequest {
   execMode: ExecMode;
   tenantId: string;
   accountId: string;
+  /** The subject (end-user) this run is attributed to (unified tenancy G-B); null → tenant-level. */
+  subjectId?: string | null | undefined;
   callbackUrl?: string | undefined;
   idempotencyKey?: string | undefined;
   endUser?: string | undefined;
@@ -629,6 +631,7 @@ export class ExecutionService {
       callbackUrl: req.callbackUrl ?? null,
       idempotencyKey: req.idempotencyKey ?? null,
       endUser: req.endUser ?? null,
+      subjectId: req.subjectId ?? null,
     });
   }
 
@@ -720,6 +723,7 @@ export class ExecutionService {
       jobId,
       accountId: req.accountId,
       tenantId: req.tenantId,
+      subjectId: req.subjectId ?? null,
       holdAmount,
       finalCost,
       usage: result.usage,
@@ -765,6 +769,7 @@ export class ExecutionService {
       await insertUsageLog(this.deps.db, {
         tenantId: req.tenantId,
         model: req.usageLogModel,
+        subjectId: req.subjectId ?? null,
         inputTokens: usage.input_tokens ?? 0,
         outputTokens: usage.output_tokens ?? 0,
         cost: finalCost,
@@ -812,6 +817,7 @@ export class ExecutionService {
         await insertUsageLog(this.deps.db, {
           tenantId: req.tenantId,
           model: req.usageLogModel,
+          subjectId: req.subjectId ?? null,
           cost: 0n,
           status: 'failed',
           ...(req.usageLogApiKeyId !== undefined ? { apiKeyId: req.usageLogApiKeyId } : {}),

@@ -16,6 +16,8 @@ export interface SettleJobInput {
   jobId: string;
   accountId: string;
   tenantId: string;
+  /** The subject (end-user) this settle is attributed to (unified tenancy G-B); null → tenant-level. */
+  subjectId?: string | null;
   /** Amount currently held for this job; released as part of settle. */
   holdAmount: bigint;
   /** Final charged cost (already rounded to the integer µcredit). */
@@ -71,6 +73,7 @@ export async function settleJob(db: DbOrTx, p: SettleJobInput): Promise<{ settle
     await appendLedger(tx, {
       tenantId: p.tenantId,
       accountId: p.accountId,
+      subjectId: p.subjectId ?? null,
       type: 'settle',
       creditsDelta: -p.finalCost,
       balanceAfter: row.balanceAfter,

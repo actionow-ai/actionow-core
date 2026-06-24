@@ -180,6 +180,7 @@ export class RunService {
       execMode,
       tenantId: ctx.tenantId,
       accountId: ctx.accountId,
+      subjectId: ctx.subjectId ?? null,
       callbackUrl: body.callback_url,
       idempotencyKey: body.idempotency_key,
       endUser: body.end_user,
