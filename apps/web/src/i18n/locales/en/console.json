@@ -404,7 +404,25 @@
         "deleted": "End-user removed",
         "empty": "No end-users yet",
         "form": { "externalId": "External ID", "name": "Display name" },
-        "cols": { "identity": "Identity", "name": "Name", "status": "Status" }
+        "cols": { "identity": "Identity", "name": "Name", "status": "Status" },
+        "detail": {
+          "plan": "Limit plan",
+          "planTip": "Bind a limit plan (spend budget / rate limit / quota) to this end-user. Unbound = unlimited.",
+          "planBound": "End-user limit plan updated",
+          "wallet": "Sub-wallet (HARD)",
+          "openWallet": "Open wallet",
+          "openingCredits": "Opening credits",
+          "walletOpened": "Wallet opened",
+          "transferAmount": "Transfer amount",
+          "direction": "Direction",
+          "toSubject": "Pool → end-user",
+          "toTenant": "End-user → pool",
+          "transfer": "Transfer",
+          "transferred": "Transfer complete",
+          "keys": "Scoped API keys",
+          "mintKey": "Mint key",
+          "noKeys": "No scoped keys yet"
+        }
       },
       "planBound": "Limit plan updated",
       "plan": {
@@ -1129,6 +1147,7 @@
     "delete": "Delete",
     "disable": "Disable",
     "enable": "Enable",
+    "loading": "Loading…",
     "filter": "Filter",
     "clearFilters": "Clear filters",
     "confirm": "Confirm",

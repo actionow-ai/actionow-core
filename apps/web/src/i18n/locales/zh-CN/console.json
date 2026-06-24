@@ -404,7 +404,25 @@
         "deleted": "终端用户已移除",
         "empty": "暂无终端用户",
         "form": { "externalId": "外部 ID", "name": "显示名称" },
-        "cols": { "identity": "标识", "name": "名称", "status": "状态" }
+        "cols": { "identity": "标识", "name": "名称", "status": "状态" },
+        "detail": {
+          "plan": "额度套餐",
+          "planTip": "为该终端用户绑定额度套餐(消费预算 / 限流 / 配额)。不绑定 = 不受限制。",
+          "planBound": "终端用户额度套餐已更新",
+          "wallet": "专属钱包(硬隔离)",
+          "openWallet": "开通钱包",
+          "openingCredits": "初始额度",
+          "walletOpened": "钱包已开通",
+          "transferAmount": "划转额度",
+          "direction": "方向",
+          "toSubject": "租户池 → 终端用户",
+          "toTenant": "终端用户 → 租户池",
+          "transfer": "划转",
+          "transferred": "划转完成",
+          "keys": "专属 API Key",
+          "mintKey": "签发 Key",
+          "noKeys": "暂无专属 Key"
+        }
       },
       "planBound": "额度套餐已更新",
       "plan": {
@@ -1129,6 +1147,7 @@
     "delete": "删除",
     "disable": "停用",
     "enable": "启用",
+    "loading": "加载中…",
     "filter": "过滤",
     "clearFilters": "清除筛选",
     "confirm": "确认",

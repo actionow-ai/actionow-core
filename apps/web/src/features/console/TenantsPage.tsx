@@ -36,6 +36,7 @@ import type {
 } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
+import { SubjectDetailPanel } from './SubjectDetailPanel';
 
 /**
  * The tenant hub (租户中枢): a card grid of tenants where each card opens a detail
@@ -419,6 +420,7 @@ function TenantDetailDrawer({
   // Subjects (end-users; unified tenancy G-A) — lazy-loaded with the tab.
   const [newExtId, setNewExtId] = useState('');
   const [newName, setNewName] = useState('');
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const subjects = useQuery({
     queryKey: qk.subjects(tenant.id),
     queryFn: () => api.listSubjects(tenant.id),
@@ -456,6 +458,8 @@ function TenantDetailDrawer({
     onError: mutationError(t),
   });
 
+  const selectedSubject = (subjects.data ?? []).find((s) => s.id === selectedSubjectId);
+
   const subjectCols: Column<SubjectView>[] = [
     {
       key: 'identity',
@@ -484,7 +488,11 @@ function TenantDetailDrawer({
       noClip: true,
       width: '150px',
       cell: (r) => (
-        <div style={{ display: 'flex', gap: 'var(--s-1)' }}>
+        <div
+          style={{ display: 'flex', gap: 'var(--s-1)' }}
+          onClick={(e) => e.stopPropagation()}
+          role="presentation"
+        >
           <Button variant="ghost" size="sm" onClick={() => toggleSubject.mutate(r)}>
             {r.status === 'active' ? t('common.disable') : t('common.enable')}
           </Button>
@@ -703,7 +711,18 @@ function TenantDetailDrawer({
         error={subjects.isError}
         onRetry={() => void subjects.refetch()}
         empty={t('tenants.detail.users.empty')}
+        onRowClick={(r) => setSelectedSubjectId((cur) => (cur === r.id ? null : r.id))}
+        selectedKey={selectedSubjectId ?? undefined}
       />
+      {selectedSubject !== undefined && (
+        <SubjectDetailPanel
+          key={selectedSubject.id}
+          tenantId={tenant.id}
+          subject={selectedSubject}
+          planOptions={planOptions}
+          onClose={() => setSelectedSubjectId(null)}
+        />
+      )}
     </div>
   );
 
