@@ -124,10 +124,20 @@ function ModelCard({
       </div>
       <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)', marginTop: 6 }}>
         {enumLabel(t, MODALITIES, model.modality)}
+        {model.maker !== null && ` · ${model.maker}`}
       </div>
       <div className="tabular" style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)', marginTop: 4 }}>
         {priced ? `${usd(model.input_price)} / ${usd(model.output_price)}` : t('models.unpriced')}
       </div>
+      {model.tags.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s-1)', marginTop: 6 }}>
+          {model.tags.slice(0, 3).map((tg) => (
+            <span key={tg} className="chip" style={{ fontSize: 'var(--fs-caption)' }}>
+              {tg}
+            </span>
+          ))}
+        </div>
+      )}
     </button>
   );
 }

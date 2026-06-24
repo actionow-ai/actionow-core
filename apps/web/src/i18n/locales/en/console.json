@@ -587,7 +587,12 @@
       "fallbackModelsPlaceholder": "Fallback model names — Enter to add (tried in order)",
       "status": "Status",
       "nameRequired": "Name is required.",
-      "resourceRequired": "Select a resource."
+      "resourceRequired": "Select a resource.",
+      "tags": "Tags",
+      "tagsPlaceholder": "Enter to add — e.g. recommended / cheap / long-context",
+      "maker": "Developer",
+      "contextLength": "Context length (tokens)",
+      "reasoning": "Reasoning"
     },
     "tip": {
       "name": "The unique model id callers request (e.g. anthropic/claude-3-5-sonnet). Immutable after creation.",
@@ -604,7 +609,11 @@
       "rateLimit": "Max requests/min per tenant for this model (model rate limit). Stacks on top of the tenant/resource limits.",
       "rateLimitHint": "0 = no model-specific limit.",
       "fallbackModels": "Model degradation chain: when a BLOCKING chat exhausts all of this model's channels (retryably), retry these models in order. Non-streaming only.",
-      "status": "Disabled models are hidden from callers."
+      "status": "Disabled models are hidden from callers.",
+      "tags": "Free-form tags for catalog filtering (recommended/cheap/code/roleplay…)",
+      "maker": "The model's maker (anthropic/alibaba/z-ai…) — filter by developer",
+      "contextLength": "Max context window (tokens); 0 = unknown",
+      "reasoning": "Reasoning mode: none / optional / always-on"
     },
     "actions": {
       "grants": "Grants",
@@ -642,6 +651,12 @@
     "unlinkHint": "Unlinking only removes this model from “{{channel}}” — it does not delete the model.",
     "detail": {
       "price": "Price in/out"
+    },
+    "reasoning": {
+      "unset": "Unset",
+      "none": "No reasoning",
+      "optional": "Switchable reasoning",
+      "always": "Always-on reasoning"
     }
   },
   "channels": {

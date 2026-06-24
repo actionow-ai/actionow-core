@@ -587,7 +587,12 @@
       "fallbackModelsPlaceholder": "输入备选模型名,回车添加(按顺序降级)",
       "status": "状态",
       "nameRequired": "请填写名称。",
-      "resourceRequired": "请选择一个资源。"
+      "resourceRequired": "请选择一个资源。",
+      "tags": "标签",
+      "tagsPlaceholder": "输入后回车,如 推荐 / 便宜 / 长上下文",
+      "maker": "开发者",
+      "contextLength": "上下文长度(tokens)",
+      "reasoning": "推理"
     },
     "tip": {
       "name": "调用方请求时使用的唯一模型 id(如 anthropic/claude-3-5-sonnet)。创建后不可更改。",
@@ -604,7 +609,11 @@
       "rateLimit": "该模型每租户每分钟的最大请求数(模型限流)。在租户/资源限流之上叠加。",
       "rateLimitHint": "0 = 不设模型级限流。",
       "fallbackModels": "模型降级链:阻塞式 chat 在本模型所有渠道都失败(可重试)时,按顺序改用这些备选模型。仅作用于非流式。",
-      "status": "已停用的模型对调用方不可见。"
+      "status": "已停用的模型对调用方不可见。",
+      "tags": "自由标签,用于目录过滤(推荐/便宜/代码/角色扮演…)",
+      "maker": "模型的制造方(anthropic/alibaba/z-ai…),用于按厂商筛选",
+      "contextLength": "最大上下文窗口(token 数);0 表示未知",
+      "reasoning": "推理模式:无 / 可切换 / 始终开启"
     },
     "actions": {
       "grants": "授权",
@@ -642,6 +651,12 @@
     "unlinkHint": "解绑只移除该模型与「{{channel}}」的关联，不会删除模型本身。",
     "detail": {
       "price": "价格 入/出"
+    },
+    "reasoning": {
+      "unset": "未设置",
+      "none": "无推理",
+      "optional": "可切换推理",
+      "always": "始终开启推理"
     }
   },
   "channels": {
