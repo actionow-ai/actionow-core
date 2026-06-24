@@ -63,6 +63,10 @@
           "credit_held": {
             "type": "string"
           },
+          "limit_plan_id": {
+            "type": "string",
+            "nullable": true
+          },
           "created_at": {
             "type": "string"
           }
@@ -72,6 +76,7 @@
           "tenant_id",
           "credit_balance",
           "credit_held",
+          "limit_plan_id",
           "created_at"
         ]
       },
@@ -152,6 +157,10 @@
               "credit_held": {
                 "type": "string"
               },
+              "limit_plan_id": {
+                "type": "string",
+                "nullable": true
+              },
               "created_at": {
                 "type": "string"
               }
@@ -161,6 +170,7 @@
               "tenant_id",
               "credit_balance",
               "credit_held",
+              "limit_plan_id",
               "created_at"
             ]
           },
@@ -645,6 +655,10 @@
             "type": "string",
             "nullable": true
           },
+          "limit_plan_id": {
+            "type": "string",
+            "nullable": true
+          },
           "created_at": {
             "type": "string"
           }
@@ -656,6 +670,7 @@
           "rate_limit",
           "status",
           "route_group_id",
+          "limit_plan_id",
           "created_at"
         ]
       },

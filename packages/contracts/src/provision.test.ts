@@ -34,6 +34,7 @@ describe('one-step provision contracts', () => {
         tenant_id: 't1',
         credit_balance: '100000000',
         credit_held: '0',
+        limit_plan_id: null,
         created_at: '2026-06-20T00:00:00Z',
       },
       api_key: { id: 'k1', plaintext: 'ak_xxx' },

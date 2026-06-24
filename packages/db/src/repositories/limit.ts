@@ -443,6 +443,102 @@ export function listLimitAlerts(db: DbOrTx, limit = 100): Promise<LimitAlertRow[
     .limit(limit);
 }
 
+/** Recent alerts (newest first) for one subject — the tenant `/app` banner. */
+export function listLimitAlertsForSubject(
+  db: DbOrTx,
+  subjectType: string,
+  subjectId: string,
+  limit = 50,
+): Promise<LimitAlertRow[]> {
+  return db
+    .select()
+    .from(limitAlert)
+    .where(and(eq(limitAlert.subjectType, subjectType), eq(limitAlert.subjectId, subjectId)))
+    .orderBy(sql`${limitAlert.createdAt} DESC`)
+    .limit(limit);
+}
+
+/** Rolling-window spans (ms) for the non-materialized periods. */
+const ROLLING_MS: Record<string, number> = {
+  rolling_24h: 86_400_000,
+  rolling_30d: 2_592_000_000,
+};
+
+/** One effective rule paired with the subject's current usage (the usage-vs-cap UI). */
+export interface LimitRuleStatus {
+  readonly dimension: string;
+  readonly period: string | null;
+  readonly cap: bigint;
+  /** Current accumulated usage for the active period (0 for live rpm/concurrency). */
+  readonly used: bigint;
+  readonly modelScope: string | null;
+  readonly alertPct: number | null;
+  readonly enforce: string;
+}
+
+/**
+ * The current usage-vs-cap status of every effective rule for a subject's bound
+ * plan. `spend`/`requests`/`tokens` read their materialized period bucket (or the
+ * rolling-window aggregate); `rpm`/`concurrency` are live rate limiters with no
+ * stored total, so their `used` is reported as 0. Powers the operator key/tenant
+ * usage bars and the tenant `/app` budget view.
+ */
+export async function limitRuleStatus(
+  db: DbOrTx,
+  subjectType: 'key' | 'tenant',
+  subjectId: string,
+  planId: string | null,
+  now: Date = new Date(),
+): Promise<LimitRuleStatus[]> {
+  if (planId === null) return [];
+  const rules = await resolveEffectiveRules(db, planId, null);
+  const out: LimitRuleStatus[] = [];
+  for (const rule of rules) {
+    let used = 0n;
+    if (rule.dimension !== 'rpm' && rule.dimension !== 'concurrency') {
+      const period = rule.period ?? 'total';
+      if (period === 'rolling_24h' || period === 'rolling_30d') {
+        const since = new Date(now.getTime() - (ROLLING_MS[period] ?? 0));
+        used = await windowedUsage(db, {
+          subjectType,
+          subjectId,
+          dimension: rule.dimension,
+          since,
+          modelScope: rule.modelScope,
+        });
+      } else {
+        used = await getUsage(db, {
+          subjectType,
+          subjectId,
+          dimension: rule.dimension,
+          periodKey: periodKeyFor(period, now),
+          modelScope: rule.modelScope ?? '',
+        });
+      }
+    }
+    out.push({
+      dimension: rule.dimension,
+      period: rule.period,
+      cap: rule.cap,
+      used,
+      modelScope: rule.modelScope,
+      alertPct: rule.alertPct,
+      enforce: rule.enforce,
+    });
+  }
+  return out;
+}
+
+/** Read a tenant's bound (account-level) limit plan id, or null. */
+export async function getTenantLimitPlanId(db: DbOrTx, tenantId: string): Promise<string | null> {
+  const rows = await db
+    .select({ p: account.limitPlanId })
+    .from(account)
+    .where(and(eq(account.tenantId, tenantId), isNull(account.deletedAt)))
+    .limit(1);
+  return rows[0]?.p ?? null;
+}
+
 // ── bindings ──────────────────────────────────────────────────────────────
 
 /** Bind/unbind a limit plan to a LIVE api key. `true` when a row was updated. */

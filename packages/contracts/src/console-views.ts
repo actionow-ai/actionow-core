@@ -151,3 +151,44 @@ export const consoleFileViewSchema = z.object({
   created_at: z.string(),
 });
 export type ConsoleFileView = z.infer<typeof consoleFileViewSchema>;
+
+/**
+ * One effective governance rule for the caller-tenant's bound plan paired with
+ * its current usage (`GET /console/limits` → `rules`). `cap`/`used` are decimal
+ * **strings** (bigint: µUSD for `spend`, else a count); `rpm`/`concurrency` are
+ * live rate limits with no stored total so `used` is `"0"`. The plan name is
+ * surfaced (read-only) so the tenant knows which 额度套餐 applies.
+ */
+export const consoleLimitRuleViewSchema = z.object({
+  dimension: z.string(),
+  period: z.string().nullable(),
+  cap: z.string(),
+  used: z.string(),
+  model_scope: z.string().nullable(),
+  alert_pct: z.number().nullable(),
+  enforce: z.string(),
+});
+export type ConsoleLimitRuleView = z.infer<typeof consoleLimitRuleViewSchema>;
+
+/** One recent threshold alert for the caller-tenant (`GET /console/limits` → `alerts`). */
+export const consoleLimitAlertViewSchema = z.object({
+  dimension: z.string(),
+  period_key: z.string(),
+  used: z.string(),
+  cap: z.string(),
+  pct: z.number(),
+  created_at: z.string(),
+});
+export type ConsoleLimitAlertView = z.infer<typeof consoleLimitAlertViewSchema>;
+
+/**
+ * The caller-tenant's governance status (`GET /console/limits`): the tenant-level
+ * (account-bound) plan name, its rules-with-usage, and recent alerts. `plan` is
+ * `null` when no plan is bound (the `/app` budget view then shows "unlimited").
+ */
+export const consoleLimitStatusViewSchema = z.object({
+  plan: z.object({ id: z.string(), name: z.string() }).nullable(),
+  rules: z.array(consoleLimitRuleViewSchema),
+  alerts: z.array(consoleLimitAlertViewSchema),
+});
+export type ConsoleLimitStatusView = z.infer<typeof consoleLimitStatusViewSchema>;

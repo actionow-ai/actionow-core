@@ -19,6 +19,8 @@ export const apiKeyViewSchema = z.object({
   status: z.string(),
   /** The bound route group (Track 3); `null` → the `default` group at routing time. */
   route_group_id: z.string().nullable(),
+  /** The bound limit plan (额度套餐); `null` → no per-key governance plan. */
+  limit_plan_id: z.string().nullable(),
   created_at: z.string(),
 });
 export type ApiKeyView = z.infer<typeof apiKeyViewSchema>;

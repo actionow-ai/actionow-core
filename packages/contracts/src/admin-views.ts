@@ -30,6 +30,8 @@ export const accountViewSchema = z.object({
   tenant_id: z.string(),
   credit_balance: z.string(),
   credit_held: z.string(),
+  /** The tenant's bound limit plan (额度套餐), held on the account; `null` → none. */
+  limit_plan_id: z.string().nullable(),
   created_at: z.string(),
 });
 export type AccountView = z.infer<typeof accountViewSchema>;

@@ -25,6 +25,8 @@ import {
   limitAlertViewSchema,
   type LimitPlanView,
   limitPlanViewSchema,
+  type LimitRuleStatusView,
+  limitRuleStatusViewSchema,
   type LimitRuleView,
   limitRuleViewSchema,
   type LimitUsageView,
@@ -86,6 +88,7 @@ import type {
   LimitAlertRow,
   LimitPlanRow,
   LimitRuleRow,
+  LimitRuleStatus,
   LimitUsageRow,
   ModelGrantRow,
   ModelHealthBucket,
@@ -909,6 +912,20 @@ export class AdminController {
     return (await this.admin.listLimitUsage(subjectType, subjectId)).map(toLimitUsageView);
   }
 
+  @Get('limits/status')
+  @ApiOperation({
+    summary: "A subject's effective rules paired with current usage (usage-vs-cap bars)",
+  })
+  async limitStatus(
+    @Query('subjectType') subjectType: string,
+    @Query('subjectId') subjectId: string,
+    @Query('planId') planId?: string,
+  ): Promise<LimitRuleStatusView[]> {
+    const st = subjectType === 'key' ? 'key' : 'tenant';
+    const rows = await this.admin.limitStatus(st, subjectId, planId ?? null);
+    return rows.map(toLimitRuleStatusView);
+  }
+
   @Get('limits/alerts')
   @ApiOperation({ summary: 'Recent limit threshold alerts (newest first)' })
   async listLimitAlerts(): Promise<LimitAlertView[]> {
@@ -1533,6 +1550,7 @@ function toApiKeyView(row: Omit<ApiKeyRow, 'hash'>): ApiKeyView {
     rate_limit: row.rateLimit,
     status: row.status,
     route_group_id: row.routeGroupId,
+    limit_plan_id: row.limitPlanId,
     created_at: row.createdAt.toISOString(),
   });
 }
@@ -1636,6 +1654,18 @@ function toLimitPlanView(p: {
   });
 }
 
+function toLimitRuleStatusView(r: LimitRuleStatus): LimitRuleStatusView {
+  return limitRuleStatusViewSchema.parse({
+    dimension: r.dimension,
+    period: r.period,
+    cap: r.cap.toString(),
+    used: r.used.toString(),
+    model_scope: r.modelScope,
+    alert_pct: r.alertPct,
+    enforce: r.enforce,
+  });
+}
+
 function toLimitUsageView(row: LimitUsageRow): LimitUsageView {
   return limitUsageViewSchema.parse({
     subject_type: row.subjectType,
@@ -1709,6 +1739,7 @@ function toAccountView(row: AccountRow): AccountView {
     tenant_id: row.tenantId,
     credit_balance: row.creditBalance.toString(),
     credit_held: row.creditHeld.toString(),
+    limit_plan_id: row.limitPlanId,
     created_at: row.createdAt.toISOString(),
   });
 }

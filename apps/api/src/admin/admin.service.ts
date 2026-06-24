@@ -79,6 +79,8 @@ import {
   type LimitPlanRow,
   type LimitRuleInput,
   type LimitRuleRow,
+  type LimitRuleStatus,
+  limitRuleStatus,
   type LimitUsageRow,
   linkChannelModel,
   linkChannelModelsByNames,
@@ -788,9 +790,7 @@ export class AdminService {
     return { plan, rules, bindings };
   }
 
-  async createLimitPlan(
-    dto: CreateLimitPlanDto,
-  ): Promise<{
+  async createLimitPlan(dto: CreateLimitPlanDto): Promise<{
     plan: LimitPlanRow;
     rules: LimitRuleRow[];
     bindings: { keys: number; tenants: number };
@@ -837,6 +837,15 @@ export class AdminService {
 
   listLimitUsage(subjectType: string, subjectId: string): Promise<LimitUsageRow[]> {
     return listUsageForSubject(this.db, subjectType, subjectId);
+  }
+
+  /** Effective rules paired with current usage for a subject's bound plan (usage bars). */
+  limitStatus(
+    subjectType: 'key' | 'tenant',
+    subjectId: string,
+    planId: string | null,
+  ): Promise<LimitRuleStatus[]> {
+    return limitRuleStatus(this.db, subjectType, subjectId, planId);
   }
 
   listLimitAlerts(): Promise<LimitAlertRow[]> {

@@ -68,6 +68,23 @@ export const limitUsageViewSchema = z.object({
 });
 export type LimitUsageView = z.infer<typeof limitUsageViewSchema>;
 
+/**
+ * One effective rule paired with the subject's current usage (the usage-vs-cap
+ * bars). `cap`/`used` are decimal **strings** (bigint: µUSD for `spend`, else a
+ * count). Live `rpm`/`concurrency` rules have no stored total → `used` is `"0"`.
+ * Served by `GET /admin/limits/status` (and mirrored by the tenant `/console/limits`).
+ */
+export const limitRuleStatusViewSchema = z.object({
+  dimension: limitDimensionSchema,
+  period: z.string().nullable(),
+  cap: z.string(),
+  used: z.string(),
+  model_scope: z.string().nullable(),
+  alert_pct: z.number().nullable(),
+  enforce: z.string(),
+});
+export type LimitRuleStatusView = z.infer<typeof limitRuleStatusViewSchema>;
+
 export const limitAlertViewSchema = z.object({
   id: z.string(),
   subject_type: z.string(),
