@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { bigint, check, pgTable, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { bigint, check, jsonb, pgTable, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 import { tenant } from './identity.js';
 import { limitPlan } from './limit.js';
@@ -23,6 +23,13 @@ export const account = pgTable(
     // The tenant-level limit plan (额度套餐) — applies to every key of this tenant
     // (governance-limits). NULLABLE → no tenant-level limits.
     limitPlanId: uuid('limit_plan_id').references(() => limitPlan.id),
+    // Per-account config bag (unified tenancy M-X). Holds e.g. `wallet_mode`
+    // (decision #3: SHARED default vs HARD) for the tenant's subjects. Additive;
+    // `{}` default = today's behavior.
+    config: jsonb('config')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },

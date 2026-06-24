@@ -10,6 +10,7 @@ import {
   findSubjectByExternalId,
   getSubjectById,
   listSubjectsByTenant,
+  resolveOrCreateSubject,
   softDeleteSubject,
   updateSubject,
 } from '../src/repositories/index.js';
@@ -130,5 +131,29 @@ describe('listSubjectsByTenant', () => {
     const { rows, hasMore } = await listSubjectsByTenant(db, tenantId, { limit: 10 });
     expect(rows.map((r) => r.externalId).sort()).toEqual(['u1', 'u2']);
     expect(hasMore).toBe(false);
+  });
+});
+
+describe('resolveOrCreateSubject (Model-B)', () => {
+  it('returns an existing subject by external_id', async () => {
+    const tenantId = await makeTenant();
+    const s = await createSubject(db, { tenantId, externalId: 'u1' });
+    expect((await resolveOrCreateSubject(db, tenantId, 'u1'))?.id).toBe(s.id);
+  });
+
+  it('returns null for an unknown external_id when JIT is off (default)', async () => {
+    const tenantId = await makeTenant();
+    expect(await resolveOrCreateSubject(db, tenantId, 'ghost')).toBeNull();
+  });
+
+  it('JIT-creates a subject when the tenant opted in (idempotent)', async () => {
+    const [t] = await db
+      .insert(tenant)
+      .values({ name: 'jit', config: { jit_provisioning_enabled: true } })
+      .returning();
+    if (!t) throw new Error('tenant insert returned no row');
+    const created = await resolveOrCreateSubject(db, t.id, 'auto-1');
+    expect(created?.externalId).toBe('auto-1');
+    expect((await resolveOrCreateSubject(db, t.id, 'auto-1'))?.id).toBe(created?.id);
   });
 });

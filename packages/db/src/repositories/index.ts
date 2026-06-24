@@ -378,6 +378,7 @@ export {
   findSubjectByExternalId,
   getSubjectById,
   listSubjectsByTenant,
+  resolveOrCreateSubject,
   softDeleteSubject,
   type SubjectRow,
   updateSubject,

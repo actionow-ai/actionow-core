@@ -288,6 +288,13 @@
       "when": 1782315613242,
       "tag": "0040_idempotency_subject",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1782317717525,
+      "tag": "0041_config_columns",
+      "breakpoints": true
     }
   ]
 }

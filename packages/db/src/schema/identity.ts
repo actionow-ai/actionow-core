@@ -19,6 +19,13 @@ export const tenant = pgTable('tenant', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   isolationMode: text('isolation_mode').notNull().default('field'),
+  // Per-tenant config bag (unified tenancy M-X). Holds e.g.
+  // `jit_provisioning_enabled` (decision #1: Model-B auto-create a subject for an
+  // unknown external_id). Additive; `{}` default = today's behavior (JIT off).
+  config: jsonb('config')
+    .$type<Record<string, unknown>>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),

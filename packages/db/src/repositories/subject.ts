@@ -1,7 +1,7 @@
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq, isNull } from 'drizzle-orm';
 
-import { subject } from '../schema/index.js';
+import { subject, tenant } from '../schema/index.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
@@ -163,4 +163,30 @@ export async function softDeleteSubject(
     .where(and(eq(subject.id, id), eq(subject.tenantId, tenantId), isNull(subject.deletedAt)))
     .returning({ id: subject.id });
   return rows[0]?.id;
+}
+
+/**
+ * Model-B resolution (unified tenancy G-C): map an app-owned `external_id` to a
+ * subject. Returns the existing live subject; if none and the tenant has opted
+ * into JIT provisioning (`tenant.config.jit_provisioning_enabled === true`),
+ * creates one; otherwise returns `null` so the caller fails the request with
+ * `invalid_input` (never silently skips a paying end-user — decision #1).
+ */
+export async function resolveOrCreateSubject(
+  db: DbOrTx,
+  tenantId: string,
+  externalId: string,
+): Promise<SubjectRow | null> {
+  const existing = await findSubjectByExternalId(db, tenantId, externalId);
+  if (existing !== undefined) return existing;
+
+  const rows = await db
+    .select({ config: tenant.config })
+    .from(tenant)
+    .where(and(eq(tenant.id, tenantId), isNull(tenant.deletedAt)))
+    .limit(1);
+  const jit = rows[0]?.config.jit_provisioning_enabled === true;
+  if (!jit) return null;
+
+  return createSubject(db, { tenantId, externalId });
 }
