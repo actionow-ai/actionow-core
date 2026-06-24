@@ -40,7 +40,7 @@ export class JobsService {
   }
 
   async list(ctx: TenantContext, page: PageParams): Promise<PageEnvelope<JobView>> {
-    const result = await listJobs(this.db, ctx.tenantId, page);
+    const result = await listJobs(this.db, ctx.tenantId, page, ctx.subjectId ?? null);
     return mapPageEnvelope(result, (r) => r.id, toJobView);
   }
 
@@ -65,7 +65,9 @@ export class JobsService {
   }
 
   private async requireOwnedJob(jobId: string, ctx: TenantContext): Promise<Job> {
-    const job = await getJobForTenant(this.db, jobId, ctx.tenantId);
+    // §4b read isolation: a subject-scoped caller can only reach its own jobs
+    // (plus tenant-shared NULL-subject jobs); another subject's job 404s.
+    const job = await getJobForTenant(this.db, jobId, ctx.tenantId, ctx.subjectId ?? null);
     if (job === undefined) {
       throw engineNotFound(`job ${jobId} not found`);
     }

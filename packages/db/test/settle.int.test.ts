@@ -7,8 +7,10 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   createJob,
+  createSubject,
   failJob,
   getJob,
+  getJobForTenant,
   holdCredits,
   listJobs,
   settleJob,
@@ -35,7 +37,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE webhook_outbox, ledger_txn, job, account, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE webhook_outbox, ledger_txn, job, subject, account, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
 });
 
 interface Seed {
@@ -128,6 +130,37 @@ describe('createJob / getJob / transitionJob / listJobs', () => {
     const { rows: jobs, hasMore } = await listJobs(db, s.tenantId, { limit: 10 });
     expect(jobs).toHaveLength(2);
     expect(hasMore).toBe(false);
+  });
+
+  it('§4b: a subject-scoped read sees its own + tenant-shared jobs, never another subject’s', async () => {
+    const s = await seed(1_000_000n);
+    const subA = await createSubject(db, { tenantId: s.tenantId, externalId: 'a' });
+    const subB = await createSubject(db, { tenantId: s.tenantId, externalId: 'b' });
+    const mk = (subjectId: string | null) =>
+      createJob(db, {
+        tenantId: s.tenantId,
+        resourceId: s.resourceId,
+        resourceVersion: 1,
+        execMode: 'blocking',
+        inputs: { p: 'x' },
+        quotedCredits: 0n,
+        subjectId,
+      });
+    const ja = await mk(subA.id);
+    const jb = await mk(subB.id);
+    const jt = await mk(null); // tenant-shared (NULL subject)
+
+    // subject A sees its own + tenant-shared, NOT subject B's.
+    const listA = await listJobs(db, s.tenantId, { limit: 10 }, subA.id);
+    expect(listA.rows.map((r) => r.id).sort()).toEqual([ja.id, jt.id].sort());
+
+    // a tenant-level read (null subject) still sees all three.
+    expect((await listJobs(db, s.tenantId, { limit: 10 })).rows).toHaveLength(3);
+
+    // cross-subject GET 404s; own + shared resolve.
+    expect(await getJobForTenant(db, jb.id, s.tenantId, subA.id)).toBeUndefined();
+    expect((await getJobForTenant(db, ja.id, s.tenantId, subA.id))?.id).toBe(ja.id);
+    expect((await getJobForTenant(db, jt.id, s.tenantId, subA.id))?.id).toBe(jt.id);
   });
 });
 
