@@ -44,6 +44,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { to: '/console/overview', labelKey: 'opsOverview' },
       { to: '/console/status', labelKey: 'status' },
       { to: '/console/relay-traces', labelKey: 'relayTraces' },
+      { to: '/console/audit-log', labelKey: 'auditLog' },
     ],
   },
   {

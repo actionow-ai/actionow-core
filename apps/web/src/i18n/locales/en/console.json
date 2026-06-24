@@ -158,6 +158,7 @@
     "opsOverview": "Overview · Analytics",
     "status": "Status",
     "relayTraces": "Relay traces",
+    "auditLog": "Audit log",
     "overview": "Overview",
     "tusage": "Usage",
     "tkeys": "API Keys",
@@ -197,6 +198,7 @@
     "opsOverview": "Global usage, cost, margin & model health — one screen",
     "status": "Per-model availability, latency & uptime (from real traffic)",
     "relayTraces": "Upstream relay audit — requests, responses, latency",
+    "auditLog": "Who changed what, when — money / governance / identity mutation audit",
     "overview": "Balance, recent jobs and ledger",
     "tusage": "Usage aggregation and per-call log",
     "tkeys": "Mint and manage your API keys",
@@ -415,6 +417,7 @@
         "type": "Type",
         "delta": "Delta",
         "balanceAfter": "Balance",
+        "subject": "End-user",
         "provider": "Provider",
         "amount": "Amount",
         "status": "Status"
@@ -784,6 +787,32 @@
       "status": "Status"
     },
     "empty": "No upstream channels yet"
+  },
+  "auditLog": {
+    "title": "Audit log",
+    "empty": "No audit records yet",
+    "allTenants": "All tenants",
+    "actionPlaceholder": "action (e.g. tenant.topup)",
+    "targetPlaceholder": "target type",
+    "from": "from",
+    "to": "to",
+    "actor": {
+      "all": "All",
+      "operator": "Operator",
+      "member": "End-user",
+      "system": "System"
+    },
+    "cols": {
+      "time": "Time",
+      "actor": "Actor",
+      "action": "Action",
+      "target": "Target",
+      "scope": "Tenant / End-user",
+      "meta": "Detail"
+    },
+    "detail": {
+      "title": "Audit detail"
+    }
   },
   "limitPlans": {
     "title": "Limit plans",
