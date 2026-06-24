@@ -128,11 +128,11 @@ describe('findApiKeyByHash', () => {
     expect(live?.subjectId).toBe(s.id);
     expect(live?.subjectActive).toBe(true);
 
-    // soft-deleting the subject makes the key's subject inactive (guard will reject).
+    // soft-deleting the subject CASCADES (记录系统): its subject-scoped keys are
+    // disabled + soft-deleted, so the key no longer resolves at all (hard-revoked,
+    // not merely guard-rejected).
     await softDeleteSubject(db, tenantId, s.id);
-    const dead = await findApiKeyByHash(db, hash);
-    expect(dead?.subjectId).toBe(s.id);
-    expect(dead?.subjectActive).toBe(false);
+    expect(await findApiKeyByHash(db, hash)).toBeUndefined();
   });
 });
 
