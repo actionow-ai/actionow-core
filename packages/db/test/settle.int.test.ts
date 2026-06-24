@@ -7,10 +7,12 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   createJob,
+  createSubAccount,
   createSubject,
   failJob,
   getJob,
   getJobForTenant,
+  getSubAccount,
   holdCredits,
   listJobs,
   settleJob,
@@ -37,7 +39,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE webhook_outbox, ledger_txn, job, subject, account, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE webhook_outbox, ledger_txn, job, sub_account, subject, account, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
 });
 
 interface Seed {
@@ -228,6 +230,51 @@ describe('settleJob', () => {
       (l) => l.type === 'settle',
     );
     expect(settleRows).toHaveLength(1);
+  });
+
+  it('§G-E HARD: a subject job holds + settles against its sub-wallet, leaving the pool untouched', async () => {
+    const s = await seed(1_000_000n); // tenant pool = 1M
+    const subj = await createSubject(db, { tenantId: s.tenantId, externalId: 'h' });
+    await createSubAccount(db, {
+      tenantId: s.tenantId,
+      subjectId: subj.id,
+      creditBalance: 800_000n,
+    });
+
+    // hold via the branching holdCredits → routes to the sub-wallet (HARD).
+    expect(await holdCredits(db, s.accountId, 500_000n, s.tenantId, subj.id)).toBe(true);
+    const id = (
+      await createJob(db, {
+        tenantId: s.tenantId,
+        resourceId: s.resourceId,
+        resourceVersion: 1,
+        execMode: 'blocking',
+        inputs: { p: 'x' },
+        quotedCredits: 500_000n,
+        subjectId: subj.id,
+      })
+    ).id;
+
+    await settleJob(db, {
+      jobId: id,
+      accountId: s.accountId,
+      tenantId: s.tenantId,
+      subjectId: subj.id,
+      holdAmount: 500_000n,
+      finalCost: 300_000n,
+      usage: {},
+      output: {},
+    });
+
+    // sub-wallet debited (800k − 300k), hold cleared; tenant pool untouched.
+    const sub = await getSubAccount(db, s.tenantId, subj.id);
+    expect(sub?.creditBalance).toBe(500_000n);
+    expect(sub?.creditHeld).toBe(0n);
+    expect(await readAccount(s.accountId)).toEqual({ balance: 1_000_000n, held: 0n });
+
+    // the settle ledger row is attributed to the subject.
+    const ledger = await db.select().from(ledgerTxn).where(eq(ledgerTxn.jobId, id));
+    expect(ledger.find((l) => l.type === 'settle')?.subjectId).toBe(subj.id);
   });
 
   it('writes a webhook_outbox row in the same tx when outbox is supplied', async () => {

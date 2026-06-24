@@ -36,6 +36,7 @@ export class Reaper {
         jobId: hold.jobId,
         accountId: hold.accountId,
         tenantId: hold.tenantId,
+        subjectId: hold.subjectId,
         holdAmount: hold.holdAmount,
         to: 'canceled',
         error: EXPIRED_HOLD_ERROR,

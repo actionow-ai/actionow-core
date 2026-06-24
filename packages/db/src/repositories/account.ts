@@ -2,6 +2,7 @@ import { and, eq, sql } from 'drizzle-orm';
 
 import { account } from '../schema/index.js';
 import { appendLedger } from './ledger.js';
+import { getSubAccount, holdSubAccount } from './sub-account.js';
 import type { DbOrTx } from './types.js';
 
 /**
@@ -17,7 +18,15 @@ export async function holdCredits(
   accountId: string,
   amount: bigint,
   tenantId?: string,
+  subjectId?: string | null,
 ): Promise<boolean> {
+  // Wallet branch (unified tenancy G-E): a subject with an active sub-wallet
+  // holds against it (HARD); otherwise fall through to the tenant pool (SHARED /
+  // tenant-level). Same atomic no-oversell guarantee either way.
+  if (subjectId != null && tenantId !== undefined) {
+    const sub = await getSubAccount(db, tenantId, subjectId);
+    if (sub !== undefined) return holdSubAccount(db, sub.id, amount);
+  }
   // Defense-in-depth (P2-8): when the caller knows the tenant, scope the UPDATE
   // to (account, tenant) so a mismatched pair touches ZERO rows (→ false →
   // insufficient_credits) rather than mutating another tenant's account. Today

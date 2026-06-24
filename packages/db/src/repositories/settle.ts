@@ -4,6 +4,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { account, webhookOutbox } from '../schema/index.js';
 import { transitionJob } from './job.js';
 import { appendLedger } from './ledger.js';
+import { getSubAccount, releaseSubAccountHold, settleSubAccount } from './sub-account.js';
 import type { DbOrTx } from './types.js';
 
 /** A webhook to enqueue transactionally alongside the settle (review #11). */
@@ -56,19 +57,28 @@ export async function settleJob(db: DbOrTx, p: SettleJobInput): Promise<{ settle
     });
     if (!moved) return { settled: false };
 
-    const rows = await tx
-      .update(account)
-      .set({
-        creditHeld: sql`${account.creditHeld} - ${p.holdAmount}`,
-        creditBalance: sql`${account.creditBalance} - ${p.finalCost}`,
-      })
-      // Scope the debit to (account, tenant) — defense-in-depth (P2-8). A
-      // mismatch matches 0 rows → throws below → the whole settle rolls back.
-      .where(and(eq(account.id, p.accountId), eq(account.tenantId, p.tenantId)))
-      .returning({ balanceAfter: account.creditBalance });
-
-    const row = rows[0];
-    if (!row) throw new Error(`settleJob: account ${p.accountId} not found`);
+    // Wallet branch (unified tenancy G-E): a subject with an active sub-wallet
+    // settles against it (HARD); otherwise the tenant pool (SHARED / tenant-
+    // level). `balanceAfter` is the post-balance of whichever wallet moved.
+    const sub = p.subjectId != null ? await getSubAccount(tx, p.tenantId, p.subjectId) : undefined;
+    let balanceAfter: bigint;
+    if (sub !== undefined) {
+      balanceAfter = await settleSubAccount(tx, sub.id, p.holdAmount, p.finalCost);
+    } else {
+      const rows = await tx
+        .update(account)
+        .set({
+          creditHeld: sql`${account.creditHeld} - ${p.holdAmount}`,
+          creditBalance: sql`${account.creditBalance} - ${p.finalCost}`,
+        })
+        // Scope the debit to (account, tenant) — defense-in-depth (P2-8). A
+        // mismatch matches 0 rows → throws below → the whole settle rolls back.
+        .where(and(eq(account.id, p.accountId), eq(account.tenantId, p.tenantId)))
+        .returning({ balanceAfter: account.creditBalance });
+      const row = rows[0];
+      if (!row) throw new Error(`settleJob: account ${p.accountId} not found`);
+      balanceAfter = row.balanceAfter;
+    }
 
     await appendLedger(tx, {
       tenantId: p.tenantId,
@@ -76,7 +86,7 @@ export async function settleJob(db: DbOrTx, p: SettleJobInput): Promise<{ settle
       subjectId: p.subjectId ?? null,
       type: 'settle',
       creditsDelta: -p.finalCost,
-      balanceAfter: row.balanceAfter,
+      balanceAfter,
       jobId: p.jobId,
       resourceId: p.resourceId ?? null,
       pricebookVersion: p.pricebookVersion ?? null,
@@ -100,6 +110,8 @@ export interface FailJobInput {
   jobId: string;
   accountId: string;
   tenantId: string;
+  /** The subject the hold was placed for (unified tenancy G-E); null → tenant pool. */
+  subjectId?: string | null;
   /** Amount to release (the hold), without charging the balance. */
   holdAmount: bigint;
   to: Extract<JobStatus, 'failed' | 'canceled'>;
@@ -120,16 +132,23 @@ export async function failJob(db: DbOrTx, p: FailJobInput): Promise<{ settled: b
     });
     if (!moved) return { settled: false };
 
-    const rows = await tx
-      .update(account)
-      .set({ creditHeld: sql`${account.creditHeld} - ${p.holdAmount}` })
-      // Scope the hold-release to (account, tenant) — defense-in-depth (P2-8),
-      // mirroring settleJob. A mismatch matches 0 rows → throw → the whole
-      // failJob (incl. the status transition) rolls back.
-      .where(and(eq(account.id, p.accountId), eq(account.tenantId, p.tenantId)))
-      .returning({ id: account.id });
-
-    if (!rows[0]) throw new Error(`failJob: account ${p.accountId} not found`);
+    // Release the hold from whichever wallet it was placed on (unified tenancy
+    // G-E): the subject's active sub-wallet (HARD) or the tenant pool (SHARED /
+    // tenant-level).
+    const sub = p.subjectId != null ? await getSubAccount(tx, p.tenantId, p.subjectId) : undefined;
+    if (sub !== undefined) {
+      await releaseSubAccountHold(tx, sub.id, p.holdAmount);
+    } else {
+      const rows = await tx
+        .update(account)
+        .set({ creditHeld: sql`${account.creditHeld} - ${p.holdAmount}` })
+        // Scope the hold-release to (account, tenant) — defense-in-depth (P2-8),
+        // mirroring settleJob. A mismatch matches 0 rows → throw → the whole
+        // failJob (incl. the status transition) rolls back.
+        .where(and(eq(account.id, p.accountId), eq(account.tenantId, p.tenantId)))
+        .returning({ id: account.id });
+      if (!rows[0]) throw new Error(`failJob: account ${p.accountId} not found`);
+    }
 
     if (p.outbox) {
       await tx.insert(webhookOutbox).values({

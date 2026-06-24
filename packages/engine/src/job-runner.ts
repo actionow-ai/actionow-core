@@ -337,6 +337,7 @@ export class JobRunner {
       jobId: job.id,
       accountId: ctx.accountId,
       tenantId: job.tenantId,
+      subjectId: job.subjectId,
       holdAmount: job.quotedCredits ?? 0n,
       to: 'failed',
       error: error ?? null,

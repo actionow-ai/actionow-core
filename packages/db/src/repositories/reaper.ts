@@ -7,6 +7,8 @@ import type { DbOrTx } from './types.js';
 export interface ExpiredHold {
   jobId: string;
   tenantId: string;
+  /** The subject the hold was placed for (unified tenancy G-E); null → tenant pool. */
+  subjectId: string | null;
   /** The account whose hold must be released (resolved via the tenant). */
   accountId: string;
   /** The held amount to release on cancel. */
@@ -25,6 +27,7 @@ export async function listExpiredHolds(db: DbOrTx, now: Date, limit = 100): Prom
     .select({
       jobId: job.id,
       tenantId: job.tenantId,
+      subjectId: job.subjectId,
       accountId: account.id,
       holdAmount: job.quotedCredits,
       callbackUrl: job.callbackUrl,
@@ -43,6 +46,7 @@ export async function listExpiredHolds(db: DbOrTx, now: Date, limit = 100): Prom
   return rows.map((r) => ({
     jobId: r.jobId,
     tenantId: r.tenantId,
+    subjectId: r.subjectId,
     accountId: r.accountId,
     holdAmount: r.holdAmount ?? 0n,
     callbackUrl: r.callbackUrl,

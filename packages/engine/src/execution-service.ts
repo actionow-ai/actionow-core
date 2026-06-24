@@ -516,6 +516,7 @@ export class ExecutionService {
         jobId: job.id,
         accountId: req.accountId,
         tenantId: req.tenantId,
+        subjectId: req.subjectId ?? null,
         holdAmount,
         to: 'failed',
         error: {
@@ -539,6 +540,7 @@ export class ExecutionService {
         jobId: job.id,
         accountId: req.accountId,
         tenantId: req.tenantId,
+        subjectId: req.subjectId ?? null,
         holdAmount,
         to: 'failed',
         error: { code: 'internal_error', message: 'failed to enqueue async job', retryable: true },
@@ -578,7 +580,13 @@ export class ExecutionService {
     // 4. Atomic hold. False → insufficient_credits, NO job created. Scoped to the
     // request's tenant (P2-8 defense-in-depth) so a mismatched account/tenant
     // never reserves another tenant's credit.
-    const held = await holdCredits(db, req.accountId, holdAmount, req.tenantId);
+    const held = await holdCredits(
+      db,
+      req.accountId,
+      holdAmount,
+      req.tenantId,
+      req.subjectId ?? null,
+    );
     if (!held) {
       throw engineError('insufficient_credits', 'insufficient credits for hold');
     }
@@ -687,6 +695,7 @@ export class ExecutionService {
         jobId,
         accountId: req.accountId,
         tenantId: req.tenantId,
+        subjectId: req.subjectId ?? null,
         holdAmount,
         to: 'failed',
         error: { code: 'internal_error', message: 'blocking adapter returned async handle' },
@@ -802,6 +811,7 @@ export class ExecutionService {
       jobId,
       accountId: req.accountId,
       tenantId: req.tenantId,
+      subjectId: req.subjectId ?? null,
       holdAmount,
       to: 'failed',
       error: unified,
