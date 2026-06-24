@@ -11,6 +11,8 @@ import { upsertBuiltinPlugin } from '@actionow/db';
 interface BuiltinPlugin {
   slug: string;
   label: string;
+  /** Seeded icon_asset.key (brand/provider logo); null → derived from slug. */
+  icon: string | null;
   modalities: string[];
   protocol: 'sync' | 'async-poll';
   authStrategy: string;
@@ -21,7 +23,8 @@ interface BuiltinPlugin {
 /** OpenAI Images (gpt-image-1 / DALL·E): synchronous generations → MediaResult. */
 const OPENAI_IMAGES: BuiltinPlugin = {
   slug: 'openai-images',
-  label: 'OpenAI Images',
+  label: 'OpenAI',
+  icon: 'openai',
   modalities: ['image'],
   protocol: 'sync',
   authStrategy: 'bearer',
@@ -113,9 +116,28 @@ const SYNC_MEDIA_HANDLER = `
     }
   `;
 
+/**
+ * Chat reverse-proxy passthrough (CLI relays: Codex CLI; claude-code CLI = future).
+ * The CLI agent speaks the OpenAI chat protocol; this forwards the body unchanged
+ * and tags the upstream response as a `chat` result. Real Codex traffic uses the
+ * native OAuth adapter — this plugin row is the 模型接入 grouping + a clonable
+ * reference for OpenAI-compatible chat reverse-proxies.
+ */
+const CHAT_PASSTHROUGH_HANDLER = `
+    function mapRequest(ctx){
+      var cfg = ctx.config || {};
+      return { method:'POST', pathSuffix: cfg.path || '/v1/chat/completions', body: ctx.inputs || {} };
+    }
+    function mapResponse(a){ return { kind:'chat', response: a.response }; }
+  `;
+
 /** Bearer credential (api_key). */
 const BEARER_CRED: BuiltinPlugin['credentialFields'] = [
   { key: 'api_key', label: 'API Key', type: 'password', required: true },
+];
+/** OAuth access-token credential (CLI reverse-proxy). */
+const TOKEN_CRED: BuiltinPlugin['credentialFields'] = [
+  { key: 'access_token', label: 'Access Token', type: 'password', required: true },
 ];
 /** Access-key/secret-key pair (volcSignV4 / klingJwt). */
 const AK_SK_CRED: BuiltinPlugin['credentialFields'] = [
@@ -136,7 +158,8 @@ const TC3_CRED: BuiltinPlugin['credentialFields'] = [
  */
 const ASYNC_MEDIA_RELAY: BuiltinPlugin = {
   slug: 'async-media-relay',
-  label: 'Async media relay (seedream / seedance / vidu / runway / 海螺 / veo)',
+  label: '通用异步媒体中转 (seedream · seedance · vidu · runway · 海螺 · veo)',
+  icon: 'generic-video',
   modalities: ['image', 'video', 'audio'],
   protocol: 'async-poll',
   authStrategy: 'bearer',
@@ -147,7 +170,8 @@ const ASYNC_MEDIA_RELAY: BuiltinPlugin = {
 /** Synchronous image (OpenAI-compatible /images/generations). Covers grok image + OpenAI-format relays. */
 const SYNC_IMAGE_RELAY: BuiltinPlugin = {
   slug: 'sync-image-relay',
-  label: 'Sync image (OpenAI-compatible · grok image · z-image relays)',
+  label: '通用同步图像中转 (OpenAI 兼容 · z-image)',
+  icon: 'generic-image',
   modalities: ['image'],
   protocol: 'sync',
   authStrategy: 'bearer',
@@ -155,10 +179,11 @@ const SYNC_IMAGE_RELAY: BuiltinPlugin = {
   handler: SYNC_MEDIA_HANDLER,
 };
 
-/** Signed async media (body-signed AK/SK — 火山引擎 seedream/seedance/语音复刻 native sign-v4). */
-const SIGNED_ASYNC_MEDIA: BuiltinPlugin = {
+/** 火山引擎 (Volcengine) — body-signed AK/SK native sign-v4 (seedream/seedance/语音复刻). */
+const VOLCENGINE_MEDIA: BuiltinPlugin = {
   slug: 'signed-async-media',
-  label: 'Signed async media (火山引擎 seedream / seedance / 语音复刻)',
+  label: '火山引擎 (Volcengine)',
+  icon: 'volcengine',
   modalities: ['image', 'video', 'audio'],
   protocol: 'async-poll',
   authStrategy: 'volcSignV4',
@@ -166,10 +191,11 @@ const SIGNED_ASYNC_MEDIA: BuiltinPlugin = {
   handler: ASYNC_MEDIA_HANDLER,
 };
 
-/** JWT async media (可灵 kling 视频/图像 — short-lived JWT from AK/SK). */
-const JWT_ASYNC_MEDIA: BuiltinPlugin = {
+/** 可灵 (Kling) — short-lived JWT from AK/SK (video/image). */
+const KLING_MEDIA: BuiltinPlugin = {
   slug: 'jwt-async-media',
-  label: 'JWT async media (可灵 kling video / image)',
+  label: '可灵 (Kling)',
+  icon: 'kling',
   modalities: ['image', 'video'],
   protocol: 'async-poll',
   authStrategy: 'klingJwt',
@@ -177,10 +203,11 @@ const JWT_ASYNC_MEDIA: BuiltinPlugin = {
   handler: ASYNC_MEDIA_HANDLER,
 };
 
-/** TC3-signed async media (腾讯混元 image/video — TC3-HMAC-SHA256). */
-const TC3_ASYNC_MEDIA: BuiltinPlugin = {
+/** 腾讯混元 (Tencent Hunyuan) — TC3-HMAC-SHA256 signed (image/video). */
+const TENCENT_MEDIA: BuiltinPlugin = {
   slug: 'tc3-async-media',
-  label: 'TC3-signed async media (腾讯混元 hunyuan image / video)',
+  label: '腾讯混元 (Tencent Hunyuan)',
+  icon: 'tencent',
   modalities: ['image', 'video'],
   protocol: 'async-poll',
   authStrategy: 'tencentTC3',
@@ -188,13 +215,65 @@ const TC3_ASYNC_MEDIA: BuiltinPlugin = {
   handler: ASYNC_MEDIA_HANDLER,
 };
 
+/** 阿里 (Alibaba) — 通义万相 wan async media over a bearer task API. */
+const ALIBABA_MEDIA: BuiltinPlugin = {
+  slug: 'alibaba-media',
+  label: '阿里 (Alibaba)',
+  icon: 'alibaba',
+  modalities: ['image', 'video'],
+  protocol: 'async-poll',
+  authStrategy: 'bearer',
+  credentialFields: BEARER_CRED,
+  handler: ASYNC_MEDIA_HANDLER,
+};
+
+/** MiniMax (海螺 Hailuo) — async video/audio over a bearer task API. */
+const MINIMAX_MEDIA: BuiltinPlugin = {
+  slug: 'minimax-media',
+  label: 'MiniMax (海螺)',
+  icon: 'minimax',
+  modalities: ['video', 'audio'],
+  protocol: 'async-poll',
+  authStrategy: 'bearer',
+  credentialFields: BEARER_CRED,
+  handler: ASYNC_MEDIA_HANDLER,
+};
+
+/** xAI (Grok) — synchronous image generation (OpenAI-compatible). */
+const XAI_IMAGE: BuiltinPlugin = {
+  slug: 'xai-image',
+  label: 'xAI (Grok)',
+  icon: 'xai',
+  modalities: ['image'],
+  protocol: 'sync',
+  authStrategy: 'bearer',
+  credentialFields: BEARER_CRED,
+  handler: SYNC_MEDIA_HANDLER,
+};
+
+/** Codex CLI — the OpenAI chat CLI reverse-proxy (claude-code CLI = future). */
+const CODEX_CLI: BuiltinPlugin = {
+  slug: 'codex-cli',
+  label: 'Codex CLI',
+  icon: 'codex',
+  modalities: ['text'],
+  protocol: 'sync',
+  authStrategy: 'token',
+  credentialFields: TOKEN_CRED,
+  handler: CHAT_PASSTHROUGH_HANDLER,
+};
+
 export const BUILTIN_PLUGINS: BuiltinPlugin[] = [
   OPENAI_IMAGES,
+  XAI_IMAGE,
+  VOLCENGINE_MEDIA,
+  TENCENT_MEDIA,
+  KLING_MEDIA,
+  ALIBABA_MEDIA,
+  MINIMAX_MEDIA,
+  CODEX_CLI,
   SYNC_IMAGE_RELAY,
   ASYNC_MEDIA_RELAY,
-  SIGNED_ASYNC_MEDIA,
-  JWT_ASYNC_MEDIA,
-  TC3_ASYNC_MEDIA,
 ];
 
 /** Idempotently install/refresh the built-in provider plugins. Network-free. */
@@ -215,6 +294,7 @@ export async function seedPlugins(db: Database): Promise<void> {
         credentialFields: p.credentialFields,
       },
       handler: p.handler,
+      icon: p.icon,
     });
   }
 }
