@@ -156,6 +156,10 @@ export class PaymentService {
 
       const recorded = await insertEventIfNew(tx, {
         paymentIntentId: intent?.id ?? null,
+        // Scope snapshots (记录系统 M-2b): copied from the resolved intent so the
+        // audit event stays scopable after the intent is pruned (FK SET NULL).
+        tenantId: intent?.tenantId ?? null,
+        subjectId: intent?.subjectId ?? null,
         provider,
         providerEventId: event.eventId,
         type: event.type,

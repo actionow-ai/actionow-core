@@ -1,4 +1,5 @@
 export * from './accounts.js';
+export * from './audit.js';
 export * from './catalog.js';
 export * from './execution.js';
 export * from './fault-policy.js';
