@@ -6,7 +6,7 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
-import { claimIdempotency } from '../src/repositories/index.js';
+import { claimIdempotency, createSubject } from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
 
 const { tenant } = schema;
@@ -28,7 +28,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE idempotency_key, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE idempotency_key, subject, tenant RESTART IDENTITY CASCADE`;
 });
 
 async function makeTenant(): Promise<string> {
@@ -69,5 +69,28 @@ describe('claimIdempotency', () => {
 
     expect(ra).toEqual({ claimed: true });
     expect(rb).toEqual({ claimed: true });
+  });
+
+  it('subject-scoped claims are independent per subject and from the tenant-level claim', async () => {
+    const tenantId = await makeTenant();
+    const s1 = await createSubject(db, { tenantId, externalId: 'u1' });
+    const s2 = await createSubject(db, { tenantId, externalId: 'u2' });
+
+    // the same key claims independently per subject AND at the tenant level (NULL).
+    expect(await claimIdempotency(db, tenantId, 'k', randomUUID(), s1.id)).toEqual({
+      claimed: true,
+    });
+    expect(await claimIdempotency(db, tenantId, 'k', randomUUID(), s2.id)).toEqual({
+      claimed: true,
+    });
+    expect(await claimIdempotency(db, tenantId, 'k', randomUUID())).toEqual({ claimed: true });
+
+    // a repeat under the SAME subject replays that subject's original job.
+    const firstJob = randomUUID();
+    await claimIdempotency(db, tenantId, 'k2', firstJob, s1.id);
+    expect(await claimIdempotency(db, tenantId, 'k2', randomUUID(), s1.id)).toEqual({
+      claimed: false,
+      existingJobId: firstJob,
+    });
   });
 });

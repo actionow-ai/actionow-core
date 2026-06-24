@@ -114,10 +114,21 @@ export const idempotencyKey = pgTable(
       .references(() => tenant.id),
     key: text('key').notNull(),
     jobId: uuid('job_id').notNull(),
+    // Per-subject idempotency window (unified tenancy G-B); NULL → tenant-level
+    // (today's behavior, unchanged). The unique index is split so a NULL subject
+    // keeps the exact `(tenant_id, key)` constraint while a subject-scoped claim
+    // is unique per `(tenant_id, subject_id, key)`.
+    subjectId: uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  // `idempotency_tenant_key` on (tenant_id, key) also serves as the FK index on tenant_id.
-  (t) => [uniqueIndex('idempotency_tenant_key').on(t.tenantId, t.key)],
+  (t) => [
+    uniqueIndex('idempotency_tenant_key')
+      .on(t.tenantId, t.key)
+      .where(sql`subject_id IS NULL`),
+    uniqueIndex('idempotency_tenant_subject_key')
+      .on(t.tenantId, t.subjectId, t.key)
+      .where(sql`subject_id IS NOT NULL`),
+  ],
 );
 
 /**
