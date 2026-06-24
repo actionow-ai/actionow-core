@@ -17,6 +17,7 @@ export const qk = {
       : (['admin', 'redemption-codes', status] as const),
   oauthSessions: () => ['admin', 'oauth-sessions'] as const,
   plugins: () => ['admin', 'plugins'] as const,
+  pluginChannels: (id: string) => ['admin', 'plugins', id, 'channels'] as const,
   icons: () => ['admin', 'icons'] as const,
   routeGroups: () => ['admin', 'route-groups'] as const,
   routeGroupChannels: (id: string) => ['admin', 'route-groups', id, 'channels'] as const,

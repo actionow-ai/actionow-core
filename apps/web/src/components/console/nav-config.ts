@@ -53,9 +53,10 @@ export const ADMIN_NAV: NavGroup[] = [
     key: 'access',
     icon: PlugsConnectedIcon,
     items: [
-      // 模型接入: the platform→通道→模型 management (the former 模型服务/catalog page).
+      // 模型接入: the 3-pane plugin→通道→模型 management (插件 folds in here; platform
+      // + pricing live on the secondary /console/platforms view).
       { to: '/console/catalog', labelKey: 'modelAccess' },
-      { to: '/console/plugins', labelKey: 'plugins' },
+      { to: '/console/platforms', labelKey: 'platforms' },
       { to: '/console/proxies', labelKey: 'proxies' },
       { to: '/console/dify', labelKey: 'dify' },
       { to: '/console/oauth-sessions', labelKey: 'oauthSessions' },

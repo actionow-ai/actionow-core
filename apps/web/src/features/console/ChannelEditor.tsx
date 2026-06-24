@@ -38,11 +38,15 @@ const ASYNC_MEDIA_PRESET = {
 export function ChannelEditor({
   resourceId,
   channel,
+  presetPluginId,
   open,
   onClose,
 }: {
-  resourceId: string;
+  /** Fixed platform (resource) — omit to let the operator pick one (模型接入 3-pane). */
+  resourceId?: string;
   channel?: ChannelView;
+  /** Default plugin binding (the 3-pane's selected plugin). */
+  presetPluginId?: string;
   open: boolean;
   onClose: () => void;
 }) {
@@ -50,6 +54,32 @@ export function ChannelEditor({
   const api = useAdminApi();
   const qc = useQueryClient();
   const editing = channel !== undefined;
+  // The platform a channel lives under: fixed by the caller, or picked here when
+  // creating from the 3-pane (where the platform is otherwise hidden).
+  const [pickedResourceId, setPickedResourceId] = useState(
+    channel?.resource_id ?? resourceId ?? '',
+  );
+  const effectiveResourceId = resourceId ?? channel?.resource_id ?? pickedResourceId;
+  const needResourcePick = resourceId === undefined && !editing;
+  const resources = useQuery({
+    queryKey: qk.resources(),
+    queryFn: () => api.listResources(),
+    staleTime: STALE_REFERENCE,
+    enabled: open && needResourcePick,
+  });
+  // Provider-plugin binding (模型接入 grouping). Defaults to the 3-pane's selected
+  // plugin on create; seeded from the channel on edit.
+  const [pluginId, setPluginId] = useState(channel?.plugin_id ?? presetPluginId ?? '');
+  const plugins = useQuery({
+    queryKey: qk.plugins(),
+    queryFn: () => api.listPlugins(),
+    staleTime: STALE_REFERENCE,
+    enabled: open,
+  });
+  const pluginOptions = [
+    { value: '', label: t('channels.form.pluginNone') },
+    ...(plugins.data ?? []).map((p) => ({ value: p.id, label: p.label })),
+  ];
 
   // Model suggestions = this resource's already-registered model names (free
   // entry still allowed, so an upstream-only model can be typed).
@@ -59,7 +89,7 @@ export function ChannelEditor({
     staleTime: STALE_REFERENCE,
   });
   const modelOptions = (models.data ?? [])
-    .filter((m) => m.resource_id === resourceId)
+    .filter((m) => m.resource_id === effectiveResourceId)
     .map((m) => m.name);
 
   // Fault-tolerance policies bindable to this channel (调用容错). '' = unbound.
@@ -147,7 +177,7 @@ export function ChannelEditor({
       // Cost diverges by verb: a PATCH sends `null` to clear a previously-set
       // cost, but a create omits it entirely (the schema rejects `null`).
       return editing
-        ? api.updateChannel(resourceId, channel.id, {
+        ? api.updateChannel(effectiveResourceId, channel.id, {
             ...base,
             inputCostUsdPer1m: inputCostUsd > 0 ? inputCostUsd : null,
             outputCostUsdPer1m: outputCostUsd > 0 ? outputCostUsd : null,
@@ -155,9 +185,11 @@ export function ChannelEditor({
             faultPolicyId: faultPolicyId === '' ? null : faultPolicyId,
             // null clears a previously-set icon → derived from plugin/provider.
             icon,
+            // null unbinds the plugin grouping.
+            pluginId: pluginId === '' ? null : pluginId,
           })
         : api.createChannel(
-            resourceId,
+            effectiveResourceId,
             {
               ...base,
               providerType,
@@ -165,12 +197,16 @@ export function ChannelEditor({
               outputCostUsdPer1m: outputCostUsd > 0 ? outputCostUsd : undefined,
               ...(faultPolicyId === '' ? {} : { faultPolicyId }),
               ...(icon !== null ? { icon } : {}),
+              ...(pluginId === '' ? {} : { pluginId }),
             },
             idemKey,
           );
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: qk.channels(resourceId) });
+      await qc.invalidateQueries({ queryKey: qk.channels(effectiveResourceId) });
+      if (pluginId !== '') await qc.invalidateQueries({ queryKey: qk.pluginChannels(pluginId) });
+      if (presetPluginId !== undefined && presetPluginId !== pluginId)
+        await qc.invalidateQueries({ queryKey: qk.pluginChannels(presetPluginId) });
       toast(t(editing ? 'channels.updated' : 'channels.created'));
       onClose();
     },
@@ -183,11 +219,33 @@ export function ChannelEditor({
       title={t(editing ? 'channels.editTitle' : 'channels.addTitle')}
       onClose={onClose}
       footer={
-        <Button variant="cta" onClick={() => save.mutate()} loading={save.isPending}>
+        <Button
+          variant="cta"
+          onClick={() => save.mutate()}
+          loading={save.isPending}
+          disabled={needResourcePick && effectiveResourceId === ''}
+        >
           {t('channels.save')}
         </Button>
       }
     >
+      {needResourcePick && (
+        <SelectField
+          label={t('channels.form.platform')}
+          tooltip={t('channels.tip.platform')}
+          value={pickedResourceId}
+          onChange={setPickedResourceId}
+          options={(resources.data ?? []).map((r) => ({ value: r.id, label: r.id }))}
+          placeholder={t('channels.form.platformPlaceholder')}
+        />
+      )}
+      <SelectField
+        label={t('channels.form.plugin')}
+        tooltip={t('channels.tip.plugin')}
+        value={pluginId}
+        onChange={setPluginId}
+        options={pluginOptions}
+      />
       <ComboboxField
         label={t('channels.form.provider')}
         tooltip={t('channels.tip.provider')}

@@ -176,7 +176,8 @@
     "tmedia": "素材",
     "oauthSessions": "凭证",
     "serviceTokens": "服务令牌",
-    "modelAccess": "模型接入"
+    "modelAccess": "模型接入",
+    "platforms": "平台与定价"
   },
   "topbar": {
     "admin": "管理员",
@@ -210,7 +211,8 @@
     "accounts": "账户余额与充值",
     "apiKeys": "签发与管理 API Key",
     "serviceTokens": "管理 API 的机器对机器（M2M）凭据",
-    "modelAccess": "平台 → 通道 → 模型：上游通道与所服务的模型"
+    "modelAccess": "插件 → 通道 → 模型：三栏式接入管理",
+    "platforms": "平台与定价：资源、上游与定价手册"
   },
   "dashboard": {
     "stats": {
@@ -665,6 +667,14 @@
       "always": "始终开启推理"
     }
   },
+  "modelAccess": {
+    "platforms": "平台与定价",
+    "pickPlugin": "从左侧选择一个插件",
+    "channels": "通道",
+    "addChannel": "添加通道",
+    "noChannels": "该插件下暂无通道",
+    "pickChannel": "选择一个通道查看其模型"
+  },
   "channels": {
     "addTitle": "添加通道",
     "editTitle": "编辑通道",
@@ -675,6 +685,10 @@
     "statusUpdated": "通道状态已更新",
     "synced": "已同步 {{total}} 个模型",
     "form": {
+      "platform": "平台",
+      "platformPlaceholder": "选择该通道所属平台",
+      "plugin": "插件",
+      "pluginNone": "未分配",
       "provider": "Provider 类型",
       "icon": "图标",
       "endpoint": "端点",
@@ -692,6 +706,8 @@
       "config": "配置"
     },
     "tip": {
+      "platform": "该通道所属的平台(资源/上游)。路由按平台聚合通道。",
+      "plugin": "该通道归属的插件(模型接入三栏分组)。原生厂商通道仍按 Provider 类型路由,不走沙箱。",
       "provider": "该通道的上游 Provider(自由文本,如 openai、anthropic)。Logo 据此解析。",
       "icon": "为该通道选择品牌图标;留空则按插件 / Provider 推导",
       "providerFixed": "Provider 创建后不可更改。",

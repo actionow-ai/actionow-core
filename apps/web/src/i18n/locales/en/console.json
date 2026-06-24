@@ -176,7 +176,8 @@
     "tmedia": "Media",
     "oauthSessions": "Credentials",
     "serviceTokens": "Service tokens",
-    "modelAccess": "Model onboarding"
+    "modelAccess": "Model onboarding",
+    "platforms": "Platforms & pricing"
   },
   "topbar": {
     "admin": "Admin",
@@ -210,7 +211,8 @@
     "accounts": "Account balance & top-up",
     "apiKeys": "Issue and manage API keys",
     "serviceTokens": "M2M credentials for the admin API",
-    "modelAccess": "Platforms → channels → models: upstream routes and the models they serve"
+    "modelAccess": "Plugin → channel → model: the 3-pane onboarding surface",
+    "platforms": "Platforms & pricing: resources, upstreams and the pricebook"
   },
   "dashboard": {
     "stats": {
@@ -665,6 +667,14 @@
       "always": "Always-on reasoning"
     }
   },
+  "modelAccess": {
+    "platforms": "Platforms & pricing",
+    "pickPlugin": "Pick a plugin on the left",
+    "channels": "Channels",
+    "addChannel": "Add channel",
+    "noChannels": "No channels under this plugin yet",
+    "pickChannel": "Pick a channel to see its models"
+  },
   "channels": {
     "addTitle": "Add channel",
     "editTitle": "Edit channel",
@@ -675,6 +685,10 @@
     "statusUpdated": "Channel status updated",
     "synced": "Synced {{total}} model(s)",
     "form": {
+      "platform": "Platform",
+      "platformPlaceholder": "Pick the platform this channel belongs to",
+      "plugin": "Plugin",
+      "pluginNone": "Unassigned",
       "provider": "Provider type",
       "icon": "Icon",
       "endpoint": "Endpoint",
@@ -692,6 +706,8 @@
       "config": "Config"
     },
     "tip": {
+      "platform": "The platform (resource/upstream) this channel belongs to. Routing aggregates channels per platform.",
+      "plugin": "The plugin this channel groups under (模型接入 3-pane grouping). Native vendor channels still route by provider_type — they don't run the sandbox.",
       "provider": "Free-text upstream provider for this channel (e.g. openai, anthropic). The logo resolves from this value.",
       "icon": "Pick a brand icon for this channel; leave empty to derive it from the plugin/provider.",
       "providerFixed": "Provider is fixed after creation.",

@@ -373,6 +373,9 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     // --- provider plugins (P2) ---
     listPlugins: async (): Promise<ProviderPluginView[]> =>
       unwrap(await sdk.GET('/admin/plugins'), u),
+    // A plugin's bound channels across resources (模型接入 3-pane; admin-only, not in the SDK).
+    listPluginChannels: (pluginId: string): Promise<ChannelView[]> =>
+      rawClient.get<ChannelView[]>(`/admin/plugins/${pluginId}/channels`),
     createPlugin: async (body: CreatePluginRequest): Promise<ProviderPluginView> =>
       unwrap(await sdk.POST('/admin/plugins', { body }), u),
     updatePlugin: async (id: string, body: UpdatePluginRequest): Promise<ProviderPluginView> =>

@@ -190,7 +190,7 @@ export function PluginsPage() {
 }
 
 /** Create/edit one plugin (manifest fields + handler code) with an inline test panel. */
-function PluginEditor({
+export function PluginEditor({
   plugin,
   onClose,
   onSaved,
