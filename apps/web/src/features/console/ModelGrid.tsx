@@ -2,6 +2,7 @@ import { ArrowsClockwiseIcon, PlusIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
+import { BrandIcon } from '../../components/data/BrandIcon';
 import { QueryBoundary } from '../../components/data/QueryBoundary';
 import { Button } from '../../components/ui/Button';
 import { enumLabel, MODALITIES } from '../../lib/api/enums';
@@ -80,7 +81,13 @@ export function ModelGrid({
             }}
           >
             {(query.data ?? []).map((m) => (
-              <ModelCard key={m.id} model={m} onClick={() => onSelectModel(m)} t={t} />
+              <ModelCard
+                key={m.id}
+                model={m}
+                channel={channel}
+                onClick={() => onSelectModel(m)}
+                t={t}
+              />
             ))}
           </div>
         )}
@@ -91,10 +98,12 @@ export function ModelGrid({
 
 function ModelCard({
   model,
+  channel,
   onClick,
   t,
 }: {
   model: ModelView;
+  channel: ChannelView;
   onClick: () => void;
   t: (k: string, o?: Record<string, unknown>) => string;
 }) {
@@ -108,6 +117,11 @@ function ModelCard({
       style={{ textAlign: 'left', padding: 'var(--s-3) var(--s-4)', cursor: 'pointer' }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+        <BrandIcon
+          icon={model.icon}
+          fallbacks={[channel.icon, channel.provider_type, model.maker, model.modality]}
+          size={16}
+        />
         <span
           style={{
             fontWeight: 'var(--fw-medium)',

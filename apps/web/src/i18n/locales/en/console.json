@@ -596,7 +596,8 @@
       "tagsPlaceholder": "Enter to add — e.g. recommended / cheap / long-context",
       "maker": "Developer",
       "contextLength": "Context length (tokens)",
-      "reasoning": "Reasoning"
+      "reasoning": "Reasoning",
+      "icon": "Icon"
     },
     "tip": {
       "name": "The unique model id callers request (e.g. anthropic/claude-3-5-sonnet). Immutable after creation.",
@@ -617,7 +618,8 @@
       "tags": "Free-form tags for catalog filtering (recommended/cheap/code/roleplay…)",
       "maker": "The model's maker (anthropic/alibaba/z-ai…) — filter by developer",
       "contextLength": "Max context window (tokens); 0 = unknown",
-      "reasoning": "Reasoning mode: none / optional / always-on"
+      "reasoning": "Reasoning mode: none / optional / always-on",
+      "icon": "Pick a brand icon for this model; leave empty to inherit its channel/plugin icon"
     },
     "actions": {
       "grants": "Grants",
@@ -674,6 +676,7 @@
     "synced": "Synced {{total}} model(s)",
     "form": {
       "provider": "Provider type",
+      "icon": "Icon",
       "endpoint": "Endpoint",
       "model": "Model",
       "proxyRef": "Proxy ref",
@@ -690,6 +693,7 @@
     },
     "tip": {
       "provider": "Free-text upstream provider for this channel (e.g. openai, anthropic). The logo resolves from this value.",
+      "icon": "Pick a brand icon for this channel; leave empty to derive it from the plugin/provider.",
       "providerFixed": "Provider is fixed after creation.",
       "endpoint": "Override base URL for this channel. Leave empty to use the provider default.",
       "model": "Upstream model name to call (e.g. gpt-4o). Leave empty to use the resource default.",
@@ -1106,6 +1110,8 @@
       "slugRequired": "Enter a slug.",
       "label": "Label",
       "labelRequired": "Enter a label.",
+      "icon": "Icon",
+      "iconHint": "Pick a brand icon for this plugin; leave empty to derive it from the slug.",
       "modalities": "Modalities",
       "protocol": "Protocol",
       "auth": "Auth strategy",

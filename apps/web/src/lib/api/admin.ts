@@ -33,6 +33,7 @@ import type {
   DifyImportView,
   FaultPolicyView,
   GenerateCodesBody,
+  IconAssetView,
   JobView,
   LedgerView,
   ModelGrantView,
@@ -365,6 +366,9 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     // Edit a stored credential's metadata (name/notes/group) — never the material.
     updateSecret: async (id: string, body: UpdateCredentialMetaBody): Promise<SecretView> =>
       unwrap(await sdk.PATCH('/admin/secrets/{id}', { params: { path: { id } }, body }), u),
+
+    // --- icon catalog (selectable brand icons; admin-only, not in the SDK) ---
+    listIcons: (): Promise<IconAssetView[]> => rawClient.get<IconAssetView[]>('/admin/icons'),
 
     // --- provider plugins (P2) ---
     listPlugins: async (): Promise<ProviderPluginView[]> =>

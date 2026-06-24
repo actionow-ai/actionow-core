@@ -596,7 +596,8 @@
       "tagsPlaceholder": "输入后回车,如 推荐 / 便宜 / 长上下文",
       "maker": "开发者",
       "contextLength": "上下文长度(tokens)",
-      "reasoning": "推理"
+      "reasoning": "推理",
+      "icon": "图标"
     },
     "tip": {
       "name": "调用方请求时使用的唯一模型 id(如 anthropic/claude-3-5-sonnet)。创建后不可更改。",
@@ -617,7 +618,8 @@
       "tags": "自由标签,用于目录过滤(推荐/便宜/代码/角色扮演…)",
       "maker": "模型的制造方(anthropic/alibaba/z-ai…),用于按厂商筛选",
       "contextLength": "最大上下文窗口(token 数);0 表示未知",
-      "reasoning": "推理模式:无 / 可切换 / 始终开启"
+      "reasoning": "推理模式:无 / 可切换 / 始终开启",
+      "icon": "为该模型选择品牌图标;留空则继承其渠道 / 插件图标"
     },
     "actions": {
       "grants": "授权",
@@ -674,6 +676,7 @@
     "synced": "已同步 {{total}} 个模型",
     "form": {
       "provider": "Provider 类型",
+      "icon": "图标",
       "endpoint": "端点",
       "model": "模型",
       "proxyRef": "代理 Ref",
@@ -690,6 +693,7 @@
     },
     "tip": {
       "provider": "该通道的上游 Provider(自由文本,如 openai、anthropic)。Logo 据此解析。",
+      "icon": "为该通道选择品牌图标;留空则按插件 / Provider 推导",
       "providerFixed": "Provider 创建后不可更改。",
       "endpoint": "该通道的 Base URL 覆盖。留空则使用 Provider 默认值。",
       "model": "要调用的上游模型名(如 gpt-4o)。留空则使用资源默认值。",
@@ -1106,6 +1110,8 @@
       "slugRequired": "请填写 slug。",
       "label": "名称",
       "labelRequired": "请填写名称。",
+      "icon": "图标",
+      "iconHint": "为该插件选择品牌图标;留空则按 slug 推导",
       "modalities": "模态",
       "protocol": "协议",
       "auth": "鉴权策略",

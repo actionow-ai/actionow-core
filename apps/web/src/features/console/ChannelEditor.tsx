@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { IconPicker } from '../../components/data/IconPicker';
 import { SecretSelect } from '../../components/data/SecretSelect';
 import { Button } from '../../components/ui/Button';
 import { ComboboxField } from '../../components/ui/ComboboxField';
@@ -101,6 +102,8 @@ export function ChannelEditor({
     (channel?.status as ChannelStatus | undefined) ?? 'active',
   );
   const [configRows, setConfigRows] = useState<KvRow[]>(rowsFromObject(channel?.config));
+  // Selectable brand icon (icon_asset.key); null → derived from plugin/provider.
+  const [icon, setIcon] = useState<string | null>(channel?.icon ?? null);
   // A stable idempotency key for this editor instance (remounted per open via
   // `key`), so an accidental double-submit of a create replays instead of dupes.
   const [idemKey] = useState(() => crypto.randomUUID());
@@ -150,6 +153,8 @@ export function ChannelEditor({
             outputCostUsdPer1m: outputCostUsd > 0 ? outputCostUsd : null,
             // null unbinds a previously-set policy → engine defaults.
             faultPolicyId: faultPolicyId === '' ? null : faultPolicyId,
+            // null clears a previously-set icon → derived from plugin/provider.
+            icon,
           })
         : api.createChannel(
             resourceId,
@@ -159,6 +164,7 @@ export function ChannelEditor({
               inputCostUsdPer1m: inputCostUsd > 0 ? inputCostUsd : undefined,
               outputCostUsdPer1m: outputCostUsd > 0 ? outputCostUsd : undefined,
               ...(faultPolicyId === '' ? {} : { faultPolicyId }),
+              ...(icon !== null ? { icon } : {}),
             },
             idemKey,
           );
@@ -190,6 +196,13 @@ export function ChannelEditor({
         value={providerType}
         onChange={setProviderType}
         disabled={editing}
+      />
+      <IconPicker
+        label={t('channels.form.icon')}
+        hint={t('channels.tip.icon')}
+        value={icon}
+        onChange={setIcon}
+        fallbacks={[providerType]}
       />
       <TextField
         label={t('channels.form.endpoint')}

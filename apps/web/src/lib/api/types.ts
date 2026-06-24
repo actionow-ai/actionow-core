@@ -54,6 +54,7 @@ export type {
   FaultPolicyView,
   FileView,
   GenerateCodesBody,
+  IconAssetView,
   JobView,
   LedgerView,
   ModelGrantView,

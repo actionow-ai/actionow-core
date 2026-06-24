@@ -8,7 +8,7 @@ import {
 import type { KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ProviderIcon } from '../../components/data/ProviderIcon';
+import { BrandIcon } from '../../components/data/BrandIcon';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { RowAction } from '../../components/ui/RowAction';
 import type { ChannelView } from '../../lib/api/types';
@@ -69,7 +69,7 @@ export function ChannelCard({
       style={{ padding: 'var(--s-3) var(--s-4)' }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}>
-        <ProviderIcon provider={channel.provider_type} size={18} />
+        <BrandIcon icon={channel.icon} fallbacks={[channel.provider_type]} size={18} />
         <span
           style={{
             fontWeight: 'var(--fw-medium)',

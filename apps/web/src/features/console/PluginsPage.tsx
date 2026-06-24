@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
+import { BrandIcon } from '../../components/data/BrandIcon';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
+import { IconPicker } from '../../components/data/IconPicker';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ChipsField } from '../../components/ui/ChipsField';
@@ -89,9 +91,12 @@ export function PluginsPage() {
       header: t('plugins.cols.name'),
       grow: true,
       cell: (p) => (
-        <span>
-          <strong>{p.label}</strong>
-          <span style={{ color: 'var(--muted)' }}> · {p.slug}</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+          <BrandIcon icon={p.icon} fallbacks={[p.slug]} size={18} />
+          <span>
+            <strong>{p.label}</strong>
+            <span style={{ color: 'var(--muted)' }}> · {p.slug}</span>
+          </span>
         </span>
       ),
     },
@@ -203,6 +208,7 @@ function PluginEditor({
   const [modalities, setModalities] = useState<string[]>(plugin?.modalities ?? ['image']);
   const [protocol, setProtocol] = useState<string>(plugin?.protocol ?? 'sync');
   const [authStrategy, setAuthStrategy] = useState<string>(plugin?.auth_strategy ?? 'bearer');
+  const [icon, setIcon] = useState<string | null>(plugin?.icon ?? null);
   const [handler, setHandler] = useState(plugin?.handler ?? STARTER_HANDLER);
   const [attempted, setAttempted] = useState(false);
   const handlerId = useFieldId();
@@ -226,9 +232,15 @@ function PluginEditor({
   const save = useMutation({
     mutationFn: async (): Promise<void> => {
       if (editing) {
-        await api.updatePlugin(plugin.id, { label: label.trim(), manifest: manifest(), handler });
+        await api.updatePlugin(plugin.id, { label: label.trim(), manifest: manifest(), handler, icon });
       } else {
-        await api.createPlugin({ slug: slug.trim(), label: label.trim(), manifest: manifest(), handler });
+        await api.createPlugin({
+          slug: slug.trim(),
+          label: label.trim(),
+          manifest: manifest(),
+          handler,
+          ...(icon !== null ? { icon } : {}),
+        });
       }
     },
     onSuccess: () => {
@@ -284,6 +296,13 @@ function PluginEditor({
         onChange={setLabel}
         required
         error={attempted && labelMissing ? t('plugins.form.labelRequired') : undefined}
+      />
+      <IconPicker
+        label={t('plugins.form.icon')}
+        hint={t('plugins.form.iconHint')}
+        value={icon}
+        onChange={setIcon}
+        fallbacks={[slug]}
       />
       <ChipsField
         label={t('plugins.form.modalities')}

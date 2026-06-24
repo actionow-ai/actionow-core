@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
+import { BrandIcon } from '../../components/data/BrandIcon';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
@@ -50,7 +51,17 @@ export function ModelsCatalogPage() {
   );
 
   const cols: Column<ModelView>[] = [
-    { key: 'name', header: t('app.models.cols.name'), grow: true, cell: (r) => <span className="mono">{r.name}</span> },
+    {
+      key: 'name',
+      header: t('app.models.cols.name'),
+      grow: true,
+      cell: (r) => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}>
+          <BrandIcon icon={r.icon} fallbacks={[r.maker, r.modality]} size={16} />
+          <span className="mono">{r.name}</span>
+        </span>
+      ),
+    },
     { key: 'maker', header: t('facets.maker'), width: '120px', cell: (r) => r.maker ?? '—' },
     {
       key: 'modality',
