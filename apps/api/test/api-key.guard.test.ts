@@ -29,6 +29,9 @@ function repoWithKey(record: Partial<ApiKeyRecord> = {}): ApiKeyRepo {
     status: 'active',
     routeGroupId: null,
     limitPlanId: null,
+    subjectId: null,
+    subjectActive: null,
+    subjectLimitPlanId: null,
     ...record,
   };
   return {
@@ -110,6 +113,30 @@ describe('ApiKeyGuard', () => {
     expect(auth.routeGroupId).toBe('group-xyz');
   });
 
+  it('threads a subject-scoped key’s subjectId + plan into the auth context (G-B)', async () => {
+    const g = guard(
+      repoWithKey({ subjectId: 'subj-1', subjectActive: true, subjectLimitPlanId: 'plan-1' }),
+    );
+    const req = {
+      headers: { authorization: `Bearer ${validKey}` },
+      params: {},
+    } as unknown as Request;
+    const ctx = {
+      switchToHttp: () => ({ getRequest: () => req }),
+    } as unknown as ExecutionContext;
+    await expect(g.canActivate(ctx)).resolves.toBe(true);
+    const auth = (req as unknown as { auth: Record<string, unknown> }).auth;
+    expect(auth.subjectId).toBe('subj-1');
+    expect(auth.subjectLimitPlanId).toBe('plan-1');
+  });
+
+  it('rejects a subject-scoped key whose subject is disabled/deleted (G-B)', async () => {
+    const g = guard(repoWithKey({ subjectId: 'subj-1', subjectActive: false }));
+    await expect(
+      g.canActivate(ctxFor({ headers: { authorization: `Bearer ${validKey}` } })),
+    ).rejects.toMatchObject({ unified: { code: 'unauthorized' } });
+  });
+
   it('accepts a valid key via the x-api-key header', async () => {
     const g = guard(repoWithKey());
     const req = { headers: { 'x-api-key': validKey }, params: {} } as unknown as Request;
@@ -148,6 +175,9 @@ describe('ApiKeyGuard', () => {
           status: 'active',
           routeGroupId: null,
           limitPlanId: null,
+          subjectId: null,
+          subjectActive: null,
+          subjectLimitPlanId: null,
         }),
       getAccountByTenant: (): Promise<{ id: string } | undefined> => Promise.resolve(undefined),
     } as unknown as ApiKeyRepo;
