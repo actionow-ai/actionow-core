@@ -30,6 +30,8 @@ export const qk = {
   limitStatus: (subjectType: string, subjectId: string) =>
     ['admin', 'limit-status', subjectType, subjectId] as const,
   limitAlerts: () => ['admin', 'limit-alerts'] as const,
+  auditLog: (params: Record<string, unknown>) => ['admin', 'audit-log', params] as const,
+  reconcile: (tenantId: string) => ['admin', 'reconcile', tenantId] as const,
   proxies: () => ['admin', 'proxies'] as const,
   modelHealth: (days: number) => ['admin', 'model-health', days] as const,
   /** No params → the bare prefix (invalidates every param variant); with params → the specific filtered key. */

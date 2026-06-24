@@ -36,6 +36,8 @@ export {
   type AuditLogFilter,
   type AuditLogRow,
   listAuditLog,
+  type ReconcileRow,
+  reconcileTenant,
 } from './audit.js';
 export {
   type ApiKeyRecord,

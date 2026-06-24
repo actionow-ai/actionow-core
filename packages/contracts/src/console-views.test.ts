@@ -29,6 +29,7 @@ describe('tenant console view contracts (single source of truth for FE + BE)', (
   it('consoleJobViewSchema keeps cost a string-or-null', () => {
     const j = {
       job_id: 'j1',
+      subject_id: null,
       resource_id: 'r1',
       status: 'succeeded',
       exec_mode: 'sync',
@@ -42,6 +43,7 @@ describe('tenant console view contracts (single source of truth for FE + BE)', (
   it('consoleLedgerViewSchema keeps money fields as strings', () => {
     const l = {
       id: 'l1',
+      subject_id: null,
       type: 'spend',
       credits_delta: '-1000',
       balance_after: '9000',
@@ -70,6 +72,7 @@ describe('tenant console view contracts (single source of truth for FE + BE)', (
   it('consoleUsageLogViewSchema keeps cost a string but tokens numbers', () => {
     const u = {
       id: 'u1',
+      subject_id: null,
       model: 'gpt-4o',
       input_tokens: 10,
       output_tokens: 20,

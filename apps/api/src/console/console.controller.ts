@@ -115,6 +115,7 @@ function toApiKeyView(r: Omit<ApiKeyRow, 'hash'>): ApiKeyView {
 function toConsoleJobView(j: Job): JobView {
   return consoleJobViewSchema.parse({
     job_id: j.id,
+    subject_id: j.subjectId,
     resource_id: j.resourceId,
     status: j.status,
     exec_mode: j.execMode,
@@ -127,6 +128,7 @@ function toConsoleJobView(j: Job): JobView {
 function toConsoleLedgerView(l: LedgerRow): LedgerView {
   return consoleLedgerViewSchema.parse({
     id: l.id,
+    subject_id: l.subjectId,
     type: l.type,
     credits_delta: l.creditsDelta.toString(),
     balance_after: l.balanceAfter.toString(),
@@ -157,6 +159,7 @@ function toConsoleUsageRollupView(row: UsageRollupRow): ConsoleUsageRollupView {
 function toUsageLogView(row: UsageLogRow): UsageLogView {
   return consoleUsageLogViewSchema.parse({
     id: row.id,
+    subject_id: row.subjectId,
     model: row.model,
     input_tokens: row.inputTokens,
     output_tokens: row.outputTokens,

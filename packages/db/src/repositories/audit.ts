@@ -1,7 +1,7 @@
 import type { InferSelectModel, SQL } from 'drizzle-orm';
-import { and, eq, gte, lt } from 'drizzle-orm';
+import { and, eq, gte, isNull, lt, sql } from 'drizzle-orm';
 
-import { auditLog } from '../schema/index.js';
+import { account, auditLog, ledgerTxn } from '../schema/index.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
@@ -80,4 +80,45 @@ export function listAuditLog(
     where: preds.length > 0 ? and(...preds) : undefined,
     page,
   });
+}
+
+/** One account's stored balance vs the sum of its ledger deltas (记录系统 reconcile). */
+export interface ReconcileRow {
+  readonly kind: 'account' | 'sub_account';
+  readonly accountId: string;
+  readonly subjectId: string | null;
+  readonly balance: bigint;
+  readonly ledgerSum: bigint;
+  /** `balance − ledgerSum` — non-zero flags an integrity gap (see contract note). */
+  readonly drift: bigint;
+}
+
+/**
+ * Reconcile a tenant's pool account(s): stored `credit_balance` vs the sum of the
+ * account's `ledger_txn.credits_delta`. drift should be 0 when every balance
+ * change is ledgered (topup/settle/transfer). Sub-wallet reconcile is deferred to
+ * records v2 (the single-entry ledger keys rows on the pool account).
+ */
+export async function reconcileTenant(db: DbOrTx, tenantId: string): Promise<ReconcileRow[]> {
+  const accts = await db
+    .select({ id: account.id, balance: account.creditBalance })
+    .from(account)
+    .where(and(eq(account.tenantId, tenantId), isNull(account.deletedAt)));
+  const out: ReconcileRow[] = [];
+  for (const a of accts) {
+    const rows = await db
+      .select({ s: sql<string>`coalesce(sum(${ledgerTxn.creditsDelta}), 0)` })
+      .from(ledgerTxn)
+      .where(eq(ledgerTxn.accountId, a.id));
+    const ledgerSum = BigInt(rows[0]?.s ?? '0');
+    out.push({
+      kind: 'account',
+      accountId: a.id,
+      subjectId: null,
+      balance: a.balance,
+      ledgerSum,
+      drift: a.balance - ledgerSum,
+    });
+  }
+  return out;
 }

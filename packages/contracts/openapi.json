@@ -766,6 +766,10 @@
           "tenant_id": {
             "type": "string"
           },
+          "subject_id": {
+            "type": "string",
+            "nullable": true
+          },
           "resource_id": {
             "type": "string"
           },
@@ -786,6 +790,7 @@
         "required": [
           "job_id",
           "tenant_id",
+          "subject_id",
           "resource_id",
           "status",
           "exec_mode",
@@ -804,6 +809,10 @@
           },
           "account_id": {
             "type": "string"
+          },
+          "subject_id": {
+            "type": "string",
+            "nullable": true
           },
           "type": {
             "type": "string"
@@ -830,6 +839,7 @@
           "id",
           "tenant_id",
           "account_id",
+          "subject_id",
           "type",
           "credits_delta",
           "balance_after",
@@ -846,6 +856,10 @@
           },
           "tenant_id": {
             "type": "string"
+          },
+          "subject_id": {
+            "type": "string",
+            "nullable": true
           },
           "model": {
             "type": "string"
@@ -873,6 +887,7 @@
         "required": [
           "id",
           "tenant_id",
+          "subject_id",
           "model",
           "input_tokens",
           "output_tokens",
@@ -2199,6 +2214,10 @@
           "job_id": {
             "type": "string"
           },
+          "subject_id": {
+            "type": "string",
+            "nullable": true
+          },
           "resource_id": {
             "type": "string"
           },
@@ -2218,6 +2237,7 @@
         },
         "required": [
           "job_id",
+          "subject_id",
           "resource_id",
           "status",
           "exec_mode",
@@ -2230,6 +2250,10 @@
         "properties": {
           "id": {
             "type": "string"
+          },
+          "subject_id": {
+            "type": "string",
+            "nullable": true
           },
           "type": {
             "type": "string"
@@ -2250,6 +2274,7 @@
         },
         "required": [
           "id",
+          "subject_id",
           "type",
           "credits_delta",
           "balance_after",
@@ -2311,6 +2336,10 @@
           "id": {
             "type": "string"
           },
+          "subject_id": {
+            "type": "string",
+            "nullable": true
+          },
           "model": {
             "type": "string"
           },
@@ -2336,6 +2365,7 @@
         },
         "required": [
           "id",
+          "subject_id",
           "model",
           "input_tokens",
           "output_tokens",

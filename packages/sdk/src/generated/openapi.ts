@@ -10476,6 +10476,7 @@ export interface components {
         JobView: {
             job_id: string;
             tenant_id: string;
+            subject_id: string | null;
             resource_id: string;
             status: string;
             exec_mode: string;
@@ -10486,6 +10487,7 @@ export interface components {
             id: string;
             tenant_id: string;
             account_id: string;
+            subject_id: string | null;
             type: string;
             credits_delta: string;
             balance_after: string;
@@ -10496,6 +10498,7 @@ export interface components {
         UsageLogView: {
             id: string;
             tenant_id: string;
+            subject_id: string | null;
             model: string;
             input_tokens: number;
             output_tokens: number;
@@ -10815,6 +10818,7 @@ export interface components {
         };
         ConsoleJobView: {
             job_id: string;
+            subject_id: string | null;
             resource_id: string;
             status: string;
             exec_mode: string;
@@ -10823,6 +10827,7 @@ export interface components {
         };
         ConsoleLedgerView: {
             id: string;
+            subject_id: string | null;
             type: string;
             credits_delta: string;
             balance_after: string;
@@ -10842,6 +10847,7 @@ export interface components {
         };
         ConsoleUsageLogView: {
             id: string;
+            subject_id: string | null;
             model: string;
             input_tokens: number;
             output_tokens: number;

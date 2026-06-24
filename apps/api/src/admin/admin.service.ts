@@ -16,6 +16,8 @@ import {
   addChannelToGroup,
   anyResourceTenantId,
   type ApiKeyRow,
+  type AuditLogFilter,
+  type AuditLogRow,
   type ChannelHealthRow,
   channelIdsByModelIds,
   countAccounts,
@@ -91,6 +93,7 @@ import {
   listAccounts,
   listAllChannelsWithHealth,
   listApiKeys,
+  listAuditLog,
   listChannelModels,
   listChannelsByPlugin,
   listChannelsForResource,
@@ -135,6 +138,8 @@ import {
   type PricebookEntryRow,
   type ProviderPluginRow,
   type ProxyRow,
+  type ReconcileRow,
+  reconcileTenant,
   recordProxyHealth,
   type RedemptionCodeRow,
   type RelayTraceFilter,
@@ -972,6 +977,16 @@ export class AdminService {
 
   listLimitAlerts(): Promise<LimitAlertRow[]> {
     return listLimitAlerts(this.db);
+  }
+
+  // ----- records (审计日志 + reconcile) -----
+
+  listAuditLog(filter: AuditLogFilter, page: PageParams): Promise<KeysetResult<AuditLogRow>> {
+    return listAuditLog(this.db, filter, page);
+  }
+
+  reconcile(tenantId: string): Promise<ReconcileRow[]> {
+    return reconcileTenant(this.db, tenantId);
   }
 
   async setApiKeyLimitPlan(apiKeyId: string, planId: string | null): Promise<void> {

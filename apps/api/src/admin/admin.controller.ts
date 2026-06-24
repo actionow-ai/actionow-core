@@ -5,6 +5,8 @@ import {
   adminTokenViewSchema,
   type ApiKeyView,
   apiKeyViewSchema,
+  type AuditLogView,
+  auditLogViewSchema,
   type ChannelHealthView,
   channelHealthViewSchema,
   type ChannelModelLinkInput,
@@ -58,6 +60,8 @@ import {
   provisionViewSchema,
   type ProxyView,
   proxyViewSchema,
+  type ReconcileRowView,
+  reconcileRowViewSchema,
   type RedemptionCodeView,
   redemptionCodeViewSchema,
   type ResourceView,
@@ -84,6 +88,7 @@ import type {
   AccountRow,
   AdminTokenView as AdminTokenRow,
   ApiKeyRow,
+  AuditLogRow,
   ChannelHealthRow,
   FaultPolicyRow,
   IconAssetRow,
@@ -104,6 +109,7 @@ import type {
   PricebookEntryRow,
   ProviderPluginRow,
   ProxyRow,
+  ReconcileRow,
   RedemptionCodeRow,
   Resource,
   RouteGroupChannelRow,
@@ -1214,6 +1220,44 @@ export class AdminController {
     return (await this.admin.listLimitAlerts()).map(toLimitAlertView);
   }
 
+  // ----- records (审计日志 + reconcile) -----
+
+  @Get('audit-log')
+  @ApiOperation({
+    summary: 'Audit log (记录系统) — who-changed-what, keyset-paginated, filterable',
+  })
+  async listAuditLog(
+    @Query('tenantId') tenantId?: string,
+    @Query('subjectId') subjectId?: string,
+    @Query('actorType') actorType?: string,
+    @Query('action') action?: string,
+    @Query('targetType') targetType?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<AuditLogView>> {
+    const result = await this.admin.listAuditLog(
+      {
+        ...(tenantId !== undefined ? { tenantId } : {}),
+        ...(subjectId !== undefined ? { subjectId } : {}),
+        ...(actorType !== undefined ? { actorType } : {}),
+        ...(action !== undefined ? { action } : {}),
+        ...(targetType !== undefined ? { targetType } : {}),
+        ...(from !== undefined ? { from: new Date(from) } : {}),
+        ...(to !== undefined ? { to: new Date(to) } : {}),
+      },
+      toPageParams({ cursor, limit }),
+    );
+    return mapPageEnvelope(result, (r) => r.id, toAuditLogView);
+  }
+
+  @Get('records/reconcile')
+  @ApiOperation({ summary: "A tenant's account balance(s) vs ledger sum (记录系统 reconcile)" })
+  async reconcile(@Query('tenantId') tenantId: string): Promise<ReconcileRowView[]> {
+    return (await this.admin.reconcile(tenantId)).map(toReconcileRowView);
+  }
+
   @Post('api-keys/:id/limit-plan')
   @ApiOperation({ summary: "Bind/unbind a key's limit plan (planId null = clear)" })
   @Audit({
@@ -2000,6 +2044,33 @@ function toLimitPlanView(p: {
   });
 }
 
+function toAuditLogView(row: AuditLogRow): AuditLogView {
+  return auditLogViewSchema.parse({
+    id: row.id,
+    created_at: row.createdAt.toISOString(),
+    actor_type: row.actorType,
+    actor_id: row.actorId,
+    tenant_id: row.tenantId,
+    subject_id: row.subjectId,
+    action: row.action,
+    target_type: row.targetType,
+    target_id: row.targetId,
+    meta: row.meta,
+    request_id: row.requestId,
+  });
+}
+
+function toReconcileRowView(r: ReconcileRow): ReconcileRowView {
+  return reconcileRowViewSchema.parse({
+    kind: r.kind,
+    account_id: r.accountId,
+    subject_id: r.subjectId,
+    balance: r.balance.toString(),
+    ledger_sum: r.ledgerSum.toString(),
+    drift: r.drift.toString(),
+  });
+}
+
 function toLimitRuleStatusView(r: LimitRuleStatus): LimitRuleStatusView {
   return limitRuleStatusViewSchema.parse({
     dimension: r.dimension,
@@ -2196,6 +2267,7 @@ function toLedgerView(row: LedgerRow): LedgerView {
     id: row.id,
     tenant_id: row.tenantId,
     account_id: row.accountId,
+    subject_id: row.subjectId,
     type: row.type,
     credits_delta: row.creditsDelta.toString(),
     balance_after: row.balanceAfter.toString(),
@@ -2209,6 +2281,7 @@ function toJobView(row: Job): JobView {
   return jobViewSchema.parse({
     job_id: row.id,
     tenant_id: row.tenantId,
+    subject_id: row.subjectId,
     resource_id: row.resourceId,
     status: row.status,
     exec_mode: row.execMode,
@@ -2285,6 +2358,7 @@ function toUsageLogView(row: UsageLogRow): UsageLogView {
   return usageLogViewSchema.parse({
     id: row.id,
     tenant_id: row.tenantId,
+    subject_id: row.subjectId,
     model: row.model,
     input_tokens: row.inputTokens,
     output_tokens: row.outputTokens,

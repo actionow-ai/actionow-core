@@ -25,6 +25,8 @@ export type ConsoleApiKeyView = z.infer<typeof consoleApiKeyViewSchema>;
 /** One of the caller-tenant's jobs (`GET /console/usage` → `jobs`). `cost` is a µcredit string. */
 export const consoleJobViewSchema = z.object({
   job_id: z.string(),
+  /** The end-user (subject) this job was attributed to (记录系统); `null` → tenant-level. */
+  subject_id: z.string().nullable(),
   resource_id: z.string(),
   status: z.string(),
   exec_mode: z.string(),
@@ -36,6 +38,8 @@ export type ConsoleJobView = z.infer<typeof consoleJobViewSchema>;
 /** One of the caller-tenant's ledger rows (`GET /console/usage` → `ledger`). Money is µcredit strings. */
 export const consoleLedgerViewSchema = z.object({
   id: z.string(),
+  /** The end-user (subject) this money movement was attributed to (记录系统); `null` → pool. */
+  subject_id: z.string().nullable(),
   type: z.string(),
   credits_delta: z.string(),
   balance_after: z.string(),
@@ -62,6 +66,8 @@ export type ConsoleModelView = z.infer<typeof consoleModelViewSchema>;
 /** One per-call usage-log row for the caller's tenant (`GET /console/usage-log`; tenant implicit). */
 export const consoleUsageLogViewSchema = z.object({
   id: z.string(),
+  /** The end-user (subject) this call was attributed to (记录系统); `null` → tenant-level. */
+  subject_id: z.string().nullable(),
   model: z.string(),
   input_tokens: z.number(),
   output_tokens: z.number(),
