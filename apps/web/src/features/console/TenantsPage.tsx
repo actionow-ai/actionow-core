@@ -31,6 +31,7 @@ import type {
   LedgerView,
   PaymentIntentView,
   ProvisionView,
+  SubjectView,
   TenantView,
 } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
@@ -415,6 +416,86 @@ function TenantDetailDrawer({
     enabled: tab === 'payments',
   });
 
+  // Subjects (end-users; unified tenancy G-A) — lazy-loaded with the tab.
+  const [newExtId, setNewExtId] = useState('');
+  const [newName, setNewName] = useState('');
+  const subjects = useQuery({
+    queryKey: qk.subjects(tenant.id),
+    queryFn: () => api.listSubjects(tenant.id),
+    enabled: tab === 'users',
+  });
+  const refreshSubjects = () => qc.invalidateQueries({ queryKey: qk.subjects(tenant.id) });
+  const createSubject = useMutation({
+    mutationFn: () =>
+      api.createSubject(tenant.id, {
+        externalId: newExtId.trim(),
+        ...(newName.trim() !== '' ? { displayName: newName.trim() } : {}),
+      }),
+    onSuccess: async () => {
+      await refreshSubjects();
+      toast(t('tenants.detail.users.created'));
+      setNewExtId('');
+      setNewName('');
+    },
+    onError: mutationError(t),
+  });
+  const toggleSubject = useMutation({
+    mutationFn: (s: SubjectView) =>
+      api.updateSubject(tenant.id, s.id, {
+        status: s.status === 'active' ? 'disabled' : 'active',
+      }),
+    onSuccess: () => refreshSubjects(),
+    onError: mutationError(t),
+  });
+  const removeSubject = useMutation({
+    mutationFn: (sid: string) => api.deleteSubject(tenant.id, sid),
+    onSuccess: async () => {
+      await refreshSubjects();
+      toast(t('tenants.detail.users.deleted'));
+    },
+    onError: mutationError(t),
+  });
+
+  const subjectCols: Column<SubjectView>[] = [
+    {
+      key: 'identity',
+      header: t('tenants.detail.users.cols.identity'),
+      grow: true,
+      cell: (r) => r.external_id ?? r.email ?? r.id,
+    },
+    {
+      key: 'name',
+      header: t('tenants.detail.users.cols.name'),
+      cell: (r) => r.display_name ?? '—',
+      width: '128px',
+    },
+    {
+      key: 'status',
+      header: t('tenants.detail.users.cols.status'),
+      noClip: true,
+      cell: (r) => (
+        <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
+      width: '88px',
+    },
+    {
+      key: 'actions',
+      header: '',
+      noClip: true,
+      width: '150px',
+      cell: (r) => (
+        <div style={{ display: 'flex', gap: 'var(--s-1)' }}>
+          <Button variant="ghost" size="sm" onClick={() => toggleSubject.mutate(r)}>
+            {r.status === 'active' ? t('common.disable') : t('common.enable')}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => removeSubject.mutate(r.id)}>
+            {t('common.delete')}
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   const ledgerCols: Column<LedgerView>[] = [
     {
       key: 'time',
@@ -570,6 +651,49 @@ function TenantDetailDrawer({
     </div>
   );
 
+  const usersPanel = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+      <div
+        className="panel"
+        style={{
+          borderRadius: 'var(--r-md)',
+          padding: 'var(--s-4)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--s-3)',
+        }}
+      >
+        <TextField
+          label={t('tenants.detail.users.form.externalId')}
+          value={newExtId}
+          onChange={setNewExtId}
+        />
+        <TextField
+          label={t('tenants.detail.users.form.name')}
+          value={newName}
+          onChange={setNewName}
+        />
+        <Button
+          variant="cta"
+          onClick={() => createSubject.mutate()}
+          loading={createSubject.isPending}
+          disabled={newExtId.trim() === ''}
+        >
+          <PlusIcon size={14} weight="bold" /> {t('tenants.detail.users.add')}
+        </Button>
+      </div>
+      <DataTable
+        columns={subjectCols}
+        rows={subjects.data ?? []}
+        rowKey={(r) => r.id}
+        loading={subjects.isLoading}
+        error={subjects.isError}
+        onRetry={() => void subjects.refetch()}
+        empty={t('tenants.detail.users.empty')}
+      />
+    </div>
+  );
+
   return (
     <Drawer open title={tenant.name} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
@@ -603,12 +727,15 @@ function TenantDetailDrawer({
           ariaLabel={t('tenants.detail.tabsLabel')}
           tabs={[
             { value: 'account', label: t('tenants.detail.account') },
+            { value: 'users', label: t('tenants.detail.users.tab') },
             { value: 'ledger', label: t('tenants.detail.ledger') },
             { value: 'payments', label: t('tenants.detail.payments') },
           ]}
         >
           {tab === 'account' ? (
             accountPanel
+          ) : tab === 'users' ? (
+            usersPanel
           ) : tab === 'ledger' ? (
             <DataTable
               columns={ledgerCols}

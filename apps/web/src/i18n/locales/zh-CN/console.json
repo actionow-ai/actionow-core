@@ -395,6 +395,15 @@
       "payments": "支付",
       "noLedger": "暂无流水",
       "noPayments": "暂无支付",
+      "users": {
+        "tab": "终端用户",
+        "add": "添加终端用户",
+        "created": "终端用户已创建",
+        "deleted": "终端用户已移除",
+        "empty": "暂无终端用户",
+        "form": { "externalId": "外部 ID", "name": "显示名称" },
+        "cols": { "identity": "标识", "name": "名称", "status": "状态" }
+      },
       "planBound": "额度套餐已更新",
       "plan": {
         "label": "额度套餐",
@@ -1089,6 +1098,8 @@
   "common": {
     "edit": "编辑",
     "delete": "删除",
+    "disable": "停用",
+    "enable": "启用",
     "filter": "过滤",
     "clearFilters": "清除筛选",
     "confirm": "确认",

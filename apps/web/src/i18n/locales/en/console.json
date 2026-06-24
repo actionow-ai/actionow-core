@@ -395,6 +395,15 @@
       "payments": "Payments",
       "noLedger": "No ledger entries",
       "noPayments": "No payments",
+      "users": {
+        "tab": "End-users",
+        "add": "Add end-user",
+        "created": "End-user created",
+        "deleted": "End-user removed",
+        "empty": "No end-users yet",
+        "form": { "externalId": "External ID", "name": "Display name" },
+        "cols": { "identity": "Identity", "name": "Name", "status": "Status" }
+      },
       "planBound": "Limit plan updated",
       "plan": {
         "label": "Limit plan",
@@ -1089,6 +1098,8 @@
   "common": {
     "edit": "Edit",
     "delete": "Delete",
+    "disable": "Disable",
+    "enable": "Enable",
     "filter": "Filter",
     "clearFilters": "Clear filters",
     "confirm": "Confirm",
