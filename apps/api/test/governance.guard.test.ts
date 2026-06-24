@@ -9,6 +9,7 @@ const m = vi.hoisted(() => ({
   incrUsage: vi.fn(),
   windowedUsage: vi.fn(),
   getModelRateLimit: vi.fn(),
+  checkLimitAlert: vi.fn(),
 }));
 vi.mock('@actionow/db', () => ({
   resolveEffectiveRules: m.resolveEffectiveRules,
@@ -16,6 +17,7 @@ vi.mock('@actionow/db', () => ({
   incrUsage: m.incrUsage,
   windowedUsage: m.windowedUsage,
   getModelRateLimit: m.getModelRateLimit,
+  checkLimitAlert: m.checkLimitAlert,
   periodKeyFor: (period: string) => period,
   periodStartFor: () => new Date(0),
 }));
@@ -70,6 +72,7 @@ beforeEach(() => {
   m.incrUsage.mockReset();
   m.windowedUsage.mockReset();
   m.getModelRateLimit.mockReset().mockResolvedValue(null);
+  m.checkLimitAlert.mockReset().mockResolvedValue(undefined);
 });
 
 describe('GovernanceGuard', () => {

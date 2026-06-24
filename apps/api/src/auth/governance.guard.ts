@@ -1,4 +1,5 @@
 import {
+  checkLimitAlert,
   type Database,
   getModelRateLimit,
   getUsage,
@@ -157,7 +158,8 @@ export class GovernanceGuard implements CanActivate {
       // Known at request time → check-then-incr (one request consumes one count).
       const used = await getUsage(this.db, key);
       if (used >= cap) throw engineLimitExceeded(this.msg(rule));
-      await incrUsage(this.db, key, 1n, periodStartFor(period, now));
+      const newUsed = await incrUsage(this.db, key, 1n, periodStartFor(period, now));
+      await checkLimitAlert(this.db, rule, subjectType, subjectId, key.periodKey, newUsed);
       return;
     }
     // spend / tokens — value known only at settle → pre-check the period total.

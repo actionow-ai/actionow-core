@@ -5,10 +5,14 @@ import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
+  accrueLimitUsage,
+  createAccount,
   createLimitPlan,
+  createTenant,
   getLimitPlanById,
   getUsage,
   incrUsage,
+  listLimitAlerts,
   listLimitPlans,
   listRulesByPlan,
   listUsageForSubject,
@@ -16,6 +20,7 @@ import {
   recordLimitAlert,
   replacePlanRules,
   resolveEffectiveRules,
+  setTenantLimitPlan,
   softDeleteLimitPlan,
   updateLimitPlan,
 } from '../src/repositories/index.js';
@@ -38,7 +43,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE limit_alert, limit_usage, limit_rule, limit_plan RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE limit_alert, limit_usage, limit_rule, limit_plan, account, tenant RESTART IDENTITY CASCADE`;
 });
 
 describe('limit_plan CRUD + rules', () => {
@@ -132,6 +137,89 @@ describe('usage accumulator + period keys', () => {
     expect(periodKeyFor('day', now)).toBe('2026-06-24');
     expect(periodKeyFor('month', now)).toBe('2026-06');
     expect(periodKeyFor('total', now)).toBe('total');
+  });
+});
+
+describe('accrueLimitUsage (settle accrual + alerts)', () => {
+  it('accrues spend/tokens into the tenant plan bucket and fires the alert at threshold', async () => {
+    const plan = await createLimitPlan(db, { name: 'budget' });
+    await replacePlanRules(db, plan.id, [
+      { dimension: 'spend', period: 'month', cap: 100n, alertPct: 80 },
+      { dimension: 'tokens', period: 'total', cap: 1000n },
+      { dimension: 'spend', period: 'rolling_24h', cap: 999n }, // rolling → NOT accrued
+    ]);
+    const tenant = await createTenant(db, { name: 't' });
+    await createAccount(db, { tenantId: tenant.id });
+    await setTenantLimitPlan(db, tenant.id, plan.id);
+
+    const now = new Date('2026-06-24T12:00:00Z');
+    await accrueLimitUsage(db, {
+      tenantId: tenant.id,
+      apiKeyId: null,
+      model: 'm',
+      cost: 80n,
+      tokens: 300n,
+      now,
+    });
+    expect(
+      await getUsage(db, {
+        subjectType: 'tenant',
+        subjectId: tenant.id,
+        dimension: 'spend',
+        periodKey: '2026-06',
+      }),
+    ).toBe(80n);
+    expect(
+      await getUsage(db, {
+        subjectType: 'tenant',
+        subjectId: tenant.id,
+        dimension: 'tokens',
+        periodKey: 'total',
+      }),
+    ).toBe(300n);
+    // rolling spend rule must NOT have materialized a bucket
+    expect(
+      await getUsage(db, {
+        subjectType: 'tenant',
+        subjectId: tenant.id,
+        dimension: 'spend',
+        periodKey: 'rolling_24h',
+      }),
+    ).toBe(0n);
+    // spend 80 >= 80% of 100 → one alert
+    expect((await listLimitAlerts(db)).length).toBe(1);
+
+    // accrue more; alert stays idempotent for the 80% threshold
+    await accrueLimitUsage(db, {
+      tenantId: tenant.id,
+      apiKeyId: null,
+      model: 'm',
+      cost: 30n,
+      tokens: 0n,
+      now,
+    });
+    expect(
+      await getUsage(db, {
+        subjectType: 'tenant',
+        subjectId: tenant.id,
+        dimension: 'spend',
+        periodKey: '2026-06',
+      }),
+    ).toBe(110n);
+    expect((await listLimitAlerts(db)).length).toBe(1);
+  });
+
+  it('is a no-op when neither key nor tenant has a plan', async () => {
+    const tenant = await createTenant(db, { name: 't2' });
+    await createAccount(db, { tenantId: tenant.id });
+    await accrueLimitUsage(db, {
+      tenantId: tenant.id,
+      apiKeyId: null,
+      model: 'm',
+      cost: 50n,
+      tokens: 9n,
+    });
+    expect((await listUsageForSubject(db, 'tenant', tenant.id)).length).toBe(0);
   });
 });
 

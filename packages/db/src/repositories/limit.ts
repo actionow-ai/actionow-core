@@ -337,6 +337,103 @@ export async function recordLimitAlert(
   return rows[0];
 }
 
+/**
+ * Record a threshold alert IF `used` crosses `rule.alert_pct` of `rule.cap`.
+ * Idempotent per (subject, rule, period, pct). No-op when the rule has no
+ * `alert_pct` or the threshold isn't reached. Used by both the guard (requests)
+ * and settle accrual (spend/tokens).
+ */
+export async function checkLimitAlert(
+  db: DbOrTx,
+  rule: LimitRuleRow,
+  subjectType: string,
+  subjectId: string,
+  periodKey: string,
+  used: bigint,
+): Promise<void> {
+  if (rule.alertPct === null) return;
+  if (used * 100n < rule.cap * BigInt(rule.alertPct)) return;
+  await recordLimitAlert(db, {
+    subjectType,
+    subjectId,
+    ruleId: rule.id,
+    dimension: rule.dimension,
+    periodKey,
+    used,
+    cap: rule.cap,
+    pct: rule.alertPct,
+  });
+}
+
+/**
+ * Accrue a settled call's `spend` (µUSD `cost`) and `tokens` into `limit_usage`
+ * for every materialized (day/month/total) rule of the subject's bound plans
+ * (key + tenant), then fire threshold alerts. Rolling/minute rules are NOT
+ * accrued (they read `usage_log` directly). A no-op when neither subject has a
+ * plan. Called from {@link insertUsageLog} so every billed call accrues once.
+ */
+export async function accrueLimitUsage(
+  db: DbOrTx,
+  input: {
+    tenantId: string;
+    apiKeyId: string | null;
+    model: string;
+    cost: bigint;
+    tokens: bigint;
+    now?: Date;
+  },
+): Promise<void> {
+  const now = input.now ?? new Date();
+  const keyPlanRow =
+    input.apiKeyId !== null
+      ? await db
+          .select({ p: apiKey.limitPlanId })
+          .from(apiKey)
+          .where(eq(apiKey.id, input.apiKeyId))
+          .limit(1)
+      : [];
+  const tenantPlanRow = await db
+    .select({ p: account.limitPlanId })
+    .from(account)
+    .where(and(eq(account.tenantId, input.tenantId), isNull(account.deletedAt)))
+    .limit(1);
+  const keyPlanId = keyPlanRow[0]?.p ?? null;
+  const tenantPlanId = tenantPlanRow[0]?.p ?? null;
+
+  const subjects: { type: 'key' | 'tenant'; id: string; planId: string }[] = [];
+  if (keyPlanId !== null && input.apiKeyId !== null)
+    subjects.push({ type: 'key', id: input.apiKeyId, planId: keyPlanId });
+  if (tenantPlanId !== null)
+    subjects.push({ type: 'tenant', id: input.tenantId, planId: tenantPlanId });
+  if (subjects.length === 0) return;
+
+  for (const subj of subjects) {
+    const rules = await resolveEffectiveRules(db, subj.planId, null);
+    for (const rule of rules) {
+      if (rule.dimension !== 'spend' && rule.dimension !== 'tokens') continue;
+      const period = rule.period ?? 'total';
+      if (period !== 'day' && period !== 'month' && period !== 'total') continue;
+      if (rule.modelScope !== null && rule.modelScope !== input.model) continue;
+      const delta = rule.dimension === 'spend' ? input.cost : input.tokens;
+      if (delta <= 0n) continue;
+      const periodKey = periodKeyFor(period, now);
+      const newUsed = await incrUsage(
+        db,
+        {
+          subjectType: subj.type,
+          subjectId: subj.id,
+          dimension: rule.dimension,
+          periodKey,
+          modelScope: rule.modelScope ?? '',
+        },
+        delta,
+        periodStartFor(period, now),
+      );
+      await checkLimitAlert(db, rule, subj.type, subj.id, periodKey, newUsed);
+    }
+  }
+}
+
 /** Recent alerts (newest first) for the operator alert list. */
 export function listLimitAlerts(db: DbOrTx, limit = 100): Promise<LimitAlertRow[]> {
   return db

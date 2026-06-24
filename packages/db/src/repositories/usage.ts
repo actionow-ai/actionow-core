@@ -2,6 +2,7 @@ import type { InferSelectModel, SQL } from 'drizzle-orm';
 import { and, eq, gte, lt, sql } from 'drizzle-orm';
 
 import { usageLog } from '../schema/index.js';
+import { accrueLimitUsage } from './limit.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
@@ -51,6 +52,15 @@ export async function insertUsageLog(db: DbOrTx, input: InsertUsageLogInput): Pr
     .returning();
   const row = rows[0];
   if (!row) throw new Error('insertUsageLog: insert returned no row');
+  // Accrue this billed call into the governance limit counters (spend/tokens) +
+  // fire threshold alerts. No-op when neither the key nor tenant has a plan.
+  await accrueLimitUsage(db, {
+    tenantId: row.tenantId,
+    apiKeyId: row.apiKeyId,
+    model: row.model,
+    cost: row.cost,
+    tokens: BigInt((input.inputTokens ?? 0) + (input.outputTokens ?? 0)),
+  });
   return row;
 }
 

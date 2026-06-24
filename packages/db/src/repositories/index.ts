@@ -166,6 +166,8 @@ export {
 } from './job.js';
 export { appendLedger, type LedgerInput } from './ledger.js';
 export {
+  accrueLimitUsage,
+  checkLimitAlert,
   countPlanBindings,
   createLimitPlan,
   getLimitPlanById,
