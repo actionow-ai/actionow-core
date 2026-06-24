@@ -16,7 +16,7 @@ import {
 
 import { account } from './accounts.js';
 import { resource } from './catalog.js';
-import { tenant } from './identity.js';
+import { subject, tenant } from './identity.js';
 
 export const job = pgTable(
   'job',
@@ -48,6 +48,9 @@ export const job = pgTable(
     callbackUrl: text('callback_url'),
     idempotencyKey: text('idempotency_key'),
     endUser: text('end_user'),
+    // The subject (end-user) this job is attributed to (unified tenancy G-B);
+    // NULL → tenant-level (today). Settle/fail route the wallet branch off this.
+    subjectId: uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),
     error: jsonb('error').$type<UnifiedError>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -55,6 +58,7 @@ export const job = pgTable(
   (t) => [
     index('job_status_idx').on(t.status),
     index('job_tenant_idx').on(t.tenantId),
+    index('job_subject_idx').on(t.subjectId),
     check(
       'job_status_allowed',
       sql`${t.status} IN ('queued', 'running', 'succeeded', 'failed', 'canceled')`,
@@ -81,6 +85,9 @@ export const ledgerTxn = pgTable(
     // audit trail. ON DELETE SET NULL keeps the ledger row (money history is
     // append-only) even if a job is ever pruned. Null for non-job rows (topup).
     jobId: uuid('job_id').references(() => job.id, { onDelete: 'set null' }),
+    // Subject (end-user) financial attribution (unified tenancy G-B); survives
+    // subject deletion (ON DELETE SET NULL). NULL → tenant-level. Ledger = SoT.
+    subjectId: uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),
     pricebookVersion: bigint('pricebook_version', { mode: 'number' }),
     modifiersApplied: jsonb('modifiers_applied'),
     usageVector: jsonb('usage_vector'),
@@ -94,6 +101,7 @@ export const ledgerTxn = pgTable(
     index('ledger_job_idx').on(t.jobId),
     index('ledger_txn_tenant_idx').on(t.tenantId),
     index('ledger_txn_account_idx').on(t.accountId),
+    index('ledger_txn_subject_idx').on(t.subjectId),
   ],
 );
 
@@ -155,6 +163,8 @@ export const webhookOutbox = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     jobId: uuid('job_id').notNull(),
+    // Subject (end-user) the callback belongs to (unified tenancy G-B); null → tenant-level.
+    subjectId: uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),
     url: text('url').notNull(),
     payload: jsonb('payload').notNull(),
     // status allowed values: pending (default) | sent (markWebhookSent) | dead (markWebhookDead)
@@ -166,6 +176,7 @@ export const webhookOutbox = pgTable(
   (t) => [
     index('outbox_due_idx').on(t.status, t.nextAttemptAt),
     index('webhook_outbox_job_idx').on(t.jobId),
+    index('webhook_outbox_subject_idx').on(t.subjectId),
     check('webhook_outbox_status_allowed', sql`${t.status} IN ('pending', 'sent', 'dead')`),
   ],
 );

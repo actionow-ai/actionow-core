@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { bigint, check, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
-import { tenant } from './identity.js';
+import { subject, tenant } from './identity.js';
 
 /**
  * One row per relay call (§C.4 — the "日志" page). Lightweight and additive: it
@@ -41,11 +41,14 @@ export const usageLog = pgTable(
     providerType: text('provider_type'),
     /** The api_key that made this call (P1c); null when no key was presented. */
     apiKeyId: uuid('api_key_id'),
+    /** The subject (end-user) this call is attributed to (unified tenancy G-B); null → tenant-level. */
+    subjectId: uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index('usage_log_tenant_idx').on(t.tenantId, t.createdAt),
     index('usage_log_model_idx').on(t.model),
+    index('usage_log_subject_idx').on(t.subjectId),
     check('usage_log_status_allowed', sql`${t.status} IN ('succeeded', 'failed', 'canceled')`),
   ],
 );

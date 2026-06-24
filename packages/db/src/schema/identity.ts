@@ -45,6 +45,9 @@ export const apiKey = pgTable(
     // The limit plan (额度套餐) bound to this key (governance-limits). NULLABLE →
     // null means no per-key limits; the tenant's plan (if any) still applies.
     limitPlanId: uuid('limit_plan_id').references(() => limitPlan.id),
+    // The subject (end-user) this key is scoped to (unified tenancy G-B). NULL →
+    // a tenant-level key (today's behavior). Lazy `() =>` FK avoids any ESM cycle.
+    subjectId: uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),
     rateLimit: bigint('rate_limit', { mode: 'number' }),
     // status allowed values: active | disabled (createApiKey default + disableApiKeyForTenant)
     status: text('status').notNull().default('active'),
@@ -55,6 +58,7 @@ export const apiKey = pgTable(
   (t) => [
     uniqueIndex('api_key_hash_idx').on(t.hash),
     index('api_key_tenant_idx').on(t.tenantId),
+    index('api_key_subject_idx').on(t.subjectId),
     check('api_key_status_allowed', sql`${t.status} IN ('active', 'disabled')`),
   ],
 );
