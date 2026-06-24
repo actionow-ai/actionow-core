@@ -372,6 +372,17 @@ export {
   type SettleJobInput,
 } from './settle.js';
 export {
+  createSubAccount,
+  getSubAccount,
+  holdSubAccount,
+  releaseSubAccountHold,
+  settleSubAccount,
+  type SubAccountRow,
+  topupSubAccount,
+  transferCredits,
+  type TransferDirection,
+} from './sub-account.js';
+export {
   createSubject,
   type CreateSubjectInput,
   findSubjectByEmail,
