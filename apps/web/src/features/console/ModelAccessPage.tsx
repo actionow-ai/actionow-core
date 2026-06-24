@@ -1,5 +1,6 @@
 import { ArrowsClockwiseIcon, PencilSimpleIcon, PlusIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { TFunction } from 'i18next';
 import type { CSSProperties, ReactNode } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,9 +10,10 @@ import { BrandIcon } from '../../components/data/BrandIcon';
 import { QueryBoundary } from '../../components/data/QueryBoundary';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { FilterMenu } from '../../components/ui/FilterMenu';
 import { RowAction } from '../../components/ui/RowAction';
 import { toast } from '../../components/ui/toast';
-import { MODALITIES, toOptions } from '../../lib/api/enums';
+import { enumLabel, MODALITIES } from '../../lib/api/enums';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ChannelView, ModelView, ProviderPluginView } from '../../lib/api/types';
@@ -22,6 +24,7 @@ import { ChannelEditor } from './ChannelEditor';
 import { ModelEditor } from './ModelEditor';
 import { ModelGrid } from './ModelGrid';
 import { PluginEditor } from './PluginsPage';
+import { type FacetDef, useFacets } from './useFacets';
 
 /**
  * 模型接入 — the single 3-pane management surface. Three EQUAL columns, each with
@@ -60,13 +63,10 @@ export function ModelAccessPage() {
       { replace: true },
     );
 
-  // Per-column search + filter state.
+  // Per-column free-text search (the multi-dimension filters are FilterMenu/useFacets).
   const [pluginQ, setPluginQ] = useState('');
-  const [pluginModality, setPluginModality] = useState('');
   const [channelQ, setChannelQ] = useState('');
-  const [channelStatus, setChannelStatus] = useState('');
   const [modelQ, setModelQ] = useState('');
-  const [modelStatus, setModelStatus] = useState('');
 
   const plugins = useQuery({
     queryKey: qk.plugins(),
@@ -76,11 +76,11 @@ export function ModelAccessPage() {
   const pluginRows = plugins.data ?? [];
   const selectedPlugin =
     pluginRows.find((p) => p.id === pluginId) ?? (pluginId === '' ? pluginRows[0] : undefined);
+  const pluginFacets = useFacets(pluginRows, pluginFacetDefs(t));
   const pq = pluginQ.trim().toLowerCase();
   const filteredPlugins = pluginRows.filter(
     (p) =>
-      (pq === '' || `${p.label} ${p.slug}`.toLowerCase().includes(pq)) &&
-      (pluginModality === '' || p.modalities.includes(pluginModality)),
+      (pq === '' || `${p.label} ${p.slug}`.toLowerCase().includes(pq)) && pluginFacets.match(p),
   );
 
   const channels = useQuery({
@@ -91,12 +91,24 @@ export function ModelAccessPage() {
   const channelRows = channels.data ?? [];
   const selectedChannel =
     channelRows.find((c) => c.id === cid) ?? (cid === '' ? channelRows[0] : undefined);
+  const channelFacets = useFacets(channelRows, channelFacetDefs(t));
   const cq = channelQ.trim().toLowerCase();
   const filteredChannels = channelRows.filter(
     (c) =>
       (cq === '' || `${c.provider_type} ${c.endpoint ?? ''}`.toLowerCase().includes(cq)) &&
-      (channelStatus === '' || c.status === channelStatus),
+      channelFacets.match(c),
   );
+
+  // The selected channel's models — fetched here (deduped with ModelGrid's same
+  // query key) so the column header can build model facets; the list filters by
+  // the resulting `match` + the model search box.
+  const channelModels = useQuery({
+    queryKey: qk.channelModels(selectedChannel?.id ?? ''),
+    queryFn: () =>
+      api.listChannelModels(selectedChannel?.resource_id ?? '', selectedChannel?.id ?? ''),
+    enabled: selectedChannel !== undefined,
+  });
+  const modelFacets = useFacets(channelModels.data ?? [], modelFacetDefs(t));
 
   const [pluginEdit, setPluginEdit] = useState<ProviderPluginView | 'new' | null>(null);
   const [channelEdit, setChannelEdit] = useState<ChannelView | 'new' | null>(null);
@@ -134,13 +146,6 @@ export function ModelAccessPage() {
     onError: mutationError(t),
   });
 
-  const STATUS_FILTER = [
-    { value: '', label: t('modelAccess.filterAll') },
-    { value: 'active', label: t('status.active', 'active') },
-    { value: 'disabled', label: t('status.disabled', 'disabled') },
-  ];
-  const MODALITY_FILTER = [{ value: '', label: t('modelAccess.filterAll') }, ...toOptions(MODALITIES, t)];
-
   return (
     <div style={WRAP}>
       {/* ── Column 1: plugin library ─────────────────────────────────────── */}
@@ -151,9 +156,15 @@ export function ModelAccessPage() {
           search={pluginQ}
           onSearch={setPluginQ}
           searchPlaceholder={t('modelAccess.searchPlugins')}
-          filterValue={pluginModality}
-          onFilter={setPluginModality}
-          filterOptions={MODALITY_FILTER}
+          filter={
+            <FilterMenu
+              groups={pluginFacets.groups}
+              selected={pluginFacets.selected}
+              onToggle={pluginFacets.toggle}
+              onClear={pluginFacets.clear}
+              activeCount={pluginFacets.activeCount}
+            />
+          }
           action={
             <Button variant="ghost" size="sm" onClick={() => setPluginEdit('new')}>
               <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('plugins.new')}
@@ -229,9 +240,15 @@ export function ModelAccessPage() {
               search={channelQ}
               onSearch={setChannelQ}
               searchPlaceholder={t('modelAccess.searchChannels')}
-              filterValue={channelStatus}
-              onFilter={setChannelStatus}
-              filterOptions={STATUS_FILTER}
+              filter={
+                <FilterMenu
+                  groups={channelFacets.groups}
+                  selected={channelFacets.selected}
+                  onToggle={channelFacets.toggle}
+                  onClear={channelFacets.clear}
+                  activeCount={channelFacets.activeCount}
+                />
+              }
               action={
                 <Button variant="ghost" size="sm" onClick={() => setChannelEdit('new')}>
                   <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('modelAccess.addChannel')}
@@ -275,9 +292,15 @@ export function ModelAccessPage() {
               search={modelQ}
               onSearch={setModelQ}
               searchPlaceholder={t('modelAccess.searchModels')}
-              filterValue={modelStatus}
-              onFilter={setModelStatus}
-              filterOptions={STATUS_FILTER}
+              filter={
+                <FilterMenu
+                  groups={modelFacets.groups}
+                  selected={modelFacets.selected}
+                  onToggle={modelFacets.toggle}
+                  onClear={modelFacets.clear}
+                  activeCount={modelFacets.activeCount}
+                />
+              }
               action={
                 <>
                   <Button
@@ -306,7 +329,7 @@ export function ModelAccessPage() {
                 variant="list"
                 showHeader={false}
                 search={modelQ}
-                statusFilter={modelStatus}
+                match={modelFacets.match}
                 onSync={() => syncChannel.mutate(selectedChannel)}
                 onAddModel={() => setModelEdit({ resourceId: selectedChannel.resource_id })}
                 onSelectModel={(m: ModelView) =>
@@ -371,16 +394,14 @@ export function ModelAccessPage() {
   );
 }
 
-/** A column's sticky header: title · count · add-action, then a search + filter row. */
+/** A column's header: title · count · add-action, then a search box + a filter popover. */
 function ColumnHead({
   title,
   count,
   search,
   onSearch,
   searchPlaceholder,
-  filterValue,
-  onFilter,
-  filterOptions,
+  filter,
   action,
 }: {
   title: string;
@@ -388,9 +409,8 @@ function ColumnHead({
   search: string;
   onSearch: (v: string) => void;
   searchPlaceholder: string;
-  filterValue: string;
-  onFilter: (v: string) => void;
-  filterOptions: { value: string; label: string }[];
+  /** A custom filter control (FilterMenu) — never a native <select>. */
+  filter: ReactNode;
   action: ReactNode;
 }) {
   return (
@@ -420,18 +440,7 @@ function ColumnHead({
           value={search}
           onChange={(e) => onSearch(e.target.value)}
         />
-        <select
-          className="field"
-          style={{ width: 'auto', flexShrink: 0 }}
-          value={filterValue}
-          onChange={(e) => onFilter(e.target.value)}
-        >
-          {filterOptions.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        {filter}
       </div>
     </div>
   );
@@ -455,6 +464,61 @@ function Placeholder({ text, inset }: { text: string; inset?: boolean }) {
       {text}
     </div>
   );
+}
+
+// --- per-column filter dimensions (useFacets) ------------------------------
+function pluginFacetDefs(t: TFunction): FacetDef<ProviderPluginView>[] {
+  return [
+    {
+      key: 'modality',
+      title: t('facets.modality'),
+      values: (p) => p.modalities,
+      label: (v) => enumLabel(t, MODALITIES, v),
+    },
+    { key: 'protocol', title: t('plugins.cols.protocol'), values: (p) => [p.protocol] },
+    { key: 'auth', title: t('plugins.cols.auth'), values: (p) => [p.auth_strategy] },
+    {
+      key: 'kind',
+      title: t('plugins.cols.kind'),
+      values: (p) => [p.builtin ? 'builtin' : 'custom'],
+      label: (v) => t(v === 'builtin' ? 'plugins.builtin' : 'plugins.custom'),
+    },
+    {
+      key: 'status',
+      title: t('plugins.cols.status'),
+      values: (p) => [p.status],
+      label: (v) => t('status.' + v, v),
+    },
+  ];
+}
+function channelFacetDefs(t: TFunction): FacetDef<ChannelView>[] {
+  return [
+    {
+      key: 'status',
+      title: t('channels.form.status'),
+      values: (c) => [c.status],
+      label: (v) => t('status.' + v, v),
+    },
+    { key: 'platform', title: t('channels.form.platform'), values: (c) => [c.resource_id] },
+  ];
+}
+function modelFacetDefs(t: TFunction): FacetDef<ModelView>[] {
+  return [
+    {
+      key: 'status',
+      title: t('channels.form.status'),
+      values: (m) => [m.status],
+      label: (v) => t('status.' + v, v),
+    },
+    {
+      key: 'modality',
+      title: t('facets.modality'),
+      values: (m) => [m.modality],
+      label: (v) => enumLabel(t, MODALITIES, v),
+    },
+    { key: 'maker', title: t('facets.maker'), values: (m) => (m.maker !== null ? [m.maker] : []) },
+    { key: 'tag', title: t('facets.tag'), values: (m) => m.tags },
+  ];
 }
 
 // Three EQUAL columns (插件 │ 通道 │ 模型).

@@ -34,8 +34,8 @@ export function ModelGrid({
   showHeader = true,
   /** Filter served models by name/maker substring. */
   search = '',
-  /** Filter served models by status ('' = all). */
-  statusFilter = '',
+  /** Multi-dimension facet predicate (useFacets) — defaults to "always match". */
+  match = () => true,
 }: {
   resourceId: string;
   channel: ChannelView;
@@ -46,7 +46,7 @@ export function ModelGrid({
   variant?: 'grid' | 'list';
   showHeader?: boolean;
   search?: string;
-  statusFilter?: string;
+  match?: (m: ModelView) => boolean;
 }) {
   const { t } = useTranslation('console');
   const api = useAdminApi();
@@ -57,9 +57,7 @@ export function ModelGrid({
 
   const q = search.trim().toLowerCase();
   const rows = (query.data ?? []).filter(
-    (m) =>
-      (q === '' || `${m.name} ${m.maker ?? ''}`.toLowerCase().includes(q)) &&
-      (statusFilter === '' || m.status === statusFilter),
+    (m) => (q === '' || `${m.name} ${m.maker ?? ''}`.toLowerCase().includes(q)) && match(m),
   );
 
   return (
