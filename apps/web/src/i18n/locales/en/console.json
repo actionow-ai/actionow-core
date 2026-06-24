@@ -1015,6 +1015,8 @@
   "common": {
     "edit": "Edit",
     "delete": "Delete",
+    "filter": "Filter",
+    "clearFilters": "Clear filters",
     "confirm": "Confirm",
     "cancel": "Cancel",
     "retry": "Retry",

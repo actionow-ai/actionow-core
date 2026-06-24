@@ -1015,6 +1015,8 @@
   "common": {
     "edit": "编辑",
     "delete": "删除",
+    "filter": "过滤",
+    "clearFilters": "清除筛选",
     "confirm": "确认",
     "cancel": "取消",
     "retry": "重试",
