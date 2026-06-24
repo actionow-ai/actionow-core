@@ -50,11 +50,23 @@ export function ApiKeysPage() {
     staleTime: STALE_REFERENCE,
   });
   const planOptions = (plans.data ?? []).map((p) => ({ value: p.id, label: p.name }));
+  // Subjects (end-users) of the selected tenant — optional scope for a minted key.
+  const subjects = useQuery({
+    queryKey: qk.subjects(tenantId),
+    queryFn: () => api.listSubjects(tenantId),
+    enabled: tenantId !== '',
+    staleTime: STALE_REFERENCE,
+  });
+  const subjectOptions = (subjects.data ?? []).map((s) => ({
+    value: s.id,
+    label: s.display_name ?? s.external_id ?? s.email ?? s.id.slice(0, 8),
+  }));
 
   const [formOpen, setFormOpen] = useState(false);
   const [allowlist, setAllowlist] = useState('');
   const [rateLimit, setRateLimit] = useState(0);
   const [routeGroupId, setRouteGroupId] = useState('');
+  const [subjectId, setSubjectId] = useState('');
   const [plaintext, setPlaintext] = useState<string | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<ApiKeyView | undefined>(undefined);
 
@@ -69,6 +81,8 @@ export function ApiKeysPage() {
       if (rateLimit > 0) body.rateLimit = rateLimit;
       // Empty = leave on the `default` group (the schema rejects an empty string).
       if (routeGroupId !== '') body.routeGroupId = routeGroupId;
+      // Empty = a tenant-level key (no end-user scope).
+      if (subjectId !== '') body.subjectId = subjectId;
       return api.createApiKey(body);
     },
     onSuccess: async (r) => {
@@ -77,6 +91,7 @@ export function ApiKeysPage() {
       setAllowlist('');
       setRateLimit(0);
       setRouteGroupId('');
+      setSubjectId('');
       setPlaintext(r.plaintext);
     },
     onError: mutationError(t),
@@ -145,6 +160,7 @@ export function ApiKeysPage() {
             title={<code style={{ fontSize: 'var(--fs-sm)' }}>{r.id}</code>}
             badge={<StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />}
             chips={[
+              ...(r.subject_id !== null ? [`${t('apiKeys.subject.chip')}: ${r.subject_id.slice(0, 8)}`] : []),
               ...(r.rate_limit !== null ? [`${String(r.rate_limit)}/min`] : []),
               ...(r.resource_allowlist.length > 0 ? r.resource_allowlist : []),
             ]}
@@ -204,6 +220,14 @@ export function ApiKeysPage() {
           onChange={setRouteGroupId}
           options={groupOptions}
           placeholder={t('apiKeys.group.default')}
+        />
+        <SelectField
+          label={t('apiKeys.subject.label')}
+          tooltip={t('apiKeys.subject.tip')}
+          value={subjectId}
+          onChange={setSubjectId}
+          options={subjectOptions}
+          placeholder={t('apiKeys.subject.none')}
         />
       </Modal>
 

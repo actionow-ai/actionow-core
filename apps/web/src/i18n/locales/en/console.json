@@ -513,6 +513,12 @@
       "none": "Unlimited",
       "tip": "Bind a limit plan (spend budget / rate limit / quota) to this key. Unbound = unlimited."
     },
+    "subject": {
+      "label": "End-user",
+      "none": "Tenant-level (none)",
+      "chip": "end-user",
+      "tip": "Scope this key to one end-user (subject); its calls are attributed/isolated to that user. Unset = a tenant-level key."
+    },
     "revoke": "Revoke",
     "revoked": "Key revoked",
     "revokeConfirm": {

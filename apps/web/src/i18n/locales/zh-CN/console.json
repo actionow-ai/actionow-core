@@ -513,6 +513,12 @@
       "none": "不限制",
       "tip": "将 Key 绑定到额度套餐(消费预算 / 限流 / 配额)。不绑定 = 不受限制。"
     },
+    "subject": {
+      "label": "终端用户",
+      "none": "租户级(不限定)",
+      "chip": "终端用户",
+      "tip": "把 Key 限定到某个终端用户(end-user);该 Key 的调用归因/隔离到该用户。不选 = 租户级 Key。"
+    },
     "revoke": "吊销",
     "revoked": "Key 已吊销",
     "revokeConfirm": {
