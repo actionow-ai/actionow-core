@@ -43,8 +43,20 @@ export const channelViewSchema = z.object({
   fault_policy_id: z.string().nullable(),
   /** Count of models this channel serves (channel_model links; catalog supply-hierarchy). */
   model_count: z.number(),
+  /** Selectable icon key (icon_asset.key); null → derived from plugin/provider. */
+  icon: z.string().nullable(),
 });
 export type ChannelView = z.infer<typeof channelViewSchema>;
+
+/** One selectable icon (`GET /admin/icons`) for the plugin/channel/model picker. */
+export const iconAssetViewSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  category: z.string(),
+  /** Inline custom SVG markup; null → frontend renders via its brand registry/monogram. */
+  svg: z.string().nullable(),
+});
+export type IconAssetView = z.infer<typeof iconAssetViewSchema>;
 
 /** `POST /admin/resources/:id/channels/:channelId/models` body: link an existing model. */
 export const channelModelLinkInputSchema = z.object({
@@ -77,6 +89,8 @@ export const modelViewSchema = z.object({
   context_length: z.number().nullable(),
   /** Reasoning mode (推理): none | optional | always; null when unset. */
   reasoning: z.string().nullable(),
+  /** Selectable icon key (icon_asset.key); null → inherit channel/plugin icon. */
+  icon: z.string().nullable(),
   status: z.string(),
   created_at: z.string(),
 });

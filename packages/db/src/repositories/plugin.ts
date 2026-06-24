@@ -48,6 +48,8 @@ export interface CreatePluginInput {
   manifest: Record<string, unknown>;
   handler: string;
   builtin?: boolean;
+  /** Selectable icon key (icon_asset.key); null/omitted → derived from slug. */
+  icon?: string | null | undefined;
 }
 
 /** Editable fields (manifest/handler edits bump `version`). */
@@ -58,6 +60,8 @@ export interface UpdatePluginInput {
   authStrategy?: string;
   manifest?: Record<string, unknown>;
   handler?: string;
+  /** Selectable icon key (icon_asset.key); `null` clears it. */
+  icon?: string | null | undefined;
   status?: string;
 }
 
@@ -112,6 +116,7 @@ export async function createPlugin(
       manifest: input.manifest,
       handler: input.handler,
       builtin: input.builtin ?? false,
+      ...(input.icon !== undefined ? { icon: input.icon } : {}),
     })
     .returning();
   const row = rows[0];
@@ -138,6 +143,7 @@ export async function updatePlugin(
       ...(patch.authStrategy !== undefined ? { authStrategy: patch.authStrategy } : {}),
       ...(patch.manifest !== undefined ? { manifest: patch.manifest } : {}),
       ...(patch.handler !== undefined ? { handler: patch.handler } : {}),
+      ...(patch.icon !== undefined ? { icon: patch.icon } : {}),
       ...(patch.status !== undefined ? { status: patch.status } : {}),
       version: sql`${providerPlugin.version} + 1`,
       updatedAt: new Date(),
@@ -168,6 +174,7 @@ export async function upsertBuiltinPlugin(
       manifest: input.manifest,
       handler: input.handler,
       builtin: true,
+      ...(input.icon !== undefined ? { icon: input.icon } : {}),
     })
     .onConflictDoUpdate({
       target: providerPlugin.slug,
@@ -178,6 +185,7 @@ export async function upsertBuiltinPlugin(
         authStrategy: input.authStrategy,
         manifest: input.manifest,
         handler: input.handler,
+        ...(input.icon !== undefined ? { icon: input.icon } : {}),
         version: sql`${providerPlugin.version} + 1`,
         updatedAt: new Date(),
         deletedAt: null,

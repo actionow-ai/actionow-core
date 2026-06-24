@@ -67,6 +67,8 @@ export const createChannelSchema = z.object({
   outputCostUsdPer1m: z.number().nonnegative().optional(),
   /** Bind a fault-tolerance policy (调用容错) — a `fault_policy` id; omitted → engine defaults. */
   faultPolicyId: z.string().uuid().optional(),
+  /** Selectable icon key (icon_asset.key). */
+  icon: z.string().optional(),
 });
 export type CreateChannelBody = z.infer<typeof createChannelSchema>;
 
@@ -89,6 +91,8 @@ export const updateChannelSchema = z.object({
   outputCostUsdPer1m: z.number().nonnegative().nullable().optional(),
   /** Bind/unbind a fault-tolerance policy (调用容错); a `fault_policy` id, or `null` to unbind. */
   faultPolicyId: z.string().uuid().nullable().optional(),
+  /** Selectable icon key (icon_asset.key); `null` clears it. */
+  icon: z.string().nullable().optional(),
 });
 export type UpdateChannelBody = z.infer<typeof updateChannelSchema>;
 
@@ -241,6 +245,8 @@ export const createModelSchema = z.object({
   contextLength: z.number().int().positive().optional(),
   /** Reasoning mode (推理): none | optional | always. */
   reasoning: z.enum(['none', 'optional', 'always']).optional(),
+  /** Selectable icon key (icon_asset.key). */
+  icon: z.string().optional(),
   status: z.enum(['active', 'disabled']).optional(),
 });
 export type CreateModelBody = z.infer<typeof createModelSchema>;
@@ -269,6 +275,8 @@ export const updateModelSchema = z.object({
   contextLength: z.number().int().positive().nullable().optional(),
   /** Reasoning mode (推理): none | optional | always; `null` clears it. */
   reasoning: z.enum(['none', 'optional', 'always']).nullable().optional(),
+  /** Selectable icon key (icon_asset.key); `null` clears it. */
+  icon: z.string().nullable().optional(),
   status: z.enum(['active', 'disabled']).optional(),
 });
 export type UpdateModelBody = z.infer<typeof updateModelSchema>;

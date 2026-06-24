@@ -80,6 +80,8 @@ export const model = pgTable(
     contextLength: integer('context_length'),
     // Reasoning mode: none | optional | always (无/可切换/始终); null when unset.
     reasoning: text('reasoning'),
+    // Selectable icon key (icon_asset.key); null → inherit channel/plugin icon / monogram.
+    icon: text('icon'),
     // status allowed values: active | disabled (create default + admin DTO + sync insert)
     status: text('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

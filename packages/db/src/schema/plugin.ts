@@ -37,6 +37,8 @@ export const providerPlugin = pgTable(
     handler: text('handler').notNull(),
     version: integer('version').notNull().default(1),
     builtin: boolean('builtin').notNull().default(false),
+    // Selectable icon key (icon_asset.key); null → derive from slug/monogram.
+    icon: text('icon'),
     // status allowed values: active | disabled
     status: text('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

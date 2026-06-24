@@ -24,6 +24,7 @@ import {
 import { creditsToMicro } from '@actionow/domain';
 import { hashPassword } from '@actionow/infra';
 
+import { seedIcons } from './seed-icons.js';
 import { OFFICIAL_PRICE_SEED_KEYS, seedOfficialPrices } from './seed-official-prices.js';
 import { seedPlugins } from './seed-plugins.js';
 import { PROVIDER_SEED_IDS, seedProviders } from './seed-providers.js';
@@ -304,6 +305,7 @@ async function main(): Promise<void> {
   await seedOfficialPrices(db);
   // P2: built-in provider plugins (OpenAI Images + async media relay) as DATA.
   await seedPlugins(db);
+  await seedIcons(db);
 
   const log = console.log.bind(console);
   log('seed complete');

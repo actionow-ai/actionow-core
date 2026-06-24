@@ -15,6 +15,8 @@ import {
   codexLoginStartViewSchema,
   type FaultPolicyView,
   faultPolicyViewSchema,
+  type IconAssetView,
+  iconAssetViewSchema,
   type JobView,
   jobViewSchema,
   type LedgerView,
@@ -70,6 +72,7 @@ import type {
   ApiKeyRow,
   ChannelHealthRow,
   FaultPolicyRow,
+  IconAssetRow,
   Job,
   LedgerRow,
   ModelGrantRow,
@@ -812,6 +815,14 @@ export class AdminController {
     await this.admin.deleteModifier(id);
   }
 
+  // ----- icon catalog (selectable brand icons) -----
+
+  @Get('icons')
+  @ApiOperation({ summary: 'List the selectable icon catalog (plugin/channel/model picker)' })
+  async listIcons(): Promise<IconAssetView[]> {
+    return (await this.admin.listIcons()).map(toIconAssetView);
+  }
+
   // ----- provider plugins (P2) -----
 
   @Get('plugins')
@@ -1465,6 +1476,15 @@ function toOAuthSessionView(session: {
 }
 
 /** Project a `provider_plugin` row → its API view (snake_case; manifest validated). */
+function toIconAssetView(row: IconAssetRow): IconAssetView {
+  return iconAssetViewSchema.parse({
+    key: row.key,
+    label: row.label,
+    category: row.category,
+    svg: row.svg,
+  });
+}
+
 function toPluginView(row: ProviderPluginRow): ProviderPluginView {
   return providerPluginViewSchema.parse({
     id: row.id,
@@ -1477,6 +1497,7 @@ function toPluginView(row: ProviderPluginRow): ProviderPluginView {
     handler: row.handler,
     version: row.version,
     builtin: row.builtin,
+    icon: row.icon,
     status: row.status,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
@@ -1538,6 +1559,7 @@ function toChannelView(row: UpstreamChannelRow, modelCount = 0): ChannelView {
     output_cost_per_1m: row.outputCostPer1m === null ? null : row.outputCostPer1m.toString(),
     fault_policy_id: row.faultPolicyId,
     model_count: modelCount,
+    icon: row.icon,
   });
 }
 
@@ -1651,6 +1673,7 @@ function toModelView(row: ModelRow, servedChannelIds: string[] = []): ModelView 
     maker: row.maker,
     context_length: row.contextLength,
     reasoning: row.reasoning,
+    icon: row.icon,
     status: row.status,
     created_at: row.createdAt.toISOString(),
   });

@@ -34,6 +34,8 @@ export interface CreateModelInput {
   readonly contextLength?: number | null | undefined;
   /** Reasoning mode: none | optional | always; omitted/null → unset. */
   readonly reasoning?: string | null | undefined;
+  /** Selectable icon key (icon_asset.key); omitted/null → unset. */
+  readonly icon?: string | null | undefined;
   readonly status?: string | undefined;
 }
 
@@ -56,6 +58,7 @@ export async function createModel(db: DbOrTx, input: CreateModelInput): Promise<
       ...(input.maker !== undefined ? { maker: input.maker } : {}),
       ...(input.contextLength !== undefined ? { contextLength: input.contextLength } : {}),
       ...(input.reasoning !== undefined ? { reasoning: input.reasoning } : {}),
+      ...(input.icon !== undefined ? { icon: input.icon } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
     })
     .returning();
@@ -411,6 +414,7 @@ export async function listChannelModels(db: DbOrTx, channelId: string): Promise<
       maker: model.maker,
       contextLength: model.contextLength,
       reasoning: model.reasoning,
+      icon: model.icon,
       status: model.status,
       createdAt: model.createdAt,
       deletedAt: model.deletedAt,
@@ -532,6 +536,8 @@ export interface UpdateModelInput {
   readonly contextLength?: number | null | undefined;
   /** Reasoning mode; `null` clears it. */
   readonly reasoning?: string | null | undefined;
+  /** Selectable icon key (icon_asset.key); `null` clears it. */
+  readonly icon?: string | null | undefined;
   /** `active` | `disabled`. */
   readonly status?: string | undefined;
 }
@@ -560,6 +566,7 @@ export async function updateModel(
   if (patch.maker !== undefined) set.maker = patch.maker;
   if (patch.contextLength !== undefined) set.contextLength = patch.contextLength;
   if (patch.reasoning !== undefined) set.reasoning = patch.reasoning;
+  if (patch.icon !== undefined) set.icon = patch.icon;
   if (patch.status !== undefined) set.status = patch.status;
   if (Object.keys(set).length === 0) {
     return getModelByName(db, name);
