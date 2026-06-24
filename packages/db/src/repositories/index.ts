@@ -401,6 +401,7 @@ export {
   resolveIdentityLink,
   resolveOrCreateSubject,
   softDeleteSubject,
+  type SubjectDeleteResult,
   type SubjectIdentityInput,
   type SubjectRow,
   updateSubject,

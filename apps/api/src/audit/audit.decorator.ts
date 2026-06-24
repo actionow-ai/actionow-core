@@ -14,10 +14,10 @@ export interface AuditResolveCtx {
 
 /** What a resolver may pull out of the request/result for the audit row. */
 export interface AuditResolved {
-  tenantId?: string | null;
-  subjectId?: string | null;
-  targetId?: string | null;
-  meta?: Record<string, unknown>;
+  tenantId?: string | null | undefined;
+  subjectId?: string | null | undefined;
+  targetId?: string | null | undefined;
+  meta?: Record<string, unknown> | undefined;
 }
 
 /** Declarative audit spec attached to a handler via {@link Audit}. */

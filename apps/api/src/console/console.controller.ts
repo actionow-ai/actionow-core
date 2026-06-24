@@ -46,9 +46,12 @@ import {
   Query,
   Req,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { Audit } from '../audit/audit.decorator.js';
+import { AuditInterceptor } from '../audit/audit.interceptor.js';
 import { engineInvalidInput, engineUnauthorized } from '../common/errors.js';
 import { mapPageEnvelope, type PageEnvelope, toPageParams } from '../common/pagination.js';
 import { ENV } from '../common/tokens.js';
@@ -233,6 +236,8 @@ function parseConsoleAnalyticsUsage(raw: Record<string, string>): ConsoleAnalyti
 @ApiTags('console')
 @ApiBearerAuth('jwt')
 @UseGuards(ConsoleGuard)
+// 记录系统: `@Audit(...)` member mutations emit an audit_log row (actor = req.console member).
+@UseInterceptors(AuditInterceptor)
 @Controller('console')
 export class ConsoleController {
   constructor(
@@ -244,6 +249,12 @@ export class ConsoleController {
   @Post('api-keys')
   @HttpCode(201)
   @ApiOperation({ summary: 'Mint an API key for your tenant (plaintext returned once)' })
+  @Audit({
+    action: 'api_key.create',
+    target: 'api_key',
+    // NEVER record the plaintext — only the id.
+    resolve: ({ result }) => ({ targetId: (result as { id?: string }).id ?? null }),
+  })
   async createApiKey(
     @Body(new ZodBody(consoleCreateApiKeySchema)) dto: ConsoleCreateApiKeyDto,
     @Req() req: ConsoleRequest,
@@ -268,6 +279,14 @@ export class ConsoleController {
   @Post('api-keys/:id/rotate')
   @HttpCode(201)
   @ApiOperation({ summary: 'Rotate an API key (new plaintext; old key disabled)' })
+  @Audit({
+    action: 'api_key.rotate',
+    target: 'api_key',
+    resolve: ({ params, result }) => ({
+      targetId: params.id ?? null,
+      meta: { newKeyId: (result as { id?: string }).id },
+    }),
+  })
   async rotateApiKey(
     @Param('id') id: string,
     @Req() req: ConsoleRequest,
@@ -280,6 +299,11 @@ export class ConsoleController {
   @Delete('api-keys/:id')
   @HttpCode(200)
   @ApiOperation({ summary: 'Disable one of your API keys' })
+  @Audit({
+    action: 'api_key.disable',
+    target: 'api_key',
+    resolve: ({ params }) => ({ targetId: params.id ?? null }),
+  })
   async disableApiKey(
     @Param('id') id: string,
     @Req() req: ConsoleRequest,
@@ -461,6 +485,17 @@ export class ConsoleController {
   @Post('payments/intents')
   @HttpCode(201)
   @ApiOperation({ summary: 'Top up your tenant (returns a checkout handle)' })
+  @Audit({
+    action: 'payment.intent_create',
+    target: 'payment',
+    resolve: ({ result, body }) => {
+      const b = body as { amount_minor?: string; currency?: string; provider?: string };
+      return {
+        targetId: (result as { intent_id?: string }).intent_id ?? null,
+        meta: { amount_minor: b.amount_minor, currency: b.currency, provider: b.provider },
+      };
+    },
+  })
   async topup(
     @Body(new ZodBody(consoleCreateIntentSchema)) dto: ConsoleCreateIntentDto,
     @Req() req: ConsoleRequest,
@@ -507,6 +542,8 @@ export class ConsoleController {
 
   @Patch('settings')
   @ApiOperation({ summary: 'Change your password (verifies the current one)' })
+  // Records the ACTION only — never the password (no resolver meta).
+  @Audit({ action: 'user.change_password', target: 'user' })
   async changePassword(
     @Body(new ZodBody(consoleChangePasswordSchema)) dto: ConsoleChangePasswordDto,
     @Req() req: ConsoleRequest,

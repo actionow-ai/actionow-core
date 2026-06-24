@@ -1,8 +1,9 @@
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 
-import { subject, subjectIdentity, tenant, userIdentity } from '../schema/index.js';
+import { apiKey, subject, subjectIdentity, tenant, userIdentity } from '../schema/index.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
+import { getSubAccount, transferCredits } from './sub-account.js';
 import type { DbOrTx } from './types.js';
 
 /** A `subject` (end-user) row. */
@@ -151,18 +152,65 @@ export async function updateSubject(
  * The full cascade (disable subject-scoped keys, sweep residual sub-wallet to
  * the tenant pool) lands in G-E once those tables exist.
  */
+/** The result of a soft-delete + cascade (记录系统): what was swept/disabled. */
+export interface SubjectDeleteResult {
+  readonly id: string;
+  /** µcredits swept from the subject's HARD sub-wallet back to the tenant pool. */
+  readonly sweptMicro: bigint;
+  /** Subject-scoped api keys disabled by the cascade. */
+  readonly disabledKeys: number;
+}
+
+/**
+ * Soft-delete a subject AND cascade the cleanup that the bare flag used to skip
+ * (记录系统): in ONE transaction — (a) hide the subject (frees its
+ * external_id/email), (b) sweep any residual *available* sub-wallet balance back
+ * to the tenant pool (writing the transfer ledger rows; held funds, i.e.
+ * in-flight jobs, are left untouched), (c) disable the subject's subject-scoped
+ * api keys so they stop authenticating. Returns the cascade summary, or
+ * `undefined` when the subject was absent/already deleted (idempotent).
+ */
 export async function softDeleteSubject(
   db: DbOrTx,
   tenantId: string,
   id: string,
-): Promise<string | undefined> {
-  const now = new Date();
-  const rows = await db
-    .update(subject)
-    .set({ deletedAt: now, status: 'disabled', updatedAt: now })
-    .where(and(eq(subject.id, id), eq(subject.tenantId, tenantId), isNull(subject.deletedAt)))
-    .returning({ id: subject.id });
-  return rows[0]?.id;
+): Promise<SubjectDeleteResult | undefined> {
+  const run = async (tx: DbOrTx): Promise<SubjectDeleteResult | undefined> => {
+    const now = new Date();
+    const rows = await tx
+      .update(subject)
+      .set({ deletedAt: now, status: 'disabled', updatedAt: now })
+      .where(and(eq(subject.id, id), eq(subject.tenantId, tenantId), isNull(subject.deletedAt)))
+      .returning({ id: subject.id });
+    const row = rows[0];
+    if (row === undefined) return undefined;
+
+    // Sweep the subject's HARD sub-wallet AVAILABLE balance back to the pool.
+    let sweptMicro = 0n;
+    const sub = await getSubAccount(tx, tenantId, id);
+    if (sub !== undefined) {
+      const available = sub.creditBalance - sub.creditHeld;
+      if (available > 0n) {
+        await transferCredits(tx, {
+          tenantId,
+          subjectId: id,
+          amount: available,
+          direction: 'to_tenant',
+        });
+        sweptMicro = available;
+      }
+    }
+
+    // Disable subject-scoped api keys (a deleted subject's keys must stop working).
+    const disabled = await tx
+      .update(apiKey)
+      .set({ status: 'disabled', deletedAt: now, updatedAt: now })
+      .where(and(eq(apiKey.subjectId, id), isNull(apiKey.deletedAt)))
+      .returning({ id: apiKey.id });
+
+    return { id: row.id, sweptMicro, disabledKeys: disabled.length };
+  };
+  return 'transaction' in db ? db.transaction((tx) => run(tx)) : run(db);
 }
 
 /**

@@ -473,14 +473,24 @@ export class AdminController {
   @Audit({
     action: 'subject.delete',
     target: 'subject',
-    resolve: ({ params }) => ({
+    resolve: ({ params, req }) => ({
       tenantId: params.id ?? null,
       subjectId: params.sid ?? null,
       targetId: params.sid ?? null,
+      meta: (req as { auditMeta?: Record<string, unknown> }).auditMeta,
     }),
   })
-  async deleteSubject(@Param('id') tenantId: string, @Param('sid') sid: string): Promise<void> {
-    await this.admin.deleteSubject(tenantId, sid);
+  async deleteSubject(
+    @Param('id') tenantId: string,
+    @Param('sid') sid: string,
+    @Req() req: AdminRequest,
+  ): Promise<void> {
+    const cascade = await this.admin.deleteSubject(tenantId, sid);
+    // Stash the cascade summary so the audit interceptor records it as meta.
+    (req as AdminRequest & { auditMeta?: Record<string, unknown> }).auditMeta = {
+      sweptMicro: cascade.sweptMicro.toString(),
+      disabledKeys: cascade.disabledKeys,
+    };
   }
 
   // ----- subject sub-wallets (HARD mode; unified tenancy G-E) -----
