@@ -13,11 +13,14 @@ import {
   createApiKeySchema,
   createOAuthSessionSchema,
   createSecretSchema,
+  createSubAccountSchema,
   createSubjectSchema,
   createTenantSchema,
   generateCodesSchema,
   provisionSchema,
   topupSchema,
+  topupSubAccountSchema,
+  transferCreditsSchema,
   updateApiKeyGroupSchema,
   updateCredentialMetaSchema,
   updateSubjectSchema,
@@ -27,6 +30,7 @@ import {
   accountViewSchema,
   adminTokenViewSchema,
   provisionViewSchema,
+  subAccountViewSchema,
   subjectViewSchema,
   tenantViewSchema,
 } from './admin-views.js';
@@ -179,6 +183,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   // --- component schemas (named) derived from the migrated contracts ---
   const Tenant = registry.register('TenantView', tenantViewSchema);
   const Subject = registry.register('SubjectView', subjectViewSchema);
+  const SubAccount = registry.register('SubAccountView', subAccountViewSchema);
   const Account = registry.register('AccountView', accountViewSchema);
   const AdminToken = registry.register('AdminTokenView', adminTokenViewSchema);
   const Provision = registry.register('ProvisionView', provisionViewSchema);
@@ -263,6 +268,9 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const UpdateTenant = registry.register('UpdateTenantBody', updateTenantSchema);
   const CreateSubject = registry.register('CreateSubjectBody', createSubjectSchema);
   const UpdateSubject = registry.register('UpdateSubjectBody', updateSubjectSchema);
+  const CreateSubAccount = registry.register('CreateSubAccountBody', createSubAccountSchema);
+  const TopupSubAccount = registry.register('TopupSubAccountBody', topupSubAccountSchema);
+  const TransferCredits = registry.register('TransferCreditsBody', transferCreditsSchema);
   const CreateAccount = registry.register('CreateAccountBody', createAccountSchema);
   const Topup = registry.register('TopupBody', topupSchema);
   const CreateApiKey = registry.register('CreateApiKeyBody', createApiKeySchema);
@@ -801,6 +809,38 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     response: Subject,
   });
   del('/admin/tenants/{id}/users/{sid}', 'Soft-delete a subject', 'tenants');
+  // subject sub-wallets (HARD mode; unified tenancy G-E)
+  getOne(
+    '/admin/tenants/{id}/users/{sid}/sub-account',
+    'Get a subject sub-wallet (balance/held)',
+    SubAccount,
+    'tenants',
+  );
+  write({
+    method: 'post',
+    path: '/admin/tenants/{id}/users/{sid}/sub-account',
+    summary: 'Open a HARD sub-wallet for a subject',
+    tag: 'tenants',
+    body: CreateSubAccount,
+    response: SubAccount,
+    created: true,
+  });
+  write({
+    method: 'post',
+    path: '/admin/tenants/{id}/users/{sid}/sub-account/topup',
+    summary: "Credit a subject's sub-wallet",
+    tag: 'tenants',
+    body: TopupSubAccount,
+    response: SubAccount,
+  });
+  write({
+    method: 'post',
+    path: '/admin/tenants/{id}/users/{sid}/sub-account/transfer',
+    summary: 'Transfer credits between the tenant pool and a sub-wallet',
+    tag: 'tenants',
+    body: TransferCredits,
+    response: SubAccount,
+  });
   write({
     method: 'post',
     path: '/admin/accounts',

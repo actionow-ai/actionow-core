@@ -47,6 +47,7 @@ import {
   createResource,
   createRouteGroup,
   type CreateRouteGroupInput,
+  createSubAccount,
   createSubject,
   createTenant,
   createUpstreamChannel,
@@ -70,6 +71,7 @@ import {
   getResource,
   getRouteGroupById,
   getSecretRefById,
+  getSubAccount,
   getSubjectById,
   getTenant,
   grantModel,
@@ -162,9 +164,12 @@ import {
   softDeleteRouteGroup,
   softDeleteSecretRef,
   softDeleteSubject,
+  type SubAccountRow,
   type SubjectRow,
   type TenantRow,
   topUp,
+  topupSubAccount,
+  transferCredits,
   unlinkAllForChannel,
   unlinkChannelModel,
   updateFaultPolicy,
@@ -226,6 +231,7 @@ import type {
   CreateResourceDto,
   CreateRouteGroupDto,
   CreateSecretDto,
+  CreateSubAccountDto,
   CreateSubjectDto,
   CreateTenantDto,
   EnsureResourceDto,
@@ -235,6 +241,8 @@ import type {
   ProxyProbeDto,
   SyncChannelModelsDto,
   TopupDto,
+  TopupSubAccountDto,
+  TransferCreditsDto,
   UpdateApiKeyGroupDto,
   UpdateChannelDto,
   UpdateFaultPolicyDto,
@@ -498,6 +506,55 @@ export class AdminService {
   async deleteSubject(tenantId: string, id: string): Promise<void> {
     const deleted = await softDeleteSubject(this.db, tenantId, id);
     if (deleted === undefined) throw engineNotFound(`subject ${id} not found`);
+  }
+
+  // ----- subject sub-wallets (HARD mode; unified tenancy G-E) -----
+
+  /** Open a HARD sub-wallet for a subject (404 if the subject isn't in the tenant). */
+  async createSubAccount(
+    tenantId: string,
+    subjectId: string,
+    dto: CreateSubAccountDto,
+  ): Promise<SubAccountRow> {
+    await this.getSubject(tenantId, subjectId);
+    const creditBalance = dto.credits === undefined ? undefined : creditsToMicro(dto.credits);
+    return createSubAccount(this.db, {
+      tenantId,
+      subjectId,
+      ...(creditBalance !== undefined ? { creditBalance } : {}),
+    });
+  }
+
+  /** The subject's sub-wallet (balance/held), or 404 when none. */
+  async getSubAccount(tenantId: string, subjectId: string): Promise<SubAccountRow> {
+    const sub = await getSubAccount(this.db, tenantId, subjectId);
+    if (sub === undefined) throw engineNotFound(`sub-wallet for subject ${subjectId} not found`);
+    return sub;
+  }
+
+  /** Credit a subject's sub-wallet (404 when none). Returns the new µcredit balance. */
+  async topupSubAccount(
+    tenantId: string,
+    subjectId: string,
+    dto: TopupSubAccountDto,
+  ): Promise<bigint> {
+    await this.getSubAccount(tenantId, subjectId);
+    return topupSubAccount(this.db, tenantId, subjectId, creditsToMicro(dto.credits));
+  }
+
+  /** Transfer credits between the tenant pool and the subject's sub-wallet (404 when none). */
+  async transferCredits(
+    tenantId: string,
+    subjectId: string,
+    dto: TransferCreditsDto,
+  ): Promise<void> {
+    await this.getSubAccount(tenantId, subjectId);
+    await transferCredits(this.db, {
+      tenantId,
+      subjectId,
+      amount: creditsToMicro(dto.credits),
+      direction: dto.direction,
+    });
   }
 
   // ----- accounts -----

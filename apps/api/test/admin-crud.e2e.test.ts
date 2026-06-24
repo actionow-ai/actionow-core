@@ -128,7 +128,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE request_idempotency, route_group_channel, route_group, api_key, subject, ledger_txn, dify_binding, redemption_code, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, oauth_session, secret_material, secret_ref, "user" RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE request_idempotency, route_group_channel, route_group, api_key, sub_account, subject, ledger_txn, dify_binding, redemption_code, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, oauth_session, secret_material, secret_ref, "user" RESTART IDENTITY CASCADE`;
 });
 
 function auth(req: request.Test): request.Test {
@@ -1340,5 +1340,49 @@ describe('G-A: tenant subjects (end-users) CRUD', () => {
         .post('/admin/api-keys')
         .send({ tenantId: other, subjectId: sid }),
     ).expect(404);
+  });
+
+  it('opens, tops up, and transfers a subject sub-wallet (G-E)', async () => {
+    const tenantId = await makeTenant('subj-wallet');
+    await auth(
+      request(app.getHttpServer()).post('/admin/accounts').send({ tenantId, credits: 100 }),
+    ).expect(201);
+    const created = await auth(
+      request(app.getHttpServer())
+        .post(`/admin/tenants/${tenantId}/users`)
+        .send({ externalId: 'w' }),
+    ).expect(201);
+    const sid = created.body.id as string;
+
+    // open a sub-wallet with a 10-credit opening balance → 10_000_000 µcredits
+    const sub = await auth(
+      request(app.getHttpServer())
+        .post(`/admin/tenants/${tenantId}/users/${sid}/sub-account`)
+        .send({ credits: 10 }),
+    ).expect(201);
+    expect(sub.body.subject_id).toBe(sid);
+    expect(sub.body.credit_balance).toBe('10000000');
+
+    // topup +5 → 15
+    const topped = await auth(
+      request(app.getHttpServer())
+        .post(`/admin/tenants/${tenantId}/users/${sid}/sub-account/topup`)
+        .send({ credits: 5 }),
+    ).expect(200);
+    expect(topped.body.credit_balance).toBe('15000000');
+
+    // transfer 20 from the tenant pool → sub-wallet → 35
+    const moved = await auth(
+      request(app.getHttpServer())
+        .post(`/admin/tenants/${tenantId}/users/${sid}/sub-account/transfer`)
+        .send({ credits: 20, direction: 'to_subject' }),
+    ).expect(200);
+    expect(moved.body.credit_balance).toBe('35000000');
+
+    // GET reflects the final balance
+    const got = await auth(
+      request(app.getHttpServer()).get(`/admin/tenants/${tenantId}/users/${sid}/sub-account`),
+    ).expect(200);
+    expect(got.body.credit_balance).toBe('35000000');
   });
 });

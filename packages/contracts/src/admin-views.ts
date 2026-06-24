@@ -54,6 +54,22 @@ export const subjectViewSchema = z.object({
 export type SubjectView = z.infer<typeof subjectViewSchema>;
 
 /**
+ * A per-subject **sub-wallet** (unified tenancy G-E, HARD mode) as served by
+ * `GET /admin/tenants/:id/users/:sid/sub-account`. Money is a µcredit decimal
+ * **string** (bigint serialized), never a JS number.
+ */
+export const subAccountViewSchema = z.object({
+  id: z.string(),
+  tenant_id: z.string(),
+  subject_id: z.string(),
+  credit_balance: z.string(),
+  credit_held: z.string(),
+  status: z.string(),
+  created_at: z.string(),
+});
+export type SubAccountView = z.infer<typeof subAccountViewSchema>;
+
+/**
  * An admin SERVICE TOKEN (M2M credential) as served by `GET /admin/tokens`. NEVER
  * includes the token hash or plaintext — only metadata. `expires_at` is a nullable
  * ISO string (`null` → never expires); `created_by` is the minting admin's id.

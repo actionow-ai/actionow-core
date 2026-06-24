@@ -68,6 +68,8 @@ import {
   routeGroupViewSchema,
   type SecretView,
   secretViewSchema,
+  type SubAccountView,
+  subAccountViewSchema,
   type SubjectView,
   subjectViewSchema,
   type TenantView,
@@ -107,6 +109,7 @@ import type {
   RouteGroupChannelRow,
   RouteGroupRow,
   SecretRefView,
+  SubAccountRow,
   SubjectRow,
   TenantRow,
   UpstreamChannelRow,
@@ -185,6 +188,8 @@ import {
   createRouteGroupSchema,
   type CreateSecretDto,
   createSecretSchema,
+  type CreateSubAccountDto,
+  createSubAccountSchema,
   type CreateSubjectDto,
   createSubjectSchema,
   type CreateTenantDto,
@@ -215,6 +220,10 @@ import {
   testPluginRequestSchema,
   type TopupDto,
   topupSchema,
+  type TopupSubAccountDto,
+  topupSubAccountSchema,
+  type TransferCreditsDto,
+  transferCreditsSchema,
   type UpdateApiKeyGroupDto,
   updateApiKeyGroupSchema,
   type UpdateChannelDto,
@@ -411,6 +420,54 @@ export class AdminController {
   @ApiOperation({ summary: 'Soft-delete a subject (frees its external_id/email)' })
   async deleteSubject(@Param('id') tenantId: string, @Param('sid') sid: string): Promise<void> {
     await this.admin.deleteSubject(tenantId, sid);
+  }
+
+  // ----- subject sub-wallets (HARD mode; unified tenancy G-E) -----
+
+  @Post('tenants/:id/users/:sid/sub-account')
+  @HttpCode(201)
+  @Idempotent()
+  @ApiOperation({ summary: 'Open a HARD sub-wallet for a subject (optional opening balance)' })
+  async createSubAccount(
+    @Param('id') tenantId: string,
+    @Param('sid') sid: string,
+    @Body(new ZodBody(createSubAccountSchema)) dto: CreateSubAccountDto,
+  ): Promise<SubAccountView> {
+    return toSubAccountView(await this.admin.createSubAccount(tenantId, sid, dto));
+  }
+
+  @Get('tenants/:id/users/:sid/sub-account')
+  @ApiOperation({ summary: "Get a subject's sub-wallet (balance/held) or 404" })
+  async getSubAccount(
+    @Param('id') tenantId: string,
+    @Param('sid') sid: string,
+  ): Promise<SubAccountView> {
+    return toSubAccountView(await this.admin.getSubAccount(tenantId, sid));
+  }
+
+  @Post('tenants/:id/users/:sid/sub-account/topup')
+  @HttpCode(200)
+  @Idempotent()
+  @ApiOperation({ summary: "Credit a subject's sub-wallet (credits → µcredits)" })
+  async topupSubAccount(
+    @Param('id') tenantId: string,
+    @Param('sid') sid: string,
+    @Body(new ZodBody(topupSubAccountSchema)) dto: TopupSubAccountDto,
+  ): Promise<SubAccountView> {
+    await this.admin.topupSubAccount(tenantId, sid, dto);
+    return toSubAccountView(await this.admin.getSubAccount(tenantId, sid));
+  }
+
+  @Post('tenants/:id/users/:sid/sub-account/transfer')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Transfer credits between the tenant pool and a sub-wallet' })
+  async transferCredits(
+    @Param('id') tenantId: string,
+    @Param('sid') sid: string,
+    @Body(new ZodBody(transferCreditsSchema)) dto: TransferCreditsDto,
+  ): Promise<SubAccountView> {
+    await this.admin.transferCredits(tenantId, sid, dto);
+    return toSubAccountView(await this.admin.getSubAccount(tenantId, sid));
   }
 
   // ----- accounts -----
@@ -1584,6 +1641,18 @@ function toTenantView(row: TenantRow): TenantView {
     id: row.id,
     name: row.name,
     isolation_mode: row.isolationMode,
+    created_at: row.createdAt.toISOString(),
+  });
+}
+
+function toSubAccountView(row: SubAccountRow): SubAccountView {
+  return subAccountViewSchema.parse({
+    id: row.id,
+    tenant_id: row.tenantId,
+    subject_id: row.subjectId,
+    credit_balance: row.creditBalance.toString(),
+    credit_held: row.creditHeld.toString(),
+    status: row.status,
     created_at: row.createdAt.toISOString(),
   });
 }

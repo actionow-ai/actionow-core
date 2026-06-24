@@ -18,6 +18,7 @@ import {
   createResourceSchema,
   createRouteGroupSchema,
   createSecretSchema,
+  createSubAccountSchema,
   createSubjectSchema,
   createTenantSchema,
   difyImportSchema,
@@ -31,6 +32,8 @@ import {
   syncChannelModelsSchema,
   testPluginRequestSchema,
   topupSchema,
+  topupSubAccountSchema,
+  transferCreditsSchema,
   updateApiKeyGroupSchema,
   updateChannelSchema,
   updateCredentialMetaSchema,
@@ -91,6 +94,7 @@ export {
   createResourceSchema,
   createRouteGroupSchema,
   createSecretSchema,
+  createSubAccountSchema,
   createSubjectSchema,
   createTenantSchema,
   difyImportSchema,
@@ -104,6 +108,8 @@ export {
   syncChannelModelsSchema,
   testPluginRequestSchema,
   topupSchema,
+  topupSubAccountSchema,
+  transferCreditsSchema,
   updateApiKeyGroupSchema,
   updateChannelSchema,
   updateCredentialMetaSchema,
@@ -130,6 +136,10 @@ export type CreateTenantDto = z.infer<typeof createTenantSchema>;
 export type UpdateTenantDto = z.infer<typeof updateTenantSchema>;
 export type CreateSubjectDto = z.infer<typeof createSubjectSchema>;
 export type UpdateSubjectDto = z.infer<typeof updateSubjectSchema>;
+export type CreateSubAccountDto = z.infer<typeof createSubAccountSchema>;
+export type TopupSubAccountDto = z.infer<typeof topupSubAccountSchema>;
+export type TransferCreditsDto = z.infer<typeof transferCreditsSchema>;
+// (dto type aliases above are consumed by admin.service + admin.controller)
 export type CreateAccountDto = z.infer<typeof createAccountSchema>;
 export type TopupDto = z.infer<typeof topupSchema>;
 export type CreateApiKeyDto = z.infer<typeof createApiKeySchema>;
