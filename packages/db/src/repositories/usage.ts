@@ -60,6 +60,7 @@ export async function insertUsageLog(db: DbOrTx, input: InsertUsageLogInput): Pr
   await accrueLimitUsage(db, {
     tenantId: row.tenantId,
     apiKeyId: row.apiKeyId,
+    subjectId: row.subjectId,
     model: row.model,
     cost: row.cost,
     tokens: BigInt((input.inputTokens ?? 0) + (input.outputTokens ?? 0)),

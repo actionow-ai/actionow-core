@@ -116,6 +116,13 @@ export const limitUsage = pgTable(
       t.periodKey,
       t.modelScope,
     ),
+    // M-3a (unified tenancy G-D): the subject dimension joins key|tenant. The
+    // CHECK is added BEFORE any 'subject' row is written so the value space is
+    // closed; subject_id stays text (polymorphic), guarded at the app layer.
+    check(
+      'limit_usage_subject_type_allowed',
+      sql`${t.subjectType} IN ('key', 'tenant', 'subject')`,
+    ),
   ],
 );
 
@@ -148,6 +155,10 @@ export const limitAlert = pgTable(
       t.ruleId,
       t.periodKey,
       t.pct,
+    ),
+    check(
+      'limit_alert_subject_type_allowed',
+      sql`${t.subjectType} IN ('key', 'tenant', 'subject')`,
     ),
   ],
 );

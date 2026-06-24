@@ -8,6 +8,7 @@ import {
   limitPlan,
   limitRule,
   limitUsage,
+  subject,
   usageLog,
 } from '../schema/index.js';
 import type { DbOrTx } from './types.js';
@@ -377,6 +378,7 @@ export async function accrueLimitUsage(
   input: {
     tenantId: string;
     apiKeyId: string | null;
+    subjectId?: string | null;
     model: string;
     cost: bigint;
     tokens: bigint;
@@ -384,6 +386,7 @@ export async function accrueLimitUsage(
   },
 ): Promise<void> {
   const now = input.now ?? new Date();
+  const subjectId = input.subjectId ?? null;
   const keyPlanRow =
     input.apiKeyId !== null
       ? await db
@@ -397,14 +400,29 @@ export async function accrueLimitUsage(
     .from(account)
     .where(and(eq(account.tenantId, input.tenantId), isNull(account.deletedAt)))
     .limit(1);
+  // The subject's bound plan (额度套餐) lives on the subject row (unified tenancy
+  // G-D) — independent of any sub-wallet, so a SHARED subject still has caps.
+  const subjectPlanRow =
+    subjectId !== null
+      ? await db
+          .select({ p: subject.limitPlanId })
+          .from(subject)
+          .where(eq(subject.id, subjectId))
+          .limit(1)
+      : [];
   const keyPlanId = keyPlanRow[0]?.p ?? null;
   const tenantPlanId = tenantPlanRow[0]?.p ?? null;
+  const subjectPlanId = subjectPlanRow[0]?.p ?? null;
 
-  const subjects: { type: 'key' | 'tenant'; id: string; planId: string }[] = [];
+  // Sparse write: one accrual subject per ACTIVE binding (key if keyed; tenant
+  // always when planned; subject only when subject-attributed + planned).
+  const subjects: { type: 'key' | 'tenant' | 'subject'; id: string; planId: string }[] = [];
   if (keyPlanId !== null && input.apiKeyId !== null)
     subjects.push({ type: 'key', id: input.apiKeyId, planId: keyPlanId });
   if (tenantPlanId !== null)
     subjects.push({ type: 'tenant', id: input.tenantId, planId: tenantPlanId });
+  if (subjectPlanId !== null && subjectId !== null)
+    subjects.push({ type: 'subject', id: subjectId, planId: subjectPlanId });
   if (subjects.length === 0) return;
 
   for (const subj of subjects) {

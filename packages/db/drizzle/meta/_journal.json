@@ -295,6 +295,13 @@
       "when": 1782317717525,
       "tag": "0041_config_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1782318247444,
+      "tag": "0042_limit_subject_type_check",
+      "breakpoints": true
     }
   ]
 }
