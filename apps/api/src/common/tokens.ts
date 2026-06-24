@@ -8,6 +8,8 @@ export const ENV = Symbol('ENV');
 export const ADAPTERS = Symbol('ADAPTERS');
 export const JOB_QUEUE = Symbol('JOB_QUEUE');
 export const RATE_LIMITER = Symbol('RATE_LIMITER');
+/** Concurrency (in-flight) limiter for governance `concurrency` rules. */
+export const CONCURRENCY_LIMITER = Symbol('CONCURRENCY_LIMITER');
 /**
  * The default S3-compatible {@link StorageProvider} built from `STORAGE_*` env.
  * `null` when storage is unconfigured (the API still boots); the `/v1/files`

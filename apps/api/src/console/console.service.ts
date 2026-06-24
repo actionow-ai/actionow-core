@@ -9,14 +9,20 @@ import {
   findUserById,
   getAccount,
   getIntentByIdForTenant,
+  getLimitPlanById,
+  getTenantLimitPlanId,
   type Job,
   type KeysetResult,
   type LedgerRow,
+  type LimitAlertRow,
+  type LimitRuleStatus,
+  limitRuleStatus,
   listApiKeys,
   listFilesByTenant,
   listIntentsByTenant,
   listJobs,
   listLedger,
+  listLimitAlertsForSubject,
   listUsageLogsByTenant,
   type PageParams,
   type PaymentIntentRow,
@@ -194,6 +200,32 @@ export class ConsoleService {
       throw engineInvalidInput('current password is incorrect');
     }
     await updateUserPassword(this.db, userId, hashPassword(dto.newPassword));
+  }
+
+  // ----- governance limits (额度套餐) -----
+
+  /**
+   * The caller-tenant's governance status: its bound (account-level) limit plan,
+   * each effective rule paired with current usage, and recent threshold alerts.
+   * `plan` is `null` when no plan is bound (the `/app` budget view shows
+   * "unlimited"). Scoped to the tenant — never to a body/query value.
+   */
+  async limitStatus(tenantId: string): Promise<{
+    plan: { id: string; name: string } | null;
+    rules: LimitRuleStatus[];
+    alerts: LimitAlertRow[];
+  }> {
+    const planId = await getTenantLimitPlanId(this.db, tenantId);
+    const [planRow, rules, alerts] = await Promise.all([
+      planId !== null ? getLimitPlanById(this.db, planId) : Promise.resolve(undefined),
+      limitRuleStatus(this.db, 'tenant', tenantId, planId),
+      listLimitAlertsForSubject(this.db, 'tenant', tenantId),
+    ]);
+    return {
+      plan: planRow ? { id: planRow.id, name: planRow.name } : null,
+      rules,
+      alerts,
+    };
   }
 
   // ----- models -----

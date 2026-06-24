@@ -7,6 +7,7 @@ import { useSetConsoleAction, useSetConsoleFilters } from '../../components/cons
 import { CardCollection } from '../../components/data/CardCollection';
 import { CopyField } from '../../components/data/CopyField';
 import { EntityCard } from '../../components/data/EntityCard';
+import { LimitUsageBars } from '../../components/data/LimitUsageBars';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { TenantSelect } from '../../components/data/TenantSelect';
 import { Button } from '../../components/ui/Button';
@@ -42,6 +43,13 @@ export function ApiKeysPage() {
     staleTime: STALE_REFERENCE,
   });
   const groupOptions = (groups.data ?? []).map((g) => ({ value: g.id, label: g.name }));
+  // Limit plans drive the per-key governance binding (额度套餐).
+  const plans = useQuery({
+    queryKey: qk.limitPlans(),
+    queryFn: () => api.listLimitPlans(),
+    staleTime: STALE_REFERENCE,
+  });
+  const planOptions = (plans.data ?? []).map((p) => ({ value: p.id, label: p.name }));
 
   const [formOpen, setFormOpen] = useState(false);
   const [allowlist, setAllowlist] = useState('');
@@ -78,6 +86,16 @@ export function ApiKeysPage() {
     // `null` unbinds the key back to the `default` group.
     mutationFn: ({ id, routeGroupId: rg }: { id: string; routeGroupId: string | null }) =>
       api.updateApiKeyGroup(id, { routeGroupId: rg }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.apiKeys(tenantId) });
+    },
+    onError: mutationError(t),
+  });
+
+  const bindPlan = useMutation({
+    // `null` unbinds the key (back to unlimited).
+    mutationFn: ({ id, planId }: { id: string; planId: string | null }) =>
+      api.setApiKeyLimitPlan(id, planId),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: qk.apiKeys(tenantId) });
     },
@@ -133,6 +151,11 @@ export function ApiKeysPage() {
             meta={[{ label: t('apiKeys.cols.created'), value: new Date(r.created_at).toLocaleDateString() }]}
             actions={
               <>
+                {r.limit_plan_id !== null && (
+                  <div style={{ flexBasis: '100%' }}>
+                    <KeyLimitUsage keyId={r.id} planId={r.limit_plan_id} />
+                  </div>
+                )}
                 <div style={{ width: 200 }}>
                   <SelectField
                     label={t('apiKeys.group.label')}
@@ -141,6 +164,16 @@ export function ApiKeysPage() {
                     onChange={(v) => bindGroup.mutate({ id: r.id, routeGroupId: v === '' ? null : v })}
                     options={groupOptions}
                     placeholder={t('apiKeys.group.default')}
+                  />
+                </div>
+                <div style={{ width: 200 }}>
+                  <SelectField
+                    label={t('apiKeys.plan.label')}
+                    tooltip={t('apiKeys.plan.tip')}
+                    value={r.limit_plan_id ?? ''}
+                    onChange={(v) => bindPlan.mutate({ id: r.id, planId: v === '' ? null : v })}
+                    options={planOptions}
+                    placeholder={t('apiKeys.plan.none')}
                   />
                 </div>
                 <Button variant="ghost" onClick={() => setRevokeTarget(r)}>
@@ -203,4 +236,15 @@ export function ApiKeysPage() {
       />
     </div>
   );
+}
+
+/** Usage-vs-cap bars for one key's bound plan (rolling-aware, fetched lazily). */
+function KeyLimitUsage({ keyId, planId }: { keyId: string; planId: string }) {
+  const api = useAdminApi();
+  const { data } = useQuery({
+    queryKey: qk.limitStatus('key', keyId),
+    queryFn: () => api.listLimitStatus('key', keyId, planId),
+    staleTime: 30_000,
+  });
+  return <LimitUsageBars rules={data ?? []} />;
 }

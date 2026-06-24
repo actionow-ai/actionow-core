@@ -4,7 +4,7 @@ import type { Request } from 'express';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
-import { RateLimitGuard } from '../auth/rate-limit.guard.js';
+import { GovernanceGuard } from '../auth/governance.guard.js';
 import { ZodBody } from '../common/zod.pipe.js';
 import { type ImagesGenerationDto, imagesGenerationSchema } from './dto/media-dialect.dto.js';
 import { type ImagesResponse, MediaDialectService } from './media-dialect.service.js';
@@ -18,7 +18,7 @@ import { type ImagesResponse, MediaDialectService } from './media-dialect.servic
  */
 @ApiTags('v1')
 @ApiBearerAuth('api-key')
-@UseGuards(ApiKeyGuard, RateLimitGuard)
+@UseGuards(ApiKeyGuard, GovernanceGuard)
 @Controller('v1/images')
 export class ImagesController {
   constructor(

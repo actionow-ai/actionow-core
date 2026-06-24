@@ -17,6 +17,7 @@ import type {
   CreateApiKeyBody,
   CreateChannelBody,
   CreateFaultPolicyBody,
+  CreateLimitPlanRequest,
   CreateModelBody,
   CreateModifierBody,
   CreateOAuthSessionBody,
@@ -36,6 +37,10 @@ import type {
   IconAssetView,
   JobView,
   LedgerView,
+  LimitAlertView,
+  LimitPlanView,
+  LimitRuleStatusView,
+  LimitUsageView,
   ModelGrantView,
   ModelHealthView,
   ModelTestRequest,
@@ -73,6 +78,7 @@ import type {
   UpdateCredentialMetaBody,
   UpdateDifyBody,
   UpdateFaultPolicyBody,
+  UpdateLimitPlanRequest,
   UpdateModelBody,
   UpdateModifierBody,
   UpdateOfficialPriceBody,
@@ -281,6 +287,40 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     deleteFaultPolicy: async (id: string): Promise<void> => {
       unwrap(await sdk.DELETE('/admin/fault-policies/{id}', { params: { path: { id } } }), u);
     },
+
+    // --- Governance limit plans (额度套餐). RAW: these admin routes aren't in the
+    // generated SDK path set (gen-openapi registers a fixed set), but their
+    // bodies/views are contract types. ---
+    listLimitPlans: (): Promise<LimitPlanView[]> =>
+      rawClient.get<LimitPlanView[]>('/admin/limit-plans'),
+    createLimitPlan: (body: CreateLimitPlanRequest): Promise<LimitPlanView> =>
+      rawClient.post<LimitPlanView>('/admin/limit-plans', body),
+    updateLimitPlan: (id: string, body: UpdateLimitPlanRequest): Promise<LimitPlanView> =>
+      rawClient.patch<LimitPlanView>(`/admin/limit-plans/${id}`, body),
+    deleteLimitPlan: async (id: string): Promise<void> => {
+      await rawClient.delete<unknown>(`/admin/limit-plans/${id}`);
+    },
+    // Usage-vs-cap rows for one subject (`key` | `tenant`).
+    listLimitUsage: (subjectType: string, subjectId: string): Promise<LimitUsageView[]> =>
+      rawClient.get<LimitUsageView[]>(
+        `/admin/limits/usage?subjectType=${encodeURIComponent(subjectType)}&subjectId=${encodeURIComponent(subjectId)}`,
+      ),
+    // Effective rules paired with current usage (rolling-aware) — the usage bars.
+    listLimitStatus: (
+      subjectType: string,
+      subjectId: string,
+      planId: string,
+    ): Promise<LimitRuleStatusView[]> =>
+      rawClient.get<LimitRuleStatusView[]>(
+        `/admin/limits/status?subjectType=${encodeURIComponent(subjectType)}&subjectId=${encodeURIComponent(subjectId)}&planId=${encodeURIComponent(planId)}`,
+      ),
+    listLimitAlerts: (): Promise<LimitAlertView[]> =>
+      rawClient.get<LimitAlertView[]>('/admin/limits/alerts'),
+    // Bind/unbind a plan to a key or tenant (`planId: null` clears).
+    setApiKeyLimitPlan: (id: string, planId: string | null): Promise<{ ok: true }> =>
+      rawClient.post<{ ok: true }>(`/admin/api-keys/${id}/limit-plan`, { planId }),
+    setTenantLimitPlan: (id: string, planId: string | null): Promise<{ ok: true }> =>
+      rawClient.post<{ ok: true }>(`/admin/tenants/${id}/limit-plan`, { planId }),
 
     // --- Model health status page (持续健康监控) ---
     modelHealth: async (days = 7): Promise<ModelHealthView[]> =>

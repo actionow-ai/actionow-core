@@ -14,6 +14,7 @@ export * from './fault-policy.js';
 export * from './http.js';
 export * from './io-schema.js';
 export * from './job.js';
+export * from './limit.js';
 export * from './media-result.js';
 export * from './model-test.js';
 export * from './modifier.js';

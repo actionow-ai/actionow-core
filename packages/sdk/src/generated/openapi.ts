@@ -9591,6 +9591,7 @@ export interface components {
             tenant_id: string;
             credit_balance: string;
             credit_held: string;
+            limit_plan_id: string | null;
             created_at: string;
         };
         AdminTokenView: {
@@ -9614,6 +9615,7 @@ export interface components {
                 tenant_id: string;
                 credit_balance: string;
                 credit_held: string;
+                limit_plan_id: string | null;
                 created_at: string;
             };
             api_key: {
@@ -9736,6 +9738,7 @@ export interface components {
             rate_limit: number | null;
             status: string;
             route_group_id: string | null;
+            limit_plan_id: string | null;
             created_at: string;
         };
         JobView: {

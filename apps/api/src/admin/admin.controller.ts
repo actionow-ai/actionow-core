@@ -21,6 +21,16 @@ import {
   jobViewSchema,
   type LedgerView,
   ledgerViewSchema,
+  type LimitAlertView,
+  limitAlertViewSchema,
+  type LimitPlanView,
+  limitPlanViewSchema,
+  type LimitRuleStatusView,
+  limitRuleStatusViewSchema,
+  type LimitRuleView,
+  limitRuleViewSchema,
+  type LimitUsageView,
+  limitUsageViewSchema,
   type ModelGrantView,
   modelGrantViewSchema,
   type ModelHealthView,
@@ -75,6 +85,11 @@ import type {
   IconAssetRow,
   Job,
   LedgerRow,
+  LimitAlertRow,
+  LimitPlanRow,
+  LimitRuleRow,
+  LimitRuleStatus,
+  LimitUsageRow,
   ModelGrantRow,
   ModelHealthBucket,
   ModelHealthRow,
@@ -145,6 +160,8 @@ import {
   createChannelSchema,
   type CreateFaultPolicyDto,
   createFaultPolicySchema,
+  type CreateLimitPlanDto,
+  createLimitPlanRequestSchema,
   type CreateModelDto,
   createModelSchema,
   type CreateModifierDto,
@@ -185,6 +202,8 @@ import {
   redemptionCodesQuerySchema,
   type RelayTraceQueryDto,
   relayTraceQuerySchema,
+  type SetLimitPlanDto,
+  setLimitPlanRequestSchema,
   type SyncChannelModelsDto,
   syncChannelModelsSchema,
   type TestPluginDto,
@@ -199,6 +218,8 @@ import {
   updateCredentialMetaSchema,
   type UpdateFaultPolicyDto,
   updateFaultPolicySchema,
+  type UpdateLimitPlanDto,
+  updateLimitPlanRequestSchema,
   type UpdateModelDto,
   updateModelSchema,
   type UpdateModifierDto,
@@ -843,6 +864,94 @@ export class AdminController {
     return (await this.admin.listIcons()).map(toIconAssetView);
   }
 
+  // ----- governance limits (额度套餐) -----
+
+  @Get('limit-plans')
+  @ApiOperation({ summary: 'List limit plans (额度套餐) with rules + binding counts' })
+  async listLimitPlans(): Promise<LimitPlanView[]> {
+    return (await this.admin.listLimitPlans()).map(toLimitPlanView);
+  }
+
+  @Post('limit-plans')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Create a limit plan (+ rules)' })
+  async createLimitPlan(
+    @Body(new ZodBody(createLimitPlanRequestSchema)) dto: CreateLimitPlanDto,
+  ): Promise<LimitPlanView> {
+    return toLimitPlanView(await this.admin.createLimitPlan(dto));
+  }
+
+  @Get('limit-plans/:id')
+  @ApiOperation({ summary: 'Get one limit plan (+ rules) or 404' })
+  async getLimitPlan(@Param('id') id: string): Promise<LimitPlanView> {
+    return toLimitPlanView(await this.admin.getLimitPlan(id));
+  }
+
+  @Patch('limit-plans/:id')
+  @ApiOperation({ summary: 'Update a limit plan; a present `rules` REPLACES the rule set' })
+  async updateLimitPlan(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateLimitPlanRequestSchema)) dto: UpdateLimitPlanDto,
+  ): Promise<LimitPlanView> {
+    return toLimitPlanView(await this.admin.updateLimitPlan(id, dto));
+  }
+
+  @Delete('limit-plans/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete a limit plan' })
+  async deleteLimitPlan(@Param('id') id: string): Promise<void> {
+    await this.admin.deleteLimitPlan(id);
+  }
+
+  @Get('limits/usage')
+  @ApiOperation({ summary: "A subject's accumulated usage rows (usage-vs-cap UI)" })
+  async listLimitUsage(
+    @Query('subjectType') subjectType: string,
+    @Query('subjectId') subjectId: string,
+  ): Promise<LimitUsageView[]> {
+    return (await this.admin.listLimitUsage(subjectType, subjectId)).map(toLimitUsageView);
+  }
+
+  @Get('limits/status')
+  @ApiOperation({
+    summary: "A subject's effective rules paired with current usage (usage-vs-cap bars)",
+  })
+  async limitStatus(
+    @Query('subjectType') subjectType: string,
+    @Query('subjectId') subjectId: string,
+    @Query('planId') planId?: string,
+  ): Promise<LimitRuleStatusView[]> {
+    const st = subjectType === 'key' ? 'key' : 'tenant';
+    const rows = await this.admin.limitStatus(st, subjectId, planId ?? null);
+    return rows.map(toLimitRuleStatusView);
+  }
+
+  @Get('limits/alerts')
+  @ApiOperation({ summary: 'Recent limit threshold alerts (newest first)' })
+  async listLimitAlerts(): Promise<LimitAlertView[]> {
+    return (await this.admin.listLimitAlerts()).map(toLimitAlertView);
+  }
+
+  @Post('api-keys/:id/limit-plan')
+  @ApiOperation({ summary: "Bind/unbind a key's limit plan (planId null = clear)" })
+  async setApiKeyLimitPlan(
+    @Param('id') id: string,
+    @Body(new ZodBody(setLimitPlanRequestSchema)) dto: SetLimitPlanDto,
+  ): Promise<{ ok: true }> {
+    await this.admin.setApiKeyLimitPlan(id, dto.planId);
+    return { ok: true };
+  }
+
+  @Post('tenants/:id/limit-plan')
+  @ApiOperation({ summary: "Bind/unbind a tenant's limit plan (planId null = clear)" })
+  async setTenantLimitPlan(
+    @Param('id') id: string,
+    @Body(new ZodBody(setLimitPlanRequestSchema)) dto: SetLimitPlanDto,
+  ): Promise<{ ok: true }> {
+    await this.admin.setTenantLimitPlan(id, dto.planId);
+    return { ok: true };
+  }
+
   // ----- provider plugins (P2) -----
 
   @Get('plugins')
@@ -1441,6 +1550,7 @@ function toApiKeyView(row: Omit<ApiKeyRow, 'hash'>): ApiKeyView {
     rate_limit: row.rateLimit,
     status: row.status,
     route_group_id: row.routeGroupId,
+    limit_plan_id: row.limitPlanId,
     created_at: row.createdAt.toISOString(),
   });
 }
@@ -1514,6 +1624,76 @@ function toIconAssetView(row: IconAssetRow): IconAssetView {
   });
 }
 
+function toLimitRuleView(row: LimitRuleRow): LimitRuleView {
+  return limitRuleViewSchema.parse({
+    id: row.id,
+    dimension: row.dimension,
+    period: row.period,
+    cap: row.cap.toString(),
+    model_scope: row.modelScope,
+    alert_pct: row.alertPct,
+    enforce: row.enforce,
+  });
+}
+
+function toLimitPlanView(p: {
+  plan: LimitPlanRow;
+  rules: LimitRuleRow[];
+  bindings: { keys: number; tenants: number };
+}): LimitPlanView {
+  return limitPlanViewSchema.parse({
+    id: p.plan.id,
+    name: p.plan.name,
+    description: p.plan.description,
+    status: p.plan.status,
+    rules: p.rules.map(toLimitRuleView),
+    key_count: p.bindings.keys,
+    tenant_count: p.bindings.tenants,
+    created_at: p.plan.createdAt.toISOString(),
+    updated_at: p.plan.updatedAt.toISOString(),
+  });
+}
+
+function toLimitRuleStatusView(r: LimitRuleStatus): LimitRuleStatusView {
+  return limitRuleStatusViewSchema.parse({
+    dimension: r.dimension,
+    period: r.period,
+    cap: r.cap.toString(),
+    used: r.used.toString(),
+    model_scope: r.modelScope,
+    alert_pct: r.alertPct,
+    enforce: r.enforce,
+  });
+}
+
+function toLimitUsageView(row: LimitUsageRow): LimitUsageView {
+  return limitUsageViewSchema.parse({
+    subject_type: row.subjectType,
+    subject_id: row.subjectId,
+    dimension: row.dimension,
+    period_key: row.periodKey,
+    model_scope: row.modelScope,
+    used: row.used.toString(),
+    period_start: row.periodStart === null ? null : row.periodStart.toISOString(),
+    updated_at: row.updatedAt.toISOString(),
+  });
+}
+
+function toLimitAlertView(row: LimitAlertRow): LimitAlertView {
+  return limitAlertViewSchema.parse({
+    id: row.id,
+    subject_type: row.subjectType,
+    subject_id: row.subjectId,
+    rule_id: row.ruleId,
+    dimension: row.dimension,
+    period_key: row.periodKey,
+    used: row.used.toString(),
+    cap: row.cap.toString(),
+    pct: row.pct,
+    created_at: row.createdAt.toISOString(),
+  });
+}
+
 function toPluginView(
   row: ProviderPluginRow,
   counts: { channels: number; models: number } = { channels: 0, models: 0 },
@@ -1559,6 +1739,7 @@ function toAccountView(row: AccountRow): AccountView {
     tenant_id: row.tenantId,
     credit_balance: row.creditBalance.toString(),
     credit_held: row.creditHeld.toString(),
+    limit_plan_id: row.limitPlanId,
     created_at: row.createdAt.toISOString(),
   });
 }

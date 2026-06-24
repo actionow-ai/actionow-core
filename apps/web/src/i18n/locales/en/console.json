@@ -55,6 +55,11 @@
         "balance": "Balance"
       }
     },
+    "limits": {
+      "title": "Limit usage",
+      "alertTitle": "Limit alerts",
+      "alertLine": "{{dim}} reached {{pct}}% of cap (period {{period}})"
+    },
     "keys": {
       "mint": "Mint key",
       "empty": "No API keys yet — mint your first one",
@@ -167,6 +172,7 @@
     "models": "Models",
     "modifiers": "Modifiers",
     "routeGroups": "Groups",
+    "limitPlans": "Limit plans",
     "faultPolicies": "Fault tolerance",
     "officialPrices": "Official prices",
     "dify": "Dify import",
@@ -203,6 +209,7 @@
     "models": "The model catalog — filter by tag / capability / developer",
     "modifiers": "Global and scoped pricing rules",
     "routeGroups": "Route groups & channel membership",
+    "limitPlans": "Reusable limit plans: spend budgets, rate limits, quotas & alert thresholds",
     "faultPolicies": "Retry / backoff / timeouts / fallback — per-channel fault tolerance",
     "officialPrices": "Reference model prices",
     "dify": "Import a Dify workflow as a resource",
@@ -388,6 +395,12 @@
       "payments": "Payments",
       "noLedger": "No ledger entries",
       "noPayments": "No payments",
+      "planBound": "Limit plan updated",
+      "plan": {
+        "label": "Limit plan",
+        "none": "Unlimited",
+        "tip": "Bind a limit plan (spend budget / rate limit / quota) to this tenant. Unbound = unlimited."
+      },
       "cols": {
         "time": "Time",
         "type": "Type",
@@ -464,6 +477,11 @@
       "default": "Default group (×1.00)",
       "bound": "Group",
       "tip": "Binding a key to a route group sets its customer price ratio and which channels it routes to. Default = ×1.00."
+    },
+    "plan": {
+      "label": "Limit plan",
+      "none": "Unlimited",
+      "tip": "Bind a limit plan (spend budget / rate limit / quota) to this key. Unbound = unlimited."
     },
     "revoke": "Revoke",
     "revoked": "Key revoked",
@@ -757,6 +775,61 @@
       "status": "Status"
     },
     "empty": "No upstream channels yet"
+  },
+  "limitPlans": {
+    "title": "Limit plans",
+    "new": "New plan",
+    "editTitle": "Edit limit plan",
+    "save": "Save plan",
+    "empty": "No limit plans yet",
+    "created": "Plan created",
+    "updated": "Plan updated",
+    "deleted": "Plan deleted",
+    "bindingSummary": "{{keys}} keys · {{tenants}} tenants",
+    "alertAt": "alert at {{pct}}%",
+    "cols": {
+      "name": "Name",
+      "rules": "Rules",
+      "bindings": "Bindings",
+      "status": "Status"
+    },
+    "dim": {
+      "spend": "Spend",
+      "requests": "Requests",
+      "tokens": "Tokens",
+      "rpm": "RPM",
+      "concurrency": "Concurrency"
+    },
+    "period": {
+      "minute": "minute",
+      "day": "day",
+      "month": "month",
+      "rolling_24h": "24h",
+      "rolling_30d": "30d",
+      "total": "total"
+    },
+    "form": {
+      "name": "Name",
+      "nameRequired": "Name is required",
+      "description": "Description",
+      "status": "Status",
+      "rules": "Limit rules",
+      "addRule": "Add rule",
+      "removeRule": "Remove rule",
+      "noRules": "No rules — a bound subject is unlimited",
+      "dimension": "Dimension",
+      "period": "Period",
+      "capCredits": "Cap (credits $)",
+      "capCount": "Cap (count)",
+      "alertPct": "Alert threshold %",
+      "alertPctHint": "Record an alert when usage reaches this % of the cap (0 = off)",
+      "modelScope": "Model scope",
+      "modelScopeHint": "Empty = all models; a model name = that model only"
+    },
+    "confirm": {
+      "deleteTitle": "Delete limit plan",
+      "deleteMsg": "Delete \"{{name}}\"? Bound keys / tenants revert to unlimited."
+    }
   },
   "faultPolicies": {
     "title": "Fault tolerance",

@@ -18,6 +18,7 @@ describe('admin operational view contracts (single source of truth for FE + BE)'
       rate_limit: null,
       status: 'active',
       route_group_id: null,
+      limit_plan_id: null,
       created_at: '2026-01-01T00:00:00Z',
     };
     expect(apiKeyViewSchema.parse(k)).toEqual(k);

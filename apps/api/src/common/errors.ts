@@ -22,3 +22,12 @@ export function engineInvalidInput(message: string): EngineError {
 export function engineRateLimited(message: string, retryAfterMs: number): EngineError {
   return new EngineError({ code: 'rate_limited', message, retryable: true, retryAfterMs });
 }
+
+/**
+ * A non-retryable governance limit breach — a spend budget or usage quota is
+ * exhausted (mapped to HTTP 402, same as `insufficient_credits`). Not retryable:
+ * the period must reset (or the cap raised) before the caller can proceed.
+ */
+export function engineLimitExceeded(message: string): EngineError {
+  return new EngineError({ code: 'insufficient_credits', message, retryable: false });
+}

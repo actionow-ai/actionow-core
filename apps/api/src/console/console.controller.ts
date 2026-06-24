@@ -9,6 +9,8 @@ import {
   consoleJobViewSchema,
   type ConsoleLedgerView,
   consoleLedgerViewSchema,
+  type ConsoleLimitStatusView,
+  consoleLimitStatusViewSchema,
   type ConsoleMeView,
   consoleMeViewSchema,
   type ConsoleModelView,
@@ -465,6 +467,35 @@ export class ConsoleController {
   ): Promise<ConsoleCreateIntentResponse> {
     const ctx = ctxOf(req);
     return this.console.selfTopup(dto, ctx.tenantId);
+  }
+
+  @Get('limits')
+  @ApiOperation({
+    summary: 'Your tenant governance status: bound plan, usage-vs-cap, recent alerts',
+  })
+  async limits(@Req() req: ConsoleRequest): Promise<ConsoleLimitStatusView> {
+    const ctx = ctxOf(req);
+    const status = await this.console.limitStatus(ctx.tenantId);
+    return consoleLimitStatusViewSchema.parse({
+      plan: status.plan,
+      rules: status.rules.map((r) => ({
+        dimension: r.dimension,
+        period: r.period,
+        cap: r.cap.toString(),
+        used: r.used.toString(),
+        model_scope: r.modelScope,
+        alert_pct: r.alertPct,
+        enforce: r.enforce,
+      })),
+      alerts: status.alerts.map((a) => ({
+        dimension: a.dimension,
+        period_key: a.periodKey,
+        used: a.used.toString(),
+        cap: a.cap.toString(),
+        pct: a.pct,
+        created_at: a.createdAt.toISOString(),
+      })),
+    });
   }
 
   @Get('me')

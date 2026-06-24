@@ -2,15 +2,22 @@ import { createDefaultRegistry } from '@actionow/adapters';
 import type { Database } from '@actionow/db';
 import { createDb } from '@actionow/db';
 import { registerEngineAdapters } from '@actionow/engine';
-import type { AppEnv, RateLimiter } from '@actionow/infra';
-import { createRedis, loadEnv, RedisRateLimiter } from '@actionow/infra';
+import type { AppEnv, ConcurrencyLimiter, RateLimiter } from '@actionow/infra';
+import { createRedis, loadEnv, RedisConcurrencyLimiter, RedisRateLimiter } from '@actionow/infra';
 import type { Provider } from '@nestjs/common';
 import { Global, Module } from '@nestjs/common';
 
 import { API_KEY_REPO, defaultApiKeyRepo } from '../auth/api-key.guard.js';
 import { BullmqJobQueue } from '../common/bullmq-queue.js';
 import { SecretResolver } from '../common/secret-resolver.js';
-import { ADAPTERS, DB, ENV, JOB_QUEUE, RATE_LIMITER } from '../common/tokens.js';
+import {
+  ADAPTERS,
+  CONCURRENCY_LIMITER,
+  DB,
+  ENV,
+  JOB_QUEUE,
+  RATE_LIMITER,
+} from '../common/tokens.js';
 
 const envProvider: Provider = {
   provide: ENV,
@@ -47,6 +54,15 @@ const rateLimiterProvider: Provider = {
   useFactory: (env: AppEnv): RateLimiter => new RedisRateLimiter(createRedis(env.REDIS_URL)),
 };
 
+// In-flight (concurrency) limiter for governance `concurrency` rules; same Redis,
+// overridable with a fake in tests.
+const concurrencyLimiterProvider: Provider = {
+  provide: CONCURRENCY_LIMITER,
+  inject: [ENV],
+  useFactory: (env: AppEnv): ConcurrencyLimiter =>
+    new RedisConcurrencyLimiter(createRedis(env.REDIS_URL)),
+};
+
 /**
  * Global infrastructure module: one shared drizzle `Database`, the parsed env,
  * the engine's default adapter registry, the stub secret resolver, and the
@@ -62,9 +78,19 @@ const rateLimiterProvider: Provider = {
     queueProvider,
     apiKeyRepoProvider,
     rateLimiterProvider,
+    concurrencyLimiterProvider,
     SecretResolver,
   ],
-  exports: [ENV, DB, ADAPTERS, JOB_QUEUE, API_KEY_REPO, RATE_LIMITER, SecretResolver],
+  exports: [
+    ENV,
+    DB,
+    ADAPTERS,
+    JOB_QUEUE,
+    API_KEY_REPO,
+    RATE_LIMITER,
+    CONCURRENCY_LIMITER,
+    SecretResolver,
+  ],
 })
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- NestJS modules are decorated empty classes
 export class DbModule {}

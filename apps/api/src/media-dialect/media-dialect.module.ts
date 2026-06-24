@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
-import { RateLimitGuard } from '../auth/rate-limit.guard.js';
+import { GovernanceGuard } from '../auth/governance.guard.js';
 import { SecretResolver } from '../common/secret-resolver.js';
 import { ExecutionModule } from '../execution/execution.module.js';
 import { FilesModule } from '../files/files.module.js';
@@ -20,7 +20,7 @@ import { MediaDialectService } from './media-dialect.service.js';
 @Module({
   imports: [ExecutionModule, FilesModule],
   controllers: [ImagesController, AudioController],
-  providers: [MediaDialectService, AuthService, SecretResolver, ApiKeyGuard, RateLimitGuard],
+  providers: [MediaDialectService, AuthService, SecretResolver, ApiKeyGuard, GovernanceGuard],
 })
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- NestJS modules are decorated empty classes
 export class MediaDialectModule {}

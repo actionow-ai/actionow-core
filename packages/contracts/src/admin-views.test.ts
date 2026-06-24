@@ -20,6 +20,7 @@ describe('admin view contracts (single source of truth for FE + BE)', () => {
       tenant_id: 't1',
       credit_balance: '0',
       credit_held: '0',
+      limit_plan_id: null,
       created_at: '2026-01-01T00:00:00Z',
     };
     expect(accountViewSchema.parse(v)).toEqual(v);

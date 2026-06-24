@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
-import { RateLimitGuard } from '../auth/rate-limit.guard.js';
+import { GovernanceGuard } from '../auth/governance.guard.js';
 import { ChannelRoutingService } from '../common/channel-routing.service.js';
 import { SecretResolver } from '../common/secret-resolver.js';
 import { AnthropicChatController } from './anthropic.controller.js';
@@ -39,7 +39,7 @@ import { OpenAIChatController } from './openai.controller.js';
     SecretResolver,
     ChannelRoutingService,
     ApiKeyGuard,
-    RateLimitGuard,
+    GovernanceGuard,
     { provide: MODEL_RESOLVER, useValue: realModelResolverPort },
   ],
 })

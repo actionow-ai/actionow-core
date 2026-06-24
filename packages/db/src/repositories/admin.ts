@@ -164,6 +164,7 @@ export async function listApiKeys(
       rateLimit: apiKey.rateLimit,
       status: apiKey.status,
       routeGroupId: apiKey.routeGroupId,
+      limitPlanId: apiKey.limitPlanId,
       createdAt: apiKey.createdAt,
       updatedAt: apiKey.updatedAt,
       deletedAt: apiKey.deletedAt,

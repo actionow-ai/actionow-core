@@ -11,6 +11,7 @@ import type {
   ConsoleCreateIntentBody,
   ConsoleFileView,
   ConsoleIntentView,
+  ConsoleLimitStatusView,
   ConsoleMeView,
   ConsoleModelView,
   ConsolePaymentView,
@@ -116,6 +117,11 @@ export function makeConsoleApi(sdk: SdkClient, rawClient: ApiClient, onUnauthori
     // a no-body 204; keep on raw to preserve the exact `{ ok: true }` return.
     changePassword: (body: ConsoleChangePasswordBody) =>
       rawClient.patch<{ ok: true }>('/console/settings', body),
+    // Your tenant governance status (bound plan, usage-vs-cap, alerts). RAW: this
+    // console route isn't in the generated SDK path set, but its view is a
+    // contract type.
+    limits: (): Promise<ConsoleLimitStatusView> =>
+      rawClient.get<ConsoleLimitStatusView>('/console/limits'),
   };
 }
 

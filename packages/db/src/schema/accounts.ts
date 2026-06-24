@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { bigint, check, pgTable, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 import { tenant } from './identity.js';
+import { limitPlan } from './limit.js';
 
 export const account = pgTable(
   'account',
@@ -19,6 +20,9 @@ export const account = pgTable(
     creditHeld: bigint('credit_held', { mode: 'bigint' })
       .notNull()
       .default(sql`0`),
+    // The tenant-level limit plan (额度套餐) — applies to every key of this tenant
+    // (governance-limits). NULLABLE → no tenant-level limits.
+    limitPlanId: uuid('limit_plan_id').references(() => limitPlan.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
