@@ -29,6 +29,7 @@ import type {
   CreateResourceBody,
   CreateRouteGroupBody,
   CreateSecretBody,
+  CreateSubAccountBody,
   CreateSubjectBody,
   CreateTenantBody,
   DifyBindingView,
@@ -70,6 +71,7 @@ import type {
   RouteGroupChannelView,
   RouteGroupView,
   SecretView,
+  SubAccountView,
   SubjectView,
   SyncChannelModelsBody,
   SyncChannelModelsResult,
@@ -77,6 +79,8 @@ import type {
   TestPluginRequest,
   TestPluginResponse,
   TopupBody,
+  TopupSubAccountBody,
+  TransferCreditsBody,
   UpdateApiKeyGroupBody,
   UpdateChannelBody,
   UpdateCredentialMetaBody,
@@ -160,6 +164,65 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
         u,
       );
     },
+    // Bind/unbind a subject's limit plan (额度套餐) — there's no dedicated endpoint;
+    // the subject PATCH carries `limitPlanId` (null clears).
+    setSubjectLimitPlan: async (tenantId: string, sid: string, planId: string | null) =>
+      unwrap(
+        await sdk.PATCH('/admin/tenants/{id}/users/{sid}', {
+          params: { path: { id: tenantId, sid } },
+          body: { limitPlanId: planId },
+        }),
+        u,
+      ),
+
+    // subject sub-wallets (HARD mode; unified tenancy G-E)
+    getSubAccount: async (tenantId: string, sid: string): Promise<SubAccountView> =>
+      unwrap(
+        await sdk.GET('/admin/tenants/{id}/users/{sid}/sub-account', {
+          params: { path: { id: tenantId, sid } },
+        }),
+        u,
+      ),
+    createSubAccount: async (
+      tenantId: string,
+      sid: string,
+      body: CreateSubAccountBody,
+      idempotencyKey?: string,
+    ): Promise<SubAccountView> =>
+      unwrap(
+        await sdk.POST('/admin/tenants/{id}/users/{sid}/sub-account', {
+          params: { path: { id: tenantId, sid } },
+          body,
+          headers: idem(idempotencyKey),
+        }),
+        u,
+      ),
+    topupSubAccount: async (
+      tenantId: string,
+      sid: string,
+      body: TopupSubAccountBody,
+      idempotencyKey?: string,
+    ): Promise<SubAccountView> =>
+      unwrap(
+        await sdk.POST('/admin/tenants/{id}/users/{sid}/sub-account/topup', {
+          params: { path: { id: tenantId, sid } },
+          body,
+          headers: idem(idempotencyKey),
+        }),
+        u,
+      ),
+    transferSubAccount: async (
+      tenantId: string,
+      sid: string,
+      body: TransferCreditsBody,
+    ): Promise<SubAccountView> =>
+      unwrap(
+        await sdk.POST('/admin/tenants/{id}/users/{sid}/sub-account/transfer', {
+          params: { path: { id: tenantId, sid } },
+          body,
+        }),
+        u,
+      ),
 
     listResources: async () => page<ResourceView>(await sdk.GET('/admin/resources'), u).rows,
     createResource: async (body: CreateResourceBody, idempotencyKey?: string) =>
