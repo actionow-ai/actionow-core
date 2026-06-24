@@ -144,7 +144,9 @@
       "billing": "计费与路由",
       "tenants": "租户",
       "home": "概览",
-      "account": "账户"
+      "account": "账户",
+      "models": "模型",
+      "access": "接入设置"
     },
     "dashboard": "仪表盘",
     "analytics": "分析",
@@ -173,7 +175,8 @@
     "redemptionCodes": "卡密兑换",
     "tmedia": "素材",
     "oauthSessions": "凭证",
-    "serviceTokens": "服务令牌"
+    "serviceTokens": "服务令牌",
+    "modelAccess": "模型接入"
   },
   "topbar": {
     "admin": "管理员",
@@ -196,7 +199,7 @@
     "tenants": "创建与查看租户",
     "catalog": "模型与资源——通道与定价",
     "resources": "平台 → 通道 → 模型：上游通道与所服务的模型",
-    "models": "中转模型、租户授权与 token 计价",
+    "models": "模型目录：按标签 / 能力 / 开发者过滤",
     "modifiers": "全局与范围化的调价规则",
     "routeGroups": "路由分组与渠道成员",
     "faultPolicies": "重试 / 退避 / 超时 / 降级——按渠道的容错策略",
@@ -206,7 +209,8 @@
     "proxies": "出网代理：加密存储、健康探测，按渠道绑定",
     "accounts": "账户余额与充值",
     "apiKeys": "签发与管理 API Key",
-    "serviceTokens": "管理 API 的机器对机器（M2M）凭据"
+    "serviceTokens": "管理 API 的机器对机器（M2M）凭据",
+    "modelAccess": "平台 → 通道 → 模型：上游通道与所服务的模型"
   },
   "dashboard": {
     "stats": {

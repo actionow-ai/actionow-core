@@ -144,7 +144,9 @@
       "billing": "Billing & Routing",
       "tenants": "Tenants",
       "home": "Home",
-      "account": "Account"
+      "account": "Account",
+      "models": "Models",
+      "access": "Access"
     },
     "dashboard": "Dashboard",
     "analytics": "Analytics",
@@ -173,7 +175,8 @@
     "redemptionCodes": "Redemption codes",
     "tmedia": "Media",
     "oauthSessions": "Credentials",
-    "serviceTokens": "Service tokens"
+    "serviceTokens": "Service tokens",
+    "modelAccess": "Model onboarding"
   },
   "topbar": {
     "admin": "Admin",
@@ -196,7 +199,7 @@
     "tenants": "Create and view tenants",
     "catalog": "Models & resources — channels and pricing",
     "resources": "Platforms → channels → models: upstream routes and the models they serve",
-    "models": "Relay models, tenant grants & token pricing",
+    "models": "The model catalog — filter by tag / capability / developer",
     "modifiers": "Global and scoped pricing rules",
     "routeGroups": "Route groups & channel membership",
     "faultPolicies": "Retry / backoff / timeouts / fallback — per-channel fault tolerance",
@@ -206,7 +209,8 @@
     "proxies": "Egress proxies: encrypted at rest, health-probed, bound per channel",
     "accounts": "Account balance & top-up",
     "apiKeys": "Issue and manage API keys",
-    "serviceTokens": "M2M credentials for the admin API"
+    "serviceTokens": "M2M credentials for the admin API",
+    "modelAccess": "Platforms → channels → models: upstream routes and the models they serve"
   },
   "dashboard": {
     "stats": {

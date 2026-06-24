@@ -14,6 +14,7 @@ import { OAuthCallbackPage } from './features/auth/OAuthCallbackPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { DifyImportPage } from './features/console/DifyImportPage';
 import { FaultPoliciesPage } from './features/console/FaultPoliciesPage';
+import { ModelsCatalogPage } from './features/console/ModelsCatalogPage';
 import { ModifiersPage } from './features/console/ModifiersPage';
 import { OAuthSessionsPage } from './features/console/OAuthSessionsPage';
 import { OfficialPricesPage } from './features/console/OfficialPricesPage';
@@ -73,7 +74,7 @@ export function AppRoutes() {
           {/* Legacy routes redirect into the catalog page (resources are the catalog now). */}
           <Route path="resources" element={<Navigate to="/console/catalog" replace />} />
           <Route path="resources/:id" element={<ResourceRedirect />} />
-          <Route path="models" element={<Navigate to="/console/catalog" replace />} />
+          <Route path="models" element={<ModelsCatalogPage />} />
           <Route path="plugins" element={<PluginsPage />} />
           <Route path="proxies" element={<ProxiesPage />} />
           <Route path="modifiers" element={<ModifiersPage />} />

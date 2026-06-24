@@ -2,9 +2,10 @@ import type { Icon } from '@phosphor-icons/react';
 import {
   BuildingsIcon,
   CoinsIcon,
+  CubeIcon,
   KeyIcon,
+  PlugsConnectedIcon,
   SquaresFourIcon,
-  StackIcon,
 } from '@phosphor-icons/react';
 
 export interface NavItem {
@@ -25,8 +26,9 @@ export interface NavConfig {
 /**
  * The ADMIN nav grouped by responsibility (职责分组):
  * - ops: dashboard / analytics / relay traces
- * - catalog (接入与供给): resources catalog (relay models nest inside each
- *   resource detail) / Dify import / credentials
+ * - models (模型): the model CATALOG — a flat faceted list of every model (browse
+ *   "what we serve"). The wiring lives in 接入设置.
+ * - access (接入设置): 模型接入 (平台·通道·模型 management) / 插件 / 代理 / Dify / 凭据
  * - billing (计费与路由): groups / official prices / pricing modifiers
  * - tenants (租户): tenants (hub — account balance/top-up lives in the tenant
  *   detail drawer) / API keys
@@ -43,10 +45,16 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
-    key: 'catalog',
-    icon: StackIcon,
+    key: 'models',
+    icon: CubeIcon,
+    items: [{ to: '/console/models', labelKey: 'models' }],
+  },
+  {
+    key: 'access',
+    icon: PlugsConnectedIcon,
     items: [
-      { to: '/console/catalog', labelKey: 'resources' },
+      // 模型接入: the platform→通道→模型 management (the former 模型服务/catalog page).
+      { to: '/console/catalog', labelKey: 'modelAccess' },
       { to: '/console/plugins', labelKey: 'plugins' },
       { to: '/console/proxies', labelKey: 'proxies' },
       { to: '/console/dify', labelKey: 'dify' },
@@ -96,7 +104,7 @@ export interface MobileTab {
 }
 export const ADMIN_MOBILE_TABS: MobileTab[] = [
   { to: '/console/overview', labelKey: 'opsOverview', icon: SquaresFourIcon },
-  { to: '/console/catalog', labelKey: 'resources', icon: StackIcon },
+  { to: '/console/models', labelKey: 'models', icon: CubeIcon },
   { to: '/console/tenants', labelKey: 'tenants', icon: BuildingsIcon },
   { to: '/console/api-keys', labelKey: 'apiKeys', icon: KeyIcon },
 ];
