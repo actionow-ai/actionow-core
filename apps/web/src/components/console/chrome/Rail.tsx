@@ -36,6 +36,11 @@ export function Rail({ pathname }: { pathname: string }) {
         alignItems: 'center',
         gap: 'var(--s-4)',
         padding: 'var(--s-4) 0',
+        // Stacking context above the SubNav so the rail's slide-out `.ico-tip`
+        // tooltips (which overflow to the right, into the SubNav's column) are
+        // never painted under the SubNav panel.
+        position: 'relative',
+        zIndex: 50,
       }}
     >
       <button

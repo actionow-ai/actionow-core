@@ -196,7 +196,9 @@
   font-size: var(--fs-caption);
   font-weight: 600;
   color: var(--text);
-  background: var(--panel-bg);
+  /* Opaque (not the semi-transparent --panel-bg) so the slide-out tip never
+     reads as a translucent dark blob over the SubNav painted beside the rail. */
+  background: var(--overlay-bg);
   border: 1px solid var(--panel-bd);
   box-shadow: var(--glass-shadow);
   white-space: nowrap;
