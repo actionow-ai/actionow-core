@@ -1,7 +1,7 @@
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
-import { limitAlert, limitPlan, limitRule, limitUsage } from '../schema/index.js';
+import { account, apiKey, limitAlert, limitPlan, limitRule, limitUsage } from '../schema/index.js';
 import type { DbOrTx } from './types.js';
 
 export type LimitPlanRow = InferSelectModel<typeof limitPlan>;
@@ -300,4 +300,59 @@ export function listLimitAlerts(db: DbOrTx, limit = 100): Promise<LimitAlertRow[
     .from(limitAlert)
     .orderBy(sql`${limitAlert.createdAt} DESC`)
     .limit(limit);
+}
+
+// ── bindings ──────────────────────────────────────────────────────────────
+
+/** Bind/unbind a limit plan to a LIVE api key. `true` when a row was updated. */
+export async function setApiKeyLimitPlan(
+  db: DbOrTx,
+  apiKeyId: string,
+  planId: string | null,
+): Promise<boolean> {
+  const rows = await db
+    .update(apiKey)
+    .set({ limitPlanId: planId, updatedAt: new Date() })
+    .where(and(eq(apiKey.id, apiKeyId), isNull(apiKey.deletedAt)))
+    .returning({ id: apiKey.id });
+  return rows.length === 1;
+}
+
+/** Bind/unbind a tenant-level limit plan (on the tenant's `account`). */
+export async function setTenantLimitPlan(
+  db: DbOrTx,
+  tenantId: string,
+  planId: string | null,
+): Promise<boolean> {
+  const rows = await db
+    .update(account)
+    .set({ limitPlanId: planId })
+    .where(and(eq(account.tenantId, tenantId), isNull(account.deletedAt)))
+    .returning({ id: account.id });
+  return rows.length === 1;
+}
+
+/** How many live keys + tenants each plan id is bound to (plan list card stats). */
+export async function countPlanBindings(
+  db: DbOrTx,
+  planIds: string[],
+): Promise<Map<string, { keys: number; tenants: number }>> {
+  const out = new Map<string, { keys: number; tenants: number }>();
+  if (planIds.length === 0) return out;
+  for (const id of planIds) out.set(id, { keys: 0, tenants: 0 });
+  const keyRows = await db
+    .select({ pid: apiKey.limitPlanId, n: sql<number>`count(*)::int` })
+    .from(apiKey)
+    .where(and(inArray(apiKey.limitPlanId, planIds), isNull(apiKey.deletedAt)))
+    .groupBy(apiKey.limitPlanId);
+  for (const r of keyRows)
+    if (r.pid !== null) out.set(r.pid, { keys: r.n, tenants: out.get(r.pid)?.tenants ?? 0 });
+  const tenantRows = await db
+    .select({ pid: account.limitPlanId, n: sql<number>`count(*)::int` })
+    .from(account)
+    .where(and(inArray(account.limitPlanId, planIds), isNull(account.deletedAt)))
+    .groupBy(account.limitPlanId);
+  for (const r of tenantRows)
+    if (r.pid !== null) out.set(r.pid, { keys: out.get(r.pid)?.keys ?? 0, tenants: r.n });
+  return out;
 }

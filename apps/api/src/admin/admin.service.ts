@@ -21,6 +21,7 @@ import {
   countAccounts,
   countByPlugin,
   countModelsByChannelIds,
+  countPlanBindings,
   countResources,
   countTenants,
   countUsageLogs,
@@ -30,6 +31,7 @@ import {
   createEncryptedSecret,
   createFaultPolicy,
   type CreateFaultPolicyInput,
+  createLimitPlan,
   createModel,
   type CreateModelInput,
   createModifier,
@@ -56,6 +58,7 @@ import {
   getAccount,
   getChannelById,
   getFaultPolicyById,
+  getLimitPlanById,
   getModelById,
   getModelByName,
   getModifierById,
@@ -72,6 +75,11 @@ import {
   type Job,
   type KeysetResult,
   type LedgerRow,
+  type LimitAlertRow,
+  type LimitPlanRow,
+  type LimitRuleInput,
+  type LimitRuleRow,
+  type LimitUsageRow,
   linkChannelModel,
   linkChannelModelsByNames,
   listAccounts,
@@ -85,6 +93,8 @@ import {
   listIconAssets,
   listJobs,
   listLedger,
+  listLimitAlerts,
+  listLimitPlans,
   listModelGrants,
   listModelHealth,
   listModelHealthHistory,
@@ -99,8 +109,11 @@ import {
   listRelayTraces,
   listResources,
   listRouteGroups,
+  listRulesByPlan,
+  listRulesByPlanIds,
   listSecretRefs,
   listTenants,
+  listUsageForSubject,
   listUsageLogsGlobal,
   type ModelGrantRow,
   type ModelHealthBucket,
@@ -120,6 +133,7 @@ import {
   type RelayTraceFilter,
   type RelayTraceRow,
   removeChannelFromGroup,
+  replacePlanRules,
   type Resource,
   rollupUsage,
   type RouteGroupChannelRow,
@@ -127,9 +141,12 @@ import {
   type SecretRefRow,
   type SecretRefView,
   setApiKeyGroup,
+  setApiKeyLimitPlan,
+  setTenantLimitPlan,
   softDeleteApiKey,
   softDeleteChannel,
   softDeleteFaultPolicy,
+  softDeleteLimitPlan,
   softDeleteModel,
   softDeleteModifier,
   softDeleteOAuthSession,
@@ -145,6 +162,7 @@ import {
   unlinkChannelModel,
   updateFaultPolicy,
   type UpdateFaultPolicyInput,
+  updateLimitPlan,
   updateModel,
   updateModifier,
   updateOAuthSessionMeta,
@@ -190,6 +208,7 @@ import type {
   CreateApiKeyDto,
   CreateChannelDto,
   CreateFaultPolicyDto,
+  CreateLimitPlanDto,
   CreateModelDto,
   CreateModifierDto,
   CreateOAuthSessionDto,
@@ -210,6 +229,7 @@ import type {
   UpdateApiKeyGroupDto,
   UpdateChannelDto,
   UpdateFaultPolicyDto,
+  UpdateLimitPlanDto,
   UpdateModelDto,
   UpdateModifierDto,
   UpdateOfficialPriceDto,
@@ -725,6 +745,112 @@ export class AdminService {
   /** Per-plugin live channel + distinct-model counts (模型接入 card stats). */
   pluginCounts(): Promise<Map<string, PluginCounts>> {
     return countByPlugin(this.db);
+  }
+
+  // ----- governance limits (额度套餐) -----
+
+  private ruleInputs(rules: CreateLimitPlanDto['rules']): LimitRuleInput[] {
+    return rules.map((r) => ({
+      dimension: r.dimension,
+      period: r.period ?? null,
+      cap: BigInt(r.cap),
+      modelScope: r.modelScope ?? null,
+      alertPct: r.alertPct ?? null,
+      enforce: 'hard',
+    }));
+  }
+
+  async listLimitPlans(): Promise<
+    { plan: LimitPlanRow; rules: LimitRuleRow[]; bindings: { keys: number; tenants: number } }[]
+  > {
+    const plans = await listLimitPlans(this.db);
+    const ids = plans.map((p) => p.id);
+    const [rulesByPlan, bindings] = await Promise.all([
+      listRulesByPlanIds(this.db, ids),
+      countPlanBindings(this.db, ids),
+    ]);
+    return plans.map((p) => ({
+      plan: p,
+      rules: rulesByPlan.get(p.id) ?? [],
+      bindings: bindings.get(p.id) ?? { keys: 0, tenants: 0 },
+    }));
+  }
+
+  async getLimitPlan(id: string): Promise<{
+    plan: LimitPlanRow;
+    rules: LimitRuleRow[];
+    bindings: { keys: number; tenants: number };
+  }> {
+    const plan = await getLimitPlanById(this.db, id);
+    if (plan === undefined) throw engineNotFound(`limit plan ${id} not found`);
+    const rules = await listRulesByPlan(this.db, id);
+    const bindings = (await countPlanBindings(this.db, [id])).get(id) ?? { keys: 0, tenants: 0 };
+    return { plan, rules, bindings };
+  }
+
+  async createLimitPlan(
+    dto: CreateLimitPlanDto,
+  ): Promise<{
+    plan: LimitPlanRow;
+    rules: LimitRuleRow[];
+    bindings: { keys: number; tenants: number };
+  }> {
+    return this.db.transaction(async (tx) => {
+      const plan = await createLimitPlan(tx, {
+        name: dto.name,
+        description: dto.description ?? null,
+        ...(dto.status !== undefined ? { status: dto.status } : {}),
+      });
+      const rules = await replacePlanRules(tx, plan.id, this.ruleInputs(dto.rules));
+      return { plan, rules, bindings: { keys: 0, tenants: 0 } };
+    });
+  }
+
+  async updateLimitPlan(
+    id: string,
+    dto: UpdateLimitPlanDto,
+  ): Promise<{
+    plan: LimitPlanRow;
+    rules: LimitRuleRow[];
+    bindings: { keys: number; tenants: number };
+  }> {
+    return this.db.transaction(async (tx) => {
+      const plan = await updateLimitPlan(tx, id, {
+        ...(dto.name !== undefined ? { name: dto.name } : {}),
+        ...(dto.description !== undefined ? { description: dto.description } : {}),
+        ...(dto.status !== undefined ? { status: dto.status } : {}),
+      });
+      if (plan === undefined) throw engineNotFound(`limit plan ${id} not found`);
+      const rules =
+        dto.rules !== undefined
+          ? await replacePlanRules(tx, id, this.ruleInputs(dto.rules))
+          : await listRulesByPlan(tx, id);
+      const bindings = (await countPlanBindings(tx, [id])).get(id) ?? { keys: 0, tenants: 0 };
+      return { plan, rules, bindings };
+    });
+  }
+
+  async deleteLimitPlan(id: string): Promise<void> {
+    const deleted = await softDeleteLimitPlan(this.db, id);
+    if (deleted === undefined) throw engineNotFound(`limit plan ${id} not found`);
+  }
+
+  listLimitUsage(subjectType: string, subjectId: string): Promise<LimitUsageRow[]> {
+    return listUsageForSubject(this.db, subjectType, subjectId);
+  }
+
+  listLimitAlerts(): Promise<LimitAlertRow[]> {
+    return listLimitAlerts(this.db);
+  }
+
+  async setApiKeyLimitPlan(apiKeyId: string, planId: string | null): Promise<void> {
+    const ok = await setApiKeyLimitPlan(this.db, apiKeyId, planId);
+    if (!ok) throw engineNotFound(`api key ${apiKeyId} not found`);
+  }
+
+  async setTenantLimitPlan(tenantId: string, planId: string | null): Promise<void> {
+    const ok = await setTenantLimitPlan(this.db, tenantId, planId);
+    if (!ok) throw engineNotFound(`tenant ${tenantId} account not found`);
   }
 
   createPlugin(dto: CreatePluginRequest): Promise<ProviderPluginRow> {

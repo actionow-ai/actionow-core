@@ -7,6 +7,7 @@ import {
   createApiKeySchema,
   createChannelSchema,
   createFaultPolicySchema,
+  createLimitPlanRequestSchema,
   createModelSchema,
   createModifierSchema,
   createOAuthSessionSchema,
@@ -25,6 +26,7 @@ import {
   modelTestRequestSchema,
   provisionSchema,
   proxyProbeRequestSchema,
+  setLimitPlanRequestSchema,
   syncChannelModelsSchema,
   testPluginRequestSchema,
   topupSchema,
@@ -33,6 +35,7 @@ import {
   updateCredentialMetaSchema,
   updateDifySchema,
   updateFaultPolicySchema,
+  updateLimitPlanRequestSchema,
   updateModelSchema,
   updateModifierSchema,
   updateOfficialPriceSchema,
@@ -75,6 +78,7 @@ export {
   createApiKeySchema,
   createChannelSchema,
   createFaultPolicySchema,
+  createLimitPlanRequestSchema,
   createModelSchema,
   createModifierSchema,
   createOAuthSessionSchema,
@@ -93,6 +97,7 @@ export {
   modelTestRequestSchema,
   provisionSchema,
   proxyProbeRequestSchema,
+  setLimitPlanRequestSchema,
   syncChannelModelsSchema,
   testPluginRequestSchema,
   topupSchema,
@@ -101,6 +106,7 @@ export {
   updateCredentialMetaSchema,
   updateDifySchema,
   updateFaultPolicySchema,
+  updateLimitPlanRequestSchema,
   updateModelSchema,
   updateModifierSchema,
   updateOfficialPriceSchema,
@@ -126,6 +132,9 @@ export type UpdateApiKeyGroupDto = z.infer<typeof updateApiKeyGroupSchema>;
 export type CreateResourceDto = z.infer<typeof createResourceSchema>;
 export type UpdateResourceDto = z.infer<typeof updateResourceSchema>;
 export type EnsureResourceDto = z.infer<typeof ensureResourceSchema>;
+export type CreateLimitPlanDto = z.infer<typeof createLimitPlanRequestSchema>;
+export type UpdateLimitPlanDto = z.infer<typeof updateLimitPlanRequestSchema>;
+export type SetLimitPlanDto = z.infer<typeof setLimitPlanRequestSchema>;
 export type CreateChannelDto = z.infer<typeof createChannelSchema>;
 export type UpdateChannelDto = z.infer<typeof updateChannelSchema>;
 export type SyncChannelModelsDto = z.infer<typeof syncChannelModelsSchema>;

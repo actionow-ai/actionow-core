@@ -166,6 +166,7 @@ export {
 } from './job.js';
 export { appendLedger, type LedgerInput } from './ledger.js';
 export {
+  countPlanBindings,
   createLimitPlan,
   getLimitPlanById,
   getUsage,
@@ -185,6 +186,8 @@ export {
   recordLimitAlert,
   replacePlanRules,
   resolveEffectiveRules,
+  setApiKeyLimitPlan,
+  setTenantLimitPlan,
   softDeleteLimitPlan,
   updateLimitPlan,
   type UpdateLimitPlanInput,
