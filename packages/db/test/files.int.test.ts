@@ -6,6 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   createFileObject,
+  createSubject,
   type FileObject,
   getFileObject,
   listFilesByTenant,
@@ -32,7 +33,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE file_object, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE file_object, subject, tenant RESTART IDENTITY CASCADE`;
 });
 
 async function makeTenant(): Promise<string> {
@@ -92,6 +93,25 @@ describe('file_object repository', () => {
     expect(await getFileObject(db, file.id, other)).toBeUndefined();
     // Unscoped lookup still finds it (used internally).
     expect((await getFileObject(db, file.id))?.id).toBe(file.id);
+  });
+
+  it('§4b: subject-scoped reads see own + tenant-shared files, never another subject’s', async () => {
+    const tenantId = await makeTenant();
+    const subA = await createSubject(db, { tenantId, externalId: 'a' });
+    const subB = await createSubject(db, { tenantId, externalId: 'b' });
+    const mk = (subjectId: string | null, k: string) =>
+      createFileObject(db, { tenantId, subjectId, provider: 'minio', bucket: 'b', key: k });
+    const fa = await mk(subA.id, 'a.png');
+    const fb = await mk(subB.id, 'b.png');
+    const ft = await mk(null, 't.png');
+
+    const listA = await listFilesByTenant(db, tenantId, {}, { limit: 10 }, subA.id);
+    expect(listA.rows.map((r) => r.id).sort()).toEqual([fa.id, ft.id].sort());
+    expect((await listFilesByTenant(db, tenantId, {}, { limit: 10 })).rows).toHaveLength(3);
+
+    expect(await getFileObject(db, fb.id, tenantId, subA.id)).toBeUndefined();
+    expect((await getFileObject(db, fa.id, tenantId, subA.id))?.id).toBe(fa.id);
+    expect((await getFileObject(db, ft.id, tenantId, subA.id))?.id).toBe(ft.id);
   });
 });
 

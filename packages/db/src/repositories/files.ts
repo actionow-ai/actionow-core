@@ -1,11 +1,22 @@
 import type { InferInsertModel, InferSelectModel, SQL } from 'drizzle-orm';
-import { and, eq, like } from 'drizzle-orm';
+import { and, eq, isNull, like, or } from 'drizzle-orm';
 
 import { fileObject } from '../schema/index.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
 export type FileObject = InferSelectModel<typeof fileObject>;
+
+/**
+ * Read-path subject isolation (§4b): a subject-scoped caller sees its own assets
+ * plus tenant-shared (`subject_id IS NULL`) ones; a `null` subject (tenant-level
+ * caller) imposes no filter. Cross-subject files are excluded.
+ */
+function fileSubjectScope(subjectId: string | null): SQL | undefined {
+  return subjectId === null
+    ? undefined
+    : or(eq(fileObject.subjectId, subjectId), isNull(fileObject.subjectId));
+}
 
 /**
  * Fields a caller supplies to {@link createFileObject}. `id`, `status` (defaults
@@ -76,11 +87,12 @@ export async function getFileObject(
   db: DbOrTx,
   id: string,
   tenantId?: string,
+  subjectId: string | null = null,
 ): Promise<FileObject | undefined> {
   const where =
     tenantId === undefined
       ? eq(fileObject.id, id)
-      : and(eq(fileObject.id, id), eq(fileObject.tenantId, tenantId));
+      : and(eq(fileObject.id, id), eq(fileObject.tenantId, tenantId), fileSubjectScope(subjectId));
   const rows = await db.select().from(fileObject).where(where).limit(1);
   return rows[0];
 }
@@ -104,10 +116,13 @@ export function listFilesByTenant(
   tenantId: string,
   filter: ListFilesFilter,
   page: PageParams,
+  subjectId: string | null = null,
 ): Promise<KeysetResult<FileObject>> {
   const predicates: SQL[] = [eq(fileObject.tenantId, tenantId)];
   if (filter.status !== undefined) predicates.push(eq(fileObject.status, filter.status));
   if (filter.kind !== undefined) predicates.push(like(fileObject.contentType, `${filter.kind}/%`));
+  const scope = fileSubjectScope(subjectId);
+  if (scope !== undefined) predicates.push(scope);
 
   return keysetPage<FileObject>(db, {
     table: fileObject,
