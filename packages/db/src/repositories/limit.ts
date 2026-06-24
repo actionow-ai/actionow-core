@@ -274,7 +274,12 @@ export async function windowedUsage(
     modelScope?: string | null;
   },
 ): Promise<bigint> {
-  const subjectCol = opts.subjectType === 'key' ? usageLog.apiKeyId : usageLog.tenantId;
+  const subjectCol =
+    opts.subjectType === 'key'
+      ? usageLog.apiKeyId
+      : opts.subjectType === 'subject'
+        ? usageLog.subjectId
+        : usageLog.tenantId;
   const expr =
     opts.dimension === 'spend'
       ? sql<string>`coalesce(sum(${usageLog.cost}), 0)`
@@ -503,7 +508,7 @@ export interface LimitRuleStatus {
  */
 export async function limitRuleStatus(
   db: DbOrTx,
-  subjectType: 'key' | 'tenant',
+  subjectType: 'key' | 'tenant' | 'subject',
   subjectId: string,
   planId: string | null,
   now: Date = new Date(),

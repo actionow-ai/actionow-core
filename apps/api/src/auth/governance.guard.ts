@@ -28,7 +28,7 @@ const ROLLING_MS: Record<string, number> = { rolling_24h: 86_400_000, rolling_30
 /** A plan rule tagged with the subject it counts against. */
 interface ScopedRule {
   rule: LimitRuleRow;
-  subjectType: 'key' | 'tenant';
+  subjectType: 'key' | 'tenant' | 'subject';
   subjectId: string;
 }
 
@@ -193,20 +193,28 @@ export class GovernanceGuard implements CanActivate {
   // ── helpers ───────────────────────────────────────────────────────────────
 
   private async effectiveRules(auth: NonNullable<AuthedRequest['auth']>): Promise<ScopedRule[]> {
-    const cacheKey = `${auth.apiKeyId ?? 'dev'}:${auth.tenantId}`;
+    // The subject is part of the cache key (unified tenancy G-D): a tenant-level
+    // key serving many subjects (Model-B) must not serve subject A's rules to B.
+    // (A future optimization caches plan→rules by planId to bound Model-B churn;
+    // here the per-(key,tenant,subject) entry is correct under the 15s TTL.)
+    const cacheKey = `${auth.apiKeyId ?? 'dev'}:${auth.tenantId}:${auth.subjectId ?? ''}`;
     const now = Date.now();
     const cached = this.rulesCache.get(cacheKey);
     if (cached !== undefined && cached.expiresAt > now) return cached.rules;
 
-    const [keyRules, tenantRules] = await Promise.all([
+    const [keyRules, tenantRules, subjectRules] = await Promise.all([
       auth.limitPlanId !== null
         ? resolveEffectiveRules(this.db, auth.limitPlanId, null)
         : Promise.resolve([] as LimitRuleRow[]),
       auth.tenantLimitPlanId !== null
         ? resolveEffectiveRules(this.db, auth.tenantLimitPlanId, null)
         : Promise.resolve([] as LimitRuleRow[]),
+      auth.subjectLimitPlanId != null
+        ? resolveEffectiveRules(this.db, auth.subjectLimitPlanId, null)
+        : Promise.resolve([] as LimitRuleRow[]),
     ]);
     const keyId = auth.apiKeyId;
+    const subjectId = auth.subjectId;
     const scoped: ScopedRule[] = [
       ...(keyId !== null
         ? keyRules.map((rule) => ({ rule, subjectType: 'key' as const, subjectId: keyId }))
@@ -216,6 +224,9 @@ export class GovernanceGuard implements CanActivate {
         subjectType: 'tenant' as const,
         subjectId: auth.tenantId,
       })),
+      ...(subjectId != null
+        ? subjectRules.map((rule) => ({ rule, subjectType: 'subject' as const, subjectId }))
+        : []),
     ];
     this.rulesCache.set(cacheKey, { rules: scoped, expiresAt: now + RULES_CACHE_TTL_MS });
     return scoped;
