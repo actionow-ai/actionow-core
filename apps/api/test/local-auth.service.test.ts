@@ -1,4 +1,10 @@
-import type { CreateUserInput, Database, UserRecord } from '@actionow/db';
+import type {
+  CreateSubjectInput,
+  CreateUserInput,
+  Database,
+  SubjectRow,
+  UserRecord,
+} from '@actionow/db';
 import { hashPassword } from '@actionow/infra';
 import { JwtService } from '@nestjs/jwt';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -49,6 +55,41 @@ class FakeRepo implements LocalAuthRepo {
     this.accounts.push({ tenantId: input.tenantId });
     return Promise.resolve({ id: this.nextId('acct') });
   }
+
+  readonly subjects: SubjectRow[] = [];
+
+  findSubjectByEmail(
+    _db: Database,
+    tenantId: string,
+    email: string,
+  ): Promise<SubjectRow | undefined> {
+    const norm = email.trim().toLowerCase();
+    return Promise.resolve(
+      this.subjects.find(
+        (s) => s.tenantId === tenantId && s.email === norm && s.deletedAt === null,
+      ),
+    );
+  }
+
+  createSubject(_db: Database, input: CreateSubjectInput): Promise<SubjectRow> {
+    // model the tenant FK: an unknown tenant id rejects (→ registerMember 400).
+    if (input.tenantId === 'bad') return Promise.reject(new Error('tenant fk violation'));
+    const s: SubjectRow = {
+      id: this.nextId('subject'),
+      tenantId: input.tenantId,
+      externalId: input.externalId ?? null,
+      email: input.email != null ? input.email.trim().toLowerCase() : null,
+      passwordHash: input.passwordHash ?? null,
+      displayName: input.displayName ?? null,
+      limitPlanId: input.limitPlanId ?? null,
+      status: input.status ?? 'active',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    };
+    this.subjects.push(s);
+    return Promise.resolve(s);
+  }
 }
 
 function service(repo: LocalAuthRepo): LocalAuthService {
@@ -59,6 +100,12 @@ function service(repo: LocalAuthRepo): LocalAuthService {
 
 function claimsOf(token: string): { sub: string; role: string } {
   return new JwtService({ secret: SECRET }).verify<{ sub: string; role: string }>(token);
+}
+
+function memberClaimsOf(token: string): { sub: string; tenant_id: string; typ: string } {
+  return new JwtService({ secret: SECRET }).verify<{ sub: string; tenant_id: string; typ: string }>(
+    token,
+  );
 }
 
 let repo: FakeRepo;
@@ -145,6 +192,53 @@ describe('LocalAuthService.login', () => {
     });
     await expect(
       service(repo).login({ email: 'disabled@example.com', password: 'right' }),
+    ).rejects.toMatchObject({ unified: { code: 'unauthorized' } });
+  });
+});
+
+describe('LocalAuthService.registerMember / loginMember (G-F)', () => {
+  it('registers a member as a subject + issues a typ:subject token (no new tenant)', async () => {
+    const { token } = await service(repo).registerMember({
+      email: 'M@x.com',
+      password: 'hunter2',
+      tenantId: 'tenant-1',
+    });
+    const claims = memberClaimsOf(token);
+    expect(claims.typ).toBe('subject');
+    expect(claims.tenant_id).toBe('tenant-1');
+    expect(repo.subjects[0]?.email).toBe('m@x.com');
+    expect(repo.subjects[0]?.passwordHash).not.toBeNull();
+    expect(repo.tenants).toHaveLength(0); // unlike register(), no tenant provisioned
+  });
+
+  it('rejects a duplicate member email within the tenant', async () => {
+    await service(repo).registerMember({ email: 'dup@x.com', password: 'hunter2', tenantId: 't1' });
+    await expect(
+      service(repo).registerMember({ email: 'DUP@x.com', password: 'other', tenantId: 't1' }),
+    ).rejects.toMatchObject({ unified: { code: 'invalid_input' } });
+  });
+
+  it('maps an unknown tenant to invalid_input', async () => {
+    await expect(
+      service(repo).registerMember({ email: 'x@x.com', password: 'hunter2', tenantId: 'bad' }),
+    ).rejects.toMatchObject({ unified: { code: 'invalid_input' } });
+  });
+
+  it('loginMember authenticates per-tenant; wrong password or wrong tenant → unauthorized', async () => {
+    await service(repo).registerMember({ email: 'login@x.com', password: 'right', tenantId: 't1' });
+    const { token } = await service(repo).loginMember({
+      email: 'login@x.com',
+      password: 'right',
+      tenantId: 't1',
+    });
+    expect(memberClaimsOf(token).typ).toBe('subject');
+
+    await expect(
+      service(repo).loginMember({ email: 'login@x.com', password: 'wrong', tenantId: 't1' }),
+    ).rejects.toMatchObject({ unified: { code: 'unauthorized' } });
+    // right creds but the wrong tenant must not authenticate (tenant-scoped).
+    await expect(
+      service(repo).loginMember({ email: 'login@x.com', password: 'right', tenantId: 't2' }),
     ).rejects.toMatchObject({ unified: { code: 'unauthorized' } });
   });
 });
