@@ -32,6 +32,36 @@ export const updateTenantSchema = z.object({
 });
 export type UpdateTenantBody = z.infer<typeof updateTenantSchema>;
 
+/**
+ * `POST /admin/tenants/:id/users` — create a subject (end-user) under a tenant
+ * (unified tenancy G-A). At least one identifier is required: `externalId`
+ * (Model B, app-owned) or `email` (Model A, member login). `external_id` is
+ * immutable after creation (decision #6).
+ */
+export const createSubjectSchema = z
+  .object({
+    externalId: z.string().min(1).optional(),
+    email: z.string().email().optional(),
+    displayName: z.string().min(1).optional(),
+    limitPlanId: z.string().uuid().optional(),
+  })
+  .refine((b) => b.externalId !== undefined || b.email !== undefined, {
+    message: 'one of externalId or email is required',
+  });
+export type CreateSubjectBody = z.infer<typeof createSubjectSchema>;
+
+/**
+ * `PATCH /admin/tenants/:id/users/:sid` — update a subject. `external_id` is
+ * intentionally absent (immutable, decision #6). A nullable field clears it.
+ */
+export const updateSubjectSchema = z.object({
+  email: z.string().email().nullable().optional(),
+  displayName: z.string().nullable().optional(),
+  limitPlanId: z.string().uuid().nullable().optional(),
+  status: z.enum(['active', 'disabled']).optional(),
+});
+export type UpdateSubjectBody = z.infer<typeof updateSubjectSchema>;
+
 /** `POST /admin/accounts` — create an account (opening balance in credits). */
 export const createAccountSchema = z.object({
   tenantId: z.string().uuid(),

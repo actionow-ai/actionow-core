@@ -128,7 +128,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE request_idempotency, route_group_channel, route_group, api_key, ledger_txn, dify_binding, redemption_code, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, oauth_session, secret_material, secret_ref, "user" RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE request_idempotency, route_group_channel, route_group, api_key, subject, ledger_txn, dify_binding, redemption_code, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, oauth_session, secret_material, secret_ref, "user" RESTART IDENTITY CASCADE`;
 });
 
 function auth(req: request.Test): request.Test {
@@ -1226,5 +1226,90 @@ describe('D4: dify list / patch / delete', () => {
       request(app.getHttpServer()).patch('/admin/dify/nope').send({ pricingModel: 'fixed' }),
     ).expect(404);
     await auth(request(app.getHttpServer()).delete('/admin/dify/dify-d4-res')).expect(404);
+  });
+});
+
+describe('G-A: tenant subjects (end-users) CRUD', () => {
+  async function makeTenant(name: string): Promise<string> {
+    const res = await auth(
+      request(app.getHttpServer()).post('/admin/tenants').send({ name }),
+    ).expect(201);
+    return res.body.id as string;
+  }
+
+  it('creates → lists → gets → patches → deletes a subject under a tenant', async () => {
+    const tenantId = await makeTenant('subj-crud');
+
+    // create (Model-B: external_id). password_hash is never exposed.
+    const created = await auth(
+      request(app.getHttpServer())
+        .post(`/admin/tenants/${tenantId}/users`)
+        .send({ externalId: 'end-user-1', displayName: 'Alice' }),
+    ).expect(201);
+    expect(created.body.tenant_id).toBe(tenantId);
+    expect(created.body.external_id).toBe('end-user-1');
+    expect(created.body.display_name).toBe('Alice');
+    expect(created.body.status).toBe('active');
+    expect(created.body).not.toHaveProperty('password_hash');
+    const sid = created.body.id as string;
+
+    // list
+    const list = await auth(
+      request(app.getHttpServer()).get(`/admin/tenants/${tenantId}/users`),
+    ).expect(200);
+    expect(list.body.data.map((s: { id: string }) => s.id)).toContain(sid);
+    expect(list.body.has_more).toBe(false);
+
+    // get-by-id
+    const got = await auth(
+      request(app.getHttpServer()).get(`/admin/tenants/${tenantId}/users/${sid}`),
+    ).expect(200);
+    expect(got.body.id).toBe(sid);
+
+    // patch displayName + status
+    const patched = await auth(
+      request(app.getHttpServer())
+        .patch(`/admin/tenants/${tenantId}/users/${sid}`)
+        .send({ displayName: 'Alice B', status: 'disabled' }),
+    ).expect(200);
+    expect(patched.body.display_name).toBe('Alice B');
+    expect(patched.body.status).toBe('disabled');
+
+    // delete → 204, then get 404, list excludes
+    await auth(
+      request(app.getHttpServer()).delete(`/admin/tenants/${tenantId}/users/${sid}`),
+    ).expect(204);
+    await auth(request(app.getHttpServer()).get(`/admin/tenants/${tenantId}/users/${sid}`)).expect(
+      404,
+    );
+    const after = await auth(
+      request(app.getHttpServer()).get(`/admin/tenants/${tenantId}/users`),
+    ).expect(200);
+    expect(after.body.data.map((s: { id: string }) => s.id)).not.toContain(sid);
+
+    // second delete → 404 (idempotent)
+    await auth(
+      request(app.getHttpServer()).delete(`/admin/tenants/${tenantId}/users/${sid}`),
+    ).expect(404);
+  });
+
+  it('rejects a subject with neither external_id nor email (400)', async () => {
+    const tenantId = await makeTenant('subj-bad');
+    const res = await auth(
+      request(app.getHttpServer())
+        .post(`/admin/tenants/${tenantId}/users`)
+        .send({ displayName: 'no identity' }),
+    ).expect(400);
+    expect(res.body.error.code).toBe('invalid_input');
+  });
+
+  it('is tenant-scoped: a subject is not visible under another tenant', async () => {
+    const a = await makeTenant('subj-a');
+    const b = await makeTenant('subj-b');
+    const created = await auth(
+      request(app.getHttpServer()).post(`/admin/tenants/${a}/users`).send({ externalId: 'x' }),
+    ).expect(201);
+    const sid = created.body.id as string;
+    await auth(request(app.getHttpServer()).get(`/admin/tenants/${b}/users/${sid}`)).expect(404);
   });
 });

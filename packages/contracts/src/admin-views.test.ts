@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { accountViewSchema, tenantViewSchema } from './admin-views.js';
+import { accountViewSchema, subjectViewSchema, tenantViewSchema } from './admin-views.js';
 
 describe('admin view contracts (single source of truth for FE + BE)', () => {
   it('tenantViewSchema accepts a valid view and rejects a missing field', () => {
@@ -26,5 +26,20 @@ describe('admin view contracts (single source of truth for FE + BE)', () => {
     expect(accountViewSchema.parse(v)).toEqual(v);
     // money is a µcredit decimal STRING, never a JS number — guard against drift.
     expect(() => accountViewSchema.parse({ ...v, credit_balance: 0 })).toThrow();
+  });
+
+  it('subjectViewSchema accepts a view with nullable identity fields', () => {
+    const v = {
+      id: 's1',
+      tenant_id: 't1',
+      external_id: 'end-user-1',
+      email: null,
+      display_name: 'Alice',
+      limit_plan_id: null,
+      status: 'active',
+      created_at: '2026-01-01T00:00:00Z',
+    };
+    expect(subjectViewSchema.parse(v)).toEqual(v);
+    expect(() => subjectViewSchema.parse({ ...v, status: undefined })).toThrow();
   });
 });

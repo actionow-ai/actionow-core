@@ -68,6 +68,8 @@ import {
   routeGroupViewSchema,
   type SecretView,
   secretViewSchema,
+  type SubjectView,
+  subjectViewSchema,
   type TenantView,
   tenantViewSchema,
   type TestPluginResponse,
@@ -105,6 +107,7 @@ import type {
   RouteGroupChannelRow,
   RouteGroupRow,
   SecretRefView,
+  SubjectRow,
   TenantRow,
   UpstreamChannelRow,
   UsageLogRow,
@@ -182,6 +185,8 @@ import {
   createRouteGroupSchema,
   type CreateSecretDto,
   createSecretSchema,
+  type CreateSubjectDto,
+  createSubjectSchema,
   type CreateTenantDto,
   createTenantSchema,
   type EnsureResourceDto,
@@ -236,6 +241,8 @@ import {
   updateResourceSchema,
   type UpdateRouteGroupDto,
   updateRouteGroupSchema,
+  type UpdateSubjectDto,
+  updateSubjectSchema,
   type UpdateTenantDto,
   updateTenantSchema,
 } from './dto/admin.dto.js';
@@ -357,6 +364,53 @@ export class AdminController {
     @Body(new ZodBody(updateTenantSchema)) dto: UpdateTenantDto,
   ): Promise<TenantView> {
     return toTenantView(await this.admin.updateTenant(id, dto));
+  }
+
+  // ----- tenant subjects (end-users; unified tenancy G-A) -----
+
+  @Post('tenants/:id/users')
+  @HttpCode(201)
+  @Idempotent()
+  @ApiOperation({ summary: 'Create a subject (end-user) under a tenant' })
+  async createSubject(
+    @Param('id') tenantId: string,
+    @Body(new ZodBody(createSubjectSchema)) dto: CreateSubjectDto,
+  ): Promise<SubjectView> {
+    return toSubjectView(await this.admin.createSubject(tenantId, dto));
+  }
+
+  @Get('tenants/:id/users')
+  @ApiOperation({ summary: "List a tenant's subjects (paginated)" })
+  async listSubjects(
+    @Param('id') tenantId: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<SubjectView>> {
+    const result = await this.admin.listSubjects(tenantId, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toSubjectView);
+  }
+
+  @Get('tenants/:id/users/:sid')
+  @ApiOperation({ summary: 'Get one subject by id (tenant-scoped) or 404' })
+  async getSubject(@Param('id') tenantId: string, @Param('sid') sid: string): Promise<SubjectView> {
+    return toSubjectView(await this.admin.getSubject(tenantId, sid));
+  }
+
+  @Patch('tenants/:id/users/:sid')
+  @ApiOperation({ summary: 'Update a subject (display name / status / plan / email)' })
+  async updateSubject(
+    @Param('id') tenantId: string,
+    @Param('sid') sid: string,
+    @Body(new ZodBody(updateSubjectSchema)) dto: UpdateSubjectDto,
+  ): Promise<SubjectView> {
+    return toSubjectView(await this.admin.updateSubject(tenantId, sid, dto));
+  }
+
+  @Delete('tenants/:id/users/:sid')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete a subject (frees its external_id/email)' })
+  async deleteSubject(@Param('id') tenantId: string, @Param('sid') sid: string): Promise<void> {
+    await this.admin.deleteSubject(tenantId, sid);
   }
 
   // ----- accounts -----
@@ -1530,6 +1584,19 @@ function toTenantView(row: TenantRow): TenantView {
     id: row.id,
     name: row.name,
     isolation_mode: row.isolationMode,
+    created_at: row.createdAt.toISOString(),
+  });
+}
+
+function toSubjectView(row: SubjectRow): SubjectView {
+  return subjectViewSchema.parse({
+    id: row.id,
+    tenant_id: row.tenantId,
+    external_id: row.externalId,
+    email: row.email,
+    display_name: row.displayName,
+    limit_plan_id: row.limitPlanId,
+    status: row.status,
     created_at: row.createdAt.toISOString(),
   });
 }

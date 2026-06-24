@@ -13,18 +13,21 @@ import {
   createApiKeySchema,
   createOAuthSessionSchema,
   createSecretSchema,
+  createSubjectSchema,
   createTenantSchema,
   generateCodesSchema,
   provisionSchema,
   topupSchema,
   updateApiKeyGroupSchema,
   updateCredentialMetaSchema,
+  updateSubjectSchema,
   updateTenantSchema,
 } from './admin-requests.js';
 import {
   accountViewSchema,
   adminTokenViewSchema,
   provisionViewSchema,
+  subjectViewSchema,
   tenantViewSchema,
 } from './admin-views.js';
 import {
@@ -175,6 +178,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
 
   // --- component schemas (named) derived from the migrated contracts ---
   const Tenant = registry.register('TenantView', tenantViewSchema);
+  const Subject = registry.register('SubjectView', subjectViewSchema);
   const Account = registry.register('AccountView', accountViewSchema);
   const AdminToken = registry.register('AdminTokenView', adminTokenViewSchema);
   const Provision = registry.register('ProvisionView', provisionViewSchema);
@@ -257,6 +261,8 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   // admin core (admin-requests)
   const CreateTenant = registry.register('CreateTenantBody', createTenantSchema);
   const UpdateTenant = registry.register('UpdateTenantBody', updateTenantSchema);
+  const CreateSubject = registry.register('CreateSubjectBody', createSubjectSchema);
+  const UpdateSubject = registry.register('UpdateSubjectBody', updateSubjectSchema);
   const CreateAccount = registry.register('CreateAccountBody', createAccountSchema);
   const Topup = registry.register('TopupBody', topupSchema);
   const CreateApiKey = registry.register('CreateApiKeyBody', createApiKeySchema);
@@ -774,6 +780,27 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     body: UpdateTenant,
     response: Tenant,
   });
+  // tenant subjects (end-users; unified tenancy G-A)
+  list('/admin/tenants/{id}/users', "List a tenant's subjects (paginated)", Subject, 'tenants');
+  getOne('/admin/tenants/{id}/users/{sid}', 'Get one subject by id', Subject, 'tenants');
+  write({
+    method: 'post',
+    path: '/admin/tenants/{id}/users',
+    summary: 'Create a subject (end-user) under a tenant',
+    tag: 'tenants',
+    body: CreateSubject,
+    response: Subject,
+    created: true,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/tenants/{id}/users/{sid}',
+    summary: 'Update a subject',
+    tag: 'tenants',
+    body: UpdateSubject,
+    response: Subject,
+  });
+  del('/admin/tenants/{id}/users/{sid}', 'Soft-delete a subject', 'tenants');
   write({
     method: 'post',
     path: '/admin/accounts',

@@ -47,6 +47,7 @@ import {
   createResource,
   createRouteGroup,
   type CreateRouteGroupInput,
+  createSubject,
   createTenant,
   createUpstreamChannel,
   type Database,
@@ -69,6 +70,7 @@ import {
   getResource,
   getRouteGroupById,
   getSecretRefById,
+  getSubjectById,
   getTenant,
   grantModel,
   type IconAssetRow,
@@ -114,6 +116,7 @@ import {
   listRulesByPlan,
   listRulesByPlanIds,
   listSecretRefs,
+  listSubjectsByTenant,
   listTenants,
   listUsageForSubject,
   listUsageLogsGlobal,
@@ -158,6 +161,8 @@ import {
   softDeleteProxy,
   softDeleteRouteGroup,
   softDeleteSecretRef,
+  softDeleteSubject,
+  type SubjectRow,
   type TenantRow,
   topUp,
   unlinkAllForChannel,
@@ -176,6 +181,7 @@ import {
   updateResource,
   updateRouteGroup,
   updateSecretRefMeta,
+  updateSubject,
   updateTenant,
   updateUpstreamChannel,
   type UpdateUpstreamChannelInput,
@@ -220,6 +226,7 @@ import type {
   CreateResourceDto,
   CreateRouteGroupDto,
   CreateSecretDto,
+  CreateSubjectDto,
   CreateTenantDto,
   EnsureResourceDto,
   GenerateCodesDto,
@@ -239,6 +246,7 @@ import type {
   UpdateProxyDto,
   UpdateResourceDto,
   UpdateRouteGroupDto,
+  UpdateSubjectDto,
   UpdateTenantDto,
 } from './dto/admin.dto.js';
 
@@ -446,6 +454,50 @@ export class AdminService {
       throw engineNotFound(`tenant ${tenantId} not found`);
     }
     return row;
+  }
+
+  // ----- tenant subjects (end-users; unified tenancy G-A) -----
+
+  /** Create a subject under a tenant (404 if the tenant is absent/soft-deleted). */
+  async createSubject(tenantId: string, dto: CreateSubjectDto): Promise<SubjectRow> {
+    await this.getTenant(tenantId);
+    return createSubject(this.db, {
+      tenantId,
+      externalId: dto.externalId,
+      email: dto.email,
+      displayName: dto.displayName,
+      limitPlanId: dto.limitPlanId,
+    });
+  }
+
+  /** List a tenant's live subjects, keyset-paginated. */
+  listSubjects(tenantId: string, page: PageParams): Promise<KeysetResult<SubjectRow>> {
+    return listSubjectsByTenant(this.db, tenantId, page);
+  }
+
+  /** Fetch one subject by id (tenant-scoped), or 404. */
+  async getSubject(tenantId: string, id: string): Promise<SubjectRow> {
+    const row = await getSubjectById(this.db, tenantId, id);
+    if (row === undefined) throw engineNotFound(`subject ${id} not found`);
+    return row;
+  }
+
+  /** Patch a subject (tenant-scoped); 404 when absent. `external_id` is immutable. */
+  async updateSubject(tenantId: string, id: string, dto: UpdateSubjectDto): Promise<SubjectRow> {
+    const row = await updateSubject(this.db, tenantId, id, {
+      email: dto.email,
+      displayName: dto.displayName,
+      limitPlanId: dto.limitPlanId,
+      status: dto.status,
+    });
+    if (row === undefined) throw engineNotFound(`subject ${id} not found`);
+    return row;
+  }
+
+  /** Soft-delete a subject (tenant-scoped); 404 when absent (idempotent second call). */
+  async deleteSubject(tenantId: string, id: string): Promise<void> {
+    const deleted = await softDeleteSubject(this.db, tenantId, id);
+    if (deleted === undefined) throw engineNotFound(`subject ${id} not found`);
   }
 
   // ----- accounts -----

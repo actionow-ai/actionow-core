@@ -37,6 +37,23 @@ export const accountViewSchema = z.object({
 export type AccountView = z.infer<typeof accountViewSchema>;
 
 /**
+ * A **subject** (end-user) as served by `GET /admin/tenants/:id/users` (unified
+ * tenancy). NEVER includes `password_hash`. `external_id` (Model B) and `email`
+ * (Model A) are nullable; `limit_plan_id` is the per-subject governance plan.
+ */
+export const subjectViewSchema = z.object({
+  id: z.string(),
+  tenant_id: z.string(),
+  external_id: z.string().nullable(),
+  email: z.string().nullable(),
+  display_name: z.string().nullable(),
+  limit_plan_id: z.string().nullable(),
+  status: z.string(),
+  created_at: z.string(),
+});
+export type SubjectView = z.infer<typeof subjectViewSchema>;
+
+/**
  * An admin SERVICE TOKEN (M2M credential) as served by `GET /admin/tokens`. NEVER
  * includes the token hash or plaintext — only metadata. `expires_at` is a nullable
  * ISO string (`null` → never expires); `created_by` is the minting admin's id.
