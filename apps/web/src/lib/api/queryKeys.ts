@@ -23,6 +23,12 @@ export const qk = {
   routeGroups: () => ['admin', 'route-groups'] as const,
   routeGroupChannels: (id: string) => ['admin', 'route-groups', id, 'channels'] as const,
   faultPolicies: () => ['admin', 'fault-policies'] as const,
+  limitPlans: () => ['admin', 'limit-plans'] as const,
+  limitUsage: (subjectType: string, subjectId: string) =>
+    ['admin', 'limit-usage', subjectType, subjectId] as const,
+  limitStatus: (subjectType: string, subjectId: string) =>
+    ['admin', 'limit-status', subjectType, subjectId] as const,
+  limitAlerts: () => ['admin', 'limit-alerts'] as const,
   proxies: () => ['admin', 'proxies'] as const,
   modelHealth: (days: number) => ['admin', 'model-health', days] as const,
   /** No params → the bare prefix (invalidates every param variant); with params → the specific filtered key. */
@@ -53,6 +59,7 @@ export const qk = {
   consoleBalance: () => ['console', 'balance'] as const,
   consoleFiles: (kind?: string) =>
     kind === undefined ? (['console', 'files'] as const) : (['console', 'files', kind] as const),
+  consoleLimits: () => ['console', 'limits'] as const,
   ledger: (tenantId: string) => ['admin', 'ledger', tenantId] as const,
   payments: (tenantId: string) => ['admin', 'payments', tenantId] as const,
 };

@@ -55,6 +55,11 @@
         "balance": "余额"
       }
     },
+    "limits": {
+      "title": "额度用量",
+      "alertTitle": "额度告警",
+      "alertLine": "{{dim}} 已达上限的 {{pct}}%(周期 {{period}})"
+    },
     "keys": {
       "mint": "签发 Key",
       "empty": "还没有 API Key——签发你的第一个",
@@ -167,6 +172,7 @@
     "models": "模型",
     "modifiers": "调价规则",
     "routeGroups": "分组",
+    "limitPlans": "额度套餐",
     "faultPolicies": "调用容错",
     "officialPrices": "官方价格",
     "dify": "Dify 导入",
@@ -203,6 +209,7 @@
     "models": "模型目录：按标签 / 能力 / 开发者过滤",
     "modifiers": "全局与范围化的调价规则",
     "routeGroups": "路由分组与渠道成员",
+    "limitPlans": "可复用的额度套餐：消费预算、限流、配额与告警阈值",
     "faultPolicies": "重试 / 退避 / 超时 / 降级——按渠道的容错策略",
     "officialPrices": "模型参考价格",
     "dify": "把 Dify 工作流导入为资源",
@@ -388,6 +395,12 @@
       "payments": "支付",
       "noLedger": "暂无流水",
       "noPayments": "暂无支付",
+      "planBound": "额度套餐已更新",
+      "plan": {
+        "label": "额度套餐",
+        "none": "不限制",
+        "tip": "为该租户绑定额度套餐(消费预算 / 限流 / 配额)。不绑定 = 不受限制。"
+      },
       "cols": {
         "time": "时间",
         "type": "类型",
@@ -464,6 +477,11 @@
       "default": "默认组(×1.00)",
       "bound": "路由组",
       "tip": "将 Key 绑定到路由组,会决定其客户计价倍率与可路由的渠道。默认 = ×1.00。"
+    },
+    "plan": {
+      "label": "额度套餐",
+      "none": "不限制",
+      "tip": "将 Key 绑定到额度套餐(消费预算 / 限流 / 配额)。不绑定 = 不受限制。"
     },
     "revoke": "吊销",
     "revoked": "Key 已吊销",
@@ -757,6 +775,61 @@
       "status": "状态"
     },
     "empty": "暂无上游通道"
+  },
+  "limitPlans": {
+    "title": "额度套餐",
+    "new": "新建套餐",
+    "editTitle": "编辑额度套餐",
+    "save": "保存套餐",
+    "empty": "暂无额度套餐",
+    "created": "套餐已创建",
+    "updated": "套餐已更新",
+    "deleted": "套餐已删除",
+    "bindingSummary": "{{keys}} 个 Key · {{tenants}} 个租户",
+    "alertAt": "{{pct}}% 时告警",
+    "cols": {
+      "name": "名称",
+      "rules": "规则",
+      "bindings": "绑定",
+      "status": "状态"
+    },
+    "dim": {
+      "spend": "消费",
+      "requests": "请求数",
+      "tokens": "Token",
+      "rpm": "RPM",
+      "concurrency": "并发"
+    },
+    "period": {
+      "minute": "分钟",
+      "day": "日",
+      "month": "月",
+      "rolling_24h": "近24小时",
+      "rolling_30d": "近30天",
+      "total": "累计"
+    },
+    "form": {
+      "name": "名称",
+      "nameRequired": "请填写名称",
+      "description": "描述",
+      "status": "状态",
+      "rules": "限额规则",
+      "addRule": "添加规则",
+      "removeRule": "删除规则",
+      "noRules": "暂无规则——绑定后该主体不受限制",
+      "dimension": "维度",
+      "period": "周期",
+      "capCredits": "上限(额度 $)",
+      "capCount": "上限(数量)",
+      "alertPct": "告警阈值 %",
+      "alertPctHint": "用量达到上限的该百分比时记录告警(0=不告警)",
+      "modelScope": "模型范围",
+      "modelScopeHint": "留空=应用于全部模型;填写模型名=仅限该模型"
+    },
+    "confirm": {
+      "deleteTitle": "删除额度套餐",
+      "deleteMsg": "确定删除「{{name}}」?已绑定的 Key / 租户将恢复为不受限制。"
+    }
   },
   "faultPolicies": {
     "title": "调用容错",

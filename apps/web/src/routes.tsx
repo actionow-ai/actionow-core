@@ -14,6 +14,7 @@ import { OAuthCallbackPage } from './features/auth/OAuthCallbackPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { DifyImportPage } from './features/console/DifyImportPage';
 import { FaultPoliciesPage } from './features/console/FaultPoliciesPage';
+import { LimitPlansPage } from './features/console/LimitPlansPage';
 import { ModelAccessPage } from './features/console/ModelAccessPage';
 import { ModelsCatalogPage } from './features/console/ModelsCatalogPage';
 import { ModifiersPage } from './features/console/ModifiersPage';
@@ -83,6 +84,7 @@ export function AppRoutes() {
           {/* Billing & routing: live on the real /admin/route-groups and
               /admin/official-prices endpoints (via useAdminApi). */}
           <Route path="groups" element={<RouteGroupsPage />} />
+          <Route path="limit-plans" element={<LimitPlansPage />} />
           <Route path="fault-policies" element={<FaultPoliciesPage />} />
           <Route path="official-prices" element={<OfficialPricesPage />} />
           <Route path="dify" element={<DifyImportPage />} />

@@ -14,6 +14,7 @@ const key: ApiKeyView = {
   rate_limit: null,
   status: 'active',
   route_group_id: 'g1',
+  limit_plan_id: null,
   created_at: '2026-06-01T00:00:00Z',
 };
 const groups: RouteGroupView[] = [
@@ -24,8 +25,10 @@ const groups: RouteGroupView[] = [
 const mockApi = vi.hoisted(() => ({
   listApiKeys: vi.fn(() => Promise.resolve([] as unknown[])),
   listRouteGroups: vi.fn(() => Promise.resolve([] as unknown[])),
+  listLimitPlans: vi.fn(() => Promise.resolve([] as unknown[])),
   createApiKey: vi.fn(() => Promise.resolve({ id: 'k9', plaintext: 'sk-x' })),
   updateApiKeyGroup: vi.fn(() => Promise.resolve({ id: 'k1', route_group_id: null })),
+  setApiKeyLimitPlan: vi.fn(() => Promise.resolve({ ok: true })),
   deleteApiKey: vi.fn(() => Promise.resolve()),
 }));
 vi.mock('../../lib/api/useAdminApi', () => ({ useAdminApi: () => mockApi }));
@@ -51,6 +54,7 @@ beforeEach(() => {
   mockApi.deleteApiKey.mockClear();
   mockApi.listApiKeys.mockResolvedValue([key]);
   mockApi.listRouteGroups.mockResolvedValue(groups);
+  mockApi.listLimitPlans.mockResolvedValue([]);
 });
 
 describe('ApiKeysPage group-bind + revoke', () => {

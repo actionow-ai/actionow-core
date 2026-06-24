@@ -12,6 +12,7 @@ import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { EntityCard } from '../../components/data/EntityCard';
 import { ErrorState } from '../../components/data/ErrorState';
+import { LimitUsageBars } from '../../components/data/LimitUsageBars';
 import { Money } from '../../components/data/Money';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
@@ -337,6 +338,34 @@ function TenantDetailDrawer({
 
   const refreshAccounts = () => qc.invalidateQueries({ queryKey: qk.accounts() });
 
+  // Limit plans drive the tenant-level governance binding (额度套餐, on the account).
+  const plans = useQuery({
+    queryKey: qk.limitPlans(),
+    queryFn: () => api.listLimitPlans(),
+    staleTime: STALE_REFERENCE,
+  });
+  const planOptions = (plans.data ?? []).map((p) => ({ value: p.id, label: p.name }));
+  const planId = account?.limit_plan_id ?? null;
+  // Usage-vs-cap for the bound tenant plan (rolling-aware).
+  const usage = useQuery({
+    queryKey: qk.limitStatus('tenant', tenant.id),
+    queryFn: () => api.listLimitStatus('tenant', tenant.id, planId ?? ''),
+    enabled: planId !== null,
+    staleTime: 30_000,
+  });
+
+  const bindPlan = useMutation({
+    mutationFn: (pid: string | null) => api.setTenantLimitPlan(tenant.id, pid),
+    onSuccess: async () => {
+      await Promise.all([
+        refreshAccounts(),
+        qc.invalidateQueries({ queryKey: qk.limitStatus('tenant', tenant.id) }),
+      ]);
+      toast(t('tenants.detail.planBound'));
+    },
+    onError: mutationError(t),
+  });
+
   // Edit the only mutable tenant field (isolation mode) — applied on select.
   const updateTenant = useMutation({
     mutationFn: (isolationMode: 'field' | 'schema' | 'db') =>
@@ -492,6 +521,28 @@ function TenantDetailDrawer({
           {t('accounts.topup.action')}
         </Button>
       )}
+
+      {/* Governance: bind a 额度套餐 + show usage-vs-cap for the bound plan. */}
+      <div
+        className="panel"
+        style={{
+          borderRadius: 'var(--r-md)',
+          padding: 'var(--s-4)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--s-3)',
+        }}
+      >
+        <SelectField
+          label={t('tenants.detail.plan.label')}
+          tooltip={t('tenants.detail.plan.tip')}
+          value={planId ?? ''}
+          onChange={(v) => bindPlan.mutate(v === '' ? null : v)}
+          options={planOptions}
+          placeholder={t('tenants.detail.plan.none')}
+        />
+        {planId !== null && <LimitUsageBars rules={usage.data ?? []} />}
+      </div>
     </div>
   ) : (
     <div
