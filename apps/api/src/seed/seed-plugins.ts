@@ -1,5 +1,8 @@
 import type { Database } from '@actionow/db';
-import { upsertBuiltinPlugin } from '@actionow/db';
+import { schema, upsertBuiltinPlugin } from '@actionow/db';
+import { and, eq, isNull } from 'drizzle-orm';
+
+const { providerPlugin, upstreamChannel } = schema;
 
 /**
  * Built-in provider plugins seeded as DATA (idempotent upsert by slug). These are
@@ -263,7 +266,34 @@ const CODEX_CLI: BuiltinPlugin = {
   handler: CHAT_PASSTHROUGH_HANDLER,
 };
 
+/**
+ * NATIVE grouping plugins — one per first-party chat vendor that runs through a
+ * CODE adapter (provider_type openai/anthropic/gemini), NOT the sandbox. These
+ * exist so every channel groups under a vendor plugin in the 模型接入 3-pane;
+ * the engine still dispatches them by `provider_type` (≠ 'plugin'), so the
+ * passthrough handler is never executed. `native: true` flags the grouping role.
+ */
+function nativePlugin(slug: string, label: string, icon: string): BuiltinPlugin {
+  return {
+    slug,
+    label,
+    icon,
+    modalities: ['text'],
+    protocol: 'sync',
+    authStrategy: 'bearer',
+    credentialFields: BEARER_CRED,
+    handler: CHAT_PASSTHROUGH_HANDLER,
+  };
+}
+const NATIVE_OPENAI = nativePlugin('native-openai', 'OpenAI', 'openai');
+const NATIVE_ANTHROPIC = nativePlugin('native-anthropic', 'Anthropic', 'anthropic');
+const NATIVE_GOOGLE = nativePlugin('native-google', 'Google Gemini', 'google');
+
 export const BUILTIN_PLUGINS: BuiltinPlugin[] = [
+  NATIVE_OPENAI,
+  NATIVE_ANTHROPIC,
+  NATIVE_GOOGLE,
+  CODEX_CLI,
   OPENAI_IMAGES,
   XAI_IMAGE,
   VOLCENGINE_MEDIA,
@@ -271,10 +301,26 @@ export const BUILTIN_PLUGINS: BuiltinPlugin[] = [
   KLING_MEDIA,
   ALIBABA_MEDIA,
   MINIMAX_MEDIA,
-  CODEX_CLI,
   SYNC_IMAGE_RELAY,
   ASYNC_MEDIA_RELAY,
 ];
+
+/**
+ * Map a channel `provider_type` → the plugin `slug` it groups under in the 模型
+ * 接入 3-pane. First-party chat adapters group under their NATIVE plugin; the
+ * media `async-media` relay + the codex reverse-proxy group under their library
+ * plugin. Unmapped provider types stay unassigned (no plugin column shown).
+ */
+const PROVIDER_TO_PLUGIN_SLUG: Record<string, string> = {
+  openai: 'native-openai',
+  anthropic: 'native-anthropic',
+  gemini: 'native-google',
+  google: 'native-google',
+  'codex-oauth': 'codex-cli',
+  codex: 'codex-cli',
+  'async-media': 'async-media-relay',
+  plugin: 'async-media-relay',
+};
 
 /** Idempotently install/refresh the built-in provider plugins. Network-free. */
 export async function seedPlugins(db: Database): Promise<void> {
@@ -296,5 +342,30 @@ export async function seedPlugins(db: Database): Promise<void> {
       handler: p.handler,
       icon: p.icon,
     });
+  }
+}
+
+/**
+ * Group every UNASSIGNED live channel under a plugin (模型接入 3-pane), by mapping
+ * its `provider_type` → a plugin slug ({@link PROVIDER_TO_PLUGIN_SLUG}). Sets
+ * `plugin_id` ONLY when currently null — never overwrites an explicit binding —
+ * and never touches `provider_type`, so routing (dispatched by `provider_type`)
+ * is unchanged: native chat channels keep their code adapter. Idempotent.
+ */
+export async function backfillChannelPlugins(db: Database): Promise<void> {
+  const plugins = await db
+    .select({ id: providerPlugin.id, slug: providerPlugin.slug })
+    .from(providerPlugin)
+    .where(isNull(providerPlugin.deletedAt));
+  const idBySlug = new Map(plugins.map((p) => [p.slug, p.id]));
+  const channels = await db
+    .select({ id: upstreamChannel.id, providerType: upstreamChannel.providerType })
+    .from(upstreamChannel)
+    .where(and(isNull(upstreamChannel.deletedAt), isNull(upstreamChannel.pluginId)));
+  for (const c of channels) {
+    const slug = PROVIDER_TO_PLUGIN_SLUG[c.providerType];
+    const pluginId = slug !== undefined ? idBySlug.get(slug) : undefined;
+    if (pluginId === undefined) continue;
+    await db.update(upstreamChannel).set({ pluginId }).where(eq(upstreamChannel.id, c.id));
   }
 }

@@ -282,6 +282,21 @@ export async function listChannelsForResource(
   });
 }
 
+/**
+ * Every LIVE upstream channel bound to a provider-plugin (incl. disabled),
+ * across ALL resources — the middle column of the 模型接入 3-pane. Newest first.
+ */
+export async function listChannelsByPlugin(
+  db: DbOrTx,
+  pluginId: string,
+): Promise<UpstreamChannelRow[]> {
+  return db
+    .select()
+    .from(upstreamChannel)
+    .where(and(eq(upstreamChannel.pluginId, pluginId), isNull(upstreamChannel.deletedAt)))
+    .orderBy(desc(upstreamChannel.createdAt));
+}
+
 /** Mutable fields of an `upstream_channel` (admin update); omitted keys are unchanged. */
 export interface UpdateUpstreamChannelInput {
   readonly credentialRef?: string | null | undefined;
@@ -299,6 +314,8 @@ export interface UpdateUpstreamChannelInput {
   readonly faultPolicyId?: string | null | undefined;
   /** Selectable icon key (icon_asset.key); `null` clears it. */
   readonly icon?: string | null | undefined;
+  /** Owning provider-plugin id (模型接入 grouping); `null` unassigns. */
+  readonly pluginId?: string | null | undefined;
 }
 
 /** Patch an `upstream_channel` row (only the supplied fields), returning the new row. */
@@ -319,6 +336,7 @@ export async function updateUpstreamChannel(
   if (patch.outputCostPer1m !== undefined) set.outputCostPer1m = patch.outputCostPer1m;
   if (patch.faultPolicyId !== undefined) set.faultPolicyId = patch.faultPolicyId;
   if (patch.icon !== undefined) set.icon = patch.icon;
+  if (patch.pluginId !== undefined) set.pluginId = patch.pluginId;
   if (Object.keys(set).length === 0) {
     const rows = await db
       .select()
@@ -919,6 +937,8 @@ export interface CreateUpstreamChannelInput {
   readonly faultPolicyId?: string | null | undefined;
   /** Selectable icon key (icon_asset.key); null → derived from plugin/provider. */
   readonly icon?: string | null | undefined;
+  /** Owning provider-plugin id (模型接入 grouping); null → unassigned. */
+  readonly pluginId?: string | null | undefined;
 }
 
 /** Insert an `upstream_channel` routing row for a resource. */
@@ -942,6 +962,7 @@ export async function createUpstreamChannel(
       outputCostPer1m: input.outputCostPer1m ?? null,
       faultPolicyId: input.faultPolicyId ?? null,
       icon: input.icon ?? null,
+      pluginId: input.pluginId ?? null,
     })
     .returning();
   const row = rows[0];

@@ -69,6 +69,8 @@ export const createChannelSchema = z.object({
   faultPolicyId: z.string().uuid().optional(),
   /** Selectable icon key (icon_asset.key). */
   icon: z.string().optional(),
+  /** Owning provider-plugin id (模型接入 3-pane grouping). */
+  pluginId: z.string().uuid().optional(),
 });
 export type CreateChannelBody = z.infer<typeof createChannelSchema>;
 
@@ -93,6 +95,8 @@ export const updateChannelSchema = z.object({
   faultPolicyId: z.string().uuid().nullable().optional(),
   /** Selectable icon key (icon_asset.key); `null` clears it. */
   icon: z.string().nullable().optional(),
+  /** Owning provider-plugin id (模型接入 3-pane grouping); `null` unassigns. */
+  pluginId: z.string().uuid().nullable().optional(),
 });
 export type UpdateChannelBody = z.infer<typeof updateChannelSchema>;
 

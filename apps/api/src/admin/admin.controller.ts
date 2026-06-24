@@ -831,6 +831,14 @@ export class AdminController {
     return (await this.admin.listPlugins()).map(toPluginView);
   }
 
+  @Get('plugins/:id/channels')
+  @ApiOperation({ summary: "List a plugin's bound channels across resources (模型接入 3-pane)" })
+  async listPluginChannels(@Param('id') id: string): Promise<ChannelView[]> {
+    const rows = await this.admin.listPluginChannels(id);
+    const counts = await this.admin.modelCountsByChannels(rows.map((r) => r.id));
+    return rows.map((r) => toChannelView(r, counts.get(r.id) ?? 0));
+  }
+
   @Post('plugins')
   @HttpCode(201)
   @ApiOperation({ summary: 'Create a provider plugin' })
@@ -1560,6 +1568,7 @@ function toChannelView(row: UpstreamChannelRow, modelCount = 0): ChannelView {
     fault_policy_id: row.faultPolicyId,
     model_count: modelCount,
     icon: row.icon,
+    plugin_id: row.pluginId,
   });
 }
 

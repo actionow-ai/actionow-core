@@ -9658,6 +9658,7 @@ export interface components {
             fault_policy_id: string | null;
             model_count: number;
             icon: string | null;
+            plugin_id: string | null;
         };
         ModelView: {
             id: string;
@@ -10338,6 +10339,8 @@ export interface components {
             /** Format: uuid */
             faultPolicyId?: string;
             icon?: string;
+            /** Format: uuid */
+            pluginId?: string;
         };
         UpdateChannelBody: {
             /** Format: uuid */
@@ -10356,6 +10359,8 @@ export interface components {
             /** Format: uuid */
             faultPolicyId?: string | null;
             icon?: string | null;
+            /** Format: uuid */
+            pluginId?: string | null;
         };
         SyncChannelModelsBody: {
             defaultInputPrice?: number;

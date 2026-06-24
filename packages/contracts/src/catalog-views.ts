@@ -45,6 +45,8 @@ export const channelViewSchema = z.object({
   model_count: z.number(),
   /** Selectable icon key (icon_asset.key); null → derived from plugin/provider. */
   icon: z.string().nullable(),
+  /** Owning provider-plugin id (模型接入 3-pane grouping); null → unassigned. */
+  plugin_id: z.string().nullable(),
 });
 export type ChannelView = z.infer<typeof channelViewSchema>;
 

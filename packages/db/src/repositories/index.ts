@@ -86,6 +86,7 @@ export {
   listAllChannelsWithHealth,
   listApplicableModifiers,
   listChannels,
+  listChannelsByPlugin,
   listChannelsForResource,
   listCooledDownChannelIds,
   listDifyBindings,

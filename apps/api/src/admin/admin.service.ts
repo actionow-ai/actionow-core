@@ -75,6 +75,7 @@ import {
   listAllChannelsWithHealth,
   listApiKeys,
   listChannelModels,
+  listChannelsByPlugin,
   listChannelsForResource,
   listFaultPolicies,
   listGroupChannels,
@@ -664,6 +665,11 @@ export class AdminService {
     return listIconAssets(this.db);
   }
 
+  /** Every channel bound to a plugin (across resources) — 模型接入 3-pane middle column. */
+  listPluginChannels(pluginId: string): Promise<UpstreamChannelRow[]> {
+    return listChannelsByPlugin(this.db, pluginId);
+  }
+
   // ----- provider plugins (P2) -----
 
   listPlugins(): Promise<ProviderPluginRow[]> {
@@ -922,6 +928,7 @@ export class AdminService {
         : {}),
       ...(dto.faultPolicyId !== undefined ? { faultPolicyId: dto.faultPolicyId } : {}),
       ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
+      ...(dto.pluginId !== undefined ? { pluginId: dto.pluginId } : {}),
     });
   }
 
@@ -960,6 +967,7 @@ export class AdminService {
     }
     if (dto.faultPolicyId !== undefined) patch.faultPolicyId = dto.faultPolicyId;
     if (dto.icon !== undefined) patch.icon = dto.icon;
+    if (dto.pluginId !== undefined) patch.pluginId = dto.pluginId;
     const row = await updateUpstreamChannel(this.db, channelId, patch);
     if (row === undefined) {
       throw engineNotFound(`channel ${channelId} not found`);

@@ -47,6 +47,7 @@ describe('catalog view contracts', () => {
       fault_policy_id: null,
       model_count: 0,
       icon: null,
+      plugin_id: null,
     };
     expect(channelViewSchema.parse(c)).toEqual(c);
   });

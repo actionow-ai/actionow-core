@@ -321,6 +321,10 @@
           "icon": {
             "type": "string",
             "nullable": true
+          },
+          "plugin_id": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -338,7 +342,8 @@
           "output_cost_per_1m",
           "fault_policy_id",
           "model_count",
-          "icon"
+          "icon",
+          "plugin_id"
         ]
       },
       "ModelView": {
@@ -3086,6 +3091,10 @@
           },
           "icon": {
             "type": "string"
+          },
+          "pluginId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": [
@@ -3152,6 +3161,11 @@
           "icon": {
             "type": "string",
             "nullable": true
+          },
+          "pluginId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
           }
         }
       },
