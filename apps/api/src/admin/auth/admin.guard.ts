@@ -65,9 +65,13 @@ export class AdminGuard implements CanActivate {
   /** Validate a human admin login JWT; `undefined` on any failure (fail closed). */
   private async verifyJwt(token: string): Promise<AdminContext | undefined> {
     try {
-      const claims = await this.jwt.verifyAsync<AdminClaims>(token, {
+      const claims = await this.jwt.verifyAsync<AdminClaims & { typ?: string }>(token, {
         secret: this.env.ADMIN_JWT_SECRET,
       });
+      // A member (end-user) token (`typ:'subject'`, unified tenancy G-F) shares
+      // the JWT secret but must NEVER authenticate an operator route — reject it
+      // before any user lookup (defense-in-depth, spec §5.2).
+      if (claims.typ === 'subject') return undefined;
       return { adminId: claims.sub, role: claims.role };
     } catch {
       return undefined;
