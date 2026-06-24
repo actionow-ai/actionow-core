@@ -687,8 +687,11 @@
     "form": {
       "platform": "Platform",
       "platformPlaceholder": "Pick the platform this channel belongs to",
+      "platformAuto": "Auto (reuse/create by plugin + modality)",
+      "platformAutoHint": "Leave as Auto — on save a platform for this provider+modality is reused or created.",
       "plugin": "Plugin",
       "pluginNone": "Unassigned",
+      "modality": "Modality",
       "provider": "Provider type",
       "icon": "Icon",
       "endpoint": "Endpoint",
@@ -707,8 +710,11 @@
     },
     "tip": {
       "platform": "The platform (resource/upstream) this channel belongs to. Routing aggregates channels per platform.",
+      "platformAuto": "Auto by default: leave empty to reuse/create a platform for this provider+modality on save, or pick an existing one.",
       "plugin": "The plugin this channel groups under (模型接入 3-pane grouping). Native vendor channels still route by provider_type — they don't run the sandbox.",
+      "modality": "The modality used when creating a new platform (carried from the chosen plugin).",
       "provider": "Free-text upstream provider for this channel (e.g. openai, anthropic). The logo resolves from this value.",
+      "providerAuto": "Auto-filled from the chosen plugin (editable); the dropdown lists the provider types the backend actually supports.",
       "icon": "Pick a brand icon for this channel; leave empty to derive it from the plugin/provider.",
       "providerFixed": "Provider is fixed after creation.",
       "endpoint": "Override base URL for this channel. Leave empty to use the provider default.",

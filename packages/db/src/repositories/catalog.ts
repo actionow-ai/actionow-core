@@ -689,6 +689,42 @@ export async function listResources(db: DbOrTx, page: PageParams): Promise<Keyse
   });
 }
 
+/**
+ * First LIVE resource matching `(provider_type, modality)` (active preferred,
+ * newest first) — backs the 模型接入 auto-create/reuse-platform flow so adding a
+ * channel reuses an existing platform instead of asking the operator to pick one.
+ */
+export async function findResourceByProviderModality(
+  db: DbOrTx,
+  providerType: string,
+  modality: string,
+): Promise<Resource | undefined> {
+  const rows = await db
+    .select()
+    .from(resource)
+    .where(
+      and(
+        eq(resource.providerType, providerType),
+        eq(resource.modality, modality),
+        isNull(resource.deletedAt),
+      ),
+    )
+    .orderBy(desc(resource.status), desc(resource.createdAt))
+    .limit(1);
+  return rows[0];
+}
+
+/** The tenant of the newest live resource (the operator's platform tenant), or undefined. */
+export async function anyResourceTenantId(db: DbOrTx): Promise<string | undefined> {
+  const rows = await db
+    .select({ tenantId: resource.tenantId })
+    .from(resource)
+    .where(isNull(resource.deletedAt))
+    .orderBy(desc(resource.createdAt))
+    .limit(1);
+  return rows[0]?.tenantId;
+}
+
 /** Count live resources (excludes soft-deleted) — authoritative total for the ops summary. */
 export async function countResources(db: DbOrTx): Promise<number> {
   const rows = await db

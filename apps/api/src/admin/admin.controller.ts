@@ -167,6 +167,8 @@ import {
   createSecretSchema,
   type CreateTenantDto,
   createTenantSchema,
+  type EnsureResourceDto,
+  ensureResourceSchema,
   type GenerateCodesDto,
   generateCodesSchema,
   type GrantModelDto,
@@ -588,6 +590,24 @@ export class AdminController {
     @Body(new ZodBody(createResourceSchema)) dto: CreateResourceDto,
   ): Promise<ResourceView> {
     return toResourceView(await this.admin.createResource(dto));
+  }
+
+  @Post('resources/ensure')
+  @ApiOperation({
+    summary: 'Reuse-or-create a platform for (providerType, modality) — 模型接入 onboarding',
+  })
+  async ensureResource(
+    @Body(new ZodBody(ensureResourceSchema)) dto: EnsureResourceDto,
+  ): Promise<ResourceView> {
+    return toResourceView(await this.admin.ensureResource(dto));
+  }
+
+  @Get('provider-types')
+  @ApiOperation({
+    summary: 'The provider types every registered adapter serves (channel provider options)',
+  })
+  listProviderTypes(): string[] {
+    return this.admin.listProviderTypes();
   }
 
   @Get('resources')

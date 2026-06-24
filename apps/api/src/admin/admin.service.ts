@@ -14,6 +14,7 @@ import {
 import {
   type AccountRow,
   addChannelToGroup,
+  anyResourceTenantId,
   type ApiKeyRow,
   type ChannelHealthRow,
   channelIdsByModelIds,
@@ -50,6 +51,7 @@ import {
   deleteModelGrant,
   encryptSecret,
   type FaultPolicyRow,
+  findResourceByProviderModality,
   getAccount,
   getChannelById,
   getFaultPolicyById,
@@ -196,6 +198,7 @@ import type {
   CreateRouteGroupDto,
   CreateSecretDto,
   CreateTenantDto,
+  EnsureResourceDto,
   GenerateCodesDto,
   GrantModelDto,
   ProvisionDto,
@@ -330,6 +333,47 @@ export class AdminService {
     // Default to a real fetch client so existing constructions/tests that don't
     // wire an HTTP provider keep working; the OAuth-login e2e overrides it.
     this.http = http ?? createHttpClient();
+  }
+
+  // ----- provider types + platform auto-ensure (模型接入 onboarding) -----
+
+  /** The provider types every registered adapter serves — the real source for the channel provider dropdown. */
+  listProviderTypes(): string[] {
+    return [...new Set(this.adapters.providerTypes())].sort((a, b) => a.localeCompare(b));
+  }
+
+  /**
+   * Reuse-or-create a platform (resource) for `(providerType, modality)` so the
+   * 模型接入 channel-add flow never makes the operator hand-create one. Reuses the
+   * newest live match; otherwise creates a fresh resource under the operator's
+   * platform tenant (the newest existing resource's tenant) with a unique slug id
+   * + sensible defaults. Throws when there is no tenant to own a new resource.
+   */
+  async ensureResource(dto: EnsureResourceDto): Promise<Resource> {
+    const existing = await findResourceByProviderModality(this.db, dto.providerType, dto.modality);
+    if (existing !== undefined) return existing;
+    const tenantId = await anyResourceTenantId(this.db);
+    if (tenantId === undefined) {
+      throw engineInvalidInput('no platform tenant exists yet — create a platform manually first');
+    }
+    // Build a unique human-readable slug id (provider-modality, suffixed on collision).
+    const base = `${dto.providerType}-${dto.modality}`;
+    let id = base;
+    for (let n = 2; (await getResource(this.db, id)) !== undefined; n++)
+      id = `${base}-${String(n)}`;
+    return createResource(this.db, {
+      id,
+      tenantId,
+      kind: 'model',
+      modality: dto.modality,
+      providerType: dto.providerType,
+      execModes: ['blocking'],
+      ioSchema: {
+        inputs: [{ key: 'prompt', type: 'string', required: true }],
+        outputs: [{ key: 'text', type: 'string' }],
+      },
+      version: 1,
+    });
   }
 
   // ----- tenants -----

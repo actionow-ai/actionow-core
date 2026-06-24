@@ -687,8 +687,11 @@
     "form": {
       "platform": "平台",
       "platformPlaceholder": "选择该通道所属平台",
+      "platformAuto": "自动(按插件+模态创建/复用)",
+      "platformAutoHint": "留空即可:保存时自动为该 Provider+模态 复用或新建一个平台。",
       "plugin": "插件",
       "pluginNone": "未分配",
+      "modality": "模态",
       "provider": "Provider 类型",
       "icon": "图标",
       "endpoint": "端点",
@@ -707,8 +710,11 @@
     },
     "tip": {
       "platform": "该通道所属的平台(资源/上游)。路由按平台聚合通道。",
+      "platformAuto": "默认自动:留空则保存时按 Provider+模态 复用或新建平台;也可手动指定一个已有平台。",
       "plugin": "该通道归属的插件(模型接入三栏分组)。原生厂商通道仍按 Provider 类型路由,不走沙箱。",
+      "modality": "新建平台时使用的模态(由所选插件带出)。",
       "provider": "该通道的上游 Provider(自由文本,如 openai、anthropic)。Logo 据此解析。",
+      "providerAuto": "已按所选插件自动填好,可改;下拉为后端实际支持的 Provider 类型。",
       "icon": "为该通道选择品牌图标;留空则按插件 / Provider 推导",
       "providerFixed": "Provider 创建后不可更改。",
       "endpoint": "该通道的 Base URL 覆盖。留空则使用 Provider 默认值。",
