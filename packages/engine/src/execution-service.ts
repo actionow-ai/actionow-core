@@ -256,7 +256,13 @@ export class ExecutionService {
     // 1. Idempotency: if the key was already claimed, replay the original job.
     if (req.idempotencyKey !== undefined) {
       const probeJobId = randomUUID();
-      const claim = await claimIdempotency(db, req.tenantId, req.idempotencyKey, probeJobId);
+      const claim = await claimIdempotency(
+        db,
+        req.tenantId,
+        req.idempotencyKey,
+        probeJobId,
+        req.subjectId ?? null,
+      );
       if (!claim.claimed) {
         const existing =
           claim.existingJobId === undefined ? undefined : await getJob(db, claim.existingJobId);
@@ -306,7 +312,13 @@ export class ExecutionService {
     if (req.idempotencyKey !== undefined) {
       // We own the key iff this insert claimed it; the claim row then points at
       // the `jobId` we generated above (and pass to `createJob`).
-      const claim = await claimIdempotency(db, req.tenantId, req.idempotencyKey, jobId);
+      const claim = await claimIdempotency(
+        db,
+        req.tenantId,
+        req.idempotencyKey,
+        jobId,
+        req.subjectId ?? null,
+      );
       if (!claim.claimed) {
         throw engineError('invalid_input', 'idempotency key already used for a stream run');
       }
@@ -345,7 +357,13 @@ export class ExecutionService {
     // stream-mode key cannot re-open a live stream, so a reused key surfaces as
     // an invalid_input rather than silently double-charging a second stream.
     if (req.idempotencyKey !== undefined) {
-      const claim = await claimIdempotency(db, req.tenantId, req.idempotencyKey, jobId);
+      const claim = await claimIdempotency(
+        db,
+        req.tenantId,
+        req.idempotencyKey,
+        jobId,
+        req.subjectId ?? null,
+      );
       if (!claim.claimed) {
         throw engineError('invalid_input', 'idempotency key already used for a stream run');
       }
@@ -397,7 +415,13 @@ export class ExecutionService {
 
     if (req.idempotencyKey !== undefined) {
       const probeJobId = randomUUID();
-      const claim = await claimIdempotency(db, req.tenantId, req.idempotencyKey, probeJobId);
+      const claim = await claimIdempotency(
+        db,
+        req.tenantId,
+        req.idempotencyKey,
+        probeJobId,
+        req.subjectId ?? null,
+      );
       if (!claim.claimed) {
         const existing =
           claim.existingJobId === undefined ? undefined : await getJob(db, claim.existingJobId);
