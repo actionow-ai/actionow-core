@@ -29,6 +29,8 @@ export interface InsertRelayTraceInput {
   readonly latencyMs?: number | null | undefined;
   readonly error?: string | null | undefined;
   readonly truncated?: boolean | undefined;
+  /** The per-request route tag (染色) this call was pinned to; omitted/null → no tag. */
+  readonly routeTag?: string | null | undefined;
 }
 
 /**
@@ -57,6 +59,7 @@ export async function insertRelayTrace(
       latencyMs: input.latencyMs ?? null,
       error: input.error ?? null,
       ...(input.truncated !== undefined ? { truncated: input.truncated } : {}),
+      routeTag: input.routeTag ?? null,
     })
     .returning();
   const row = rows[0];

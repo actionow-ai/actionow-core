@@ -1,4 +1,14 @@
-import { createResource, createUpstreamChannel, listChannels, schema } from '@actionow/db';
+import {
+  addChannelToGroup,
+  createResource,
+  createRouteGroup,
+  createUpstreamChannel,
+  listCandidateChannelsWithFallback,
+  listChannels,
+  listGroupChannelsForResource,
+  schema,
+  updateUpstreamChannel,
+} from '@actionow/db';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
@@ -23,7 +33,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE upstream_channel, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE route_group_channel, route_group, upstream_channel, resource_version, resource, tenant RESTART IDENTITY CASCADE`;
 });
 
 describe('upstream_channel endpoint/model/proxy_ref/config columns', () => {
@@ -85,5 +95,73 @@ describe('upstream_channel endpoint/model/proxy_ref/config columns', () => {
     expect(row?.model).toBeNull();
     expect(row?.proxyRef).toBeNull();
     expect(row?.config).toBeNull();
+  });
+});
+
+describe('upstream_channel tags (route tagging 染色)', () => {
+  async function seedResource(id: string): Promise<void> {
+    const [t] = await db
+      .insert(tenant)
+      .values({ name: `t-${id}` })
+      .returning();
+    if (!t) throw new Error('no tenant');
+    await createResource(db, {
+      id,
+      tenantId: t.id,
+      kind: 'model',
+      modality: 'text',
+      providerType: 'openai',
+      execModes: ['blocking'],
+      ioSchema: { inputs: [], outputs: [] },
+      version: 1,
+    });
+  }
+
+  it('create accepts tags and listChannels returns them; defaults to []', async () => {
+    await seedResource('tagged-model');
+    await createUpstreamChannel(db, {
+      resourceId: 'tagged-model',
+      providerType: 'openai',
+      tags: ['canary', 'beta'],
+    });
+    await createUpstreamChannel(db, {
+      resourceId: 'tagged-model',
+      providerType: 'openai',
+    });
+    const rows = await listChannels(db, 'tagged-model');
+    const tagged = rows.find((r) => r.tags.length > 0);
+    const bare = rows.find((r) => r.tags.length === 0);
+    expect(tagged?.tags).toEqual(['canary', 'beta']);
+    expect(bare?.tags).toEqual([]);
+  });
+
+  it('update accepts tags and persists them (and can clear to [])', async () => {
+    await seedResource('upd-model');
+    const created = await createUpstreamChannel(db, {
+      resourceId: 'upd-model',
+      providerType: 'openai',
+      tags: ['canary'],
+    });
+    const updated = await updateUpstreamChannel(db, created.id, { tags: ['stable', 'eu'] });
+    expect(updated?.tags).toEqual(['stable', 'eu']);
+    const cleared = await updateUpstreamChannel(db, created.id, { tags: [] });
+    expect(cleared?.tags).toEqual([]);
+  });
+
+  it('group candidate queries carry the channel tags through the join', async () => {
+    await seedResource('grp-model');
+    const group = await createRouteGroup(db, { name: 'g-tags' });
+    const ch = await createUpstreamChannel(db, {
+      resourceId: 'grp-model',
+      providerType: 'openai',
+      tags: ['canary'],
+    });
+    await addChannelToGroup(db, { groupId: group.id, channelId: ch.id, priority: 1, weight: 1 });
+
+    const grouped = await listGroupChannelsForResource(db, 'grp-model', group.id);
+    expect(grouped[0]?.tags).toEqual(['canary']);
+
+    const withFallback = await listCandidateChannelsWithFallback(db, 'grp-model', group.id);
+    expect(withFallback[0]?.tags).toEqual(['canary']);
   });
 });

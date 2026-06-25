@@ -32,6 +32,8 @@ export interface InsertUsageLogInput {
   readonly apiKeyId?: string | undefined;
   /** The subject (end-user) this call is attributed to (unified tenancy G-B); null → tenant-level. */
   readonly subjectId?: string | null | undefined;
+  /** The per-request route tag (染色) the run was pinned to; omitted/null → no tag. */
+  readonly routeTag?: string | null | undefined;
 }
 
 /** Insert one per-call `usage_log` row and return it. */
@@ -51,6 +53,7 @@ export async function insertUsageLog(db: DbOrTx, input: InsertUsageLogInput): Pr
       providerType: input.providerType ?? null,
       apiKeyId: input.apiKeyId ?? null,
       subjectId: input.subjectId ?? null,
+      routeTag: input.routeTag ?? null,
     })
     .returning();
   const row = rows[0];

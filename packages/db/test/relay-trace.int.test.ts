@@ -105,6 +105,22 @@ describe('relay_trace repository + migration', () => {
     expect(row?.isStream).toBe(false);
     expect(row?.truncated).toBe(false);
   });
+
+  it('insertRelayTrace records routeTag when set (route tagging 染色); null otherwise', async () => {
+    const tagged = await insertRelayTrace(db, {
+      method: 'POST',
+      url: 'https://upstream.example/canary',
+      routeTag: 'canary',
+    });
+    const untagged = await insertRelayTrace(db, {
+      method: 'POST',
+      url: 'https://upstream.example/plain',
+    });
+    const [taggedRow] = await db.select().from(relayTrace).where(eq(relayTrace.id, tagged.id));
+    const [untaggedRow] = await db.select().from(relayTrace).where(eq(relayTrace.id, untagged.id));
+    expect(taggedRow?.routeTag).toBe('canary');
+    expect(untaggedRow?.routeTag).toBeNull();
+  });
 });
 
 describe('listRelayTraces — filter + keyset pagination', () => {

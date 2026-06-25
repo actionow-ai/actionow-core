@@ -98,6 +98,31 @@ describe('usage_log api_key_id column (P1c.1)', () => {
   });
 });
 
+describe('usage_log route_tag column (route tagging 染色)', () => {
+  it('persists routeTag when supplied', async () => {
+    const tenantId = await makeTenant('rt');
+    const row = await insertUsageLog(db, {
+      tenantId,
+      model: 'gpt-4o',
+      cost: 1n,
+      status: 'succeeded',
+      routeTag: 'canary',
+    });
+    expect(row.routeTag).toBe('canary');
+  });
+
+  it('leaves routeTag null when omitted', async () => {
+    const tenantId = await makeTenant('rt-null');
+    const row = await insertUsageLog(db, {
+      tenantId,
+      model: 'gpt-4o',
+      cost: 1n,
+      status: 'succeeded',
+    });
+    expect(row.routeTag).toBeNull();
+  });
+});
+
 describe('usage_log repository', () => {
   it('inserts a call log with bigint cost preserved', async () => {
     const tenantId = await makeTenant('acme');
