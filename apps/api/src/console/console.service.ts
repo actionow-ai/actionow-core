@@ -1,8 +1,10 @@
+import type { CreateSubjectBody, UpdateSubjectBody } from '@actionow/contracts';
 import {
   type AccountRow,
   type ApiKeyRow,
   createApiKey,
   type CreatedApiKey,
+  createSubject,
   createSubUser,
   type Database,
   disableApiKeyForTenant,
@@ -12,6 +14,7 @@ import {
   getAccount,
   getIntentByIdForTenant,
   getLimitPlanById,
+  getSubjectById,
   getTenantLimitPlanId,
   type Job,
   type KeysetResult,
@@ -25,12 +28,17 @@ import {
   listJobs,
   listLedger,
   listLimitAlertsForSubject,
+  listSubjectsByTenant,
   listUsageLogsByTenant,
   listUsersByTenant,
   type PageParams,
   type PaymentIntentRow,
   rollupUsage,
   rotateApiKeyForTenant,
+  softDeleteSubject,
+  type SubjectDeleteResult,
+  type SubjectRow,
+  updateSubject,
   updateUserPassword,
   updateUserStatus,
   updateUserTenantRole,
@@ -278,6 +286,63 @@ export class ConsoleService {
     }
     if (row === undefined) throw engineNotFound(`user ${id} not found`);
     return row;
+  }
+
+  // ----- tenant subjects (end-users; unified tenancy G-A, console plane) -----
+
+  /**
+   * Create a subject (end-user) under the caller's tenant. The tenant is the
+   * guard's, NEVER a body field — a console admin can only ever add end-users to
+   * its own app. Mirrors {@link AdminService.createSubject} but tenant-locked.
+   */
+  createSubject(tenantId: string, dto: CreateSubjectBody): Promise<SubjectRow> {
+    return createSubject(this.db, {
+      tenantId,
+      externalId: dto.externalId,
+      email: dto.email,
+      displayName: dto.displayName,
+      limitPlanId: dto.limitPlanId,
+    });
+  }
+
+  /** List the caller-tenant's live subjects, keyset newest-first. */
+  listSubjects(tenantId: string, page: PageParams): Promise<KeysetResult<SubjectRow>> {
+    return listSubjectsByTenant(this.db, tenantId, page);
+  }
+
+  /**
+   * One subject by id, scoped to the caller's tenant — a cross-tenant (or
+   * unknown/deleted) id never matches → `not_found` (never leaks another tenant's
+   * end-user). The repo predicate already intersects `tenantId`.
+   */
+  async getSubject(tenantId: string, id: string): Promise<SubjectRow> {
+    const row = await getSubjectById(this.db, tenantId, id);
+    if (row === undefined) throw engineNotFound(`subject ${id} not found`);
+    return row;
+  }
+
+  /** Patch a subject (tenant-scoped); 404 when absent/cross-tenant. `external_id` is immutable. */
+  async updateSubject(tenantId: string, id: string, dto: UpdateSubjectBody): Promise<SubjectRow> {
+    const row = await updateSubject(this.db, tenantId, id, {
+      email: dto.email,
+      displayName: dto.displayName,
+      limitPlanId: dto.limitPlanId,
+      status: dto.status,
+    });
+    if (row === undefined) throw engineNotFound(`subject ${id} not found`);
+    return row;
+  }
+
+  /**
+   * Soft-delete a subject (tenant-scoped) + cascade (sweep its sub-wallet back to
+   * the tenant pool, disable its subject-scoped keys); 404 when absent/cross-
+   * tenant. Reuses the records-system soft-delete cascade ([[records-system-v1]]
+   * R3). Returns the cascade summary for the audit record.
+   */
+  async deleteSubject(tenantId: string, id: string): Promise<SubjectDeleteResult> {
+    const deleted = await softDeleteSubject(this.db, tenantId, id);
+    if (deleted === undefined) throw engineNotFound(`subject ${id} not found`);
+    return deleted;
   }
 
   // ----- models -----

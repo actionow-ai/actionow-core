@@ -27,6 +27,12 @@ import {
   consoleUsageRollupViewSchema,
   type ConsoleUserView,
   consoleUserViewSchema,
+  type CreateSubjectBody,
+  createSubjectSchema,
+  type SubjectView,
+  subjectViewSchema,
+  type UpdateSubjectBody,
+  updateSubjectSchema,
 } from '@actionow/contracts';
 import type {
   ApiKeyRow,
@@ -34,6 +40,7 @@ import type {
   Job,
   LedgerRow,
   PaymentIntentRow,
+  SubjectRow,
   UsageLogRow,
   UsageRollupRow,
   UserRecord,
@@ -232,6 +239,20 @@ function toConsoleUserView(u: UserRecord): ConsoleUserView {
     status: u.status,
     tenant_role: u.tenantRole ?? 'member',
     created_at: u.createdAt.toISOString(),
+  });
+}
+
+/** Project a subject (end-user) row to its console view (NEVER the password hash). */
+function toSubjectView(row: SubjectRow): SubjectView {
+  return subjectViewSchema.parse({
+    id: row.id,
+    tenant_id: row.tenantId,
+    external_id: row.externalId,
+    email: row.email,
+    display_name: row.displayName,
+    limit_plan_id: row.limitPlanId,
+    status: row.status,
+    created_at: row.createdAt.toISOString(),
   });
 }
 
@@ -583,6 +604,107 @@ export class ConsoleController {
     const ctx = ctxOf(req);
     await this.console.changePassword(ctx.userId, dto);
     return { ok: true };
+  }
+
+  // ----- tenant subjects (end-users; unified tenancy G-A, console plane) -----
+
+  /**
+   * Create an end-user (subject) under YOUR tenant. The tenant is the guard's,
+   * never a body field — a console admin can only ever add end-users to its own
+   * app. Mirrors `POST /admin/tenants/:id/users`, tenant-admin-gated + scoped.
+   */
+  @Post('subjects')
+  @HttpCode(201)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Create an end-user (subject) under your tenant' })
+  @Audit({
+    action: 'subject.create',
+    target: 'subject',
+    resolve: ({ result }) => {
+      const r = result as { id?: string };
+      return { subjectId: r.id ?? null, targetId: r.id ?? null };
+    },
+  })
+  async createSubject(
+    @Body(new ZodBody(createSubjectSchema)) dto: CreateSubjectBody,
+    @Req() req: ConsoleRequest,
+  ): Promise<SubjectView> {
+    const ctx = ctxOf(req);
+    return toSubjectView(await this.console.createSubject(ctx.tenantId, dto));
+  }
+
+  @Get('subjects')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: "List your tenant's end-users (subjects; keyset, newest-first)" })
+  async listSubjects(
+    @Req() req: ConsoleRequest,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<SubjectView>> {
+    const ctx = ctxOf(req);
+    const result = await this.console.listSubjects(ctx.tenantId, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toSubjectView);
+  }
+
+  @Get('subjects/:id')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Get one of your end-users by id (tenant-scoped) or 404' })
+  async getSubject(@Param('id') id: string, @Req() req: ConsoleRequest): Promise<SubjectView> {
+    const ctx = ctxOf(req);
+    return toSubjectView(await this.console.getSubject(ctx.tenantId, id));
+  }
+
+  @Patch('subjects/:id')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Update an end-user (display name / status / plan / email)' })
+  @Audit({
+    action: 'subject.update',
+    target: 'subject',
+    resolve: ({ params, body }) => ({
+      subjectId: params.id ?? null,
+      targetId: params.id ?? null,
+      meta: { ...(body as Record<string, unknown>) },
+    }),
+  })
+  async patchSubject(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateSubjectSchema)) dto: UpdateSubjectBody,
+    @Req() req: ConsoleRequest,
+  ): Promise<SubjectView> {
+    const ctx = ctxOf(req);
+    return toSubjectView(await this.console.updateSubject(ctx.tenantId, id, dto));
+  }
+
+  /**
+   * Soft-delete an end-user (frees its external_id/email) + cascade: sweep its
+   * sub-wallet back to the tenant pool, disable its subject-scoped keys
+   * ([[records-system-v1]] R3). Scoped to your tenant (a cross-tenant id → 404).
+   */
+  @Delete('subjects/:id')
+  @HttpCode(200)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Soft-delete an end-user (cascade: sweep sub-wallet, disable keys)' })
+  @Audit({
+    action: 'subject.delete',
+    target: 'subject',
+    resolve: ({ params, req }) => ({
+      subjectId: params.id ?? null,
+      targetId: params.id ?? null,
+      meta: (req as { auditMeta?: Record<string, unknown> }).auditMeta,
+    }),
+  })
+  async deleteSubject(
+    @Param('id') id: string,
+    @Req() req: ConsoleRequest,
+  ): Promise<{ id: string; status: 'deleted' }> {
+    const ctx = ctxOf(req);
+    const cascade = await this.console.deleteSubject(ctx.tenantId, id);
+    // Stash the cascade summary so the audit interceptor records it as meta.
+    (req as ConsoleRequest & { auditMeta?: Record<string, unknown> }).auditMeta = {
+      sweptMicro: cascade.sweptMicro.toString(),
+      disabledKeys: cascade.disabledKeys,
+    };
+    return { id, status: 'deleted' };
   }
 
   // ----- sub-users (rbac, tenant-admin-only) -----
