@@ -176,6 +176,38 @@ export async function listApiKeys(
 }
 
 /**
+ * List the LIVE api keys scoped to one subject (the end-user self-service view),
+ * within its tenant. The `hash` is intentionally NOT selected (the plaintext is
+ * unrecoverable and never surfaced), and the `(tenant, subject)` predicate keeps
+ * a member from ever seeing another tenant's/subject's keys. Newest-first.
+ */
+export async function listApiKeysBySubject(
+  db: DbOrTx,
+  tenantId: string,
+  subjectId: string,
+): Promise<Omit<ApiKeyRow, 'hash'>[]> {
+  return db
+    .select({
+      id: apiKey.id,
+      tenantId: apiKey.tenantId,
+      resourceAllowlist: apiKey.resourceAllowlist,
+      rateLimit: apiKey.rateLimit,
+      status: apiKey.status,
+      routeGroupId: apiKey.routeGroupId,
+      limitPlanId: apiKey.limitPlanId,
+      subjectId: apiKey.subjectId,
+      createdAt: apiKey.createdAt,
+      updatedAt: apiKey.updatedAt,
+      deletedAt: apiKey.deletedAt,
+    })
+    .from(apiKey)
+    .where(
+      and(eq(apiKey.tenantId, tenantId), eq(apiKey.subjectId, subjectId), isNull(apiKey.deletedAt)),
+    )
+    .orderBy(sql`${apiKey.createdAt} DESC`);
+}
+
+/**
  * List a tenant's ledger transactions newest-first, keyset-paginated on
  * `(created_at, id)`. The `tenant_id` filter composes with the keyset.
  */

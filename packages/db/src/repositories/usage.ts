@@ -86,6 +86,26 @@ export async function listUsageLogsByTenant(
   });
 }
 
+/**
+ * List ONE subject's call logs (the end-user self-service view), keyset-paginated
+ * newest-first on `(created_at, id)`. The `(tenant, subject)` predicate keeps a
+ * member from ever seeing another tenant's/subject's usage.
+ */
+export async function listUsageLogsBySubject(
+  db: DbOrTx,
+  tenantId: string,
+  subjectId: string,
+  page: PageParams,
+): Promise<KeysetResult<UsageLogRow>> {
+  return keysetPage<UsageLogRow>(db, {
+    table: usageLog,
+    createdAtCol: usageLog.createdAt,
+    idCol: usageLog.id,
+    where: and(eq(usageLog.tenantId, tenantId), eq(usageLog.subjectId, subjectId)),
+    page,
+  });
+}
+
 /** List every tenant's call logs (admin global view), keyset-paginated newest-first. */
 export async function listUsageLogsGlobal(
   db: DbOrTx,
