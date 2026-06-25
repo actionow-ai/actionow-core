@@ -13,6 +13,7 @@ import {
 import type { FaultPolicy, RunChannel } from '@actionow/engine';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { engineInvalidInput } from './errors.js';
 import { DB } from './tokens.js';
 
 /** The well-known fallback group an unbound key resolves to (Track 3/4 seed). */
@@ -87,11 +88,24 @@ export class ChannelRoutingService {
    * Build the engine candidate channel set for `(resourceId, routeGroupId)` per
    * the v1 rule above. `routeGroupId` is the authenticating key's bound group
    * (`null`/`undefined` → the cached `default` group).
+   *
+   * ## 染色/标签路由 (route tagging)
+   *
+   * `routeTag` (the per-request `X-Actionow-Route-Tag` canary header) is applied
+   * to the ALREADY-resolved candidate ROWS via {@link filterByRouteTag} — BEFORE
+   * mapping to {@link RunChannel} — so it can only NARROW the set, never widen or
+   * escalate beyond the key's resolved candidates. A blank/absent tag is a no-op
+   * (header-less requests are byte-for-byte unchanged); a tag matching none of the
+   * resolved candidates throws a hard 400 (`invalid_input`) rather than leaking to
+   * non-tagged channels. Crucially the grouped branch's tag-miss throws inside the
+   * `grouped.length > 0` arm, so it never falls through to the (widening) ungrouped
+   * fallback.
    */
   async candidatesFor(
     resourceId: string,
     routeGroupId: string | null | undefined,
     modelId?: string,
+    routeTag?: string,
   ): Promise<RunChannel[]> {
     // `routeGroupId` (string|null|undefined) ?? default (string|null) → string|null.
     const groupId = routeGroupId ?? (await this.resolveDefaultGroupId());
@@ -103,13 +117,15 @@ export class ChannelRoutingService {
     const grouped =
       groupId !== null ? await listCandidateChannelsWithFallback(this.db, resourceId, groupId) : [];
     if (grouped.length > 0) {
-      base = await this.attachFaultPolicies(grouped.map(toRunChannelFromGroup), grouped);
+      const rows = filterByRouteTag(grouped, routeTag);
+      base = await this.attachFaultPolicies(rows.map(toRunChannelFromGroup), rows);
     } else {
       // Ungrouped fallback (compat): the group has no members for this resource
       // (or no group resolved at all) → route over ALL active channels at the
       // degenerate single tier (priority 0, channel.weight).
       const all = await listChannels(this.db, resourceId);
-      base = await this.attachFaultPolicies(all.map(toRunChannelFromChannel), all);
+      const rows = filterByRouteTag(all, routeTag);
+      base = await this.attachFaultPolicies(rows.map(toRunChannelFromChannel), rows);
     }
 
     return this.preferLinkedChannels(base, modelId);
@@ -207,6 +223,26 @@ export class ChannelRoutingService {
     this.defaultGroupId = group?.id ?? null;
     this.defaultGroupRatioBps = group?.groupRatioBps ?? null;
   }
+}
+
+/**
+ * 染色: when a per-request route tag is set, keep only the candidate channels
+ * carrying it. Applied to the ALREADY-resolved candidate rows (before they are
+ * mapped to {@link RunChannel}), so it can only NARROW the set — never escalate
+ * beyond the key's resolved candidates. A blank/absent tag is a no-op (header-less
+ * requests are unchanged). Empty after filtering → a hard 400 (`invalid_input`):
+ * no silent leak to non-tagged channels, and (in the grouped branch) no fall-
+ * through to the widening ungrouped fallback. `routeTag` never reaches a URL or
+ * an auth decision — it is purely a candidate-set predicate here.
+ */
+function filterByRouteTag<T extends { tags: string[] }>(rows: T[], routeTag?: string): T[] {
+  const tag = routeTag?.trim();
+  if (tag === undefined || tag === '') return rows;
+  const matched = rows.filter((r) => r.tags.includes(tag));
+  if (matched.length === 0) {
+    throw engineInvalidInput(`no channel matches route tag "${tag}"`);
+  }
+  return matched;
 }
 
 /**
