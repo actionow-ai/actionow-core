@@ -47,6 +47,7 @@ export function createJobExecProcessor(runtime: WorkerRuntime): JobExecProcessor
     traceUpstream: runtime.env.RELAY_TRACE === 'full',
     traceMaxBytes: runtime.env.RELAY_TRACE_MAX_BYTES,
     insertUsageLog: insertUsageLogFn,
+    breaker: runtime.breaker,
     ...(persistMediaResultFn !== undefined ? { persistMediaResult: persistMediaResultFn } : {}),
   });
 

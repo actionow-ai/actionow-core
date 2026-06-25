@@ -16,7 +16,40 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import type { BreakerStore, RoutableChannelRef } from '../src/breaker.js';
 import { type JobExecutionContext, JobRunner } from '../src/job-runner.js';
+
+/**
+ * A recording {@link BreakerStore}: `filterAvailable` drops `excludeIds`, and
+ * `onSuccess`/`onFailure` are captured so a test can assert the async submit
+ * path is breaker-filtered + outcome-fed. Fail-open by construction.
+ */
+function recordingBreaker(excludeIds: string[] = []): BreakerStore & {
+  filtered: number;
+  successes: { channelId: string; model: string }[];
+  failures: { channelId: string; model: string }[];
+} {
+  const successes: { channelId: string; model: string }[] = [];
+  const failures: { channelId: string; model: string }[] = [];
+  const rec = {
+    filtered: 0,
+    successes,
+    failures,
+    filterAvailable: <C extends RoutableChannelRef>(channels: readonly C[]): Promise<C[]> => {
+      rec.filtered += 1;
+      return Promise.resolve(channels.filter((c) => !excludeIds.includes(c.id)));
+    },
+    onSuccess: (channelId: string, model: string): Promise<void> => {
+      successes.push({ channelId, model });
+      return Promise.resolve();
+    },
+    onFailure: (channelId: string, model: string): Promise<void> => {
+      failures.push({ channelId, model });
+      return Promise.resolve();
+    },
+  };
+  return rec;
+}
 
 const { account, ledgerTxn, resource, resourceVersion, tenant } = schema;
 
@@ -148,6 +181,38 @@ describe('JobRunner.process — async poll', () => {
     ).filter((l) => l.type === 'settle');
     expect(settleRows).toHaveLength(1);
     expect(settleRows[0]?.balanceAfter).toBe(999_900n);
+  });
+
+  it('breaker-filters the submit candidates and feeds onSuccess on a returned handle', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 1 }));
+    const breaker = recordingBreaker();
+    const ctx: JobExecutionContext = {
+      ...contextFor(s),
+      channels: [{ id: 'c1', weight: 1, model: 'mock-image' }],
+    };
+    const runner = new JobRunner({
+      db,
+      adapters,
+      loadContext: () => Promise.resolve(ctx),
+      resolveSecret: () => Promise.resolve(undefined),
+      http: { request: () => Promise.reject(new Error('no http')) },
+      maxPolls: 5,
+      pollIntervalMs: 0,
+      sleep: () => Promise.resolve(),
+      breaker,
+    });
+
+    await runner.process(job.id);
+
+    expect((await getJob(db, job.id))?.status).toBe('succeeded');
+    // The submit path consulted the breaker filter and recorded the accepted
+    // submit as a success, keyed on the channel's resolved model.
+    expect(breaker.filtered).toBe(1);
+    expect(breaker.successes).toEqual([{ channelId: 'c1', model: 'mock-image' }]);
+    expect(breaker.failures).toEqual([]);
   });
 
   it('persists the MediaResult as output and writes a usage_log row with provider_cost', async () => {

@@ -13,6 +13,7 @@ import type {
 import { type DbOrTx, failJob, insertRelayTrace, insertUsageLog, settleJob } from '@actionow/db';
 import { type MicroCredits, priceProviderCost } from '@actionow/domain';
 
+import type { BreakerStore } from './breaker.js';
 import { availableChannels, isFailoverRetryable } from './channel-routing.js';
 import { EngineError } from './errors.js';
 import type { RunChannel, RunRequest } from './execution-service.js';
@@ -43,6 +44,16 @@ export interface SettlingStreamDeps {
   now?: (() => Date) | undefined;
   /** RNG for weighted channel selection (chat channel failover); defaults to Math.random. */
   rng?: (() => number) | undefined;
+  /**
+   * The per-`(channel, model)` circuit breaker (弹性2.0). When injected, the
+   * chat stream's pre-first-event channel selection excludes Open channels +
+   * trial-gates HalfOpen ones, and each pre-commit outcome feeds the FSM
+   * (`onFailure` on a retryable first-event failure, `onSuccess` once a channel
+   * commits). Fail-open + fire-and-forget inside the store, so it only OPTIMIZES
+   * the stream failover — a breaker outage never fails a stream that could have
+   * served. Absent → selection is unchanged.
+   */
+  breaker?: BreakerStore | undefined;
   /** When true (`RELAY_TRACE=full`), wrap `ctx.http` in a {@link TracingHttpClient}. */
   traceUpstream?: boolean | undefined;
   /** Per-body byte cap for the trace (RELAY_TRACE_MAX_BYTES). Default 1MB. */
@@ -240,12 +251,27 @@ export async function* createChatSettlingStream(
 
   const rng = deps.rng ?? Math.random;
   const now = deps.now ?? ((): Date => new Date());
-  // TODO(resilience-v2 Phase 3): the binary `channel_health` cooldown write
-  // (`recordChannelFailure`) was removed in Task 2 — this is a temporary no-op so
-  // the pre-first-event failover flow is unchanged while the schema/repos land.
-  // Phase 3 (Task 8) threads the injected `BreakerStore.onFailure` here
-  // (best-effort, fire-and-forget, never blocking the stream).
-  const recordFailureSafe = (): Promise<void> => Promise.resolve();
+  const model = deps.req.usageLogModel ?? '*';
+  // Feed the breaker's write path on a pre-first-event channel failure: a
+  // retryable error (or a thrown connection) before the stream committed cools
+  // that `(channel, model)` down so the next pre-commit pick can skip it. Like
+  // the blocking `routeBlocking` outcome hooks, this is fire-and-forget — the
+  // store already swallows errors, and `void` guarantees a breaker write can
+  // never block or throw on the streaming hot path.
+  const recordFailureSafe = (channelId: string): Promise<void> => {
+    if (deps.breaker !== undefined) {
+      void deps.breaker.onFailure(channelId, model, now());
+    }
+    return Promise.resolve();
+  };
+  // Feed the breaker's write path once a channel COMMITS (its first event was
+  // non-error / the stream opened cleanly): the upstream connection succeeded,
+  // so close a HalfOpen probe and count the success in the window. Fire-and-
+  // forget like the failure hook. A later mid-stream (in-band) error is NOT a
+  // connection failure of this channel, so it is not recorded here.
+  const recordCommitSafe = (channelId: string): void => {
+    if (deps.breaker !== undefined) void deps.breaker.onSuccess(channelId, model, now());
+  };
 
   try {
     // Phase 1 — pick a LIVE channel (pre-first-event failover). We may switch
@@ -254,13 +280,14 @@ export async function* createChatSettlingStream(
     // next. Once the upstream yields a non-error first event, the channel is
     // committed — the client has begun receiving that stream and we cannot
     // restart elsewhere; a later error is handled in-band in Phase 2.
-    // TODO(resilience-v2 Task 8): inject the constructed `breaker` here so the
-    // pre-first-event stream failover is breaker-aware. Task 7 threads the
-    // resolved model into the signature; the store is wired at the app layer next.
+    // Breaker-aware pre-first-event selection: the injected store excludes Open
+    // `(channel, model)` and trial-gates HalfOpen ones (fail-open internally),
+    // so the stream's pre-commit failover skips a tripped channel just like the
+    // blocking path. Absent breaker → the full channel set (unchanged).
     const available = await availableChannels(
-      { db: deps.db, now, rng },
+      { db: deps.db, now, rng, breaker: deps.breaker },
       deps.req.channels,
-      deps.req.usageLogModel ?? '*',
+      model,
     );
     if (available.length === 0) {
       failure = {
@@ -314,12 +341,13 @@ export async function* createChatSettlingStream(
           // Empty stream (no frames): commit; `finally` settles a measured 0.
           committed = { iterator, first: undefined };
           servedChannel = channel;
+          recordCommitSafe(channel.id);
           break;
         }
         if (first.value.type === 'error') {
           const e = first.value.error;
           if (e.retryable && !isLast) {
-            await recordFailureSafe();
+            await recordFailureSafe(channel.id);
             lastError = e;
             continue;
           }
@@ -330,10 +358,11 @@ export async function* createChatSettlingStream(
         }
         committed = { iterator, first: first.value };
         servedChannel = channel;
+        recordCommitSafe(channel.id);
         break;
       } catch (err) {
         if (isFailoverRetryable(err) && !isLast) {
-          await recordFailureSafe();
+          await recordFailureSafe(channel.id);
           lastError = toUnified(err);
           continue;
         }

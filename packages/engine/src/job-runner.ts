@@ -25,6 +25,8 @@ import {
   transitionJob,
 } from '@actionow/db';
 
+import type { BreakerStore } from './breaker.js';
+import { isFailoverRetryable } from './channel-routing.js';
 import { EngineError } from './errors.js';
 import type { RunChannel } from './execution-service.js';
 import { meterMedia, type PersistedMediaObject } from './media-result.js';
@@ -90,6 +92,16 @@ export interface JobRunnerDeps {
   rng?: () => number;
   /** Global egress proxy fallback (UPSTREAM_PROXY_URL) when a channel has no proxyRef. */
   proxyUrlEnv?: string | undefined;
+  /**
+   * The per-`(channel, model)` circuit breaker (弹性2.0). When injected, the
+   * async submit path excludes Open channels + trial-gates HalfOpen ones before
+   * the cross-channel failover and feeds each submit outcome to the FSM
+   * (`onSuccess` on a returned handle, `onFailure` on a retryable failure).
+   * Fail-open + fire-and-forget inside the store, so it only OPTIMIZES the
+   * async/media routing — a breaker outage never fails a job that could have
+   * succeeded. Absent → routing is unchanged.
+   */
+  breaker?: BreakerStore | undefined;
   /** Persist a canonical MediaResult's assets before settle (P1). */
   persistMediaResult?: PersistMediaResultFn | undefined;
   /** Write a usage_log row for a settled media job (P1 metering — media margin visibility). */
@@ -187,18 +199,48 @@ export class JobRunner {
   private async submit(job: Job, ctx: JobExecutionContext): Promise<UpstreamJobHandle> {
     const adapter = this.deps.adapters.get(ctx.providerType);
     const rng = this.deps.rng ?? Math.random;
+    const breaker = this.deps.breaker;
+    // The model the breaker keys `(channel, model)` on. Async/media jobs carry
+    // their model on the channel snapshot (one model per channel for media);
+    // `'*'` for model-less resources, matching the blocking/stream paths.
+    const model = ctx.channels[0]?.model ?? '*';
+    // Breaker-aware candidate filtering before the cross-channel failover: drop
+    // Open `(channel, model)` and trial-gate HalfOpen ones (fail-open internally,
+    // so an evaluation error yields the full set). Absent breaker → unchanged.
+    const candidates =
+      breaker === undefined
+        ? ctx.channels
+        : await breaker.filterAvailable(ctx.channels, model, new Date());
     const result = await routeWithFailover(
-      ctx.channels.map((c) => ({ id: c.id, weight: c.weight, value: c })),
+      (candidates.length > 0 ? candidates : ctx.channels).map((c) => ({
+        id: c.id,
+        weight: c.weight,
+        value: c,
+      })),
       rng,
       async (channel) => {
         const adapterCtx = await this.buildContext(ctx.providerType, channel, job);
-        return adapter.submit({
-          resourceId: job.resourceId,
-          modality: ctx.modality,
-          inputs: job.inputs,
-          execMode: job.execMode as ExecMode,
-          ctx: adapterCtx,
-        });
+        try {
+          const submitted = await adapter.submit({
+            resourceId: job.resourceId,
+            modality: ctx.modality,
+            inputs: job.inputs,
+            execMode: job.execMode as ExecMode,
+            ctx: adapterCtx,
+          });
+          // The upstream accepted the submit (an async handle returned): feed
+          // the breaker's success path (fire-and-forget; the store swallows).
+          if (breaker !== undefined) void breaker.onSuccess(channel.id, model, new Date());
+          return submitted;
+        } catch (err) {
+          // A RETRYABLE submit failure cools this `(channel, model)` down so the
+          // next async job's pre-route filter can skip it. Non-retryable (bad
+          // input / auth) is the caller's fault, not the channel's — not recorded.
+          if (breaker !== undefined && isFailoverRetryable(err)) {
+            void breaker.onFailure(channel.id, model, new Date());
+          }
+          throw err;
+        }
       },
       isRetryableAdapterError,
     );

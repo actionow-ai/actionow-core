@@ -5,8 +5,16 @@ import type { AddressInfo } from 'node:net';
 import type { ProviderAdapter } from '@actionow/adapters';
 import { createDefaultRegistry } from '@actionow/adapters';
 import type { SubmitInput, SubmitResult, UnifiedError, UsageVector } from '@actionow/contracts';
-import { createApiKey, createDb, createUser, type Database, schema } from '@actionow/db';
+import {
+  appendAuditLog,
+  createApiKey,
+  createDb,
+  createUser,
+  type Database,
+  schema,
+} from '@actionow/db';
 import { creditsToMicro } from '@actionow/domain';
+import { buildBreakerStore } from '@actionow/engine';
 import type { AppEnv } from '@actionow/infra';
 import {
   createRedis,
@@ -275,6 +283,12 @@ beforeAll(async () => {
     publicBaseUrl: undefined,
     fetchBytes: () => Promise.reject(new Error('no fetchBytes')),
     putBytes: () => Promise.reject(new Error('no putBytes')),
+    // The real async breaker (弹性2.0) over the SAME test redis, auditing via
+    // appendAuditLog — mirrors the production worker runtime so the async submit
+    // path runs breaker-filtered + outcome-fed end to end (fail-open).
+    breaker: buildBreakerStore(db, createRedis(redisUri), (input) => {
+      void appendAuditLog(db, input).catch(() => undefined);
+    }),
   };
   workers = startWorkers(runtime, { webhookSweepMs: 250, reaperSweepMs: 500 });
 

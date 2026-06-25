@@ -345,6 +345,7 @@ export class ExecutionService {
       holdAmount,
       req,
       proxyUrlEnv: this.deps.proxyUrlEnv,
+      breaker: this.deps.breaker,
       ...this.traceStreamDeps(),
     });
     return { jobId, events };
@@ -395,6 +396,7 @@ export class ExecutionService {
       proxyUrlEnv: this.deps.proxyUrlEnv,
       now: this.deps.now,
       rng: this.deps.rng,
+      breaker: this.deps.breaker,
       ...this.traceStreamDeps(),
     });
     return { jobId, events };

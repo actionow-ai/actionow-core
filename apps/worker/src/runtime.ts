@@ -1,11 +1,12 @@
 import { type AdapterRegistry, createDefaultRegistry } from '@actionow/adapters';
 import type { HttpClient, StorageProvider } from '@actionow/contracts';
-import { createDb, type Database, resolveSecretRef } from '@actionow/db';
-import type { FetchBytes, PutBytes } from '@actionow/engine';
-import { registerEngineAdapters } from '@actionow/engine';
+import { appendAuditLog, createDb, type Database, resolveSecretRef } from '@actionow/db';
+import type { BreakerStore, FetchBytes, PutBytes } from '@actionow/engine';
+import { buildBreakerStore, registerEngineAdapters } from '@actionow/engine';
 import {
   type AppEnv,
   createHttpClient,
+  createRedis,
   createS3StorageProvider,
   fetchBytesWithTimeout,
   loadEnv,
@@ -38,6 +39,14 @@ export interface WorkerRuntime {
   fetchBytes: FetchBytes;
   /** Upload bytes to a presigned PUT URL. Defaults to a global-`fetch` impl. */
   putBytes: PutBytes;
+  /**
+   * The per-`(channel, model)` circuit breaker (弹性2.0) for the async/media
+   * submit path (`JobRunner.submit`): excludes Open channels + trial-gates
+   * HalfOpen ones, and feeds each submit outcome to the FSM. Every transition is
+   * mirrored into the `audit_log` via `appendAuditLog` (the worker has no Nest
+   * DI / `AuditService`). Fail-open / best-effort, so it only OPTIMIZES routing.
+   */
+  breaker: BreakerStore;
 }
 
 /** Build the production worker runtime from the environment. */
@@ -46,6 +55,15 @@ export function createWorkerRuntime(): WorkerRuntime {
   const cfg = storageConfigFromEnv(env);
   const storage = cfg === null ? null : createS3StorageProvider(cfg);
   const db = createDb(env.DATABASE_URL);
+  // The async/media breaker (弹性2.0): a dedicated Redis client (window + half-
+  // open trial gate) + the PG FSM state, with each transition audited via
+  // `appendAuditLog` (best-effort; the worker has no AuditService). Fail-open, so
+  // a Redis/PG outage only stops the routing OPTIMIZATION, never a job.
+  const breaker = buildBreakerStore(db, createRedis(env.REDIS_URL), (input) => {
+    void appendAuditLog(db, input).catch(() => {
+      // Best-effort: a breaker audit-write failure must never affect a job.
+    });
+  });
   return {
     env,
     db,
@@ -61,5 +79,6 @@ export function createWorkerRuntime(): WorkerRuntime {
     publicBaseUrl: env.STORAGE_PUBLIC_BASE_URL,
     fetchBytes: fetchBytesWithTimeout,
     putBytes: putBytesWithTimeout,
+    breaker,
   };
 }
