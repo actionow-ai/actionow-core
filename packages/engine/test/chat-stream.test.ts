@@ -75,10 +75,10 @@ vi.mock('@actionow/db', () => ({
   createJob: vi.fn((_db: unknown, p: { id: string }) => Promise.resolve({ id: p.id })),
   claimIdempotency: vi.fn(() => Promise.resolve({ claimed: true })),
   getJob: vi.fn(() => Promise.resolve(undefined)),
-  // Channel-routing health: single-channel tests never query/record, but the
-  // mock must provide them so the rewired runChat/streamChat paths resolve.
-  listCooledDownChannelIds: vi.fn(() => Promise.resolve([])),
-  recordChannelFailure: vi.fn(() => Promise.resolve()),
+  // The binary `channel_health` cooldown repos (`listCooledDownChannelIds` /
+  // `recordChannelFailure`) were removed in resilience-v2 Task 2; the router no
+  // longer reaches into @actionow/db for routing health (Phase 3 injects a
+  // BreakerStore instead), so nothing more is mocked here.
 }));
 
 beforeEach(() => {

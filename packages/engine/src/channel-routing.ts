@@ -1,5 +1,5 @@
 import { AdapterError, routeWithFailover, type WeightedChannel } from '@actionow/adapters';
-import { type DbOrTx, listCooledDownChannelIds, recordChannelFailure } from '@actionow/db';
+import type { DbOrTx } from '@actionow/db';
 
 import { EngineError } from './errors.js';
 
@@ -45,39 +45,32 @@ export interface ChannelRouterDeps {
 }
 
 /**
- * The channels routable right now: those NOT currently in cooldown. Falls back
- * to the FULL set when every channel is cooled down (better to retry a cooled
- * channel than hard-fail with no upstream). A single channel is returned as-is
- * without a cooldown query (nothing to choose between).
+ * The channels routable right now. A single channel is returned as-is (nothing
+ * to choose between).
+ *
+ * TODO(resilience-v2 Phase 3): the binary `channel_health` cooldown
+ * (`listCooledDownChannelIds`) was removed here in Task 2 — this temporarily
+ * returns the FULL set so the package builds while the schema/repos land. Phase 3
+ * (Task 7) wires the injected `BreakerStore.filterAvailable` (per-(channel,model)
+ * Closed/Open/HalfOpen), fail-open inside the store.
  */
-export async function availableChannels<C extends RoutableChannel>(
-  deps: ChannelRouterDeps,
+export function availableChannels<C extends RoutableChannel>(
+  _deps: ChannelRouterDeps,
   channels: readonly C[],
 ): Promise<C[]> {
-  if (channels.length <= 1) return [...channels];
-  let cooled: Set<string>;
-  try {
-    cooled = new Set(
-      await listCooledDownChannelIds(
-        deps.db,
-        channels.map((c) => c.id),
-        deps.now(),
-      ),
-    );
-  } catch {
-    // Best-effort: channel health is an optimization, never a gate. A
-    // cooldown-store error degrades to "nothing is cooled" so routing proceeds.
-    return [...channels];
-  }
-  const available = channels.filter((c) => !cooled.has(c.id));
-  return available.length > 0 ? available : [...channels];
+  return Promise.resolve([...channels]);
 }
 
 /**
  * Weighted-pick + failover over the available channels for a BLOCKING attempt.
- * On a retryable failure the channel is cooled down (so subsequent requests skip
- * it) before advancing to the next channel; a non-retryable error is rethrown
- * immediately. Throws the last error if every channel is exhausted.
+ * A non-retryable error is rethrown immediately; on a retryable failure the
+ * router advances to the next channel. Throws the last error if every channel is
+ * exhausted.
+ *
+ * TODO(resilience-v2 Phase 3): the per-failure cooldown write (`recordChannelFailure`)
+ * was removed here in Task 2. Phase 3 (Task 7) replaces it with best-effort
+ * `BreakerStore.onSuccess`/`onFailure` outcome hooks (fire-and-forget, never
+ * blocking the relay hot path).
  */
 export async function routeBlocking<C extends RoutableChannel, R>(
   deps: ChannelRouterDeps,
@@ -91,23 +84,5 @@ export async function routeBlocking<C extends RoutableChannel, R>(
     priority: c.priority,
     value: c,
   }));
-  return routeWithFailover(
-    weighted,
-    deps.rng,
-    async (value, channel) => {
-      try {
-        return await attempt(value);
-      } catch (err) {
-        if (isFailoverRetryable(err)) {
-          try {
-            await recordChannelFailure(deps.db, channel.id, deps.now());
-          } catch {
-            // Best-effort cooldown write; never let it mask the upstream failure.
-          }
-        }
-        throw err;
-      }
-    },
-    isFailoverRetryable,
-  );
+  return routeWithFailover(weighted, deps.rng, (value) => attempt(value), isFailoverRetryable);
 }

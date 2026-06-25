@@ -10,14 +10,7 @@ import type {
   UnifiedError,
   UsageVector,
 } from '@actionow/contracts';
-import {
-  type DbOrTx,
-  failJob,
-  insertRelayTrace,
-  insertUsageLog,
-  recordChannelFailure,
-  settleJob,
-} from '@actionow/db';
+import { type DbOrTx, failJob, insertRelayTrace, insertUsageLog, settleJob } from '@actionow/db';
 import { type MicroCredits, priceProviderCost } from '@actionow/domain';
 
 import { availableChannels, isFailoverRetryable } from './channel-routing.js';
@@ -247,13 +240,12 @@ export async function* createChatSettlingStream(
 
   const rng = deps.rng ?? Math.random;
   const now = deps.now ?? ((): Date => new Date());
-  const recordFailureSafe = async (channelId: string): Promise<void> => {
-    try {
-      await recordChannelFailure(deps.db, channelId, now());
-    } catch {
-      // Best-effort cooldown write; never block the stream.
-    }
-  };
+  // TODO(resilience-v2 Phase 3): the binary `channel_health` cooldown write
+  // (`recordChannelFailure`) was removed in Task 2 — this is a temporary no-op so
+  // the pre-first-event failover flow is unchanged while the schema/repos land.
+  // Phase 3 (Task 8) threads the injected `BreakerStore.onFailure` here
+  // (best-effort, fire-and-forget, never blocking the stream).
+  const recordFailureSafe = (): Promise<void> => Promise.resolve();
 
   try {
     // Phase 1 — pick a LIVE channel (pre-first-event failover). We may switch
@@ -320,7 +312,7 @@ export async function* createChatSettlingStream(
         if (first.value.type === 'error') {
           const e = first.value.error;
           if (e.retryable && !isLast) {
-            await recordFailureSafe(channel.id);
+            await recordFailureSafe();
             lastError = e;
             continue;
           }
@@ -334,7 +326,7 @@ export async function* createChatSettlingStream(
         break;
       } catch (err) {
         if (isFailoverRetryable(err) && !isLast) {
-          await recordFailureSafe(channel.id);
+          await recordFailureSafe();
           lastError = toUnified(err);
           continue;
         }

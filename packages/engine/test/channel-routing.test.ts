@@ -1,22 +1,17 @@
 import { AdapterError } from '@actionow/adapters';
 import type { DbOrTx } from '@actionow/db';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-// The router reads cooldown + records failures via these two repo fns; fake them.
-const cooledIds: string[] = [];
-const failureCalls: string[] = [];
-vi.mock('@actionow/db', () => ({
-  listCooledDownChannelIds: vi.fn((_db: unknown, ids: string[]) =>
-    Promise.resolve(ids.filter((id) => cooledIds.includes(id))),
-  ),
-  recordChannelFailure: vi.fn((_db: unknown, id: string) => {
-    failureCalls.push(id);
-    return Promise.resolve();
-  }),
-}));
+import { availableChannels, routeBlocking } from '../src/channel-routing.js';
+import { EngineError } from '../src/errors.js';
 
-const { availableChannels, routeBlocking } = await import('../src/channel-routing.js');
-const { EngineError } = await import('../src/errors.js');
+// NOTE (resilience-v2 Task 2): the binary `channel_health` cooldown
+// (`listCooledDownChannelIds` / `recordChannelFailure`) was removed from the
+// router — `availableChannels` temporarily returns the full set and
+// `routeBlocking` no longer records per-failure cooldown. Phase 3 (Task 7)
+// re-adds exclusion + outcome hooks via the injected `BreakerStore`; the
+// cooldown-specific cases move there. These tests now cover the failover +
+// priority-tier behavior that is unchanged in Task 2.
 
 const deps = {
   db: {} as DbOrTx,
@@ -33,21 +28,12 @@ const retryable = (): AdapterError =>
 const nonRetryable = (): AdapterError =>
   new AdapterError({ code: 'invalid_input', message: 'bad', retryable: false });
 
-beforeEach(() => {
-  cooledIds.length = 0;
-  failureCalls.length = 0;
-});
-
 describe('availableChannels', () => {
-  it('returns all-but-cooled, and falls back to all when every channel is cooled', async () => {
-    expect((await availableChannels(deps, chans)).map((c) => c.id)).toEqual(['a', 'b']);
-    cooledIds.push('a');
-    expect((await availableChannels(deps, chans)).map((c) => c.id)).toEqual(['b']);
-    cooledIds.push('b');
+  it('returns all channels (breaker exclusion lands in Phase 3)', async () => {
     expect((await availableChannels(deps, chans)).map((c) => c.id)).toEqual(['a', 'b']);
   });
 
-  it('returns a single channel without a cooldown query', async () => {
+  it('returns a single channel as-is', async () => {
     expect((await availableChannels(deps, [{ id: 'solo', weight: 1 }])).map((c) => c.id)).toEqual([
       'solo',
     ]);
@@ -58,29 +44,26 @@ describe('routeBlocking', () => {
   it('routes to the weighted pick', async () => {
     const result = await routeBlocking(deps, chans, (ch) => Promise.resolve(ch.id));
     expect(result).toBe('a');
-    expect(failureCalls).toEqual([]);
   });
 
-  it('fails over to the next channel on a retryable error and cools the failed one', async () => {
+  it('fails over to the next channel on a retryable error', async () => {
     const result = await routeBlocking(deps, chans, (ch) => {
       if (ch.id === 'a') throw retryable();
       return Promise.resolve(ch.id);
     });
     expect(result).toBe('b');
-    expect(failureCalls).toEqual(['a']);
   });
 
-  it('rethrows a non-retryable error without failover or cooldown', async () => {
+  it('rethrows a non-retryable error without failover', async () => {
     await expect(
       routeBlocking(deps, chans, (ch) => {
         if (ch.id === 'a') throw nonRetryable();
         return Promise.resolve(ch.id);
       }),
     ).rejects.toThrow('bad');
-    expect(failureCalls).toEqual([]);
   });
 
-  it('fails over + cools down on a RAW transport error (not an AdapterError)', async () => {
+  it('fails over on a RAW transport error (not an AdapterError)', async () => {
     // A fetch AbortError / ECONNRESET / DNS failure surfaces as a plain Error; a
     // dead channel must cascade to the next one, not hard-fail the request.
     const result = await routeBlocking(deps, chans, (ch) => {
@@ -88,7 +71,6 @@ describe('routeBlocking', () => {
       return Promise.resolve(ch.id);
     });
     expect(result).toBe('b');
-    expect(failureCalls).toEqual(['a']);
   });
 
   it('does NOT fail over on a non-retryable EngineError (honors its verdict)', async () => {
@@ -99,19 +81,6 @@ describe('routeBlocking', () => {
         return Promise.resolve(ch.id);
       }),
     ).rejects.toThrow('nope');
-    expect(failureCalls).toEqual([]);
-  });
-
-  it('skips a cooled-down channel', async () => {
-    cooledIds.push('a');
-    const result = await routeBlocking(deps, chans, (ch) => Promise.resolve(ch.id));
-    expect(result).toBe('b');
-  });
-
-  it('falls back to all channels when every channel is cooled down', async () => {
-    cooledIds.push('a', 'b');
-    const result = await routeBlocking(deps, chans, (ch) => Promise.resolve(ch.id));
-    expect(result).toBe('a');
   });
 });
 
@@ -140,7 +109,6 @@ describe('routeBlocking — priority tiers (Track 4)', () => {
     });
     expect(result).toBe('fallback');
     expect(attempted).toEqual(['primary', 'fallback']);
-    expect(failureCalls).toEqual(['primary']);
   });
 
   it('weighted-picks within a tier of equal-priority channels', async () => {

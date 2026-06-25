@@ -103,7 +103,6 @@ export {
   listChannels,
   listChannelsByPlugin,
   listChannelsForResource,
-  listCooledDownChannelIds,
   listDifyBindings,
   listModifiers,
   listPricebookEntries,
@@ -113,7 +112,6 @@ export {
   type ModifierRow,
   type ModifierScopeTarget,
   type PricebookEntryRow,
-  recordChannelFailure,
   type Resource,
   type ResourceVersionRow,
   type ResourceWithSchema,
@@ -137,6 +135,14 @@ export {
   type UpdateUpstreamChannelInput,
   type UpstreamChannelRow,
 } from './catalog.js';
+export {
+  type BreakerRow,
+  getBreakerRows,
+  listBreakers,
+  resetBreaker,
+  upsertBreaker,
+  type UpsertBreakerInput,
+} from './channel-breaker.js';
 export {
   createFaultPolicy,
   type CreateFaultPolicyInput,
