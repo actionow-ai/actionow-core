@@ -1,5 +1,5 @@
 import { ArrowsClockwiseIcon, KeyIcon, PlusIcon, ProhibitIcon } from '@phosphor-icons/react';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,12 +13,14 @@ import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Modal } from '../../components/ui/Modal';
 import { NumberField } from '../../components/ui/NumberField';
+import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ConsoleApiKeyView, ConsoleCreateApiKeyBody } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
+import { STALE_REFERENCE } from '../../lib/query';
 import { AdminOnlyNote } from './AdminOnlyNote';
 import { useTenantRole } from './useTenantRole';
 
@@ -38,16 +40,31 @@ export function AppKeys() {
   });
   const rows = keys.data?.pages.flatMap((p) => p.rows) ?? [];
 
+  // End-users (subjects) of the tenant — the optional mint scope. Admin-only
+  // (the backend 403s a member), so the query is gated off `isTenantAdmin`.
+  const subjects = useQuery({
+    queryKey: qk.consoleSubjects(),
+    queryFn: () => api.listSubjects(),
+    enabled: isTenantAdmin,
+    staleTime: STALE_REFERENCE,
+  });
+  const subjectOptions = (subjects.data ?? []).map((s) => ({
+    value: s.id,
+    label: s.display_name ?? s.external_id ?? s.email ?? s.id.slice(0, 8),
+  }));
+
   const [formOpen, setFormOpen] = useState(false);
   const [allowlist, setAllowlist] = useState('');
   const [rateLimit, setRateLimit] = useState(0);
+  const [subjectId, setSubjectId] = useState('');
   const [plaintext, setPlaintext] = useState<string | null>(null);
   const [disableTarget, setDisableTarget] = useState<ConsoleApiKeyView | undefined>(undefined);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: qk.consoleApiKeys() });
 
   // Mint with optional scoping — the card already renders rate_limit/allowlist
-  // chips, so without this form those were dead UI (always empty).
+  // chips, so without this form those were dead UI (always empty). An optional
+  // subject binds the key to one end-user (its calls attributed/isolated there).
   const mint = useMutation({
     mutationFn: () => {
       const body: ConsoleCreateApiKeyBody = {};
@@ -57,6 +74,8 @@ export function AppKeys() {
         .filter(Boolean);
       if (allow.length > 0) body.resourceAllowlist = allow;
       if (rateLimit > 0) body.rateLimit = rateLimit;
+      // Empty = a tenant-level key (no end-user scope).
+      if (subjectId !== '') body.subjectId = subjectId;
       return api.createApiKey(body);
     },
     onSuccess: async (r) => {
@@ -64,6 +83,7 @@ export function AppKeys() {
       setFormOpen(false);
       setAllowlist('');
       setRateLimit(0);
+      setSubjectId('');
       setPlaintext(r.plaintext);
     },
     onError: mutationError(t),
@@ -118,6 +138,9 @@ export function AppKeys() {
               <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
             }
             chips={[
+              ...(r.subject_id !== null
+                ? [`${t('apiKeys.subject.chip')}: ${r.subject_id.slice(0, 8)}`]
+                : []),
               ...(r.rate_limit !== null ? [`${String(r.rate_limit)}/min`] : []),
               ...(r.resource_allowlist.length > 0 ? r.resource_allowlist : []),
             ]}
@@ -169,6 +192,14 @@ export function AppKeys() {
           value={rateLimit}
           onChange={setRateLimit}
           min={0}
+        />
+        <SelectField
+          label={t('apiKeys.subject.label')}
+          tooltip={t('apiKeys.subject.tip')}
+          value={subjectId}
+          onChange={setSubjectId}
+          options={subjectOptions}
+          placeholder={t('apiKeys.subject.none')}
         />
       </Modal>
 

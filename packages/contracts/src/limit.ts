@@ -46,6 +46,13 @@ export const limitPlanViewSchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   status: z.string(),
+  /**
+   * Owning tenant (end-user data plane). `null` for a platform plan (operator-
+   * created, visible to all); a non-null id scopes the plan to one tenant's own
+   * 额度套餐 (created/managed on `/console/limit-plans`). Always present so the
+   * frontend can tell a tenant plan from a platform one.
+   */
+  tenant_id: z.string().nullable(),
   rules: z.array(limitRuleViewSchema),
   /** Bound API keys (card stat). */
   key_count: z.number(),

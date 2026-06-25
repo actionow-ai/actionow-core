@@ -27,13 +27,37 @@ import {
   consoleUsageRollupViewSchema,
   type ConsoleUserView,
   consoleUserViewSchema,
+  type CreateSubAccountBody,
+  createSubAccountSchema,
+  type CreateSubjectBody,
+  createSubjectSchema,
+  type LimitPlanView,
+  limitPlanViewSchema,
+  type LimitRuleStatusView,
+  limitRuleStatusViewSchema,
+  type LimitRuleView,
+  limitRuleViewSchema,
+  type SubAccountView,
+  subAccountViewSchema,
+  type SubjectView,
+  subjectViewSchema,
+  type TopupSubAccountBody,
+  topupSubAccountSchema,
+  type TransferCreditsBody,
+  transferCreditsSchema,
+  type UpdateSubjectBody,
+  updateSubjectSchema,
 } from '@actionow/contracts';
 import type {
   ApiKeyRow,
   FileObject,
   Job,
   LedgerRow,
+  LimitPlanRow,
+  LimitRuleRow,
   PaymentIntentRow,
+  SubAccountRow,
+  SubjectRow,
   UsageLogRow,
   UsageRollupRow,
   UserRecord,
@@ -77,6 +101,12 @@ import {
   consoleCreateApiKeySchema,
   type ConsoleCreateIntentDto,
   consoleCreateIntentSchema,
+  type ConsoleCreateLimitPlanDto,
+  type ConsoleSetLimitPlanDto,
+  type ConsoleUpdateLimitPlanDto,
+  createLimitPlanRequestSchema,
+  setLimitPlanRequestSchema,
+  updateLimitPlanRequestSchema,
 } from './dto/console.dto.js';
 import type { ModelView } from './models.port.js';
 import { TenantAdminGuard } from './tenant-admin.guard.js';
@@ -107,14 +137,28 @@ type MeView = ConsoleMeView;
 type BalanceView = ConsoleBalanceView;
 type FileView = ConsoleFileView;
 
-/** Project a tenant api-key row to its console view (no hash). */
+/** Project a tenant api-key row to its console view (no hash; `subject_id` for the bound end-user). */
 function toApiKeyView(r: Omit<ApiKeyRow, 'hash'>): ApiKeyView {
   return consoleApiKeyViewSchema.parse({
     id: r.id,
     resource_allowlist: r.resourceAllowlist,
     rate_limit: r.rateLimit,
     status: r.status,
+    subject_id: r.subjectId,
     created_at: r.createdAt.toISOString(),
+  });
+}
+
+/** Project a subject sub-wallet row to its console view (money as µcredit decimal strings). */
+function toSubAccountView(row: SubAccountRow): SubAccountView {
+  return subAccountViewSchema.parse({
+    id: row.id,
+    tenant_id: row.tenantId,
+    subject_id: row.subjectId,
+    credit_balance: row.creditBalance.toString(),
+    credit_held: row.creditHeld.toString(),
+    status: row.status,
+    created_at: row.createdAt.toISOString(),
   });
 }
 
@@ -235,6 +279,57 @@ function toConsoleUserView(u: UserRecord): ConsoleUserView {
   });
 }
 
+/** Project a subject (end-user) row to its console view (NEVER the password hash). */
+function toSubjectView(row: SubjectRow): SubjectView {
+  return subjectViewSchema.parse({
+    id: row.id,
+    tenant_id: row.tenantId,
+    external_id: row.externalId,
+    email: row.email,
+    display_name: row.displayName,
+    limit_plan_id: row.limitPlanId,
+    status: row.status,
+    created_at: row.createdAt.toISOString(),
+  });
+}
+
+/** Project a limit-rule row to its view (cap as a decimal µUSD/count string). */
+function toLimitRuleView(row: LimitRuleRow): LimitRuleView {
+  return limitRuleViewSchema.parse({
+    id: row.id,
+    dimension: row.dimension,
+    period: row.period,
+    cap: row.cap.toString(),
+    model_scope: row.modelScope,
+    alert_pct: row.alertPct,
+    enforce: row.enforce,
+  });
+}
+
+/**
+ * Project a tenant-owned limit plan (+ rules + binding counts) to its view.
+ * Mirrors the admin `toLimitPlanView`; `tenant_id` is always the caller's tenant
+ * (a console plan is never platform-owned).
+ */
+function toLimitPlanView(p: {
+  plan: LimitPlanRow;
+  rules: LimitRuleRow[];
+  bindings: { keys: number; tenants: number };
+}): LimitPlanView {
+  return limitPlanViewSchema.parse({
+    id: p.plan.id,
+    name: p.plan.name,
+    description: p.plan.description,
+    status: p.plan.status,
+    tenant_id: p.plan.tenantId,
+    rules: p.rules.map(toLimitRuleView),
+    key_count: p.bindings.keys,
+    tenant_count: p.bindings.tenants,
+    created_at: p.plan.createdAt.toISOString(),
+    updated_at: p.plan.updatedAt.toISOString(),
+  });
+}
+
 /**
  * Validate the tenant analytics query (query params bypass `ZodBody`); a bad
  * value throws `invalid_input` → the global filter renders the 400 envelope.
@@ -279,8 +374,11 @@ export class ConsoleController {
   @Audit({
     action: 'api_key.create',
     target: 'api_key',
-    // NEVER record the plaintext — only the id.
-    resolve: ({ result }) => ({ targetId: (result as { id?: string }).id ?? null }),
+    // NEVER record the plaintext — only the id + the bound subject (if any).
+    resolve: ({ result, body }) => ({
+      targetId: (result as { id?: string }).id ?? null,
+      subjectId: (body as { subjectId?: string }).subjectId ?? null,
+    }),
   })
   async createApiKey(
     @Body(new ZodBody(consoleCreateApiKeySchema)) dto: ConsoleCreateApiKeyDto,
@@ -583,6 +681,344 @@ export class ConsoleController {
     const ctx = ctxOf(req);
     await this.console.changePassword(ctx.userId, dto);
     return { ok: true };
+  }
+
+  // ----- tenant subjects (end-users; unified tenancy G-A, console plane) -----
+
+  /**
+   * Create an end-user (subject) under YOUR tenant. The tenant is the guard's,
+   * never a body field — a console admin can only ever add end-users to its own
+   * app. Mirrors `POST /admin/tenants/:id/users`, tenant-admin-gated + scoped.
+   */
+  @Post('subjects')
+  @HttpCode(201)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Create an end-user (subject) under your tenant' })
+  @Audit({
+    action: 'subject.create',
+    target: 'subject',
+    resolve: ({ result }) => {
+      const r = result as { id?: string };
+      return { subjectId: r.id ?? null, targetId: r.id ?? null };
+    },
+  })
+  async createSubject(
+    @Body(new ZodBody(createSubjectSchema)) dto: CreateSubjectBody,
+    @Req() req: ConsoleRequest,
+  ): Promise<SubjectView> {
+    const ctx = ctxOf(req);
+    return toSubjectView(await this.console.createSubject(ctx.tenantId, dto));
+  }
+
+  @Get('subjects')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: "List your tenant's end-users (subjects; keyset, newest-first)" })
+  async listSubjects(
+    @Req() req: ConsoleRequest,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<SubjectView>> {
+    const ctx = ctxOf(req);
+    const result = await this.console.listSubjects(ctx.tenantId, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toSubjectView);
+  }
+
+  @Get('subjects/:id')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Get one of your end-users by id (tenant-scoped) or 404' })
+  async getSubject(@Param('id') id: string, @Req() req: ConsoleRequest): Promise<SubjectView> {
+    const ctx = ctxOf(req);
+    return toSubjectView(await this.console.getSubject(ctx.tenantId, id));
+  }
+
+  @Patch('subjects/:id')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Update an end-user (display name / status / plan / email)' })
+  @Audit({
+    action: 'subject.update',
+    target: 'subject',
+    resolve: ({ params, body }) => ({
+      subjectId: params.id ?? null,
+      targetId: params.id ?? null,
+      meta: { ...(body as Record<string, unknown>) },
+    }),
+  })
+  async patchSubject(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateSubjectSchema)) dto: UpdateSubjectBody,
+    @Req() req: ConsoleRequest,
+  ): Promise<SubjectView> {
+    const ctx = ctxOf(req);
+    return toSubjectView(await this.console.updateSubject(ctx.tenantId, id, dto));
+  }
+
+  /**
+   * Soft-delete an end-user (frees its external_id/email) + cascade: sweep its
+   * sub-wallet back to the tenant pool, disable its subject-scoped keys
+   * ([[records-system-v1]] R3). Scoped to your tenant (a cross-tenant id → 404).
+   */
+  @Delete('subjects/:id')
+  @HttpCode(200)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Soft-delete an end-user (cascade: sweep sub-wallet, disable keys)' })
+  @Audit({
+    action: 'subject.delete',
+    target: 'subject',
+    resolve: ({ params, req }) => ({
+      subjectId: params.id ?? null,
+      targetId: params.id ?? null,
+      meta: (req as { auditMeta?: Record<string, unknown> }).auditMeta,
+    }),
+  })
+  async deleteSubject(
+    @Param('id') id: string,
+    @Req() req: ConsoleRequest,
+  ): Promise<{ id: string; status: 'deleted' }> {
+    const ctx = ctxOf(req);
+    const cascade = await this.console.deleteSubject(ctx.tenantId, id);
+    // Stash the cascade summary so the audit interceptor records it as meta.
+    (req as ConsoleRequest & { auditMeta?: Record<string, unknown> }).auditMeta = {
+      sweptMicro: cascade.sweptMicro.toString(),
+      disabledKeys: cascade.disabledKeys,
+    };
+    return { id, status: 'deleted' };
+  }
+
+  // ----- subject sub-wallets (HARD mode; console plane, tenant-admin-only) -----
+
+  /**
+   * Open a HARD sub-wallet for one of YOUR tenant's subjects (optional opening
+   * balance in credits). The subject is validated to belong to your tenant first
+   * (a cross-tenant id → 404). Mirrors the `/admin` open handler, tenant-scoped.
+   */
+  @Post('subjects/:id/sub-account/open')
+  @HttpCode(201)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({
+    summary: 'Open a HARD sub-wallet for one of your subjects (optional opening balance)',
+  })
+  @Audit({
+    action: 'sub_account.open',
+    target: 'sub_account',
+    resolve: ({ params, result, body }) => {
+      const r = result as { id?: string };
+      return {
+        subjectId: params.id ?? null,
+        targetId: r.id ?? null,
+        meta: { ...(body as Record<string, unknown>) },
+      };
+    },
+  })
+  async openSubAccount(
+    @Param('id') id: string,
+    @Body(new ZodBody(createSubAccountSchema)) dto: CreateSubAccountBody,
+    @Req() req: ConsoleRequest,
+  ): Promise<SubAccountView> {
+    const ctx = ctxOf(req);
+    return toSubAccountView(await this.console.createSubAccount(ctx.tenantId, id, dto));
+  }
+
+  @Get('subjects/:id/sub-account')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: "Get one of your subjects' sub-wallet (balance/held) or 404" })
+  async getSubAccount(
+    @Param('id') id: string,
+    @Req() req: ConsoleRequest,
+  ): Promise<SubAccountView> {
+    const ctx = ctxOf(req);
+    return toSubAccountView(await this.console.getSubAccount(ctx.tenantId, id));
+  }
+
+  /**
+   * Credit a subject's sub-wallet — an INTERNAL allocation to the subject's HARD
+   * wallet (credits → µcredits), not a payment. Tenant-scoped (cross-tenant → 404).
+   */
+  @Post('subjects/:id/sub-account/topup')
+  @HttpCode(200)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: "Credit one of your subjects' sub-wallet (internal allocation)" })
+  @Audit({
+    action: 'sub_account.topup',
+    target: 'sub_account',
+    resolve: ({ params, body }) => ({
+      subjectId: params.id ?? null,
+      targetId: params.id ?? null,
+      meta: { ...(body as Record<string, unknown>) },
+    }),
+  })
+  async topupSubAccount(
+    @Param('id') id: string,
+    @Body(new ZodBody(topupSubAccountSchema)) dto: TopupSubAccountBody,
+    @Req() req: ConsoleRequest,
+  ): Promise<SubAccountView> {
+    const ctx = ctxOf(req);
+    await this.console.topupSubAccount(ctx.tenantId, id, dto);
+    return toSubAccountView(await this.console.getSubAccount(ctx.tenantId, id));
+  }
+
+  /**
+   * Transfer credits between your tenant pool and a subject's sub-wallet
+   * (`to_subject`/`to_tenant`). Tenant-scoped (cross-tenant → 404).
+   */
+  @Post('subjects/:id/sub-account/transfer')
+  @HttpCode(200)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Transfer credits between your tenant pool and a subject sub-wallet' })
+  @Audit({
+    action: 'sub_account.transfer',
+    target: 'sub_account',
+    resolve: ({ params, body }) => ({
+      subjectId: params.id ?? null,
+      targetId: params.id ?? null,
+      meta: { ...(body as Record<string, unknown>) },
+    }),
+  })
+  async transferSubAccount(
+    @Param('id') id: string,
+    @Body(new ZodBody(transferCreditsSchema)) dto: TransferCreditsBody,
+    @Req() req: ConsoleRequest,
+  ): Promise<SubAccountView> {
+    const ctx = ctxOf(req);
+    await this.console.transferCredits(ctx.tenantId, id, dto);
+    return toSubAccountView(await this.console.getSubAccount(ctx.tenantId, id));
+  }
+
+  // ----- tenant-owned limit plans (额度套餐; end-user data plane) -----
+
+  /**
+   * List YOUR tenant's own 额度套餐 (plans) — never platform plans, never another
+   * tenant's. Each carries its rules + binding counts. Admin-only at the route.
+   */
+  @Get('limit-plans')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({
+    summary: "List your tenant's limit plans (额度套餐) with rules + binding counts",
+  })
+  async listLimitPlans(@Req() req: ConsoleRequest): Promise<LimitPlanView[]> {
+    const ctx = ctxOf(req);
+    return (await this.console.listLimitPlans(ctx.tenantId)).map(toLimitPlanView);
+  }
+
+  /**
+   * Create a tenant-owned plan (+ rules). The `tenant_id` is FORCED to your tenant
+   * by the service — never a body field. Mirrors `POST /admin/limit-plans`,
+   * tenant-admin-gated + tenant-scoped.
+   */
+  @Post('limit-plans')
+  @HttpCode(201)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Create a limit plan (额度套餐) for your tenant (+ rules)' })
+  @Audit({
+    action: 'limit_plan.create',
+    target: 'limit_plan',
+    resolve: ({ result }) => {
+      const r = result as { id?: string; name?: string };
+      return { targetId: r.id ?? null, meta: { name: r.name } };
+    },
+  })
+  async createLimitPlan(
+    @Body(new ZodBody(createLimitPlanRequestSchema)) dto: ConsoleCreateLimitPlanDto,
+    @Req() req: ConsoleRequest,
+  ): Promise<LimitPlanView> {
+    const ctx = ctxOf(req);
+    return toLimitPlanView(await this.console.createLimitPlan(ctx.tenantId, dto));
+  }
+
+  @Get('limit-plans/:id')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Get one of your tenant limit plans (+ rules) by id or 404' })
+  async getLimitPlan(@Param('id') id: string, @Req() req: ConsoleRequest): Promise<LimitPlanView> {
+    const ctx = ctxOf(req);
+    return toLimitPlanView(await this.console.getLimitPlan(ctx.tenantId, id));
+  }
+
+  @Patch('limit-plans/:id')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Update a tenant limit plan; a present `rules` REPLACES the rule set' })
+  @Audit({
+    action: 'limit_plan.update',
+    target: 'limit_plan',
+    resolve: ({ params, body }) => {
+      const b = body as { name?: string; status?: string; rules?: unknown[] };
+      return {
+        targetId: params.id ?? null,
+        meta: { name: b.name, status: b.status, ruleCount: b.rules?.length },
+      };
+    },
+  })
+  async updateLimitPlan(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateLimitPlanRequestSchema)) dto: ConsoleUpdateLimitPlanDto,
+    @Req() req: ConsoleRequest,
+  ): Promise<LimitPlanView> {
+    const ctx = ctxOf(req);
+    return toLimitPlanView(await this.console.updateLimitPlan(ctx.tenantId, id, dto));
+  }
+
+  @Delete('limit-plans/:id')
+  @HttpCode(204)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Soft-delete one of your tenant limit plans (cross-tenant id → 404)' })
+  @Audit({
+    action: 'limit_plan.delete',
+    target: 'limit_plan',
+    resolve: ({ params }) => ({ targetId: params.id ?? null }),
+  })
+  async deleteLimitPlan(@Param('id') id: string, @Req() req: ConsoleRequest): Promise<void> {
+    const ctx = ctxOf(req);
+    await this.console.deleteLimitPlan(ctx.tenantId, id);
+  }
+
+  /**
+   * Bind/unbind one of YOUR subjects to one of YOUR plans (`planId` null clears).
+   * Both the subject AND the plan are intersected with your tenant scope first —
+   * a cross-tenant subject OR a plan you don't own (incl. a platform plan) → 404.
+   */
+  @Post('subjects/:id/limit-plan')
+  @HttpCode(200)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: "Bind/unbind a subject's limit plan (planId null = clear)" })
+  @Audit({
+    action: 'subject.limit_plan_bind',
+    target: 'subject',
+    resolve: ({ params, body }) => ({
+      subjectId: params.id ?? null,
+      targetId: params.id ?? null,
+      meta: { planId: (body as { planId?: string | null }).planId },
+    }),
+  })
+  async setSubjectLimitPlan(
+    @Param('id') id: string,
+    @Body(new ZodBody(setLimitPlanRequestSchema)) dto: ConsoleSetLimitPlanDto,
+    @Req() req: ConsoleRequest,
+  ): Promise<{ ok: true }> {
+    const ctx = ctxOf(req);
+    await this.console.setSubjectLimitPlan(ctx.tenantId, id, dto.planId);
+    return { ok: true };
+  }
+
+  @Get('subjects/:id/limit-status')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({
+    summary: "An end-user's effective rules paired with current usage (usage-vs-cap bars)",
+  })
+  async subjectLimitStatus(
+    @Param('id') id: string,
+    @Req() req: ConsoleRequest,
+  ): Promise<LimitRuleStatusView[]> {
+    const ctx = ctxOf(req);
+    const rows = await this.console.subjectLimitStatus(ctx.tenantId, id);
+    return rows.map((r) =>
+      limitRuleStatusViewSchema.parse({
+        dimension: r.dimension,
+        period: r.period,
+        cap: r.cap.toString(),
+        used: r.used.toString(),
+        model_scope: r.modelScope,
+        alert_pct: r.alertPct,
+        enforce: r.enforce,
+      }),
+    );
   }
 
   // ----- sub-users (rbac, tenant-admin-only) -----

@@ -55,6 +55,13 @@ export const qk = {
 
   // Tenant self-service console plane.
   consoleApiKeys: () => ['console', 'api-keys'] as const,
+  // Per-subject key list for the Subjects drawer — a SEPARATE cache entry from
+  // `consoleApiKeys()` (which AppKeys owns as a useInfiniteQuery, cache shape
+  // `{pages,pageParams}`). The panel reads a non-infinite `Page` ({rows,nextCursor}),
+  // so it MUST NOT share the key — one entry per key, last writer wins, and the
+  // shape mismatch white-screens AppKeys on mount.
+  consoleApiKeysForSubject: (subjectId: string) =>
+    ['console', 'api-keys', 'subject', subjectId] as const,
   consoleUsage: () => ['console', 'usage'] as const,
   consoleModels: () => ['console', 'models'] as const,
   consoleAnalytics: (params: Record<string, unknown>) => ['console', 'analytics', params] as const,
@@ -68,6 +75,20 @@ export const qk = {
   consoleFiles: (kind?: string) =>
     kind === undefined ? (['console', 'files'] as const) : (['console', 'files', kind] as const),
   consoleLimits: () => ['console', 'limits'] as const,
+  // Tenant-owned end-users (subjects) + their HARD sub-wallets (end-user data plane;
+  // admin-only Subjects page).
+  consoleSubjects: () => ['console', 'subjects'] as const,
+  consoleSubAccount: (sid: string) => ['console', 'subjects', sid, 'sub-account'] as const,
+  // Tenant-owned 额度套餐 (limit plans) — the plan-binding select + the plans page.
+  consoleLimitPlans: () => ['console', 'limit-plans'] as const,
   ledger: (tenantId: string) => ['admin', 'ledger', tenantId] as const,
   payments: (tenantId: string) => ['admin', 'payments', tenantId] as const,
+
+  // Member (end-user) self-service plane — every row is token-scoped to the
+  // caller's own subject, so these keys carry no id (one cache per session token).
+  memberMe: () => ['member', 'me'] as const,
+  memberBalance: () => ['member', 'balance'] as const,
+  memberUsage: () => ['member', 'usage'] as const,
+  memberApiKeys: () => ['member', 'api-keys'] as const,
+  memberLimits: () => ['member', 'limits'] as const,
 };

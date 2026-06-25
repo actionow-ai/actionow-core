@@ -10,10 +10,12 @@ import {
   createLimitPlan,
   createTenant,
   getLimitPlanById,
+  getLimitPlanForTenant,
   getUsage,
   incrUsage,
   listLimitAlerts,
   listLimitPlans,
+  listLimitPlansByTenant,
   listRulesByPlan,
   listUsageForSubject,
   periodKeyFor,
@@ -78,6 +80,66 @@ describe('limit_plan CRUD + rules', () => {
     expect((await listLimitPlans(db)).length).toBe(0);
     const recreated = await createLimitPlan(db, { name: 'Pro+' });
     expect(recreated.id).not.toBe(plan.id);
+  });
+});
+
+describe('tenant-owned limit plans (end-user data plane)', () => {
+  it('persists tenant_id, scopes list/get to the tenant, and lets tenants reuse names', async () => {
+    const tenantA = await createTenant(db, { name: 'tenant-a' });
+    const tenantB = await createTenant(db, { name: 'tenant-b' });
+
+    // create persists tenant_id
+    const aPro = await createLimitPlan(db, { name: 'pro', tenantId: tenantA.id });
+    expect(aPro.tenantId).toBe(tenantA.id);
+
+    // two tenants may both have a plan named 'pro' (per-(tenant_id,name) unique)
+    const bPro = await createLimitPlan(db, { name: 'pro', tenantId: tenantB.id });
+    expect(bPro.tenantId).toBe(tenantB.id);
+    expect(bPro.id).not.toBe(aPro.id);
+
+    // a platform plan (tenant_id NULL) coexists with the tenant ones
+    const platform = await createLimitPlan(db, { name: 'platform-pro' });
+    expect(platform.tenantId).toBeNull();
+
+    // listLimitPlansByTenant returns only that tenant's plans (not platform, not other tenant)
+    const aPlans = await listLimitPlansByTenant(db, tenantA.id);
+    expect(aPlans.map((p) => p.id)).toEqual([aPro.id]);
+    const bPlans = await listLimitPlansByTenant(db, tenantB.id);
+    expect(bPlans.map((p) => p.id)).toEqual([bPro.id]);
+
+    // getLimitPlanForTenant returns the row only for its owning tenant; undefined otherwise
+    expect((await getLimitPlanForTenant(db, aPro.id, tenantA.id))?.id).toBe(aPro.id);
+    expect(await getLimitPlanForTenant(db, aPro.id, tenantB.id)).toBeUndefined();
+    // a platform plan id is not a tenant's plan
+    expect(await getLimitPlanForTenant(db, platform.id, tenantA.id)).toBeUndefined();
+  });
+
+  it('newest-first list order and excludes soft-deleted plans', async () => {
+    const t = await createTenant(db, { name: 'tenant-order' });
+    const first = await createLimitPlan(db, { name: 'first', tenantId: t.id });
+    // bump createdAt so ordering is deterministic
+    await client`UPDATE limit_plan SET created_at = now() + interval '1 second' WHERE id = ${first.id}`;
+    const second = await createLimitPlan(db, { name: 'second', tenantId: t.id });
+
+    let plans = await listLimitPlansByTenant(db, t.id);
+    expect(plans.map((p) => p.id)).toEqual([first.id, second.id]);
+
+    await softDeleteLimitPlan(db, first.id);
+    plans = await listLimitPlansByTenant(db, t.id);
+    expect(plans.map((p) => p.id)).toEqual([second.id]);
+    expect(await getLimitPlanForTenant(db, first.id, t.id)).toBeUndefined();
+  });
+
+  // Pins the `limit_plan_tenant_name_idx` NULLS NOT DISTINCT semantics applied
+  // by the hand-edited 0050 migration. drizzle-orm 0.45.2's index builder can't
+  // express `.nullsNotDistinct()` and drizzle-kit 0.31.10's snapshot can't model
+  // it, so the guarantee lives ONLY in raw SQL + is invisible to a future
+  // `drizzle-kit generate`. This test fails loudly if a regen ever silently
+  // drops it (instead of platform plans quietly allowing duplicate live names).
+  it('platform plans (tenant_id NULL) are name-unique among themselves (NULLS NOT DISTINCT)', async () => {
+    await createLimitPlan(db, { name: 'dup-platform' });
+    // a second live platform plan with the same name must collide on the index
+    await expect(createLimitPlan(db, { name: 'dup-platform' })).rejects.toThrow();
   });
 });
 

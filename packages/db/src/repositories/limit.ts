@@ -1,5 +1,5 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import {
   account,
@@ -20,10 +20,13 @@ export type LimitAlertRow = InferSelectModel<typeof limitAlert>;
 
 // ── plans ──────────────────────────────────────────────────────────────────
 
-/** Insert a limit plan (额度套餐). */
+/**
+ * Insert a limit plan (额度套餐). `tenantId` makes it tenant-owned (the end-user
+ * data plane); omitted/undefined = a platform plan (tenant_id NULL).
+ */
 export async function createLimitPlan(
   db: DbOrTx,
-  input: { name: string; description?: string | null; status?: string },
+  input: { name: string; description?: string | null; status?: string; tenantId?: string },
 ): Promise<LimitPlanRow> {
   const rows = await db
     .insert(limitPlan)
@@ -31,6 +34,7 @@ export async function createLimitPlan(
       name: input.name,
       ...(input.description !== undefined ? { description: input.description } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.tenantId !== undefined ? { tenantId: input.tenantId } : {}),
     })
     .returning();
   const row = rows[0];
@@ -41,6 +45,29 @@ export async function createLimitPlan(
 /** List live plans (newest name order). */
 export function listLimitPlans(db: DbOrTx): Promise<LimitPlanRow[]> {
   return db.select().from(limitPlan).where(isNull(limitPlan.deletedAt)).orderBy(limitPlan.name);
+}
+
+/** A tenant's own live plans (tenant_id = tenantId), newest-first. */
+export function listLimitPlansByTenant(db: DbOrTx, tenantId: string): Promise<LimitPlanRow[]> {
+  return db
+    .select()
+    .from(limitPlan)
+    .where(and(eq(limitPlan.tenantId, tenantId), isNull(limitPlan.deletedAt)))
+    .orderBy(desc(limitPlan.createdAt));
+}
+
+/** A live plan by id, only if it belongs to `tenantId` (else undefined). */
+export async function getLimitPlanForTenant(
+  db: DbOrTx,
+  id: string,
+  tenantId: string,
+): Promise<LimitPlanRow | undefined> {
+  const rows = await db
+    .select()
+    .from(limitPlan)
+    .where(and(eq(limitPlan.id, id), eq(limitPlan.tenantId, tenantId), isNull(limitPlan.deletedAt)))
+    .limit(1);
+  return rows[0];
 }
 
 /** Fetch a live plan by id, or undefined. */

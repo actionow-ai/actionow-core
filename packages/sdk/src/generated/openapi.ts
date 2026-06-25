@@ -10996,6 +10996,7 @@ export interface components {
             resource_allowlist: string[];
             rate_limit: number | null;
             status: string;
+            subject_id: string | null;
             created_at: string;
         };
         ConsoleJobView: {
@@ -11610,6 +11611,8 @@ export interface components {
         ConsoleCreateApiKeyBody: {
             resourceAllowlist?: string[];
             rateLimit?: number;
+            /** Format: uuid */
+            subjectId?: string;
         };
         ConsoleCreateIntentBody: {
             /** @enum {string} */

@@ -15,6 +15,12 @@ describe('console request contracts', () => {
     expect(() => consoleCreateApiKeySchema.parse({ rateLimit: 0 })).toThrow();
   });
 
+  it('consoleCreateApiKeySchema accepts an optional uuid subjectId (key→subject binding)', () => {
+    const sid = '00000000-0000-0000-0000-000000000001';
+    expect(consoleCreateApiKeySchema.parse({ subjectId: sid })).toEqual({ subjectId: sid });
+    expect(() => consoleCreateApiKeySchema.parse({ subjectId: 'not-a-uuid' })).toThrow();
+  });
+
   it('consoleCreateIntentSchema requires a known provider enum + positive minor amount', () => {
     const body = { provider: 'stripe' as const, amount_minor: 1000, currency: 'usd' };
     expect(consoleCreateIntentSchema.parse(body)).toEqual(body);

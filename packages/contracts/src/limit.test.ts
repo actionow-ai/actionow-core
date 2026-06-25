@@ -50,12 +50,13 @@ describe('createLimitPlanRequestSchema', () => {
 });
 
 describe('limitPlanViewSchema', () => {
-  it('parses a plan view with string caps + counts', () => {
+  it('parses a plan view with string caps + counts + tenant_id', () => {
     const v = {
       id: 'p1',
       name: 'Pro',
       description: null,
       status: 'active',
+      tenant_id: 'tenant-1',
       rules: [
         {
           id: 'r1',
@@ -73,5 +74,23 @@ describe('limitPlanViewSchema', () => {
       updated_at: '2026-06-24T00:00:00Z',
     };
     expect(limitPlanViewSchema.parse(v)).toEqual(v);
+  });
+
+  it('keeps tenant_id nullable (platform plan) but required as a key', () => {
+    const v = {
+      id: 'p1',
+      name: 'Platform Free',
+      description: null,
+      status: 'active',
+      tenant_id: null,
+      rules: [],
+      key_count: 0,
+      tenant_count: 0,
+      created_at: '2026-06-24T00:00:00Z',
+      updated_at: '2026-06-24T00:00:00Z',
+    };
+    expect(limitPlanViewSchema.parse(v)).toEqual(v);
+    // the key must be present (nullable, not optional) so the FE always reads it
+    expect(() => limitPlanViewSchema.parse({ ...v, tenant_id: undefined })).toThrow();
   });
 });
