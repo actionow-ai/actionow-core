@@ -833,6 +833,8 @@
       "faultPolicyNone": "None (engine defaults)",
       "proxy": "Proxy",
       "proxyNone": "None (direct / global default)",
+      "tags": "Route tags (染色)",
+      "tagsPlaceholder": "Type and press Enter, e.g. canary / beta",
       "config": "Config"
     },
     "tip": {
@@ -855,6 +857,7 @@
       "faultPolicy": "Bind a fault-tolerance policy — same-channel retry + backoff + per-attempt timeouts. Leave empty for engine defaults (single attempt).",
       "proxy": "Pick a managed proxy for this channel. Selecting one binds it; leave empty for a direct connection (or the global UPSTREAM_PROXY_URL).",
       "proxyRefAdvanced": "Advanced: a proxy id or an env locator (SECRET_<KEY>) — usually just use the dropdown above.",
+      "tags": "Free-form route tags (染色). An X-Actionow-Route-Tag request header hard-pins the call to channels carrying the tag (narrow-only, never widening); leave empty to opt out of tag routing.",
       "config": "Provider-specific key/value settings for this channel (e.g. async submit/poll paths)."
     },
     "actions": {

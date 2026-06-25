@@ -98,6 +98,11 @@ export function ChannelCard({
       >
         <span className="chip">{t('resources.cards.modelsN', { n: channel.model_count })}</span>
         <span className="chip">{t('channels.cols.weight')} {channel.weight}</span>
+        {channel.tags.slice(0, 3).map((tg) => (
+          <span key={tg} className="chip" style={{ fontSize: 'var(--fs-caption)' }}>
+            {tg}
+          </span>
+        ))}
         <span style={{ flex: 1 }} />
         <span onClick={stop} onKeyDown={stop} role="presentation" style={{ display: 'inline-flex', gap: 'var(--s-1)' }}>
           <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={onEdit} />

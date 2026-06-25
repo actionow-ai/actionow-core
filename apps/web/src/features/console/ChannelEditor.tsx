@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { IconPicker } from '../../components/data/IconPicker';
 import { SecretSelect } from '../../components/data/SecretSelect';
 import { Button } from '../../components/ui/Button';
+import { ChipsField } from '../../components/ui/ChipsField';
 import { ComboboxField } from '../../components/ui/ComboboxField';
 import { Drawer } from '../../components/ui/Drawer';
 import { KeyValueEditor } from '../../components/ui/KeyValueEditor';
@@ -150,6 +151,8 @@ export function ChannelEditor({
     (channel?.status as ChannelStatus | undefined) ?? 'active',
   );
   const [configRows, setConfigRows] = useState<KvRow[]>(rowsFromObject(channel?.config));
+  // Free-form routing tags (染色/标签路由) — drive the X-Actionow-Route-Tag hard-pin.
+  const [tags, setTags] = useState<string[]>(channel?.tags ?? []);
   // Selectable brand icon (icon_asset.key); null → derived from plugin/provider.
   const [icon, setIcon] = useState<string | null>(channel?.icon ?? null);
   // Advanced section (per-channel cost / raw proxy locator / protocol config) —
@@ -218,6 +221,8 @@ export function ChannelEditor({
           icon,
           // null unbinds the plugin grouping.
           pluginId: pluginId === '' ? null : pluginId,
+          // Replaces the routing-tag set ([] clears it).
+          tags,
         });
       }
       // Create: resolve the platform — an explicit pick, else auto reuse/create
@@ -237,6 +242,7 @@ export function ChannelEditor({
           ...(faultPolicyId === '' ? {} : { faultPolicyId }),
           ...(icon !== null ? { icon } : {}),
           ...(pluginId === '' ? {} : { pluginId }),
+          ...(tags.length > 0 ? { tags } : {}),
         },
         idemKey,
       );
@@ -342,6 +348,13 @@ export function ChannelEditor({
         value={faultPolicyId}
         onChange={setFaultPolicyId}
         options={faultPolicyOptions}
+      />
+      <ChipsField
+        label={t('channels.form.tags')}
+        tooltip={t('channels.tip.tags')}
+        value={tags}
+        onChange={setTags}
+        placeholder={t('channels.form.tagsPlaceholder')}
       />
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--s-2)' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
