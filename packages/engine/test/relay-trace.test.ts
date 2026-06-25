@@ -43,6 +43,9 @@ const CTX = {
   providerType: 'codex-oauth',
 } as const;
 
+/** A trace context carrying a route tag (染色), exercising the routeTag column. */
+const CTX_TAGGED = { ...CTX, routeTag: 'canary' } as const;
+
 const MAX = 1_000_000;
 
 describe('TracingHttpClient.request', () => {
@@ -91,6 +94,42 @@ describe('TracingHttpClient.request', () => {
 
     // The real bearer token must appear NOWHERE in the serialized row.
     expect(JSON.stringify(row)).not.toContain('secret-xyz');
+  });
+
+  it('stamps the route tag (染色) onto the trace row when the ctx carries one', async () => {
+    const rows: InsertRelayTraceInput[] = [];
+    const inner = stubHttp({
+      request: (): Promise<HttpResponse> =>
+        Promise.resolve({ status: 200, ok: true, body: undefined, text: 'ok' }),
+    });
+    const tracer = new TracingHttpClient(
+      inner,
+      (row) => {
+        rows.push(row);
+      },
+      CTX_TAGGED,
+      MAX,
+    );
+    await tracer.request({ method: 'POST', url: 'https://x' });
+    expect(rows[0]?.routeTag).toBe('canary');
+  });
+
+  it('leaves routeTag undefined on the trace row when the ctx has no tag', async () => {
+    const rows: InsertRelayTraceInput[] = [];
+    const inner = stubHttp({
+      request: (): Promise<HttpResponse> =>
+        Promise.resolve({ status: 200, ok: true, body: undefined, text: 'ok' }),
+    });
+    const tracer = new TracingHttpClient(
+      inner,
+      (row) => {
+        rows.push(row);
+      },
+      CTX,
+      MAX,
+    );
+    await tracer.request({ method: 'POST', url: 'https://x' });
+    expect(rows[0]?.routeTag).toBeUndefined();
   });
 
   it('records an error row then rethrows when the inner request throws', async () => {
@@ -221,6 +260,25 @@ describe('TracingHttpClient.stream', () => {
     expect(row.requestBody).toBe('{"stream":true}');
     expect(row.requestHeaders?.authorization).toBe('[redacted]');
     expect(JSON.stringify(row)).not.toContain('stream-secret');
+  });
+
+  it('stamps the route tag (染色) onto a stream trace row', async () => {
+    const rows: InsertRelayTraceInput[] = [];
+    const inner = stubHttp({
+      stream: (): Promise<HttpStreamResponse> =>
+        Promise.resolve({ status: 200, ok: true, lines: frames('a', 'b') }),
+    });
+    const tracer = new TracingHttpClient(
+      inner,
+      (row) => {
+        rows.push(row);
+      },
+      CTX_TAGGED,
+      MAX,
+    );
+    const res = await tracer.stream({ method: 'POST', url: 'https://x' });
+    await collect(res.lines);
+    expect(rows[0]?.routeTag).toBe('canary');
   });
 
   it('truncates the assembled stream at the cap and sets truncated', async () => {

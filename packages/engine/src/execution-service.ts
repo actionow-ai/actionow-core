@@ -130,6 +130,14 @@ export interface RunRequest {
   /** Attributes the usage_log row to the calling api key (P1c). Absent → null. */
   usageLogApiKeyId?: string | undefined;
   /**
+   * The per-request route tag (染色/标签路由) this run was hard-pinned to via the
+   * `X-Actionow-Route-Tag` header, when set. Recorded on `relay_trace` (per
+   * upstream attempt) + `usage_log` (per settled run) so canary traffic is
+   * filterable/aggregatable. A channel-filter + record field ONLY — it never
+   * enters a URL and never participates in an authorization decision.
+   */
+  routeTag?: string | undefined;
+  /**
    * Upper-bound usage for a `post`-timed pricebook entry; priced via `settle`
    * to size the hold. When absent, `holdFloor` is used.
    */
@@ -825,6 +833,7 @@ export class ExecutionService {
         outputTokens: usage.output_tokens ?? 0,
         cost: finalCost,
         status: 'succeeded',
+        ...(req.routeTag !== undefined ? { routeTag: req.routeTag } : {}),
         ...(served !== undefined
           ? {
               channelId: served.channelId,
@@ -872,6 +881,7 @@ export class ExecutionService {
           subjectId: req.subjectId ?? null,
           cost: 0n,
           status: 'failed',
+          ...(req.routeTag !== undefined ? { routeTag: req.routeTag } : {}),
           ...(req.usageLogApiKeyId !== undefined ? { apiKeyId: req.usageLogApiKeyId } : {}),
         });
       } catch {
@@ -901,6 +911,7 @@ export class ExecutionService {
           jobId,
           channelId: channel.id,
           providerType,
+          routeTag: req.routeTag,
         }),
         channel.faultPolicy,
       ),

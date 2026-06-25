@@ -458,6 +458,7 @@ async function mirrorChatUsageLog(
       outputTokens: usage?.output_tokens ?? 0,
       cost: finalCost,
       status: 'succeeded',
+      ...(deps.req.routeTag !== undefined ? { routeTag: deps.req.routeTag } : {}),
       ...(served !== undefined
         ? {
             channelId: served.channelId,
@@ -570,6 +571,7 @@ async function buildContext(
         jobId: deps.jobId,
         providerType,
         ...(channel !== undefined ? { channelId: channel.id } : {}),
+        ...(deps.req.routeTag !== undefined ? { routeTag: deps.req.routeTag } : {}),
       }),
       channel?.faultPolicy,
     ),

@@ -16,6 +16,8 @@ export interface TraceContext {
   jobId?: string | undefined;
   channelId?: string | undefined;
   providerType?: string | undefined;
+  /** The per-request route tag (染色) this call was pinned to, when set; else undefined. */
+  routeTag?: string | undefined;
 }
 
 /** The shape the sink receives. Mirrors the db `insertRelayTrace` input. */
@@ -245,6 +247,7 @@ export class TracingHttpClient implements HttpClient {
       jobId: this.ctx.jobId,
       channelId: this.ctx.channelId,
       providerType: this.ctx.providerType,
+      routeTag: this.ctx.routeTag,
       method: req.method,
       url: redactUrl(req.url),
       requestHeaders: redactHeaders(req.headers),
