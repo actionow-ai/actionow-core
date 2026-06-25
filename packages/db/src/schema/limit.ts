@@ -39,8 +39,14 @@ export const limitPlan = pgTable(
   },
   (t) => [
     // Name uniqueness is per-(tenant_id,name) so tenants may reuse names.
-    // NULLS NOT DISTINCT (Postgres 15+) keeps platform plans (tenant_id NULL)
-    // name-unique among themselves.
+    // The applied index is also NULLS NOT DISTINCT (Postgres 15+) so platform
+    // plans (tenant_id NULL) stay name-unique among themselves — but that flag
+    // lives ONLY in the hand-edited SQL (0050_romantic_trauma.sql): drizzle-orm
+    // 0.45.2's index builder has no `.nullsNotDistinct()` and drizzle-kit
+    // 0.31.10's snapshot can't model it, so this builder + the snapshot omit it
+    // and `drizzle-kit generate` is blind to it (it reports no drift). Do NOT
+    // "reconcile" by dropping the SQL hand-edit; limit.int.test.ts pins the
+    // runtime guarantee so a regen can't silently lose it.
     uniqueIndex('limit_plan_tenant_name_idx')
       .on(t.tenantId, t.name)
       .where(sql`deleted_at IS NULL`),

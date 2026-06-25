@@ -129,6 +129,18 @@ describe('tenant-owned limit plans (end-user data plane)', () => {
     expect(plans.map((p) => p.id)).toEqual([second.id]);
     expect(await getLimitPlanForTenant(db, first.id, t.id)).toBeUndefined();
   });
+
+  // Pins the `limit_plan_tenant_name_idx` NULLS NOT DISTINCT semantics applied
+  // by the hand-edited 0050 migration. drizzle-orm 0.45.2's index builder can't
+  // express `.nullsNotDistinct()` and drizzle-kit 0.31.10's snapshot can't model
+  // it, so the guarantee lives ONLY in raw SQL + is invisible to a future
+  // `drizzle-kit generate`. This test fails loudly if a regen ever silently
+  // drops it (instead of platform plans quietly allowing duplicate live names).
+  it('platform plans (tenant_id NULL) are name-unique among themselves (NULLS NOT DISTINCT)', async () => {
+    await createLimitPlan(db, { name: 'dup-platform' });
+    // a second live platform plan with the same name must collide on the index
+    await expect(createLimitPlan(db, { name: 'dup-platform' })).rejects.toThrow();
+  });
 });
 
 describe('resolveEffectiveRules', () => {
