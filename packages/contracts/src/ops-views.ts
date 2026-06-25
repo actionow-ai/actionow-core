@@ -69,6 +69,8 @@ export const usageLogViewSchema = z.object({
   cost: z.string(),
   latency_ms: z.number().nullable(),
   status: z.string(),
+  /** The per-request route tag (染色) this run was pinned to; `null` when unset. */
+  route_tag: z.string().nullable(),
   created_at: z.string(),
 });
 export type UsageLogView = z.infer<typeof usageLogViewSchema>;
@@ -161,6 +163,8 @@ export const relayTraceViewSchema = z.object({
   latency_ms: z.number().nullable(),
   error: z.string().nullable(),
   truncated: z.boolean(),
+  /** The per-request route tag (染色) this call was pinned to; `null` when unset. */
+  route_tag: z.string().nullable(),
 });
 export type RelayTraceView = z.infer<typeof relayTraceViewSchema>;
 

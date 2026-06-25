@@ -413,6 +413,12 @@
           "plugin_id": {
             "type": "string",
             "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -431,7 +437,8 @@
           "fault_policy_id",
           "model_count",
           "icon",
-          "plugin_id"
+          "plugin_id",
+          "tags"
         ]
       },
       "ModelView": {
@@ -880,6 +887,10 @@
           "status": {
             "type": "string"
           },
+          "route_tag": {
+            "type": "string",
+            "nullable": true
+          },
           "created_at": {
             "type": "string"
           }
@@ -894,6 +905,7 @@
           "cost",
           "latency_ms",
           "status",
+          "route_tag",
           "created_at"
         ]
       },
@@ -1121,6 +1133,10 @@
           },
           "truncated": {
             "type": "boolean"
+          },
+          "route_tag": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -1139,7 +1155,8 @@
           "is_stream",
           "latency_ms",
           "error",
-          "truncated"
+          "truncated",
+          "route_tag"
         ]
       },
       "RedemptionCodeView": {
@@ -3397,6 +3414,14 @@
           "pluginId": {
             "type": "string",
             "format": "uuid"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 20
           }
         },
         "required": [
@@ -3468,6 +3493,14 @@
             "type": "string",
             "nullable": true,
             "format": "uuid"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 20
           }
         }
       },

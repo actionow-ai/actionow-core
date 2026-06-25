@@ -2226,6 +2226,7 @@ function toChannelView(row: UpstreamChannelRow, modelCount = 0): ChannelView {
     model_count: modelCount,
     icon: row.icon,
     plugin_id: row.pluginId,
+    tags: row.tags,
   });
 }
 
@@ -2406,6 +2407,7 @@ function toUsageLogView(row: UsageLogRow): UsageLogView {
     cost: row.cost.toString(),
     latency_ms: row.latencyMs,
     status: row.status,
+    route_tag: row.routeTag,
     created_at: row.createdAt.toISOString(),
   });
 }
