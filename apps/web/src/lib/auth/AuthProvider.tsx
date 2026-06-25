@@ -14,6 +14,8 @@ const TOKEN_KEY = 'actionow.token';
 export interface AuthUser {
   id: string;
   role: string;
+  /** For a member (end-user) session, the tenant the subject belongs to. */
+  tenantId?: string;
 }
 
 interface AuthCtx {
@@ -28,6 +30,9 @@ interface AuthCtx {
   onUnauthorized: () => void;
   login: (email: string, password: string) => Promise<AuthUser>;
   register: (email: string, password: string) => Promise<AuthUser>;
+  /** Member (end-user) auth — scoped to a tenant (unified tenancy G-F). */
+  loginMember: (tenantId: string, email: string, password: string) => Promise<AuthUser>;
+  registerMember: (tenantId: string, email: string, password: string) => Promise<AuthUser>;
   /** Adopt an already-issued JWT (the OAuth callback hand-off). Validates +
    *  stores it like a login; throws on a malformed/expired token. */
   setSession: (token: string) => AuthUser;
@@ -49,7 +54,10 @@ function loadToken(): string | null {
 function userFromToken(token: string | null): AuthUser | null {
   if (!token) return null;
   const c = decodeJwt(token);
-  return c ? { id: c.sub, role: c.role } : null;
+  if (!c) return null;
+  return c.tenantId !== undefined
+    ? { id: c.sub, role: c.role, tenantId: c.tenantId }
+    : { id: c.sub, role: c.role };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -91,7 +99,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!claims || isExpired(claims)) throw new ApiError('invalid_input', 'malformed token', 200);
     localStorage.setItem(TOKEN_KEY, tok);
     setToken(tok);
-    return { id: claims.sub, role: claims.role };
+    return claims.tenantId !== undefined
+      ? { id: claims.sub, role: claims.role, tenantId: claims.tenantId }
+      : { id: claims.sub, role: claims.role };
   }, []);
 
   const authenticate = useCallback(
@@ -108,6 +118,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     (email: string, password: string) => authenticate('/register', email, password),
     [authenticate],
+  );
+
+  // Member (end-user) auth: the body carries the tenant the subject belongs to
+  // (`tenantId` + email + password); the issued token is a member JWT (typ:'subject').
+  const authenticateMember = useCallback(
+    async (path: string, tenantId: string, email: string, password: string): Promise<AuthUser> => {
+      const r = await createClient({ getToken: () => null, onUnauthorized: () => undefined }).post<{
+        token: string;
+      }>(`${config.authBase}${path}`, { tenantId, email, password });
+      return setSession(r.token);
+    },
+    [setSession],
+  );
+  const loginMember = useCallback(
+    (tenantId: string, email: string, password: string) =>
+      authenticateMember('/login-member', tenantId, email, password),
+    [authenticateMember],
+  );
+  const registerMember = useCallback(
+    (tenantId: string, email: string, password: string) =>
+      authenticateMember('/register-member', tenantId, email, password),
+    [authenticateMember],
   );
 
   const logout = useCallback(() => clearToken(), [clearToken]);
@@ -130,10 +162,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       onUnauthorized: handleUnauthorized,
       login,
       register,
+      loginMember,
+      registerMember,
       setSession,
       logout,
     }),
-    [token, client, sdk, handleUnauthorized, login, register, setSession, logout],
+    [token, client, sdk, handleUnauthorized, login, register, loginMember, registerMember, setSession, logout],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

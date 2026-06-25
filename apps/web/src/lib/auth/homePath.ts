@@ -8,5 +8,9 @@
  */
 export function homePath(user: { role: string } | null): string {
   if (!user) return '/login';
-  return user.role === 'admin' ? '/console/dashboard' : '/app';
+  if (user.role === 'admin') return '/console/dashboard';
+  // A member (end-user) has its own portal — the operator /app would reject its
+  // token (ConsoleGuard) and auto-logout, so route members to /portal instead.
+  if (user.role === 'member') return '/portal';
+  return '/app';
 }

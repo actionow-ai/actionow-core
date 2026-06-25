@@ -1,4 +1,23 @@
 {
+  "member": {
+    "auth": {
+      "subtitle": "终端用户登录",
+      "tenantId": "租户 ID",
+      "tenantHint": "由你所属的产品方提供的租户标识",
+      "loggedIn": "已登录",
+      "registered": "注册成功",
+      "failed": "租户、邮箱或密码不正确",
+      "operatorHint": "你是运营方?",
+      "operatorCta": "前往运营登录"
+    },
+    "portal": {
+      "title": "终端用户中心",
+      "subtitle": "你的账户",
+      "subjectId": "用户 ID",
+      "tenantId": "所属租户",
+      "apiNote": "数据接口访问通过运营方为你签发的 API Key 进行(在你所属产品内使用)。更完整的自助功能即将推出。"
+    }
+  },
   "auth": {
     "loginTab": "登录",
     "registerTab": "注册",
