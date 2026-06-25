@@ -84,7 +84,15 @@ export function AppSettings() {
               </span>
             </Row>
             <Row label={t('app.settings.role')}>
-              <Pill tone="idle">{me.data?.role ?? '—'}</Pill>
+              {/* Show the tenant seat (管理员/成员), not the plane role (always
+                  'user' for every tenant operator). null = system operator. */}
+              {me.data?.tenant_role != null ? (
+                <Pill tone={me.data.tenant_role === 'admin' ? 'ok' : 'idle'}>
+                  {t(`app.members.roles.${me.data.tenant_role}`, me.data.tenant_role)}
+                </Pill>
+              ) : (
+                <Pill tone="idle">{me.data?.role ?? '—'}</Pill>
+              )}
             </Row>
             <Row label={t('app.settings.status')}>
               <StatusBadge

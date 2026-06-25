@@ -52,7 +52,7 @@ export function MembersPage() {
   const { t } = useTranslation('console');
   const api = useConsoleApi();
   const qc = useQueryClient();
-  const { isTenantAdmin } = useTenantRole();
+  const { isTenantAdmin, isLoading: roleLoading } = useTenantRole();
 
   const users = useQuery({
     queryKey: qk.consoleUsers(),
@@ -146,6 +146,9 @@ export function MembersPage() {
   ];
 
   if (!isTenantAdmin) {
+    // Still resolving the seat: render nothing rather than flashing the admin-only
+    // notice to an admin who hard-refreshes directly on this route.
+    if (roleLoading) return null;
     // A member who deep-links here: no list, no controls — just the admin-only
     // notice (matching the read-only gate on the other /app surfaces).
     return (

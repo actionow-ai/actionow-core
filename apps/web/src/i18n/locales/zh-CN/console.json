@@ -161,6 +161,7 @@
       "uploaded": "文件已上传"
     },
     "adminOnly": "只读视图——此操作需要租户管理员权限。",
+    "currentRole": "当前角色",
     "members": {
       "invite": "邀请成员",
       "inviteHint": "在你的租户下创建一个操作员账号(成员席位)。",

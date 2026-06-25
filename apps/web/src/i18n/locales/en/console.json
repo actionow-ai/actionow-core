@@ -161,6 +161,7 @@
       "uploaded": "File uploaded"
     },
     "adminOnly": "Read-only view — this action requires a tenant admin.",
+    "currentRole": "Current role",
     "members": {
       "invite": "Invite member",
       "inviteHint": "Create an operator account (a member seat) in your tenant.",
