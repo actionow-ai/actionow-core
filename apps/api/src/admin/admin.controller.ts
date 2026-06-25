@@ -2070,6 +2070,7 @@ function toLimitPlanView(p: {
     name: p.plan.name,
     description: p.plan.description,
     status: p.plan.status,
+    tenant_id: p.plan.tenantId,
     rules: p.rules.map(toLimitRuleView),
     key_count: p.bindings.keys,
     tenant_count: p.bindings.tenants,
