@@ -73,6 +73,7 @@ const noopBreaker: BreakerStore = {
   filterAvailable: (channels) => Promise.resolve([...channels]),
   onSuccess: () => Promise.resolve(),
   onFailure: () => Promise.resolve(),
+  windowStats: () => Promise.resolve(null),
 };
 
 function runtimeWith(adapters: AdapterRegistry, http: HttpClient = noHttp): WorkerRuntime {

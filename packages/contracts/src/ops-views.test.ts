@@ -124,11 +124,16 @@ describe('admin operational view contracts (single source of truth for FE + BE)'
       cooldown_until: '2026-06-25T00:05:00Z',
       trip_count: 3,
       half_open_successes: 0,
+      failure_rate: 75.5,
       last_transition_at: '2026-06-25T00:00:00Z',
     };
     expect(breakerViewSchema.parse(b)).toEqual(b);
     // state is a closed enum — guard against drift.
     expect(() => breakerViewSchema.parse({ ...b, state: 'tripped' })).toThrow();
+    // failure_rate is nullable (Redis unreadable) — a null is valid.
+    expect(breakerViewSchema.parse({ ...b, failure_rate: null })).toMatchObject({
+      failure_rate: null,
+    });
     // a closed breaker with a null name + null timestamps is valid.
     expect(
       breakerViewSchema.parse({

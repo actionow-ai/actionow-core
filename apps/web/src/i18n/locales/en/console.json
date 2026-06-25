@@ -886,6 +886,7 @@
       "state": "State",
       "cooldown": "Cooldown",
       "trips": "Trips",
+      "failureRate": "Failure rate",
       "transition": "Last change"
     },
     "state": {

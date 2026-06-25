@@ -38,6 +38,11 @@ function fmtTime(iso: string | null): string {
   return iso === null ? '—' : new Date(iso).toLocaleString();
 }
 
+/** Recent-window failure rate as a percent ("75.5%"); em-dash when null (Redis unreadable). */
+function failureRateLabel(rate: number | null): string {
+  return rate === null ? '—' : `${String(Math.round(rate * 10) / 10)}%`;
+}
+
 /**
  * The 熔断 (circuit breakers, 弹性2.0) console page — wired to the live
  * `/admin/breakers` backend. A read-mostly `DataTable` of every tripped/probing
@@ -130,6 +135,12 @@ export function BreakersPage() {
       header: t('breakers.cols.trips'),
       cell: (r) => <span className="tabular">{r.trip_count}</span>,
       width: '80px',
+    },
+    {
+      key: 'failureRate',
+      header: t('breakers.cols.failureRate'),
+      cell: (r) => <span className="tabular">{failureRateLabel(r.failure_rate)}</span>,
+      width: '110px',
     },
     {
       key: 'transition',

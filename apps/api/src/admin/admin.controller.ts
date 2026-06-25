@@ -91,7 +91,6 @@ import type {
   AdminTokenView as AdminTokenRow,
   ApiKeyRow,
   AuditLogRow,
-  BreakerStatusRow,
   ChannelHealthRow,
   FaultPolicyRow,
   IconAssetRow,
@@ -151,6 +150,7 @@ import { mapPageEnvelope, type PageEnvelope, toPageParams } from '../common/pagi
 import { ZodBody } from '../common/zod.pipe.js';
 import {
   AdminService,
+  type BreakerStatusWithRate,
   type ProvisionResult,
   type RelayTraceView,
   toRelayTraceView,
@@ -2425,7 +2425,7 @@ function toUsageRollupView(row: UsageRollupRow): UsageRollupView {
   });
 }
 
-function toBreakerView(row: BreakerStatusRow): BreakerView {
+function toBreakerView(row: BreakerStatusWithRate): BreakerView {
   return breakerViewSchema.parse({
     channel_id: row.channelId,
     channel_name: row.channelName,
@@ -2436,6 +2436,9 @@ function toBreakerView(row: BreakerStatusRow): BreakerView {
     cooldown_until: row.cooldownUntil === null ? null : row.cooldownUntil.toISOString(),
     trip_count: row.tripCount,
     half_open_successes: row.halfOpenSuccesses,
+    // Recent-window failure rate (%) from Redis; rounded to 2 dp. null = window
+    // unreadable (Redis miss/outage) — the FSM state stays authoritative.
+    failure_rate: row.failureRate === null ? null : Math.round(row.failureRate * 100) / 100,
     last_transition_at: row.lastTransitionAt === null ? null : row.lastTransitionAt.toISOString(),
   });
 }

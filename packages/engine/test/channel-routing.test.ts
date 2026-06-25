@@ -113,6 +113,9 @@ function fakeBreaker(excluded: string[] = []): BreakerStore & {
       failures.push({ id: channelId, model });
       return Promise.resolve();
     },
+    windowStats(): Promise<null> {
+      return Promise.resolve(null);
+    },
   };
 }
 

@@ -88,6 +88,39 @@ describe('FakeBreakerRedis (sliding fixed-window over current+previous epoch)', 
     vi.useRealTimers();
   });
 
+  it('readWindow returns the current+previous totals WITHOUT recording an outcome', async () => {
+    const r = new FakeBreakerRedis();
+    const now = 8_000_000;
+
+    // Empty window reads as zero.
+    expect(await r.readWindow('k', WINDOW_MS, now)).toEqual({ total: 0, fail: 0 });
+
+    await r.recordOutcome('k', WINDOW_MS, true, now);
+    await r.recordOutcome('k', WINDOW_MS, false, now);
+
+    // Read twice — the read must be idempotent (no increment).
+    expect(await r.readWindow('k', WINDOW_MS, now)).toEqual({ total: 2, fail: 1 });
+    expect(await r.readWindow('k', WINDOW_MS, now)).toEqual({ total: 2, fail: 1 });
+
+    // A following recordOutcome still sees exactly the two prior outcomes.
+    expect(await r.recordOutcome('k', WINDOW_MS, false, now)).toEqual({ total: 3, fail: 1 });
+  });
+
+  it('readWindow sums the current and previous epoch buckets like recordOutcome', async () => {
+    const r = new FakeBreakerRedis();
+    const base = 6 * WINDOW_MS; // start of epoch 6
+
+    await r.recordOutcome('k', WINDOW_MS, true, base + 10); // epoch 6
+    await r.recordOutcome('k', WINDOW_MS, false, base + 20); // epoch 6
+    await r.recordOutcome('k', WINDOW_MS, true, base + WINDOW_MS + 5); // epoch 7
+
+    // Reading at epoch 7 spans the current (7) + previous (6) buckets.
+    expect(await r.readWindow('k', WINDOW_MS, base + WINDOW_MS + 30)).toEqual({
+      total: 3,
+      fail: 2,
+    });
+  });
+
   it('clearWindow resets the counted totals back to zero', async () => {
     const r = new FakeBreakerRedis();
     const now = 7_000_000;

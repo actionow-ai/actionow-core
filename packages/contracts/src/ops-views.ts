@@ -298,6 +298,12 @@ export const breakerViewSchema = z.object({
   trip_count: z.number(),
   /** Successful probes accumulated in the current half-open trial. */
   half_open_successes: z.number(),
+  /**
+   * Recent-window failure rate (0–100), computed live from the breaker's Redis
+   * sliding window (the same signal that trips it). `null` when the window can't
+   * be read (Redis miss/outage) — the FSM state is still authoritative.
+   */
+  failure_rate: z.number().nullable(),
   /** Last FSM transition (ISO string). */
   last_transition_at: z.string().nullable(),
 });

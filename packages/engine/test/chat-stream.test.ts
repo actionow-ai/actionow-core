@@ -39,6 +39,7 @@ function recordingBreaker(excludeIds: string[] = []): BreakerStore & {
       failures.push({ channelId, model });
       return Promise.resolve();
     },
+    windowStats: (): Promise<null> => Promise.resolve(null),
   };
 }
 

@@ -17,6 +17,7 @@ const breaker: BreakerView = {
   cooldown_until: '2026-06-25T00:05:00Z',
   trip_count: 3,
   half_open_successes: 0,
+  failure_rate: 80,
   last_transition_at: '2026-06-25T00:00:00Z',
 };
 
@@ -56,6 +57,8 @@ describe('BreakersPage (弹性2.0)', () => {
     expect(screen.getByText('gpt-4o')).toBeInTheDocument();
     // The state pill shows the translated "Open" state.
     expect(screen.getByText(i18n.t('console:breakers.state.open'))).toBeInTheDocument();
+    // The recent-window failure rate is rendered as a percent (spec §⑤).
+    expect(screen.getByText('80%')).toBeInTheDocument();
   });
 
   it('resets a breaker after confirming and calls the api with channel + model', async () => {

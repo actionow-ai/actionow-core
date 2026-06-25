@@ -57,6 +57,19 @@ export interface WindowStats {
   fail: number;
 }
 
+/**
+ * A breaker's recent-window stats for the admin status surface: the Redis
+ * sliding-window counts plus the derived failure rate (%). Returned by
+ * {@link BreakerStore.windowStats}; `null` when the window can't be read
+ * (Redis miss / error — the surface degrades to no failure_rate, never an error).
+ */
+export interface BreakerWindowStats {
+  total: number;
+  fail: number;
+  /** `fail / total × 100`, or 0 when the window is empty. */
+  failureRatePct: number;
+}
+
 /** Exponential backoff for the n-th trip (0-indexed), capped at `openCooldownCapMs`. */
 export function cooldownMs(cfg: BreakerConfig, tripCount: number): number {
   return Math.min(cfg.openCooldownMs * 2 ** Math.max(0, tripCount), cfg.openCooldownCapMs);
@@ -224,6 +237,31 @@ export interface BreakerStore {
   ): Promise<C[]>;
   onSuccess(channelId: string, model: string, now: Date): Promise<void>;
   onFailure(channelId: string, model: string, now: Date, retryAfterMs?: number): Promise<void>;
+  /**
+   * The recent-window outcome stats for one `(channel, model)` (read-only — does
+   * NOT record an outcome). Backs the admin status surface's `failure_rate`.
+   * Returns `null` on any error (the surface omits the rate, never fails).
+   */
+  windowStats(channelId: string, model: string, now: Date): Promise<BreakerWindowStats | null>;
+}
+
+/**
+ * Cap (ms) on the admin `windowStats` Redis read. The shared client is built with
+ * `maxRetriesPerRequest: null` (commands queue indefinitely when Redis is down),
+ * so the synchronous status surface needs its OWN timeout to degrade to `null`
+ * instead of hanging — the FSM state is still authoritative without the rate.
+ */
+const WINDOW_STATS_TIMEOUT_MS = 1_000;
+
+/** Reject after `ms` — used to bound the admin `windowStats` Redis read (fail-open). */
+function timeoutAfter(ms: number): Promise<never> {
+  return new Promise((_, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('breaker windowStats timeout'));
+    }, ms);
+    // Don't keep the event loop alive for this guard timer.
+    if (typeof timer === 'object' && 'unref' in timer) timer.unref();
+  });
 }
 
 /** The implicit closed snapshot for a `(channel, model)` with no persisted row. */
@@ -340,6 +378,31 @@ export class DefaultBreakerStore implements BreakerStore {
       }
     } catch {
       // Best-effort: swallow.
+    }
+  }
+
+  async windowStats(
+    channelId: string,
+    model: string,
+    now: Date,
+  ): Promise<BreakerWindowStats | null> {
+    try {
+      const cfg = await this.deps.configFor(channelId);
+      // Bound the read: the shared Redis client queues commands indefinitely when
+      // Redis is down, so without this race the synchronous admin surface would
+      // hang. On timeout we fail open to null (the FSM state stays authoritative).
+      const win = await Promise.race([
+        this.deps.redis.readWindow(breakerKey(channelId, model), cfg.windowMs, now.getTime()),
+        timeoutAfter(WINDOW_STATS_TIMEOUT_MS),
+      ]);
+      return {
+        total: win.total,
+        fail: win.fail,
+        failureRatePct: win.total > 0 ? (win.fail / win.total) * 100 : 0,
+      };
+    } catch {
+      // Read-only + best-effort: the status surface omits the rate, never errors.
+      return null;
     }
   }
 

@@ -31,6 +31,13 @@ export interface BreakerRedis {
     now: number,
   ): Promise<BreakerWindow>;
   /**
+   * Read the running totals over the current + previous epoch buckets for `base`
+   * WITHOUT recording an outcome (read-only sibling of {@link recordOutcome}).
+   * Backs the admin status surface's `failure_rate` column. Returns `{0, 0}` when
+   * the window is empty (or on a Redis miss).
+   */
+  readWindow(base: string, windowMs: number, now: number): Promise<BreakerWindow>;
+  /**
    * Claim a half-open trial slot for `base`. Returns true for the first `max`
    * callers within `ttlMs`, false thereafter. Mirrors the concurrency limiter's
    * INCR-with-cap, but slots are never released — the TTL is the only reset.
@@ -81,6 +88,19 @@ local pFail = tonumber(redis.call('HGET', prev, 'fail')) or 0
 return {total + pTotal, fail + pFail}
 `;
 
+// Read-only sum of the current + previous epoch buckets (the same window
+// {@link RECORD_OUTCOME_LUA} returns, without the increment). For the admin
+// `failure_rate` surface — a miss on either bucket reads as 0.
+const READ_WINDOW_LUA = `
+local cur = KEYS[1]
+local prev = KEYS[2]
+local cTotal = tonumber(redis.call('HGET', cur, 'total')) or 0
+local cFail = tonumber(redis.call('HGET', cur, 'fail')) or 0
+local pTotal = tonumber(redis.call('HGET', prev, 'total')) or 0
+local pFail = tonumber(redis.call('HGET', prev, 'fail')) or 0
+return {cTotal + pTotal, cFail + pFail}
+`;
+
 // INCR + safety TTL on first hit (mirrors CONC_INCR_LUA). Slots are never
 // released; the TTL is the only reset, so the gate admits at most `max` trials
 // per cooldown window.
@@ -110,6 +130,18 @@ export class LuaBreakerRedis implements BreakerRedis {
       prev,
       windowMs * 2,
       isFail ? 1 : 0,
+    );
+    const [total, fail] = raw as [number, number];
+    return { total, fail };
+  }
+
+  async readWindow(base: string, windowMs: number, now: number): Promise<BreakerWindow> {
+    const epoch = epochOf(now, windowMs);
+    const raw = await this.redis.eval(
+      READ_WINDOW_LUA,
+      2,
+      winKey(base, epoch),
+      winKey(base, epoch - 1),
     );
     const [total, fail] = raw as [number, number];
     return { total, fail };
@@ -172,6 +204,17 @@ export class FakeBreakerRedis implements BreakerRedis {
     const pFail = prev !== undefined && prev.expiresAt > now ? prev.fail : 0;
 
     return Promise.resolve({ total: cur.total + pTotal, fail: cur.fail + pFail });
+  }
+
+  readWindow(base: string, windowMs: number, now: number): Promise<BreakerWindow> {
+    const epoch = epochOf(now, windowMs);
+    const cur = this.windows.get(winKey(base, epoch));
+    const prev = this.windows.get(winKey(base, epoch - 1));
+    const cTotal = cur !== undefined && cur.expiresAt > now ? cur.total : 0;
+    const cFail = cur !== undefined && cur.expiresAt > now ? cur.fail : 0;
+    const pTotal = prev !== undefined && prev.expiresAt > now ? prev.total : 0;
+    const pFail = prev !== undefined && prev.expiresAt > now ? prev.fail : 0;
+    return Promise.resolve({ total: cTotal + pTotal, fail: cFail + pFail });
   }
 
   tryTrial(base: string, max: number, ttlMs: number): Promise<boolean> {

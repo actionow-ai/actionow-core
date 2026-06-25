@@ -50,6 +50,7 @@ const runtime: WorkerRuntime = {
     filterAvailable: (channels) => Promise.resolve([...channels]),
     onSuccess: () => Promise.resolve(),
     onFailure: () => Promise.resolve(),
+    windowStats: () => Promise.resolve(null),
   },
 };
 

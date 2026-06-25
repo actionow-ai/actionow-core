@@ -208,6 +208,7 @@ import {
 } from '@actionow/db';
 import { creditsToMicro } from '@actionow/domain';
 import {
+  type BreakerStore,
   buildCodexAuthorizeUrl,
   CodexAuthError,
   exchangeCodexCode,
@@ -222,7 +223,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { engineInvalidInput, engineNotFound } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
-import { ADAPTERS, DB, ENV, HTTP } from '../common/tokens.js';
+import { ADAPTERS, BREAKER, DB, ENV, HTTP } from '../common/tokens.js';
 import type {
   AddGroupChannelDto,
   AnalyticsUsageQueryDto,
@@ -354,6 +355,14 @@ export interface ProvisionResult {
   apiKey: CreatedApiKey;
 }
 
+/**
+ * A breaker status row ({@link BreakerStatusRow}, the PG FSM state joined with its
+ * channel) enriched with the recent-window `failureRate` (%) read live from Redis
+ * for `GET /admin/breakers` (弹性2.0, spec §⑤). `null` when the window can't be
+ * read (Redis miss/outage, or no breaker store wired).
+ */
+export type BreakerStatusWithRate = BreakerStatusRow & { failureRate: number | null };
+
 /** Neutral, no-auth 204 endpoint a proxy probe fetches to prove reachability. */
 const DEFAULT_PROXY_PROBE_URL = 'https://www.gstatic.com/generate_204';
 
@@ -382,6 +391,11 @@ export class AdminService {
     @Inject(ADAPTERS) private readonly adapters: AdapterRegistry,
     private readonly secrets: SecretResolver,
     @Optional() @Inject(HTTP) http?: HttpClient,
+    // The circuit breaker (弹性2.0) — read-only here, used to enrich the breaker
+    // status surface with each `(channel, model)`'s recent-window failure_rate
+    // (a Redis-only signal). Optional so unit tests that don't wire Redis still
+    // construct the service; absent ⇒ failure_rate degrades to null.
+    @Optional() @Inject(BREAKER) private readonly breaker?: BreakerStore,
   ) {
     // Default to a real fetch client so existing constructions/tests that don't
     // wire an HTTP provider keep working; the OAuth-login e2e overrides it.
@@ -2455,11 +2469,25 @@ export class AdminService {
 
   /**
    * Every tripped/probing `(channel, model)` circuit breaker for the ops status
-   * surface (`GET /admin/breakers`, 弹性2.0), joined to the channel's name. A
-   * `(channel, model)` with no row is implicitly closed and simply absent.
+   * surface (`GET /admin/breakers`, 弹性2.0), joined to the channel's name, each
+   * enriched with its recent-window `failureRate` (%) read live from the breaker's
+   * Redis sliding window — the same signal that trips it (spec §⑤). The PG row
+   * carries only the FSM state, so the rate is fetched per row from the breaker
+   * store; a Redis miss/outage (or no store wired) degrades `failureRate` to null,
+   * never failing the surface.
    */
-  listBreakers(): Promise<BreakerStatusRow[]> {
-    return listBreakersWithChannel(this.db);
+  async listBreakers(): Promise<BreakerStatusWithRate[]> {
+    const rows = await listBreakersWithChannel(this.db);
+    if (this.breaker === undefined) {
+      return rows.map((row) => ({ ...row, failureRate: null }));
+    }
+    const now = new Date();
+    return Promise.all(
+      rows.map(async (row) => {
+        const stats = await this.breaker?.windowStats(row.channelId, row.model, now);
+        return { ...row, failureRate: stats?.failureRatePct ?? null };
+      }),
+    );
   }
 
   /**

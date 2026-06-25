@@ -154,4 +154,50 @@ describe('DefaultBreakerStore (弹性2.0)', () => {
     await expect(store.onSuccess('c1', 'gpt', t0)).resolves.toBeUndefined();
     await expect(store.onFailure('c1', 'gpt', t0)).resolves.toBeUndefined();
   });
+
+  it('windowStats reads the Redis window failure_rate WITHOUT recording (admin surface)', async () => {
+    const pg = new FakePersistence();
+    const redis = new FakeBreakerRedis();
+    const { store } = makeStore(pg, redis);
+    // 3 of 4 outcomes failed → 75%.
+    await redis.recordOutcome('c1:gpt', cfg.windowMs, true, t0.getTime());
+    await redis.recordOutcome('c1:gpt', cfg.windowMs, true, t0.getTime());
+    await redis.recordOutcome('c1:gpt', cfg.windowMs, true, t0.getTime());
+    await redis.recordOutcome('c1:gpt', cfg.windowMs, false, t0.getTime());
+
+    const stats = await store.windowStats('c1', 'gpt', t0);
+    expect(stats).toEqual({ total: 4, fail: 3, failureRatePct: 75 });
+    // Idempotent: a second read returns the same totals (no increment).
+    expect(await store.windowStats('c1', 'gpt', t0)).toEqual({
+      total: 4,
+      fail: 3,
+      failureRatePct: 75,
+    });
+  });
+
+  it('windowStats returns a 0 rate for an empty window', async () => {
+    const { store } = makeStore(new FakePersistence());
+    expect(await store.windowStats('c9', 'gpt', t0)).toEqual({
+      total: 0,
+      fail: 0,
+      failureRatePct: 0,
+    });
+  });
+
+  it('windowStats fails open (null) when config resolution throws', async () => {
+    const { store } = makeStore(new FakePersistence(), new FakeBreakerRedis(), () =>
+      Promise.reject(new Error('config down')),
+    );
+    expect(await store.windowStats('c1', 'gpt', t0)).toBeNull();
+  });
+
+  it('windowStats fails open (null) when the Redis read never resolves (down Redis)', async () => {
+    // The shared client queues commands forever when Redis is down; windowStats
+    // must time out and degrade to null rather than hang the admin surface.
+    const hangingRedis = new FakeBreakerRedis();
+    // A read that never settles (the offline-queue case); windowStats must time out.
+    hangingRedis.readWindow = () => new Promise<never>(() => undefined);
+    const { store } = makeStore(new FakePersistence(), hangingRedis);
+    expect(await store.windowStats('c1', 'gpt', t0)).toBeNull();
+  }, 5_000);
 });

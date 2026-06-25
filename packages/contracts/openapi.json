@@ -2088,6 +2088,10 @@
           "half_open_successes": {
             "type": "number"
           },
+          "failure_rate": {
+            "type": "number",
+            "nullable": true
+          },
           "last_transition_at": {
             "type": "string",
             "nullable": true
@@ -2103,6 +2107,7 @@
           "cooldown_until",
           "trip_count",
           "half_open_successes",
+          "failure_rate",
           "last_transition_at"
         ]
       },

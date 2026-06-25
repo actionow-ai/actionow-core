@@ -160,6 +160,11 @@ describe('admin breaker status surface (弹性2.0)', () => {
       half_open_successes: 0,
     });
     expect(res.body[0].cooldown_until).not.toBeNull();
+    // The recent-window failure_rate is always present (spec §⑤). This row was
+    // seeded straight into PG with no Redis window, so the live rate is 0 (window
+    // empty) or null (Redis unreachable in CI) — but never absent.
+    expect(res.body[0]).toHaveProperty('failure_rate');
+    expect([0, null]).toContain(res.body[0].failure_rate);
   });
 
   it('resets a breaker back to closed (deletes the row) + emits an audit_log', async () => {

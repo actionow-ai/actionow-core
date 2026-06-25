@@ -10952,6 +10952,7 @@ export interface components {
             cooldown_until: string | null;
             trip_count: number;
             half_open_successes: number;
+            failure_rate: number | null;
             last_transition_at: string | null;
         };
         RouteGroupView: {

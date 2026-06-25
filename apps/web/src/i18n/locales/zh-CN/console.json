@@ -886,6 +886,7 @@
       "state": "状态",
       "cooldown": "冷却",
       "trips": "熔断次数",
+      "failureRate": "失败率",
       "transition": "最近变更"
     },
     "state": {
