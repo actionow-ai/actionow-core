@@ -8,10 +8,12 @@ import { upstreamChannel } from './catalog.js';
  * closed (normal) → open (tripped, excluded from routing) → half_open (trial).
  * `model` is the resolved model name, or `'*'` for model-less resources.
  *
- * Supersedes the binary `channel_health` cooldown (dropped in 0047): the FSM
- * adds a controlled HalfOpen probe instead of snapping a cooled channel back to
- * full traffic. Persisted (not in-memory) so state is consistent across replicas
- * via the shared DB; the Redis window (`packages/infra`) drives the trip decision.
+ * Supersedes the binary `channel_health` cooldown (still present after 0047;
+ * dropped in the Task-2 follow-on migration once its repo/engine/admin consumers
+ * are repointed): the FSM adds a controlled HalfOpen probe instead of snapping a
+ * cooled channel back to full traffic. Persisted (not in-memory) so state is
+ * consistent across replicas via the shared DB; the Redis window
+ * (`packages/infra`) drives the trip decision.
  */
 export const channelBreaker = pgTable(
   'channel_breaker',

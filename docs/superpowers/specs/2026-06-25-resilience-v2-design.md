@@ -52,7 +52,7 @@
 | `created_at` / `updated_at` | timestamptz NOT NULL default now()      |                                                                                       |
 | **PK**                      | `(channel_id, model)`                   |                                                                                       |
 
-`channel_health` is **dropped** in 0047; its cooldown role (`recordChannelFailure`/`listCooledDownChannelIds`) is superseded by the breaker, and its only other consumer — the ops view `listAllChannelsWithHealth` (`packages/db/src/repositories/catalog.ts`) — is repointed to a per-channel rollup of `channel_breaker` (a channel is "degraded" if any of its `(channel,model)` rows is Open/HalfOpen).
+`channel_health` is **dropped** in the Task-2 follow-on migration (0047 is purely additive — the breaker table/columns land first so the package builds + tests run; the `DROP TABLE` lands once its consumers are repointed, since dropping the table and removing those consumers must happen together). Its cooldown role (`recordChannelFailure`/`listCooledDownChannelIds`) is superseded by the breaker, and its only other consumer — the ops view `listAllChannelsWithHealth` (`packages/db/src/repositories/catalog.ts`) — is repointed to a per-channel rollup of `channel_breaker` (a channel is "degraded" if any of its `(channel,model)` rows is Open/HalfOpen).
 
 ### `fault_policy` — new breaker columns (all nullable → fall back to global defaults)
 
