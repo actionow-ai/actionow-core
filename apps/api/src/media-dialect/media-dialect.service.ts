@@ -9,6 +9,7 @@ import {
   markFileReady,
 } from '@actionow/db';
 import type {
+  BreakerStore,
   InsertMediaUsageLogFn,
   JobExecutionContext,
   PersistMediaResultFn,
@@ -31,7 +32,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { TenantContext } from '../auth/auth.service.js';
 import { SecretResolver } from '../common/secret-resolver.js';
-import { ADAPTERS, DB, ENV, STORAGE } from '../common/tokens.js';
+import { ADAPTERS, BREAKER, DB, ENV, STORAGE } from '../common/tokens.js';
 import { RunService } from '../execution/run.service.js';
 import type { AudioSpeechDto, ImagesGenerationDto } from './dto/media-dialect.dto.js';
 
@@ -78,6 +79,7 @@ export class MediaDialectService {
     @Inject(ADAPTERS) private readonly adapters: AdapterRegistry,
     @Inject(ENV) private readonly env: AppEnv,
     @Inject(STORAGE) private readonly storage: StorageProvider | null,
+    @Inject(BREAKER) private readonly breaker: BreakerStore,
     private readonly secrets: SecretResolver,
     private readonly runService: RunService,
   ) {}
@@ -185,6 +187,7 @@ export class MediaDialectService {
       proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
       traceUpstream: this.env.RELAY_TRACE === 'full',
       traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
+      breaker: this.breaker,
     });
   }
 

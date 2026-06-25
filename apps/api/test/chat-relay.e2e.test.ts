@@ -1,8 +1,9 @@
 import { createDefaultRegistry } from '@actionow/adapters';
 import { createApiKey, createDb, createModel, type Database, schema } from '@actionow/db';
 import { creditsToMicro } from '@actionow/domain';
+import { DefaultBreakerStore } from '@actionow/engine';
 import type { AppEnv } from '@actionow/infra';
-import { FakeRateLimitRedis, RedisRateLimiter } from '@actionow/infra';
+import { FakeBreakerRedis, FakeRateLimitRedis, RedisRateLimiter } from '@actionow/infra';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
@@ -11,7 +12,8 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
-import { ADAPTERS, DB, ENV, JOB_QUEUE, RATE_LIMITER } from '../src/common/tokens.js';
+import { pgBreakerPersistence, resolveChannelBreakerConfig } from '../src/common/breaker-store.js';
+import { ADAPTERS, BREAKER, DB, ENV, JOB_QUEUE, RATE_LIMITER } from '../src/common/tokens.js';
 import { UnifiedErrorFilter } from '../src/common/unified-error.filter.js';
 
 /**
@@ -143,6 +145,16 @@ beforeAll(async () => {
     .useValue(noopQueue)
     .overrideProvider(RATE_LIMITER)
     .useValue(new RedisRateLimiter(new FakeRateLimitRedis()))
+    // The breaker (弹性2.0) over a fake Redis (no real Redis in this suite); it is
+    // fail-open so even a no-op would not break routing, but a fake keeps it hermetic.
+    .overrideProvider(BREAKER)
+    .useValue(
+      new DefaultBreakerStore({
+        redis: new FakeBreakerRedis(),
+        persistence: pgBreakerPersistence(db),
+        configFor: (channelId: string) => resolveChannelBreakerConfig(db, channelId),
+      }),
+    )
     .compile();
   app = moduleRef.createNestApplication();
   app.useGlobalFilters(new UnifiedErrorFilter());

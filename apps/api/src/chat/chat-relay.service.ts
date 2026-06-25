@@ -15,7 +15,13 @@ import {
   listApplicableModifiers,
   type ModifierRow,
 } from '@actionow/db';
-import type { ChatRunOutcome, ChatStreamOutcome, JobQueuePort, RunRequest } from '@actionow/engine';
+import type {
+  BreakerStore,
+  ChatRunOutcome,
+  ChatStreamOutcome,
+  JobQueuePort,
+  RunRequest,
+} from '@actionow/engine';
 import { EngineError, ExecutionService } from '@actionow/engine';
 import { type AppEnv, createHttpClient } from '@actionow/infra';
 import { normalizeRequest, readCapabilities } from '@actionow/llm-protocol';
@@ -25,7 +31,7 @@ import type { TenantContext } from '../auth/auth.service.js';
 import { ChannelRoutingService } from '../common/channel-routing.service.js';
 import { engineNotFound } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
-import { ADAPTERS, DB, ENV, JOB_QUEUE } from '../common/tokens.js';
+import { ADAPTERS, BREAKER, DB, ENV, JOB_QUEUE } from '../common/tokens.js';
 import { ModelResolverService, type ResolvedModel } from './model-resolver.service.js';
 
 /** The opaque inputs key under which the IR `ChatRequest` rides into the engine. */
@@ -92,6 +98,7 @@ export class ChatRelayService {
     @Inject(ADAPTERS) private readonly adapters: AdapterRegistry,
     @Inject(JOB_QUEUE) private readonly queue: JobQueuePort,
     @Inject(ENV) private readonly env: AppEnv,
+    @Inject(BREAKER) private readonly breaker: BreakerStore,
     private readonly secrets: SecretResolver,
     private readonly resolver: ModelResolverService,
     private readonly routing: ChannelRoutingService,
@@ -157,6 +164,7 @@ export class ChatRelayService {
       proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
       traceUpstream: this.env.RELAY_TRACE === 'full',
       traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
+      breaker: this.breaker,
     });
   }
 

@@ -19,8 +19,13 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import type { BreakerStore, RoutableChannelRef } from '../src/breaker.js';
 import { EngineError } from '../src/errors.js';
-import { ExecutionService, type RunRequest } from '../src/execution-service.js';
+import {
+  ExecutionService,
+  type ExecutionServiceDeps,
+  type RunRequest,
+} from '../src/execution-service.js';
 
 const { account, ledgerTxn, resource, resourceVersion, tenant } = schema;
 
@@ -481,6 +486,165 @@ describe('ExecutionService.runChatStream — idempotency', () => {
     await expect(
       svc.runChatStream(chatRequest(s, { execMode: 'stream', idempotencyKey: 'stream-key-1' })),
     ).rejects.toMatchObject({ unified: { code: 'invalid_input' } });
+  });
+});
+
+/**
+ * An in-memory {@link BreakerStore} double for the injection tests: `filterAvailable`
+ * drops channels whose id is in `excluded`; the outcome hooks record their
+ * `(id, model)` so a test can assert the engine threaded the breaker + the
+ * resolved model through `routeBlocking`. Mirrors the real store's
+ * fail-open/best-effort surface without Redis/PG.
+ */
+interface BreakerOutcome {
+  id: string;
+  model: string;
+}
+function fakeBreaker(excluded: string[] = []): BreakerStore & {
+  successes: BreakerOutcome[];
+  failures: BreakerOutcome[];
+} {
+  const successes: BreakerOutcome[] = [];
+  const failures: BreakerOutcome[] = [];
+  return {
+    successes,
+    failures,
+    filterAvailable<C extends RoutableChannelRef>(channels: readonly C[]): Promise<C[]> {
+      return Promise.resolve(channels.filter((c) => !excluded.includes(c.id)));
+    },
+    onSuccess(channelId: string, model: string): Promise<void> {
+      successes.push({ id: channelId, model });
+      return Promise.resolve();
+    },
+    onFailure(channelId: string, model: string): Promise<void> {
+      failures.push({ id: channelId, model });
+      return Promise.resolve();
+    },
+  };
+}
+
+function buildServiceWith(
+  adapters: AdapterRegistry,
+  overrides: Partial<ExecutionServiceDeps>,
+): ExecutionService {
+  return new ExecutionService({
+    db,
+    adapters,
+    resolveSecret: () => Promise.resolve('sk-secret'),
+    http: { request: () => Promise.reject(new Error('no http')) },
+    now: () => new Date('2026-06-16T00:00:00.000Z'),
+    enqueue: vi.fn<(jobId: string) => Promise<void>>(() => Promise.resolve()),
+    ...overrides,
+  });
+}
+
+describe('ExecutionService — BreakerStore injection (Task 8)', () => {
+  it('blocking run: does NOT attempt a channel the breaker excludes, and records onSuccess with the model', async () => {
+    const s = await seed(1_000_000n);
+    const attempted: string[] = [];
+    const adapter: ProviderAdapter = {
+      providerType: 'fake-llm',
+      submit(input: SubmitInput): Promise<SubmitResult> {
+        attempted.push(input.ctx.endpoint ?? '');
+        return Promise.resolve({ kind: 'sync', output: { text: 'ok' }, usage: { tokens: 7 } });
+      },
+      extractUsage: () => ({}),
+      mapError: () => ({ code: 'upstream_error', message: 'x', retryable: false }),
+    };
+    const adapters = new AdapterRegistry();
+    adapters.register(adapter);
+    const breaker = fakeBreaker(['A']);
+    const svc = buildServiceWith(adapters, { breaker });
+
+    const outcome = await svc.run(
+      baseRequest(s, {
+        usageLogModel: 'gpt-route',
+        channels: [
+          {
+            id: 'A',
+            weight: 1,
+            credentialRef: 'ref-a',
+            model: 'gpt',
+            endpoint: 'https://a.example',
+          },
+          {
+            id: 'B',
+            weight: 0,
+            credentialRef: 'ref-b',
+            model: 'gpt',
+            endpoint: 'https://b.example',
+          },
+        ],
+      }),
+    );
+
+    expect(outcome.status).toBe('succeeded');
+    // A is breaker-excluded → only B is attempted.
+    expect(attempted).toEqual(['https://b.example']);
+    // The success is fed back to the breaker with the resolved model.
+    expect(breaker.successes).toEqual([{ id: 'B', model: 'gpt-route' }]);
+    expect(breaker.failures).toEqual([]);
+  });
+
+  it('blocking run: a retryable failure on the picked channel records onFailure before failover', async () => {
+    const s = await seed(1_000_000n);
+    const adapter: ProviderAdapter = {
+      providerType: 'fake-llm',
+      submit(input: SubmitInput): Promise<SubmitResult> {
+        if (input.ctx.endpoint === 'https://a.example') {
+          throw new AdapterError({ code: 'upstream_error', message: '503', retryable: true });
+        }
+        return Promise.resolve({ kind: 'sync', output: { text: 'from B' }, usage: { tokens: 3 } });
+      },
+      extractUsage: () => ({}),
+      mapError: () => ({ code: 'upstream_error', message: 'x', retryable: false }),
+    };
+    const adapters = new AdapterRegistry();
+    adapters.register(adapter);
+    const breaker = fakeBreaker();
+    const svc = buildServiceWith(adapters, { breaker });
+
+    await svc.run(
+      baseRequest(s, {
+        usageLogModel: 'gpt-route',
+        channels: [
+          {
+            id: 'A',
+            weight: 1,
+            credentialRef: 'ref-a',
+            model: 'gpt',
+            endpoint: 'https://a.example',
+          },
+          {
+            id: 'B',
+            weight: 0,
+            credentialRef: 'ref-b',
+            model: 'gpt',
+            endpoint: 'https://b.example',
+          },
+        ],
+      }),
+    );
+
+    expect(breaker.failures).toEqual([{ id: 'A', model: 'gpt-route' }]);
+    expect(breaker.successes).toEqual([{ id: 'B', model: 'gpt-route' }]);
+  });
+
+  it('chat run: threads the breaker + usageLogModel through runChat', async () => {
+    const s = await seed(1_000_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(fakeChatAdapter(5));
+    const breaker = fakeBreaker();
+    const svc = buildServiceWith(adapters, { breaker });
+
+    await svc.runChat(
+      chatRequest(s, {
+        usageLogModel: 'gpt-4o',
+        channels: [{ id: 'chat-c1', weight: 1, credentialRef: 'ref-1', model: 'gpt' }],
+      }),
+    );
+
+    expect(breaker.successes).toEqual([{ id: 'chat-c1', model: 'gpt-4o' }]);
   });
 });
 

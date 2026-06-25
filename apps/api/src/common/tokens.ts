@@ -11,6 +11,14 @@ export const RATE_LIMITER = Symbol('RATE_LIMITER');
 /** Concurrency (in-flight) limiter for governance `concurrency` rules. */
 export const CONCURRENCY_LIMITER = Symbol('CONCURRENCY_LIMITER');
 /**
+ * The per-`(channel, model)` circuit breaker (弹性2.0): a {@link DefaultBreakerStore}
+ * over a dedicated Redis client (window + half-open trial gate) + the PG FSM state.
+ * Injected into the relay execution path; fail-open / best-effort, so a breaker
+ * outage only stops the routing OPTIMIZATION, never a request. Overridable with a
+ * fake in tests.
+ */
+export const BREAKER = Symbol('BREAKER');
+/**
  * The default S3-compatible {@link StorageProvider} built from `STORAGE_*` env.
  * `null` when storage is unconfigured (the API still boots); the `/v1/files`
  * service guards usage and fails with `invalid_input` in that case.
