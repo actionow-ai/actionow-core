@@ -26,6 +26,7 @@ import type {
   CreateSubjectBody,
   FileView,
   LimitPlanView,
+  LimitRuleStatusView,
   Page,
   PresignUploadBody,
   PresignUploadResult,
@@ -190,6 +191,10 @@ export function makeConsoleApi(sdk: SdkClient, rawClient: ApiClient, onUnauthori
     // plan are intersected with your tenant scope server-side (cross-tenant → 404).
     setSubjectLimitPlan: (id: string, planId: string | null): Promise<{ ok: true }> =>
       rawClient.post<{ ok: true }>(`/console/subjects/${id}/limit-plan`, { planId }),
+    // A subject's effective rules paired with current usage (usage-vs-cap bars).
+    // Tenant-scoped: a cross-tenant subject id → 404 server-side.
+    getSubjectLimitStatus: (id: string): Promise<LimitRuleStatusView[]> =>
+      rawClient.get<LimitRuleStatusView[]>(`/console/subjects/${id}/limit-status`),
 
     // HARD sub-wallet for one subject. GET 404s when no wallet is open yet — the
     // page maps that to `null` (not an error). Open path is `.../sub-account/open`.

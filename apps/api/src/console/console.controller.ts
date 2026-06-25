@@ -33,6 +33,8 @@ import {
   createSubjectSchema,
   type LimitPlanView,
   limitPlanViewSchema,
+  type LimitRuleStatusView,
+  limitRuleStatusViewSchema,
   type LimitRuleView,
   limitRuleViewSchema,
   type SubAccountView,
@@ -993,6 +995,30 @@ export class ConsoleController {
     const ctx = ctxOf(req);
     await this.console.setSubjectLimitPlan(ctx.tenantId, id, dto.planId);
     return { ok: true };
+  }
+
+  @Get('subjects/:id/limit-status')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({
+    summary: "An end-user's effective rules paired with current usage (usage-vs-cap bars)",
+  })
+  async subjectLimitStatus(
+    @Param('id') id: string,
+    @Req() req: ConsoleRequest,
+  ): Promise<LimitRuleStatusView[]> {
+    const ctx = ctxOf(req);
+    const rows = await this.console.subjectLimitStatus(ctx.tenantId, id);
+    return rows.map((r) =>
+      limitRuleStatusViewSchema.parse({
+        dimension: r.dimension,
+        period: r.period,
+        cap: r.cap.toString(),
+        used: r.used.toString(),
+        model_scope: r.modelScope,
+        alert_pct: r.alertPct,
+        enforce: r.enforce,
+      }),
+    );
   }
 
   // ----- sub-users (rbac, tenant-admin-only) -----

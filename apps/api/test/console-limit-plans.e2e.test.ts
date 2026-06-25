@@ -330,6 +330,16 @@ describe('/console/limit-plans (tenant-owned plan crud + subject binding)', () =
       .expect(200);
     expect(bound.body.limit_plan_id).toBe(planId);
 
+    // Usage-vs-cap bars: the bound plan's rules surface (used starts at 0).
+    const status = await request(server())
+      .get(`/console/subjects/${subjectId}/limit-status`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(Array.isArray(status.body)).toBe(true);
+    expect(status.body.length).toBeGreaterThan(0);
+    expect(status.body[0]).toHaveProperty('used');
+    expect(status.body[0]).toHaveProperty('cap');
+
     // Unbind (planId null).
     await request(server())
       .post(`/console/subjects/${subjectId}/limit-plan`)
@@ -341,6 +351,20 @@ describe('/console/limit-plans (tenant-owned plan crud + subject binding)', () =
       .set('authorization', `Bearer ${token}`)
       .expect(200);
     expect(unbound.body.limit_plan_id).toBeNull();
+  });
+
+  it("limit-status is tenant-scoped: another tenant's subject → 404", async () => {
+    const { token: tokenA } = await registerAdmin('ls-a@example.com');
+    const { token: tokenB } = await registerAdmin('ls-b@example.com');
+    const subjectB = await request(server())
+      .post('/console/subjects')
+      .set('authorization', `Bearer ${tokenB}`)
+      .send({ externalId: 'ls-b-subj' })
+      .expect(201);
+    await request(server())
+      .get(`/console/subjects/${subjectB.body.id as string}/limit-status`)
+      .set('authorization', `Bearer ${tokenA}`)
+      .expect(404);
   });
 
   it('rejects binding a plan NOT owned by the tenant (cross-tenant plan → 404)', async () => {

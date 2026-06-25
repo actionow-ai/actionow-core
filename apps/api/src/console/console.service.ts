@@ -508,6 +508,17 @@ export class ConsoleService {
     return row;
   }
 
+  /**
+   * An end-user's effective rules paired with current usage (usage-vs-cap bars),
+   * tenant-scoped: the subject MUST be the caller-tenant's (cross-tenant/unknown →
+   * 404) before any usage is read. Reuses {@link limitRuleStatus} with the
+   * `'subject'` scope, exactly as the operator/member surfaces do.
+   */
+  async subjectLimitStatus(tenantId: string, subjectId: string): Promise<LimitRuleStatus[]> {
+    const subject = await this.getSubject(tenantId, subjectId);
+    return limitRuleStatus(this.db, 'subject', subjectId, subject.limitPlanId);
+  }
+
   /** Patch a subject (tenant-scoped); 404 when absent/cross-tenant. `external_id` is immutable. */
   async updateSubject(tenantId: string, id: string, dto: UpdateSubjectBody): Promise<SubjectRow> {
     const row = await updateSubject(this.db, tenantId, id, {

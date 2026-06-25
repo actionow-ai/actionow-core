@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { BalanceCard } from '../../components/data/BalanceCard';
 import { CopyField } from '../../components/data/CopyField';
+import { LimitUsageBars } from '../../components/data/LimitUsageBars';
 import { Button } from '../../components/ui/Button';
 import { IconButton } from '../../components/ui/IconButton';
 import { NumberField } from '../../components/ui/NumberField';
@@ -26,14 +27,10 @@ const sectionTitle = {
  * Per-subject (end-user) detail for the tenant-admin Subjects drawer — the
  * `/app` twin of the operator `SubjectDetailPanel`, but tenant-scoped through the
  * console plane (`useConsoleApi`, no `tenantId` — the token scopes it). Surfaces
- * the 额度套餐 (limit plan) binding, the HARD sub-wallet (open / top-up / transfer
- * with the tenant pool), and subject-scoped API keys (list + mint).
- *
- * DEVIATION from the operator panel: the per-subject usage-vs-cap bars are NOT
- * rendered here — the console plane exposes no per-subject limit-status endpoint
- * (only `/console/limits` for the tenant's OWN status). Reaching the admin-only
- * `/admin/limits/status` would 403 a tenant-admin operator and break the plane
- * isolation, so it's intentionally omitted.
+ * the 额度套餐 (limit plan) binding + per-subject usage-vs-cap bars (via the
+ * tenant-scoped `/console/subjects/:id/limit-status`), the HARD sub-wallet (open /
+ * top-up / transfer with the tenant pool), and subject-scoped API keys (list +
+ * mint).
  */
 export function AppSubjectDetailPanel({
   subject,
@@ -72,6 +69,13 @@ export function AppSubjectDetailPanel({
     (k: ConsoleApiKeyView) => k.subject_id === subject.id,
   );
 
+  // Per-subject usage-vs-cap bars — only when a plan is bound (else unlimited).
+  const usage = useQuery({
+    queryKey: qk.limitStatus('subject', subject.id),
+    queryFn: () => api.getSubjectLimitStatus(subject.id),
+    enabled: subject.limit_plan_id !== null,
+  });
+
   const refreshSubjects = () => qc.invalidateQueries({ queryKey: qk.consoleSubjects() });
   const refreshWallet = () =>
     qc.invalidateQueries({ queryKey: qk.consoleSubAccount(subject.id) });
@@ -80,6 +84,7 @@ export function AppSubjectDetailPanel({
     mutationFn: (planId: string | null) => api.setSubjectLimitPlan(subject.id, planId),
     onSuccess: async () => {
       await refreshSubjects();
+      await qc.invalidateQueries({ queryKey: qk.limitStatus('subject', subject.id) });
       toast(t('app.subjects.detail.planBound'));
     },
     onError: mutationError(t),
@@ -177,6 +182,7 @@ export function AppSubjectDetailPanel({
           options={planOptions}
           placeholder={t('app.subjects.detail.planNone')}
         />
+        {subject.limit_plan_id !== null && <LimitUsageBars rules={usage.data ?? []} />}
       </div>
 
       {/* HARD sub-wallet */}
