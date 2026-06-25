@@ -1,4 +1,4 @@
-import { createDefaultRegistry, type ProviderAdapter } from '@actionow/adapters';
+import { AdapterError, createDefaultRegistry, type ProviderAdapter } from '@actionow/adapters';
 import type { ChatResponse, ChatStreamEvent, SubmitResult } from '@actionow/contracts';
 import {
   addChannelToGroup,
@@ -89,8 +89,35 @@ function labelledChatAdapter(providerType: string): ProviderAdapter {
   };
 }
 
+/**
+ * A chat adapter whose `chat()` ALWAYS throws a RETRYABLE upstream error — drives
+ * the cross-channel / cross-group failover path (弹性2.0). Used as the primary
+ * group's only channel so the relay must cascade to the fallback group.
+ */
+function failingChatAdapter(providerType: string): ProviderAdapter {
+  const fail = (): never => {
+    throw new AdapterError({ code: 'upstream_error', message: 'mock 500', retryable: true });
+  };
+  return {
+    providerType,
+    capabilities: { tools: true, vision: true, audio: true, json: true, stream: true },
+    submit: fail,
+    chat: fail,
+    // eslint-disable-next-line @typescript-eslint/require-await, require-yield
+    async *streamChat(): AsyncIterable<ChatStreamEvent> {
+      fail();
+    },
+    extractUsage: () => ({ input_tokens: 0, output_tokens: 0 }),
+    mapError: () => ({ code: 'upstream_error', message: 'mock 500', retryable: true }),
+  };
+}
+
 const PROVIDER_A = 'mock-chat-a';
 const PROVIDER_B = 'mock-chat-b';
+/** Primary fallback-group channel: always 500s (retryable). */
+const PROVIDER_FAIL = 'mock-chat-fail';
+/** Fallback-group channel: always succeeds. */
+const PROVIDER_OK = 'mock-chat-ok';
 
 let pg: StartedPostgreSqlContainer | undefined;
 let db: Database;
@@ -102,10 +129,14 @@ let keyG1: string;
 let keyG2: string;
 let keyNoGroup: string;
 let keyEmptyGroup: string;
+/** Key bound to a primary group whose only channel 500s → must fail over to the fallback group. */
+let keyFallback: string;
 
 /** Channel ids of A (in g1) and B (in g2). */
 let channelAId: string;
 let channelBId: string;
+/** Channel ids for the cross-group failover scenario (primary 500s; fallback ok). */
+let channelOkId: string;
 
 let baseUrl: string;
 
@@ -156,6 +187,8 @@ beforeAll(async () => {
   const adapters = createDefaultRegistry();
   adapters.register(labelledChatAdapter(PROVIDER_A));
   adapters.register(labelledChatAdapter(PROVIDER_B));
+  adapters.register(failingChatAdapter(PROVIDER_FAIL));
+  adapters.register(labelledChatAdapter(PROVIDER_OK));
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(ENV)
@@ -212,6 +245,20 @@ beforeAll(async () => {
   channelAId = chA.id;
   channelBId = chB.id;
 
+  // Cross-group failover (弹性2.0): a primary channel that always 500s, and a
+  // fallback channel that succeeds — on the SAME resource so the same model
+  // resolves to both.
+  const [chFail] = await db
+    .insert(schema.upstreamChannel)
+    .values({ resourceId: CHAT_RESOURCE, providerType: PROVIDER_FAIL, weight: 1, status: 'active' })
+    .returning();
+  const [chOk] = await db
+    .insert(schema.upstreamChannel)
+    .values({ resourceId: CHAT_RESOURCE, providerType: PROVIDER_OK, weight: 1, status: 'active' })
+    .returning();
+  if (!chFail || !chOk) throw new Error('no failover channels');
+  channelOkId = chOk.id;
+
   // Public, active model resolving to the chat resource.
   await createModel(db, {
     name: MODEL_NAME,
@@ -236,19 +283,32 @@ beforeAll(async () => {
   await addChannelToGroup(db, { groupId: g1.id, channelId: channelAId });
   await addChannelToGroup(db, { groupId: g2.id, channelId: channelBId });
 
-  // Four keys bound to the four group scenarios.
+  // Cross-group failover: primary group (only the 500-ing channel) →
+  // fallback_group_id = secondary group (only the succeeding channel).
+  const gSecondary = await createRouteGroup(db, { name: 'g-secondary' });
+  const gPrimary = await createRouteGroup(db, {
+    name: 'g-primary',
+    fallbackGroupId: gSecondary.id,
+  });
+  await addChannelToGroup(db, { groupId: gPrimary.id, channelId: chFail.id });
+  await addChannelToGroup(db, { groupId: gSecondary.id, channelId: chOk.id });
+
+  // Five keys bound to the group scenarios.
   const k1 = await createApiKey(db, { tenantId });
   const k2 = await createApiKey(db, { tenantId });
   const kNo = await createApiKey(db, { tenantId });
   const kEmpty = await createApiKey(db, { tenantId });
+  const kFallback = await createApiKey(db, { tenantId });
   keyG1 = k1.plaintext;
   keyG2 = k2.plaintext;
   keyNoGroup = kNo.plaintext;
   keyEmptyGroup = kEmpty.plaintext;
+  keyFallback = kFallback.plaintext;
   await setApiKeyGroup(db, k1.id, g1.id);
   await setApiKeyGroup(db, k2.id, g2.id);
   // kNo stays unbound (route_group_id null → resolves `default`).
   await setApiKeyGroup(db, kEmpty.id, gEmpty.id);
+  await setApiKeyGroup(db, kFallback.id, gPrimary.id);
 }, 120_000);
 
 afterAll(async () => {
@@ -298,5 +358,18 @@ describe('group-scoped routing (Track 4)', () => {
     await res.json();
     const log = await latestUsageLog();
     expect([channelAId, channelBId]).toContain(log?.channelId);
+  });
+
+  it('cross-group failover: primary group 500s → served by the fallback group (弹性2.0)', async () => {
+    const res = await chat(keyFallback);
+    expect(res.status).toBe(200);
+    // The primary group's only channel always 500s (retryable) → the relay
+    // cascades down the fallback_group_id chain to the secondary group's
+    // succeeding channel.
+    expect(res.headers.get('x-actionow-channel')).toBe(PROVIDER_OK);
+    await res.json();
+    const log = await latestUsageLog();
+    expect(log?.channelId).toBe(channelOkId);
+    expect(log?.providerType).toBe(PROVIDER_OK);
   });
 });

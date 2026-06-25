@@ -266,6 +266,56 @@ export async function listGroupChannelsForResource(
   return rows.map((r) => ({ ...r.channel, priority: r.priority, weight: r.weight }));
 }
 
+/**
+ * The per-hop priority demotion for cross-group failover (弹性2.0): hop `k`'s
+ * channels are demoted by `k × OFFSET`, so each fallback group sorts STRICTLY
+ * below every tier of the groups ahead of it. Large enough that it dwarfs any
+ * realistic per-(group,channel) priority spread (which is human-set, small).
+ * Composes additively with the catalog-supply `UNLINKED_PRIORITY_OFFSET`.
+ */
+export const FALLBACK_TIER_OFFSET = 1_000_000;
+
+/** Max number of groups walked in a `fallback_group_id` chain (incl. the start). */
+export const FALLBACK_MAX_DEPTH = 5;
+
+/**
+ * Cross-group failover candidate set (弹性2.0): start at `groupId` and walk the
+ * `route_group.fallback_group_id` chain, concatenating each group's
+ * {@link listGroupChannelsForResource} candidates. Hop `k`'s channels are demoted
+ * by `k × {@link FALLBACK_TIER_OFFSET}` so a fallback group's whole set sorts
+ * strictly below the group ahead of it — the engine exhausts a group's tiers
+ * before cascading to the next group.
+ *
+ * Guards: a cycle (a group already visited) STOPS the walk (each group
+ * contributes at most once), and the chain is capped at
+ * {@link FALLBACK_MAX_DEPTH} hops. A disabled/soft-deleted group in the chain
+ * contributes zero channels (its `listGroupChannelsForResource` is empty) but a
+ * still-set `fallbackGroupId` is followed; a soft-deleted group resolves to
+ * `undefined` via {@link getRouteGroupById}, ending the walk.
+ *
+ * Data layer only — Track 4 / the breaker filter + weighted pick + failover
+ * cascade run on top of this ordered candidate list. With no fallback set this
+ * is exactly {@link listGroupChannelsForResource}.
+ */
+export async function listCandidateChannelsWithFallback(
+  db: DbOrTx,
+  resourceId: string,
+  groupId: string,
+): Promise<GroupChannelForResource[]> {
+  const out: GroupChannelForResource[] = [];
+  const seen = new Set<string>();
+  let current: string | null = groupId;
+  for (let hop = 0; hop < FALLBACK_MAX_DEPTH && current !== null && !seen.has(current); hop++) {
+    seen.add(current);
+    const rows = await listGroupChannelsForResource(db, resourceId, current);
+    const offset = hop * FALLBACK_TIER_OFFSET;
+    for (const r of rows) out.push({ ...r, priority: r.priority - offset });
+    const grp = await getRouteGroupById(db, current);
+    current = grp?.fallbackGroupId ?? null;
+  }
+  return out;
+}
+
 // ----- api_key ↔ route_group binding -----
 
 /**
