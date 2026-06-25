@@ -1209,7 +1209,7 @@ export class AdminController {
     @Query('subjectId') subjectId: string,
     @Query('planId') planId?: string,
   ): Promise<LimitRuleStatusView[]> {
-    const st = subjectType === 'key' ? 'key' : 'tenant';
+    const st = subjectType === 'key' ? 'key' : subjectType === 'subject' ? 'subject' : 'tenant';
     const rows = await this.admin.limitStatus(st, subjectId, planId ?? null);
     return rows.map(toLimitRuleStatusView);
   }

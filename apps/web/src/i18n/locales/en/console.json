@@ -404,7 +404,25 @@
         "deleted": "End-user removed",
         "empty": "No end-users yet",
         "form": { "externalId": "External ID", "name": "Display name" },
-        "cols": { "identity": "Identity", "name": "Name", "status": "Status" }
+        "cols": { "identity": "Identity", "name": "Name", "status": "Status" },
+        "detail": {
+          "plan": "Limit plan",
+          "planTip": "Bind a limit plan (spend budget / rate limit / quota) to this end-user. Unbound = unlimited.",
+          "planBound": "End-user limit plan updated",
+          "wallet": "Sub-wallet (HARD)",
+          "openWallet": "Open wallet",
+          "openingCredits": "Opening credits",
+          "walletOpened": "Wallet opened",
+          "transferAmount": "Transfer amount",
+          "direction": "Direction",
+          "toSubject": "Pool → end-user",
+          "toTenant": "End-user → pool",
+          "transfer": "Transfer",
+          "transferred": "Transfer complete",
+          "keys": "Scoped API keys",
+          "mintKey": "Mint key",
+          "noKeys": "No scoped keys yet"
+        }
       },
       "planBound": "Limit plan updated",
       "plan": {
@@ -494,6 +512,12 @@
       "label": "Limit plan",
       "none": "Unlimited",
       "tip": "Bind a limit plan (spend budget / rate limit / quota) to this key. Unbound = unlimited."
+    },
+    "subject": {
+      "label": "End-user",
+      "none": "Tenant-level (none)",
+      "chip": "end-user",
+      "tip": "Scope this key to one end-user (subject); its calls are attributed/isolated to that user. Unset = a tenant-level key."
     },
     "revoke": "Revoke",
     "revoked": "Key revoked",
@@ -1129,6 +1153,7 @@
     "delete": "Delete",
     "disable": "Disable",
     "enable": "Enable",
+    "loading": "Loading…",
     "filter": "Filter",
     "clearFilters": "Clear filters",
     "confirm": "Confirm",

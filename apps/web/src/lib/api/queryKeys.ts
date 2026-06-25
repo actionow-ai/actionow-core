@@ -2,6 +2,8 @@
 export const qk = {
   tenants: () => ['admin', 'tenants'] as const,
   subjects: (tenantId: string) => ['admin', 'tenants', tenantId, 'subjects'] as const,
+  subAccount: (tenantId: string, sid: string) =>
+    ['admin', 'tenants', tenantId, 'subjects', sid, 'sub-account'] as const,
   accounts: () => ['admin', 'accounts'] as const,
   resources: () => ['admin', 'resources'] as const,
   channels: (resourceId: string) => ['admin', 'resources', resourceId, 'channels'] as const,

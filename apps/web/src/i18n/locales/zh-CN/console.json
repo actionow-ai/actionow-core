@@ -404,7 +404,25 @@
         "deleted": "终端用户已移除",
         "empty": "暂无终端用户",
         "form": { "externalId": "外部 ID", "name": "显示名称" },
-        "cols": { "identity": "标识", "name": "名称", "status": "状态" }
+        "cols": { "identity": "标识", "name": "名称", "status": "状态" },
+        "detail": {
+          "plan": "额度套餐",
+          "planTip": "为该终端用户绑定额度套餐(消费预算 / 限流 / 配额)。不绑定 = 不受限制。",
+          "planBound": "终端用户额度套餐已更新",
+          "wallet": "专属钱包(硬隔离)",
+          "openWallet": "开通钱包",
+          "openingCredits": "初始额度",
+          "walletOpened": "钱包已开通",
+          "transferAmount": "划转额度",
+          "direction": "方向",
+          "toSubject": "租户池 → 终端用户",
+          "toTenant": "终端用户 → 租户池",
+          "transfer": "划转",
+          "transferred": "划转完成",
+          "keys": "专属 API Key",
+          "mintKey": "签发 Key",
+          "noKeys": "暂无专属 Key"
+        }
       },
       "planBound": "额度套餐已更新",
       "plan": {
@@ -494,6 +512,12 @@
       "label": "额度套餐",
       "none": "不限制",
       "tip": "将 Key 绑定到额度套餐(消费预算 / 限流 / 配额)。不绑定 = 不受限制。"
+    },
+    "subject": {
+      "label": "终端用户",
+      "none": "租户级(不限定)",
+      "chip": "终端用户",
+      "tip": "把 Key 限定到某个终端用户(end-user);该 Key 的调用归因/隔离到该用户。不选 = 租户级 Key。"
     },
     "revoke": "吊销",
     "revoked": "Key 已吊销",
@@ -1129,6 +1153,7 @@
     "delete": "删除",
     "disable": "停用",
     "enable": "启用",
+    "loading": "加载中…",
     "filter": "过滤",
     "clearFilters": "清除筛选",
     "confirm": "确认",

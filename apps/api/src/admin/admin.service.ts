@@ -968,7 +968,7 @@ export class AdminService {
 
   /** Effective rules paired with current usage for a subject's bound plan (usage bars). */
   limitStatus(
-    subjectType: 'key' | 'tenant',
+    subjectType: 'key' | 'tenant' | 'subject',
     subjectId: string,
     planId: string | null,
   ): Promise<LimitRuleStatus[]> {

@@ -27,6 +27,7 @@ const mockApi = vi.hoisted(() => ({
   listApiKeys: vi.fn(() => Promise.resolve([] as unknown[])),
   listRouteGroups: vi.fn(() => Promise.resolve([] as unknown[])),
   listLimitPlans: vi.fn(() => Promise.resolve([] as unknown[])),
+  listSubjects: vi.fn(() => Promise.resolve([] as unknown[])),
   createApiKey: vi.fn(() => Promise.resolve({ id: 'k9', plaintext: 'sk-x' })),
   updateApiKeyGroup: vi.fn(() => Promise.resolve({ id: 'k1', route_group_id: null })),
   setApiKeyLimitPlan: vi.fn(() => Promise.resolve({ ok: true })),
@@ -56,6 +57,7 @@ beforeEach(() => {
   mockApi.listApiKeys.mockResolvedValue([key]);
   mockApi.listRouteGroups.mockResolvedValue(groups);
   mockApi.listLimitPlans.mockResolvedValue([]);
+  mockApi.listSubjects.mockResolvedValue([]);
 });
 
 describe('ApiKeysPage group-bind + revoke', () => {
