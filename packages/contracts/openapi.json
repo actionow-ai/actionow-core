@@ -2280,6 +2280,10 @@
           "status": {
             "type": "string"
           },
+          "subject_id": {
+            "type": "string",
+            "nullable": true
+          },
           "created_at": {
             "type": "string"
           }
@@ -2289,6 +2293,7 @@
           "resource_allowlist",
           "rate_limit",
           "status",
+          "subject_id",
           "created_at"
         ]
       },
@@ -4666,6 +4671,10 @@
             "type": "integer",
             "minimum": 0,
             "exclusiveMinimum": true
+          },
+          "subjectId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },

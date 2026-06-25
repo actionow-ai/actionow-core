@@ -27,10 +27,18 @@ import {
   consoleUsageRollupViewSchema,
   type ConsoleUserView,
   consoleUserViewSchema,
+  type CreateSubAccountBody,
+  createSubAccountSchema,
   type CreateSubjectBody,
   createSubjectSchema,
+  type SubAccountView,
+  subAccountViewSchema,
   type SubjectView,
   subjectViewSchema,
+  type TopupSubAccountBody,
+  topupSubAccountSchema,
+  type TransferCreditsBody,
+  transferCreditsSchema,
   type UpdateSubjectBody,
   updateSubjectSchema,
 } from '@actionow/contracts';
@@ -40,6 +48,7 @@ import type {
   Job,
   LedgerRow,
   PaymentIntentRow,
+  SubAccountRow,
   SubjectRow,
   UsageLogRow,
   UsageRollupRow,
@@ -114,14 +123,28 @@ type MeView = ConsoleMeView;
 type BalanceView = ConsoleBalanceView;
 type FileView = ConsoleFileView;
 
-/** Project a tenant api-key row to its console view (no hash). */
+/** Project a tenant api-key row to its console view (no hash; `subject_id` for the bound end-user). */
 function toApiKeyView(r: Omit<ApiKeyRow, 'hash'>): ApiKeyView {
   return consoleApiKeyViewSchema.parse({
     id: r.id,
     resource_allowlist: r.resourceAllowlist,
     rate_limit: r.rateLimit,
     status: r.status,
+    subject_id: r.subjectId,
     created_at: r.createdAt.toISOString(),
+  });
+}
+
+/** Project a subject sub-wallet row to its console view (money as µcredit decimal strings). */
+function toSubAccountView(row: SubAccountRow): SubAccountView {
+  return subAccountViewSchema.parse({
+    id: row.id,
+    tenant_id: row.tenantId,
+    subject_id: row.subjectId,
+    credit_balance: row.creditBalance.toString(),
+    credit_held: row.creditHeld.toString(),
+    status: row.status,
+    created_at: row.createdAt.toISOString(),
   });
 }
 
@@ -300,8 +323,11 @@ export class ConsoleController {
   @Audit({
     action: 'api_key.create',
     target: 'api_key',
-    // NEVER record the plaintext — only the id.
-    resolve: ({ result }) => ({ targetId: (result as { id?: string }).id ?? null }),
+    // NEVER record the plaintext — only the id + the bound subject (if any).
+    resolve: ({ result, body }) => ({
+      targetId: (result as { id?: string }).id ?? null,
+      subjectId: (body as { subjectId?: string }).subjectId ?? null,
+    }),
   })
   async createApiKey(
     @Body(new ZodBody(consoleCreateApiKeySchema)) dto: ConsoleCreateApiKeyDto,
@@ -705,6 +731,105 @@ export class ConsoleController {
       disabledKeys: cascade.disabledKeys,
     };
     return { id, status: 'deleted' };
+  }
+
+  // ----- subject sub-wallets (HARD mode; console plane, tenant-admin-only) -----
+
+  /**
+   * Open a HARD sub-wallet for one of YOUR tenant's subjects (optional opening
+   * balance in credits). The subject is validated to belong to your tenant first
+   * (a cross-tenant id → 404). Mirrors the `/admin` open handler, tenant-scoped.
+   */
+  @Post('subjects/:id/sub-account/open')
+  @HttpCode(201)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({
+    summary: 'Open a HARD sub-wallet for one of your subjects (optional opening balance)',
+  })
+  @Audit({
+    action: 'sub_account.open',
+    target: 'sub_account',
+    resolve: ({ params, result, body }) => {
+      const r = result as { id?: string };
+      return {
+        subjectId: params.id ?? null,
+        targetId: r.id ?? null,
+        meta: { ...(body as Record<string, unknown>) },
+      };
+    },
+  })
+  async openSubAccount(
+    @Param('id') id: string,
+    @Body(new ZodBody(createSubAccountSchema)) dto: CreateSubAccountBody,
+    @Req() req: ConsoleRequest,
+  ): Promise<SubAccountView> {
+    const ctx = ctxOf(req);
+    return toSubAccountView(await this.console.createSubAccount(ctx.tenantId, id, dto));
+  }
+
+  @Get('subjects/:id/sub-account')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: "Get one of your subjects' sub-wallet (balance/held) or 404" })
+  async getSubAccount(
+    @Param('id') id: string,
+    @Req() req: ConsoleRequest,
+  ): Promise<SubAccountView> {
+    const ctx = ctxOf(req);
+    return toSubAccountView(await this.console.getSubAccount(ctx.tenantId, id));
+  }
+
+  /**
+   * Credit a subject's sub-wallet — an INTERNAL allocation to the subject's HARD
+   * wallet (credits → µcredits), not a payment. Tenant-scoped (cross-tenant → 404).
+   */
+  @Post('subjects/:id/sub-account/topup')
+  @HttpCode(200)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: "Credit one of your subjects' sub-wallet (internal allocation)" })
+  @Audit({
+    action: 'sub_account.topup',
+    target: 'sub_account',
+    resolve: ({ params, body }) => ({
+      subjectId: params.id ?? null,
+      targetId: params.id ?? null,
+      meta: { ...(body as Record<string, unknown>) },
+    }),
+  })
+  async topupSubAccount(
+    @Param('id') id: string,
+    @Body(new ZodBody(topupSubAccountSchema)) dto: TopupSubAccountBody,
+    @Req() req: ConsoleRequest,
+  ): Promise<SubAccountView> {
+    const ctx = ctxOf(req);
+    await this.console.topupSubAccount(ctx.tenantId, id, dto);
+    return toSubAccountView(await this.console.getSubAccount(ctx.tenantId, id));
+  }
+
+  /**
+   * Transfer credits between your tenant pool and a subject's sub-wallet
+   * (`to_subject`/`to_tenant`). Tenant-scoped (cross-tenant → 404).
+   */
+  @Post('subjects/:id/sub-account/transfer')
+  @HttpCode(200)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Transfer credits between your tenant pool and a subject sub-wallet' })
+  @Audit({
+    action: 'sub_account.transfer',
+    target: 'sub_account',
+    resolve: ({ params, body }) => ({
+      subjectId: params.id ?? null,
+      targetId: params.id ?? null,
+      meta: { ...(body as Record<string, unknown>) },
+    }),
+  })
+  async transferSubAccount(
+    @Param('id') id: string,
+    @Body(new ZodBody(transferCreditsSchema)) dto: TransferCreditsBody,
+    @Req() req: ConsoleRequest,
+  ): Promise<SubAccountView> {
+    const ctx = ctxOf(req);
+    await this.console.transferCredits(ctx.tenantId, id, dto);
+    return toSubAccountView(await this.console.getSubAccount(ctx.tenantId, id));
   }
 
   // ----- sub-users (rbac, tenant-admin-only) -----

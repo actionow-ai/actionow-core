@@ -21,9 +21,14 @@ describe('tenant console view contracts (single source of truth for FE + BE)', (
       resource_allowlist: ['chat'],
       rate_limit: null,
       status: 'active',
+      subject_id: null,
       created_at: '2026-01-01T00:00:00Z',
     };
     expect(consoleApiKeyViewSchema.parse(k)).toEqual(k);
+    expect(consoleApiKeyViewSchema.parse({ ...k, subject_id: 's1' })).toEqual({
+      ...k,
+      subject_id: 's1',
+    });
     expect(() => consoleApiKeyViewSchema.parse({ ...k, status: undefined })).toThrow();
   });
 

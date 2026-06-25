@@ -116,7 +116,12 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE subject, file_object, api_key, ledger_txn, payment_intent, payment_event, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`;
+  // The AuditInterceptor appends audit_log rows fire-and-forget AFTER the
+  // response is sent (`void this.audit.record(...)`). The sub-wallet routes emit
+  // such rows on a separate connection; let them drain before TRUNCATE so the
+  // FK-cascade truncate of audit_log doesn't deadlock against an in-flight INSERT.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  await client`TRUNCATE TABLE audit_log, subject, file_object, api_key, ledger_txn, payment_intent, payment_event, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`;
 });
 
 const server = (): ReturnType<typeof app.getHttpServer> => app.getHttpServer();
@@ -267,6 +272,165 @@ describe('/console/subjects (tenant-scoped subject crud + tenant-admin gate)', (
       ['post', '/console/subjects', { externalId: 'member-made' }],
       ['patch', `/console/subjects/${subjectId}`, { displayName: 'nope' }],
       ['delete', `/console/subjects/${subjectId}`, {}],
+    ] as const) {
+      const res = await request(server())
+        [method](path)
+        .set('authorization', `Bearer ${memberToken}`)
+        .send(body)
+        .expect(403);
+      expect(res.body.error.code).toBe('forbidden');
+    }
+  });
+});
+
+describe('/console subject-scoped keys + sub-wallet (tenant-scoped, tenant-admin gate)', () => {
+  /** Create a subject under `token`'s tenant; returns its id. */
+  async function makeSubject(token: string, externalId: string): Promise<string> {
+    const created = await request(server())
+      .post('/console/subjects')
+      .set('authorization', `Bearer ${token}`)
+      .send({ externalId })
+      .expect(201);
+    return created.body.id as string;
+  }
+
+  it('mints a subject-scoped api key and surfaces subject_id on the key view', async () => {
+    const { token } = await registerAdmin('keys-admin@example.com');
+    const subjectId = await makeSubject(token, 'key-subj');
+
+    const minted = await request(server())
+      .post('/console/api-keys')
+      .set('authorization', `Bearer ${token}`)
+      .send({ subjectId })
+      .expect(201);
+    expect(minted.body.plaintext).toMatch(/^ak_/);
+
+    const listed = await request(server())
+      .get('/console/api-keys')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(listed.body.data).toHaveLength(1);
+    expect(listed.body.data[0].id).toBe(minted.body.id);
+    expect(listed.body.data[0].subject_id).toBe(subjectId);
+
+    // A tenant-level key (no subjectId) lands with subject_id null.
+    const tenantKey = await request(server())
+      .post('/console/api-keys')
+      .set('authorization', `Bearer ${token}`)
+      .send({})
+      .expect(201);
+    const afterTenantKey = await request(server())
+      .get('/console/api-keys')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    const plain = afterTenantKey.body.data.find((k: { id: string }) => k.id === tenantKey.body.id);
+    expect(plain.subject_id).toBeNull();
+  });
+
+  it("rejects binding a key to ANOTHER tenant's subject (cross-tenant → 404)", async () => {
+    const { token: tokenA } = await registerAdmin('keys-a@example.com');
+    const { token: tokenB } = await registerAdmin('keys-b@example.com');
+    const subjectA = await makeSubject(tokenA, 'a-subj');
+
+    // Tenant B may not bind tenant A's subject id to a key.
+    const res = await request(server())
+      .post('/console/api-keys')
+      .set('authorization', `Bearer ${tokenB}`)
+      .send({ subjectId: subjectA })
+      .expect(404);
+    expect(res.body.error.code).toBe('resource_not_found');
+
+    // …and no orphan key was minted for tenant B.
+    const listedB = await request(server())
+      .get('/console/api-keys')
+      .set('authorization', `Bearer ${tokenB}`)
+      .expect(200);
+    expect(listedB.body.data).toHaveLength(0);
+  });
+
+  it('opens, reads, tops up, and transfers a subject sub-wallet (tenant-scoped)', async () => {
+    const { token } = await registerAdmin('wallet-admin@example.com');
+    const subjectId = await makeSubject(token, 'wallet-subj');
+
+    // open with a 10-credit opening balance → 10_000_000 µcredits
+    const opened = await request(server())
+      .post(`/console/subjects/${subjectId}/sub-account/open`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ credits: 10 })
+      .expect(201);
+    expect(opened.body.subject_id).toBe(subjectId);
+    expect(opened.body.credit_balance).toBe('10000000');
+
+    // GET reflects the opened balance
+    const got = await request(server())
+      .get(`/console/subjects/${subjectId}/sub-account`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(got.body.credit_balance).toBe('10000000');
+
+    // topup +5 → 15 (internal allocation to the subject's HARD wallet)
+    const topped = await request(server())
+      .post(`/console/subjects/${subjectId}/sub-account/topup`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ credits: 5 })
+      .expect(200);
+    expect(topped.body.credit_balance).toBe('15000000');
+
+    // transfer 3 BACK to the tenant pool → 12
+    const moved = await request(server())
+      .post(`/console/subjects/${subjectId}/sub-account/transfer`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ credits: 3, direction: 'to_tenant' })
+      .expect(200);
+    expect(moved.body.credit_balance).toBe('12000000');
+  });
+
+  it("a tenant cannot read/mutate ANOTHER tenant's sub-wallet (cross-tenant → 404)", async () => {
+    const { token: tokenA } = await registerAdmin('wallet-a@example.com');
+    const { token: tokenB } = await registerAdmin('wallet-b@example.com');
+    const subjectA = await makeSubject(tokenA, 'a-wallet');
+    await request(server())
+      .post(`/console/subjects/${subjectA}/sub-account/open`)
+      .set('authorization', `Bearer ${tokenA}`)
+      .send({ credits: 4 })
+      .expect(201);
+
+    // Tenant B sees a 404 on every sub-wallet route addressed at tenant A's subject.
+    await request(server())
+      .get(`/console/subjects/${subjectA}/sub-account`)
+      .set('authorization', `Bearer ${tokenB}`)
+      .expect(404);
+    await request(server())
+      .post(`/console/subjects/${subjectA}/sub-account/open`)
+      .set('authorization', `Bearer ${tokenB}`)
+      .send({ credits: 1 })
+      .expect(404);
+    await request(server())
+      .post(`/console/subjects/${subjectA}/sub-account/topup`)
+      .set('authorization', `Bearer ${tokenB}`)
+      .send({ credits: 1 })
+      .expect(404);
+    await request(server())
+      .post(`/console/subjects/${subjectA}/sub-account/transfer`)
+      .set('authorization', `Bearer ${tokenB}`)
+      .send({ credits: 1, direction: 'to_tenant' })
+      .expect(404);
+  });
+
+  it('a tenant MEMBER is 403 on key minting + every sub-wallet write (admin-only)', async () => {
+    const { token: adminToken, tenantId } = await registerAdmin('wallet-m@example.com');
+    const memberToken = await seedMemberToken(tenantId, 'wallet-member@example.com', 'memberPass1');
+    const subjectId = await makeSubject(adminToken, 'm-wallet');
+
+    for (const [method, path, body] of [
+      ['post', '/console/api-keys', { subjectId }],
+      ['post', `/console/subjects/${subjectId}/sub-account/open`, { credits: 1 }],
+      ['post', `/console/subjects/${subjectId}/sub-account/topup`, { credits: 1 }],
+      [
+        'post',
+        `/console/subjects/${subjectId}/sub-account/transfer`,
+        { credits: 1, direction: 'to_tenant' },
+      ],
     ] as const) {
       const res = await request(server())
         [method](path)

@@ -17,12 +17,16 @@ import { paymentProviderSchema } from './payment.js';
 
 /**
  * `POST /console/api-keys` — mint a key for the caller's own tenant. No
- * `tenantId`: the guard scopes it.
+ * `tenantId`: the guard scopes it. An optional `subjectId` binds the key to one
+ * of the caller-tenant's end-users (validated server-side to belong to the
+ * tenant — a cross-tenant id → 404); omitted → a tenant-level key.
  */
 export const consoleCreateApiKeySchema = z.object({
   resourceAllowlist: z.array(z.string()).optional(),
   /** Per-(tenant,resource) requests-per-minute cap; omitted → default. */
   rateLimit: z.number().int().positive().optional(),
+  /** Bind the key to one of the caller-tenant's subjects (end-users); else tenant-level. */
+  subjectId: z.string().uuid().optional(),
 });
 export type ConsoleCreateApiKeyBody = z.infer<typeof consoleCreateApiKeySchema>;
 

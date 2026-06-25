@@ -1,9 +1,16 @@
-import type { CreateSubjectBody, UpdateSubjectBody } from '@actionow/contracts';
+import type {
+  CreateSubAccountBody,
+  CreateSubjectBody,
+  TopupSubAccountBody,
+  TransferCreditsBody,
+  UpdateSubjectBody,
+} from '@actionow/contracts';
 import {
   type AccountRow,
   type ApiKeyRow,
   createApiKey,
   type CreatedApiKey,
+  createSubAccount,
   createSubject,
   createSubUser,
   type Database,
@@ -14,6 +21,7 @@ import {
   getAccount,
   getIntentByIdForTenant,
   getLimitPlanById,
+  getSubAccount,
   getSubjectById,
   getTenantLimitPlanId,
   type Job,
@@ -36,8 +44,11 @@ import {
   rollupUsage,
   rotateApiKeyForTenant,
   softDeleteSubject,
+  type SubAccountRow,
   type SubjectDeleteResult,
   type SubjectRow,
+  topupSubAccount,
+  transferCredits,
   updateSubject,
   updateUserPassword,
   updateUserStatus,
@@ -47,6 +58,7 @@ import {
   type UsageRollupRow,
   type UserRecord,
 } from '@actionow/db';
+import { creditsToMicro } from '@actionow/domain';
 import type { PaymentService } from '@actionow/engine';
 import { hashPassword, verifyPassword } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
@@ -88,12 +100,22 @@ export class ConsoleService {
 
   // ----- api keys -----
 
-  /** Mint a key for the caller's tenant; the plaintext is returned ONCE. */
-  createApiKey(dto: ConsoleCreateApiKeyDto, tenantId: string): Promise<CreatedApiKey> {
+  /**
+   * Mint a key for the caller's tenant; the plaintext is returned ONCE. An
+   * optional `subjectId` binds the key to one of the caller-tenant's end-users —
+   * validated to belong to the tenant FIRST (a cross-tenant/unknown id → 404, so
+   * the key is never minted against another tenant's subject).
+   */
+  async createApiKey(dto: ConsoleCreateApiKeyDto, tenantId: string): Promise<CreatedApiKey> {
+    if (dto.subjectId !== undefined) {
+      const subject = await getSubjectById(this.db, tenantId, dto.subjectId);
+      if (subject === undefined) throw engineNotFound(`subject ${dto.subjectId} not found`);
+    }
     return createApiKey(this.db, {
       tenantId,
       resourceAllowlist: dto.resourceAllowlist,
       rateLimit: dto.rateLimit,
+      ...(dto.subjectId !== undefined ? { subjectId: dto.subjectId } : {}),
     });
   }
 
@@ -343,6 +365,72 @@ export class ConsoleService {
     const deleted = await softDeleteSubject(this.db, tenantId, id);
     if (deleted === undefined) throw engineNotFound(`subject ${id} not found`);
     return deleted;
+  }
+
+  // ----- subject sub-wallets (HARD mode; console plane) -----
+
+  /**
+   * Open a HARD sub-wallet for one of the caller-tenant's subjects (optional
+   * opening balance in credits). The subject is checked FIRST via the tenant-
+   * scoped {@link getSubject} (a cross-tenant/unknown id → 404), so a sub-wallet
+   * is never opened against another tenant's end-user. Mirrors
+   * {@link AdminService.createSubAccount} but tenant-locked.
+   */
+  async createSubAccount(
+    tenantId: string,
+    subjectId: string,
+    dto: CreateSubAccountBody,
+  ): Promise<SubAccountRow> {
+    await this.getSubject(tenantId, subjectId);
+    const creditBalance = dto.credits === undefined ? undefined : creditsToMicro(dto.credits);
+    return createSubAccount(this.db, {
+      tenantId,
+      subjectId,
+      ...(creditBalance !== undefined ? { creditBalance } : {}),
+    });
+  }
+
+  /**
+   * The caller-tenant subject's sub-wallet (balance/held), or 404. The subject
+   * must belong to the tenant (checked first) AND have an open wallet.
+   */
+  async getSubAccount(tenantId: string, subjectId: string): Promise<SubAccountRow> {
+    await this.getSubject(tenantId, subjectId);
+    const sub = await getSubAccount(this.db, tenantId, subjectId);
+    if (sub === undefined) throw engineNotFound(`sub-wallet for subject ${subjectId} not found`);
+    return sub;
+  }
+
+  /**
+   * Credit a caller-tenant subject's sub-wallet (internal allocation to the HARD
+   * wallet; amount in credits). 404 when the subject is cross-tenant or has no
+   * open wallet. Returns the new µcredit sub-wallet balance.
+   */
+  async topupSubAccount(
+    tenantId: string,
+    subjectId: string,
+    dto: TopupSubAccountBody,
+  ): Promise<bigint> {
+    await this.getSubAccount(tenantId, subjectId);
+    return topupSubAccount(this.db, tenantId, subjectId, creditsToMicro(dto.credits));
+  }
+
+  /**
+   * Transfer credits between the tenant pool and a caller-tenant subject's sub-
+   * wallet (same tenant; immutable). 404 when cross-tenant or no open wallet.
+   */
+  async transferCredits(
+    tenantId: string,
+    subjectId: string,
+    dto: TransferCreditsBody,
+  ): Promise<void> {
+    await this.getSubAccount(tenantId, subjectId);
+    await transferCredits(this.db, {
+      tenantId,
+      subjectId,
+      amount: creditsToMicro(dto.credits),
+      direction: dto.direction,
+    });
   }
 
   // ----- models -----

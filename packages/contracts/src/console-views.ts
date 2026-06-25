@@ -18,6 +18,8 @@ export const consoleApiKeyViewSchema = z.object({
   resource_allowlist: z.array(z.string()),
   rate_limit: z.number().nullable(),
   status: z.string(),
+  /** The end-user (subject) this key is bound to (end-user data plane); `null` → tenant-level. */
+  subject_id: z.string().nullable(),
   created_at: z.string(),
 });
 export type ConsoleApiKeyView = z.infer<typeof consoleApiKeyViewSchema>;
