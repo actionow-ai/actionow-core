@@ -362,6 +362,7 @@ export {
 export {
   addChannelToGroup,
   type AddChannelToGroupInput,
+  checkFallbackChain,
   createRouteGroup,
   type CreateRouteGroupInput,
   FALLBACK_MAX_DEPTH,

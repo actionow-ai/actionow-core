@@ -159,11 +159,14 @@ export function RouteGroupsPage() {
         )}
       />
 
-      {createOpen && <RouteGroupEditor open onClose={() => setCreateOpen(false)} />}
+      {createOpen && (
+        <RouteGroupEditor allGroups={data ?? []} open onClose={() => setCreateOpen(false)} />
+      )}
       {editId !== null && (
         <RouteGroupEditor
           key={editId}
           row={(data ?? []).find((g) => g.id === editId)}
+          allGroups={data ?? []}
           open
           onClose={() => setEditId(null)}
         />
@@ -217,10 +220,12 @@ const GROUP_STATUSES = [
  */
 function RouteGroupEditor({
   row,
+  allGroups,
   open,
   onClose,
 }: {
   row?: RouteGroupView;
+  allGroups: RouteGroupView[];
   open: boolean;
   onClose: () => void;
 }) {
@@ -236,6 +241,9 @@ function RouteGroupEditor({
     (row?.status as 'active' | 'disabled' | undefined) ?? 'active',
   );
   const [description, setDescription] = useState(row?.description ?? '');
+  // Cross-group failover target (弹性2.0); '' = no fallback. Server validates the
+  // chain (cycle / max depth), so we only restrict the dropdown to other groups.
+  const [fallbackId, setFallbackId] = useState(row?.fallback_group_id ?? '');
 
   useEffect(() => {
     if (row === undefined) return;
@@ -243,24 +251,41 @@ function RouteGroupEditor({
     setRatioPct(row.group_ratio_bps / 100);
     setStatus((row.status as 'active' | 'disabled' | undefined) ?? 'active');
     setDescription(row.description ?? '');
+    setFallbackId(row.fallback_group_id ?? '');
   }, [row]);
 
   const bps = Math.round(ratioPct * 100);
   const delta = ratioDeltaPct(bps);
 
+  // Eligible fallback targets: every OTHER live (active) group. The full
+  // cycle/depth guard lives server-side — this just keeps the obvious self-loop
+  // and disabled groups out of the picker. The currently-bound target is always
+  // kept (even if since disabled) so editing another field never silently clears it.
+  const fallbackOptions = allGroups
+    .filter((g) => g.id !== row?.id && (g.status === 'active' || g.id === fallbackId))
+    .map((g) => ({ value: g.id, label: g.name }));
+
   const save = useMutation({
     mutationFn: () => {
       const desc = description.trim();
+      const fallbackGroupId = fallbackId === '' ? null : fallbackId;
       if (editing) {
         return api.updateRouteGroup(row.id, {
           name: name.trim(),
           groupRatioBps: bps,
           status,
+          fallbackGroupId,
           description: desc === '' ? null : desc, // null clears
         });
       }
       return api.createRouteGroup(
-        { name: name.trim(), groupRatioBps: bps, status, description: desc === '' ? undefined : desc },
+        {
+          name: name.trim(),
+          groupRatioBps: bps,
+          status,
+          fallbackGroupId,
+          description: desc === '' ? undefined : desc,
+        },
         crypto.randomUUID(),
       );
     },
@@ -299,6 +324,14 @@ function RouteGroupEditor({
         value={status}
         onChange={(v) => setStatus(v as 'active' | 'disabled')}
         options={GROUP_STATUSES.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
+      />
+      <SelectField
+        label={t('groups.form.fallbackGroup')}
+        tooltip={t('groups.tip.fallbackGroup')}
+        value={fallbackId}
+        onChange={setFallbackId}
+        placeholder={t('groups.form.fallbackNone')}
+        options={fallbackOptions}
       />
       <TextField
         label={t('groups.form.description')}

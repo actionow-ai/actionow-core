@@ -316,6 +316,43 @@ export async function listCandidateChannelsWithFallback(
   return out;
 }
 
+/**
+ * The reason a proposed `fallback_group_id` is rejected, returned by
+ * {@link checkFallbackChain} (弹性2.0):
+ * - `'cycle'` — following the proposed chain would revisit `sourceId` (a loop,
+ *   incl. a direct self-reference A→A).
+ * - `'too-deep'` — the resulting chain would exceed {@link FALLBACK_MAX_DEPTH}
+ *   groups (incl. the source), i.e. failover would cascade too far.
+ *
+ * Pure, DB-agnostic walk: the caller supplies a `resolveFallback(id)` that yields
+ * a group's current `fallback_group_id` (or `null`/`undefined` when the group has
+ * none / no longer exists). Returns `null` when the proposed target is safe.
+ *
+ * The walk treats `sourceId → proposedTarget` as hop 1 and then follows each
+ * group's EXISTING fallback. `seen` starts with `sourceId` so any path back to it
+ * is a cycle. Depth counts groups in the chain starting at the source: the source
+ * itself is depth 1, the proposed target depth 2, etc.; > {@link FALLBACK_MAX_DEPTH}
+ * is `'too-deep'`.
+ */
+export async function checkFallbackChain(
+  sourceId: string,
+  proposedTarget: string,
+  resolveFallback: (id: string) => Promise<string | null | undefined>,
+): Promise<'cycle' | 'too-deep' | null> {
+  const seen = new Set<string>([sourceId]);
+  let current: string | null = proposedTarget;
+  // `sourceId` is depth 1; the proposed target is the second group in the chain.
+  let depth = 1;
+  while (current !== null) {
+    depth += 1;
+    if (seen.has(current)) return 'cycle';
+    if (depth > FALLBACK_MAX_DEPTH) return 'too-deep';
+    seen.add(current);
+    current = (await resolveFallback(current)) ?? null;
+  }
+  return null;
+}
+
 // ----- api_key ↔ route_group binding -----
 
 /**

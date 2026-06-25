@@ -20,6 +20,7 @@ import {
   type AuditLogRow,
   type ChannelHealthRow,
   channelIdsByModelIds,
+  checkFallbackChain,
   countAccounts,
   countByPlugin,
   countModelsByChannelIds,
@@ -296,6 +297,9 @@ function usdPer1mToMicro(usd: number): bigint {
 
 /** Postgres SQLSTATE for a unique-constraint violation (`unique_violation`). */
 const PG_UNIQUE_VIOLATION = '23505';
+
+/** The nil UUID — a sentinel "no real group" id for the create-side fallback walk. */
+const NIL_UUID = '00000000-0000-0000-0000-000000000000';
 
 /**
  * True iff `err` (or any error in its `cause` chain) is a Postgres
@@ -659,6 +663,33 @@ export class AdminService {
       throw engineNotFound(`route group ${groupId} not found`);
     }
     return group;
+  }
+
+  /**
+   * Validate a proposed cross-group `fallbackGroupId` (弹性2.0). `null` clears the
+   * fallback — always allowed. Otherwise the target must be a LIVE group (404 if
+   * not), and following the resulting chain must neither loop back to `sourceId`
+   * (a cycle, incl. a direct self-reference) nor exceed `FALLBACK_MAX_DEPTH`
+   * groups — both mapped to a clean 400. For CREATE, pass a sentinel `sourceId`
+   * that can't appear in the graph (a self-cycle is impossible without a real id).
+   */
+  private async validateFallbackGroup(
+    sourceId: string,
+    fallbackGroupId: string | null,
+  ): Promise<void> {
+    if (fallbackGroupId === null) return;
+    await this.requireRouteGroup(fallbackGroupId);
+    const verdict = await checkFallbackChain(
+      sourceId,
+      fallbackGroupId,
+      async (id) => (await getRouteGroupById(this.db, id))?.fallbackGroupId ?? null,
+    );
+    if (verdict === 'cycle') {
+      throw engineInvalidInput('fallback target would form a cycle');
+    }
+    if (verdict === 'too-deep') {
+      throw engineInvalidInput('fallback chain would exceed the maximum depth');
+    }
   }
 
   /** List a tenant's keys WITHOUT the hash (the plaintext is unrecoverable). */
@@ -2216,6 +2247,12 @@ export class AdminService {
    * {@link isUniqueViolation} 23505 walk.
    */
   async createRouteGroup(dto: CreateRouteGroupDto): Promise<RouteGroupRow> {
+    // The new group has no id yet, so a self-cycle is impossible on create; a
+    // sentinel source id (the nil UUID never names a real group) lets the shared
+    // walk still enforce the existing-chain depth cap from the proposed target.
+    if (dto.fallbackGroupId !== undefined && dto.fallbackGroupId !== null) {
+      await this.validateFallbackGroup(NIL_UUID, dto.fallbackGroupId);
+    }
     const input: CreateRouteGroupInput = {
       name: dto.name,
       ...(dto.groupRatioBps !== undefined ? { groupRatioBps: dto.groupRatioBps } : {}),
@@ -2257,7 +2294,12 @@ export class AdminService {
     } = {};
     if (dto.name !== undefined) patch.name = dto.name;
     if (dto.groupRatioBps !== undefined) patch.groupRatioBps = dto.groupRatioBps;
-    if (dto.fallbackGroupId !== undefined) patch.fallbackGroupId = dto.fallbackGroupId;
+    if (dto.fallbackGroupId !== undefined) {
+      // Cross-group failover (弹性2.0): a non-null target must exist and not form a
+      // cycle / over-deep chain back through this very group. `null` clears it.
+      await this.validateFallbackGroup(id, dto.fallbackGroupId);
+      patch.fallbackGroupId = dto.fallbackGroupId;
+    }
     if (dto.status !== undefined) patch.status = dto.status;
     if (dto.description !== undefined) patch.description = dto.description;
     let row: RouteGroupRow | undefined;
