@@ -140,3 +140,30 @@ describe('channel_breaker (弹性2.0)', () => {
     ).rejects.toThrow();
   });
 });
+
+describe('channel.tags (route tagging)', () => {
+  /** Insert a minimal tenant → resource chain; return the resource id. */
+  async function makeResource(): Promise<string> {
+    const [t] = await client`INSERT INTO tenant (name) VALUES ('tag') RETURNING id`;
+    if (!t) throw new Error('tenant insert returned no row');
+    await client`
+      INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes, current_version)
+      VALUES ('tag-res', ${t.id}, 'model', 'text', 'openai', '["blocking"]'::jsonb, 1)
+    `;
+    return 'tag-res';
+  }
+
+  it('channel.tags defaults to empty array and round-trips values', async () => {
+    const res = await makeResource();
+    const [a] = await db
+      .insert(schema.upstreamChannel)
+      .values({ resourceId: res, providerType: 'openai' })
+      .returning();
+    expect(a?.tags).toEqual([]);
+    const [b] = await db
+      .insert(schema.upstreamChannel)
+      .values({ resourceId: res, providerType: 'openai', tags: ['canary', 'beta'] })
+      .returning();
+    expect(b?.tags).toEqual(['canary', 'beta']);
+  });
+});

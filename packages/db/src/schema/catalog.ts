@@ -109,6 +109,11 @@ export const upstreamChannel = pgTable(
     /** Relay model-name remapping (untrusted relays): our model → upstream model. */
     modelMap: jsonb('model_map').$type<Record<string, string>>(),
     weight: integer('weight').notNull().default(1),
+    // Free-form operator tags for routing (染色/标签路由) + faceting. Never gate-by-default.
+    tags: text('tags')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     // Selectable icon key (icon_asset.key); null → derive from plugin/provider/monogram.
     icon: text('icon'),
     // status allowed values: active | disabled (createUpstreamChannel default + admin update DTO)
