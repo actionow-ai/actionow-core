@@ -10,6 +10,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   createApiKey,
   createSubject,
+  createSubUser,
   createUser,
   createUserIdentity,
   findApiKeyByHash,
@@ -17,7 +18,10 @@ import {
   findUserById,
   findUserByIdentity,
   linkIdentityTx,
+  listUsersByTenant,
   softDeleteSubject,
+  updateUserStatus,
+  updateUserTenantRole,
 } from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
 
@@ -43,8 +47,8 @@ afterEach(async () => {
   await client`TRUNCATE TABLE api_key, subject, user_identity, "user", account, tenant RESTART IDENTITY CASCADE`;
 });
 
-async function makeTenant(): Promise<string> {
-  const [t] = await db.insert(tenant).values({ name: 'acme' }).returning();
+async function makeTenant(name = 'acme'): Promise<string> {
+  const [t] = await db.insert(tenant).values({ name }).returning();
   if (!t) throw new Error('tenant insert returned no row');
   return t.id;
 }
@@ -164,6 +168,7 @@ describe('createUser / findUserByEmail / findUserById', () => {
       email: 'MixedCase@Actionow.Local',
       passwordHash: 'scrypt$aa$bb',
       role: 'user',
+      tenantRole: 'admin',
     });
     // Stored lowercase.
     expect(created.email).toBe('mixedcase@actionow.local');
@@ -176,7 +181,9 @@ describe('createUser / findUserByEmail / findUserById', () => {
   });
 
   it('defaults role=user, status=active, emailVerified=false, passwordHash null', async () => {
-    const created = await createUser(db, { email: 'plain@actionow.local' });
+    // tenant_role must be supplied for a role='user' row (CHECK); role itself
+    // still defaults to 'user' here.
+    const created = await createUser(db, { email: 'plain@actionow.local', tenantRole: 'admin' });
     expect(created.role).toBe('user');
     expect(created.status).toBe('active');
     expect(created.emailVerified).toBe(false);
@@ -185,7 +192,11 @@ describe('createUser / findUserByEmail / findUserById', () => {
 
   it('records tenantId when provided', async () => {
     const tenantId = await makeTenant();
-    const created = await createUser(db, { email: 't@actionow.local', tenantId });
+    const created = await createUser(db, {
+      email: 't@actionow.local',
+      tenantId,
+      tenantRole: 'admin',
+    });
     expect(created.tenantId).toBe(tenantId);
   });
 
@@ -195,9 +206,47 @@ describe('createUser / findUserByEmail / findUserById', () => {
   });
 });
 
+describe('tenant_role + sub-users', () => {
+  it('createSubUser makes a member in the SAME tenant (no new tenant) + listUsersByTenant scopes', async () => {
+    const tenantId = await makeTenant();
+    const admin = await createUser(db, {
+      email: 'a@x.com',
+      tenantId,
+      role: 'user',
+      tenantRole: 'admin',
+    });
+    const sub = await createSubUser(db, {
+      tenantId,
+      email: 'sub@x.com',
+      passwordHash: 'scrypt$a$b',
+    });
+    expect(sub.role).toBe('user');
+    expect(sub.tenantRole).toBe('member');
+    expect(sub.tenantId).toBe(tenantId);
+
+    const rows = (await listUsersByTenant(db, tenantId, { limit: 50 })).rows;
+    expect(rows.map((r) => r.email).sort()).toEqual(['a@x.com', 'sub@x.com']);
+
+    // promote + disable are tenant-scoped
+    expect((await updateUserTenantRole(db, tenantId, sub.id, 'admin'))?.tenantRole).toBe('admin');
+    expect((await updateUserStatus(db, tenantId, sub.id, 'disabled'))?.status).toBe('disabled');
+    // wrong tenant cannot touch it
+    const other = await makeTenant('other');
+    expect(await updateUserStatus(db, other, sub.id, 'active')).toBeUndefined();
+    expect(admin.tenantRole).toBe('admin');
+  });
+
+  it('the CHECK rejects a role=user with NULL tenant_role', async () => {
+    const tenantId = await makeTenant();
+    await expect(
+      db.insert(schema.user).values({ email: 'bad@x.com', tenantId, role: 'user' }),
+    ).rejects.toThrow();
+  });
+});
+
 describe('user_identity (createUserIdentity / findUserByIdentity / linkIdentityTx)', () => {
   it('links an identity and resolves the user via the join', async () => {
-    const created = await createUser(db, { email: 'oauth@actionow.local' });
+    const created = await createUser(db, { email: 'oauth@actionow.local', tenantRole: 'admin' });
     await createUserIdentity(db, {
       userId: created.id,
       provider: 'google',
@@ -215,8 +264,8 @@ describe('user_identity (createUserIdentity / findUserByIdentity / linkIdentityT
   });
 
   it('rejects a duplicate (provider, provider_user_id)', async () => {
-    const a = await createUser(db, { email: 'a@actionow.local' });
-    const b = await createUser(db, { email: 'b@actionow.local' });
+    const a = await createUser(db, { email: 'a@actionow.local', tenantRole: 'admin' });
+    const b = await createUser(db, { email: 'b@actionow.local', tenantRole: 'admin' });
     await createUserIdentity(db, { userId: a.id, provider: 'github', providerUserId: 'gh-1' });
 
     await expect(
@@ -228,6 +277,7 @@ describe('user_identity (createUserIdentity / findUserByIdentity / linkIdentityT
     const user = await linkIdentityTx(db, {
       email: 'fresh@actionow.local',
       role: 'user',
+      tenantRole: 'admin',
       emailVerified: true,
       provider: 'google',
       providerUserId: 'g-fresh',

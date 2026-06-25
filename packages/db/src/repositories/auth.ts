@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { and, eq, isNull } from 'drizzle-orm';
 
 import { apiKey, subject, user, userIdentity } from '../schema/index.js';
+import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
 /** Fields a caller supplies to {@link createApiKey}. */
@@ -258,6 +259,12 @@ export interface CreateUserInput {
   readonly passwordHash?: string | null | undefined;
   /** `user` (default) or `admin`. */
   readonly role?: string | undefined;
+  /**
+   * Tenant-org seat level (RBAC v1): `admin` | `member`. Required for a
+   * `role='user'` row by the DB CHECK (must be NULL for a `role='admin'` row).
+   * Omitted → the column default (NULL) — only valid alongside `role='admin'`.
+   */
+  readonly tenantRole?: string | undefined;
   /** `active` (default) or e.g. `disabled`. */
   readonly status?: string | undefined;
   /** Whether the email is proven (default `false`); admins/seed pass `true`. */
@@ -274,8 +281,16 @@ export interface UserRecord {
   /** `null` for an OAuth-only account with no local password. */
   readonly passwordHash: string | null;
   readonly role: string;
+  /**
+   * Tenant-org seat level (RBAC v1): `admin` | `member` for a tenant operator
+   * (`role='user'`); `null` for a system admin (`role='admin'`). Resolved here
+   * for the ConsoleGuard — never signed into the JWT.
+   */
+  readonly tenantRole: string | null;
   readonly status: string;
   readonly tenantId: string | null;
+  /** Row creation timestamp (surfaced for the tenant-users list view). */
+  readonly createdAt: Date;
 }
 
 /** The columns selected for a {@link UserRecord}. */
@@ -285,8 +300,10 @@ const USER_COLUMNS = {
   emailVerified: user.emailVerified,
   passwordHash: user.passwordHash,
   role: user.role,
+  tenantRole: user.tenantRole,
   status: user.status,
   tenantId: user.tenantId,
+  createdAt: user.createdAt,
 } as const;
 
 /** Insert a `user` row (email stored lowercase-normalized) and return it. */
@@ -297,6 +314,7 @@ export async function createUser(db: DbOrTx, input: CreateUserInput): Promise<Us
       email: normalizeEmail(input.email),
       passwordHash: input.passwordHash ?? null,
       ...(input.role !== undefined ? { role: input.role } : {}),
+      ...(input.tenantRole !== undefined ? { tenantRole: input.tenantRole } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.emailVerified !== undefined ? { emailVerified: input.emailVerified } : {}),
       ...(input.tenantId !== undefined ? { tenantId: input.tenantId } : {}),
@@ -333,6 +351,67 @@ export async function updateUserPassword(
     .update(user)
     .set({ passwordHash, updatedAt: new Date() })
     .where(eq(user.id, id))
+    .returning(USER_COLUMNS);
+  return rows[0];
+}
+
+/** Create a sub-user under an EXISTING tenant (role=user, tenant_role=member). Never creates a tenant. */
+export async function createSubUser(
+  db: DbOrTx,
+  input: { tenantId: string; email: string; passwordHash: string },
+): Promise<UserRecord> {
+  return createUser(db, {
+    email: input.email,
+    passwordHash: input.passwordHash,
+    role: 'user',
+    tenantRole: 'member',
+    tenantId: input.tenantId,
+    emailVerified: true,
+  });
+}
+
+/** List a tenant's operator users (keyset, newest-first). */
+export function listUsersByTenant(
+  db: DbOrTx,
+  tenantId: string,
+  page: PageParams,
+): Promise<KeysetResult<UserRecord>> {
+  return keysetPage<UserRecord>(db, {
+    table: user,
+    createdAtCol: user.createdAt,
+    idCol: user.id,
+    selection: USER_COLUMNS,
+    where: eq(user.tenantId, tenantId),
+    page,
+  });
+}
+
+/** Set a tenant user's status (tenant-scoped); undefined when no row matched. */
+export async function updateUserStatus(
+  db: DbOrTx,
+  tenantId: string,
+  id: string,
+  status: string,
+): Promise<UserRecord | undefined> {
+  const rows = await db
+    .update(user)
+    .set({ status, updatedAt: new Date() })
+    .where(and(eq(user.id, id), eq(user.tenantId, tenantId), eq(user.role, 'user')))
+    .returning(USER_COLUMNS);
+  return rows[0];
+}
+
+/** Promote/demote a tenant user (tenant-scoped); undefined when no row matched. */
+export async function updateUserTenantRole(
+  db: DbOrTx,
+  tenantId: string,
+  id: string,
+  tenantRole: 'admin' | 'member',
+): Promise<UserRecord | undefined> {
+  const rows = await db
+    .update(user)
+    .set({ tenantRole, updatedAt: new Date() })
+    .where(and(eq(user.id, id), eq(user.tenantId, tenantId), eq(user.role, 'user')))
     .returning(USER_COLUMNS);
   return rows[0];
 }

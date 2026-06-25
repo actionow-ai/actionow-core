@@ -24,8 +24,10 @@ function repoWith(user: Partial<UserRecord> | undefined): ConsoleRepo {
           emailVerified: true,
           passwordHash: null,
           role: 'user',
+          tenantRole: 'admin',
           status: 'active',
           tenantId: 'tenant-1',
+          createdAt: new Date(),
           ...user,
         };
   return {

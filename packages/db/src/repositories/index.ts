@@ -45,6 +45,7 @@ export {
   createApiKey,
   type CreateApiKeyInput,
   type CreatedApiKey,
+  createSubUser,
   createUser,
   createUserIdentity,
   type CreateUserIdentityInput,
@@ -58,9 +59,12 @@ export {
   hashApiKey,
   type LinkIdentityInput,
   linkIdentityTx,
+  listUsersByTenant,
   rotateApiKeyForTenant,
   softDeleteApiKey,
   updateUserPassword,
+  updateUserStatus,
+  updateUserTenantRole,
   type UserRecord,
 } from './auth.js';
 export {
