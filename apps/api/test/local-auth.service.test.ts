@@ -129,6 +129,7 @@ describe('LocalAuthService.register', () => {
     const user = repo.users[0];
     expect(user?.email).toBe('new@example.com');
     expect(user?.role).toBe('user');
+    expect(user?.tenantRole).toBe('admin'); // a tenant creator is its tenant admin (rbac)
     expect(user?.emailVerified).toBe(false);
     expect(user?.passwordHash).not.toBeNull();
     expect(user?.tenantId).toBeTypeOf('string');
