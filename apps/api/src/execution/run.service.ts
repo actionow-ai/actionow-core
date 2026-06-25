@@ -12,7 +12,13 @@ import {
   type PricebookEntryRow,
   resolveOrCreateSubject,
 } from '@actionow/db';
-import type { JobQueuePort, RunOutcome, RunRequest, StreamOutcome } from '@actionow/engine';
+import type {
+  BreakerStore,
+  JobQueuePort,
+  RunOutcome,
+  RunRequest,
+  StreamOutcome,
+} from '@actionow/engine';
 import { ExecutionService } from '@actionow/engine';
 import { type AppEnv, createHttpClient } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
@@ -21,7 +27,7 @@ import type { TenantContext } from '../auth/auth.service.js';
 import { ChannelRoutingService } from '../common/channel-routing.service.js';
 import { engineInvalidInput, engineNotFound, engineUnauthorized } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
-import { ADAPTERS, DB, ENV, JOB_QUEUE } from '../common/tokens.js';
+import { ADAPTERS, BREAKER, DB, ENV, JOB_QUEUE } from '../common/tokens.js';
 import { FilesService } from '../files/files.service.js';
 
 /**
@@ -50,6 +56,7 @@ export class RunService {
     @Inject(ADAPTERS) private readonly adapters: AdapterRegistry,
     @Inject(JOB_QUEUE) private readonly queue: JobQueuePort,
     @Inject(ENV) private readonly env: AppEnv,
+    @Inject(BREAKER) private readonly breaker: BreakerStore,
     private readonly secrets: SecretResolver,
     private readonly routing: ChannelRoutingService,
     private readonly files: FilesService,
@@ -101,6 +108,7 @@ export class RunService {
       proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
       traceUpstream: this.env.RELAY_TRACE === 'full',
       traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
+      breaker: this.breaker,
     });
   }
 

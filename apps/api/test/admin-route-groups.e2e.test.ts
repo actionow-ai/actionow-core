@@ -233,6 +233,89 @@ describe('admin route-group channel membership', () => {
   });
 });
 
+describe('admin route-group fallback cycle guard (resilience v2)', () => {
+  /** Create a live route group; returns its id. */
+  async function makeGroup(name: string): Promise<string> {
+    const res = await auth(request(server()).post('/admin/route-groups'))
+      .send({ name })
+      .expect(201);
+    return res.body.id as string;
+  }
+
+  it('accepts a valid fallback target and reflects it on the view', async () => {
+    const b = await makeGroup('fb-b');
+    const created = await auth(request(server()).post('/admin/route-groups'))
+      .send({ name: 'fb-a', fallbackGroupId: b })
+      .expect(201);
+    expect(created.body.fallback_group_id).toBe(b);
+    const aId = created.body.id as string;
+
+    const got = await auth(request(server()).get(`/admin/route-groups/${aId}`)).expect(200);
+    expect(got.body.fallback_group_id).toBe(b);
+
+    // null clears it back out (PATCH)
+    const cleared = await auth(request(server()).patch(`/admin/route-groups/${aId}`))
+      .send({ fallbackGroupId: null })
+      .expect(200);
+    expect(cleared.body.fallback_group_id).toBeNull();
+  });
+
+  it('rejects a self-fallback (A→A) on create with 400', async () => {
+    // No row exists yet to point at itself on create, so a self-cycle is only
+    // reachable via PATCH; create with an unknown target is a clean 400 too.
+    const a = await makeGroup('self-a');
+    await auth(request(server()).patch(`/admin/route-groups/${a}`))
+      .send({ fallbackGroupId: a })
+      .expect(400);
+  });
+
+  it('rejects a 2-cycle (A→B, then B→A) with 400', async () => {
+    const a = await makeGroup('cyc-a');
+    const b = await makeGroup('cyc-b');
+    // A → B is fine.
+    await auth(request(server()).patch(`/admin/route-groups/${a}`))
+      .send({ fallbackGroupId: b })
+      .expect(200);
+    // B → A would close the loop → 400.
+    await auth(request(server()).patch(`/admin/route-groups/${b}`))
+      .send({ fallbackGroupId: a })
+      .expect(400);
+  });
+
+  it('rejects a chain that would exceed the max fallback depth with 400', async () => {
+    // Build a straight chain g4→g3→g2→g1 (4 groups), link a head g5→g4 (5 groups,
+    // exactly the cap → ok), then g6→g5 would be 6 groups > FALLBACK_MAX_DEPTH (5).
+    const g1 = await makeGroup('depth-g1');
+    const g2 = await makeGroup('depth-g2');
+    const g3 = await makeGroup('depth-g3');
+    const g4 = await makeGroup('depth-g4');
+    const g5 = await makeGroup('depth-g5');
+    const g6 = await makeGroup('depth-g6');
+    const link = async (from: string, to: string, status: number): Promise<void> => {
+      await auth(request(server()).patch(`/admin/route-groups/${from}`))
+        .send({ fallbackGroupId: to })
+        .expect(status);
+    };
+    await link(g2, g1, 200);
+    await link(g3, g2, 200);
+    await link(g4, g3, 200);
+    // g5 → g4 = a 5-group chain (g5→g4→g3→g2→g1), exactly at the cap → ok.
+    await link(g5, g4, 200);
+    // g6 → g5 = a 6-group chain, exceeding FALLBACK_MAX_DEPTH (5) → 400.
+    await link(g6, g5, 400);
+  });
+
+  it('404s a create/patch pointing at a nonexistent fallback group', async () => {
+    await auth(request(server()).post('/admin/route-groups'))
+      .send({ name: 'fb-missing', fallbackGroupId: NIL_UUID })
+      .expect(404);
+    const a = await makeGroup('fb-patch-missing');
+    await auth(request(server()).patch(`/admin/route-groups/${a}`))
+      .send({ fallbackGroupId: NIL_UUID })
+      .expect(404);
+  });
+});
+
 describe('admin api-key route-group binding', () => {
   it('binds at create, rebinds + unbinds via PATCH (reflected in list/get)', async () => {
     const tenantId = await makeTenant();

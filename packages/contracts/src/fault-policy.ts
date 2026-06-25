@@ -33,6 +33,22 @@ export const createFaultPolicySchema = z.object({
   retryCodes: retryCodesSchema.nullable().optional(),
   /** Error-message substrings that trigger a retry; empty → adapter default. */
   retryMessages: retryMessagesSchema.nullable().optional(),
+  /** Toggle the per-(channel,model) circuit breaker for channels bound to this policy. Default true. */
+  breakerEnabled: z.boolean().optional(),
+  /** Sliding failure-rate window (ms); omitted → engine global default. */
+  breakerWindowMs: z.number().int().nonnegative().optional(),
+  /** Minimum window volume before the breaker may trip; omitted → global default. */
+  breakerMinVolume: z.number().int().nonnegative().optional(),
+  /** Failure-rate threshold to trip (percent 0–100); omitted → global default. */
+  breakerFailureRatePct: z.number().int().min(0).max(100).optional(),
+  /** Concurrent HalfOpen trial slots (probes); omitted → global default. */
+  breakerHalfOpenTrial: z.number().int().nonnegative().optional(),
+  /** Consecutive HalfOpen successes needed to close; omitted → global default. */
+  breakerHalfOpenSuccesses: z.number().int().nonnegative().optional(),
+  /** Base Open cooldown (ms; exp-backoff per trip); omitted → global default. */
+  breakerOpenCooldownMs: z.number().int().nonnegative().optional(),
+  /** Cap on the Open cooldown (ms); omitted → global default. */
+  breakerOpenCooldownCapMs: z.number().int().nonnegative().optional(),
   status: z.enum(['active', 'disabled']).optional(),
   description: z.string().optional(),
 });
@@ -51,6 +67,14 @@ export const updateFaultPolicySchema = z.object({
   idleTimeoutMs: timeoutMs.nullable().optional(),
   retryCodes: retryCodesSchema.nullable().optional(),
   retryMessages: retryMessagesSchema.nullable().optional(),
+  breakerEnabled: z.boolean().optional(),
+  breakerWindowMs: z.number().int().nonnegative().optional(),
+  breakerMinVolume: z.number().int().nonnegative().optional(),
+  breakerFailureRatePct: z.number().int().min(0).max(100).optional(),
+  breakerHalfOpenTrial: z.number().int().nonnegative().optional(),
+  breakerHalfOpenSuccesses: z.number().int().nonnegative().optional(),
+  breakerOpenCooldownMs: z.number().int().nonnegative().optional(),
+  breakerOpenCooldownCapMs: z.number().int().nonnegative().optional(),
   status: z.enum(['active', 'disabled']).optional(),
   description: z.string().nullable().optional(),
 });
@@ -70,6 +94,15 @@ export const faultPolicyViewSchema = z.object({
   idle_timeout_ms: z.number().nullable(),
   retry_codes: z.array(z.number()).nullable(),
   retry_messages: z.array(z.string()).nullable(),
+  /** Circuit-breaker toggle (弹性2.0); the rest are null → engine global defaults. */
+  breaker_enabled: z.boolean(),
+  breaker_window_ms: z.number().nullable(),
+  breaker_min_volume: z.number().nullable(),
+  breaker_failure_rate_pct: z.number().nullable(),
+  breaker_half_open_trial: z.number().nullable(),
+  breaker_half_open_successes: z.number().nullable(),
+  breaker_open_cooldown_ms: z.number().nullable(),
+  breaker_open_cooldown_cap_ms: z.number().nullable(),
   status: z.string(),
   description: z.string().nullable(),
   created_at: z.string(),

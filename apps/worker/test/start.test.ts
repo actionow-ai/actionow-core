@@ -46,6 +46,12 @@ const runtime: WorkerRuntime = {
   publicBaseUrl: undefined,
   fetchBytes: () => Promise.reject(new Error('no fetchBytes')),
   putBytes: () => Promise.reject(new Error('no putBytes')),
+  breaker: {
+    filterAvailable: (channels) => Promise.resolve([...channels]),
+    onSuccess: () => Promise.resolve(),
+    onFailure: () => Promise.resolve(),
+    windowStats: () => Promise.resolve(null),
+  },
 };
 
 afterEach(() => {

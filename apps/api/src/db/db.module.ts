@@ -1,17 +1,22 @@
 import { createDefaultRegistry } from '@actionow/adapters';
 import type { Database } from '@actionow/db';
 import { createDb } from '@actionow/db';
+import type { BreakerStore } from '@actionow/engine';
 import { registerEngineAdapters } from '@actionow/engine';
 import type { AppEnv, ConcurrencyLimiter, RateLimiter } from '@actionow/infra';
 import { createRedis, loadEnv, RedisConcurrencyLimiter, RedisRateLimiter } from '@actionow/infra';
 import type { Provider } from '@nestjs/common';
 import { Global, Module } from '@nestjs/common';
 
+import { AuditModule } from '../audit/audit.module.js';
+import { AuditService } from '../audit/audit.service.js';
 import { API_KEY_REPO, defaultApiKeyRepo } from '../auth/api-key.guard.js';
+import { buildBreakerStore } from '../common/breaker-store.js';
 import { BullmqJobQueue } from '../common/bullmq-queue.js';
 import { SecretResolver } from '../common/secret-resolver.js';
 import {
   ADAPTERS,
+  BREAKER,
   CONCURRENCY_LIMITER,
   DB,
   ENV,
@@ -63,6 +68,20 @@ const concurrencyLimiterProvider: Provider = {
     new RedisConcurrencyLimiter(createRedis(env.REDIS_URL)),
 };
 
+// The per-(channel, model) circuit breaker (弹性2.0), over a dedicated Redis
+// client (window + half-open trial gate) + the PG FSM state, with every
+// transition mirrored into the audit_log via AuditService. Fail-open /
+// best-effort, so it only OPTIMIZES the relay routing. Overridable with a fake
+// in tests.
+const breakerProvider: Provider = {
+  provide: BREAKER,
+  inject: [ENV, DB, AuditService],
+  useFactory: (env: AppEnv, db: Database, audit: AuditService): BreakerStore =>
+    buildBreakerStore(db, createRedis(env.REDIS_URL), (input) => {
+      void audit.record(input);
+    }),
+};
+
 /**
  * Global infrastructure module: one shared drizzle `Database`, the parsed env,
  * the engine's default adapter registry, the stub secret resolver, and the
@@ -71,6 +90,7 @@ const concurrencyLimiterProvider: Provider = {
  */
 @Global()
 @Module({
+  imports: [AuditModule],
   providers: [
     envProvider,
     dbProvider,
@@ -79,6 +99,7 @@ const concurrencyLimiterProvider: Provider = {
     apiKeyRepoProvider,
     rateLimiterProvider,
     concurrencyLimiterProvider,
+    breakerProvider,
     SecretResolver,
   ],
   exports: [
@@ -89,6 +110,7 @@ const concurrencyLimiterProvider: Provider = {
     API_KEY_REPO,
     RATE_LIMITER,
     CONCURRENCY_LIMITER,
+    BREAKER,
     SecretResolver,
   ],
 })

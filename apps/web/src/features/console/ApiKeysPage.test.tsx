@@ -19,8 +19,8 @@ const key: ApiKeyView = {
   created_at: '2026-06-01T00:00:00Z',
 };
 const groups: RouteGroupView[] = [
-  { id: 'g1', name: 'team-a', group_ratio_bps: 10000, status: 'active', description: null, created_at: '', updated_at: '' },
-  { id: 'g2', name: 'team-b', group_ratio_bps: 12000, status: 'active', description: null, created_at: '', updated_at: '' },
+  { id: 'g1', name: 'team-a', group_ratio_bps: 10000, fallback_group_id: null, status: 'active', description: null, created_at: '', updated_at: '' },
+  { id: 'g2', name: 'team-b', group_ratio_bps: 12000, fallback_group_id: null, status: 'active', description: null, created_at: '', updated_at: '' },
 ];
 
 const mockApi = vi.hoisted(() => ({

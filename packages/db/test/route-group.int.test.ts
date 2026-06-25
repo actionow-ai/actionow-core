@@ -15,6 +15,7 @@ import {
   getRouteGroupById,
   getRouteGroupByName,
   listApiKeys,
+  listCandidateChannelsWithFallback,
   listGroupChannels,
   listGroupChannelsForResource,
   listRouteGroups,
@@ -223,6 +224,91 @@ describe('listGroupChannelsForResource (Track 4 consumer shape)', () => {
     const g2 = await createRouteGroup(db, { name: 'disabled-group', status: 'disabled' });
     await addChannelToGroup(db, { groupId: g2.id, channelId: live.id, priority: 1, weight: 1 });
     expect(await listGroupChannelsForResource(db, resourceId, g2.id)).toHaveLength(0);
+  });
+});
+
+describe('listCandidateChannelsWithFallback (cross-group failover, 弹性2.0)', () => {
+  it('appends the fallback group’s channels at a strictly lower tier', async () => {
+    const { resourceId } = await seedResource('fb1');
+    // Group A (a1 pri 5, a2 pri 10) → fallback group B (b1 pri 99).
+    const a1 = await mkChannel(resourceId);
+    const a2 = await mkChannel(resourceId);
+    const b1 = await mkChannel(resourceId);
+    const groupB = await createRouteGroup(db, { name: 'fb-b' });
+    const groupA = await createRouteGroup(db, { name: 'fb-a', fallbackGroupId: groupB.id });
+    await addChannelToGroup(db, { groupId: groupA.id, channelId: a1.id, priority: 5, weight: 1 });
+    await addChannelToGroup(db, { groupId: groupA.id, channelId: a2.id, priority: 10, weight: 1 });
+    await addChannelToGroup(db, { groupId: groupB.id, channelId: b1.id, priority: 99, weight: 1 });
+
+    const rows = await listCandidateChannelsWithFallback(db, resourceId, groupA.id);
+    // A's own channels keep their (group,channel) priority; B's are demoted below.
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    expect(byId.get(a1.id)?.priority).toBe(5);
+    expect(byId.get(a2.id)?.priority).toBe(10);
+    // b1 (own priority 99) is demoted by one hop's offset → strictly below A's lowest.
+    const b1Pri = byId.get(b1.id)?.priority ?? 0;
+    expect(b1Pri).toBeLessThan(5);
+    expect(b1Pri).toBeLessThan(byId.get(a1.id)?.priority ?? 0);
+    expect(rows).toHaveLength(3);
+  });
+
+  it('stops at a cycle (A→B→A) — each group’s channels appear once', async () => {
+    const { resourceId } = await seedResource('fb2');
+    const a1 = await mkChannel(resourceId);
+    const b1 = await mkChannel(resourceId);
+    const groupA = await createRouteGroup(db, { name: 'cyc-a' });
+    const groupB = await createRouteGroup(db, { name: 'cyc-b', fallbackGroupId: groupA.id });
+    await updateRouteGroup(db, groupA.id, { fallbackGroupId: groupB.id }); // A→B, B→A
+    await addChannelToGroup(db, { groupId: groupA.id, channelId: a1.id, priority: 1, weight: 1 });
+    await addChannelToGroup(db, { groupId: groupB.id, channelId: b1.id, priority: 1, weight: 1 });
+
+    const rows = await listCandidateChannelsWithFallback(db, resourceId, groupA.id);
+    const ids = rows.map((r) => r.id);
+    // Cycle guard: A and B each contribute exactly once, no infinite loop.
+    expect(ids.filter((id) => id === a1.id)).toHaveLength(1);
+    expect(ids.filter((id) => id === b1.id)).toHaveLength(1);
+    expect(rows).toHaveLength(2);
+  });
+
+  it('truncates a chain longer than the depth cap (5 hops)', async () => {
+    const { resourceId } = await seedResource('fb3');
+    // Build a linear chain g0 → g1 → ... → g6 (7 groups), one channel each.
+    const groups: string[] = [];
+    const channels: string[] = [];
+    let nextFallback: string | null = null;
+    for (let i = 6; i >= 0; i--) {
+      const g = await createRouteGroup(db, {
+        name: `depth-${String(i)}`,
+        ...(nextFallback !== null ? { fallbackGroupId: nextFallback } : {}),
+      });
+      const ch = await mkChannel(resourceId);
+      await addChannelToGroup(db, { groupId: g.id, channelId: ch.id, priority: 1, weight: 1 });
+      groups[i] = g.id;
+      channels[i] = ch.id;
+      nextFallback = g.id;
+    }
+
+    const startGroupId = groups[0];
+    if (startGroupId === undefined) throw new Error('no start group');
+    const rows = await listCandidateChannelsWithFallback(db, resourceId, startGroupId);
+    // Depth cap = 5 hops → at most 5 groups' channels (g0..g4), never the full 7.
+    expect(rows.length).toBeLessThanOrEqual(5);
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+    // The starting group's channel is always present.
+    expect(rows.some((r) => r.id === channels[0])).toBe(true);
+    // The deepest groups beyond the cap are truncated.
+    expect(rows.some((r) => r.id === channels[6])).toBe(false);
+  });
+
+  it('returns just the group’s own channels when there is no fallback', async () => {
+    const { resourceId } = await seedResource('fb4');
+    const a1 = await mkChannel(resourceId);
+    const group = await createRouteGroup(db, { name: 'no-fb' });
+    await addChannelToGroup(db, { groupId: group.id, channelId: a1.id, priority: 3, weight: 1 });
+
+    const rows = await listCandidateChannelsWithFallback(db, resourceId, group.id);
+    expect(rows.map((r) => r.id)).toEqual([a1.id]);
+    expect(rows[0]?.priority).toBe(3); // own tier unchanged at hop 0
   });
 });
 

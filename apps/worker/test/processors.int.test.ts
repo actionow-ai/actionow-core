@@ -9,7 +9,7 @@ import {
   type Job,
   schema,
 } from '@actionow/db';
-import type { FetchBytes, PutBytes } from '@actionow/engine';
+import type { BreakerStore, FetchBytes, PutBytes } from '@actionow/engine';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { eq } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
@@ -66,6 +66,15 @@ const noHttp: HttpClient = { request: () => Promise.reject(new Error('no http'))
 // configures storage + publicBaseUrl AND overrides these.
 const noFetchBytes: FetchBytes = () => Promise.reject(new Error('no fetchBytes'));
 const noPutBytes: PutBytes = () => Promise.reject(new Error('no putBytes'));
+// A no-op breaker (this suite tests settle/poll, not the breaker): admits every
+// channel and swallows outcomes — the same fail-open behavior a Redis-less store
+// degrades to, so routing is unchanged.
+const noopBreaker: BreakerStore = {
+  filterAvailable: (channels) => Promise.resolve([...channels]),
+  onSuccess: () => Promise.resolve(),
+  onFailure: () => Promise.resolve(),
+  windowStats: () => Promise.resolve(null),
+};
 
 function runtimeWith(adapters: AdapterRegistry, http: HttpClient = noHttp): WorkerRuntime {
   return {
@@ -93,6 +102,7 @@ function runtimeWith(adapters: AdapterRegistry, http: HttpClient = noHttp): Work
     publicBaseUrl: undefined,
     fetchBytes: noFetchBytes,
     putBytes: noPutBytes,
+    breaker: noopBreaker,
   };
 }
 

@@ -11,8 +11,37 @@ import type {
 import type { DbOrTx } from '@actionow/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { BreakerStore, RoutableChannelRef } from '../src/breaker.js';
 import { ExecutionService, type RunRequest } from '../src/execution-service.js';
 import { createChatSettlingStream } from '../src/stream.js';
+
+/**
+ * A recording {@link BreakerStore}: `filterAvailable` drops the configured
+ * `excludeIds`, and `onSuccess`/`onFailure` are captured so a test can assert
+ * the streaming write path feeds the FSM. Fail-open by construction.
+ */
+function recordingBreaker(excludeIds: string[] = []): BreakerStore & {
+  successes: { channelId: string; model: string }[];
+  failures: { channelId: string; model: string }[];
+} {
+  const successes: { channelId: string; model: string }[] = [];
+  const failures: { channelId: string; model: string }[] = [];
+  return {
+    successes,
+    failures,
+    filterAvailable: <C extends RoutableChannelRef>(channels: readonly C[]): Promise<C[]> =>
+      Promise.resolve(channels.filter((c) => !excludeIds.includes(c.id))),
+    onSuccess: (channelId: string, model: string): Promise<void> => {
+      successes.push({ channelId, model });
+      return Promise.resolve();
+    },
+    onFailure: (channelId: string, model: string): Promise<void> => {
+      failures.push({ channelId, model });
+      return Promise.resolve();
+    },
+    windowStats: (): Promise<null> => Promise.resolve(null),
+  };
+}
 
 // Record settle/fail/usage-log calls without a DB: the chat settling stream
 // calls these module-level repo functions, so we replace them with fakes here.
@@ -75,10 +104,10 @@ vi.mock('@actionow/db', () => ({
   createJob: vi.fn((_db: unknown, p: { id: string }) => Promise.resolve({ id: p.id })),
   claimIdempotency: vi.fn(() => Promise.resolve({ claimed: true })),
   getJob: vi.fn(() => Promise.resolve(undefined)),
-  // Channel-routing health: single-channel tests never query/record, but the
-  // mock must provide them so the rewired runChat/streamChat paths resolve.
-  listCooledDownChannelIds: vi.fn(() => Promise.resolve([])),
-  recordChannelFailure: vi.fn(() => Promise.resolve()),
+  // The binary `channel_health` cooldown repos (`listCooledDownChannelIds` /
+  // `recordChannelFailure`) were removed in resilience-v2 Task 2; the router no
+  // longer reaches into @actionow/db for routing health (Phase 3 injects a
+  // BreakerStore instead), so nothing more is mocked here.
 }));
 
 beforeEach(() => {
@@ -495,9 +524,69 @@ describe('createChatSettlingStream', () => {
     expect(failCalls).toHaveLength(0);
     expect(usageLogCalls[0]).toMatchObject({ channelId: 'c2', providerType: 'mock-chat' });
   });
+
+  it('excludes a breaker-Open channel from the pre-first-event selection', async () => {
+    // c1 ('bad', would error retryably) is breaker-excluded, so the stream picks
+    // c2 ('good') WITHOUT attempting c1 — no failure recorded for c1, a commit
+    // success recorded for c2. Threads the resolved model into the breaker keys.
+    const breaker = recordingBreaker(['c1']);
+    const d = deps(
+      {
+        channels: [
+          { id: 'c1', weight: 5, credentialRef: 'r1', model: 'bad' },
+          { id: 'c2', weight: 1, credentialRef: 'r2', model: 'good' },
+        ],
+        usageLogModel: 'gpt-4o',
+      },
+      fakeFailoverChatAdapter(),
+    );
+    d.breaker = breaker;
+    d.rng = () => 0; // would weight-pick c1 first if it were available
+    const events: ChatStreamEvent[] = [];
+    for await (const ev of createChatSettlingStream(d)) events.push(ev);
+
+    expect(events.map((e) => e.type)).toEqual([
+      'message_start',
+      'content_delta',
+      'usage',
+      'stop',
+      'done',
+    ]);
+    expect(settleCalls).toHaveLength(1);
+    // c1 was never attempted (excluded) → no failure; c2 committed → one success.
+    expect(breaker.failures).toEqual([]);
+    expect(breaker.successes).toEqual([{ channelId: 'c2', model: 'gpt-4o' }]);
+  });
+
+  it('feeds onFailure on a retryable pre-first-event failover, onSuccess on commit', async () => {
+    // c1 ('bad') errors retryably on its first frame → onFailure(c1); the stream
+    // fails over to c2 ('good'), which commits → onSuccess(c2). Both keyed on the
+    // resolved model ('*' here, no usageLogModel).
+    const breaker = recordingBreaker();
+    const d = deps(
+      {
+        channels: [
+          { id: 'c1', weight: 2, credentialRef: 'r1', model: 'bad' },
+          { id: 'c2', weight: 1, credentialRef: 'r2', model: 'good' },
+        ],
+      },
+      fakeFailoverChatAdapter(),
+    );
+    d.breaker = breaker;
+    d.rng = () => 0; // pick c1 ('bad') first → fail over to c2
+    const events: ChatStreamEvent[] = [];
+    for await (const ev of createChatSettlingStream(d)) events.push(ev);
+
+    expect(settleCalls).toHaveLength(1);
+    expect(breaker.failures).toEqual([{ channelId: 'c1', model: '*' }]);
+    expect(breaker.successes).toEqual([{ channelId: 'c2', model: '*' }]);
+  });
 });
 
-function buildService(rng?: () => number): InstanceType<typeof ExecutionService> {
+function buildService(
+  rng?: () => number,
+  breaker?: BreakerStore,
+): InstanceType<typeof ExecutionService> {
   const adapters = new AdapterRegistry();
   adapters.register(fakeChatAdapter());
   adapters.register(failingChatAdapter());
@@ -509,6 +598,7 @@ function buildService(rng?: () => number): InstanceType<typeof ExecutionService>
     now: () => new Date('2026-06-16T00:00:00.000Z'),
     enqueue: vi.fn<(jobId: string) => Promise<void>>(() => Promise.resolve()),
     ...(rng !== undefined ? { rng } : {}),
+    ...(breaker !== undefined ? { breaker } : {}),
   });
 }
 
@@ -552,6 +642,21 @@ describe('ExecutionService.runChatStream / runChat', () => {
     ]);
     expect(settleCalls).toHaveLength(1);
     expect(settleCalls[0]?.usage).toEqual({ input_tokens: 3, output_tokens: 2 });
+  });
+
+  it('runChatStream forwards the injected breaker into the settling stream', async () => {
+    // The breaker is injected at the service layer; runChatStream must thread it
+    // into createChatSettlingStream so the streaming path is breaker-aware. The
+    // single served channel commits → one onSuccess keyed on the resolved model.
+    const breaker = recordingBreaker();
+    const svc = buildService(undefined, breaker);
+    const { events } = await svc.runChatStream(chatReq({ usageLogModel: 'gpt-4o' }));
+    const collected: ChatStreamEvent[] = [];
+    for await (const ev of events) collected.push(ev);
+
+    expect(settleCalls).toHaveLength(1);
+    expect(breaker.successes).toEqual([{ channelId: 'c1', model: 'gpt-4o' }]);
+    expect(breaker.failures).toEqual([]);
   });
 
   it('runChat blocks, maps usage→snake_case, and settles once', async () => {

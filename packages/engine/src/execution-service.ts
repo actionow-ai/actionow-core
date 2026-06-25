@@ -40,6 +40,7 @@ import {
   validateInputs,
 } from '@actionow/domain';
 
+import type { BreakerStore } from './breaker.js';
 import { routeBlocking } from './channel-routing.js';
 import { EngineError, engineError } from './errors.js';
 import { type FaultPolicy, runWithFaultPolicy, wrapHttpWithTimeouts } from './fault-policy.js';
@@ -230,6 +231,14 @@ export interface ExecutionServiceDeps {
   traceUpstream?: boolean | undefined;
   /** Per-body byte cap for the trace (RELAY_TRACE_MAX_BYTES). Default 1MB. */
   traceMaxBytes?: number | undefined;
+  /**
+   * The per-`(channel, model)` circuit breaker (弹性2.0). When injected, the
+   * blocking/chat route paths exclude Open channels + trial-gate HalfOpen ones
+   * and feed each upstream outcome back to the FSM. Fail-open + fire-and-forget
+   * inside the store, so it only OPTIMIZES routing — a breaker outage never fails
+   * a request that could have succeeded. Absent → routing is unchanged.
+   */
+  breaker?: BreakerStore | undefined;
 }
 
 const DEFAULT_HOLD_TTL_MS = 15 * 60_000;
@@ -336,6 +345,7 @@ export class ExecutionService {
       holdAmount,
       req,
       proxyUrlEnv: this.deps.proxyUrlEnv,
+      breaker: this.deps.breaker,
       ...this.traceStreamDeps(),
     });
     return { jobId, events };
@@ -386,6 +396,7 @@ export class ExecutionService {
       proxyUrlEnv: this.deps.proxyUrlEnv,
       now: this.deps.now,
       rng: this.deps.rng,
+      breaker: this.deps.breaker,
       ...this.traceStreamDeps(),
     });
     return { jobId, events };
@@ -475,8 +486,14 @@ export class ExecutionService {
     let response: ChatResponse;
     try {
       response = await routeBlocking(
-        { db: this.deps.db, now: this.deps.now, rng: this.deps.rng ?? Math.random },
+        {
+          db: this.deps.db,
+          now: this.deps.now,
+          rng: this.deps.rng ?? Math.random,
+          breaker: this.deps.breaker,
+        },
         req.channels,
+        req.usageLogModel ?? '*',
         async (channel) => {
           const adapter = this.deps.adapters.get(channel.providerType ?? req.resource.providerType);
           if (adapter.chat === undefined) {
@@ -687,8 +704,9 @@ export class ExecutionService {
     let result: SubmitResult;
     try {
       result = await routeBlocking(
-        { db: this.deps.db, now: this.deps.now, rng },
+        { db: this.deps.db, now: this.deps.now, rng, breaker: this.deps.breaker },
         req.channels,
+        req.usageLogModel ?? '*',
         async (channel) => {
           // Select the adapter per channel so channels under one resource can
           // target different providers (cross-provider failover).

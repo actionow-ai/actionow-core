@@ -60,6 +60,25 @@ export const faultPolicy = pgTable(
     retryCodes: jsonb('retry_codes').$type<number[]>(),
     /** Error-message substrings that trigger a retry; null/[] → adapter default. */
     retryMessages: jsonb('retry_messages').$type<string[]>(),
+    // Circuit-breaker tuning (弹性2.0): the per-(channel,model) FSM falls back to
+    // the engine's global defaults when a field is null, so these are purely
+    // additive. `breaker_enabled=false` opts a channel's policy out of the breaker.
+    /** Toggle the circuit breaker for channels bound to this policy. */
+    breakerEnabled: boolean('breaker_enabled').notNull().default(true),
+    /** Sliding failure-rate window (ms); null → global default. */
+    breakerWindowMs: integer('breaker_window_ms'),
+    /** Minimum window volume before the breaker may trip; null → global default. */
+    breakerMinVolume: integer('breaker_min_volume'),
+    /** Failure-rate threshold to trip (percent 0–100); null → global default. */
+    breakerFailureRatePct: integer('breaker_failure_rate_pct'),
+    /** Concurrent HalfOpen trial slots (probes); null → global default. */
+    breakerHalfOpenTrial: integer('breaker_half_open_trial'),
+    /** Consecutive HalfOpen successes needed to close; null → global default. */
+    breakerHalfOpenSuccesses: integer('breaker_half_open_successes'),
+    /** Base Open cooldown (ms; exp-backoff per trip); null → global default. */
+    breakerOpenCooldownMs: integer('breaker_open_cooldown_ms'),
+    /** Cap on the Open cooldown (ms); null → global default. */
+    breakerOpenCooldownCapMs: integer('breaker_open_cooldown_cap_ms'),
     // status allowed values: active | disabled (create default + admin DTO)
     status: text('status').notNull().default('active'),
     description: text('description'),

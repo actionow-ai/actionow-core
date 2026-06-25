@@ -18,8 +18,10 @@ import {
   type ApiKeyRow,
   type AuditLogFilter,
   type AuditLogRow,
+  type BreakerStatusRow,
   type ChannelHealthRow,
   channelIdsByModelIds,
+  checkFallbackChain,
   countAccounts,
   countByPlugin,
   countModelsByChannelIds,
@@ -94,6 +96,7 @@ import {
   listAllChannelsWithHealth,
   listApiKeys,
   listAuditLog,
+  listBreakersWithChannel,
   listChannelModels,
   listChannelsByPlugin,
   listChannelsForResource,
@@ -146,6 +149,7 @@ import {
   type RelayTraceRow,
   removeChannelFromGroup,
   replacePlanRules,
+  resetBreaker,
   type Resource,
   rollupUsage,
   type RouteGroupChannelRow,
@@ -204,6 +208,7 @@ import {
 } from '@actionow/db';
 import { creditsToMicro } from '@actionow/domain';
 import {
+  type BreakerStore,
   buildCodexAuthorizeUrl,
   CodexAuthError,
   exchangeCodexCode,
@@ -218,7 +223,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { engineInvalidInput, engineNotFound } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
-import { ADAPTERS, DB, ENV, HTTP } from '../common/tokens.js';
+import { ADAPTERS, BREAKER, DB, ENV, HTTP } from '../common/tokens.js';
 import type {
   AddGroupChannelDto,
   AnalyticsUsageQueryDto,
@@ -297,6 +302,9 @@ function usdPer1mToMicro(usd: number): bigint {
 /** Postgres SQLSTATE for a unique-constraint violation (`unique_violation`). */
 const PG_UNIQUE_VIOLATION = '23505';
 
+/** The nil UUID — a sentinel "no real group" id for the create-side fallback walk. */
+const NIL_UUID = '00000000-0000-0000-0000-000000000000';
+
 /**
  * True iff `err` (or any error in its `cause` chain) is a Postgres
  * unique-constraint violation (SQLSTATE `23505`). Used to turn a colliding text
@@ -347,6 +355,14 @@ export interface ProvisionResult {
   apiKey: CreatedApiKey;
 }
 
+/**
+ * A breaker status row ({@link BreakerStatusRow}, the PG FSM state joined with its
+ * channel) enriched with the recent-window `failureRate` (%) read live from Redis
+ * for `GET /admin/breakers` (弹性2.0, spec §⑤). `null` when the window can't be
+ * read (Redis miss/outage, or no breaker store wired).
+ */
+export type BreakerStatusWithRate = BreakerStatusRow & { failureRate: number | null };
+
 /** Neutral, no-auth 204 endpoint a proxy probe fetches to prove reachability. */
 const DEFAULT_PROXY_PROBE_URL = 'https://www.gstatic.com/generate_204';
 
@@ -375,6 +391,11 @@ export class AdminService {
     @Inject(ADAPTERS) private readonly adapters: AdapterRegistry,
     private readonly secrets: SecretResolver,
     @Optional() @Inject(HTTP) http?: HttpClient,
+    // The circuit breaker (弹性2.0) — read-only here, used to enrich the breaker
+    // status surface with each `(channel, model)`'s recent-window failure_rate
+    // (a Redis-only signal). Optional so unit tests that don't wire Redis still
+    // construct the service; absent ⇒ failure_rate degrades to null.
+    @Optional() @Inject(BREAKER) private readonly breaker?: BreakerStore,
   ) {
     // Default to a real fetch client so existing constructions/tests that don't
     // wire an HTTP provider keep working; the OAuth-login e2e overrides it.
@@ -659,6 +680,33 @@ export class AdminService {
       throw engineNotFound(`route group ${groupId} not found`);
     }
     return group;
+  }
+
+  /**
+   * Validate a proposed cross-group `fallbackGroupId` (弹性2.0). `null` clears the
+   * fallback — always allowed. Otherwise the target must be a LIVE group (404 if
+   * not), and following the resulting chain must neither loop back to `sourceId`
+   * (a cycle, incl. a direct self-reference) nor exceed `FALLBACK_MAX_DEPTH`
+   * groups — both mapped to a clean 400. For CREATE, pass a sentinel `sourceId`
+   * that can't appear in the graph (a self-cycle is impossible without a real id).
+   */
+  private async validateFallbackGroup(
+    sourceId: string,
+    fallbackGroupId: string | null,
+  ): Promise<void> {
+    if (fallbackGroupId === null) return;
+    await this.requireRouteGroup(fallbackGroupId);
+    const verdict = await checkFallbackChain(
+      sourceId,
+      fallbackGroupId,
+      async (id) => (await getRouteGroupById(this.db, id))?.fallbackGroupId ?? null,
+    );
+    if (verdict === 'cycle') {
+      throw engineInvalidInput('fallback target would form a cycle');
+    }
+    if (verdict === 'too-deep') {
+      throw engineInvalidInput('fallback chain would exceed the maximum depth');
+    }
   }
 
   /** List a tenant's keys WITHOUT the hash (the plaintext is unrecoverable). */
@@ -2115,6 +2163,24 @@ export class AdminService {
       ...(dto.idleTimeoutMs !== undefined ? { idleTimeoutMs: dto.idleTimeoutMs } : {}),
       ...(dto.retryCodes !== undefined ? { retryCodes: dto.retryCodes } : {}),
       ...(dto.retryMessages !== undefined ? { retryMessages: dto.retryMessages } : {}),
+      ...(dto.breakerEnabled !== undefined ? { breakerEnabled: dto.breakerEnabled } : {}),
+      ...(dto.breakerWindowMs !== undefined ? { breakerWindowMs: dto.breakerWindowMs } : {}),
+      ...(dto.breakerMinVolume !== undefined ? { breakerMinVolume: dto.breakerMinVolume } : {}),
+      ...(dto.breakerFailureRatePct !== undefined
+        ? { breakerFailureRatePct: dto.breakerFailureRatePct }
+        : {}),
+      ...(dto.breakerHalfOpenTrial !== undefined
+        ? { breakerHalfOpenTrial: dto.breakerHalfOpenTrial }
+        : {}),
+      ...(dto.breakerHalfOpenSuccesses !== undefined
+        ? { breakerHalfOpenSuccesses: dto.breakerHalfOpenSuccesses }
+        : {}),
+      ...(dto.breakerOpenCooldownMs !== undefined
+        ? { breakerOpenCooldownMs: dto.breakerOpenCooldownMs }
+        : {}),
+      ...(dto.breakerOpenCooldownCapMs !== undefined
+        ? { breakerOpenCooldownCapMs: dto.breakerOpenCooldownCapMs }
+        : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
       ...(dto.description !== undefined ? { description: dto.description } : {}),
     };
@@ -2153,6 +2219,19 @@ export class AdminService {
     if (dto.idleTimeoutMs !== undefined) patch.idleTimeoutMs = dto.idleTimeoutMs;
     if (dto.retryCodes !== undefined) patch.retryCodes = dto.retryCodes;
     if (dto.retryMessages !== undefined) patch.retryMessages = dto.retryMessages;
+    if (dto.breakerEnabled !== undefined) patch.breakerEnabled = dto.breakerEnabled;
+    if (dto.breakerWindowMs !== undefined) patch.breakerWindowMs = dto.breakerWindowMs;
+    if (dto.breakerMinVolume !== undefined) patch.breakerMinVolume = dto.breakerMinVolume;
+    if (dto.breakerFailureRatePct !== undefined)
+      patch.breakerFailureRatePct = dto.breakerFailureRatePct;
+    if (dto.breakerHalfOpenTrial !== undefined)
+      patch.breakerHalfOpenTrial = dto.breakerHalfOpenTrial;
+    if (dto.breakerHalfOpenSuccesses !== undefined)
+      patch.breakerHalfOpenSuccesses = dto.breakerHalfOpenSuccesses;
+    if (dto.breakerOpenCooldownMs !== undefined)
+      patch.breakerOpenCooldownMs = dto.breakerOpenCooldownMs;
+    if (dto.breakerOpenCooldownCapMs !== undefined)
+      patch.breakerOpenCooldownCapMs = dto.breakerOpenCooldownCapMs;
     if (dto.status !== undefined) patch.status = dto.status;
     if (dto.description !== undefined) patch.description = dto.description;
     let row: FaultPolicyRow | undefined;
@@ -2185,9 +2264,16 @@ export class AdminService {
    * {@link isUniqueViolation} 23505 walk.
    */
   async createRouteGroup(dto: CreateRouteGroupDto): Promise<RouteGroupRow> {
+    // The new group has no id yet, so a self-cycle is impossible on create; a
+    // sentinel source id (the nil UUID never names a real group) lets the shared
+    // walk still enforce the existing-chain depth cap from the proposed target.
+    if (dto.fallbackGroupId !== undefined && dto.fallbackGroupId !== null) {
+      await this.validateFallbackGroup(NIL_UUID, dto.fallbackGroupId);
+    }
     const input: CreateRouteGroupInput = {
       name: dto.name,
       ...(dto.groupRatioBps !== undefined ? { groupRatioBps: dto.groupRatioBps } : {}),
+      ...(dto.fallbackGroupId !== undefined ? { fallbackGroupId: dto.fallbackGroupId } : {}),
       ...(dto.description !== undefined ? { description: dto.description } : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
     };
@@ -2219,11 +2305,18 @@ export class AdminService {
     const patch: {
       name?: string;
       groupRatioBps?: number;
+      fallbackGroupId?: string | null;
       status?: string;
       description?: string | null;
     } = {};
     if (dto.name !== undefined) patch.name = dto.name;
     if (dto.groupRatioBps !== undefined) patch.groupRatioBps = dto.groupRatioBps;
+    if (dto.fallbackGroupId !== undefined) {
+      // Cross-group failover (弹性2.0): a non-null target must exist and not form a
+      // cycle / over-deep chain back through this very group. `null` clears it.
+      await this.validateFallbackGroup(id, dto.fallbackGroupId);
+      patch.fallbackGroupId = dto.fallbackGroupId;
+    }
     if (dto.status !== undefined) patch.status = dto.status;
     if (dto.description !== undefined) patch.description = dto.description;
     let row: RouteGroupRow | undefined;
@@ -2372,6 +2465,38 @@ export class AdminService {
     ]);
     const rpmBillable = windowSeconds === 0 ? 0 : Math.round((count / windowSeconds) * 60);
     return { windowSeconds, rpmBillable, channels };
+  }
+
+  /**
+   * Every tripped/probing `(channel, model)` circuit breaker for the ops status
+   * surface (`GET /admin/breakers`, 弹性2.0), joined to the channel's name, each
+   * enriched with its recent-window `failureRate` (%) read live from the breaker's
+   * Redis sliding window — the same signal that trips it (spec §⑤). The PG row
+   * carries only the FSM state, so the rate is fetched per row from the breaker
+   * store; a Redis miss/outage (or no store wired) degrades `failureRate` to null,
+   * never failing the surface.
+   */
+  async listBreakers(): Promise<BreakerStatusWithRate[]> {
+    const rows = await listBreakersWithChannel(this.db);
+    if (this.breaker === undefined) {
+      return rows.map((row) => ({ ...row, failureRate: null }));
+    }
+    const now = new Date();
+    return Promise.all(
+      rows.map(async (row) => {
+        const stats = await this.breaker?.windowStats(row.channelId, row.model, now);
+        return { ...row, failureRate: stats?.failureRatePct ?? null };
+      }),
+    );
+  }
+
+  /**
+   * Reset one `(channel, model)` breaker back to closed (ops un-stick): deletes
+   * its row, so the channel re-enters routing immediately. Idempotent — clearing
+   * an already-closed (absent) breaker is a safe no-op.
+   */
+  resetBreaker(channelId: string, model: string): Promise<void> {
+    return resetBreaker(this.db, channelId, model);
   }
 }
 

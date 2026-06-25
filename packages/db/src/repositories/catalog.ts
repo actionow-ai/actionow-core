@@ -1,11 +1,11 @@
 import type { Markup, PriceSpec } from '@actionow/contracts';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { PgTransaction } from 'drizzle-orm/pg-core';
 
 import {
   account,
-  channelHealth,
+  channelBreaker,
   difyBinding,
   modifier,
   pricebookEntry,
@@ -354,75 +354,22 @@ export async function updateUpstreamChannel(
   return rows[0];
 }
 
-// --- Channel health / cooldown (P0a) -----------------------------------------
-
-/** Exponential-backoff cooldown: base, cap, and the window after which the failure streak resets. */
-const COOLDOWN_BASE_MS = 1_000;
-const COOLDOWN_CAP_MS = 5 * 60_000;
-const FAILURE_RESET_WINDOW_MS = 5 * 60_000;
-
-/**
- * Record a routing failure for `channelId` and cool it down. The cooldown is
- * `now + min(BASE·2^(failures-1), CAP)` (or `retryAfterMs` if larger); the
- * failure streak resets to 1 when the prior failure is older than the reset
- * window, so no per-success write is needed — a channel is healthy once
- * `cooldown_until` passes. Best-effort: not transactional with the request.
- */
-export async function recordChannelFailure(
-  db: DbOrTx,
-  channelId: string,
-  now: Date,
-  retryAfterMs?: number,
-): Promise<void> {
-  const existing = (
-    await db.select().from(channelHealth).where(eq(channelHealth.channelId, channelId)).limit(1)
-  )[0];
-  const withinWindow =
-    existing?.lastFailureAt != null &&
-    now.getTime() - existing.lastFailureAt.getTime() < FAILURE_RESET_WINDOW_MS;
-  const failures = withinWindow ? existing.consecutiveFailures + 1 : 1;
-  const backoffMs = Math.min(COOLDOWN_BASE_MS * 2 ** (failures - 1), COOLDOWN_CAP_MS);
-  const cooldownUntil = new Date(now.getTime() + Math.max(backoffMs, retryAfterMs ?? 0));
-  const values = {
-    channelId,
-    consecutiveFailures: failures,
-    cooldownUntil,
-    lastFailureAt: now,
-    updatedAt: now,
-  };
-  await db
-    .insert(channelHealth)
-    .values(values)
-    .onConflictDoUpdate({
-      target: channelHealth.channelId,
-      set: {
-        consecutiveFailures: failures,
-        cooldownUntil,
-        lastFailureAt: now,
-        updatedAt: now,
-      },
-    });
-}
+// --- Channel health / circuit-breaker rollup (弹性2.0) ------------------------
+//
+// The binary `channel_health` cooldown (P0a: `recordChannelFailure` /
+// `listCooledDownChannelIds`) is REMOVED in resilience-v2 and superseded by the
+// stateful per-(channel,model) circuit breaker (`channel_breaker`, see
+// `../repositories/channel-breaker.js`). The router's read/write paths use the
+// breaker store; the ops `GET /admin/health` snapshot below now rolls the
+// breaker state up to one row per channel.
 
 /**
- * Of the given `channelIds`, return those currently in cooldown (`cooldown_until
- * > now`). A channel with no health row, or whose cooldown has passed, is absent
- * (healthy). The router excludes the returned ids from selection.
+ * One non-deleted channel rolled up over its `(channel, model)` breaker rows.
+ * Backward-compatible with the prior `channel_health` shape so the ops view +
+ * contract mapping stay green: `cooldownUntil`/`lastFailureAt` are the per-
+ * channel worst-of and `consecutiveFailures` is the max `trip_count`, plus a
+ * `degraded` flag (any non-closed `(channel, model)`) and the worst `breakerState`.
  */
-export async function listCooledDownChannelIds(
-  db: DbOrTx,
-  channelIds: string[],
-  now: Date,
-): Promise<string[]> {
-  if (channelIds.length === 0) return [];
-  const rows = await db
-    .select({ channelId: channelHealth.channelId })
-    .from(channelHealth)
-    .where(and(inArray(channelHealth.channelId, channelIds), gt(channelHealth.cooldownUntil, now)));
-  return rows.map((r) => r.channelId);
-}
-
-/** One non-deleted channel joined to its (optional) circuit-breaker health row. */
 export interface ChannelHealthRow {
   channelId: string;
   resourceId: string;
@@ -432,12 +379,25 @@ export interface ChannelHealthRow {
   consecutiveFailures: number;
   cooldownUntil: Date | null;
   lastFailureAt: Date | null;
+  /** True when any of the channel's `(channel, model)` breakers is open/half_open. */
+  degraded: boolean;
+  /** Worst breaker state across the channel's models: `open` > `half_open` > `closed`. */
+  breakerState: 'closed' | 'open' | 'half_open';
 }
 
+/** Severity ordering used to pick a channel's worst breaker state. */
+const BREAKER_SEVERITY: Record<'closed' | 'open' | 'half_open', number> = {
+  closed: 0,
+  half_open: 1,
+  open: 2,
+};
+
 /**
- * List EVERY non-deleted `upstream_channel` left-joined to its `channel_health`
- * row (absent → healthy, surfaced as null cooldown / 0 failures). Powers the
+ * List EVERY non-deleted `upstream_channel` left-joined to its `channel_breaker`
+ * rows (absent → healthy/closed), rolled up to one row per channel. Powers the
  * read-only `GET /admin/health` ops snapshot; ordered by resource then channel.
+ * A channel with no breaker row surfaces as `closed`/not-degraded with null
+ * cooldown / 0 failures (identical to the old healthy default).
  */
 export async function listAllChannelsWithHealth(db: DbOrTx): Promise<ChannelHealthRow[]> {
   const rows = await db
@@ -447,24 +407,55 @@ export async function listAllChannelsWithHealth(db: DbOrTx): Promise<ChannelHeal
       providerType: upstreamChannel.providerType,
       status: upstreamChannel.status,
       credentialRef: upstreamChannel.credentialRef,
-      consecutiveFailures: channelHealth.consecutiveFailures,
-      cooldownUntil: channelHealth.cooldownUntil,
-      lastFailureAt: channelHealth.lastFailureAt,
+      breakerState: channelBreaker.state,
+      tripCount: channelBreaker.tripCount,
+      cooldownUntil: channelBreaker.cooldownUntil,
+      lastFailureAt: channelBreaker.lastFailureAt,
     })
     .from(upstreamChannel)
-    .leftJoin(channelHealth, eq(channelHealth.channelId, upstreamChannel.id))
+    .leftJoin(channelBreaker, eq(channelBreaker.channelId, upstreamChannel.id))
     .where(isNull(upstreamChannel.deletedAt))
     .orderBy(upstreamChannel.resourceId, upstreamChannel.id);
-  return rows.map((r) => ({
-    channelId: r.channelId,
-    resourceId: r.resourceId,
-    providerType: r.providerType,
-    status: r.status,
-    credentialRef: r.credentialRef,
-    consecutiveFailures: r.consecutiveFailures ?? 0,
-    cooldownUntil: r.cooldownUntil,
-    lastFailureAt: r.lastFailureAt,
-  }));
+
+  // Roll the (channel, model) breaker rows up to one row per channel.
+  const byChannel = new Map<string, ChannelHealthRow>();
+  for (const r of rows) {
+    const existing = byChannel.get(r.channelId);
+    const base =
+      existing ??
+      ({
+        channelId: r.channelId,
+        resourceId: r.resourceId,
+        providerType: r.providerType,
+        status: r.status,
+        credentialRef: r.credentialRef,
+        consecutiveFailures: 0,
+        cooldownUntil: null,
+        lastFailureAt: null,
+        degraded: false,
+        breakerState: 'closed' as const,
+      } satisfies ChannelHealthRow);
+    if (r.breakerState !== null) {
+      const state = r.breakerState as 'closed' | 'open' | 'half_open';
+      if (state !== 'closed') base.degraded = true;
+      if (BREAKER_SEVERITY[state] > BREAKER_SEVERITY[base.breakerState]) base.breakerState = state;
+      base.consecutiveFailures = Math.max(base.consecutiveFailures, r.tripCount ?? 0);
+      if (
+        r.cooldownUntil !== null &&
+        (base.cooldownUntil === null || r.cooldownUntil > base.cooldownUntil)
+      ) {
+        base.cooldownUntil = r.cooldownUntil;
+      }
+      if (
+        r.lastFailureAt !== null &&
+        (base.lastFailureAt === null || r.lastFailureAt > base.lastFailureAt)
+      ) {
+        base.lastFailureAt = r.lastFailureAt;
+      }
+    }
+    byChannel.set(r.channelId, base);
+  }
+  return [...byChannel.values()];
 }
 
 /**

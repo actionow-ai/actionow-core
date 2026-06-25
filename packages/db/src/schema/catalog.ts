@@ -125,25 +125,10 @@ export const upstreamChannel = pgTable(
   ],
 );
 
-/**
- * Per-channel routing health (P0a): a failing `upstream_channel` is cooled down
- * until `cooldown_until` so the weighted router skips it. Persisted (not
- * in-memory) so cooldown is consistent across replicas via the shared DB. Only
- * written on a failure; `consecutive_failures` drives exponential backoff and
- * resets when the last failure is older than the reset window (so no per-success
- * write is needed). A row's absence ⇒ the channel is healthy.
- */
-export const channelHealth = pgTable('channel_health', {
-  channelId: uuid('channel_id')
-    .primaryKey()
-    .references(() => upstreamChannel.id),
-  consecutiveFailures: integer('consecutive_failures').notNull().default(0),
-  cooldownUntil: timestamp('cooldown_until', { withTimezone: true }),
-  lastFailureAt: timestamp('last_failure_at', { withTimezone: true }),
-  // defaultNow backfills existing rows to "now"; channel_health rows are short-lived (acceptable).
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+// `channel_health` (P0a binary cooldown) is dropped in resilience-v2 (migration
+// 0048), superseded by the stateful per-(channel,model) circuit breaker
+// (`./channel-breaker.js`). Its routing-cooldown role + the ops `degraded`
+// rollup are now driven by `channel_breaker`.
 
 export const difyBinding = pgTable(
   'dify_binding',

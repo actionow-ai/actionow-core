@@ -25,6 +25,8 @@ export const createRouteGroupSchema = z.object({
   name: z.string().min(1),
   /** Customer-price ratio in basis points (`10000 = 1.0×`). Defaults to 10000. */
   groupRatioBps: z.number().int().positive().optional(),
+  /** Cross-group failover target (弹性2.0); another group's id, or null for none. Server validates cycle/depth. */
+  fallbackGroupId: z.string().uuid().nullable().optional(),
   description: z.string().optional(),
   status: z.enum(['active', 'disabled']).optional(),
 });
@@ -38,6 +40,8 @@ export type CreateRouteGroupBody = z.infer<typeof createRouteGroupSchema>;
 export const updateRouteGroupSchema = z.object({
   name: z.string().min(1).optional(),
   groupRatioBps: z.number().int().positive().optional(),
+  /** Set / clear (null) the cross-group failover target (弹性2.0). Server validates cycle/depth. */
+  fallbackGroupId: z.string().uuid().nullable().optional(),
   status: z.enum(['active', 'disabled']).optional(),
   description: z.string().nullable().optional(),
 });

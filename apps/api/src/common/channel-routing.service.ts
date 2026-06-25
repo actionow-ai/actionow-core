@@ -5,8 +5,8 @@ import {
   getRouteGroupById,
   getRouteGroupByName,
   type GroupChannelForResource,
+  listCandidateChannelsWithFallback,
   listChannels,
-  listGroupChannelsForResource,
   listModelChannels,
   type UpstreamChannelRow,
 } from '@actionow/db';
@@ -49,9 +49,12 @@ export const UNLINKED_PRIORITY_OFFSET = 1_000_000;
  *    is resolved once via `getRouteGroupByName(db, 'default')` and cached (it is
  *    stable). A bare test db with no `default` group tolerates this by falling
  *    through to step 3.
- * 2. `candidates = listGroupChannelsForResource(db, resourceId, groupId)` — the
- *    active, non-soft-deleted channels of the resource that are MEMBERS of the
- *    group, annotated with the membership `priority`/`weight`.
+ * 2. `candidates = listCandidateChannelsWithFallback(db, resourceId, groupId)` —
+ *    the active, non-soft-deleted channels of the resource that are MEMBERS of
+ *    the group, annotated with the membership `priority`/`weight`; PLUS, per
+ *    弹性2.0, the channels of the group's `fallback_group_id` chain demoted to
+ *    strictly lower tiers (cycle + depth guarded), so an exhausted group cascades
+ *    to its fallback group.
  * 3. **Ungrouped fallback (compat):** when the group has NO members for this
  *    resource (`candidates` is empty), fall back to `listChannels(db,
  *    resourceId)` — ALL active channels at priority 0 / `channel.weight`. This
@@ -94,8 +97,11 @@ export class ChannelRoutingService {
     const groupId = routeGroupId ?? (await this.resolveDefaultGroupId());
 
     let base: RunChannel[];
+    // 弹性2.0: walk the group's `fallback_group_id` chain so an exhausted group
+    // cascades to lower-tier groups (cycle + depth guarded). With no fallback set
+    // this is exactly `listGroupChannelsForResource`.
     const grouped =
-      groupId !== null ? await listGroupChannelsForResource(this.db, resourceId, groupId) : [];
+      groupId !== null ? await listCandidateChannelsWithFallback(this.db, resourceId, groupId) : [];
     if (grouped.length > 0) {
       base = await this.attachFaultPolicies(grouped.map(toRunChannelFromGroup), grouped);
     } else {

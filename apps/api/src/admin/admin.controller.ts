@@ -7,6 +7,8 @@ import {
   apiKeyViewSchema,
   type AuditLogView,
   auditLogViewSchema,
+  type BreakerView,
+  breakerViewSchema,
   type ChannelHealthView,
   channelHealthViewSchema,
   type ChannelModelLinkInput,
@@ -148,6 +150,7 @@ import { mapPageEnvelope, type PageEnvelope, toPageParams } from '../common/pagi
 import { ZodBody } from '../common/zod.pipe.js';
 import {
   AdminService,
+  type BreakerStatusWithRate,
   type ProvisionResult,
   type RelayTraceView,
   toRelayTraceView,
@@ -1822,6 +1825,35 @@ export class AdminController {
     const report = await this.admin.modelHealthReport(window);
     return report.map(toModelHealthView);
   }
+
+  // ----- circuit breakers (弹性2.0 status surface) -----
+
+  @Get('breakers')
+  @ApiOperation({
+    summary: 'Live circuit-breaker status: tripped/probing (channel, model) FSM rows',
+  })
+  async listBreakers(): Promise<BreakerView[]> {
+    const rows = await this.admin.listBreakers();
+    return rows.map(toBreakerView);
+  }
+
+  @Post('breakers/:channelId/:model/reset')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Reset a circuit breaker back to closed (ops un-stick)' })
+  @Audit({
+    action: 'breaker.reset',
+    target: 'channel_breaker',
+    resolve: ({ params }) => ({
+      targetId: params.channelId ?? null,
+      meta: { model: params.model },
+    }),
+  })
+  async resetBreaker(
+    @Param('channelId') channelId: string,
+    @Param('model') model: string,
+  ): Promise<void> {
+    await this.admin.resetBreaker(channelId, model);
+  }
 }
 
 /**
@@ -1962,6 +1994,7 @@ function toRouteGroupView(row: RouteGroupRow): RouteGroupView {
     id: row.id,
     name: row.name,
     group_ratio_bps: row.groupRatioBps,
+    fallback_group_id: row.fallbackGroupId,
     status: row.status,
     description: row.description,
     created_at: row.createdAt.toISOString(),
@@ -2227,6 +2260,14 @@ function toFaultPolicyView(row: FaultPolicyRow): FaultPolicyView {
     idle_timeout_ms: row.idleTimeoutMs,
     retry_codes: row.retryCodes,
     retry_messages: row.retryMessages,
+    breaker_enabled: row.breakerEnabled,
+    breaker_window_ms: row.breakerWindowMs,
+    breaker_min_volume: row.breakerMinVolume,
+    breaker_failure_rate_pct: row.breakerFailureRatePct,
+    breaker_half_open_trial: row.breakerHalfOpenTrial,
+    breaker_half_open_successes: row.breakerHalfOpenSuccesses,
+    breaker_open_cooldown_ms: row.breakerOpenCooldownMs,
+    breaker_open_cooldown_cap_ms: row.breakerOpenCooldownCapMs,
     status: row.status,
     description: row.description,
     created_at: row.createdAt.toISOString(),
@@ -2381,6 +2422,24 @@ function toUsageRollupView(row: UsageRollupRow): UsageRollupView {
     errors: row.errors,
     avg_latency_ms: row.avgLatencyMs,
     p95_latency_ms: row.p95LatencyMs,
+  });
+}
+
+function toBreakerView(row: BreakerStatusWithRate): BreakerView {
+  return breakerViewSchema.parse({
+    channel_id: row.channelId,
+    channel_name: row.channelName,
+    resource_id: row.resourceId,
+    model: row.model,
+    state: row.state,
+    opened_at: row.openedAt === null ? null : row.openedAt.toISOString(),
+    cooldown_until: row.cooldownUntil === null ? null : row.cooldownUntil.toISOString(),
+    trip_count: row.tripCount,
+    half_open_successes: row.halfOpenSuccesses,
+    // Recent-window failure rate (%) from Redis; rounded to 2 dp. null = window
+    // unreadable (Redis miss/outage) — the FSM state stays authoritative.
+    failure_rate: row.failureRate === null ? null : Math.round(row.failureRate * 100) / 100,
+    last_transition_at: row.lastTransitionAt === null ? null : row.lastTransitionAt.toISOString(),
   });
 }
 

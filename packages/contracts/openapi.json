@@ -2049,6 +2049,68 @@
           "accounts"
         ]
       },
+      "BreakerView": {
+        "type": "object",
+        "properties": {
+          "channel_id": {
+            "type": "string"
+          },
+          "channel_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "resource_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "model": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "closed",
+              "open",
+              "half_open"
+            ]
+          },
+          "opened_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "cooldown_until": {
+            "type": "string",
+            "nullable": true
+          },
+          "trip_count": {
+            "type": "number"
+          },
+          "half_open_successes": {
+            "type": "number"
+          },
+          "failure_rate": {
+            "type": "number",
+            "nullable": true
+          },
+          "last_transition_at": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "channel_id",
+          "channel_name",
+          "resource_id",
+          "model",
+          "state",
+          "opened_at",
+          "cooldown_until",
+          "trip_count",
+          "half_open_successes",
+          "failure_rate",
+          "last_transition_at"
+        ]
+      },
       "RouteGroupView": {
         "type": "object",
         "properties": {
@@ -2060,6 +2122,10 @@
           },
           "group_ratio_bps": {
             "type": "number"
+          },
+          "fallback_group_id": {
+            "type": "string",
+            "nullable": true
           },
           "status": {
             "type": "string"
@@ -2079,6 +2145,7 @@
           "id",
           "name",
           "group_ratio_bps",
+          "fallback_group_id",
           "status",
           "description",
           "created_at",
@@ -3918,6 +3985,11 @@
             "minimum": 0,
             "exclusiveMinimum": true
           },
+          "fallbackGroupId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
           "description": {
             "type": "string"
           },
@@ -3944,6 +4016,11 @@
             "type": "integer",
             "minimum": 0,
             "exclusiveMinimum": true
+          },
+          "fallbackGroupId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
           },
           "status": {
             "type": "string",
@@ -4009,6 +4086,37 @@
               "type": "string"
             }
           },
+          "breaker_enabled": {
+            "type": "boolean"
+          },
+          "breaker_window_ms": {
+            "type": "number",
+            "nullable": true
+          },
+          "breaker_min_volume": {
+            "type": "number",
+            "nullable": true
+          },
+          "breaker_failure_rate_pct": {
+            "type": "number",
+            "nullable": true
+          },
+          "breaker_half_open_trial": {
+            "type": "number",
+            "nullable": true
+          },
+          "breaker_half_open_successes": {
+            "type": "number",
+            "nullable": true
+          },
+          "breaker_open_cooldown_ms": {
+            "type": "number",
+            "nullable": true
+          },
+          "breaker_open_cooldown_cap_ms": {
+            "type": "number",
+            "nullable": true
+          },
           "status": {
             "type": "string"
           },
@@ -4036,6 +4144,14 @@
           "idle_timeout_ms",
           "retry_codes",
           "retry_messages",
+          "breaker_enabled",
+          "breaker_window_ms",
+          "breaker_min_volume",
+          "breaker_failure_rate_pct",
+          "breaker_half_open_trial",
+          "breaker_half_open_successes",
+          "breaker_open_cooldown_ms",
+          "breaker_open_cooldown_cap_ms",
           "status",
           "description",
           "created_at",
@@ -4112,6 +4228,38 @@
               "maxLength": 200
             },
             "maxItems": 50
+          },
+          "breakerEnabled": {
+            "type": "boolean"
+          },
+          "breakerWindowMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerMinVolume": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerFailureRatePct": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "breakerHalfOpenTrial": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerHalfOpenSuccesses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerOpenCooldownMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerOpenCooldownCapMs": {
+            "type": "integer",
+            "minimum": 0
           },
           "status": {
             "type": "string",
@@ -4198,6 +4346,38 @@
               "maxLength": 200
             },
             "maxItems": 50
+          },
+          "breakerEnabled": {
+            "type": "boolean"
+          },
+          "breakerWindowMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerMinVolume": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerFailureRatePct": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "breakerHalfOpenTrial": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerHalfOpenSuccesses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerOpenCooldownMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerOpenCooldownCapMs": {
+            "type": "integer",
+            "minimum": 0
           },
           "status": {
             "type": "string",
@@ -11351,6 +11531,160 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/breakers": {
+      "get": {
+        "summary": "Live circuit-breaker status: tripped/probing (channel, model) FSM rows",
+        "tags": [
+          "admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "Live circuit-breaker status: tripped/probing (channel, model) FSM rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BreakerView"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/breakers/{channelId}/{model}/reset": {
+      "post": {
+        "summary": "Reset a circuit breaker back to closed (ops un-stick)",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "channelId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "model",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Breaker cleared"
           },
           "400": {
             "description": "Invalid input",

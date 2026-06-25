@@ -16,6 +16,7 @@ import { RowAction } from '../../components/ui/RowAction';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
+import { Toggle } from '../../components/ui/Toggle';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { FaultPolicyView } from '../../lib/api/types';
@@ -25,6 +26,15 @@ import { useAdminApi } from '../../lib/api/useAdminApi';
 function ms(n: number | null): string {
   return n === null ? '—' : `${String(n)}ms`;
 }
+
+/**
+ * Engine global default trip threshold (percent), shown in the breaker column
+ * when the policy leaves `breaker_failure_rate_pct` null. Mirrors
+ * `DEFAULT_BREAKER_CONFIG.failureRatePct` in `packages/engine/src/breaker.ts`
+ * (the runtime source of truth) — kept as a local literal so no engine code
+ * reaches the browser bundle.
+ */
+const DEFAULT_FAILURE_RATE_PCT = 50;
 
 /**
  * The 调用容错 (fault-tolerance policies) console page — wired to the live
@@ -118,6 +128,21 @@ export function FaultPoliciesPage() {
       width: '120px',
     },
     {
+      key: 'breaker',
+      header: t('faultPolicies.cols.breaker'),
+      cell: (r) =>
+        r.breaker_enabled ? (
+          <span className="tabular" style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>
+            {t('faultPolicies.breakerOn', { rate: r.breaker_failure_rate_pct ?? DEFAULT_FAILURE_RATE_PCT })}
+          </span>
+        ) : (
+          <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>
+            {t('faultPolicies.breakerOff')}
+          </span>
+        ),
+      width: '120px',
+    },
+    {
       key: 'status',
       header: t('faultPolicies.cols.status'),
       noClip: true,
@@ -183,6 +208,11 @@ function timeoutOrNull(n: number): number | null {
   return n > 0 ? n : null;
 }
 
+/** Breaker threshold: 0/empty → omit the field so the engine global default applies. */
+function numberOrUndefined(n: number): number | undefined {
+  return n > 0 ? n : undefined;
+}
+
 /**
  * Create/edit `Drawer` for a fault-tolerance policy. `row === undefined` →
  * create. Mode toggles same-channel retry vs fast-fail; the four timeouts are ms
@@ -219,6 +249,19 @@ function FaultPolicyEditor({
   const [description, setDescription] = useState(row?.description ?? '');
   const [attempted, setAttempted] = useState(false);
 
+  // Circuit breaker (弹性2.0). On by default for a new policy; each threshold is
+  // 0 → omitted → engine global default. Section collapsed unless already tuned.
+  const [breakerEnabled, setBreakerEnabled] = useState(row?.breaker_enabled ?? true);
+  const [breakerWindowMs, setBreakerWindowMs] = useState(row?.breaker_window_ms ?? 0);
+  const [breakerMinVolume, setBreakerMinVolume] = useState(row?.breaker_min_volume ?? 0);
+  const [breakerFailureRatePct, setBreakerFailureRatePct] = useState(row?.breaker_failure_rate_pct ?? 0);
+  const [breakerHalfOpenTrial, setBreakerHalfOpenTrial] = useState(row?.breaker_half_open_trial ?? 0);
+  const [breakerHalfOpenSuccesses, setBreakerHalfOpenSuccesses] = useState(row?.breaker_half_open_successes ?? 0);
+  const [breakerOpenCooldownMs, setBreakerOpenCooldownMs] = useState(row?.breaker_open_cooldown_ms ?? 0);
+  const [breakerOpenCooldownCapMs, setBreakerOpenCooldownCapMs] = useState(row?.breaker_open_cooldown_cap_ms ?? 0);
+  // Reveal the breaker block when a row already overrides a threshold (or it's off).
+  const [showBreaker, setShowBreaker] = useState(false);
+
   useEffect(() => {
     if (row === undefined) return;
     setName(row.name);
@@ -234,6 +277,25 @@ function FaultPolicyEditor({
     setMessages(row.retry_messages ?? []);
     setStatus((row.status as Status | undefined) ?? 'active');
     setDescription(row.description ?? '');
+    setBreakerEnabled(row.breaker_enabled);
+    setBreakerWindowMs(row.breaker_window_ms ?? 0);
+    setBreakerMinVolume(row.breaker_min_volume ?? 0);
+    setBreakerFailureRatePct(row.breaker_failure_rate_pct ?? 0);
+    setBreakerHalfOpenTrial(row.breaker_half_open_trial ?? 0);
+    setBreakerHalfOpenSuccesses(row.breaker_half_open_successes ?? 0);
+    setBreakerOpenCooldownMs(row.breaker_open_cooldown_ms ?? 0);
+    setBreakerOpenCooldownCapMs(row.breaker_open_cooldown_cap_ms ?? 0);
+    // Auto-expand when the policy disables the breaker or overrides a threshold.
+    setShowBreaker(
+      !row.breaker_enabled ||
+        row.breaker_window_ms !== null ||
+        row.breaker_min_volume !== null ||
+        row.breaker_failure_rate_pct !== null ||
+        row.breaker_half_open_trial !== null ||
+        row.breaker_half_open_successes !== null ||
+        row.breaker_open_cooldown_ms !== null ||
+        row.breaker_open_cooldown_cap_ms !== null,
+    );
   }, [row]);
 
   const nameMissing = name.trim() === '';
@@ -256,6 +318,14 @@ function FaultPolicyEditor({
         idleTimeoutMs: timeoutOrNull(idleMs),
         retryCodes: parsedCodes,
         retryMessages: messages,
+        breakerEnabled,
+        breakerWindowMs: numberOrUndefined(breakerWindowMs),
+        breakerMinVolume: numberOrUndefined(breakerMinVolume),
+        breakerFailureRatePct: numberOrUndefined(breakerFailureRatePct),
+        breakerHalfOpenTrial: numberOrUndefined(breakerHalfOpenTrial),
+        breakerHalfOpenSuccesses: numberOrUndefined(breakerHalfOpenSuccesses),
+        breakerOpenCooldownMs: numberOrUndefined(breakerOpenCooldownMs),
+        breakerOpenCooldownCapMs: numberOrUndefined(breakerOpenCooldownCapMs),
         status,
       };
       if (editing) {
@@ -390,6 +460,90 @@ function FaultPolicyEditor({
         onChange={setMessages}
         placeholder={t('faultPolicies.form.retryMessagesPlaceholder')}
       />
+
+      <Button variant="ghost" onClick={() => setShowBreaker((v) => !v)}>
+        {showBreaker ? t('faultPolicies.breakerHide') : t('faultPolicies.breakerShow')}
+      </Button>
+      {showBreaker && (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <Toggle
+              checked={breakerEnabled}
+              onChange={setBreakerEnabled}
+              label={t('faultPolicies.form.breakerEnabled')}
+            />
+            <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>
+              {t('faultPolicies.tip.breaker')}
+            </span>
+          </div>
+          <NumberField
+            label={t('faultPolicies.form.breakerFailureRatePct')}
+            hint={t('faultPolicies.tip.breakerFailureRatePct')}
+            value={breakerFailureRatePct}
+            onChange={setBreakerFailureRatePct}
+            min={0}
+            max={100}
+            step={1}
+            disabled={!breakerEnabled}
+          />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--s-3)' }}>
+            <NumberField
+              label={t('faultPolicies.form.breakerWindowMs')}
+              hint={t('faultPolicies.tip.breakerWindowMs')}
+              value={breakerWindowMs}
+              onChange={setBreakerWindowMs}
+              min={0}
+              step={1000}
+              disabled={!breakerEnabled}
+            />
+            <NumberField
+              label={t('faultPolicies.form.breakerMinVolume')}
+              hint={t('faultPolicies.tip.breakerMinVolume')}
+              value={breakerMinVolume}
+              onChange={setBreakerMinVolume}
+              min={0}
+              step={1}
+              disabled={!breakerEnabled}
+            />
+            <NumberField
+              label={t('faultPolicies.form.breakerHalfOpenTrial')}
+              hint={t('faultPolicies.tip.breakerHalfOpenTrial')}
+              value={breakerHalfOpenTrial}
+              onChange={setBreakerHalfOpenTrial}
+              min={0}
+              step={1}
+              disabled={!breakerEnabled}
+            />
+            <NumberField
+              label={t('faultPolicies.form.breakerHalfOpenSuccesses')}
+              hint={t('faultPolicies.tip.breakerHalfOpenSuccesses')}
+              value={breakerHalfOpenSuccesses}
+              onChange={setBreakerHalfOpenSuccesses}
+              min={0}
+              step={1}
+              disabled={!breakerEnabled}
+            />
+            <NumberField
+              label={t('faultPolicies.form.breakerOpenCooldownMs')}
+              hint={t('faultPolicies.tip.breakerOpenCooldownMs')}
+              value={breakerOpenCooldownMs}
+              onChange={setBreakerOpenCooldownMs}
+              min={0}
+              step={1000}
+              disabled={!breakerEnabled}
+            />
+            <NumberField
+              label={t('faultPolicies.form.breakerOpenCooldownCapMs')}
+              hint={t('faultPolicies.tip.breakerOpenCooldownCapMs')}
+              value={breakerOpenCooldownCapMs}
+              onChange={setBreakerOpenCooldownCapMs}
+              min={0}
+              step={1000}
+              disabled={!breakerEnabled}
+            />
+          </div>
+        </>
+      )}
 
       <SelectField
         label={t('faultPolicies.form.status')}

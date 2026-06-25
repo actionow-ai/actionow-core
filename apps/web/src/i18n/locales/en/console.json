@@ -217,6 +217,7 @@
     "analytics": "Analytics",
     "opsOverview": "Overview · Analytics",
     "status": "Status",
+    "breakers": "Breakers",
     "relayTraces": "Relay traces",
     "auditLog": "Audit log",
     "overview": "Overview",
@@ -258,6 +259,7 @@
     "analytics": "Usage, cost and margin over time and by dimension",
     "opsOverview": "Global usage, cost, margin & model health — one screen",
     "status": "Per-model availability, latency & uptime (from real traffic)",
+    "breakers": "Tripped / probing channels — per-(channel, model) breaker state & reset",
     "relayTraces": "Upstream relay audit — requests, responses, latency",
     "auditLog": "Who changed what, when — money / governance / identity mutation audit",
     "overview": "Balance, recent jobs and ledger",
@@ -874,6 +876,36 @@
     },
     "empty": "No upstream channels yet"
   },
+  "breakers": {
+    "empty": "No tripped breakers — every channel is healthy",
+    "unknownChannel": "(channel deleted)",
+    "refresh": "Refresh",
+    "cols": {
+      "channel": "Channel",
+      "model": "Model",
+      "state": "State",
+      "cooldown": "Cooldown",
+      "trips": "Trips",
+      "failureRate": "Failure rate",
+      "transition": "Last change"
+    },
+    "state": {
+      "open": "Open",
+      "half_open": "Probing",
+      "closed": "Closed"
+    },
+    "cooldown": {
+      "ready": "ready",
+      "inS": "in {{s}}s",
+      "inM": "in {{m}}m"
+    },
+    "reset": {
+      "action": "Reset",
+      "title": "Reset circuit breaker",
+      "msg": "Reset the breaker for {{channel}} ({{model}}) back to closed? The channel re-enters routing immediately.",
+      "done": "Breaker reset"
+    }
+  },
   "auditLog": {
     "title": "Audit log",
     "empty": "No audit records yet",
@@ -966,6 +998,10 @@
     "deleted": "Policy deleted",
     "timeoutSummary": "conn {{connect}} · ttft {{ttft}} · total {{total}} · idle {{idle}}",
     "triggerSummary": "{{codes}} code / {{msgs}} msg",
+    "breakerShow": "Circuit breaker",
+    "breakerHide": "Hide circuit breaker",
+    "breakerOn": "{{rate}}% threshold",
+    "breakerOff": "Off",
     "mode": {
       "retry": "Retry on error",
       "fastFail": "Fast fail",
@@ -981,6 +1017,7 @@
       "backoff": "Backoff",
       "timeouts": "Timeouts",
       "triggers": "Retry triggers",
+      "breaker": "Breaker",
       "status": "Status"
     },
     "form": {
@@ -998,6 +1035,14 @@
       "retryCodesPlaceholder": "e.g. 500, 429, 404 — Enter to add",
       "retryMessages": "Retry on messages",
       "retryMessagesPlaceholder": "e.g. Internal server error — Enter to add",
+      "breakerEnabled": "Enable circuit breaker",
+      "breakerWindowMs": "Failure-rate window (ms)",
+      "breakerMinVolume": "Min volume before tripping",
+      "breakerFailureRatePct": "Trip failure rate (%)",
+      "breakerHalfOpenTrial": "Half-open trial slots",
+      "breakerHalfOpenSuccesses": "Successes to close",
+      "breakerOpenCooldownMs": "Open cooldown (ms)",
+      "breakerOpenCooldownCapMs": "Cooldown cap (ms)",
       "status": "Status",
       "description": "Description"
     },
@@ -1008,7 +1053,15 @@
       "ttft": "Max wait for the first streamed token (0 = default). Critical for streaming LLMs.",
       "idle": "Max idle between streamed chunks (0 = default).",
       "retryCodes": "Retry only when the HTTP status matches one of these (can include normally-non-retryable codes like 404); empty → the adapter's built-in verdict.",
-      "retryMessages": "Retry when the error message contains any of these substrings (case-insensitive)."
+      "retryMessages": "Retry when the error message contains any of these substrings (case-insensitive).",
+      "breaker": "A circuit breaker per (channel, model) for channels bound to this policy. When the failure rate crosses the threshold it trips Open: the channel is briefly removed and the cooldown backs off per trip; it then half-opens to probe, and closes again after consecutive successes. Leave a field empty or 0 to use the engine global default.",
+      "breakerFailureRatePct": "Trip Open once the failure rate over the window exceeds this percent (after the minimum volume is met).",
+      "breakerWindowMs": "Sliding window for the failure rate (ms); 0 = global default.",
+      "breakerMinVolume": "Minimum window volume before the breaker may trip; 0 = global default.",
+      "breakerHalfOpenTrial": "Concurrent half-open probe requests allowed; 0 = global default.",
+      "breakerHalfOpenSuccesses": "Consecutive half-open successes needed to close; 0 = global default.",
+      "breakerOpenCooldownMs": "Base cooldown after tripping (exponential backoff per trip); 0 = global default.",
+      "breakerOpenCooldownCapMs": "Cap on the Open cooldown (ms); 0 = global default."
     },
     "confirm": {
       "deleteTitle": "Delete fault policy",
@@ -1174,6 +1227,8 @@
       "name": "Name",
       "ratioPercent": "Ratio (%)",
       "status": "Status",
+      "fallbackGroup": "Fallback group",
+      "fallbackNone": "No fallback",
       "description": "Description"
     },
     "tip": {
@@ -1181,6 +1236,7 @@
       "ratioPercent": "Group price ratio as a percent — 100 = ×1.00 (official price), 150 = ×1.50 (+50%). Stored as basis points.",
       "ratioLive": "Group price ratio — 100 = ×1.00 (official price), 150 = ×1.50. This multiplies REAL customer billing for keys bound to this group. Stored as basis points.",
       "status": "Disabled groups are skipped by routing.",
+      "fallbackGroup": "When every channel in this group is exhausted (or tripped open by the circuit breaker), failover cascades to this group's channels. Leave empty for no cross-group failover. The server rejects a target that would form a loop or chain too deep.",
       "description": "Optional note describing what this group is for."
     },
     "ratioEquiv": "= ×{{mult}} ({{sign}}{{pct}}%) · {{bps}} bps",

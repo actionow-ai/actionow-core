@@ -56,7 +56,9 @@ async function hasCheck(name: string): Promise<boolean> {
 
 describe('migration 0015 — schema hardening (Track A)', () => {
   it('adds created_at where it was missing', async () => {
-    for (const t of ['oauth_session', 'gift_code', 'dify_binding', 'channel_health']) {
+    // `channel_health` (also hardened by 0015) is dropped in 0048 (resilience-v2),
+    // so it is no longer part of the final schema asserted here.
+    for (const t of ['oauth_session', 'gift_code', 'dify_binding']) {
       expect(await hasColumn(t, 'created_at'), `${t}.created_at`).toBe(true);
     }
   });

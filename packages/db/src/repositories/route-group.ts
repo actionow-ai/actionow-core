@@ -29,6 +29,8 @@ export interface CreateRouteGroupInput {
   readonly name: string;
   /** Customer-price ratio in basis points (`10000 = 1.0×`); defaults to 10000. */
   readonly groupRatioBps?: number | undefined;
+  /** Cross-group failover target (弹性2.0); another group's id, or null for none. */
+  readonly fallbackGroupId?: string | null | undefined;
   /** `active` (default) | `disabled`. */
   readonly status?: string | undefined;
   readonly description?: string | null | undefined;
@@ -44,6 +46,7 @@ export async function createRouteGroup(
     .values({
       name: input.name,
       ...(input.groupRatioBps !== undefined ? { groupRatioBps: input.groupRatioBps } : {}),
+      ...(input.fallbackGroupId !== undefined ? { fallbackGroupId: input.fallbackGroupId } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
     })
@@ -97,6 +100,8 @@ export async function getRouteGroupByName(
 export interface UpdateRouteGroupInput {
   readonly name?: string | undefined;
   readonly groupRatioBps?: number | undefined;
+  /** Set / clear (null) the cross-group failover target (弹性2.0). */
+  readonly fallbackGroupId?: string | null | undefined;
   readonly status?: string | undefined;
   readonly description?: string | null | undefined;
 }
@@ -114,6 +119,7 @@ export async function updateRouteGroup(
   const set: Partial<InferInsertModel<typeof routeGroup>> = {};
   if (patch.name !== undefined) set.name = patch.name;
   if (patch.groupRatioBps !== undefined) set.groupRatioBps = patch.groupRatioBps;
+  if (patch.fallbackGroupId !== undefined) set.fallbackGroupId = patch.fallbackGroupId;
   if (patch.status !== undefined) set.status = patch.status;
   if (patch.description !== undefined) set.description = patch.description;
   if (Object.keys(set).length === 0) {
@@ -258,6 +264,93 @@ export async function listGroupChannelsForResource(
     )
     .orderBy(desc(routeGroupChannel.priority), desc(routeGroupChannel.weight));
   return rows.map((r) => ({ ...r.channel, priority: r.priority, weight: r.weight }));
+}
+
+/**
+ * The per-hop priority demotion for cross-group failover (弹性2.0): hop `k`'s
+ * channels are demoted by `k × OFFSET`, so each fallback group sorts STRICTLY
+ * below every tier of the groups ahead of it. Large enough that it dwarfs any
+ * realistic per-(group,channel) priority spread (which is human-set, small).
+ * Composes additively with the catalog-supply `UNLINKED_PRIORITY_OFFSET`.
+ */
+export const FALLBACK_TIER_OFFSET = 1_000_000;
+
+/** Max number of groups walked in a `fallback_group_id` chain (incl. the start). */
+export const FALLBACK_MAX_DEPTH = 5;
+
+/**
+ * Cross-group failover candidate set (弹性2.0): start at `groupId` and walk the
+ * `route_group.fallback_group_id` chain, concatenating each group's
+ * {@link listGroupChannelsForResource} candidates. Hop `k`'s channels are demoted
+ * by `k × {@link FALLBACK_TIER_OFFSET}` so a fallback group's whole set sorts
+ * strictly below the group ahead of it — the engine exhausts a group's tiers
+ * before cascading to the next group.
+ *
+ * Guards: a cycle (a group already visited) STOPS the walk (each group
+ * contributes at most once), and the chain is capped at
+ * {@link FALLBACK_MAX_DEPTH} hops. A disabled/soft-deleted group in the chain
+ * contributes zero channels (its `listGroupChannelsForResource` is empty) but a
+ * still-set `fallbackGroupId` is followed; a soft-deleted group resolves to
+ * `undefined` via {@link getRouteGroupById}, ending the walk.
+ *
+ * Data layer only — Track 4 / the breaker filter + weighted pick + failover
+ * cascade run on top of this ordered candidate list. With no fallback set this
+ * is exactly {@link listGroupChannelsForResource}.
+ */
+export async function listCandidateChannelsWithFallback(
+  db: DbOrTx,
+  resourceId: string,
+  groupId: string,
+): Promise<GroupChannelForResource[]> {
+  const out: GroupChannelForResource[] = [];
+  const seen = new Set<string>();
+  let current: string | null = groupId;
+  for (let hop = 0; hop < FALLBACK_MAX_DEPTH && current !== null && !seen.has(current); hop++) {
+    seen.add(current);
+    const rows = await listGroupChannelsForResource(db, resourceId, current);
+    const offset = hop * FALLBACK_TIER_OFFSET;
+    for (const r of rows) out.push({ ...r, priority: r.priority - offset });
+    const grp = await getRouteGroupById(db, current);
+    current = grp?.fallbackGroupId ?? null;
+  }
+  return out;
+}
+
+/**
+ * The reason a proposed `fallback_group_id` is rejected, returned by
+ * {@link checkFallbackChain} (弹性2.0):
+ * - `'cycle'` — following the proposed chain would revisit `sourceId` (a loop,
+ *   incl. a direct self-reference A→A).
+ * - `'too-deep'` — the resulting chain would exceed {@link FALLBACK_MAX_DEPTH}
+ *   groups (incl. the source), i.e. failover would cascade too far.
+ *
+ * Pure, DB-agnostic walk: the caller supplies a `resolveFallback(id)` that yields
+ * a group's current `fallback_group_id` (or `null`/`undefined` when the group has
+ * none / no longer exists). Returns `null` when the proposed target is safe.
+ *
+ * The walk treats `sourceId → proposedTarget` as hop 1 and then follows each
+ * group's EXISTING fallback. `seen` starts with `sourceId` so any path back to it
+ * is a cycle. Depth counts groups in the chain starting at the source: the source
+ * itself is depth 1, the proposed target depth 2, etc.; > {@link FALLBACK_MAX_DEPTH}
+ * is `'too-deep'`.
+ */
+export async function checkFallbackChain(
+  sourceId: string,
+  proposedTarget: string,
+  resolveFallback: (id: string) => Promise<string | null | undefined>,
+): Promise<'cycle' | 'too-deep' | null> {
+  const seen = new Set<string>([sourceId]);
+  let current: string | null = proposedTarget;
+  // `sourceId` is depth 1; the proposed target is the second group in the chain.
+  let depth = 1;
+  while (current !== null) {
+    depth += 1;
+    if (seen.has(current)) return 'cycle';
+    if (depth > FALLBACK_MAX_DEPTH) return 'too-deep';
+    seen.add(current);
+    current = (await resolveFallback(current)) ?? null;
+  }
+  return null;
 }
 
 // ----- api_key ↔ route_group binding -----
