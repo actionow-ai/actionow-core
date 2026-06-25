@@ -61,6 +61,8 @@ export const qk = {
   consolePayments: () => ['console', 'payments'] as const,
   consolePaymentIntent: (id: string) => ['console', 'payments', 'intent', id] as const,
   consoleMe: () => ['console', 'me'] as const,
+  // Tenant-org sub-users (RBAC v1; admin-only Members page).
+  consoleUsers: () => ['console', 'users'] as const,
   consoleBalance: () => ['console', 'balance'] as const,
   consoleFiles: (kind?: string) =>
     kind === undefined ? (['console', 'files'] as const) : (['console', 'files', kind] as const),

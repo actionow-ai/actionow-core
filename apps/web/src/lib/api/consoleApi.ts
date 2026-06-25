@@ -9,15 +9,18 @@ import type {
   ConsoleChangePasswordBody,
   ConsoleCreateApiKeyBody,
   ConsoleCreateIntentBody,
+  ConsoleCreateUserBody,
   ConsoleFileView,
   ConsoleIntentView,
   ConsoleLimitStatusView,
   ConsoleMeView,
   ConsoleModelView,
   ConsolePaymentView,
+  ConsoleUpdateUserBody,
   ConsoleUsageLogView,
   ConsoleUsageRollupView,
   ConsoleUsageView,
+  ConsoleUserView,
   FileView,
   Page,
   PresignUploadBody,
@@ -122,6 +125,31 @@ export function makeConsoleApi(sdk: SdkClient, rawClient: ApiClient, onUnauthori
     // contract type.
     limits: (): Promise<ConsoleLimitStatusView> =>
       rawClient.get<ConsoleLimitStatusView>('/console/limits'),
+
+    // --- Tenant-org sub-users (RBAC v1, tenant-admin-only). RAW: these console
+    // routes aren't in the generated SDK path set (matching the limit-plan /
+    // audit-log precedent), but their bodies/views are contract types. The
+    // TenantAdminGuard enforces the 403 server-side; the FE additionally hides
+    // these controls from members (UX-only gate, never the security boundary). ---
+    // List unwraps the keyset envelope's `data` (like `admin.listAuditLog`);
+    // the Members page renders a non-paginated DataTable of the tenant's seats.
+    listUsers: async (): Promise<ConsoleUserView[]> => {
+      const env = await rawClient.get<{
+        data: ConsoleUserView[];
+        next_cursor: string | null;
+      }>('/console/users');
+      return env.data;
+    },
+    // Create returns `{ id, email }` ONLY (the server never echoes the password).
+    createUser: (body: ConsoleCreateUserBody): Promise<{ id: string; email: string }> =>
+      rawClient.post<{ id: string; email: string }>('/console/users', body),
+    // Promote/demote (`tenantRole`) and/or soft-disable (`status`) a sub-user.
+    updateUser: (id: string, body: ConsoleUpdateUserBody): Promise<ConsoleUserView> =>
+      rawClient.patch<ConsoleUserView>(`/console/users/${id}`, body),
+    // Disable returns `{ id, status: 'disabled' }` (200, not a 204) — return void.
+    disableUser: async (id: string): Promise<void> => {
+      await rawClient.delete<{ id: string; status: string }>(`/console/users/${id}`);
+    },
   };
 }
 
