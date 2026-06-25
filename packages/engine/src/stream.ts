@@ -254,7 +254,14 @@ export async function* createChatSettlingStream(
     // next. Once the upstream yields a non-error first event, the channel is
     // committed — the client has begun receiving that stream and we cannot
     // restart elsewhere; a later error is handled in-band in Phase 2.
-    const available = await availableChannels({ db: deps.db, now, rng }, deps.req.channels);
+    // TODO(resilience-v2 Task 8): inject the constructed `breaker` here so the
+    // pre-first-event stream failover is breaker-aware. Task 7 threads the
+    // resolved model into the signature; the store is wired at the app layer next.
+    const available = await availableChannels(
+      { db: deps.db, now, rng },
+      deps.req.channels,
+      deps.req.usageLogModel ?? '*',
+    );
     if (available.length === 0) {
       failure = {
         code: 'internal_error',

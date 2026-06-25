@@ -475,8 +475,12 @@ export class ExecutionService {
     let response: ChatResponse;
     try {
       response = await routeBlocking(
+        // TODO(resilience-v2 Task 8): inject the constructed `breaker` here. Task
+        // 7 threads the resolved model so the signature is in place; the store is
+        // wired at the app layer next.
         { db: this.deps.db, now: this.deps.now, rng: this.deps.rng ?? Math.random },
         req.channels,
+        req.usageLogModel ?? '*',
         async (channel) => {
           const adapter = this.deps.adapters.get(channel.providerType ?? req.resource.providerType);
           if (adapter.chat === undefined) {
@@ -687,8 +691,10 @@ export class ExecutionService {
     let result: SubmitResult;
     try {
       result = await routeBlocking(
+        // TODO(resilience-v2 Task 8): inject the constructed `breaker` here.
         { db: this.deps.db, now: this.deps.now, rng },
         req.channels,
+        req.usageLogModel ?? '*',
         async (channel) => {
           // Select the adapter per channel so channels under one resource can
           // target different providers (cross-provider failover).
