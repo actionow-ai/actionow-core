@@ -20,6 +20,14 @@ export interface CreateFaultPolicyInput {
   readonly idleTimeoutMs?: number | null | undefined;
   readonly retryCodes?: number[] | null | undefined;
   readonly retryMessages?: string[] | null | undefined;
+  readonly breakerEnabled?: boolean | undefined;
+  readonly breakerWindowMs?: number | null | undefined;
+  readonly breakerMinVolume?: number | null | undefined;
+  readonly breakerFailureRatePct?: number | null | undefined;
+  readonly breakerHalfOpenTrial?: number | null | undefined;
+  readonly breakerHalfOpenSuccesses?: number | null | undefined;
+  readonly breakerOpenCooldownMs?: number | null | undefined;
+  readonly breakerOpenCooldownCapMs?: number | null | undefined;
   readonly status?: string | undefined;
   readonly description?: string | null | undefined;
 }
@@ -43,6 +51,24 @@ export async function createFaultPolicy(
       ...(input.idleTimeoutMs !== undefined ? { idleTimeoutMs: input.idleTimeoutMs } : {}),
       ...(input.retryCodes !== undefined ? { retryCodes: input.retryCodes } : {}),
       ...(input.retryMessages !== undefined ? { retryMessages: input.retryMessages } : {}),
+      ...(input.breakerEnabled !== undefined ? { breakerEnabled: input.breakerEnabled } : {}),
+      ...(input.breakerWindowMs !== undefined ? { breakerWindowMs: input.breakerWindowMs } : {}),
+      ...(input.breakerMinVolume !== undefined ? { breakerMinVolume: input.breakerMinVolume } : {}),
+      ...(input.breakerFailureRatePct !== undefined
+        ? { breakerFailureRatePct: input.breakerFailureRatePct }
+        : {}),
+      ...(input.breakerHalfOpenTrial !== undefined
+        ? { breakerHalfOpenTrial: input.breakerHalfOpenTrial }
+        : {}),
+      ...(input.breakerHalfOpenSuccesses !== undefined
+        ? { breakerHalfOpenSuccesses: input.breakerHalfOpenSuccesses }
+        : {}),
+      ...(input.breakerOpenCooldownMs !== undefined
+        ? { breakerOpenCooldownMs: input.breakerOpenCooldownMs }
+        : {}),
+      ...(input.breakerOpenCooldownCapMs !== undefined
+        ? { breakerOpenCooldownCapMs: input.breakerOpenCooldownCapMs }
+        : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
     })
@@ -110,6 +136,14 @@ export interface UpdateFaultPolicyInput {
   readonly idleTimeoutMs?: number | null | undefined;
   readonly retryCodes?: number[] | null | undefined;
   readonly retryMessages?: string[] | null | undefined;
+  readonly breakerEnabled?: boolean | undefined;
+  readonly breakerWindowMs?: number | null | undefined;
+  readonly breakerMinVolume?: number | null | undefined;
+  readonly breakerFailureRatePct?: number | null | undefined;
+  readonly breakerHalfOpenTrial?: number | null | undefined;
+  readonly breakerHalfOpenSuccesses?: number | null | undefined;
+  readonly breakerOpenCooldownMs?: number | null | undefined;
+  readonly breakerOpenCooldownCapMs?: number | null | undefined;
   readonly status?: string | undefined;
   readonly description?: string | null | undefined;
 }
@@ -132,6 +166,19 @@ export async function updateFaultPolicy(
   if (patch.idleTimeoutMs !== undefined) set.idleTimeoutMs = patch.idleTimeoutMs;
   if (patch.retryCodes !== undefined) set.retryCodes = patch.retryCodes;
   if (patch.retryMessages !== undefined) set.retryMessages = patch.retryMessages;
+  if (patch.breakerEnabled !== undefined) set.breakerEnabled = patch.breakerEnabled;
+  if (patch.breakerWindowMs !== undefined) set.breakerWindowMs = patch.breakerWindowMs;
+  if (patch.breakerMinVolume !== undefined) set.breakerMinVolume = patch.breakerMinVolume;
+  if (patch.breakerFailureRatePct !== undefined)
+    set.breakerFailureRatePct = patch.breakerFailureRatePct;
+  if (patch.breakerHalfOpenTrial !== undefined)
+    set.breakerHalfOpenTrial = patch.breakerHalfOpenTrial;
+  if (patch.breakerHalfOpenSuccesses !== undefined)
+    set.breakerHalfOpenSuccesses = patch.breakerHalfOpenSuccesses;
+  if (patch.breakerOpenCooldownMs !== undefined)
+    set.breakerOpenCooldownMs = patch.breakerOpenCooldownMs;
+  if (patch.breakerOpenCooldownCapMs !== undefined)
+    set.breakerOpenCooldownCapMs = patch.breakerOpenCooldownCapMs;
   if (patch.status !== undefined) set.status = patch.status;
   if (patch.description !== undefined) set.description = patch.description;
   if (Object.keys(set).length === 0) {

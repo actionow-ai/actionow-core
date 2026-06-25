@@ -2061,6 +2061,10 @@
           "group_ratio_bps": {
             "type": "number"
           },
+          "fallback_group_id": {
+            "type": "string",
+            "nullable": true
+          },
           "status": {
             "type": "string"
           },
@@ -2079,6 +2083,7 @@
           "id",
           "name",
           "group_ratio_bps",
+          "fallback_group_id",
           "status",
           "description",
           "created_at",
@@ -3918,6 +3923,11 @@
             "minimum": 0,
             "exclusiveMinimum": true
           },
+          "fallbackGroupId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
           "description": {
             "type": "string"
           },
@@ -3944,6 +3954,11 @@
             "type": "integer",
             "minimum": 0,
             "exclusiveMinimum": true
+          },
+          "fallbackGroupId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
           },
           "status": {
             "type": "string",
@@ -4009,6 +4024,37 @@
               "type": "string"
             }
           },
+          "breaker_enabled": {
+            "type": "boolean"
+          },
+          "breaker_window_ms": {
+            "type": "number",
+            "nullable": true
+          },
+          "breaker_min_volume": {
+            "type": "number",
+            "nullable": true
+          },
+          "breaker_failure_rate_pct": {
+            "type": "number",
+            "nullable": true
+          },
+          "breaker_half_open_trial": {
+            "type": "number",
+            "nullable": true
+          },
+          "breaker_half_open_successes": {
+            "type": "number",
+            "nullable": true
+          },
+          "breaker_open_cooldown_ms": {
+            "type": "number",
+            "nullable": true
+          },
+          "breaker_open_cooldown_cap_ms": {
+            "type": "number",
+            "nullable": true
+          },
           "status": {
             "type": "string"
           },
@@ -4036,6 +4082,14 @@
           "idle_timeout_ms",
           "retry_codes",
           "retry_messages",
+          "breaker_enabled",
+          "breaker_window_ms",
+          "breaker_min_volume",
+          "breaker_failure_rate_pct",
+          "breaker_half_open_trial",
+          "breaker_half_open_successes",
+          "breaker_open_cooldown_ms",
+          "breaker_open_cooldown_cap_ms",
           "status",
           "description",
           "created_at",
@@ -4112,6 +4166,38 @@
               "maxLength": 200
             },
             "maxItems": 50
+          },
+          "breakerEnabled": {
+            "type": "boolean"
+          },
+          "breakerWindowMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerMinVolume": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerFailureRatePct": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "breakerHalfOpenTrial": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerHalfOpenSuccesses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerOpenCooldownMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerOpenCooldownCapMs": {
+            "type": "integer",
+            "minimum": 0
           },
           "status": {
             "type": "string",
@@ -4198,6 +4284,38 @@
               "maxLength": 200
             },
             "maxItems": 50
+          },
+          "breakerEnabled": {
+            "type": "boolean"
+          },
+          "breakerWindowMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerMinVolume": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerFailureRatePct": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "breakerHalfOpenTrial": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerHalfOpenSuccesses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerOpenCooldownMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breakerOpenCooldownCapMs": {
+            "type": "integer",
+            "minimum": 0
           },
           "status": {
             "type": "string",

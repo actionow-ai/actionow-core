@@ -20,6 +20,8 @@ export const routeGroupViewSchema = z.object({
   id: z.string(),
   name: z.string(),
   group_ratio_bps: z.number(),
+  /** Cross-group failover target (弹性2.0): cascade here when this group's channels are exhausted; null → no fallback. */
+  fallback_group_id: z.string().nullable(),
   status: z.string(),
   description: z.string().nullable(),
   created_at: z.string(),

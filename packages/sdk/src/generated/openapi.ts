@@ -10782,6 +10782,7 @@ export interface components {
             id: string;
             name: string;
             group_ratio_bps: number;
+            fallback_group_id: string | null;
             status: string;
             description: string | null;
             created_at: string;
@@ -11271,6 +11272,8 @@ export interface components {
         CreateRouteGroupBody: {
             name: string;
             groupRatioBps?: number;
+            /** Format: uuid */
+            fallbackGroupId?: string | null;
             description?: string;
             /** @enum {string} */
             status?: "active" | "disabled";
@@ -11278,6 +11281,8 @@ export interface components {
         UpdateRouteGroupBody: {
             name?: string;
             groupRatioBps?: number;
+            /** Format: uuid */
+            fallbackGroupId?: string | null;
             /** @enum {string} */
             status?: "active" | "disabled";
             description?: string | null;
@@ -11295,6 +11300,14 @@ export interface components {
             idle_timeout_ms: number | null;
             retry_codes: number[] | null;
             retry_messages: string[] | null;
+            breaker_enabled: boolean;
+            breaker_window_ms: number | null;
+            breaker_min_volume: number | null;
+            breaker_failure_rate_pct: number | null;
+            breaker_half_open_trial: number | null;
+            breaker_half_open_successes: number | null;
+            breaker_open_cooldown_ms: number | null;
+            breaker_open_cooldown_cap_ms: number | null;
             status: string;
             description: string | null;
             created_at: string;
@@ -11313,6 +11326,14 @@ export interface components {
             idleTimeoutMs?: number | null;
             retryCodes?: number[] | null;
             retryMessages?: string[] | null;
+            breakerEnabled?: boolean;
+            breakerWindowMs?: number;
+            breakerMinVolume?: number;
+            breakerFailureRatePct?: number;
+            breakerHalfOpenTrial?: number;
+            breakerHalfOpenSuccesses?: number;
+            breakerOpenCooldownMs?: number;
+            breakerOpenCooldownCapMs?: number;
             /** @enum {string} */
             status?: "active" | "disabled";
             description?: string;
@@ -11330,6 +11351,14 @@ export interface components {
             idleTimeoutMs?: number | null;
             retryCodes?: number[] | null;
             retryMessages?: string[] | null;
+            breakerEnabled?: boolean;
+            breakerWindowMs?: number;
+            breakerMinVolume?: number;
+            breakerFailureRatePct?: number;
+            breakerHalfOpenTrial?: number;
+            breakerHalfOpenSuccesses?: number;
+            breakerOpenCooldownMs?: number;
+            breakerOpenCooldownCapMs?: number;
             /** @enum {string} */
             status?: "active" | "disabled";
             description?: string | null;

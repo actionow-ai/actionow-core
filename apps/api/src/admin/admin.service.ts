@@ -2115,6 +2115,24 @@ export class AdminService {
       ...(dto.idleTimeoutMs !== undefined ? { idleTimeoutMs: dto.idleTimeoutMs } : {}),
       ...(dto.retryCodes !== undefined ? { retryCodes: dto.retryCodes } : {}),
       ...(dto.retryMessages !== undefined ? { retryMessages: dto.retryMessages } : {}),
+      ...(dto.breakerEnabled !== undefined ? { breakerEnabled: dto.breakerEnabled } : {}),
+      ...(dto.breakerWindowMs !== undefined ? { breakerWindowMs: dto.breakerWindowMs } : {}),
+      ...(dto.breakerMinVolume !== undefined ? { breakerMinVolume: dto.breakerMinVolume } : {}),
+      ...(dto.breakerFailureRatePct !== undefined
+        ? { breakerFailureRatePct: dto.breakerFailureRatePct }
+        : {}),
+      ...(dto.breakerHalfOpenTrial !== undefined
+        ? { breakerHalfOpenTrial: dto.breakerHalfOpenTrial }
+        : {}),
+      ...(dto.breakerHalfOpenSuccesses !== undefined
+        ? { breakerHalfOpenSuccesses: dto.breakerHalfOpenSuccesses }
+        : {}),
+      ...(dto.breakerOpenCooldownMs !== undefined
+        ? { breakerOpenCooldownMs: dto.breakerOpenCooldownMs }
+        : {}),
+      ...(dto.breakerOpenCooldownCapMs !== undefined
+        ? { breakerOpenCooldownCapMs: dto.breakerOpenCooldownCapMs }
+        : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
       ...(dto.description !== undefined ? { description: dto.description } : {}),
     };
@@ -2153,6 +2171,19 @@ export class AdminService {
     if (dto.idleTimeoutMs !== undefined) patch.idleTimeoutMs = dto.idleTimeoutMs;
     if (dto.retryCodes !== undefined) patch.retryCodes = dto.retryCodes;
     if (dto.retryMessages !== undefined) patch.retryMessages = dto.retryMessages;
+    if (dto.breakerEnabled !== undefined) patch.breakerEnabled = dto.breakerEnabled;
+    if (dto.breakerWindowMs !== undefined) patch.breakerWindowMs = dto.breakerWindowMs;
+    if (dto.breakerMinVolume !== undefined) patch.breakerMinVolume = dto.breakerMinVolume;
+    if (dto.breakerFailureRatePct !== undefined)
+      patch.breakerFailureRatePct = dto.breakerFailureRatePct;
+    if (dto.breakerHalfOpenTrial !== undefined)
+      patch.breakerHalfOpenTrial = dto.breakerHalfOpenTrial;
+    if (dto.breakerHalfOpenSuccesses !== undefined)
+      patch.breakerHalfOpenSuccesses = dto.breakerHalfOpenSuccesses;
+    if (dto.breakerOpenCooldownMs !== undefined)
+      patch.breakerOpenCooldownMs = dto.breakerOpenCooldownMs;
+    if (dto.breakerOpenCooldownCapMs !== undefined)
+      patch.breakerOpenCooldownCapMs = dto.breakerOpenCooldownCapMs;
     if (dto.status !== undefined) patch.status = dto.status;
     if (dto.description !== undefined) patch.description = dto.description;
     let row: FaultPolicyRow | undefined;
@@ -2188,6 +2219,7 @@ export class AdminService {
     const input: CreateRouteGroupInput = {
       name: dto.name,
       ...(dto.groupRatioBps !== undefined ? { groupRatioBps: dto.groupRatioBps } : {}),
+      ...(dto.fallbackGroupId !== undefined ? { fallbackGroupId: dto.fallbackGroupId } : {}),
       ...(dto.description !== undefined ? { description: dto.description } : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
     };
@@ -2219,11 +2251,13 @@ export class AdminService {
     const patch: {
       name?: string;
       groupRatioBps?: number;
+      fallbackGroupId?: string | null;
       status?: string;
       description?: string | null;
     } = {};
     if (dto.name !== undefined) patch.name = dto.name;
     if (dto.groupRatioBps !== undefined) patch.groupRatioBps = dto.groupRatioBps;
+    if (dto.fallbackGroupId !== undefined) patch.fallbackGroupId = dto.fallbackGroupId;
     if (dto.status !== undefined) patch.status = dto.status;
     if (dto.description !== undefined) patch.description = dto.description;
     let row: RouteGroupRow | undefined;

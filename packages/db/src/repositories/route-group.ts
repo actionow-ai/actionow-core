@@ -29,6 +29,8 @@ export interface CreateRouteGroupInput {
   readonly name: string;
   /** Customer-price ratio in basis points (`10000 = 1.0×`); defaults to 10000. */
   readonly groupRatioBps?: number | undefined;
+  /** Cross-group failover target (弹性2.0); another group's id, or null for none. */
+  readonly fallbackGroupId?: string | null | undefined;
   /** `active` (default) | `disabled`. */
   readonly status?: string | undefined;
   readonly description?: string | null | undefined;
@@ -44,6 +46,7 @@ export async function createRouteGroup(
     .values({
       name: input.name,
       ...(input.groupRatioBps !== undefined ? { groupRatioBps: input.groupRatioBps } : {}),
+      ...(input.fallbackGroupId !== undefined ? { fallbackGroupId: input.fallbackGroupId } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
     })
@@ -97,6 +100,8 @@ export async function getRouteGroupByName(
 export interface UpdateRouteGroupInput {
   readonly name?: string | undefined;
   readonly groupRatioBps?: number | undefined;
+  /** Set / clear (null) the cross-group failover target (弹性2.0). */
+  readonly fallbackGroupId?: string | null | undefined;
   readonly status?: string | undefined;
   readonly description?: string | null | undefined;
 }
@@ -114,6 +119,7 @@ export async function updateRouteGroup(
   const set: Partial<InferInsertModel<typeof routeGroup>> = {};
   if (patch.name !== undefined) set.name = patch.name;
   if (patch.groupRatioBps !== undefined) set.groupRatioBps = patch.groupRatioBps;
+  if (patch.fallbackGroupId !== undefined) set.fallbackGroupId = patch.fallbackGroupId;
   if (patch.status !== undefined) set.status = patch.status;
   if (patch.description !== undefined) set.description = patch.description;
   if (Object.keys(set).length === 0) {
