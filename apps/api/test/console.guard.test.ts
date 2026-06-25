@@ -80,4 +80,20 @@ describe('ConsoleGuard', () => {
     const attached = (req as unknown as { console: Record<string, unknown> }).console;
     expect(attached).toMatchObject({ userId: 'u1', tenantId: 'tenant-1', accountId: 'account-1' });
   });
+  it('hydrates tenantRole from the loaded user', async () => {
+    const t = await token('u1');
+    const req = { headers: { authorization: `Bearer ${t}` } } as unknown as Request;
+    const ctx = { switchToHttp: () => ({ getRequest: () => req }) } as unknown as ExecutionContext;
+    await expect(guard(repoWith({ tenantRole: 'member' })).canActivate(ctx)).resolves.toBe(true);
+    const attached = (req as unknown as { console: Record<string, unknown> }).console;
+    expect(attached.tenantRole).toBe('member');
+  });
+  it('defaults tenantRole to admin when the user row has null tenant_role', async () => {
+    const t = await token('u1');
+    const req = { headers: { authorization: `Bearer ${t}` } } as unknown as Request;
+    const ctx = { switchToHttp: () => ({ getRequest: () => req }) } as unknown as ExecutionContext;
+    await expect(guard(repoWith({ tenantRole: null })).canActivate(ctx)).resolves.toBe(true);
+    const attached = (req as unknown as { console: Record<string, unknown> }).console;
+    expect(attached.tenantRole).toBe('admin');
+  });
 });

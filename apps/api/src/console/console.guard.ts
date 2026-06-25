@@ -15,6 +15,8 @@ export interface ConsoleContext {
   readonly userId: string;
   readonly tenantId: string;
   readonly accountId: string;
+  /** The operator's seat level in their tenant — `'admin'` or `'member'`. */
+  readonly tenantRole: string;
 }
 
 /** An express request carrying the guard-populated {@link ConsoleContext}. */
@@ -90,7 +92,15 @@ export class ConsoleGuard implements CanActivate {
       throw engineUnauthorized(`no account for tenant ${user.tenantId}`);
     }
 
-    req.console = { userId: user.id, tenantId: user.tenantId, accountId: account.id };
+    req.console = {
+      userId: user.id,
+      tenantId: user.tenantId,
+      accountId: account.id,
+      // DB-resolved (Path A): never signed into the JWT. `?? 'admin'` is a
+      // belt-and-suspenders default — after the rbac backfill every `role='user'`
+      // row has a non-null `tenant_role`.
+      tenantRole: user.tenantRole ?? 'admin',
+    };
     return true;
   }
 }
