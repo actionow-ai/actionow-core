@@ -14,8 +14,6 @@ CREATE TABLE "channel_breaker" (
 	CONSTRAINT "channel_breaker_state_allowed" CHECK ("channel_breaker"."state" IN ('closed','open','half_open'))
 );
 --> statement-breakpoint
-ALTER TABLE "channel_health" DISABLE ROW LEVEL SECURITY;--> statement-breakpoint
-DROP TABLE "channel_health" CASCADE;--> statement-breakpoint
 ALTER TABLE "fault_policy" ADD COLUMN "breaker_enabled" boolean DEFAULT true NOT NULL;--> statement-breakpoint
 ALTER TABLE "fault_policy" ADD COLUMN "breaker_window_ms" integer;--> statement-breakpoint
 ALTER TABLE "fault_policy" ADD COLUMN "breaker_min_volume" integer;--> statement-breakpoint

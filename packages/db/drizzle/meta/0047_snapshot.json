@@ -1,5 +1,5 @@
 {
-  "id": "e21988f0-6132-4bbe-9d94-8fe679dd1e43",
+  "id": "297dde47-194d-4efd-96f5-cc6b791d6581",
   "prevId": "b78bc1a0-2f5f-485b-903f-a1745e083173",
   "version": "7",
   "dialect": "postgresql",
@@ -443,6 +443,72 @@
           "value": "\"audit_log\".\"actor_type\" IN ('operator', 'member', 'system')"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.channel_health": {
+      "name": "channel_health",
+      "schema": "",
+      "columns": {
+        "channel_id": {
+          "name": "channel_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "consecutive_failures": {
+          "name": "consecutive_failures",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "cooldown_until": {
+          "name": "cooldown_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_failure_at": {
+          "name": "last_failure_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "channel_health_channel_id_upstream_channel_id_fk": {
+          "name": "channel_health_channel_id_upstream_channel_id_fk",
+          "tableFrom": "channel_health",
+          "tableTo": "upstream_channel",
+          "columnsFrom": [
+            "channel_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.dify_binding": {

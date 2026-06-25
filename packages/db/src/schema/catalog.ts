@@ -125,9 +125,30 @@ export const upstreamChannel = pgTable(
   ],
 );
 
-// `channel_health` (the binary P0a cooldown table) is DROPPED in migration 0047
-// (弹性2.0): its per-(channel) cooldown role is superseded by the stateful
-// per-(channel,model) circuit breaker — see `./channel-breaker.js`.
+/**
+ * Per-channel routing health (P0a): a failing `upstream_channel` is cooled down
+ * until `cooldown_until` so the weighted router skips it. Persisted (not
+ * in-memory) so cooldown is consistent across replicas via the shared DB. Only
+ * written on a failure; `consecutive_failures` drives exponential backoff and
+ * resets when the last failure is older than the reset window (so no per-success
+ * write is needed). A row's absence ⇒ the channel is healthy.
+ *
+ * Superseded by the stateful per-(channel,model) circuit breaker (弹性2.0; see
+ * `./channel-breaker.js`). This table + its repo consumers are removed in Task 2
+ * of the resilience-v2 plan, together with the engine/admin repointing — keeping
+ * the drop out of the additive schema commit so the package builds + tests run.
+ */
+export const channelHealth = pgTable('channel_health', {
+  channelId: uuid('channel_id')
+    .primaryKey()
+    .references(() => upstreamChannel.id),
+  consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+  cooldownUntil: timestamp('cooldown_until', { withTimezone: true }),
+  lastFailureAt: timestamp('last_failure_at', { withTimezone: true }),
+  // defaultNow backfills existing rows to "now"; channel_health rows are short-lived (acceptable).
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const difyBinding = pgTable(
   'dify_binding',
