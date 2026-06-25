@@ -11,6 +11,7 @@ const DEFAULT_MESSAGES: Record<UnifiedErrorCode, string> = {
   content_filtered: 'content filtered',
   job_failed: 'job failed',
   unauthorized: 'unauthorized',
+  forbidden: 'forbidden',
   internal_error: 'internal error',
 };
 

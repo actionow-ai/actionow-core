@@ -130,6 +130,7 @@ export class LocalAuthService {
       email: creds.email,
       passwordHash: hashPassword(creds.password),
       role: 'user',
+      tenantRole: 'admin', // a tenant creator owns its tenant — full /app control (rbac)
       emailVerified: false,
       tenantId: tenant.id,
     });

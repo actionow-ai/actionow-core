@@ -3,9 +3,11 @@ import {
   type ApiKeyRow,
   createApiKey,
   type CreatedApiKey,
+  createSubUser,
   type Database,
   disableApiKeyForTenant,
   type FileObject,
+  findUserByEmail,
   findUserById,
   getAccount,
   getIntentByIdForTenant,
@@ -24,11 +26,14 @@ import {
   listLedger,
   listLimitAlertsForSubject,
   listUsageLogsByTenant,
+  listUsersByTenant,
   type PageParams,
   type PaymentIntentRow,
   rollupUsage,
   rotateApiKeyForTenant,
   updateUserPassword,
+  updateUserStatus,
+  updateUserTenantRole,
   type UsageLogRow,
   type UsageRollupQuery,
   type UsageRollupRow,
@@ -226,6 +231,53 @@ export class ConsoleService {
       rules,
       alerts,
     };
+  }
+
+  // ----- sub-users (rbac) -----
+
+  /**
+   * Invite a sub-user (tenant member) under the caller's tenant: a normal USER
+   * row (`role='user'`, `tenant_role='member'`) with the supplied initial
+   * credential hashed. The tenant is the guard's, never a body field; the
+   * plaintext password is never returned or logged. Admin-only at the route.
+   */
+  async inviteSubUser(tenantId: string, email: string, password: string): Promise<UserRecord> {
+    // `email` is globally unique — pre-check so a duplicate invite returns a clean
+    // 400 (mirrors LocalAuthService.register) instead of a raw 23505 → 500.
+    const existing = await findUserByEmail(this.db, email);
+    if (existing !== undefined) {
+      throw engineInvalidInput('email already registered');
+    }
+    return createSubUser(this.db, { tenantId, email, passwordHash: hashPassword(password) });
+  }
+
+  /** List the caller-tenant's operator users (keyset, newest-first). Admin-only at the route. */
+  listUsers(tenantId: string, page: PageParams): Promise<KeysetResult<UserRecord>> {
+    return listUsersByTenant(this.db, tenantId, page);
+  }
+
+  /**
+   * Update a tenant sub-user: promote/demote (`tenantRole`) and/or soft-disable
+   * (`status`), both tenant-scoped (a cross-tenant id never matches → 404).
+   * Returns the updated row. Admin-only at the route.
+   */
+  async updateSubUser(
+    tenantId: string,
+    id: string,
+    patch: {
+      status?: 'active' | 'disabled' | undefined;
+      tenantRole?: 'admin' | 'member' | undefined;
+    },
+  ): Promise<UserRecord> {
+    let row: UserRecord | undefined;
+    if (patch.tenantRole !== undefined) {
+      row = await updateUserTenantRole(this.db, tenantId, id, patch.tenantRole);
+    }
+    if (patch.status !== undefined) {
+      row = await updateUserStatus(this.db, tenantId, id, patch.status);
+    }
+    if (row === undefined) throw engineNotFound(`user ${id} not found`);
+    return row;
   }
 
   // ----- models -----

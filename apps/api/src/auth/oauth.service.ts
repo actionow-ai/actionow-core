@@ -299,6 +299,7 @@ export class OauthService {
       email,
       passwordHash: null,
       role: 'user',
+      tenantRole: 'admin', // a tenant creator owns its tenant — full /app control (rbac)
       emailVerified: canClaimEmail,
       tenantId: tenant.id,
       provider,

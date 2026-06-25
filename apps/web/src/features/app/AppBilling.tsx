@@ -24,6 +24,8 @@ import type {
 } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
 import { STALE_VOLATILE } from '../../lib/query';
+import { AdminOnlyNote } from './AdminOnlyNote';
+import { useTenantRole } from './useTenantRole';
 
 /** A payment status → pill tone (succeeded ok; failed/expired fail; else neutral). */
 function payTone(status: string): 'ok' | 'fail' | 'idle' {
@@ -46,6 +48,8 @@ export function AppBilling() {
   const { t } = useTranslation('console');
   const api = useConsoleApi();
   const qc = useQueryClient();
+  // RBAC v1: top-up is an admin-only write; a member sees balance + history only.
+  const { isTenantAdmin } = useTenantRole();
 
   const [provider, setProvider] = useState<Provider>('stripe');
   const [amount, setAmount] = useState(0);
@@ -159,56 +163,59 @@ export function AppBilling() {
           held={balance.data?.held ?? '0'}
           heldLabel={t('app.billing.held')}
         />
-        <div
-          className="panel"
-          style={{
-            borderRadius: 'var(--r-md)',
-            padding: 'var(--s-4)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--s-4)',
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: 'var(--fs-caption)',
-                textTransform: 'uppercase',
-                letterSpacing: '.06em',
-                color: 'var(--faint)',
-                marginBottom: 'var(--s-2)',
-              }}
-            >
-              {t('app.billing.provider')}
-            </div>
-            <SegmentedControl
-              ariaLabel={t('app.billing.provider')}
-              value={provider}
-              onChange={(v) => setProvider(v as Provider)}
-              options={PROVIDERS.map((p) => ({
-                value: p,
-                label: p.charAt(0).toUpperCase() + p.slice(1),
-              }))}
-            />
-          </div>
-          <NumberField
-            label={t('app.billing.amount')}
-            hint={t('app.billing.amountHint')}
-            value={amount}
-            onChange={setAmount}
-            min={0}
-            step={1}
-          />
-          <TextField label={t('app.billing.currency')} value={currency} onChange={setCurrency} />
-          <Button
-            variant="cta"
-            onClick={() => topup.mutate()}
-            loading={topup.isPending}
-            disabled={!canSubmit}
+        {!isTenantAdmin && <AdminOnlyNote />}
+        {isTenantAdmin && (
+          <div
+            className="panel"
+            style={{
+              borderRadius: 'var(--r-md)',
+              padding: 'var(--s-4)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--s-4)',
+            }}
           >
-            {t('app.billing.submit')}
-          </Button>
-        </div>
+            <div>
+              <div
+                style={{
+                  fontSize: 'var(--fs-caption)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '.06em',
+                  color: 'var(--faint)',
+                  marginBottom: 'var(--s-2)',
+                }}
+              >
+                {t('app.billing.provider')}
+              </div>
+              <SegmentedControl
+                ariaLabel={t('app.billing.provider')}
+                value={provider}
+                onChange={(v) => setProvider(v as Provider)}
+                options={PROVIDERS.map((p) => ({
+                  value: p,
+                  label: p.charAt(0).toUpperCase() + p.slice(1),
+                }))}
+              />
+            </div>
+            <NumberField
+              label={t('app.billing.amount')}
+              hint={t('app.billing.amountHint')}
+              value={amount}
+              onChange={setAmount}
+              min={0}
+              step={1}
+            />
+            <TextField label={t('app.billing.currency')} value={currency} onChange={setCurrency} />
+            <Button
+              variant="cta"
+              onClick={() => topup.mutate()}
+              loading={topup.isPending}
+              disabled={!canSubmit}
+            >
+              {t('app.billing.submit')}
+            </Button>
+          </div>
+        )}
 
         {intent !== null && (
           <div

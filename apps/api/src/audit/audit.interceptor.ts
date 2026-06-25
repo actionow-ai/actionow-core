@@ -13,7 +13,7 @@ import { AuditService } from './audit.service.js';
 
 interface OperatorReq {
   admin?: { adminId?: string };
-  console?: { userId?: string; tenantId?: string };
+  console?: { userId?: string; tenantId?: string; tenantRole?: string };
   params?: Record<string, string>;
   body?: unknown;
 }
@@ -55,6 +55,11 @@ export class AuditInterceptor implements NestInterceptor {
           body: req.body,
         };
         const r = spec.resolve?.(ctx) ?? {};
+        const baseMeta =
+          req.console?.tenantRole !== undefined
+            ? { actor_tenant_role: req.console.tenantRole }
+            : {};
+        const meta = { ...baseMeta, ...(r.meta ?? {}) };
         void this.audit.record({
           actorType,
           actorId,
@@ -63,7 +68,7 @@ export class AuditInterceptor implements NestInterceptor {
           action: spec.action,
           targetType: spec.target,
           targetId: r.targetId ?? null,
-          ...(r.meta !== undefined ? { meta: r.meta } : {}),
+          ...(Object.keys(meta).length > 0 ? { meta } : {}),
         });
       }),
     );

@@ -67,6 +67,27 @@ describe('AuditInterceptor', () => {
     );
   });
 
+  it('records the actor tenant role in meta.actor_tenant_role', async () => {
+    const record = vi.fn().mockResolvedValue(undefined);
+    const audit = { record } as unknown as AuditService;
+    const i = new AuditInterceptor(reflectorWith(SPEC), audit);
+    const req = {
+      console: { userId: 'user-9', tenantId: 't1', tenantRole: 'admin' },
+      params: { id: 'acc-1' },
+      body: { credits: 5 },
+    };
+
+    await lastValueFrom(i.intercept(ctxOf(req), handlerOf({ account_id: 'acc-1' })));
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorType: 'member',
+        actorId: 'user-9',
+        tenantId: 't1',
+        meta: expect.objectContaining({ actor_tenant_role: 'admin', credits: 5 }),
+      }),
+    );
+  });
+
   it('is a passthrough when the handler has no @Audit spec', async () => {
     const record = vi.fn();
     const audit = { record } as unknown as AuditService;

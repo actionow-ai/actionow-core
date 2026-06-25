@@ -23,9 +23,13 @@ import { ADMIN_NAV_CONFIG, type NavConfig } from './nav-config';
 /**
  * Composition root for the console shell: provides the action/filters/back slots
  * and the nav set, and lays out the chrome around the routed `<Outlet/>`. `nav`
- * defaults to the admin nav; the tenant `/app` shell passes its own set.
+ * defaults to the admin nav; the tenant `/app` shell passes its own set. `status`
+ * is an optional always-visible top-bar slot (the `/app` current-role chip).
  */
-export function ConsoleLayout({ nav = ADMIN_NAV_CONFIG }: { nav?: NavConfig } = {}) {
+export function ConsoleLayout({
+  nav = ADMIN_NAV_CONFIG,
+  status = null,
+}: { nav?: NavConfig; status?: ReactNode } = {}) {
   const { pathname } = useLocation();
   const isDesktop = useMediaQuery(BP.md);
   const [action, setAction] = useState<ReactNode>(null);
@@ -83,7 +87,7 @@ export function ConsoleLayout({ nav = ADMIN_NAV_CONFIG }: { nav?: NavConfig } = 
                   gap: 'var(--s-3)',
                 }}
               >
-                <TopBar action={action} filters={filters} back={back} />
+                <TopBar action={action} filters={filters} back={back} status={status} />
                 <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 0 }}>
                   <div ref={viewRef} style={{ width: '100%', height: '100%' }}>
                     <Outlet />

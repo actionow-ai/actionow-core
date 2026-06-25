@@ -38,8 +38,10 @@ class FakeRepo implements LocalAuthRepo {
       emailVerified: input.emailVerified ?? false,
       passwordHash: input.passwordHash ?? null,
       role: input.role ?? 'user',
+      tenantRole: input.tenantRole ?? null,
       status: input.status ?? 'active',
       tenantId: input.tenantId ?? null,
+      createdAt: new Date(),
     };
     this.users.push(user);
     return Promise.resolve(user);
@@ -127,6 +129,7 @@ describe('LocalAuthService.register', () => {
     const user = repo.users[0];
     expect(user?.email).toBe('new@example.com');
     expect(user?.role).toBe('user');
+    expect(user?.tenantRole).toBe('admin'); // a tenant creator is its tenant admin (rbac)
     expect(user?.emailVerified).toBe(false);
     expect(user?.passwordHash).not.toBeNull();
     expect(user?.tenantId).toBeTypeOf('string');
@@ -187,8 +190,10 @@ describe('LocalAuthService.login', () => {
       emailVerified: true,
       passwordHash: hashPassword('right'),
       role: 'user',
+      tenantRole: 'admin',
       status: 'disabled',
       tenantId: null,
+      createdAt: new Date(),
     });
     await expect(
       service(repo).login({ email: 'disabled@example.com', password: 'right' }),

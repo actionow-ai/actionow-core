@@ -1,6 +1,10 @@
+import type { Database, LinkIdentityInput, UserRecord } from '@actionow/db';
 import type { AppEnv } from '@actionow/infra';
+import { JwtService } from '@nestjs/jwt';
 import { describe, expect, it } from 'vitest';
 
+import { LocalAuthService } from '../src/auth/local-auth.service.js';
+import type { OauthProfile, OauthRepo, ProfileResolver } from '../src/auth/oauth.service.js';
 import { OauthService } from '../src/auth/oauth.service.js';
 
 /** A minimal env with both providers configured, for the `start` URL assertions. */
@@ -75,5 +79,50 @@ describe('OauthService.start', () => {
   it('rejects a provider whose creds are unset with invalid_input (no crash)', () => {
     expect(() => service(ENV_NO_PROVIDERS).start('google')).toThrowError(/not configured/i);
     expect(() => service(ENV_NO_PROVIDERS).start('github')).toThrowError(/not configured/i);
+  });
+});
+
+describe('OauthService.callback self-register (rbac)', () => {
+  it('a brand-new oauth user becomes its tenant admin (tenant_role=admin)', async () => {
+    const linkInputs: LinkIdentityInput[] = [];
+    const repo: OauthRepo = {
+      findUserByIdentity: () => Promise.resolve(undefined),
+      findUserByEmail: () => Promise.resolve(undefined),
+      createUserIdentity: () => Promise.resolve({ id: 'ident-1' }),
+      linkIdentityTx: (_db: Database, input: LinkIdentityInput): Promise<UserRecord> => {
+        linkInputs.push(input);
+        const user: UserRecord = {
+          id: 'user-1',
+          email: input.email,
+          emailVerified: input.emailVerified ?? false,
+          passwordHash: null,
+          role: input.role ?? 'user',
+          tenantRole: input.tenantRole ?? null,
+          status: 'active',
+          tenantId: input.tenantId ?? null,
+          createdAt: new Date(),
+        };
+        return Promise.resolve(user);
+      },
+      createTenant: () => Promise.resolve({ id: 'tenant-1' }),
+      createAccount: () => Promise.resolve({ id: 'acct-1' }),
+    };
+    const profile: OauthProfile = {
+      providerUserId: 'gh-123',
+      email: 'new@example.com',
+      emailVerified: true,
+    };
+    const resolver: ProfileResolver = () => Promise.resolve(profile);
+    const localAuth = new LocalAuthService({} as Database, {} as never, new JwtService({}), {
+      ADMIN_JWT_SECRET: 'test-secret',
+    } as unknown as AppEnv);
+    const svc = new OauthService({} as Database, ENV_WITH_PROVIDERS, localAuth, repo, resolver);
+
+    const { token } = await svc.callback('github', 'auth-code');
+    expect(token).toBeTypeOf('string');
+    expect(linkInputs).toHaveLength(1);
+    expect(linkInputs[0]?.role).toBe('user');
+    expect(linkInputs[0]?.tenantRole).toBe('admin');
+    expect(linkInputs[0]?.tenantId).toBe('tenant-1');
   });
 });

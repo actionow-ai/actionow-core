@@ -86,6 +86,11 @@ export const user = pgTable(
     emailVerified: boolean('email_verified').notNull().default(false),
     passwordHash: text('password_hash'),
     role: text('role').notNull().default('user'),
+    // Tenant-org seat level (RBAC v1). NULL for a system admin (`role='admin'`);
+    // an operator inside a tenant (`role='user'`) is `'admin'` (full control of
+    // their tenant) or `'member'` (read-mostly seat). DB-resolved in ConsoleGuard,
+    // never signed into the JWT. The paired CHECK ties it to `role`.
+    tenantRole: text('tenant_role'),
     status: text('status').notNull().default('active'),
     tenantId: uuid('tenant_id').references(() => tenant.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -93,7 +98,17 @@ export const user = pgTable(
   },
   (t) => [
     check('user_role_allowed', sql`${t.role} IN ('user', 'admin')`),
+    // NULL-safe: the `tenant_role IS NOT NULL AND ...` guard keeps the predicate
+    // strictly TRUE/FALSE. Without it, a `role='user'` row with NULL tenant_role
+    // makes the expression evaluate to NULL (unknown), which Postgres treats as a
+    // PASS — so the bad combo would slip through. See migration 0046 + the
+    // schema-constraints test that pins this.
+    check(
+      'user_tenant_role_allowed',
+      sql`(${t.role} = 'admin' AND ${t.tenantRole} IS NULL) OR (${t.role} = 'user' AND ${t.tenantRole} IS NOT NULL AND ${t.tenantRole} IN ('admin','member'))`,
+    ),
     index('user_tenant_idx').on(t.tenantId),
+    index('user_tenant_role_idx').on(t.tenantId, t.tenantRole),
   ],
 );
 

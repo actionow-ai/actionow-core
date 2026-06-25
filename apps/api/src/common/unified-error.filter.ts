@@ -26,6 +26,7 @@ interface ErrorEnvelope {
  * | invalid_input        | 400    |
  * | unauthorized         | 401    |
  * | insufficient_credits | 402    |
+ * | forbidden            | 403    |
  * | resource_not_found   | 404    |
  * | rate_limited         | 429    |
  * | upstream_error       | 502    |
@@ -34,7 +35,7 @@ interface ErrorEnvelope {
  * | job_failed           | 500    |
  * | internal_error       | 500    |
  */
-function statusForCode(code: UnifiedErrorCode): number {
+export function statusForCode(code: UnifiedErrorCode): number {
   switch (code) {
     case 'invalid_input':
       return 400;
@@ -42,6 +43,8 @@ function statusForCode(code: UnifiedErrorCode): number {
       return 401;
     case 'insufficient_credits':
       return 402;
+    case 'forbidden':
+      return 403;
     case 'resource_not_found':
       return 404;
     case 'content_filtered':
@@ -123,8 +126,9 @@ export class UnifiedErrorFilter implements ExceptionFilter {
       case 400:
         return { code: 'invalid_input', message, retryable: false };
       case 401:
-      case 403:
         return { code: 'unauthorized', message, retryable: false };
+      case 403:
+        return { code: 'forbidden', message, retryable: false };
       case 404:
         return { code: 'resource_not_found', message, retryable: false };
       case 429:

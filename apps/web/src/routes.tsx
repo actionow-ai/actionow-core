@@ -1,6 +1,5 @@
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 
-import { TENANT_NAV_CONFIG } from './components/console/app-nav';
 import { ConsoleLayout } from './components/console/ConsoleLayout';
 import { AppBilling } from './features/app/AppBilling';
 import { AppKeys } from './features/app/AppKeys';
@@ -10,6 +9,8 @@ import { AppOverview } from './features/app/AppOverview';
 import { AppSettings } from './features/app/AppSettings';
 import { AppUsage } from './features/app/AppUsage';
 import { MemberPortal } from './features/app/MemberPortal';
+import { MembersPage } from './features/app/MembersPage';
+import { TenantConsole } from './features/app/TenantConsole';
 import { AuthPage } from './features/auth/AuthPage';
 import { MemberAuthPage } from './features/auth/MemberAuthPage';
 import { OAuthCallbackPage } from './features/auth/OAuthCallbackPage';
@@ -53,7 +54,7 @@ export function AppRoutes() {
 
       {/* Any authenticated operator user — the tenant self-service console (/app). */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/app" element={<ConsoleLayout nav={TENANT_NAV_CONFIG} />}>
+        <Route path="/app" element={<TenantConsole />}>
           <Route index element={<Navigate to="/app/overview" replace />} />
           <Route path="overview" element={<AppOverview />} />
           <Route path="usage" element={<AppUsage />} />
@@ -61,6 +62,9 @@ export function AppRoutes() {
           <Route path="keys" element={<AppKeys />} />
           <Route path="models" element={<AppModels />} />
           <Route path="billing" element={<AppBilling />} />
+          {/* 成员管理 (Members) — tenant-admin-only (RBAC v1); the page self-gates
+              for a member who deep-links here, and the nav item is hidden. */}
+          <Route path="members" element={<MembersPage />} />
           <Route path="settings" element={<AppSettings />} />
         </Route>
       </Route>

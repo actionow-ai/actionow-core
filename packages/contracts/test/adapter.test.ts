@@ -16,7 +16,7 @@ describe('adapter contract constants', () => {
     expect(EXEC_MODES).toContain(mode);
   });
 
-  it('exposes the ten unified error codes', () => {
+  it('exposes the eleven unified error codes', () => {
     expect(UNIFIED_ERROR_CODES).toEqual([
       'invalid_input',
       'insufficient_credits',
@@ -27,6 +27,7 @@ describe('adapter contract constants', () => {
       'content_filtered',
       'job_failed',
       'unauthorized',
+      'forbidden',
       'internal_error',
     ]);
     const code: UnifiedErrorCode = 'rate_limited';

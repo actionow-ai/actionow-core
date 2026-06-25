@@ -11,6 +11,7 @@ import {
   consolePaymentViewSchema,
   consoleUsageLogViewSchema,
   consoleUsageRollupViewSchema,
+  consoleUserViewSchema,
 } from './console-views.js';
 
 describe('tenant console view contracts (single source of truth for FE + BE)', () => {
@@ -135,9 +136,22 @@ describe('tenant console view contracts (single source of truth for FE + BE)', (
       role: 'user',
       status: 'active',
       tenant_id: null,
+      tenant_role: null,
     };
     expect(consoleMeViewSchema.parse(me)).toEqual(me);
     expect(() => consoleMeViewSchema.parse({ ...me, email_verified: 'false' })).toThrow();
+  });
+
+  it('consoleUserViewSchema (RBAC sub-user) parses a tenant member and rejects a numeric status', () => {
+    const u = {
+      id: 'u2',
+      email: 'sub@x.com',
+      status: 'active',
+      tenant_role: 'member',
+      created_at: '2026-01-01T00:00:00Z',
+    };
+    expect(consoleUserViewSchema.parse(u)).toEqual(u);
+    expect(() => consoleUserViewSchema.parse({ ...u, status: 1 })).toThrow();
   });
 
   it('consoleBalanceViewSchema keeps balance/held as strings', () => {

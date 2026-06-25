@@ -15,15 +15,17 @@ import type { ConsoleBack } from '../ConsoleChrome';
 import { useNavConfig } from '../ConsoleChrome';
 import { activeItem } from '../nav-config';
 
-/** The top bar: page title + subtitle, an optional back target, the page's filter/action slots, a refresh control, and the mobile-only chrome cluster. */
+/** The top bar: page title + subtitle, an optional back target, the page's filter/action slots, an optional persistent status slot (the /app role chip), a refresh control, and the mobile-only chrome cluster. */
 export function TopBar({
   action,
   filters,
   back,
+  status = null,
 }: {
   action: ReactNode;
   filters: ReactNode;
   back: ConsoleBack | null;
+  status?: ReactNode;
 }) {
   const { t } = useTranslation('console');
   const { pathname } = useLocation();
@@ -120,6 +122,7 @@ export function TopBar({
   // (which live in the Rail on desktop); it stays right-aligned and never shrinks.
   const iconCluster = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', flexShrink: 0 }}>
+      {status}
       {refreshBtn}
       {!isDesktop && (
         <>

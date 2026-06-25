@@ -27,8 +27,10 @@ const admin: UserRecord = {
   emailVerified: true,
   passwordHash: hashPassword('hunter2'),
   role: 'admin',
+  tenantRole: null,
   status: 'active',
   tenantId: null,
+  createdAt: new Date(),
 };
 
 describe('AdminAuthService.login', () => {

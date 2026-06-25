@@ -17,6 +17,7 @@ export const UNIFIED_ERROR_CODES = [
   'content_filtered',
   'job_failed',
   'unauthorized',
+  'forbidden',
   'internal_error',
 ] as const;
 export type UnifiedErrorCode = (typeof UNIFIED_ERROR_CODES)[number];
