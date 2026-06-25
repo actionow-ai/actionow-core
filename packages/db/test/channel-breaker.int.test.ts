@@ -10,6 +10,7 @@ import {
   createUpstreamChannel,
   getBreakerRows,
   listBreakers,
+  listBreakersWithChannel,
   resetBreaker,
   upsertBreaker,
 } from '../src/repositories/index.js';
@@ -37,7 +38,7 @@ afterEach(async () => {
   await client`TRUNCATE TABLE channel_breaker, upstream_channel, resource, tenant RESTART IDENTITY CASCADE`;
 });
 
-async function seedChannel(): Promise<string> {
+async function seedChannel(providerType = 'mock-chat'): Promise<string> {
   const [t] = await db.insert(tenant).values({ name: 'acme' }).returning();
   if (!t) throw new Error('tenant insert returned no row');
   await createResource(db, {
@@ -45,14 +46,14 @@ async function seedChannel(): Promise<string> {
     tenantId: t.id,
     kind: 'model',
     modality: 'text',
-    providerType: 'mock-chat',
+    providerType,
     execModes: ['stream'],
     ioSchema: { inputs: [], outputs: [] },
     version: 1,
   });
   const ch = await createUpstreamChannel(db, {
     resourceId: 'chat-res',
-    providerType: 'mock-chat',
+    providerType,
     weight: 1,
     status: 'active',
   });
@@ -156,5 +157,29 @@ describe('channel_breaker repo (弹性2.0)', () => {
     const all = await listBreakers(db);
     expect(all).toHaveLength(2);
     expect(all.map((r) => r.model).sort()).toEqual(['gpt-x', 'gpt-y']);
+  });
+
+  it('listBreakersWithChannel joins the channel provider_type + resource_id (admin status surface)', async () => {
+    const ch = await seedChannel('deepseek');
+    await upsertBreaker(db, {
+      channelId: ch,
+      model: 'gpt-x',
+      state: 'open',
+      openedAt: t0,
+      cooldownUntil: new Date(t0.getTime() + 5_000),
+      tripCount: 2,
+      halfOpenSuccesses: 0,
+      now: t0,
+    });
+    const rows = await listBreakersWithChannel(db);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.channelId).toBe(ch);
+    // upstream_channel has no human name; provider_type is the display label.
+    expect(rows[0]?.channelName).toBe('deepseek');
+    expect(rows[0]?.resourceId).toBe('chat-res');
+    expect(rows[0]?.model).toBe('gpt-x');
+    expect(rows[0]?.state).toBe('open');
+    expect(rows[0]?.tripCount).toBe(2);
+    expect(rows[0]?.lastTransitionAt?.toISOString()).toBe(t0.toISOString());
   });
 });

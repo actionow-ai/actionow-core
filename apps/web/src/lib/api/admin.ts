@@ -9,6 +9,7 @@ import type {
   ApiKeyCreatedView,
   ApiKeyView,
   AuditLogView,
+  BreakerView,
   ChannelView,
   CodexLoginCompleteBody,
   CodexLoginStartBody,
@@ -633,6 +634,18 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     getSummary: async (): Promise<OpsSummaryView> => unwrap(await sdk.GET('/admin/summary'), u),
     // Live ops health: per-channel circuit-breaker state + billable RPM.
     getHealth: async (): Promise<OpsHealthView> => unwrap(await sdk.GET('/admin/health'), u),
+
+    // --- Circuit breakers (弹性2.0): tripped/probing (channel, model) status + reset ---
+    listBreakers: async (): Promise<BreakerView[]> => unwrap(await sdk.GET('/admin/breakers'), u),
+    // Reset one breaker back to closed (ops un-stick); 204 No Content.
+    resetBreaker: async (channelId: string, model: string): Promise<void> => {
+      unwrap(
+        await sdk.POST('/admin/breakers/{channelId}/{model}/reset', {
+          params: { path: { channelId, model } },
+        }),
+        u,
+      );
+    },
 
     listRelayTraces: async ({
       tenantId,

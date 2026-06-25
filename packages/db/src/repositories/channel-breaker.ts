@@ -1,5 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
 
+import { upstreamChannel } from '../schema/catalog.js';
 import { channelBreaker } from '../schema/channel-breaker.js';
 import type { DbOrTx } from './types.js';
 
@@ -98,4 +99,51 @@ export async function resetBreaker(db: DbOrTx, channelId: string, model: string)
 /** Every breaker row across all channels+models — backs the admin status surface. */
 export async function listBreakers(db: DbOrTx): Promise<BreakerRow[]> {
   return db.select(COLS).from(channelBreaker) as Promise<BreakerRow[]>;
+}
+
+/**
+ * A breaker row joined with its channel's identifying fields for the admin status
+ * view. An `upstream_channel` has no human name column, so `channelName` carries
+ * the channel's `provider_type` (the closest display label) and `resourceId` the
+ * owning resource id (itself a human-readable slug like `gpt`); together they
+ * locate the channel for the ops surface. Both are nullable for a breaker whose
+ * channel row was hard-deleted (the LEFT JOIN misses).
+ */
+export interface BreakerStatusRow {
+  readonly channelId: string;
+  readonly channelName: string | null;
+  readonly resourceId: string | null;
+  readonly model: string;
+  readonly state: 'closed' | 'open' | 'half_open';
+  readonly openedAt: Date | null;
+  readonly cooldownUntil: Date | null;
+  readonly tripCount: number;
+  readonly halfOpenSuccesses: number;
+  readonly lastTransitionAt: Date | null;
+}
+
+/**
+ * Every `(channel, model)` breaker row LEFT-joined to its channel's identifying
+ * fields, ordered newest-transition-first. Backs `GET /admin/breakers` — the ops
+ * status surface. A `(channel, model)` with no row is implicitly closed and simply
+ * absent from this list (only tripped/probing breakers persist a row).
+ */
+export async function listBreakersWithChannel(db: DbOrTx): Promise<BreakerStatusRow[]> {
+  return db
+    .select({
+      channelId: channelBreaker.channelId,
+      // upstream_channel has no human name; provider_type is the display label.
+      channelName: upstreamChannel.providerType,
+      resourceId: upstreamChannel.resourceId,
+      model: channelBreaker.model,
+      state: channelBreaker.state,
+      openedAt: channelBreaker.openedAt,
+      cooldownUntil: channelBreaker.cooldownUntil,
+      tripCount: channelBreaker.tripCount,
+      halfOpenSuccesses: channelBreaker.halfOpenSuccesses,
+      lastTransitionAt: channelBreaker.lastTransitionAt,
+    })
+    .from(channelBreaker)
+    .leftJoin(upstreamChannel, eq(upstreamChannel.id, channelBreaker.channelId))
+    .orderBy(channelBreaker.lastTransitionAt) as Promise<BreakerStatusRow[]>;
 }

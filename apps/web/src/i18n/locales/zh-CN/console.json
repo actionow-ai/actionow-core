@@ -217,6 +217,7 @@
     "analytics": "分析",
     "opsOverview": "概览·分析",
     "status": "服务状态",
+    "breakers": "熔断",
     "relayTraces": "中转追踪",
     "auditLog": "审计日志",
     "overview": "概览",
@@ -258,6 +259,7 @@
     "analytics": "按时间与维度查看用量、成本与毛利",
     "opsOverview": "全局用量、成本、毛利与模型健康——单屏总览",
     "status": "各模型可用性、延迟与正常运行时间(基于真实流量)",
+    "breakers": "已熔断 / 探测中的通道——按(通道·模型)的熔断状态与重置",
     "relayTraces": "上游中转审计——请求、响应、延迟",
     "auditLog": "谁在何时改了什么——资金 / 治理 / 身份变更的操作审计",
     "overview": "余额、最近任务与流水",
@@ -873,6 +875,35 @@
       "status": "状态"
     },
     "empty": "暂无上游通道"
+  },
+  "breakers": {
+    "empty": "暂无熔断——所有通道当前正常",
+    "unknownChannel": "(通道已删除)",
+    "refresh": "刷新",
+    "cols": {
+      "channel": "通道",
+      "model": "模型",
+      "state": "状态",
+      "cooldown": "冷却",
+      "trips": "熔断次数",
+      "transition": "最近变更"
+    },
+    "state": {
+      "open": "已熔断",
+      "half_open": "探测中",
+      "closed": "正常"
+    },
+    "cooldown": {
+      "ready": "可探测",
+      "inS": "{{s}} 秒后",
+      "inM": "{{m}} 分后"
+    },
+    "reset": {
+      "action": "重置",
+      "title": "重置熔断器",
+      "msg": "将 {{channel}}({{model}})的熔断器重置为正常?该通道会立即重新进入路由。",
+      "done": "熔断器已重置"
+    }
   },
   "auditLog": {
     "title": "审计日志",

@@ -43,6 +43,7 @@ export const ADMIN_NAV: NavGroup[] = [
       // dashboard + analytics merged into a single overview·analytics surface.
       { to: '/console/overview', labelKey: 'opsOverview' },
       { to: '/console/status', labelKey: 'status' },
+      { to: '/console/breakers', labelKey: 'breakers' },
       { to: '/console/relay-traces', labelKey: 'relayTraces' },
       { to: '/console/audit-log', labelKey: 'auditLog' },
     ],

@@ -7,6 +7,8 @@ import {
   apiKeyViewSchema,
   type AuditLogView,
   auditLogViewSchema,
+  type BreakerView,
+  breakerViewSchema,
   type ChannelHealthView,
   channelHealthViewSchema,
   type ChannelModelLinkInput,
@@ -89,6 +91,7 @@ import type {
   AdminTokenView as AdminTokenRow,
   ApiKeyRow,
   AuditLogRow,
+  BreakerStatusRow,
   ChannelHealthRow,
   FaultPolicyRow,
   IconAssetRow,
@@ -1822,6 +1825,35 @@ export class AdminController {
     const report = await this.admin.modelHealthReport(window);
     return report.map(toModelHealthView);
   }
+
+  // ----- circuit breakers (弹性2.0 status surface) -----
+
+  @Get('breakers')
+  @ApiOperation({
+    summary: 'Live circuit-breaker status: tripped/probing (channel, model) FSM rows',
+  })
+  async listBreakers(): Promise<BreakerView[]> {
+    const rows = await this.admin.listBreakers();
+    return rows.map(toBreakerView);
+  }
+
+  @Post('breakers/:channelId/:model/reset')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Reset a circuit breaker back to closed (ops un-stick)' })
+  @Audit({
+    action: 'breaker.reset',
+    target: 'channel_breaker',
+    resolve: ({ params }) => ({
+      targetId: params.channelId ?? null,
+      meta: { model: params.model },
+    }),
+  })
+  async resetBreaker(
+    @Param('channelId') channelId: string,
+    @Param('model') model: string,
+  ): Promise<void> {
+    await this.admin.resetBreaker(channelId, model);
+  }
 }
 
 /**
@@ -2390,6 +2422,21 @@ function toUsageRollupView(row: UsageRollupRow): UsageRollupView {
     errors: row.errors,
     avg_latency_ms: row.avgLatencyMs,
     p95_latency_ms: row.p95LatencyMs,
+  });
+}
+
+function toBreakerView(row: BreakerStatusRow): BreakerView {
+  return breakerViewSchema.parse({
+    channel_id: row.channelId,
+    channel_name: row.channelName,
+    resource_id: row.resourceId,
+    model: row.model,
+    state: row.state,
+    opened_at: row.openedAt === null ? null : row.openedAt.toISOString(),
+    cooldown_until: row.cooldownUntil === null ? null : row.cooldownUntil.toISOString(),
+    trip_count: row.tripCount,
+    half_open_successes: row.halfOpenSuccesses,
+    last_transition_at: row.lastTransitionAt === null ? null : row.lastTransitionAt.toISOString(),
   });
 }
 

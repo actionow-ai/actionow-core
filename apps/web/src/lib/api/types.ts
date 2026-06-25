@@ -12,6 +12,8 @@ export type {
   ApiKeyView,
   // --- records (记录系统) ---
   AuditLogView,
+  // --- circuit breakers (弹性2.0) ---
+  BreakerView,
   ChannelHealthView,
   ChannelView,
   CodexLoginCompleteBody,

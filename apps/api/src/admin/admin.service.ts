@@ -18,6 +18,7 @@ import {
   type ApiKeyRow,
   type AuditLogFilter,
   type AuditLogRow,
+  type BreakerStatusRow,
   type ChannelHealthRow,
   channelIdsByModelIds,
   checkFallbackChain,
@@ -95,6 +96,7 @@ import {
   listAllChannelsWithHealth,
   listApiKeys,
   listAuditLog,
+  listBreakersWithChannel,
   listChannelModels,
   listChannelsByPlugin,
   listChannelsForResource,
@@ -147,6 +149,7 @@ import {
   type RelayTraceRow,
   removeChannelFromGroup,
   replacePlanRules,
+  resetBreaker,
   type Resource,
   rollupUsage,
   type RouteGroupChannelRow,
@@ -2448,6 +2451,24 @@ export class AdminService {
     ]);
     const rpmBillable = windowSeconds === 0 ? 0 : Math.round((count / windowSeconds) * 60);
     return { windowSeconds, rpmBillable, channels };
+  }
+
+  /**
+   * Every tripped/probing `(channel, model)` circuit breaker for the ops status
+   * surface (`GET /admin/breakers`, 弹性2.0), joined to the channel's name. A
+   * `(channel, model)` with no row is implicitly closed and simply absent.
+   */
+  listBreakers(): Promise<BreakerStatusRow[]> {
+    return listBreakersWithChannel(this.db);
+  }
+
+  /**
+   * Reset one `(channel, model)` breaker back to closed (ops un-stick): deletes
+   * its row, so the channel re-enters routing immediately. Idempotent — clearing
+   * an already-closed (absent) breaker is a safe no-op.
+   */
+  resetBreaker(channelId: string, model: string): Promise<void> {
+    return resetBreaker(this.db, channelId, model);
   }
 }
 

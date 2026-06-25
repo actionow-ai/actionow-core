@@ -16,6 +16,7 @@ import { MemberAuthPage } from './features/auth/MemberAuthPage';
 import { OAuthCallbackPage } from './features/auth/OAuthCallbackPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { AuditLogPage } from './features/console/AuditLogPage';
+import { BreakersPage } from './features/console/BreakersPage';
 import { DifyImportPage } from './features/console/DifyImportPage';
 import { FaultPoliciesPage } from './features/console/FaultPoliciesPage';
 import { LimitPlansPage } from './features/console/LimitPlansPage';
@@ -84,6 +85,7 @@ export function AppRoutes() {
           <Route path="dashboard" element={<Navigate to="/console/overview" replace />} />
           <Route path="analytics" element={<Navigate to="/console/overview" replace />} />
           <Route path="status" element={<StatusPage />} />
+          <Route path="breakers" element={<BreakersPage />} />
           <Route path="relay-traces" element={<RelayTracesPage />} />
           <Route path="audit-log" element={<AuditLogPage />} />
           {/* 模型接入 = the 3-pane (plugin → channel → model); the standalone 插件 page folds in here. */}

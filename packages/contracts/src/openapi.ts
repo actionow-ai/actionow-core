@@ -109,6 +109,7 @@ import {
 import { modelTestRequestSchema, modelTestResultSchema } from './model-test.js';
 import {
   apiKeyViewSchema,
+  breakerViewSchema,
   channelHealthViewSchema,
   codexLoginStartViewSchema,
   difyImportViewSchema,
@@ -227,6 +228,8 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const OpsHealth = registry.register('OpsHealthView', opsHealthViewSchema);
   const ModelHealth = registry.register('ModelHealthView', modelHealthViewSchema);
   const OpsSummary = registry.register('OpsSummaryView', opsSummaryViewSchema);
+  // per-(channel, model) circuit-breaker status surface (弹性2.0)
+  const Breaker = registry.register('BreakerView', breakerViewSchema);
 
   // billing & routing views (billing-views)
   const RouteGroup = registry.register('RouteGroupView', routeGroupViewSchema);
@@ -707,6 +710,22 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     'admin',
     z.object({ days: z.coerce.number().int().min(1).max(90).optional() }),
   );
+  // 弹性2.0 circuit-breaker status surface: list tripped/probing breakers + ops reset.
+  getArray(
+    '/admin/breakers',
+    'Live circuit-breaker status: tripped/probing (channel, model) FSM rows',
+    Breaker,
+    'admin',
+  );
+  // Reset one (channel, model) breaker back to closed (ops un-stick). No body; 204.
+  registry.registerPath({
+    method: 'post',
+    path: '/admin/breakers/{channelId}/{model}/reset',
+    summary: 'Reset a circuit breaker back to closed (ops un-stick)',
+    tags: ['admin'],
+    request: { params: z.object({ channelId: z.string(), model: z.string() }) },
+    responses: { 204: { description: 'Breaker cleared' } },
+  });
 
   // --- console reads (single-object endpoints) ------------------------------
   getOne('/console/balance', 'Your tenant credit balance + held', ConsoleBalance, 'console');

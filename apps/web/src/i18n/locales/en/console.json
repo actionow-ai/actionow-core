@@ -217,6 +217,7 @@
     "analytics": "Analytics",
     "opsOverview": "Overview · Analytics",
     "status": "Status",
+    "breakers": "Breakers",
     "relayTraces": "Relay traces",
     "auditLog": "Audit log",
     "overview": "Overview",
@@ -258,6 +259,7 @@
     "analytics": "Usage, cost and margin over time and by dimension",
     "opsOverview": "Global usage, cost, margin & model health — one screen",
     "status": "Per-model availability, latency & uptime (from real traffic)",
+    "breakers": "Tripped / probing channels — per-(channel, model) breaker state & reset",
     "relayTraces": "Upstream relay audit — requests, responses, latency",
     "auditLog": "Who changed what, when — money / governance / identity mutation audit",
     "overview": "Balance, recent jobs and ledger",
@@ -873,6 +875,35 @@
       "status": "Status"
     },
     "empty": "No upstream channels yet"
+  },
+  "breakers": {
+    "empty": "No tripped breakers — every channel is healthy",
+    "unknownChannel": "(channel deleted)",
+    "refresh": "Refresh",
+    "cols": {
+      "channel": "Channel",
+      "model": "Model",
+      "state": "State",
+      "cooldown": "Cooldown",
+      "trips": "Trips",
+      "transition": "Last change"
+    },
+    "state": {
+      "open": "Open",
+      "half_open": "Probing",
+      "closed": "Closed"
+    },
+    "cooldown": {
+      "ready": "ready",
+      "inS": "in {{s}}s",
+      "inM": "in {{m}}m"
+    },
+    "reset": {
+      "action": "Reset",
+      "title": "Reset circuit breaker",
+      "msg": "Reset the breaker for {{channel}} ({{model}}) back to closed? The channel re-enters routing immediately.",
+      "done": "Breaker reset"
+    }
   },
   "auditLog": {
     "title": "Audit log",

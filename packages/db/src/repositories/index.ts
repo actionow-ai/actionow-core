@@ -137,8 +137,10 @@ export {
 } from './catalog.js';
 export {
   type BreakerRow,
+  type BreakerStatusRow,
   getBreakerRows,
   listBreakers,
+  listBreakersWithChannel,
   resetBreaker,
   upsertBreaker,
   type UpsertBreakerInput,

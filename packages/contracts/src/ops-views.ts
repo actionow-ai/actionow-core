@@ -268,6 +268,41 @@ export const opsHealthViewSchema = z.object({
 });
 export type OpsHealthView = z.infer<typeof opsHealthViewSchema>;
 
+/**
+ * One `(channel, model)` circuit-breaker FSM row for the admin status surface
+ * (`GET /admin/breakers`, 弹性2.0). Joined with the channel's human name. The
+ * runtime FSM is `closed → open → half_open`; a missing row is implicitly
+ * `closed` (so this list only contains channels that have tripped or are
+ * probing). `cooldown_until` is when an `open` breaker becomes eligible to probe;
+ * `trip_count` drives the exp-backoff cooldown. Reset via
+ * `POST /admin/breakers/:channelId/:model/reset` (clears the row → closed).
+ */
+export const breakerViewSchema = z.object({
+  channel_id: z.string(),
+  /**
+   * The channel's display label. An `upstream_channel` has no human name column,
+   * so this carries the channel's `provider_type` (e.g. `openai`); `null` when the
+   * channel row was hard-deleted. Pair with `resource_id` to locate the channel.
+   */
+  channel_name: z.string().nullable(),
+  /** The owning resource id (a human-readable slug like `gpt`); `null` if missing. */
+  resource_id: z.string().nullable(),
+  /** The model key the breaker is scoped to (`*` when model-agnostic). */
+  model: z.string(),
+  state: z.enum(['closed', 'open', 'half_open']),
+  /** When the breaker opened (ISO string), or `null`. */
+  opened_at: z.string().nullable(),
+  /** `cooldown_until > now` ⇒ still cooling before the next probe. ISO or `null`. */
+  cooldown_until: z.string().nullable(),
+  /** Recent consecutive trips → drives the exp-backoff cooldown. */
+  trip_count: z.number(),
+  /** Successful probes accumulated in the current half-open trial. */
+  half_open_successes: z.number(),
+  /** Last FSM transition (ISO string). */
+  last_transition_at: z.string().nullable(),
+});
+export type BreakerView = z.infer<typeof breakerViewSchema>;
+
 /** One daily uptime bucket for a model's status-page sparkline. */
 export const modelHealthBucketSchema = z.object({
   /** `YYYY-MM-DD` (UTC). */

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   apiKeyViewSchema,
+  breakerViewSchema,
   jobViewSchema,
   ledgerViewSchema,
   paymentIntentViewSchema,
@@ -110,5 +111,34 @@ describe('admin operational view contracts (single source of truth for FE + BE)'
     };
     expect(paymentIntentViewSchema.parse(p)).toEqual(p);
     expect(() => paymentIntentViewSchema.parse({ ...p, amount_minor: 1000 })).toThrow();
+  });
+
+  it('breakerViewSchema accepts an open breaker and rejects an unknown state (弹性2.0)', () => {
+    const b = {
+      channel_id: 'c1',
+      channel_name: 'openai',
+      resource_id: 'deepseek',
+      model: 'deepseek-chat',
+      state: 'open',
+      opened_at: '2026-06-25T00:00:00Z',
+      cooldown_until: '2026-06-25T00:05:00Z',
+      trip_count: 3,
+      half_open_successes: 0,
+      last_transition_at: '2026-06-25T00:00:00Z',
+    };
+    expect(breakerViewSchema.parse(b)).toEqual(b);
+    // state is a closed enum — guard against drift.
+    expect(() => breakerViewSchema.parse({ ...b, state: 'tripped' })).toThrow();
+    // a closed breaker with a null name + null timestamps is valid.
+    expect(
+      breakerViewSchema.parse({
+        ...b,
+        channel_name: null,
+        state: 'closed',
+        opened_at: null,
+        cooldown_until: null,
+        last_transition_at: null,
+      }),
+    ).toMatchObject({ state: 'closed', channel_name: null });
   });
 });
