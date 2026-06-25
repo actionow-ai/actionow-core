@@ -34,7 +34,8 @@ describe('schema constraints (Track B Task 1)', () => {
   });
 
   it('accepts role=user and role=admin', async () => {
-    await client`INSERT INTO "user" (email, role) VALUES ('u@x.com', 'user')`;
+    // role=user now requires a tenant_role (rbac CHECK); role=admin keeps it NULL.
+    await client`INSERT INTO "user" (email, role, tenant_role) VALUES ('u@x.com', 'user', 'admin')`;
     await client`INSERT INTO "user" (email, role) VALUES ('a@x.com', 'admin')`;
     const rows = await client<{ role: string }[]>`SELECT role FROM "user" ORDER BY email`;
     expect(rows.map((r) => r.role)).toEqual(['admin', 'user']);
@@ -58,5 +59,39 @@ describe('schema constraints (Track B Task 1)', () => {
     await client`INSERT INTO job (tenant_id, resource_id, resource_version, status, exec_mode, inputs, account_id) VALUES (${t.id}, ${r.id}, 1, 'queued', 'blocking', '{}'::jsonb, ${a.id})`;
     const rows = await client`SELECT account_id FROM job`;
     expect(rows[0]?.account_id).toBe(a.id);
+  });
+});
+
+describe('user.tenant_role constraint (rbac Task 1)', () => {
+  it('rejects role=user with a NULL tenant_role', async () => {
+    await expect(
+      client`INSERT INTO "user" (email, role) VALUES ('bad@x.com', 'user')`,
+    ).rejects.toThrow();
+  });
+
+  it('rejects role=admin with a non-NULL tenant_role', async () => {
+    await expect(
+      client`INSERT INTO "user" (email, role, tenant_role) VALUES ('bad2@x.com', 'admin', 'admin')`,
+    ).rejects.toThrow();
+  });
+
+  it('rejects a tenant_role outside (admin|member)', async () => {
+    await expect(
+      client`INSERT INTO "user" (email, role, tenant_role) VALUES ('bad3@x.com', 'user', 'owner')`,
+    ).rejects.toThrow();
+  });
+
+  it('accepts role=user with tenant_role admin or member, and role=admin with NULL', async () => {
+    await client`INSERT INTO "user" (email, role, tenant_role) VALUES ('ta@x.com', 'user', 'admin')`;
+    await client`INSERT INTO "user" (email, role, tenant_role) VALUES ('tm@x.com', 'user', 'member')`;
+    await client`INSERT INTO "user" (email, role) VALUES ('sys@x.com', 'admin')`;
+    const rows = await client<
+      { email: string; tenant_role: string | null }[]
+    >`SELECT email, tenant_role FROM "user" ORDER BY email`;
+    expect(rows).toEqual([
+      { email: 'sys@x.com', tenant_role: null },
+      { email: 'ta@x.com', tenant_role: 'admin' },
+      { email: 'tm@x.com', tenant_role: 'member' },
+    ]);
   });
 });
