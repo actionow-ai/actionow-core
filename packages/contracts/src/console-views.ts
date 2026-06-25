@@ -130,6 +130,22 @@ export const consoleMeViewSchema = z.object({
 });
 export type ConsoleMeView = z.infer<typeof consoleMeViewSchema>;
 
+/**
+ * One operator user in the caller's tenant-org (`GET /console/users`, RBAC v1) —
+ * a normal USER row (`role='user'`), never a `subject`/end-user. `tenant_role` is
+ * the org seat (`'admin'` | `'member'`); the tenant scope is implicit in the JWT
+ * so `tenant_id` is omitted like the other console views. Never carries the
+ * password hash.
+ */
+export const consoleUserViewSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  status: z.string(),
+  tenant_role: z.string(),
+  created_at: z.string(),
+});
+export type ConsoleUserView = z.infer<typeof consoleUserViewSchema>;
+
 /** The caller-tenant's credit balance + held (`GET /console/balance`; µcredit decimal strings). */
 export const consoleBalanceViewSchema = z.object({
   balance: z.string(),

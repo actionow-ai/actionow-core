@@ -52,3 +52,26 @@ export const consoleChangePasswordSchema = z.object({
   newPassword: z.string().min(8).max(256),
 });
 export type ConsoleChangePasswordBody = z.infer<typeof consoleChangePasswordSchema>;
+
+/**
+ * `POST /console/users` (RBAC v1) — a tenant admin invites a sub-user. The
+ * server creates a normal USER row (`role='user'`, `tenant_role='member'`) in the
+ * caller's own tenant; the `password` is the member's initial credential (same
+ * 8–256 policy as registration) and is NEVER logged. Admin-only (TenantAdminGuard).
+ */
+export const consoleCreateUserSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8).max(256),
+});
+export type ConsoleCreateUserBody = z.infer<typeof consoleCreateUserSchema>;
+
+/**
+ * `PATCH /console/users/:id` (RBAC v1) — a tenant admin updates a sub-user's
+ * `status` (active/disabled, the soft-disable) and/or `tenantRole` (promote/demote
+ * member↔admin). All-optional so either dimension can be changed alone. Admin-only.
+ */
+export const consoleUpdateUserSchema = z.object({
+  status: z.enum(['active', 'disabled']).optional(),
+  tenantRole: z.enum(['admin', 'member']).optional(),
+});
+export type ConsoleUpdateUserBody = z.infer<typeof consoleUpdateUserSchema>;

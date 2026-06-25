@@ -4,6 +4,8 @@ import {
   consoleChangePasswordSchema,
   consoleCreateApiKeySchema,
   consoleCreateIntentSchema,
+  consoleCreateUserSchema,
+  consoleUpdateUserSchema,
 } from './console-requests.js';
 
 describe('console request contracts', () => {
@@ -26,5 +28,20 @@ describe('console request contracts', () => {
     expect(() =>
       consoleChangePasswordSchema.parse({ currentPassword: 'x', newPassword: 'short' }),
     ).toThrow();
+  });
+
+  it('consoleCreateUserSchema requires a valid email + an 8..256 initial password', () => {
+    const body = { email: 'sub@x.com', password: 'initialpw1' };
+    expect(consoleCreateUserSchema.parse(body)).toEqual(body);
+    expect(() => consoleCreateUserSchema.parse({ ...body, email: 'not-an-email' })).toThrow();
+    expect(() => consoleCreateUserSchema.parse({ ...body, password: 'short' })).toThrow();
+  });
+
+  it('consoleUpdateUserSchema is all-optional and narrows status/tenantRole to known enums', () => {
+    expect(consoleUpdateUserSchema.parse({})).toEqual({});
+    expect(consoleUpdateUserSchema.parse({ status: 'disabled' })).toEqual({ status: 'disabled' });
+    expect(consoleUpdateUserSchema.parse({ tenantRole: 'admin' })).toEqual({ tenantRole: 'admin' });
+    expect(() => consoleUpdateUserSchema.parse({ status: 'banned' })).toThrow();
+    expect(() => consoleUpdateUserSchema.parse({ tenantRole: 'owner' })).toThrow();
   });
 });
