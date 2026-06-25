@@ -200,6 +200,58 @@
         "disableTitle": "Disable this member?",
         "disableMsg": "{{email}} won't be able to sign in until re-enabled."
       }
+    },
+    "subjects": {
+      "title": "End-users",
+      "add": "Add end-user",
+      "addHint": "Create an end-user (subject) under your app. Provide an external id (your own user key) or an email.",
+      "create": "Add",
+      "empty": "No end-users yet — add your first one.",
+      "adminOnly": "End-user management is available to tenant admins only.",
+      "unnamed": "Unnamed",
+      "delete": "Delete",
+      "deleted": "End-user deleted",
+      "cols": {
+        "name": "Name",
+        "identity": "Identity",
+        "status": "Status",
+        "created": "Created"
+      },
+      "form": {
+        "externalId": "External id",
+        "externalIdHint": "Your own user key (Model B, app-owned). Immutable after creation.",
+        "email": "Email",
+        "emailHint": "For an end-user who signs in via the portal (Model A).",
+        "displayName": "Display name"
+      },
+      "confirm": {
+        "deleteTitle": "Delete this end-user?",
+        "deleteMsg": "{{name}} will be removed; its sub-wallet is swept back to the pool and its scoped keys are disabled."
+      },
+      "detail": {
+        "plan": "Limit plan",
+        "planTip": "Bind a limit plan (spend budget / rate limit / quota) to this end-user. Unbound = unlimited.",
+        "planNone": "No plan (unlimited)",
+        "planBound": "End-user limit plan updated",
+        "wallet": "Sub-wallet (HARD)",
+        "balance": "Balance",
+        "held": "Held",
+        "openWallet": "Open wallet",
+        "openingCredits": "Opening credits",
+        "walletOpened": "Wallet opened",
+        "topupCredits": "Credits to add",
+        "topup": "Top up",
+        "toppedUp": "Top-up complete",
+        "transferAmount": "Transfer amount",
+        "direction": "Direction",
+        "toSubject": "Pool → end-user",
+        "toTenant": "End-user → pool",
+        "transfer": "Transfer",
+        "transferred": "Transfer complete",
+        "keys": "Scoped API keys",
+        "mintKey": "Mint key",
+        "noKeys": "No scoped keys yet"
+      }
     }
   },
   "nav": {
@@ -225,6 +277,7 @@
     "tkeys": "API Keys",
     "tmodels": "Models",
     "billing": "Billing",
+    "tsubjects": "End-users",
     "tmembers": "Members",
     "tsettings": "Settings",
     "tenants": "Tenants",
@@ -267,6 +320,7 @@
     "tkeys": "Mint and manage your API keys",
     "tmodels": "Models available to your tenant",
     "billing": "Top up your tenant balance",
+    "tsubjects": "Manage your end-users — sub-wallets, limit plans & scoped keys",
     "tmembers": "Manage your tenant's operator seats — invite, promote/demote, disable",
     "tsettings": "Your profile and password",
     "tenants": "Create and view tenants",

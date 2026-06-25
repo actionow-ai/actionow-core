@@ -7,6 +7,7 @@ import { AppMedia } from './features/app/AppMedia';
 import { AppModels } from './features/app/AppModels';
 import { AppOverview } from './features/app/AppOverview';
 import { AppSettings } from './features/app/AppSettings';
+import { AppSubjects } from './features/app/AppSubjects';
 import { AppUsage } from './features/app/AppUsage';
 import { MemberPortal } from './features/app/MemberPortal';
 import { MembersPage } from './features/app/MembersPage';
@@ -63,6 +64,9 @@ export function AppRoutes() {
           <Route path="keys" element={<AppKeys />} />
           <Route path="models" element={<AppModels />} />
           <Route path="billing" element={<AppBilling />} />
+          {/* 端用户 (End-users / subjects) — tenant-admin-only (end-user data plane);
+              the page self-gates for a member who deep-links here, nav item hidden. */}
+          <Route path="subjects" element={<AppSubjects />} />
           {/* 成员管理 (Members) — tenant-admin-only (RBAC v1); the page self-gates
               for a member who deep-links here, and the nav item is hidden. */}
           <Route path="members" element={<MembersPage />} />

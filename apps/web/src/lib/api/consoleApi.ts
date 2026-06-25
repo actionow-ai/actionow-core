@@ -21,10 +21,18 @@ import type {
   ConsoleUsageRollupView,
   ConsoleUsageView,
   ConsoleUserView,
+  CreateSubAccountBody,
+  CreateSubjectBody,
   FileView,
+  LimitPlanView,
   Page,
   PresignUploadBody,
   PresignUploadResult,
+  SubAccountView,
+  SubjectView,
+  TopupSubAccountBody,
+  TransferCreditsBody,
+  UpdateSubjectBody,
 } from './types';
 
 /**
@@ -150,6 +158,52 @@ export function makeConsoleApi(sdk: SdkClient, rawClient: ApiClient, onUnauthori
     disableUser: async (id: string): Promise<void> => {
       await rawClient.delete<{ id: string; status: string }>(`/console/users/${id}`);
     },
+
+    // --- Tenant end-users (subjects) + their HARD sub-wallets + 额度套餐 binding
+    // (end-user data plane, tenant-admin-only). RAW: these console routes aren't in
+    // the generated SDK path set (matching the limit-plan / RBAC sub-user
+    // precedent), but their bodies/views are contract types. The backend
+    // TenantAdminGuard enforces the 403; the caller's token scopes the tenant
+    // (never a body field — a cross-tenant id → 404). The FE additionally hides
+    // these controls from members (UX-only gate, never the security boundary). ---
+    // List unwraps the keyset envelope's `data` (like `listUsers`); the Subjects
+    // page renders a non-paginated DataTable of the tenant's end-users.
+    listSubjects: async (): Promise<SubjectView[]> => {
+      const env = await rawClient.get<{
+        data: SubjectView[];
+        next_cursor: string | null;
+      }>('/console/subjects');
+      return env.data;
+    },
+    createSubject: (body: CreateSubjectBody): Promise<SubjectView> =>
+      rawClient.post<SubjectView>('/console/subjects', body),
+    updateSubject: (id: string, body: UpdateSubjectBody): Promise<SubjectView> =>
+      rawClient.patch<SubjectView>(`/console/subjects/${id}`, body),
+    // Soft-delete + cascade (sweep sub-wallet, disable scoped keys). Returns
+    // `{ id, status: 'deleted' }` (200, not a 204) — return void.
+    deleteSubject: async (id: string): Promise<void> => {
+      await rawClient.delete<{ id: string; status: string }>(`/console/subjects/${id}`);
+    },
+    // Bind/unbind a subject's 额度套餐 (`planId: null` clears). Both subject AND
+    // plan are intersected with your tenant scope server-side (cross-tenant → 404).
+    setSubjectLimitPlan: (id: string, planId: string | null): Promise<{ ok: true }> =>
+      rawClient.post<{ ok: true }>(`/console/subjects/${id}/limit-plan`, { planId }),
+
+    // HARD sub-wallet for one subject. GET 404s when no wallet is open yet — the
+    // page maps that to `null` (not an error). Open path is `.../sub-account/open`.
+    getSubAccount: (id: string): Promise<SubAccountView> =>
+      rawClient.get<SubAccountView>(`/console/subjects/${id}/sub-account`),
+    openSubAccount: (id: string, body: CreateSubAccountBody): Promise<SubAccountView> =>
+      rawClient.post<SubAccountView>(`/console/subjects/${id}/sub-account/open`, body),
+    topupSubAccount: (id: string, body: TopupSubAccountBody): Promise<SubAccountView> =>
+      rawClient.post<SubAccountView>(`/console/subjects/${id}/sub-account/topup`, body),
+    transferSubAccount: (id: string, body: TransferCreditsBody): Promise<SubAccountView> =>
+      rawClient.post<SubAccountView>(`/console/subjects/${id}/sub-account/transfer`, body),
+
+    // Tenant-owned 额度套餐 (limit plans) — drives the plan-binding select on the
+    // Subjects page (Task 9 builds the full plans CRUD on this same surface).
+    listLimitPlans: (): Promise<LimitPlanView[]> =>
+      rawClient.get<LimitPlanView[]>('/console/limit-plans'),
   };
 }
 

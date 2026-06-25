@@ -167,4 +167,60 @@ describe('consoleApi (tenant self-service)', () => {
     });
     expect(calls[2]).toMatchObject({ m: 'delete', path: '/console/users/u1' });
   });
+
+  // --- end-user data plane: subjects + sub-wallet + plan binding (raw client) ---
+  it('listSubjects GETs /console/subjects and unwraps the keyset envelope to rows', async () => {
+    const { api, calls } = fakeApis({
+      rawGetImpl: (path) =>
+        path === '/console/subjects'
+          ? { data: [{ id: 's1', external_id: 'u-1' }], next_cursor: null, has_more: false }
+          : undefined,
+    });
+    const rows = await api.listSubjects();
+    expect(calls[0]).toMatchObject({ m: 'get', path: '/console/subjects' });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: 's1', external_id: 'u-1' });
+  });
+
+  it('createSubject/updateSubject/deleteSubject hit the scoped /console/subjects paths', async () => {
+    const { api, calls } = fakeApis();
+    await api.createSubject({ externalId: 'u-1', displayName: 'Ada' });
+    await api.updateSubject('s1', { status: 'disabled' });
+    await api.deleteSubject('s1');
+    expect(calls[0]).toMatchObject({
+      m: 'post',
+      path: '/console/subjects',
+      body: { externalId: 'u-1', displayName: 'Ada' },
+    });
+    expect(calls[1]).toMatchObject({
+      m: 'patch',
+      path: '/console/subjects/s1',
+      body: { status: 'disabled' },
+    });
+    expect(calls[2]).toMatchObject({ m: 'delete', path: '/console/subjects/s1' });
+  });
+
+  it('sub-wallet open/topup/transfer + plan binding POST to the per-subject paths', async () => {
+    const { api, calls } = fakeApis();
+    await api.openSubAccount('s1', { credits: 10 });
+    await api.topupSubAccount('s1', { credits: 5 });
+    await api.transferSubAccount('s1', { credits: 3, direction: 'to_subject' });
+    await api.setSubjectLimitPlan('s1', 'p1');
+    expect(calls[0]).toMatchObject({
+      m: 'post',
+      path: '/console/subjects/s1/sub-account/open',
+      body: { credits: 10 },
+    });
+    expect(calls[1]).toMatchObject({ m: 'post', path: '/console/subjects/s1/sub-account/topup' });
+    expect(calls[2]).toMatchObject({
+      m: 'post',
+      path: '/console/subjects/s1/sub-account/transfer',
+      body: { credits: 3, direction: 'to_subject' },
+    });
+    expect(calls[3]).toMatchObject({
+      m: 'post',
+      path: '/console/subjects/s1/limit-plan',
+      body: { planId: 'p1' },
+    });
+  });
 });

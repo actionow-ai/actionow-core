@@ -68,6 +68,12 @@ export const qk = {
   consoleFiles: (kind?: string) =>
     kind === undefined ? (['console', 'files'] as const) : (['console', 'files', kind] as const),
   consoleLimits: () => ['console', 'limits'] as const,
+  // Tenant-owned end-users (subjects) + their HARD sub-wallets (end-user data plane;
+  // admin-only Subjects page).
+  consoleSubjects: () => ['console', 'subjects'] as const,
+  consoleSubAccount: (sid: string) => ['console', 'subjects', sid, 'sub-account'] as const,
+  // Tenant-owned 额度套餐 (limit plans) — the plan-binding select + the plans page.
+  consoleLimitPlans: () => ['console', 'limit-plans'] as const,
   ledger: (tenantId: string) => ['admin', 'ledger', tenantId] as const,
   payments: (tenantId: string) => ['admin', 'payments', tenantId] as const,
 };

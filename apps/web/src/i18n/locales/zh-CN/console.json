@@ -200,6 +200,58 @@
         "disableTitle": "停用该成员?",
         "disableMsg": "{{email}} 将无法登录,直到被重新启用。"
       }
+    },
+    "subjects": {
+      "title": "端用户",
+      "add": "添加端用户",
+      "addHint": "在你的应用下创建一个端用户(subject)。填写外部 ID(你自己的用户标识)或邮箱。",
+      "create": "添加",
+      "empty": "暂无端用户——添加第一个。",
+      "adminOnly": "端用户管理仅对租户管理员开放。",
+      "unnamed": "未命名",
+      "delete": "删除",
+      "deleted": "已删除端用户",
+      "cols": {
+        "name": "名称",
+        "identity": "标识",
+        "status": "状态",
+        "created": "创建时间"
+      },
+      "form": {
+        "externalId": "外部 ID",
+        "externalIdHint": "你自己的用户标识(B 模式,应用自管)。创建后不可更改。",
+        "email": "邮箱",
+        "emailHint": "用于通过门户登录的端用户(A 模式)。",
+        "displayName": "显示名称"
+      },
+      "confirm": {
+        "deleteTitle": "删除该端用户?",
+        "deleteMsg": "将移除 {{name}};其子钱包将归集回资金池,作用域 API Key 将被停用。"
+      },
+      "detail": {
+        "plan": "额度套餐",
+        "planTip": "为该端用户绑定额度套餐(消费预算 / 速率限制 / 配额)。未绑定 = 无限制。",
+        "planNone": "无套餐(无限制)",
+        "planBound": "已更新端用户额度套餐",
+        "wallet": "子钱包(HARD)",
+        "balance": "余额",
+        "held": "冻结",
+        "openWallet": "开通钱包",
+        "openingCredits": "初始额度",
+        "walletOpened": "钱包已开通",
+        "topupCredits": "充值额度",
+        "topup": "充值",
+        "toppedUp": "充值完成",
+        "transferAmount": "划转金额",
+        "direction": "方向",
+        "toSubject": "资金池 → 端用户",
+        "toTenant": "端用户 → 资金池",
+        "transfer": "划转",
+        "transferred": "划转完成",
+        "keys": "作用域 API Key",
+        "mintKey": "签发 Key",
+        "noKeys": "暂无作用域 Key"
+      }
     }
   },
   "nav": {
@@ -225,6 +277,7 @@
     "tkeys": "API Keys",
     "tmodels": "模型",
     "billing": "充值",
+    "tsubjects": "端用户",
     "tmembers": "成员管理",
     "tsettings": "设置",
     "tenants": "租户",
@@ -267,6 +320,7 @@
     "tkeys": "签发与管理你的 API Key",
     "tmodels": "你的租户可用的模型",
     "billing": "为你的租户余额充值",
+    "tsubjects": "管理你的端用户——子钱包、额度套餐与作用域 Key",
     "tmembers": "管理你租户的操作员席位——邀请、提升 / 降级、停用",
     "tsettings": "你的资料与密码",
     "tenants": "创建与查看租户",

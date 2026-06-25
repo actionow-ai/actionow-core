@@ -26,6 +26,9 @@ export const TENANT_NAV_CONFIG: NavConfig = {
       items: [
         { to: '/app/keys', labelKey: 'tkeys' },
         { to: '/app/billing', labelKey: 'billing' },
+        // 端用户 (End-users / subjects) — tenant-admin-only (end-user data plane);
+        // hidden for members via `filterTenantNav`.
+        { to: '/app/subjects', labelKey: 'tsubjects' },
         // 成员管理 (Members) — tenant-admin-only (RBAC v1); hidden for members
         // via `filterTenantNav`.
         { to: '/app/members', labelKey: 'tmembers' },
@@ -47,7 +50,7 @@ export const TENANT_NAV_CONFIG: NavConfig = {
  * seat never sees these nav items (the route + page also self-gate, and the
  * backend 403s — this only hides the link). `filterTenantNav` strips them.
  */
-const ADMIN_ONLY_PATHS = new Set(['/app/members']);
+const ADMIN_ONLY_PATHS = new Set(['/app/subjects', '/app/members']);
 
 /**
  * The tenant nav narrowed to what the caller's seat may see. Members lose the
