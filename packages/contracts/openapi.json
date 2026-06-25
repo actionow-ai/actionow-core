@@ -2477,6 +2477,10 @@
           "tenant_id": {
             "type": "string",
             "nullable": true
+          },
+          "tenant_role": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -2485,7 +2489,8 @@
           "email_verified",
           "role",
           "status",
-          "tenant_id"
+          "tenant_id",
+          "tenant_role"
         ]
       },
       "ConsoleBalanceView": {

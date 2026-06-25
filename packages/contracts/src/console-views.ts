@@ -120,6 +120,13 @@ export const consoleMeViewSchema = z.object({
   role: z.string(),
   status: z.string(),
   tenant_id: z.string().nullable(),
+  /**
+   * The caller's tenant-org seat (RBAC v1): `'admin'` | `'member'` for tenant
+   * users, `null` for a system operator. Resolved from the DB (not the JWT), so
+   * the `/app` console gates its admin-only writes off this (NOT the synthetic
+   * `member` JWT role, which is for end-user subjects).
+   */
+  tenant_role: z.string().nullable(),
 });
 export type ConsoleMeView = z.infer<typeof consoleMeViewSchema>;
 

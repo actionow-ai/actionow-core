@@ -10883,6 +10883,7 @@ export interface components {
             role: string;
             status: string;
             tenant_id: string | null;
+            tenant_role: string | null;
         };
         ConsoleBalanceView: {
             balance: string;

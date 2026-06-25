@@ -209,6 +209,7 @@ function toMeView(u: UserRecord): MeView {
     role: u.role,
     status: u.status,
     tenant_id: u.tenantId,
+    tenant_role: u.tenantRole,
   });
 }
 

@@ -135,6 +135,7 @@ describe('tenant console view contracts (single source of truth for FE + BE)', (
       role: 'user',
       status: 'active',
       tenant_id: null,
+      tenant_role: null,
     };
     expect(consoleMeViewSchema.parse(me)).toEqual(me);
     expect(() => consoleMeViewSchema.parse({ ...me, email_verified: 'false' })).toThrow();
