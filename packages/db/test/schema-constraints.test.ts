@@ -1,4 +1,5 @@
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import { eq } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
@@ -93,5 +94,49 @@ describe('user.tenant_role constraint (rbac Task 1)', () => {
       { email: 'ta@x.com', tenant_role: 'admin' },
       { email: 'tm@x.com', tenant_role: 'member' },
     ]);
+  });
+});
+
+describe('channel_breaker (弹性2.0)', () => {
+  /** Insert a minimal tenant → resource → upstream_channel chain; return the channel id. */
+  async function makeChannel(): Promise<string> {
+    const [t] = await client`INSERT INTO tenant (name) VALUES ('brk') RETURNING id`;
+    if (!t) throw new Error('tenant insert returned no row');
+    await client`
+      INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes, current_version)
+      VALUES ('brk-res', ${t.id}, 'model', 'text', 'mock-chat', '["blocking"]'::jsonb, 1)
+    `;
+    const [ch] = await client`
+      INSERT INTO upstream_channel (resource_id, provider_type) VALUES ('brk-res', 'mock-chat') RETURNING id
+    `;
+    if (!ch) throw new Error('upstream_channel insert returned no row');
+    return ch.id as string;
+  }
+
+  it('rejects an invalid breaker state', async () => {
+    const ch = await makeChannel();
+    await expect(
+      db.insert(schema.channelBreaker).values({ channelId: ch, model: 'gpt-x', state: 'bogus' }),
+    ).rejects.toThrow();
+  });
+
+  it('accepts the three valid states + composite PK', async () => {
+    const ch = await makeChannel();
+    for (const state of ['closed', 'open', 'half_open']) {
+      await db.insert(schema.channelBreaker).values({ channelId: ch, model: `m-${state}`, state });
+    }
+    const rows = await db
+      .select()
+      .from(schema.channelBreaker)
+      .where(eq(schema.channelBreaker.channelId, ch));
+    expect(rows).toHaveLength(3);
+  });
+
+  it('enforces the composite PK (channel_id, model)', async () => {
+    const ch = await makeChannel();
+    await db.insert(schema.channelBreaker).values({ channelId: ch, model: 'dup', state: 'closed' });
+    await expect(
+      db.insert(schema.channelBreaker).values({ channelId: ch, model: 'dup', state: 'open' }),
+    ).rejects.toThrow();
   });
 });

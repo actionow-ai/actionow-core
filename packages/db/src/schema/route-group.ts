@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   check,
   index,
   integer,
@@ -35,6 +36,8 @@ export const routeGroup = pgTable(
     name: text('name').notNull(),
     /** The per-group customer-price ratio in basis points (`10000 = 1.0×`; spec D3). */
     groupRatioBps: integer('group_ratio_bps').notNull().default(10000),
+    /** Cross-group failover (弹性2.0): when this group's channels are exhausted, cascade to this group. Self-ref; resolver walks the chain with cycle+depth guards. */
+    fallbackGroupId: uuid('fallback_group_id').references((): AnyPgColumn => routeGroup.id),
     // status allowed values: active | disabled (create default + admin DTO)
     status: text('status').notNull().default('active'),
     description: text('description'),
