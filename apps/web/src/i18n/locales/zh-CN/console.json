@@ -966,6 +966,10 @@
     "deleted": "策略已删除",
     "timeoutSummary": "连 {{connect}} · 首字 {{ttft}} · 总 {{total}} · 空闲 {{idle}}",
     "triggerSummary": "{{codes}} 码 / {{msgs}} 文",
+    "breakerShow": "熔断设置",
+    "breakerHide": "收起熔断设置",
+    "breakerOn": "{{rate}}% 阈值",
+    "breakerOff": "已关闭",
     "mode": {
       "retry": "异常重试",
       "fastFail": "快速失败",
@@ -981,6 +985,7 @@
       "backoff": "退避",
       "timeouts": "超时",
       "triggers": "重试触发",
+      "breaker": "熔断",
       "status": "状态"
     },
     "form": {
@@ -998,6 +1003,14 @@
       "retryCodesPlaceholder": "如 500、429、404,回车添加",
       "retryMessages": "重试错误消息",
       "retryMessagesPlaceholder": "如 Internal server error,回车添加",
+      "breakerEnabled": "启用熔断",
+      "breakerWindowMs": "统计窗口 (ms)",
+      "breakerMinVolume": "起算最小样本量",
+      "breakerFailureRatePct": "熔断失败率阈值 (%)",
+      "breakerHalfOpenTrial": "半开试探并发数",
+      "breakerHalfOpenSuccesses": "恢复所需连续成功数",
+      "breakerOpenCooldownMs": "熔断冷却时长 (ms)",
+      "breakerOpenCooldownCapMs": "冷却时长上限 (ms)",
       "status": "生效状态",
       "description": "策略描述"
     },
@@ -1008,7 +1021,15 @@
       "ttft": "流式首 token 到达的最长等待(0 用默认)。对流式 LLM 关键。",
       "idle": "流式分块之间的最长空闲(0 用默认)。",
       "retryCodes": "命中这些 HTTP 状态码才重试(可含 404 等默认不重试的码);留空则用适配器默认判定。",
-      "retryMessages": "错误消息包含任一子串即重试(不区分大小写)。"
+      "retryMessages": "错误消息包含任一子串即重试(不区分大小写)。",
+      "breaker": "针对绑定该策略的每个(渠道,模型)的断路器。失败率超阈值即熔断,熔断后短暂剔除并按冷却退避;之后半开试探,连续成功则恢复。各项留空或填 0 时使用引擎全局默认。",
+      "breakerFailureRatePct": "在统计窗口内、达到最小样本量后,失败率高于此百分比即熔断。",
+      "breakerWindowMs": "失败率滑动统计窗口(ms);0 用全局默认。",
+      "breakerMinVolume": "窗口内调用量需达到此值才允许熔断;0 用全局默认。",
+      "breakerHalfOpenTrial": "半开状态下放行的试探请求并发数;0 用全局默认。",
+      "breakerHalfOpenSuccesses": "半开期间需连续成功多少次才关闭熔断;0 用全局默认。",
+      "breakerOpenCooldownMs": "熔断后剔除渠道的基础冷却时长(每次熔断指数退避);0 用全局默认。",
+      "breakerOpenCooldownCapMs": "冷却时长的上限(ms);0 用全局默认。"
     },
     "confirm": {
       "deleteTitle": "删除容错策略",
