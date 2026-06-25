@@ -13,9 +13,20 @@
     "portal": {
       "title": "End-user portal",
       "subtitle": "Your account",
+      "name": "Name",
+      "email": "Email",
       "subjectId": "User ID",
       "tenantId": "Tenant",
-      "apiNote": "Data-plane access is via an API key issued to you by the operator (used inside the product you belong to). A fuller self-service surface is coming soon."
+      "balance": "Balance",
+      "sharedPool": "Your usage draws from your product's shared credit pool (no dedicated wallet).",
+      "plan": "Plan",
+      "noPlan": "No plan bound (unlimited)",
+      "keys": "API keys",
+      "noKeys": "No API keys yet",
+      "unnamedKey": "Unnamed",
+      "keysNote": "Keys are issued by the operator. Contact the product you belong to to add or revoke a key.",
+      "usage": "Recent usage",
+      "noUsage": "No usage yet"
     }
   },
   "auth": {

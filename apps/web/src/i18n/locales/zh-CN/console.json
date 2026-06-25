@@ -13,9 +13,20 @@
     "portal": {
       "title": "终端用户中心",
       "subtitle": "你的账户",
+      "name": "昵称",
+      "email": "邮箱",
       "subjectId": "用户 ID",
       "tenantId": "所属租户",
-      "apiNote": "数据接口访问通过运营方为你签发的 API Key 进行(在你所属产品内使用)。更完整的自助功能即将推出。"
+      "balance": "账户余额",
+      "sharedPool": "你的用量从所属产品的共享额度池中扣除(暂无独立钱包)。",
+      "plan": "额度套餐",
+      "noPlan": "未绑定套餐(不限额)",
+      "keys": "API Key",
+      "noKeys": "暂无 API Key",
+      "unnamedKey": "未命名",
+      "keysNote": "Key 由运营方签发。如需新增或吊销,请联系你所属的产品方。",
+      "usage": "近期用量",
+      "noUsage": "暂无用量记录"
     }
   },
   "auth": {

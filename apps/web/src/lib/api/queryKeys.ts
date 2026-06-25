@@ -83,4 +83,12 @@ export const qk = {
   consoleLimitPlans: () => ['console', 'limit-plans'] as const,
   ledger: (tenantId: string) => ['admin', 'ledger', tenantId] as const,
   payments: (tenantId: string) => ['admin', 'payments', tenantId] as const,
+
+  // Member (end-user) self-service plane — every row is token-scoped to the
+  // caller's own subject, so these keys carry no id (one cache per session token).
+  memberMe: () => ['member', 'me'] as const,
+  memberBalance: () => ['member', 'balance'] as const,
+  memberUsage: () => ['member', 'usage'] as const,
+  memberApiKeys: () => ['member', 'api-keys'] as const,
+  memberLimits: () => ['member', 'limits'] as const,
 };
