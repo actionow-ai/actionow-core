@@ -30,14 +30,10 @@ export function makeMemberApi(rawClient: ApiClient) {
     // first page — no LoadMore yet).
     usage: (limit?: number): Promise<MemberUsageList> =>
       rawClient.get<MemberUsageList>('/member/usage', limit !== undefined ? { limit } : undefined),
-    // The caller-subject's own API keys (masked; never plaintext). Unwraps the
-    // keyset envelope's `data` (like `console.listSubjects`).
-    apiKeys: async (): Promise<MemberKeyView[]> => {
-      const env = await rawClient.get<{ data: MemberKeyView[]; next_cursor: string | null }>(
-        '/member/api-keys',
-      );
-      return env.data;
-    },
+    // The caller-subject's own API keys (masked; never plaintext). The backend
+    // `GET /member/api-keys` returns a BARE array (not a keyset envelope, unlike
+    // `console.listSubjects`), so this is returned verbatim — no `.data` unwrap.
+    apiKeys: (): Promise<MemberKeyView[]> => rawClient.get<MemberKeyView[]>('/member/api-keys'),
     // The caller-subject's governance status (effective plan + usage-vs-cap bars).
     limits: (): Promise<MemberLimitsView> => rawClient.get<MemberLimitsView>('/member/limits'),
   };
