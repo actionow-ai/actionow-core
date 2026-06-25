@@ -1,4 +1,23 @@
 {
+  "member": {
+    "auth": {
+      "subtitle": "End-user sign-in",
+      "tenantId": "Tenant ID",
+      "tenantHint": "The tenant identifier provided by the product you belong to",
+      "loggedIn": "Signed in",
+      "registered": "Registered",
+      "failed": "Tenant, email or password is incorrect",
+      "operatorHint": "Are you an operator?",
+      "operatorCta": "Go to operator sign-in"
+    },
+    "portal": {
+      "title": "End-user portal",
+      "subtitle": "Your account",
+      "subjectId": "User ID",
+      "tenantId": "Tenant",
+      "apiNote": "Data-plane access is via an API key issued to you by the operator (used inside the product you belong to). A fuller self-service surface is coming soon."
+    }
+  },
   "auth": {
     "loginTab": "Sign in",
     "registerTab": "Register",

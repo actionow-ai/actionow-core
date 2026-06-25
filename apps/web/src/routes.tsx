@@ -9,7 +9,9 @@ import { AppModels } from './features/app/AppModels';
 import { AppOverview } from './features/app/AppOverview';
 import { AppSettings } from './features/app/AppSettings';
 import { AppUsage } from './features/app/AppUsage';
+import { MemberPortal } from './features/app/MemberPortal';
 import { AuthPage } from './features/auth/AuthPage';
+import { MemberAuthPage } from './features/auth/MemberAuthPage';
 import { OAuthCallbackPage } from './features/auth/OAuthCallbackPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { AuditLogPage } from './features/console/AuditLogPage';
@@ -44,10 +46,12 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<RootRoute />} />
       <Route path="/login" element={<AuthPage />} />
+      {/* Member (end-user) auth — unified tenancy G-F (Model-A). */}
+      <Route path="/member/login" element={<MemberAuthPage />} />
       {/* OAuth hand-off: backend 302s here with the JWT in the URL fragment. */}
       <Route path="/auth/callback" element={<OAuthCallbackPage />} />
 
-      {/* Any authenticated user — the tenant self-service console (/app). */}
+      {/* Any authenticated operator user — the tenant self-service console (/app). */}
       <Route element={<ProtectedRoute />}>
         <Route path="/app" element={<ConsoleLayout nav={TENANT_NAV_CONFIG} />}>
           <Route index element={<Navigate to="/app/overview" replace />} />
@@ -59,6 +63,12 @@ export function AppRoutes() {
           <Route path="billing" element={<AppBilling />} />
           <Route path="settings" element={<AppSettings />} />
         </Route>
+      </Route>
+
+      {/* Member (end-user) portal — its own plane (the operator /app + /console
+          reject a member token). */}
+      <Route element={<ProtectedRoute role="member" />}>
+        <Route path="/portal" element={<MemberPortal />} />
       </Route>
 
       {/* Operator admin console. */}
