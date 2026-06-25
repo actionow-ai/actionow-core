@@ -62,8 +62,19 @@ export class RunService {
     private readonly files: FilesService,
   ) {}
 
-  async run(resourceId: string, body: RunBody, ctx: TenantContext): Promise<RunOutcome> {
-    const req = await this.buildRequest(resourceId, body, ctx);
+  /**
+   * `routeTag` (染色/标签路由) is the `X-Actionow-Route-Tag` canary header — when
+   * set it narrows the candidate channels to tag-carrying ones (never widening;
+   * zero-match → hard 400) and rides onto the engine's relay_trace + usage_log
+   * rows. Header-less (`undefined`) is byte-for-byte unchanged.
+   */
+  async run(
+    resourceId: string,
+    body: RunBody,
+    ctx: TenantContext,
+    routeTag?: string,
+  ): Promise<RunOutcome> {
+    const req = await this.buildRequest(resourceId, body, ctx, undefined, routeTag);
     const service = this.buildService();
     return service.run(req);
   }
@@ -94,9 +105,18 @@ export class RunService {
    * HTTP 402/400 via the {@link UnifiedErrorFilter} before any SSE byte is
    * written. The returned `events` is the settling generator the controller
    * pipes to the SSE transport.
+   *
+   * `routeTag` (染色/标签路由) narrows the candidate channels to tag-carrying ones
+   * (never widening; zero-match → hard 400) and rides onto the relay_trace +
+   * usage_log rows; header-less (`undefined`) is unchanged.
    */
-  async runStream(resourceId: string, body: RunBody, ctx: TenantContext): Promise<StreamOutcome> {
-    const req = await this.buildRequest(resourceId, body, ctx, 'stream');
+  async runStream(
+    resourceId: string,
+    body: RunBody,
+    ctx: TenantContext,
+    routeTag?: string,
+  ): Promise<StreamOutcome> {
+    const req = await this.buildRequest(resourceId, body, ctx, 'stream', routeTag);
     const service = this.buildService();
     return service.runStream(req);
   }

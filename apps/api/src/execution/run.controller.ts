@@ -7,6 +7,7 @@ import type { Request, Response } from 'express';
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
 import { GovernanceGuard } from '../auth/governance.guard.js';
+import { routeTagHeader } from '../common/route-tag.js';
 import { ZodBody } from '../common/zod.pipe.js';
 import type { RunBody } from './run.service.js';
 import { RunBodySchema, RunService } from './run.service.js';
@@ -53,6 +54,9 @@ export class RunController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<RunResponse | undefined> {
     const ctx = this.auth.resolve(req);
+    // 染色/标签路由: the `X-Actionow-Route-Tag` canary header narrows routing to
+    // tag-carrying channels (undefined when blank/absent → unchanged).
+    const routeTag = routeTagHeader(req);
 
     if (wantsEventStream(req)) {
       // Manual `@Res()` SSE: the hold runs in runStream BEFORE we touch the
@@ -63,7 +67,7 @@ export class RunController {
       return undefined;
     }
 
-    const outcome = await this.runService.run(resourceId, body, ctx);
+    const outcome = await this.runService.run(resourceId, body, ctx, routeTag);
 
     if (outcome.status === 'queued') {
       res.status(202);
@@ -96,7 +100,11 @@ export class RunController {
     res: Response,
   ): Promise<void> {
     const ctx = this.auth.resolve(req);
-    const { events } = await this.runService.runStream(resourceId, body, ctx);
+    // 染色/标签路由: the canary header narrows routing to tag-carrying channels
+    // (undefined when blank/absent → unchanged); the hold's invalid_input
+    // zero-match throw still surfaces as HTTP 400 before any SSE byte.
+    const routeTag = routeTagHeader(req);
+    const { events } = await this.runService.runStream(resourceId, body, ctx, routeTag);
     const iterator = events[Symbol.asyncIterator]();
 
     res.status(200);
