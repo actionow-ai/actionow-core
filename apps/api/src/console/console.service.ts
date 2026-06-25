@@ -8,8 +8,10 @@ import type {
 import {
   type AccountRow,
   type ApiKeyRow,
+  countPlanBindings,
   createApiKey,
   type CreatedApiKey,
+  createLimitPlan,
   createSubAccount,
   createSubject,
   createSubUser,
@@ -21,6 +23,7 @@ import {
   getAccount,
   getIntentByIdForTenant,
   getLimitPlanById,
+  getLimitPlanForTenant,
   getSubAccount,
   getSubjectById,
   getTenantLimitPlanId,
@@ -28,6 +31,9 @@ import {
   type KeysetResult,
   type LedgerRow,
   type LimitAlertRow,
+  type LimitPlanRow,
+  type LimitRuleInput,
+  type LimitRuleRow,
   type LimitRuleStatus,
   limitRuleStatus,
   listApiKeys,
@@ -36,19 +42,25 @@ import {
   listJobs,
   listLedger,
   listLimitAlertsForSubject,
+  listLimitPlansByTenant,
+  listRulesByPlan,
+  listRulesByPlanIds,
   listSubjectsByTenant,
   listUsageLogsByTenant,
   listUsersByTenant,
   type PageParams,
   type PaymentIntentRow,
+  replacePlanRules,
   rollupUsage,
   rotateApiKeyForTenant,
+  softDeleteLimitPlan,
   softDeleteSubject,
   type SubAccountRow,
   type SubjectDeleteResult,
   type SubjectRow,
   topupSubAccount,
   transferCredits,
+  updateLimitPlan,
   updateSubject,
   updateUserPassword,
   updateUserStatus,
@@ -70,6 +82,8 @@ import type {
   ConsoleChangePasswordDto,
   ConsoleCreateApiKeyDto,
   ConsoleCreateIntentDto,
+  ConsoleCreateLimitPlanDto,
+  ConsoleUpdateLimitPlanDto,
 } from './dto/console.dto.js';
 import { MODELS_PORT, type ModelsPort, type ModelView } from './models.port.js';
 
@@ -261,6 +275,157 @@ export class ConsoleService {
       rules,
       alerts,
     };
+  }
+
+  // ----- tenant-owned limit plans (额度套餐; end-user data plane) -----
+
+  /** Map create/update rule DTOs to repo rule inputs (mirrors {@link AdminService.ruleInputs}). */
+  private ruleInputs(rules: ConsoleCreateLimitPlanDto['rules']): LimitRuleInput[] {
+    return rules.map((r) => ({
+      dimension: r.dimension,
+      period: r.period ?? null,
+      cap: BigInt(r.cap),
+      modelScope: r.modelScope ?? null,
+      alertPct: r.alertPct ?? null,
+      enforce: 'hard',
+    }));
+  }
+
+  /**
+   * The caller-tenant's OWN limit plans (tenant_id = ctx.tenantId), each with its
+   * rules + binding counts. Platform plans (tenant_id NULL) and other tenants'
+   * plans are excluded by the tenant-scoped repo — a tenant only ever sees its own
+   * 额度套餐.
+   */
+  async listLimitPlans(
+    tenantId: string,
+  ): Promise<
+    { plan: LimitPlanRow; rules: LimitRuleRow[]; bindings: { keys: number; tenants: number } }[]
+  > {
+    const plans = await listLimitPlansByTenant(this.db, tenantId);
+    const ids = plans.map((p) => p.id);
+    const [rulesByPlan, bindings] = await Promise.all([
+      listRulesByPlanIds(this.db, ids),
+      countPlanBindings(this.db, ids),
+    ]);
+    return plans.map((p) => ({
+      plan: p,
+      rules: rulesByPlan.get(p.id) ?? [],
+      bindings: bindings.get(p.id) ?? { keys: 0, tenants: 0 },
+    }));
+  }
+
+  /**
+   * One of the caller-tenant's plans by id, scoped to ctx.tenantId — a cross-
+   * tenant id OR a platform plan never matches → `not_found` (never leaks another
+   * owner's plan). The repo predicate already intersects `tenantId`.
+   */
+  async getLimitPlan(
+    tenantId: string,
+    id: string,
+  ): Promise<{
+    plan: LimitPlanRow;
+    rules: LimitRuleRow[];
+    bindings: { keys: number; tenants: number };
+  }> {
+    const plan = await getLimitPlanForTenant(this.db, id, tenantId);
+    if (plan === undefined) throw engineNotFound(`limit plan ${id} not found`);
+    const rules = await listRulesByPlan(this.db, id);
+    const bindings = (await countPlanBindings(this.db, [id])).get(id) ?? { keys: 0, tenants: 0 };
+    return { plan, rules, bindings };
+  }
+
+  /**
+   * Create a tenant-owned plan: `tenant_id` is FORCED to ctx.tenantId (never a
+   * body field), so a console admin can only ever create a plan for its own app.
+   * Mirrors {@link AdminService.createLimitPlan} but tenant-locked.
+   */
+  createLimitPlan(
+    tenantId: string,
+    dto: ConsoleCreateLimitPlanDto,
+  ): Promise<{
+    plan: LimitPlanRow;
+    rules: LimitRuleRow[];
+    bindings: { keys: number; tenants: number };
+  }> {
+    return this.db.transaction(async (tx) => {
+      const plan = await createLimitPlan(tx, {
+        name: dto.name,
+        description: dto.description ?? null,
+        tenantId,
+        ...(dto.status !== undefined ? { status: dto.status } : {}),
+      });
+      const rules = await replacePlanRules(tx, plan.id, this.ruleInputs(dto.rules));
+      return { plan, rules, bindings: { keys: 0, tenants: 0 } };
+    });
+  }
+
+  /**
+   * Patch one of the caller-tenant's plans (ownership pre-checked → 404 for a
+   * cross-tenant/platform id BEFORE any write). A present `rules` REPLACES the
+   * rule set. Tenant-scoped.
+   */
+  async updateLimitPlan(
+    tenantId: string,
+    id: string,
+    dto: ConsoleUpdateLimitPlanDto,
+  ): Promise<{
+    plan: LimitPlanRow;
+    rules: LimitRuleRow[];
+    bindings: { keys: number; tenants: number };
+  }> {
+    return this.db.transaction(async (tx) => {
+      // Ownership intersection FIRST — never mutate another tenant's / a platform plan.
+      const owned = await getLimitPlanForTenant(tx, id, tenantId);
+      if (owned === undefined) throw engineNotFound(`limit plan ${id} not found`);
+      const plan = await updateLimitPlan(tx, id, {
+        ...(dto.name !== undefined ? { name: dto.name } : {}),
+        ...(dto.description !== undefined ? { description: dto.description } : {}),
+        ...(dto.status !== undefined ? { status: dto.status } : {}),
+      });
+      if (plan === undefined) throw engineNotFound(`limit plan ${id} not found`);
+      const rules =
+        dto.rules !== undefined
+          ? await replacePlanRules(tx, id, this.ruleInputs(dto.rules))
+          : await listRulesByPlan(tx, id);
+      const bindings = (await countPlanBindings(tx, [id])).get(id) ?? { keys: 0, tenants: 0 };
+      return { plan, rules, bindings };
+    });
+  }
+
+  /**
+   * Soft-delete one of the caller-tenant's plans (ownership pre-checked → 404 for
+   * a cross-tenant/platform id BEFORE the delete). Tenant-scoped.
+   */
+  async deleteLimitPlan(tenantId: string, id: string): Promise<void> {
+    const owned = await getLimitPlanForTenant(this.db, id, tenantId);
+    if (owned === undefined) throw engineNotFound(`limit plan ${id} not found`);
+    const deleted = await softDeleteLimitPlan(this.db, id);
+    if (deleted === undefined) throw engineNotFound(`limit plan ${id} not found`);
+  }
+
+  /**
+   * Bind/unbind a subject's limit plan (`planId` null clears). BOTH the subject
+   * AND the plan must belong to ctx.tenantId — each is intersected with the tenant
+   * scope FIRST, so a cross-tenant subject OR a plan the tenant doesn't own (incl.
+   * a platform plan) → `not_found` (never binds across the tenant boundary).
+   */
+  async setSubjectLimitPlan(
+    tenantId: string,
+    subjectId: string,
+    planId: string | null,
+  ): Promise<SubjectRow> {
+    // Subject must be the caller-tenant's (cross-tenant/unknown → 404).
+    await this.getSubject(tenantId, subjectId);
+    // Plan (when binding) must be the caller-tenant's OWN plan (cross-tenant /
+    // platform / unknown → 404). Unbinding (null) skips the plan check.
+    if (planId !== null) {
+      const plan = await getLimitPlanForTenant(this.db, planId, tenantId);
+      if (plan === undefined) throw engineNotFound(`limit plan ${planId} not found`);
+    }
+    const row = await updateSubject(this.db, tenantId, subjectId, { limitPlanId: planId });
+    if (row === undefined) throw engineNotFound(`subject ${subjectId} not found`);
+    return row;
   }
 
   // ----- sub-users (rbac) -----

@@ -31,6 +31,10 @@ import {
   createSubAccountSchema,
   type CreateSubjectBody,
   createSubjectSchema,
+  type LimitPlanView,
+  limitPlanViewSchema,
+  type LimitRuleView,
+  limitRuleViewSchema,
   type SubAccountView,
   subAccountViewSchema,
   type SubjectView,
@@ -47,6 +51,8 @@ import type {
   FileObject,
   Job,
   LedgerRow,
+  LimitPlanRow,
+  LimitRuleRow,
   PaymentIntentRow,
   SubAccountRow,
   SubjectRow,
@@ -93,6 +99,12 @@ import {
   consoleCreateApiKeySchema,
   type ConsoleCreateIntentDto,
   consoleCreateIntentSchema,
+  type ConsoleCreateLimitPlanDto,
+  type ConsoleSetLimitPlanDto,
+  type ConsoleUpdateLimitPlanDto,
+  createLimitPlanRequestSchema,
+  setLimitPlanRequestSchema,
+  updateLimitPlanRequestSchema,
 } from './dto/console.dto.js';
 import type { ModelView } from './models.port.js';
 import { TenantAdminGuard } from './tenant-admin.guard.js';
@@ -276,6 +288,43 @@ function toSubjectView(row: SubjectRow): SubjectView {
     limit_plan_id: row.limitPlanId,
     status: row.status,
     created_at: row.createdAt.toISOString(),
+  });
+}
+
+/** Project a limit-rule row to its view (cap as a decimal µUSD/count string). */
+function toLimitRuleView(row: LimitRuleRow): LimitRuleView {
+  return limitRuleViewSchema.parse({
+    id: row.id,
+    dimension: row.dimension,
+    period: row.period,
+    cap: row.cap.toString(),
+    model_scope: row.modelScope,
+    alert_pct: row.alertPct,
+    enforce: row.enforce,
+  });
+}
+
+/**
+ * Project a tenant-owned limit plan (+ rules + binding counts) to its view.
+ * Mirrors the admin `toLimitPlanView`; `tenant_id` is always the caller's tenant
+ * (a console plan is never platform-owned).
+ */
+function toLimitPlanView(p: {
+  plan: LimitPlanRow;
+  rules: LimitRuleRow[];
+  bindings: { keys: number; tenants: number };
+}): LimitPlanView {
+  return limitPlanViewSchema.parse({
+    id: p.plan.id,
+    name: p.plan.name,
+    description: p.plan.description,
+    status: p.plan.status,
+    tenant_id: p.plan.tenantId,
+    rules: p.rules.map(toLimitRuleView),
+    key_count: p.bindings.keys,
+    tenant_count: p.bindings.tenants,
+    created_at: p.plan.createdAt.toISOString(),
+    updated_at: p.plan.updatedAt.toISOString(),
   });
 }
 
@@ -830,6 +879,120 @@ export class ConsoleController {
     const ctx = ctxOf(req);
     await this.console.transferCredits(ctx.tenantId, id, dto);
     return toSubAccountView(await this.console.getSubAccount(ctx.tenantId, id));
+  }
+
+  // ----- tenant-owned limit plans (额度套餐; end-user data plane) -----
+
+  /**
+   * List YOUR tenant's own 额度套餐 (plans) — never platform plans, never another
+   * tenant's. Each carries its rules + binding counts. Admin-only at the route.
+   */
+  @Get('limit-plans')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({
+    summary: "List your tenant's limit plans (额度套餐) with rules + binding counts",
+  })
+  async listLimitPlans(@Req() req: ConsoleRequest): Promise<LimitPlanView[]> {
+    const ctx = ctxOf(req);
+    return (await this.console.listLimitPlans(ctx.tenantId)).map(toLimitPlanView);
+  }
+
+  /**
+   * Create a tenant-owned plan (+ rules). The `tenant_id` is FORCED to your tenant
+   * by the service — never a body field. Mirrors `POST /admin/limit-plans`,
+   * tenant-admin-gated + tenant-scoped.
+   */
+  @Post('limit-plans')
+  @HttpCode(201)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Create a limit plan (额度套餐) for your tenant (+ rules)' })
+  @Audit({
+    action: 'limit_plan.create',
+    target: 'limit_plan',
+    resolve: ({ result }) => {
+      const r = result as { id?: string; name?: string };
+      return { targetId: r.id ?? null, meta: { name: r.name } };
+    },
+  })
+  async createLimitPlan(
+    @Body(new ZodBody(createLimitPlanRequestSchema)) dto: ConsoleCreateLimitPlanDto,
+    @Req() req: ConsoleRequest,
+  ): Promise<LimitPlanView> {
+    const ctx = ctxOf(req);
+    return toLimitPlanView(await this.console.createLimitPlan(ctx.tenantId, dto));
+  }
+
+  @Get('limit-plans/:id')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Get one of your tenant limit plans (+ rules) by id or 404' })
+  async getLimitPlan(@Param('id') id: string, @Req() req: ConsoleRequest): Promise<LimitPlanView> {
+    const ctx = ctxOf(req);
+    return toLimitPlanView(await this.console.getLimitPlan(ctx.tenantId, id));
+  }
+
+  @Patch('limit-plans/:id')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Update a tenant limit plan; a present `rules` REPLACES the rule set' })
+  @Audit({
+    action: 'limit_plan.update',
+    target: 'limit_plan',
+    resolve: ({ params, body }) => {
+      const b = body as { name?: string; status?: string; rules?: unknown[] };
+      return {
+        targetId: params.id ?? null,
+        meta: { name: b.name, status: b.status, ruleCount: b.rules?.length },
+      };
+    },
+  })
+  async updateLimitPlan(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateLimitPlanRequestSchema)) dto: ConsoleUpdateLimitPlanDto,
+    @Req() req: ConsoleRequest,
+  ): Promise<LimitPlanView> {
+    const ctx = ctxOf(req);
+    return toLimitPlanView(await this.console.updateLimitPlan(ctx.tenantId, id, dto));
+  }
+
+  @Delete('limit-plans/:id')
+  @HttpCode(204)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Soft-delete one of your tenant limit plans (cross-tenant id → 404)' })
+  @Audit({
+    action: 'limit_plan.delete',
+    target: 'limit_plan',
+    resolve: ({ params }) => ({ targetId: params.id ?? null }),
+  })
+  async deleteLimitPlan(@Param('id') id: string, @Req() req: ConsoleRequest): Promise<void> {
+    const ctx = ctxOf(req);
+    await this.console.deleteLimitPlan(ctx.tenantId, id);
+  }
+
+  /**
+   * Bind/unbind one of YOUR subjects to one of YOUR plans (`planId` null clears).
+   * Both the subject AND the plan are intersected with your tenant scope first —
+   * a cross-tenant subject OR a plan you don't own (incl. a platform plan) → 404.
+   */
+  @Post('subjects/:id/limit-plan')
+  @HttpCode(200)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: "Bind/unbind a subject's limit plan (planId null = clear)" })
+  @Audit({
+    action: 'subject.limit_plan_bind',
+    target: 'subject',
+    resolve: ({ params, body }) => ({
+      subjectId: params.id ?? null,
+      targetId: params.id ?? null,
+      meta: { planId: (body as { planId?: string | null }).planId },
+    }),
+  })
+  async setSubjectLimitPlan(
+    @Param('id') id: string,
+    @Body(new ZodBody(setLimitPlanRequestSchema)) dto: ConsoleSetLimitPlanDto,
+    @Req() req: ConsoleRequest,
+  ): Promise<{ ok: true }> {
+    const ctx = ctxOf(req);
+    await this.console.setSubjectLimitPlan(ctx.tenantId, id, dto.planId);
+    return { ok: true };
   }
 
   // ----- sub-users (rbac, tenant-admin-only) -----

@@ -2,6 +2,9 @@ import {
   consoleChangePasswordSchema,
   consoleCreateApiKeySchema,
   consoleCreateIntentSchema,
+  createLimitPlanRequestSchema,
+  setLimitPlanRequestSchema,
+  updateLimitPlanRequestSchema,
 } from '@actionow/contracts';
 import { z } from 'zod';
 
@@ -19,11 +22,24 @@ import { z } from 'zod';
  */
 
 // --- Request-body schemas (single source of truth in @actionow/contracts) ---
-export { consoleChangePasswordSchema, consoleCreateApiKeySchema, consoleCreateIntentSchema };
+export {
+  consoleChangePasswordSchema,
+  consoleCreateApiKeySchema,
+  consoleCreateIntentSchema,
+  // The 额度套餐 (limit-plan) create/update/bind bodies are SHARED with the admin
+  // surface — same shape, tenant injected server-side. Re-exported so the console
+  // controller resolves them from `./dto/console.dto.js` like its other schemas.
+  createLimitPlanRequestSchema,
+  setLimitPlanRequestSchema,
+  updateLimitPlanRequestSchema,
+};
 
 export type ConsoleCreateApiKeyDto = z.infer<typeof consoleCreateApiKeySchema>;
 export type ConsoleCreateIntentDto = z.infer<typeof consoleCreateIntentSchema>;
 export type ConsoleChangePasswordDto = z.infer<typeof consoleChangePasswordSchema>;
+export type ConsoleCreateLimitPlanDto = z.infer<typeof createLimitPlanRequestSchema>;
+export type ConsoleUpdateLimitPlanDto = z.infer<typeof updateLimitPlanRequestSchema>;
+export type ConsoleSetLimitPlanDto = z.infer<typeof setLimitPlanRequestSchema>;
 
 /**
  * `GET /console/analytics/usage` — tenant-scoped usage rollups. Unlike the admin
