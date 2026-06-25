@@ -580,6 +580,8 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     responseStatus: z.coerce.number().optional(),
     errorsOnly: z.enum(['true', 'false']).optional(),
     isStream: z.enum(['true', 'false']).optional(),
+    // 染色: narrow the audit trace to one route tag (canary) the call was pinned to.
+    routeTag: z.string().optional(),
     cursor: z.string().optional(),
     limit: z.coerce.number().optional(),
   });

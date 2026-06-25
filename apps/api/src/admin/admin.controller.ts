@@ -1775,6 +1775,7 @@ export class AdminController {
       ...(q.responseStatus !== undefined ? { responseStatus: q.responseStatus } : {}),
       ...(q.errorsOnly !== undefined ? { errorsOnly: q.errorsOnly } : {}),
       ...(q.isStream !== undefined ? { isStream: q.isStream } : {}),
+      ...(q.routeTag !== undefined ? { routeTag: q.routeTag } : {}),
     };
     const page = toPageParams({
       ...(q.limit !== undefined ? { limit: String(q.limit) } : {}),

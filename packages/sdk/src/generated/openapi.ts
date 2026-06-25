@@ -2727,6 +2727,7 @@ export interface paths {
                     responseStatus?: number | null;
                     errorsOnly?: "true" | "false";
                     isStream?: "true" | "false";
+                    routeTag?: string;
                     cursor?: string;
                     limit?: number | null;
                 };

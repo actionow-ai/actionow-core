@@ -77,11 +77,13 @@ export function RelayTracesPage() {
   const [from, setFrom] = useUrlState('from');
   const [to, setTo] = useUrlState('to');
   const [errors, setErrors] = useUrlState('errors');
+  const [routeTag, setRouteTag] = useUrlState('routeTag');
   const [selected, setSelected] = useState<RelayTraceView | undefined>(undefined);
 
   const [providerLocal, setProviderLocal] = useDebounced(provider, setProvider);
   const [jobLocal, setJobLocal] = useDebounced(jobId, setJobId);
   const [chanLocal, setChanLocal] = useDebounced(channelId, setChannelId);
+  const [tagLocal, setTagLocal] = useDebounced(routeTag, setRouteTag);
 
   // jobId/channelId are deep-link driven (a Job row or by-channel rollup links
   // here with `?jobId=`/`?channelId=`); all filters are URL-synced + editable.
@@ -93,6 +95,7 @@ export function RelayTracesPage() {
     from: from === '' ? undefined : `${from}T00:00:00Z`,
     to: to === '' ? undefined : `${to}T23:59:59Z`,
     errorsOnly: errors === '1' ? true : undefined,
+    routeTag: routeTag === '' ? undefined : routeTag,
   };
 
   const q = useInfiniteQuery({
@@ -154,6 +157,18 @@ export function RelayTracesPage() {
       header: t('relayTraces.cols.provider'),
       cell: (r) => r.provider_type ?? '—',
       width: '120px',
+    },
+    {
+      key: 'routeTag',
+      header: t('relayTraces.cols.routeTag'),
+      // 染色: the canary tag the call was pinned to; a chip when set, a faint dash when not.
+      cell: (r) =>
+        r.route_tag !== null && r.route_tag !== '' ? (
+          <Pill tone="run">{r.route_tag}</Pill>
+        ) : (
+          <span style={{ color: 'var(--faint)' }}>—</span>
+        ),
+      width: '110px',
     },
     {
       key: 'tenant',
@@ -258,6 +273,14 @@ export function RelayTracesPage() {
             value={chanLocal}
             onChange={setChanLocal}
             placeholder={t('relayTraces.channelIdLabel')}
+          />
+        </InlineField>
+        <InlineField id="flt-route-tag" label={t('relayTraces.routeTagLabel')}>
+          <TextField
+            id="flt-route-tag"
+            value={tagLocal}
+            onChange={setTagLocal}
+            placeholder={t('relayTraces.routeTagPlaceholder')}
           />
         </InlineField>
         <SegmentedControl

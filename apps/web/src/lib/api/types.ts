@@ -202,6 +202,8 @@ export interface RelayTraceQuery {
   /** `true` → only failures (status >= 400 or a captured error). */
   errorsOnly?: boolean;
   isStream?: boolean;
+  /** 染色: narrow to one route tag (canary) the call was pinned to (exact match). */
+  routeTag?: string;
   limit?: number;
   cursor?: string;
 }

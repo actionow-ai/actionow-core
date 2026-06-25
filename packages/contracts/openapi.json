@@ -7991,6 +7991,14 @@
               "type": "string"
             },
             "required": false,
+            "name": "routeTag",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
             "name": "cursor",
             "in": "query"
           },
