@@ -285,6 +285,7 @@ describe('GET /auth/oauth/:provider/callback (find-or-create)', () => {
       email: 'shared@example.com',
       passwordHash: hashPassword('localpass'),
       role: 'user',
+      tenantRole: 'admin',
       emailVerified: true,
     });
 
@@ -318,6 +319,7 @@ describe('GET /auth/oauth/:provider/callback (find-or-create)', () => {
       email: 'noauto@example.com',
       passwordHash: hashPassword('localpass'),
       role: 'user',
+      tenantRole: 'admin',
       emailVerified: true,
     });
 
@@ -362,6 +364,7 @@ describe('POST /auth/link/:provider (authenticated linking)', () => {
       email: 'linker@example.com',
       passwordHash: hashPassword('pw'),
       role: 'user',
+      tenantRole: 'admin',
       emailVerified: true,
     });
     stubGithub(555, 'linker-gh@example.com', true);
@@ -393,6 +396,7 @@ describe('POST /auth/link/:provider (authenticated linking)', () => {
     const owner = await createUser(db, {
       email: 'owner@example.com',
       role: 'user',
+      tenantRole: 'admin',
       emailVerified: true,
     });
     await createUserIdentity(db, { userId: owner.id, provider: 'github', providerUserId: '999' });
@@ -401,6 +405,7 @@ describe('POST /auth/link/:provider (authenticated linking)', () => {
       email: 'other@example.com',
       passwordHash: hashPassword('pw'),
       role: 'user',
+      tenantRole: 'admin',
       emailVerified: true,
     });
     stubGithub(999, 'owner-gh@example.com', true);
