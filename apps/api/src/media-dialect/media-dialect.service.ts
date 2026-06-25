@@ -215,6 +215,10 @@ export class MediaDialectService {
       traceUpstream: this.env.RELAY_TRACE === 'full',
       traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
       insertUsageLog: insertUsageLogFn,
+      // 弹性2.0: the JobRunner does the actual upstream submit routing for the
+      // in-process media dialect (/v1/images, /v1/audio), so it must carry the
+      // breaker too — buildExec only holds/snapshots the job. Fail-open as ever.
+      breaker: this.breaker,
       ...(persistMediaResultFn !== undefined ? { persistMediaResult: persistMediaResultFn } : {}),
     });
   }
