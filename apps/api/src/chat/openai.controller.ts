@@ -7,6 +7,7 @@ import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
 import { GovernanceGuard } from '../auth/governance.guard.js';
 import { idempotencyKeyHeader } from '../common/idempotency.interceptor.js';
+import { routeTagHeader } from '../common/route-tag.js';
 import { ChatRelayService } from './chat-relay.service.js';
 import { pipeSse } from './sse.js';
 
@@ -38,12 +39,13 @@ export class OpenAIChatController {
     const ctx = this.auth.resolve(req);
     const ir = parseOpenAIChat(body);
     const idem = idempotencyKeyHeader(req);
+    const routeTag = routeTagHeader(req);
     if (body.stream === true) {
-      const { events } = await this.relay.chatStream(ir.model, ir, ctx, idem);
+      const { events } = await this.relay.chatStream(ir.model, ir, ctx, idem, routeTag);
       await pipeSse(res, renderOpenAIChatStream(events, ir.model));
       return undefined;
     }
-    const { response, servedBy } = await this.relay.chat(ir.model, ir, ctx, idem);
+    const { response, servedBy } = await this.relay.chat(ir.model, ir, ctx, idem, routeTag);
     if (servedBy !== undefined) res.setHeader('x-actionow-channel', servedBy.providerType);
     return renderOpenAIChat(response, ir.model);
   }

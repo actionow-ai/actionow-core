@@ -71,6 +71,8 @@ export const createChannelSchema = z.object({
   icon: z.string().optional(),
   /** Owning provider-plugin id (模型接入 3-pane grouping). */
   pluginId: z.string().uuid().optional(),
+  /** Free-form routing tags (染色/标签路由) — drive the X-Actionow-Route-Tag hard-pin; omitted → none. */
+  tags: z.array(z.string().min(1)).max(20).optional(),
 });
 export type CreateChannelBody = z.infer<typeof createChannelSchema>;
 
@@ -108,6 +110,8 @@ export const updateChannelSchema = z.object({
   icon: z.string().nullable().optional(),
   /** Owning provider-plugin id (模型接入 3-pane grouping); `null` unassigns. */
   pluginId: z.string().uuid().nullable().optional(),
+  /** Free-form routing tags (染色/标签路由); replaces the set (`[]` clears it). */
+  tags: z.array(z.string().min(1)).max(20).optional(),
 });
 export type UpdateChannelBody = z.infer<typeof updateChannelSchema>;
 

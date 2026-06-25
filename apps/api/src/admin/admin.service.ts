@@ -1300,6 +1300,7 @@ export class AdminService {
       ...(dto.faultPolicyId !== undefined ? { faultPolicyId: dto.faultPolicyId } : {}),
       ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
       ...(dto.pluginId !== undefined ? { pluginId: dto.pluginId } : {}),
+      ...(dto.tags !== undefined ? { tags: dto.tags } : {}),
     });
   }
 
@@ -1339,6 +1340,7 @@ export class AdminService {
     if (dto.faultPolicyId !== undefined) patch.faultPolicyId = dto.faultPolicyId;
     if (dto.icon !== undefined) patch.icon = dto.icon;
     if (dto.pluginId !== undefined) patch.pluginId = dto.pluginId;
+    if (dto.tags !== undefined) patch.tags = dto.tags;
     const row = await updateUpstreamChannel(this.db, channelId, patch);
     if (row === undefined) {
       throw engineNotFound(`channel ${channelId} not found`);
@@ -2539,5 +2541,6 @@ export function toRelayTraceView(row: RelayTraceRow): RelayTraceView {
     latency_ms: row.latencyMs,
     error: row.error,
     truncated: row.truncated,
+    route_tag: row.routeTag,
   });
 }

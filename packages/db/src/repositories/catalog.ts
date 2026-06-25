@@ -316,6 +316,8 @@ export interface UpdateUpstreamChannelInput {
   readonly icon?: string | null | undefined;
   /** Owning provider-plugin id (模型接入 grouping); `null` unassigns. */
   readonly pluginId?: string | null | undefined;
+  /** Free-form routing tags (染色/标签路由); the full set replaces the existing tags. */
+  readonly tags?: readonly string[] | undefined;
 }
 
 /** Patch an `upstream_channel` row (only the supplied fields), returning the new row. */
@@ -337,6 +339,7 @@ export async function updateUpstreamChannel(
   if (patch.faultPolicyId !== undefined) set.faultPolicyId = patch.faultPolicyId;
   if (patch.icon !== undefined) set.icon = patch.icon;
   if (patch.pluginId !== undefined) set.pluginId = patch.pluginId;
+  if (patch.tags !== undefined) set.tags = [...patch.tags];
   if (Object.keys(set).length === 0) {
     const rows = await db
       .select()
@@ -966,6 +969,8 @@ export interface CreateUpstreamChannelInput {
   readonly icon?: string | null | undefined;
   /** Owning provider-plugin id (模型接入 grouping); null → unassigned. */
   readonly pluginId?: string | null | undefined;
+  /** Free-form routing tags (染色/标签路由); omitted → empty (no tags). */
+  readonly tags?: readonly string[] | undefined;
 }
 
 /** Insert an `upstream_channel` routing row for a resource. */
@@ -990,6 +995,8 @@ export async function createUpstreamChannel(
       faultPolicyId: input.faultPolicyId ?? null,
       icon: input.icon ?? null,
       pluginId: input.pluginId ?? null,
+      // Omitted → fall through to the column DEFAULT '{}' (empty tag set).
+      ...(input.tags !== undefined ? { tags: [...input.tags] } : {}),
     })
     .returning();
   const row = rows[0];

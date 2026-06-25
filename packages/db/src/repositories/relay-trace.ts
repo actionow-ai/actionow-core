@@ -29,6 +29,8 @@ export interface InsertRelayTraceInput {
   readonly latencyMs?: number | null | undefined;
   readonly error?: string | null | undefined;
   readonly truncated?: boolean | undefined;
+  /** The per-request route tag (染色) this call was pinned to; omitted/null → no tag. */
+  readonly routeTag?: string | null | undefined;
 }
 
 /**
@@ -57,6 +59,7 @@ export async function insertRelayTrace(
       latencyMs: input.latencyMs ?? null,
       error: input.error ?? null,
       ...(input.truncated !== undefined ? { truncated: input.truncated } : {}),
+      routeTag: input.routeTag ?? null,
     })
     .returning();
   const row = rows[0];
@@ -84,6 +87,8 @@ export interface RelayTraceFilter {
   readonly errorsOnly?: boolean | undefined;
   /** Restrict to streaming (`true`) or non-streaming (`false`) calls. */
   readonly isStream?: boolean | undefined;
+  /** 染色: exact `route_tag` match — the canary tag the call was pinned to. */
+  readonly routeTag?: string | undefined;
 }
 
 /**
@@ -112,6 +117,7 @@ export async function listRelayTraces(
     predicates.push(eq(relayTrace.responseStatus, filter.responseStatus));
   }
   if (filter.isStream !== undefined) predicates.push(eq(relayTrace.isStream, filter.isStream));
+  if (filter.routeTag !== undefined) predicates.push(eq(relayTrace.routeTag, filter.routeTag));
   if (filter.errorsOnly === true) {
     // A failure = a non-2xx/3xx upstream status OR a captured transport error.
     const errPred = or(sql`${relayTrace.responseStatus} >= 400`, isNotNull(relayTrace.error));

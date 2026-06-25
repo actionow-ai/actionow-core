@@ -60,6 +60,27 @@ const fakeLlm: ProviderAdapter = {
   },
 };
 
+/**
+ * A labelled blocking adapter whose `output.served` echoes its providerType, so
+ * the channel that actually served a `/v1/run` is observable from the response
+ * body (no `x-actionow-channel` header on the raw run path). Two of these (with
+ * distinct providerTypes) let the route-tag e2e tell which channel was picked.
+ */
+function labelledRunAdapter(providerType: string): ProviderAdapter {
+  return {
+    providerType,
+    submit(): Promise<SubmitResult> {
+      return Promise.resolve({ kind: 'sync', output: { served: providerType }, usage: {} });
+    },
+    extractUsage: (): UsageVector => ({}),
+    mapError: (): UnifiedError => ({ code: 'upstream_error', message: 'fake', retryable: false }),
+  };
+}
+
+/** Distinct providerTypes for the two route-tag candidate channels. */
+const RUN_PROVIDER_TAGGED = 'fake-run-tagged';
+const RUN_PROVIDER_PLAIN = 'fake-run-plain';
+
 beforeAll(async () => {
   container = await new PostgreSqlContainer('postgres:16-alpine').start();
   client = postgres(container.getConnectionUri(), { max: 10 });
@@ -68,6 +89,8 @@ beforeAll(async () => {
 
   const adapters = new AdapterRegistry();
   adapters.register(fakeLlm);
+  adapters.register(labelledRunAdapter(RUN_PROVIDER_TAGGED));
+  adapters.register(labelledRunAdapter(RUN_PROVIDER_PLAIN));
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(DB)
@@ -161,6 +184,66 @@ async function seed(balance: bigint): Promise<Seed> {
   await db.insert(upstreamChannel).values({
     resourceId,
     providerType: 'fake-llm',
+    weight: 1,
+    status: 'active',
+  });
+  return { tenantId: t.id, accountId: a.id, resourceId };
+}
+
+/**
+ * 染色/标签路由: seed a blocking resource with TWO channels on distinct
+ * providerTypes — one tagged `canary`, one untagged — so a `/v1/run` carrying
+ * `X-Actionow-Route-Tag: canary` is observable as narrowed to the tagged channel
+ * via `output.served` (the labelled adapter echoes its providerType). Mirrors the
+ * single-channel {@link seed} otherwise (post/unit pricebook, funded account).
+ */
+async function seedTagged(balance: bigint): Promise<Seed> {
+  const [t] = await db.insert(tenant).values({ name: 'canary-co' }).returning();
+  if (!t) throw new Error('tenant insert returned no row');
+  const [a] = await db
+    .insert(account)
+    .values({ tenantId: t.id, creditBalance: balance, creditHeld: 0n })
+    .returning();
+  if (!a) throw new Error('account insert returned no row');
+  const resourceId = 'tagged-run';
+  await db.insert(resource).values({
+    id: resourceId,
+    tenantId: t.id,
+    kind: 'model',
+    modality: 'text',
+    providerType: RUN_PROVIDER_TAGGED,
+    execModes: ['blocking'],
+    currentVersion: 1,
+  });
+  await db.insert(resourceVersion).values({
+    resourceId,
+    version: 1,
+    ioSchema: {
+      inputs: [{ key: 'prompt', type: 'string', required: true }],
+      outputs: [{ key: 'served', type: 'string' }],
+    },
+  });
+  await db.insert(pricebookEntry).values({
+    resourceId,
+    resourceVersion: 1,
+    version: 1,
+    method: 'unit',
+    timing: 'post',
+    spec: { method: 'unit', dimensions: { tokens: { rate: 1 } } },
+    active: true,
+  });
+  // The `canary`-tagged channel (served only when the header pins to it) and the
+  // untagged channel (served when no tag, or pinned to a tag the canary lacks).
+  await db.insert(upstreamChannel).values({
+    resourceId,
+    providerType: RUN_PROVIDER_TAGGED,
+    weight: 1,
+    status: 'active',
+    tags: ['canary'],
+  });
+  await db.insert(upstreamChannel).values({
+    resourceId,
+    providerType: RUN_PROVIDER_PLAIN,
     weight: 1,
     status: 'active',
   });
@@ -305,6 +388,73 @@ describe('POST /v1/run/:resourceId (blocking)', () => {
       .expect(404);
 
     expect(res.body.error.code).toBe('resource_not_found');
+  });
+});
+
+/**
+ * 染色/标签路由 (route tagging) on the `/v1/run` relay entrypoint — the direct
+ * run path (no model resolution), one of the three relay entrypoints the spec
+ * names (chat, `/v1` relay, media-dialect). The resource owns TWO channels on
+ * distinct providerTypes (one tagged `canary`); the served channel is observable
+ * from `output.served`. This pins the controller's `X-Actionow-Route-Tag` parse
+ * → `RunService.run` → `candidatesFor` threading:
+ *
+ * - `X-Actionow-Route-Tag: canary` → narrowed to the tagged channel (never the
+ *   untagged one).
+ * - `X-Actionow-Route-Tag: nope` (matches no candidate) → 400 invalid_input (no
+ *   silent leak to the untagged channel).
+ * - header-less → routes over EITHER channel, byte-for-byte unchanged.
+ *
+ * (The `route_tag` recording onto `relay_trace`/`usage_log` from `RunRequest.routeTag`
+ * is covered by the engine integration tests — `usage-log-on-settle.int.test.ts`,
+ * `relay-trace.test.ts` — and shared by all three entrypoints.)
+ */
+describe('POST /v1/run/:resourceId route tagging (染色/标签路由)', () => {
+  it('X-Actionow-Route-Tag pins the run to the tag-carrying channel', async () => {
+    const s = await seedTagged(1_000_000n);
+    tenantId = s.tenantId;
+
+    const res = await request(app.getHttpServer())
+      .post(`/v1/run/${s.resourceId}`)
+      .set('x-tenant-id', tenantId)
+      .set('x-actionow-route-tag', 'canary')
+      .send({ inputs: { prompt: 'hi' }, estimated_usage: { tokens: 1000 } })
+      .expect(200);
+
+    expect(res.body.status).toBe('succeeded');
+    // Narrowed to the `canary`-tagged channel — never the untagged one.
+    expect(res.body.output).toEqual({ served: RUN_PROVIDER_TAGGED });
+  });
+
+  it('a route tag matching no candidate channel → 400 invalid_input (no silent leak)', async () => {
+    const s = await seedTagged(1_000_000n);
+    tenantId = s.tenantId;
+
+    const res = await request(app.getHttpServer())
+      .post(`/v1/run/${s.resourceId}`)
+      .set('x-tenant-id', tenantId)
+      .set('x-actionow-route-tag', 'nope')
+      .send({ inputs: { prompt: 'hi' }, estimated_usage: { tokens: 1000 } })
+      .expect(400);
+
+    expect(res.body.error.code).toBe('invalid_input');
+    // The zero-match throws BEFORE any hold/job — no leak to the untagged channel.
+    const jobs = await db.select().from(schema.job);
+    expect(jobs).toHaveLength(0);
+  });
+
+  it('a header-less run is unchanged: routes over either channel', async () => {
+    const s = await seedTagged(1_000_000n);
+    tenantId = s.tenantId;
+
+    const res = await request(app.getHttpServer())
+      .post(`/v1/run/${s.resourceId}`)
+      .set('x-tenant-id', tenantId)
+      .send({ inputs: { prompt: 'hi' }, estimated_usage: { tokens: 1000 } })
+      .expect(200);
+
+    expect(res.body.status).toBe('succeeded');
+    expect([RUN_PROVIDER_TAGGED, RUN_PROVIDER_PLAIN]).toContain(res.body.output.served);
   });
 });
 

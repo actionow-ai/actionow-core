@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import i18n from '../../i18n';
 import type { ChannelView } from '../../lib/api/types';
@@ -27,6 +28,10 @@ beforeAll(async () => {
   await i18n.changeLanguage('en');
 });
 
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
 const channel: ChannelView = {
   id: 'c1',
   resource_id: 'r1',
@@ -44,6 +49,7 @@ const channel: ChannelView = {
   model_count: 0,
   icon: null,
   plugin_id: null,
+  tags: ['canary'],
 };
 
 describe('ChannelEditor cost fields', () => {
@@ -52,5 +58,22 @@ describe('ChannelEditor cost fields', () => {
     // Per-channel cost now lives behind the advanced toggle.
     fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
     expect(await screen.findByDisplayValue('0.5')).toBeInTheDocument();
+  });
+});
+
+describe('ChannelEditor route tags (染色/标签路由)', () => {
+  it('seeds the tags chips from the channel and adds + persists a new tag on save', async () => {
+    const user = userEvent.setup();
+    renderEd(<ChannelEditor resourceId="r1" channel={channel} open onClose={() => undefined} />);
+    // The seeded tag renders as a chip.
+    expect(await screen.findByText('canary')).toBeInTheDocument();
+    // The tags field's own input (last textbox in the form) accepts a new tag.
+    const inputs = screen.getAllByRole('textbox');
+    const tagInput = inputs[inputs.length - 1];
+    await user.type(tagInput, 'beta{Enter}');
+    await user.click(screen.getByRole('button', { name: /Save channel/i }));
+    await waitFor(() => expect(mockApi.updateChannel).toHaveBeenCalled());
+    const body = (mockApi.updateChannel.mock.calls[0] as unknown[])[2] as { tags: string[] };
+    expect(body.tags).toEqual(['canary', 'beta']);
   });
 });

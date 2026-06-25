@@ -1775,6 +1775,7 @@ export class AdminController {
       ...(q.responseStatus !== undefined ? { responseStatus: q.responseStatus } : {}),
       ...(q.errorsOnly !== undefined ? { errorsOnly: q.errorsOnly } : {}),
       ...(q.isStream !== undefined ? { isStream: q.isStream } : {}),
+      ...(q.routeTag !== undefined ? { routeTag: q.routeTag } : {}),
     };
     const page = toPageParams({
       ...(q.limit !== undefined ? { limit: String(q.limit) } : {}),
@@ -2226,6 +2227,7 @@ function toChannelView(row: UpstreamChannelRow, modelCount = 0): ChannelView {
     model_count: modelCount,
     icon: row.icon,
     plugin_id: row.pluginId,
+    tags: row.tags,
   });
 }
 
@@ -2406,6 +2408,7 @@ function toUsageLogView(row: UsageLogRow): UsageLogView {
     cost: row.cost.toString(),
     latency_ms: row.latencyMs,
     status: row.status,
+    route_tag: row.routeTag,
     created_at: row.createdAt.toISOString(),
   });
 }

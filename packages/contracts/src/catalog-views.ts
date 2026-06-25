@@ -47,6 +47,8 @@ export const channelViewSchema = z.object({
   icon: z.string().nullable(),
   /** Owning provider-plugin id (模型接入 3-pane grouping); null → unassigned. */
   plugin_id: z.string().nullable(),
+  /** Free-form routing tags (染色/标签路由) — drive the X-Actionow-Route-Tag hard-pin + faceting. */
+  tags: z.array(z.string()),
 });
 export type ChannelView = z.infer<typeof channelViewSchema>;
 

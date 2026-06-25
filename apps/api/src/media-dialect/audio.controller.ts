@@ -5,6 +5,7 @@ import type { Request, Response } from 'express';
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
 import { GovernanceGuard } from '../auth/governance.guard.js';
+import { routeTagHeader } from '../common/route-tag.js';
 import { ZodBody } from '../common/zod.pipe.js';
 import { type AudioSpeechDto, audioSpeechSchema } from './dto/media-dialect.dto.js';
 import { MediaDialectService } from './media-dialect.service.js';
@@ -37,7 +38,7 @@ export class AudioController {
     @Res() res: Response,
   ): Promise<void> {
     const ctx = this.auth.resolve(req);
-    const { bytes, contentType } = await this.media.speech(dto, ctx);
+    const { bytes, contentType } = await this.media.speech(dto, ctx, routeTagHeader(req));
     const body = Buffer.from(bytes);
     res.status(200);
     res.setHeader('content-type', contentType);

@@ -401,6 +401,8 @@
     "statusLabel": "状态",
     "statusAll": "全部",
     "statusErrors": "仅错误",
+    "routeTagLabel": "路由标签",
+    "routeTagPlaceholder": "路由标签(如 canary)",
     "from": "起",
     "to": "止",
     "empty": "该区间暂无中转追踪",
@@ -408,6 +410,7 @@
     "cols": {
       "time": "时间",
       "provider": "Provider",
+      "routeTag": "路由标签",
       "tenant": "租户",
       "job": "任务",
       "channel": "渠道",
@@ -426,6 +429,7 @@
       "job": "任务",
       "channel": "渠道",
       "provider": "Provider",
+      "routeTag": "路由标签",
       "error": "错误",
       "reqHeaders": "请求头",
       "reqBody": "请求体",
@@ -833,6 +837,8 @@
       "faultPolicyNone": "无(引擎默认)",
       "proxy": "代理",
       "proxyNone": "无(直连/全局默认)",
+      "tags": "路由标签(染色)",
+      "tagsPlaceholder": "输入后回车,如 canary / beta",
       "config": "配置"
     },
     "tip": {
@@ -855,6 +861,7 @@
       "faultPolicy": "绑定一个「调用容错」策略——同渠道重试 + 退避 + 各类超时。留空则用引擎默认(单次尝试)。",
       "proxy": "为该渠道选择一个已管理的「代理」。选中后即绑定；留空则直连(或全局 UPSTREAM_PROXY_URL)。",
       "proxyRefAdvanced": "高级：直接填代理实体 id 或一个 env 定位符(SECRET_<KEY>)；通常用上面的下拉即可。",
+      "tags": "自由路由标签(染色)。请求头 X-Actionow-Route-Tag 会把调用硬性钉到带该标签的通道上(只收窄,不放宽);留空则不参与标签路由。",
       "config": "该通道的 Provider 专属键值配置(如异步提交/轮询路径)。"
     },
     "actions": {

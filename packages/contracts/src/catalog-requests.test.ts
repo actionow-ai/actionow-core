@@ -4,6 +4,7 @@ import {
   createChannelSchema,
   createModelSchema,
   createResourceSchema,
+  updateChannelSchema,
   updateModelSchema,
 } from './catalog-requests.js';
 
@@ -29,6 +30,21 @@ describe('catalog request contracts', () => {
     expect(() =>
       createChannelSchema.parse({ providerType: 'openai', inputCostUsdPer1m: '0.5' }),
     ).toThrow();
+  });
+
+  it('createChannelSchema accepts optional routing tags (染色/标签路由)', () => {
+    const body = { providerType: 'openai', tags: ['canary'] };
+    expect(createChannelSchema.parse(body)).toEqual(body);
+    // tags is optional — omitting it is fine.
+    expect(createChannelSchema.parse({ providerType: 'openai' })).toEqual({
+      providerType: 'openai',
+    });
+  });
+
+  it('updateChannelSchema accepts a replacement tag set and is otherwise all-optional', () => {
+    expect(updateChannelSchema.parse({ tags: ['beta'] })).toEqual({ tags: ['beta'] });
+    expect(updateChannelSchema.parse({ tags: [] })).toEqual({ tags: [] });
+    expect(updateChannelSchema.parse({})).toEqual({});
   });
 
   it('createModelSchema requires name + resourceId and rejects a non-integer price', () => {

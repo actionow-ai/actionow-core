@@ -2727,6 +2727,7 @@ export interface paths {
                     responseStatus?: number | null;
                     errorsOnly?: "true" | "false";
                     isStream?: "true" | "false";
+                    routeTag?: string;
                     cursor?: string;
                     limit?: number | null;
                 };
@@ -10555,6 +10556,7 @@ export interface components {
             model_count: number;
             icon: string | null;
             plugin_id: string | null;
+            tags: string[];
         };
         ModelView: {
             id: string;
@@ -10668,6 +10670,7 @@ export interface components {
             cost: string;
             latency_ms: number | null;
             status: string;
+            route_tag: string | null;
             created_at: string;
         };
         UsageRollupView: {
@@ -10729,6 +10732,7 @@ export interface components {
             latency_ms: number | null;
             error: string | null;
             truncated: boolean;
+            route_tag: string | null;
         };
         RedemptionCodeView: {
             code: string;
@@ -11293,6 +11297,7 @@ export interface components {
             icon?: string;
             /** Format: uuid */
             pluginId?: string;
+            tags?: string[];
         };
         UpdateChannelBody: {
             /** Format: uuid */
@@ -11313,6 +11318,7 @@ export interface components {
             icon?: string | null;
             /** Format: uuid */
             pluginId?: string | null;
+            tags?: string[];
         };
         SyncChannelModelsBody: {
             defaultInputPrice?: number;

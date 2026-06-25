@@ -43,6 +43,8 @@ export const usageLog = pgTable(
     apiKeyId: uuid('api_key_id'),
     /** The subject (end-user) this call is attributed to (unified tenancy G-B); null → tenant-level. */
     subjectId: uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),
+    /** The per-request route tag (染色) the run was pinned to, when set; else null. */
+    routeTag: text('route_tag'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

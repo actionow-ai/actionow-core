@@ -126,6 +126,7 @@ export function TraceViewer({ trace }: { trace: RelayTraceView }) {
     { label: t('relayTraces.viewer.job'), value: trace.job_id },
     { label: t('relayTraces.viewer.channel'), value: trace.channel_id },
     { label: t('relayTraces.viewer.provider'), value: trace.provider_type },
+    { label: t('relayTraces.viewer.routeTag'), value: trace.route_tag },
   ];
 
   const reqBody = prettyBody(trace.request_body);

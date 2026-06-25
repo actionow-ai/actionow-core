@@ -48,8 +48,34 @@ describe('catalog view contracts', () => {
       model_count: 0,
       icon: null,
       plugin_id: null,
+      tags: [],
     };
     expect(channelViewSchema.parse(c)).toEqual(c);
+  });
+
+  it('channelViewSchema carries routing tags (染色/标签路由)', () => {
+    const c = {
+      id: 'c1',
+      resource_id: 'r1',
+      provider_type: 'openai',
+      credential_ref: null,
+      endpoint: null,
+      model: null,
+      proxy_ref: null,
+      config: null,
+      weight: 1,
+      status: 'active',
+      input_cost_per_1m: null,
+      output_cost_per_1m: null,
+      fault_policy_id: null,
+      model_count: 0,
+      icon: null,
+      plugin_id: null,
+      tags: ['canary', 'beta'],
+    };
+    expect(channelViewSchema.parse(c)).toEqual(c);
+    // tags must be present (a missing array is a contract drift).
+    expect(() => channelViewSchema.parse({ ...c, tags: undefined })).toThrow();
   });
 
   it('modifierViewSchema accepts a null value (e.g. for an override with no amount)', () => {

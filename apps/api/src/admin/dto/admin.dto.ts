@@ -221,6 +221,8 @@ export const relayTraceQuerySchema = z.object({
     .enum(['true', 'false'])
     .transform((v) => v === 'true')
     .optional(),
+  /** 染色: narrow to the route tag (canary) the call was pinned to (exact match). */
+  routeTag: z.string().optional(),
   limit: z.coerce.number().int().positive().optional(),
   cursor: z.string().optional(),
 });

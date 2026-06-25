@@ -657,6 +657,7 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
       responseStatus,
       errorsOnly,
       isStream,
+      routeTag,
       limit,
       cursor,
     }: RelayTraceQuery): Promise<Page<RelayTraceView>> =>
@@ -675,6 +676,7 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
               ...(isStream !== undefined
                 ? { isStream: isStream ? ('true' as const) : ('false' as const) }
                 : {}),
+              ...(routeTag !== undefined ? { routeTag } : {}),
               limit,
               cursor,
             },

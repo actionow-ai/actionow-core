@@ -6,6 +6,7 @@ import {
   jobViewSchema,
   ledgerViewSchema,
   paymentIntentViewSchema,
+  relayTraceViewSchema,
   usageLogViewSchema,
   usageRollupViewSchema,
 } from './ops-views.js';
@@ -71,10 +72,37 @@ describe('admin operational view contracts (single source of truth for FE + BE)'
       cost: '300000',
       latency_ms: null,
       status: 'ok',
+      route_tag: null,
       created_at: '2026-01-01T00:00:00Z',
     };
     expect(usageLogViewSchema.parse(u)).toEqual(u);
     expect(() => usageLogViewSchema.parse({ ...u, cost: 300000 })).toThrow();
+    // route_tag (染色) round-trips a value and is nullable when unset.
+    expect(usageLogViewSchema.parse({ ...u, route_tag: 'canary' }).route_tag).toBe('canary');
+  });
+
+  it('relayTraceViewSchema carries a nullable route_tag (染色)', () => {
+    const t = {
+      id: 't1',
+      created_at: '2026-01-01T00:00:00Z',
+      tenant_id: null,
+      job_id: null,
+      channel_id: null,
+      provider_type: null,
+      method: 'POST',
+      url: 'https://upstream.example/v1/chat',
+      request_headers: null,
+      request_body: null,
+      response_status: null,
+      response_body: null,
+      is_stream: false,
+      latency_ms: null,
+      error: null,
+      truncated: false,
+      route_tag: null,
+    };
+    expect(relayTraceViewSchema.parse(t)).toEqual(t);
+    expect(relayTraceViewSchema.parse({ ...t, route_tag: 'canary' }).route_tag).toBe('canary');
   });
 
   it('usageRollupViewSchema keeps the bigint sums as strings', () => {

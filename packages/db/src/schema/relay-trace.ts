@@ -64,6 +64,8 @@ export const relayTrace = pgTable(
     error: text('error'),
     /** True when either body was clipped at the byte cap. */
     truncated: boolean('truncated').notNull().default(false),
+    /** The per-request route tag (染色) this call was pinned to, when set; else null. */
+    routeTag: text('route_tag'),
   },
   (t) => [index('relay_trace_subject_idx').on(t.subjectId)],
 );

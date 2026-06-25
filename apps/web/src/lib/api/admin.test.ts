@@ -441,4 +441,11 @@ describe('admin relay-traces api', () => {
       cursor: 'c1',
     });
   });
+
+  it('forwards the route_tag (染色) filter to the query', async () => {
+    const { api, calls } = fakeApis();
+    await api.listRelayTraces({ routeTag: 'canary', limit: 50 });
+    expect(calls[0]?.path).toBe('/admin/relay-traces');
+    expect(calls[0]?.arg).toMatchObject({ routeTag: 'canary' });
+  });
 });

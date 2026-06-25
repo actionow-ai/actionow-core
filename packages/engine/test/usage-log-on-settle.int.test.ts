@@ -233,6 +233,57 @@ describe('ExecutionService.settleSync — usage_log mirror', () => {
     expect(BigInt(logs[0]?.provider_cost as string)).toBe(0n);
   });
 
+  it('records the route tag (染色) on the usage_log row when the run carries one', async () => {
+    const s = await seed(10_000_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(fakeLlmAdapter({ input_tokens: 100, output_tokens: 50 }));
+    const svc = buildService(adapters);
+
+    const outcome = await svc.run(baseRequest(s, { usageLogModel: 'gpt-4o', routeTag: 'canary' }));
+    expect(outcome.status).toBe('succeeded');
+
+    const logs = await client`SELECT route_tag FROM usage_log`;
+    expect(logs).toHaveLength(1);
+    expect(logs[0]?.route_tag).toBe('canary');
+  });
+
+  it('leaves route_tag null on the usage_log row when the run has no tag', async () => {
+    const s = await seed(10_000_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(fakeLlmAdapter({ input_tokens: 100, output_tokens: 50 }));
+    const svc = buildService(adapters);
+
+    const outcome = await svc.run(baseRequest(s, { usageLogModel: 'gpt-4o' }));
+    expect(outcome.status).toBe('succeeded');
+
+    const logs = await client`SELECT route_tag FROM usage_log`;
+    expect(logs).toHaveLength(1);
+    expect(logs[0]?.route_tag).toBeNull();
+  });
+
+  it('records the route tag (染色) on the FAILED usage_log row', async () => {
+    const s = await seed(10_000_000n);
+    const adapters = new AdapterRegistry();
+    // An adapter that always throws → the blocking run fails → a failed usage_log row.
+    const failing: ProviderAdapter = {
+      providerType: 'fake-llm',
+      submit: () => Promise.reject(new Error('upstream boom')),
+      extractUsage: () => ({}),
+      mapError: () => ({ code: 'upstream_error', message: 'fake', retryable: false }),
+    };
+    adapters.register(failing);
+    const svc = buildService(adapters);
+
+    await expect(
+      svc.run(baseRequest(s, { usageLogModel: 'gpt-4o', routeTag: 'canary' })),
+    ).rejects.toThrow();
+
+    const logs = await client`SELECT route_tag, status FROM usage_log`;
+    expect(logs).toHaveLength(1);
+    expect(logs[0]?.status).toBe('failed');
+    expect(logs[0]?.route_tag).toBe('canary');
+  });
+
   it('writes NO usage_log row for a non-relay run (usageLogModel absent)', async () => {
     const s = await seed(10_000_000n);
     const adapters = new AdapterRegistry();
