@@ -1,3 +1,4 @@
+export * from './breaker.js';
 export * from './dify-registration.js';
 export * from './errors.js';
 export * from './execution-service.js';

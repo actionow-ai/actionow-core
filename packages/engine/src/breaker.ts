@@ -10,6 +10,8 @@
  * wraps every persistence read/write fail-open.
  */
 
+import type { BreakerRedis } from '@actionow/infra';
+
 export type BreakerState = 'closed' | 'open' | 'half_open';
 
 /** Effective breaker thresholds for one channel (fault_policy merged over defaults). */
@@ -156,4 +158,217 @@ export function resolveBreakerConfig(policy?: BreakerPolicyFields | null): Break
     openCooldownMs: policy.breakerOpenCooldownMs ?? d.openCooldownMs,
     openCooldownCapMs: policy.breakerOpenCooldownCapMs ?? d.openCooldownCapMs,
   };
+}
+
+// ---------------------------------------------------------------------------
+// BreakerStore — ties the Redis window/trial gate (infra) + PG FSM state (db)
+// + the pure FSM transitions above into the read/write surface the routing
+// layer consumes. Injected via engine deps; the app layer supplies a concrete
+// {@link BreakerPersistence} (wrapping getBreakerRows/upsertBreaker) and a
+// {@link BreakerConfig} resolver.
+//
+// CRITICAL INVARIANT: the breaker only OPTIMIZES routing — every Redis/PG
+// read+write here is best-effort. `filterAvailable` fails OPEN (returns every
+// channel) on any error; `onSuccess`/`onFailure` swallow errors entirely. A
+// breaker outage must NEVER fail a request that could have succeeded.
+// ---------------------------------------------------------------------------
+
+/** Minimal shape `filterAvailable` needs from a routable channel: its id. */
+export interface RoutableChannelRef {
+  id: string;
+}
+
+/**
+ * The PG state surface the store needs, wrapping `getBreakerRows`/`upsertBreaker`
+ * (Task 2). The app layer binds these to a live `db`. The closed state is the
+ * absence of a row, so `getRows` returns ONLY the non-closed `(channel, model)`
+ * rows for the given channels.
+ */
+export interface BreakerPersistence {
+  getRows(channelIds: string[], model: string): Promise<BreakerRowSnapshot[]>;
+  upsert(channelId: string, model: string, snap: BreakerSnapshot, now: Date): Promise<void>;
+}
+
+/** A {@link BreakerSnapshot} tagged with the channel it belongs to (from `getRows`). */
+export type BreakerRowSnapshot = { channelId: string } & BreakerSnapshot;
+
+/** Dependencies for {@link DefaultBreakerStore}. */
+export interface BreakerDeps {
+  redis: BreakerRedis;
+  /** PG read/write for FSM rows (wraps getBreakerRows/upsertBreaker — Task 2). */
+  persistence: BreakerPersistence;
+  /** Resolve a channel's effective config (fault_policy → resolveBreakerConfig; defaults if none). */
+  configFor: (channelId: string) => Promise<BreakerConfig>;
+  /** Best-effort audit hook fired on every state transition (actor_type='system'). */
+  onTransition?: (
+    channelId: string,
+    model: string,
+    from: BreakerState,
+    to: BreakerState,
+    meta: Record<string, unknown>,
+  ) => void;
+}
+
+/**
+ * The read/write breaker surface consumed by routing. `filterAvailable` is the
+ * read path (exclude Open / trial-gate HalfOpen); `onSuccess`/`onFailure` are
+ * the write path (increment the Redis window + run the FSM + persist/audit
+ * transitions).
+ */
+export interface BreakerStore {
+  /** The subset of channels routable now for `model` (excludes Open; trial-gates HalfOpen). Fail-open on error. */
+  filterAvailable<C extends RoutableChannelRef>(
+    channels: readonly C[],
+    model: string,
+    now: Date,
+  ): Promise<C[]>;
+  onSuccess(channelId: string, model: string, now: Date): Promise<void>;
+  onFailure(channelId: string, model: string, now: Date, retryAfterMs?: number): Promise<void>;
+}
+
+/** The implicit closed snapshot for a `(channel, model)` with no persisted row. */
+const CLOSED_SNAPSHOT: BreakerSnapshot = {
+  state: 'closed',
+  openedAt: null,
+  cooldownUntil: null,
+  tripCount: 0,
+  halfOpenSuccesses: 0,
+};
+
+/** The `${channelId}:${model}` Redis/trial key for one breaker. */
+function breakerKey(channelId: string, model: string): string {
+  return `${channelId}:${model}`;
+}
+
+/** Drop the `channelId` tag from a {@link BreakerRowSnapshot}, leaving the FSM snapshot. */
+function stripChannelId(row: BreakerRowSnapshot): BreakerSnapshot {
+  const { channelId, ...snap } = row;
+  void channelId;
+  return snap;
+}
+
+/**
+ * Concrete {@link BreakerStore} wiring Redis (window + trial gate), PG (FSM
+ * rows), and the pure FSM transitions. Every method is fail-open / best-effort.
+ */
+export class DefaultBreakerStore implements BreakerStore {
+  constructor(private readonly deps: BreakerDeps) {}
+
+  async filterAvailable<C extends RoutableChannelRef>(
+    channels: readonly C[],
+    model: string,
+    now: Date,
+  ): Promise<C[]> {
+    if (channels.length === 0) return [];
+    try {
+      const ids = channels.map((c) => c.id);
+      const rows = await this.deps.persistence.getRows(ids, model);
+      const byId = new Map<string, BreakerSnapshot>();
+      for (const r of rows) {
+        const { channelId, ...snap } = r;
+        byId.set(channelId, snap);
+      }
+
+      const out: C[] = [];
+      for (const ch of channels) {
+        const snap = byId.get(ch.id);
+        // No row or closed → always routable.
+        if (!snap || snap.state === 'closed') {
+          out.push(ch);
+          continue;
+        }
+        if (snap.state === 'open') {
+          // Still cooling down → exclude.
+          if (!openEligibleAt(snap, now)) continue;
+          // Cooldown elapsed → lazily promote to half_open (reset successes),
+          // persist, then trial-gate this request as the probe.
+          const promoted: BreakerSnapshot = { ...snap, state: 'half_open', halfOpenSuccesses: 0 };
+          const cfg = await this.deps.configFor(ch.id);
+          await this.persist(ch.id, model, snap.state, promoted, now, {
+            reason: 'cooldown_elapsed',
+          });
+          if (await this.tryTrial(ch.id, model, cfg)) out.push(ch);
+          continue;
+        }
+        // half_open → trial-gate (include iff a slot is claimed).
+        const cfg = await this.deps.configFor(ch.id);
+        if (await this.tryTrial(ch.id, model, cfg)) out.push(ch);
+      }
+      return out;
+    } catch {
+      // Fail open: the breaker never removes a candidate it could not evaluate.
+      return [...channels];
+    }
+  }
+
+  // `retryAfterMs` is part of the {@link BreakerStore} contract but unused: the
+  // FSM's exponential cooldown (scaled by trip_count) supersedes the old
+  // `channel_health` Retry-After honoring, so the implementation omits the arg.
+  async onFailure(channelId: string, model: string, now: Date): Promise<void> {
+    try {
+      const cfg = await this.deps.configFor(channelId);
+      const key = breakerKey(channelId, model);
+      const win = await this.deps.redis.recordOutcome(key, cfg.windowMs, true, now.getTime());
+      const cur = await this.loadSnapshot(channelId, model);
+      const next = onFailureTransition(cur, cfg, win, now);
+      if (next) {
+        await this.persist(channelId, model, cur.state, next, now, {
+          failureRate: win.total > 0 ? (win.fail / win.total) * 100 : 0,
+          window: win,
+          tripCount: next.tripCount,
+        });
+      }
+    } catch {
+      // Best-effort: a breaker write must never block/throw on the relay path.
+    }
+  }
+
+  async onSuccess(channelId: string, model: string, now: Date): Promise<void> {
+    try {
+      const cfg = await this.deps.configFor(channelId);
+      const key = breakerKey(channelId, model);
+      await this.deps.redis.recordOutcome(key, cfg.windowMs, false, now.getTime());
+      const cur = await this.loadSnapshot(channelId, model);
+      const next = onSuccessTransition(cur, cfg);
+      if (next) {
+        await this.persist(channelId, model, cur.state, next, now, { tripCount: next.tripCount });
+        // Closing the breaker clears the window so a stale failure burst can't
+        // immediately re-trip it.
+        if (next.state === 'closed') {
+          await this.deps.redis.clearWindow(key, cfg.windowMs, now.getTime());
+        }
+      }
+    } catch {
+      // Best-effort: swallow.
+    }
+  }
+
+  /** Load the current FSM snapshot, defaulting to closed when there is no row. */
+  private async loadSnapshot(channelId: string, model: string): Promise<BreakerSnapshot> {
+    const rows = await this.deps.persistence.getRows([channelId], model);
+    const row = rows.find((r) => r.channelId === channelId);
+    return row ? stripChannelId(row) : CLOSED_SNAPSHOT;
+  }
+
+  /** Persist a transition + fire the audit hook. */
+  private async persist(
+    channelId: string,
+    model: string,
+    from: BreakerState,
+    next: BreakerSnapshot,
+    now: Date,
+    meta: Record<string, unknown>,
+  ): Promise<void> {
+    await this.deps.persistence.upsert(channelId, model, next, now);
+    this.deps.onTransition?.(channelId, model, from, next.state, { model, ...meta });
+  }
+
+  /** Claim a Redis half-open trial slot for this `(channel, model)`. */
+  private tryTrial(channelId: string, model: string, cfg: BreakerConfig): Promise<boolean> {
+    return this.deps.redis.tryTrial(
+      breakerKey(channelId, model),
+      cfg.halfOpenTrial,
+      cooldownMs(cfg, 0),
+    );
+  }
 }
