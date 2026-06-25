@@ -60,8 +60,11 @@ export function AppSubjectDetailPanel({
     },
   });
   // The tenant's keys, narrowed to this subject (the console list carries subject_id).
+  // NOTE: a SEPARATE cache key from AppKeys' `consoleApiKeys()` infinite query — sharing
+  // it would clobber that entry's `{pages,pageParams}` shape with this `Page` shape and
+  // white-screen AppKeys on its next mount (its `data.pages.flatMap` throws). See queryKeys.
   const keys = useQuery({
-    queryKey: qk.consoleApiKeys(),
+    queryKey: qk.consoleApiKeysForSubject(subject.id),
     queryFn: () => api.listApiKeys({ limit: 100 }),
     staleTime: STALE_REFERENCE,
   });
@@ -120,10 +123,16 @@ export function AppSubjectDetailPanel({
 
   // ── subject-scoped key minting ──────────────────────────────────────────────
   const [plaintext, setPlaintext] = useState<string | null>(null);
+  // Refresh BOTH lists: this panel's per-subject view AND the AppKeys page's shared
+  // `consoleApiKeys()` infinite list (so the main Keys page reflects the change too).
+  const refreshKeys = async () => {
+    await qc.invalidateQueries({ queryKey: qk.consoleApiKeysForSubject(subject.id) });
+    await qc.invalidateQueries({ queryKey: qk.consoleApiKeys() });
+  };
   const mintKey = useMutation({
     mutationFn: () => api.createApiKey({ subjectId: subject.id }),
     onSuccess: async (r) => {
-      await qc.invalidateQueries({ queryKey: qk.consoleApiKeys() });
+      await refreshKeys();
       setPlaintext(r.plaintext);
     },
     onError: mutationError(t),
@@ -131,7 +140,7 @@ export function AppSubjectDetailPanel({
   const revokeKey = useMutation({
     mutationFn: (id: string) => api.disableApiKey(id),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: qk.consoleApiKeys() });
+      await refreshKeys();
       toast(t('app.keys.disabled'));
     },
     onError: mutationError(t),

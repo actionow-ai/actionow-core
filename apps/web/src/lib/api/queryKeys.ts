@@ -55,6 +55,13 @@ export const qk = {
 
   // Tenant self-service console plane.
   consoleApiKeys: () => ['console', 'api-keys'] as const,
+  // Per-subject key list for the Subjects drawer — a SEPARATE cache entry from
+  // `consoleApiKeys()` (which AppKeys owns as a useInfiniteQuery, cache shape
+  // `{pages,pageParams}`). The panel reads a non-infinite `Page` ({rows,nextCursor}),
+  // so it MUST NOT share the key — one entry per key, last writer wins, and the
+  // shape mismatch white-screens AppKeys on mount.
+  consoleApiKeysForSubject: (subjectId: string) =>
+    ['console', 'api-keys', 'subject', subjectId] as const,
   consoleUsage: () => ['console', 'usage'] as const,
   consoleModels: () => ['console', 'models'] as const,
   consoleAnalytics: (params: Record<string, unknown>) => ['console', 'analytics', params] as const,
