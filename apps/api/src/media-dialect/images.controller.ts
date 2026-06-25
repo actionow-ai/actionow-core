@@ -5,6 +5,7 @@ import type { Request } from 'express';
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
 import { GovernanceGuard } from '../auth/governance.guard.js';
+import { routeTagHeader } from '../common/route-tag.js';
 import { ZodBody } from '../common/zod.pipe.js';
 import { type ImagesGenerationDto, imagesGenerationSchema } from './dto/media-dialect.dto.js';
 import { type ImagesResponse, MediaDialectService } from './media-dialect.service.js';
@@ -34,6 +35,6 @@ export class ImagesController {
     @Req() req: Request,
   ): Promise<ImagesResponse> {
     const ctx = this.auth.resolve(req);
-    return this.media.images(dto, ctx);
+    return this.media.images(dto, ctx, routeTagHeader(req));
   }
 }

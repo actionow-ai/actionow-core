@@ -72,14 +72,19 @@ export class RunService {
    * Resolve a resource's catalog snapshot into the engine {@link RunRequest},
    * exposed so the OpenAI media-dialect runner can build a request and then drive
    * it to terminal IN-PROCESS (no queue) for a synchronous dialect response.
+   *
+   * `routeTag` (染色/标签路由) is the `X-Actionow-Route-Tag` canary header — when
+   * set it narrows the candidate channels to tag-carrying ones (never widening)
+   * and rides onto the engine's relay_trace + usage_log rows.
    */
   resolveRunRequest(
     resourceId: string,
     body: RunBody,
     ctx: TenantContext,
     forceMode?: ExecMode,
+    routeTag?: string,
   ): Promise<RunRequest> {
-    return this.buildRequest(resourceId, body, ctx, forceMode);
+    return this.buildRequest(resourceId, body, ctx, forceMode, routeTag);
   }
 
   /**
@@ -166,6 +171,7 @@ export class RunService {
     body: RunBody,
     ctx: TenantContext,
     forceMode?: ExecMode,
+    routeTag?: string,
   ): Promise<RunRequest> {
     const resource = await getResource(this.db, resourceId);
     if (resource?.tenantId !== ctx.tenantId) {
@@ -186,8 +192,15 @@ export class RunService {
     // Group-scoped candidate set (Track 4): the key's route group filters the
     // resource's channels (each carrying its per-(group,channel) priority/weight
     // for the engine's priority-tiered fallback), falling back to ALL active
-    // channels when the group has no members for the resource (compat).
-    const channels = await this.routing.candidatesFor(resourceId, ctx.routeGroupId);
+    // channels when the group has no members for the resource (compat). 染色: a
+    // set `routeTag` (X-Actionow-Route-Tag) narrows these to tag-carrying channels
+    // only — never widening; a zero-match throws a hard 400 (no silent leak).
+    const channels = await this.routing.candidatesFor(
+      resourceId,
+      ctx.routeGroupId,
+      undefined,
+      routeTag,
+    );
     if (channels.length === 0) {
       throw engineNotFound(`no active upstream channel for resource ${resourceId}`);
     }
@@ -230,6 +243,8 @@ export class RunService {
       endUser: body.end_user,
       estimatedUsage: body.estimated_usage,
     };
+    // 染色: record the canary tag on the engine's relay_trace + usage_log rows.
+    if (routeTag !== undefined) req.routeTag = routeTag;
     return req;
   }
 

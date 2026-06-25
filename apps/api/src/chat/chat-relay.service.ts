@@ -110,8 +110,16 @@ export class ChatRelayService {
     ir: ChatRequest,
     ctx: TenantContext,
     idempotencyKey?: string,
+    routeTag?: string,
   ): Promise<ChatStreamOutcome> {
-    const req = await this.buildChatRunRequest(modelName, ir, ctx, 'stream', idempotencyKey);
+    const req = await this.buildChatRunRequest(
+      modelName,
+      ir,
+      ctx,
+      'stream',
+      idempotencyKey,
+      routeTag,
+    );
     return this.buildService().runChatStream(req);
   }
 
@@ -130,6 +138,7 @@ export class ChatRelayService {
     ir: ChatRequest,
     ctx: TenantContext,
     idempotencyKey?: string,
+    routeTag?: string,
   ): Promise<ChatRunOutcome> {
     const chain = [modelName, ...(await getModelFallbacks(this.db, modelName))];
     let lastError: unknown;
@@ -141,7 +150,7 @@ export class ChatRelayService {
           ? idempotencyKey
           : `${idempotencyKey}:fb${String(i)}`;
       try {
-        const req = await this.buildChatRunRequest(model, ir, ctx, 'blocking', idem);
+        const req = await this.buildChatRunRequest(model, ir, ctx, 'blocking', idem, routeTag);
         return await this.buildService().runChat(req);
       } catch (err) {
         lastError = err;
@@ -182,6 +191,7 @@ export class ChatRelayService {
     ctx: TenantContext,
     execMode: ExecMode,
     idempotencyKey?: string,
+    routeTag?: string,
   ): Promise<RunRequest> {
     const resolved = await this.resolver.resolve(modelName, ctx.tenantId);
     normalizeRequest(ir, readCapabilities(resolved.capabilities));
@@ -202,10 +212,14 @@ export class ChatRelayService {
     // channels of the resource are routable, each carrying its per-(group,channel)
     // priority/weight for the engine's priority-tiered fallback. Falls back to ALL
     // active channels when the group has no members for the resource (compat).
+    // 染色/标签路由: `routeTag` (the `X-Actionow-Route-Tag` canary header) narrows
+    // the resolved candidates to tag-carrying channels only — never widening, and
+    // a zero-match throws a hard 400 inside `candidatesFor` (no silent leak).
     const channels = await this.routing.candidatesFor(
       resourceId,
       ctx.routeGroupId,
       resolved.modelId,
+      routeTag,
     );
     if (channels.length === 0) {
       throw engineNotFound(`no active upstream channel for chat resource ${resourceId}`);
@@ -248,6 +262,8 @@ export class ChatRelayService {
     // relay POST replays the original job instead of re-charging (runChat) — and
     // a reused key on a stream run is rejected (runChatStream).
     if (idempotencyKey !== undefined) req.idempotencyKey = idempotencyKey;
+    // 染色: record the canary tag on the engine's relay_trace + usage_log rows.
+    if (routeTag !== undefined) req.routeTag = routeTag;
     if (execMode === 'stream') {
       // STREAMING needs a NON-ZERO hold (§C1): `settleStream` caps the final
       // charge at `min(computed, holdAmount)`, so a 0 hold would clamp every

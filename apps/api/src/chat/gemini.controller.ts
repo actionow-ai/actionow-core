@@ -11,6 +11,7 @@ import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
 import { GovernanceGuard } from '../auth/governance.guard.js';
 import { idempotencyKeyHeader } from '../common/idempotency.interceptor.js';
+import { routeTagHeader } from '../common/route-tag.js';
 import { ChatRelayService } from './chat-relay.service.js';
 import { pipeSse } from './sse.js';
 
@@ -48,6 +49,7 @@ export class GeminiChatController {
       ir,
       ctx,
       idempotencyKeyHeader(req),
+      routeTagHeader(req),
     );
     if (servedBy !== undefined) res.setHeader('x-actionow-channel', servedBy.providerType);
     return renderGeminiChat(response);
@@ -62,7 +64,13 @@ export class GeminiChatController {
   ): Promise<void> {
     const ctx = this.auth.resolve(req);
     const ir = parseGeminiChat(body, model);
-    const { events } = await this.relay.chatStream(ir.model, ir, ctx, idempotencyKeyHeader(req));
+    const { events } = await this.relay.chatStream(
+      ir.model,
+      ir,
+      ctx,
+      idempotencyKeyHeader(req),
+      routeTagHeader(req),
+    );
     await pipeSse(res, renderGeminiGenerateContentStream(events));
   }
 }

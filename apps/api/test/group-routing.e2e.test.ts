@@ -161,6 +161,22 @@ async function chat(key: string, model: string = MODEL_NAME): Promise<Response> 
   });
 }
 
+/**
+ * POST a blocking chat completion carrying the `X-Actionow-Route-Tag` canary
+ * header (染色/标签路由). Used to pin a request to the tag-carrying channel.
+ */
+async function chatWithTag(key: string, routeTag: string): Promise<Response> {
+  return fetch(`${baseUrl}/v1/chat/completions`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${key}`,
+      'content-type': 'application/json',
+      'x-actionow-route-tag': routeTag,
+    },
+    body: JSON.stringify({ model: MODEL_NAME, messages: [{ role: 'user', content: 'hi' }] }),
+  });
+}
+
 /** The newest succeeded usage_log row for the model (records the served channel). */
 async function latestUsageLog(
   model: string = MODEL_NAME,
@@ -258,6 +274,13 @@ beforeAll(async () => {
   if (!chA || !chB) throw new Error('no channels');
   channelAId = chA.id;
   channelBId = chB.id;
+
+  // 染色/标签路由: tag channel A `canary` (B stays untagged) so a request with
+  // `X-Actionow-Route-Tag: canary` narrows the ungrouped candidate set to A only.
+  await db
+    .update(schema.upstreamChannel)
+    .set({ tags: ['canary'] })
+    .where(eq(schema.upstreamChannel.id, channelAId));
 
   // Cross-group failover (弹性2.0): a DEDICATED resource owning only the primary
   // channel (always 500s) and the fallback channel (succeeds). Isolated from
@@ -425,5 +448,51 @@ describe('group-scoped routing (Track 4)', () => {
     const log = await latestUsageLog(FAILOVER_MODEL_NAME);
     expect(log?.channelId).toBe(channelOkId);
     expect(log?.providerType).toBe(PROVIDER_OK);
+  });
+});
+
+/**
+ * 染色/标签路由 (route tagging) e2e. Channel A is tagged `canary` (B untagged).
+ * The `keyNoGroup` candidate set is BOTH channels (the default group has no
+ * members → ungrouped fallback to all active channels), so the canary header
+ * exercises the narrow-only filter against a real 2-channel candidate set:
+ *
+ * - `X-Actionow-Route-Tag: canary` → served by channel A ONLY (narrowed), and
+ *   the mirrored `usage_log` row carries `route_tag = 'canary'`.
+ * - `X-Actionow-Route-Tag: nope` (matches no available channel) → a hard 400
+ *   `invalid_input` (no silent leak to the untagged channel).
+ * - a header-less request still routes over EITHER channel and records a null
+ *   `route_tag` (byte-for-byte unchanged).
+ */
+describe('route tagging (染色/标签路由)', () => {
+  it('X-Actionow-Route-Tag pins the request to the tag-carrying channel + records route_tag', async () => {
+    const res = await chatWithTag(keyNoGroup, 'canary');
+    expect(res.status).toBe(200);
+    // Narrowed to channel A (the only `canary`-tagged channel) — never B.
+    expect(res.headers.get('x-actionow-channel')).toBe(PROVIDER_A);
+    await res.json();
+    const log = await latestUsageLog();
+    expect(log?.channelId).toBe(channelAId);
+    expect(log?.providerType).toBe(PROVIDER_A);
+    // The mirrored usage_log row carries the route tag this call was pinned to.
+    expect(log?.routeTag).toBe('canary');
+  });
+
+  it('a route tag matching no available channel → 400 invalid_input (no silent leak)', async () => {
+    const res = await chatWithTag(keyNoGroup, 'nope');
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error?: { code?: string } };
+    expect(body.error?.code).toBe('invalid_input');
+  });
+
+  it('a header-less request is unchanged: routes over any channel, records a null route_tag', async () => {
+    const res = await chat(keyNoGroup);
+    expect(res.status).toBe(200);
+    const served = res.headers.get('x-actionow-channel');
+    expect([PROVIDER_A, PROVIDER_B]).toContain(served);
+    await res.json();
+    const log = await latestUsageLog();
+    expect([channelAId, channelBId]).toContain(log?.channelId);
+    expect(log?.routeTag).toBeNull();
   });
 });

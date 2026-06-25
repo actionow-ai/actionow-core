@@ -85,12 +85,16 @@ export class MediaDialectService {
   ) {}
 
   /** `POST /v1/images/generations` → relay `image-relay`, return the image url(s). */
-  async images(dto: ImagesGenerationDto, ctx: TenantContext): Promise<ImagesResponse> {
+  async images(
+    dto: ImagesGenerationDto,
+    ctx: TenantContext,
+    routeTag?: string,
+  ): Promise<ImagesResponse> {
     const n = dto.n ?? 1;
     const inputs: Record<string, unknown> = { prompt: dto.prompt };
     if (dto.size !== undefined) inputs.size = dto.size;
     // Per-image hold (the relay meters `{ images: N }` at settle).
-    const job = await this.runToTerminal(IMAGE_RESOURCE, inputs, { images: n }, ctx);
+    const job = await this.runToTerminal(IMAGE_RESOURCE, inputs, { images: n }, ctx, routeTag);
     const urls = assetsFromJobOutput(job.output)
       .filter((a) => a.modality === 'image')
       .map((a) => a.url)
@@ -106,7 +110,7 @@ export class MediaDialectService {
   }
 
   /** `POST /v1/audio/speech` → relay `audio-relay`, return the raw audio BYTES. */
-  async speech(dto: AudioSpeechDto, ctx: TenantContext): Promise<SpeechResult> {
+  async speech(dto: AudioSpeechDto, ctx: TenantContext, routeTag?: string): Promise<SpeechResult> {
     const inputs: Record<string, unknown> = { prompt: dto.input };
     if (dto.voice !== undefined) inputs.voice = dto.voice;
     if (dto.response_format !== undefined) inputs.format = dto.response_format;
@@ -122,6 +126,7 @@ export class MediaDialectService {
       inputs,
       { characters: len, audio_seconds: Math.ceil(len / 2) },
       ctx,
+      routeTag,
     );
     const audioUrl = assetsFromJobOutput(job.output).find((a) => a.modality === 'audio')?.url;
     if (audioUrl === undefined) {
@@ -149,13 +154,18 @@ export class MediaDialectService {
     inputs: Record<string, unknown>,
     estimatedUsage: Record<string, number>,
     ctx: TenantContext,
+    routeTag?: string,
   ): Promise<Job> {
     // `estimated_usage` sizes the credit hold for the post-timed media pricebook
     // (which otherwise rejects the run); the settle re-prices from the real usage.
+    // 染色: `routeTag` (X-Actionow-Route-Tag) narrows the candidate channels to
+    // tag-carrying ones only (never widening; zero-match → hard 400).
     const req = await this.runService.resolveRunRequest(
       resourceId,
       { inputs, exec_mode: 'async-poll', estimated_usage: estimatedUsage },
       ctx,
+      undefined,
+      routeTag,
     );
     const outcome = await this.buildExec().run(req);
     await this.buildRunner(req).process(outcome.jobId);
