@@ -201,6 +201,9 @@
         "disableMsg": "{{email}} won't be able to sign in until re-enabled."
       }
     },
+    "limitPlans": {
+      "adminOnly": "Limit-plan management is available to tenant admins only."
+    },
     "subjects": {
       "title": "End-users",
       "add": "Add end-user",
@@ -278,6 +281,7 @@
     "tmodels": "Models",
     "billing": "Billing",
     "tsubjects": "End-users",
+    "tplans": "Limit plans",
     "tmembers": "Members",
     "tsettings": "Settings",
     "tenants": "Tenants",
@@ -321,6 +325,7 @@
     "tmodels": "Models available to your tenant",
     "billing": "Top up your tenant balance",
     "tsubjects": "Manage your end-users — sub-wallets, limit plans & scoped keys",
+    "tplans": "Reusable limit plans for your end-users: spend budgets, rate limits, quotas & alert thresholds",
     "tmembers": "Manage your tenant's operator seats — invite, promote/demote, disable",
     "tsettings": "Your profile and password",
     "tenants": "Create and view tenants",

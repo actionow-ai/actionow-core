@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { ConsoleLayout } from './components/console/ConsoleLayout';
 import { AppBilling } from './features/app/AppBilling';
 import { AppKeys } from './features/app/AppKeys';
+import { AppLimitPlans } from './features/app/AppLimitPlans';
 import { AppMedia } from './features/app/AppMedia';
 import { AppModels } from './features/app/AppModels';
 import { AppOverview } from './features/app/AppOverview';
@@ -67,6 +68,9 @@ export function AppRoutes() {
           {/* 端用户 (End-users / subjects) — tenant-admin-only (end-user data plane);
               the page self-gates for a member who deep-links here, nav item hidden. */}
           <Route path="subjects" element={<AppSubjects />} />
+          {/* 额度套餐 (Limit plans) — tenant-admin-only (end-user data plane); the
+              page self-gates for a member who deep-links here, nav item hidden. */}
+          <Route path="plans" element={<AppLimitPlans />} />
           {/* 成员管理 (Members) — tenant-admin-only (RBAC v1); the page self-gates
               for a member who deep-links here, and the nav item is hidden. */}
           <Route path="members" element={<MembersPage />} />

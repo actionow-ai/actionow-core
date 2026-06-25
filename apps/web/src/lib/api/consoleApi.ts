@@ -21,6 +21,7 @@ import type {
   ConsoleUsageRollupView,
   ConsoleUsageView,
   ConsoleUserView,
+  CreateLimitPlanRequest,
   CreateSubAccountBody,
   CreateSubjectBody,
   FileView,
@@ -32,6 +33,7 @@ import type {
   SubjectView,
   TopupSubAccountBody,
   TransferCreditsBody,
+  UpdateLimitPlanRequest,
   UpdateSubjectBody,
 } from './types';
 
@@ -200,10 +202,23 @@ export function makeConsoleApi(sdk: SdkClient, rawClient: ApiClient, onUnauthori
     transferSubAccount: (id: string, body: TransferCreditsBody): Promise<SubAccountView> =>
       rawClient.post<SubAccountView>(`/console/subjects/${id}/sub-account/transfer`, body),
 
-    // Tenant-owned 额度套餐 (limit plans) — drives the plan-binding select on the
-    // Subjects page (Task 9 builds the full plans CRUD on this same surface).
+    // --- Tenant-owned 额度套餐 (limit plans) CRUD — the `AppLimitPlans` page +
+    // the plan-binding select on the Subjects page. RAW: these console routes
+    // aren't in the generated SDK path set (matching the admin limit-plan
+    // precedent), but their bodies/views are contract types. The backend
+    // TenantAdminGuard 403s a member; the caller's token scopes the tenant
+    // (tenant_id is FORCED server-side — never a body field; a cross-tenant id →
+    // 404). The FE additionally hides these controls from members (UX-only). ---
     listLimitPlans: (): Promise<LimitPlanView[]> =>
       rawClient.get<LimitPlanView[]>('/console/limit-plans'),
+    createLimitPlan: (body: CreateLimitPlanRequest): Promise<LimitPlanView> =>
+      rawClient.post<LimitPlanView>('/console/limit-plans', body),
+    updateLimitPlan: (id: string, body: UpdateLimitPlanRequest): Promise<LimitPlanView> =>
+      rawClient.patch<LimitPlanView>(`/console/limit-plans/${id}`, body),
+    // Soft-delete returns 204 (no body) — return void, like the admin precedent.
+    deleteLimitPlan: async (id: string): Promise<void> => {
+      await rawClient.delete<unknown>(`/console/limit-plans/${id}`);
+    },
   };
 }
 
