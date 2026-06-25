@@ -3,6 +3,8 @@ import {
   consoleApiKeyViewSchema,
   type ConsoleBalanceView,
   consoleBalanceViewSchema,
+  type ConsoleCreateUserBody,
+  consoleCreateUserSchema,
   type ConsoleFileView,
   consoleFileViewSchema,
   type ConsoleJobView,
@@ -17,10 +19,14 @@ import {
   consoleModelViewSchema,
   type ConsolePaymentView,
   consolePaymentViewSchema,
+  type ConsoleUpdateUserBody,
+  consoleUpdateUserSchema,
   type ConsoleUsageLogView,
   consoleUsageLogViewSchema,
   type ConsoleUsageRollupView,
   consoleUsageRollupViewSchema,
+  type ConsoleUserView,
+  consoleUserViewSchema,
 } from '@actionow/contracts';
 import type {
   ApiKeyRow,
@@ -73,6 +79,7 @@ import {
   consoleCreateIntentSchema,
 } from './dto/console.dto.js';
 import type { ModelView } from './models.port.js';
+import { TenantAdminGuard } from './tenant-admin.guard.js';
 
 /** Read the guard-populated console context, or fail closed with `unauthorized`. */
 function ctxOf(req: ConsoleRequest): ConsoleContext {
@@ -214,6 +221,21 @@ function toMeView(u: UserRecord): MeView {
 }
 
 /**
+ * Project a tenant sub-user row to its console view (RBAC list/update). `tenant_role`
+ * falls back to `'member'` for the (post-backfill impossible) null case; never the
+ * password hash.
+ */
+function toConsoleUserView(u: UserRecord): ConsoleUserView {
+  return consoleUserViewSchema.parse({
+    id: u.id,
+    email: u.email,
+    status: u.status,
+    tenant_role: u.tenantRole ?? 'member',
+    created_at: u.createdAt.toISOString(),
+  });
+}
+
+/**
  * Validate the tenant analytics query (query params bypass `ZodBody`); a bad
  * value throws `invalid_input` → the global filter renders the 400 envelope.
  */
@@ -252,6 +274,7 @@ export class ConsoleController {
 
   @Post('api-keys')
   @HttpCode(201)
+  @UseGuards(TenantAdminGuard)
   @ApiOperation({ summary: 'Mint an API key for your tenant (plaintext returned once)' })
   @Audit({
     action: 'api_key.create',
@@ -282,6 +305,7 @@ export class ConsoleController {
 
   @Post('api-keys/:id/rotate')
   @HttpCode(201)
+  @UseGuards(TenantAdminGuard)
   @ApiOperation({ summary: 'Rotate an API key (new plaintext; old key disabled)' })
   @Audit({
     action: 'api_key.rotate',
@@ -302,6 +326,7 @@ export class ConsoleController {
 
   @Delete('api-keys/:id')
   @HttpCode(200)
+  @UseGuards(TenantAdminGuard)
   @ApiOperation({ summary: 'Disable one of your API keys' })
   @Audit({
     action: 'api_key.disable',
@@ -403,6 +428,7 @@ export class ConsoleController {
    */
   @Post('files/presign-upload')
   @HttpCode(200)
+  @UseGuards(TenantAdminGuard)
   @ApiOperation({ summary: 'Presign a file upload for your tenant (returns a PUT URL + file_id)' })
   async presignUpload(
     @Body(new ZodBody(presignUploadSchema)) dto: PresignUploadDto,
@@ -417,6 +443,7 @@ export class ConsoleController {
 
   @Post('files/:id/confirm')
   @HttpCode(200)
+  @UseGuards(TenantAdminGuard)
   @ApiOperation({ summary: 'Confirm an uploaded file (head → ready)' })
   async confirmFile(@Param('id') id: string, @Req() req: ConsoleRequest): Promise<FilesFileView> {
     const ctx = ctxOf(req);
@@ -488,6 +515,7 @@ export class ConsoleController {
 
   @Post('payments/intents')
   @HttpCode(201)
+  @UseGuards(TenantAdminGuard)
   @ApiOperation({ summary: 'Top up your tenant (returns a checkout handle)' })
   @Audit({
     action: 'payment.intent_create',
@@ -555,5 +583,80 @@ export class ConsoleController {
     const ctx = ctxOf(req);
     await this.console.changePassword(ctx.userId, dto);
     return { ok: true };
+  }
+
+  // ----- sub-users (rbac, tenant-admin-only) -----
+
+  @Post('users')
+  @HttpCode(201)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Create a sub-user (tenant member) under your tenant' })
+  @Audit({
+    action: 'user.create',
+    target: 'user',
+    // NEVER record the password — only the new user id + email.
+    resolve: ({ result, body }) => ({
+      targetId: (result as { id?: string }).id ?? null,
+      meta: { email: (body as { email?: string }).email },
+    }),
+  })
+  async createUser(
+    @Body(new ZodBody(consoleCreateUserSchema)) dto: ConsoleCreateUserBody,
+    @Req() req: ConsoleRequest,
+  ): Promise<{ id: string; email: string }> {
+    const ctx = ctxOf(req);
+    const u = await this.console.inviteSubUser(ctx.tenantId, dto.email, dto.password);
+    return { id: u.id, email: u.email };
+  }
+
+  @Get('users')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'List your tenant users (admin only)' })
+  async listUsers(
+    @Req() req: ConsoleRequest,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ConsoleUserView>> {
+    const ctx = ctxOf(req);
+    const result = await this.console.listUsers(ctx.tenantId, toPageParams({ cursor, limit }));
+    return mapPageEnvelope(result, (r) => r.id, toConsoleUserView);
+  }
+
+  @Patch('users/:id')
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Update a sub-user (status / tenant role)' })
+  @Audit({
+    action: 'user.update',
+    target: 'user',
+    resolve: ({ params, body }) => ({
+      targetId: params.id ?? null,
+      meta: body as Record<string, unknown>,
+    }),
+  })
+  async updateUser(
+    @Param('id') id: string,
+    @Body(new ZodBody(consoleUpdateUserSchema)) dto: ConsoleUpdateUserBody,
+    @Req() req: ConsoleRequest,
+  ): Promise<ConsoleUserView> {
+    const ctx = ctxOf(req);
+    return toConsoleUserView(await this.console.updateSubUser(ctx.tenantId, id, dto));
+  }
+
+  @Delete('users/:id')
+  @HttpCode(200)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Disable a sub-user' })
+  @Audit({
+    action: 'user.disable',
+    target: 'user',
+    resolve: ({ params }) => ({ targetId: params.id ?? null }),
+  })
+  async disableUser(
+    @Param('id') id: string,
+    @Req() req: ConsoleRequest,
+  ): Promise<{ id: string; status: 'disabled' }> {
+    const ctx = ctxOf(req);
+    await this.console.updateSubUser(ctx.tenantId, id, { status: 'disabled' });
+    return { id, status: 'disabled' };
   }
 }

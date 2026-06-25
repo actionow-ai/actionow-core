@@ -10,6 +10,7 @@ import { ConsoleController } from './console.controller.js';
 import { CONSOLE_REPO, ConsoleGuard, defaultConsoleRepo } from './console.guard.js';
 import { ConsoleService } from './console.service.js';
 import { MODELS_PORT, realModelsPort } from './models.port.js';
+import { TenantAdminGuard } from './tenant-admin.guard.js';
 
 /**
  * The tenant self-service console (`/console`, Track B capstone). The
@@ -36,6 +37,7 @@ import { MODELS_PORT, realModelsPort } from './models.port.js';
   providers: [
     ConsoleService,
     ConsoleGuard,
+    TenantAdminGuard,
     { provide: CONSOLE_REPO, useValue: defaultConsoleRepo },
     { provide: MODELS_PORT, useValue: realModelsPort },
   ],
