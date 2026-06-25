@@ -7,6 +7,7 @@ import {
   type Database,
   disableApiKeyForTenant,
   type FileObject,
+  findUserByEmail,
   findUserById,
   getAccount,
   getIntentByIdForTenant,
@@ -241,6 +242,12 @@ export class ConsoleService {
    * plaintext password is never returned or logged. Admin-only at the route.
    */
   async inviteSubUser(tenantId: string, email: string, password: string): Promise<UserRecord> {
+    // `email` is globally unique — pre-check so a duplicate invite returns a clean
+    // 400 (mirrors LocalAuthService.register) instead of a raw 23505 → 500.
+    const existing = await findUserByEmail(this.db, email);
+    if (existing !== undefined) {
+      throw engineInvalidInput('email already registered');
+    }
     return createSubUser(this.db, { tenantId, email, passwordHash: hashPassword(password) });
   }
 

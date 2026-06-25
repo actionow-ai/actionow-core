@@ -183,6 +183,25 @@ describe('/console/users (rbac sub-user crud + tenant-admin gate)', () => {
     expect(listed.body.data[0]).not.toHaveProperty('password_hash');
   });
 
+  it('inviting an already-registered email returns 400, not 500', async () => {
+    const { token: adminToken } = await registerAdmin('admin-dup@example.com');
+
+    await request(server())
+      .post('/console/users')
+      .set('authorization', `Bearer ${adminToken}`)
+      .send({ email: 'dup@example.com', password: 'memberPass1' })
+      .expect(201);
+
+    // Re-inviting the same (globally-unique) email must surface a clean 400
+    // invalid_input — not a raw 23505 → 500 — mirroring /auth/register.
+    const conflict = await request(server())
+      .post('/console/users')
+      .set('authorization', `Bearer ${adminToken}`)
+      .send({ email: 'dup@example.com', password: 'anotherPass1' })
+      .expect(400);
+    expect(conflict.body.error.code).toBe('invalid_input');
+  });
+
   it('an admin can promote/demote + disable a sub-user', async () => {
     const { token: adminToken, tenantId } = await registerAdmin('admin2@example.com');
     const member = await createSubUser(db, {
