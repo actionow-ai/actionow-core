@@ -11,6 +11,8 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { tenant } from './identity.js';
+
 /**
  * A **limit plan (额度套餐/档位)** — a reusable preset bundling a set of
  * {@link limitRule}s (spend budgets, usage quotas, throughput caps). Bound to an
@@ -25,6 +27,10 @@ export const limitPlan = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     name: text('name').notNull(),
     description: text('description'),
+    // null = platform plan (system-admin owned); non-null = tenant-owned (the
+    // end-user data plane lets a tenant-admin own plans). Existing rows migrate
+    // to NULL = platform plans.
+    tenantId: uuid('tenant_id').references(() => tenant.id),
     // status allowed values: active | disabled
     status: text('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -32,8 +38,11 @@ export const limitPlan = pgTable(
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (t) => [
-    uniqueIndex('limit_plan_name_idx')
-      .on(t.name)
+    // Name uniqueness is per-(tenant_id,name) so tenants may reuse names.
+    // NULLS NOT DISTINCT (Postgres 15+) keeps platform plans (tenant_id NULL)
+    // name-unique among themselves.
+    uniqueIndex('limit_plan_tenant_name_idx')
+      .on(t.tenantId, t.name)
       .where(sql`deleted_at IS NULL`),
     check('limit_plan_status_allowed', sql`${t.status} IN ('active', 'disabled')`),
   ],
