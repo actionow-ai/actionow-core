@@ -14,6 +14,8 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
 import { useUrlState } from '../../lib/useUrlState';
+import { AdminOnlyNote } from './AdminOnlyNote';
+import { useTenantRole } from './useTenantRole';
 
 /** Human-readable byte size (1 KB = 1024 B); `—` when the size is unknown. */
 export function formatBytes(bytes: number | null): string {
@@ -41,6 +43,8 @@ export function AppMedia() {
   const api = useConsoleApi();
   const qc = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
+  // RBAC v1: upload is an admin-only write; a member browses the gallery read-only.
+  const { isTenantAdmin } = useTenantRole();
 
   const [kind, setKind] = useUrlState('kind');
   const filter = kind === 'image' || kind === 'video' || kind === 'audio' ? kind : undefined;
@@ -78,28 +82,29 @@ export function AppMedia() {
   });
 
   useSetConsoleAction(
-    () => (
-      <>
-        <input
-          ref={fileInput}
-          type="file"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f !== undefined) upload.mutate(f);
-            e.target.value = '';
-          }}
-        />
-        <Button
-          variant="ghost"
-          onClick={() => fileInput.current?.click()}
-          loading={upload.isPending}
-        >
-          <UploadSimpleIcon size={14} weight="bold" /> {t('app.media.upload')}
-        </Button>
-      </>
-    ),
-    [t, upload.isPending],
+    () =>
+      isTenantAdmin ? (
+        <>
+          <input
+            ref={fileInput}
+            type="file"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f !== undefined) upload.mutate(f);
+              e.target.value = '';
+            }}
+          />
+          <Button
+            variant="ghost"
+            onClick={() => fileInput.current?.click()}
+            loading={upload.isPending}
+          >
+            <UploadSimpleIcon size={14} weight="bold" /> {t('app.media.upload')}
+          </Button>
+        </>
+      ) : null,
+    [t, upload.isPending, isTenantAdmin],
   );
 
   useSetConsoleFilters(
@@ -123,6 +128,11 @@ export function AppMedia() {
 
   return (
     <>
+      {!isTenantAdmin && (
+        <div style={{ marginBottom: 'var(--s-3)' }}>
+          <AdminOnlyNote />
+        </div>
+      )}
       <CardCollection
         rows={rows}
         loading={files.isLoading}

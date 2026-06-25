@@ -19,11 +19,16 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ConsoleApiKeyView, ConsoleCreateApiKeyBody } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
+import { AdminOnlyNote } from './AdminOnlyNote';
+import { useTenantRole } from './useTenantRole';
 
 export function AppKeys() {
   const { t } = useTranslation('console');
   const api = useConsoleApi();
   const qc = useQueryClient();
+  // RBAC v1: mint/rotate/disable are admin-only writes — a member sees a
+  // read-only list (the backend TenantAdminGuard 403s the writes regardless).
+  const { isTenantAdmin } = useTenantRole();
 
   const keys = useInfiniteQuery({
     queryKey: qk.consoleApiKeys(),
@@ -82,16 +87,22 @@ export function AppKeys() {
   });
 
   useSetConsoleAction(
-    () => (
-      <Button variant="ghost" onClick={() => setFormOpen(true)}>
-        <PlusIcon size={14} weight="bold" /> {t('app.keys.mint')}
-      </Button>
-    ),
-    [t],
+    () =>
+      isTenantAdmin ? (
+        <Button variant="ghost" onClick={() => setFormOpen(true)}>
+          <PlusIcon size={14} weight="bold" /> {t('app.keys.mint')}
+        </Button>
+      ) : null,
+    [t, isTenantAdmin],
   );
 
   return (
     <>
+      {!isTenantAdmin && (
+        <div style={{ marginBottom: 'var(--s-3)' }}>
+          <AdminOnlyNote />
+        </div>
+      )}
       <CardCollection
         rows={rows}
         loading={keys.isLoading}
@@ -117,7 +128,7 @@ export function AppKeys() {
               },
             ]}
             actions={
-              r.status === 'active' ? (
+              isTenantAdmin && r.status === 'active' ? (
                 <>
                   <Button
                     variant="ghost"

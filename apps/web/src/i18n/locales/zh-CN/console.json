@@ -159,6 +159,46 @@
       },
       "upload": "上传",
       "uploaded": "文件已上传"
+    },
+    "adminOnly": "只读视图——此操作需要租户管理员权限。",
+    "members": {
+      "invite": "邀请成员",
+      "inviteHint": "在你的租户下创建一个操作员账号(成员席位)。",
+      "create": "创建成员",
+      "empty": "暂无其他成员——邀请你的第一位操作员。",
+      "adminOnly": "成员管理仅对租户管理员开放。",
+      "promote": "提升为管理员",
+      "demote": "降为成员",
+      "disable": "停用",
+      "enable": "启用",
+      "roleChanged": "角色已更新",
+      "disabled": "成员已停用",
+      "enabled": "成员已启用",
+      "roles": {
+        "admin": "管理员",
+        "member": "成员"
+      },
+      "cols": {
+        "email": "邮箱",
+        "role": "角色",
+        "status": "状态",
+        "created": "创建时间"
+      },
+      "form": {
+        "email": "邮箱",
+        "password": "初始密码"
+      },
+      "created": {
+        "title": "成员已创建",
+        "warn": "请立即复制初始密码并安全交给该成员——此后将无法再次查看。",
+        "copyEmail": "复制邮箱",
+        "copyPassword": "复制密码",
+        "done": "完成"
+      },
+      "confirm": {
+        "disableTitle": "停用该成员?",
+        "disableMsg": "{{email}} 将无法登录,直到被重新启用。"
+      }
     }
   },
   "nav": {
@@ -183,6 +223,7 @@
     "tkeys": "API Keys",
     "tmodels": "模型",
     "billing": "充值",
+    "tmembers": "成员管理",
     "tsettings": "设置",
     "tenants": "租户",
     "accounts": "账户 / 充值",
@@ -223,6 +264,7 @@
     "tkeys": "签发与管理你的 API Key",
     "tmodels": "你的租户可用的模型",
     "billing": "为你的租户余额充值",
+    "tmembers": "管理你租户的操作员席位——邀请、提升 / 降级、停用",
     "tsettings": "你的资料与密码",
     "tenants": "创建与查看租户",
     "catalog": "模型与资源——通道与定价",

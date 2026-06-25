@@ -26,6 +26,9 @@ export const TENANT_NAV_CONFIG: NavConfig = {
       items: [
         { to: '/app/keys', labelKey: 'tkeys' },
         { to: '/app/billing', labelKey: 'billing' },
+        // 成员管理 (Members) — tenant-admin-only (RBAC v1); hidden for members
+        // via `filterTenantNav`.
+        { to: '/app/members', labelKey: 'tmembers' },
         { to: '/app/settings', labelKey: 'tsettings' },
       ],
     },
@@ -38,3 +41,24 @@ export const TENANT_NAV_CONFIG: NavConfig = {
     { to: '/app/billing', labelKey: 'billing', icon: CoinsIcon },
   ],
 };
+
+/**
+ * Nav `to` paths that are tenant-admin-only (RBAC v1). A `tenant_role='member'`
+ * seat never sees these nav items (the route + page also self-gate, and the
+ * backend 403s — this only hides the link). `filterTenantNav` strips them.
+ */
+const ADMIN_ONLY_PATHS = new Set(['/app/members']);
+
+/**
+ * The tenant nav narrowed to what the caller's seat may see. Members lose the
+ * admin-only items (成员管理); admins (and a `null` system operator) keep the full
+ * set. Empty groups are dropped so the rail never shows a switcher with no items.
+ */
+export function filterTenantNav(isTenantAdmin: boolean): NavConfig {
+  if (isTenantAdmin) return TENANT_NAV_CONFIG;
+  const groups = TENANT_NAV_CONFIG.groups
+    .map((g) => ({ ...g, items: g.items.filter((it) => !ADMIN_ONLY_PATHS.has(it.to)) }))
+    .filter((g) => g.items.length > 0);
+  const mobileTabs = TENANT_NAV_CONFIG.mobileTabs.filter((tab) => !ADMIN_ONLY_PATHS.has(tab.to));
+  return { groups, mobileTabs };
+}

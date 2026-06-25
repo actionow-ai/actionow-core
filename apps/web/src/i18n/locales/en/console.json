@@ -159,6 +159,46 @@
       },
       "upload": "Upload",
       "uploaded": "File uploaded"
+    },
+    "adminOnly": "Read-only view — this action requires a tenant admin.",
+    "members": {
+      "invite": "Invite member",
+      "inviteHint": "Create an operator account (a member seat) in your tenant.",
+      "create": "Create member",
+      "empty": "No other members yet — invite your first operator.",
+      "adminOnly": "Member management is available to tenant admins only.",
+      "promote": "Promote to admin",
+      "demote": "Demote to member",
+      "disable": "Disable",
+      "enable": "Enable",
+      "roleChanged": "Role updated",
+      "disabled": "Member disabled",
+      "enabled": "Member enabled",
+      "roles": {
+        "admin": "Admin",
+        "member": "Member"
+      },
+      "cols": {
+        "email": "Email",
+        "role": "Role",
+        "status": "Status",
+        "created": "Created"
+      },
+      "form": {
+        "email": "Email",
+        "password": "Initial password"
+      },
+      "created": {
+        "title": "Member created",
+        "warn": "Copy the initial password now and hand it to the member securely — it can't be shown again.",
+        "copyEmail": "Copy email",
+        "copyPassword": "Copy password",
+        "done": "Done"
+      },
+      "confirm": {
+        "disableTitle": "Disable this member?",
+        "disableMsg": "{{email}} won't be able to sign in until re-enabled."
+      }
     }
   },
   "nav": {
@@ -183,6 +223,7 @@
     "tkeys": "API Keys",
     "tmodels": "Models",
     "billing": "Billing",
+    "tmembers": "Members",
     "tsettings": "Settings",
     "tenants": "Tenants",
     "accounts": "Accounts",
@@ -223,6 +264,7 @@
     "tkeys": "Mint and manage your API keys",
     "tmodels": "Models available to your tenant",
     "billing": "Top up your tenant balance",
+    "tmembers": "Manage your tenant's operator seats — invite, promote/demote, disable",
     "tsettings": "Your profile and password",
     "tenants": "Create and view tenants",
     "catalog": "Models & resources — channels and pricing",
