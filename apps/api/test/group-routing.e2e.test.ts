@@ -42,8 +42,20 @@ import { UnifiedErrorFilter } from '../src/common/unified-error.filter.js';
 
 /** The seeded chat resource id (two channels, blocking). */
 const CHAT_RESOURCE = 'group-chat-resource';
+/**
+ * A SEPARATE chat resource owning ONLY the cross-group failover channels
+ * (`mock-chat-fail`/`mock-chat-ok`). Kept off {@link CHAT_RESOURCE} so the
+ * ungrouped-fallback path (no-group / empty-group keys, which route over ALL
+ * active channels of their resource) never sees them — otherwise the
+ * weighted-random pick would non-deterministically serve a failover channel and
+ * violate those tests' `[PROVIDER_A, PROVIDER_B]` assertion (spec §⑥: existing
+ * routing/failover tests stay green).
+ */
+const FAILOVER_RESOURCE = 'group-failover-resource';
 /** The public model name callers send. */
 const MODEL_NAME = 'group-mock-model';
+/** The public model name resolving to {@link FAILOVER_RESOURCE} (failover test). */
+const FAILOVER_MODEL_NAME = 'group-failover-model';
 /** µUSD per 1M tokens (resale prices) seeded on the model. */
 const INPUT_PRICE = 1_250_000n;
 const OUTPUT_PRICE = 10_000_000n;
@@ -140,23 +152,25 @@ let channelOkId: string;
 
 let baseUrl: string;
 
-/** POST a blocking chat completion with the given key; return the response. */
-async function chat(key: string): Promise<Response> {
+/** POST a blocking chat completion with the given key + model; return the response. */
+async function chat(key: string, model: string = MODEL_NAME): Promise<Response> {
   return fetch(`${baseUrl}/v1/chat/completions`, {
     method: 'POST',
     headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL_NAME, messages: [{ role: 'user', content: 'hi' }] }),
+    body: JSON.stringify({ model, messages: [{ role: 'user', content: 'hi' }] }),
   });
 }
 
 /** The newest succeeded usage_log row for the model (records the served channel). */
-async function latestUsageLog(): Promise<typeof schema.usageLog.$inferSelect | undefined> {
+async function latestUsageLog(
+  model: string = MODEL_NAME,
+): Promise<typeof schema.usageLog.$inferSelect | undefined> {
   const rows = await db
     .select()
     .from(schema.usageLog)
     .where(eq(schema.usageLog.tenantId, tenantId));
   return rows
-    .filter((l) => l.model === MODEL_NAME)
+    .filter((l) => l.model === model)
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
 }
 
@@ -245,16 +259,42 @@ beforeAll(async () => {
   channelAId = chA.id;
   channelBId = chB.id;
 
-  // Cross-group failover (弹性2.0): a primary channel that always 500s, and a
-  // fallback channel that succeeds — on the SAME resource so the same model
-  // resolves to both.
+  // Cross-group failover (弹性2.0): a DEDICATED resource owning only the primary
+  // channel (always 500s) and the fallback channel (succeeds). Isolated from
+  // CHAT_RESOURCE so the no-group/empty-group ungrouped-fallback tests (which
+  // route over ALL active channels of their resource) never see these — keeping
+  // their `[PROVIDER_A, PROVIDER_B]` assertion deterministic.
+  await db.insert(schema.resource).values({
+    id: FAILOVER_RESOURCE,
+    tenantId,
+    kind: 'model',
+    modality: 'chat',
+    providerType: PROVIDER_FAIL,
+    execModes: ['stream', 'blocking'],
+    currentVersion: 1,
+  });
+  await db.insert(schema.resourceVersion).values({
+    resourceId: FAILOVER_RESOURCE,
+    version: 1,
+    ioSchema: { inputs: [], outputs: [{ key: '__ir', type: 'json' }] },
+  });
   const [chFail] = await db
     .insert(schema.upstreamChannel)
-    .values({ resourceId: CHAT_RESOURCE, providerType: PROVIDER_FAIL, weight: 1, status: 'active' })
+    .values({
+      resourceId: FAILOVER_RESOURCE,
+      providerType: PROVIDER_FAIL,
+      weight: 1,
+      status: 'active',
+    })
     .returning();
   const [chOk] = await db
     .insert(schema.upstreamChannel)
-    .values({ resourceId: CHAT_RESOURCE, providerType: PROVIDER_OK, weight: 1, status: 'active' })
+    .values({
+      resourceId: FAILOVER_RESOURCE,
+      providerType: PROVIDER_OK,
+      weight: 1,
+      status: 'active',
+    })
     .returning();
   if (!chFail || !chOk) throw new Error('no failover channels');
   channelOkId = chOk.id;
@@ -264,6 +304,20 @@ beforeAll(async () => {
     name: MODEL_NAME,
     resourceId: CHAT_RESOURCE,
     display: 'Group Mock Model',
+    modality: 'chat',
+    capabilities: { tools: true, vision: true, audio: true, json: true, stream: true },
+    visibility: 'public',
+    inputPrice: INPUT_PRICE,
+    outputPrice: OUTPUT_PRICE,
+    status: 'active',
+  });
+
+  // Public, active model resolving to the failover resource (its own model so the
+  // failover scenario stays isolated from MODEL_NAME's channels).
+  await createModel(db, {
+    name: FAILOVER_MODEL_NAME,
+    resourceId: FAILOVER_RESOURCE,
+    display: 'Group Failover Model',
     modality: 'chat',
     capabilities: { tools: true, vision: true, audio: true, json: true, stream: true },
     visibility: 'public',
@@ -361,14 +415,14 @@ describe('group-scoped routing (Track 4)', () => {
   });
 
   it('cross-group failover: primary group 500s → served by the fallback group (弹性2.0)', async () => {
-    const res = await chat(keyFallback);
+    const res = await chat(keyFallback, FAILOVER_MODEL_NAME);
     expect(res.status).toBe(200);
     // The primary group's only channel always 500s (retryable) → the relay
     // cascades down the fallback_group_id chain to the secondary group's
     // succeeding channel.
     expect(res.headers.get('x-actionow-channel')).toBe(PROVIDER_OK);
     await res.json();
-    const log = await latestUsageLog();
+    const log = await latestUsageLog(FAILOVER_MODEL_NAME);
     expect(log?.channelId).toBe(channelOkId);
     expect(log?.providerType).toBe(PROVIDER_OK);
   });
