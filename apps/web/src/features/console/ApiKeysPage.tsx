@@ -1,19 +1,20 @@
-import { KeyIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
+import { PlusIcon, ProhibitIcon } from '@phosphor-icons/react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 import { useSetConsoleAction, useSetConsoleFilters } from '../../components/console/ConsoleChrome';
-import { CardCollection } from '../../components/data/CardCollection';
 import { CopyField } from '../../components/data/CopyField';
-import { EntityCard } from '../../components/data/EntityCard';
-import { LimitUsageBars } from '../../components/data/LimitUsageBars';
+import type { Column } from '../../components/data/DataTable';
+import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { TenantSelect } from '../../components/data/TenantSelect';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Modal } from '../../components/ui/Modal';
 import { NumberField } from '../../components/ui/NumberField';
+import { RowAction } from '../../components/ui/RowAction';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
@@ -24,10 +25,19 @@ import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
 import { useUrlState } from '../../lib/useUrlState';
 
+/**
+ * The API-key directory (`/console/api-keys`): a tenant-scoped `DataTable` of
+ * keys — id, end-user (subject), bound route group + limit plan (resolved by
+ * name from the reference lists), status, created. Row-click navigates to the
+ * routed `/console/api-keys/:id?tenant=…` detail page (where the per-key
+ * routing/governance binding + usage + revoke live). The tenant-select gate
+ * stays in the filter slot; the 签发 Key action stays in the action slot.
+ */
 export function ApiKeysPage() {
   const { t } = useTranslation('console');
   const api = useAdminApi();
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const [tenantId, setTenantId] = useUrlState('tenant');
   const keys = useQuery({
@@ -43,13 +53,22 @@ export function ApiKeysPage() {
     staleTime: STALE_REFERENCE,
   });
   const groupOptions = (groups.data ?? []).map((g) => ({ value: g.id, label: g.name }));
+  const groupName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const g of groups.data ?? []) m.set(g.id, g.name);
+    return m;
+  }, [groups.data]);
   // Limit plans drive the per-key governance binding (额度套餐).
   const plans = useQuery({
     queryKey: qk.limitPlans(),
     queryFn: () => api.listLimitPlans(),
     staleTime: STALE_REFERENCE,
   });
-  const planOptions = (plans.data ?? []).map((p) => ({ value: p.id, label: p.name }));
+  const planName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of plans.data ?? []) m.set(p.id, p.name);
+    return m;
+  }, [plans.data]);
   // Subjects (end-users) of the selected tenant — optional scope for a minted key.
   const subjects = useQuery({
     queryKey: qk.subjects(tenantId),
@@ -97,26 +116,6 @@ export function ApiKeysPage() {
     onError: mutationError(t),
   });
 
-  const bindGroup = useMutation({
-    // `null` unbinds the key back to the `default` group.
-    mutationFn: ({ id, routeGroupId: rg }: { id: string; routeGroupId: string | null }) =>
-      api.updateApiKeyGroup(id, { routeGroupId: rg }),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: qk.apiKeys(tenantId) });
-    },
-    onError: mutationError(t),
-  });
-
-  const bindPlan = useMutation({
-    // `null` unbinds the key (back to unlimited).
-    mutationFn: ({ id, planId }: { id: string; planId: string | null }) =>
-      api.setApiKeyLimitPlan(id, planId),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: qk.apiKeys(tenantId) });
-    },
-    onError: mutationError(t),
-  });
-
   const revoke = useMutation({
     mutationFn: (id: string) => api.deleteApiKey(id),
     onSuccess: async () => {
@@ -145,59 +144,77 @@ export function ApiKeysPage() {
     [t, tenantId, setTenantId],
   );
 
+  const cols: Column<ApiKeyView>[] = [
+    {
+      key: 'id',
+      header: t('apiKeys.cols.id'),
+      grow: true,
+      noClip: true,
+      cell: (r) => <code style={{ fontSize: 'var(--fs-sm)' }}>{r.id}</code>,
+    },
+    {
+      key: 'subject',
+      header: t('apiKeys.subject.label'),
+      width: '140px',
+      cell: (r) =>
+        r.subject_id !== null ? (
+          <span className="mono" style={{ fontSize: 'var(--fs-caption)' }} title={r.subject_id}>
+            {r.subject_id.slice(0, 8)}
+          </span>
+        ) : (
+          <span style={{ color: 'var(--faint)' }}>—</span>
+        ),
+    },
+    {
+      key: 'group',
+      header: t('apiKeys.group.label'),
+      width: '160px',
+      cell: (r) =>
+        r.route_group_id !== null
+          ? (groupName.get(r.route_group_id) ?? r.route_group_id)
+          : t('apiKeys.group.default'),
+    },
+    {
+      key: 'plan',
+      header: t('apiKeys.plan.label'),
+      width: '160px',
+      cell: (r) =>
+        r.limit_plan_id !== null
+          ? (planName.get(r.limit_plan_id) ?? r.limit_plan_id)
+          : t('apiKeys.plan.none'),
+    },
+    {
+      key: 'status',
+      header: t('apiKeys.cols.status'),
+      noClip: true,
+      width: '120px',
+      cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
+    },
+    {
+      key: 'created',
+      header: t('apiKeys.cols.created'),
+      align: 'right',
+      width: '140px',
+      cell: (r) => new Date(r.created_at).toLocaleDateString(),
+    },
+  ];
+
   return (
     <div style={{ height: '100%' }}>
-      <CardCollection
+      <DataTable
+        columns={cols}
         rows={tenantId === '' ? [] : (keys.data ?? [])}
+        rowKey={(r) => r.id}
         loading={tenantId !== '' && keys.isLoading}
         error={tenantId !== '' && keys.isError}
         onRetry={() => void keys.refetch()}
         empty={t('apiKeys.empty')}
-        renderCard={(r) => (
-          <EntityCard
-            key={r.id}
-            icon={KeyIcon}
-            title={<code style={{ fontSize: 'var(--fs-sm)' }}>{r.id}</code>}
-            badge={<StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />}
-            chips={[
-              ...(r.subject_id !== null ? [`${t('apiKeys.subject.chip')}: ${r.subject_id.slice(0, 8)}`] : []),
-              ...(r.rate_limit !== null ? [`${String(r.rate_limit)}/min`] : []),
-              ...(r.resource_allowlist.length > 0 ? r.resource_allowlist : []),
-            ]}
-            meta={[{ label: t('apiKeys.cols.created'), value: new Date(r.created_at).toLocaleDateString() }]}
-            actions={
-              <>
-                {r.limit_plan_id !== null && (
-                  <div style={{ flexBasis: '100%' }}>
-                    <KeyLimitUsage keyId={r.id} planId={r.limit_plan_id} />
-                  </div>
-                )}
-                <div style={{ width: 200 }}>
-                  <SelectField
-                    label={t('apiKeys.group.label')}
-                    tooltip={t('apiKeys.group.tip')}
-                    value={r.route_group_id ?? ''}
-                    onChange={(v) => bindGroup.mutate({ id: r.id, routeGroupId: v === '' ? null : v })}
-                    options={groupOptions}
-                    placeholder={t('apiKeys.group.default')}
-                  />
-                </div>
-                <div style={{ width: 200 }}>
-                  <SelectField
-                    label={t('apiKeys.plan.label')}
-                    tooltip={t('apiKeys.plan.tip')}
-                    value={r.limit_plan_id ?? ''}
-                    onChange={(v) => bindPlan.mutate({ id: r.id, planId: v === '' ? null : v })}
-                    options={planOptions}
-                    placeholder={t('apiKeys.plan.none')}
-                  />
-                </div>
-                <Button variant="ghost" onClick={() => setRevokeTarget(r)}>
-                  <TrashIcon size={14} weight="bold" aria-hidden="true" /> {t('apiKeys.revoke')}
-                </Button>
-              </>
-            }
-          />
+        onRowClick={(r) => {
+          void navigate(`/console/api-keys/${r.id}?tenant=${encodeURIComponent(tenantId)}`);
+        }}
+        actionsWidth="56px"
+        rowActions={(r) => (
+          <RowAction icon={ProhibitIcon} label={t('apiKeys.revoke')} danger onClick={() => setRevokeTarget(r)} />
         )}
       />
 
@@ -260,15 +277,4 @@ export function ApiKeysPage() {
       />
     </div>
   );
-}
-
-/** Usage-vs-cap bars for one key's bound plan (rolling-aware, fetched lazily). */
-function KeyLimitUsage({ keyId, planId }: { keyId: string; planId: string }) {
-  const api = useAdminApi();
-  const { data } = useQuery({
-    queryKey: qk.limitStatus('key', keyId),
-    queryFn: () => api.listLimitStatus('key', keyId, planId),
-    staleTime: 30_000,
-  });
-  return <LimitUsageBars rules={data ?? []} />;
 }

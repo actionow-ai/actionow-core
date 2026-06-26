@@ -551,8 +551,15 @@
         "created": "End-user created",
         "deleted": "End-user removed",
         "empty": "No end-users yet",
-        "form": { "externalId": "External ID", "name": "Display name" },
-        "cols": { "identity": "Identity", "name": "Name", "status": "Status" },
+        "form": {
+          "externalId": "External ID",
+          "name": "Display name"
+        },
+        "cols": {
+          "identity": "Identity",
+          "name": "Name",
+          "status": "Status"
+        },
         "detail": {
           "plan": "Limit plan",
           "planTip": "Bind a limit plan (spend budget / rate limit / quota) to this end-user. Unbound = unlimited.",
@@ -681,6 +688,11 @@
       "copy": "Copy",
       "copied": "Copied",
       "done": "Done"
+    },
+    "detail": {
+      "back": "Back to keys",
+      "notFound": "Key not found.",
+      "attrs": "Attributes"
     }
   },
   "resources": {

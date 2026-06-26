@@ -16,6 +16,7 @@ import { TenantConsole } from './features/app/TenantConsole';
 import { AuthPage } from './features/auth/AuthPage';
 import { MemberAuthPage } from './features/auth/MemberAuthPage';
 import { OAuthCallbackPage } from './features/auth/OAuthCallbackPage';
+import { ApiKeyDetailPage } from './features/console/ApiKeyDetailPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { AuditLogPage } from './features/console/AuditLogPage';
 import { BreakersPage } from './features/console/BreakersPage';
@@ -121,6 +122,7 @@ export function AppRoutes() {
           {/* Accounts merged into the Tenants hub (per-tenant detail drawer). */}
           <Route path="accounts" element={<Navigate to="/console/tenants" replace />} />
           <Route path="api-keys" element={<ApiKeysPage />} />
+          <Route path="api-keys/:id" element={<ApiKeyDetailPage />} />
           <Route path="tokens" element={<ServiceTokensPage />} />
           <Route path="redemption-codes" element={<RedemptionCodesPage />} />
         </Route>
