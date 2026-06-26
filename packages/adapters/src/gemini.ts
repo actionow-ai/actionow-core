@@ -5,6 +5,7 @@ import type {
   ChatStreamEvent,
   ContentPart,
   Message,
+  ProviderModel,
   StopReason,
   StreamEvent,
   SubmitInput,
@@ -419,6 +420,40 @@ export const geminiAdapter: ProviderAdapter = {
     }
     yield { type: 'stop', stopReason };
     yield { type: 'done' };
+  },
+
+  /**
+   * Model discovery for `sync-models`: `GET {endpoint}/v1beta/models` (Gemini
+   * model list; api key in the query). Only `generateContent`-capable models are
+   * returned (excludes embedding/aqa/imagen), id stripped of the `models/` prefix.
+   */
+  async listModels(ctx: AdapterContext): Promise<ProviderModel[]> {
+    const endpoint = ctx.endpoint ?? DEFAULT_ENDPOINT;
+    const key = encodeURIComponent(ctx.apiKey ?? '');
+    const res = await ctx.http.request({
+      method: 'GET',
+      url: `${endpoint}/v1beta/models?pageSize=1000&key=${key}`,
+      ...withProxy(ctx),
+    });
+    if (!res.ok) {
+      throw new AdapterError(mapErrorBody(res.status, res.body));
+    }
+    const models = asArray(asRecord(res.body)?.models) ?? [];
+    return models
+      .map((raw): ProviderModel | undefined => {
+        const r = asRecord(raw);
+        const methods = asArray(r?.supportedGenerationMethods) ?? [];
+        if (!methods.includes('generateContent')) return undefined;
+        const name = asString(r?.name);
+        if (name === undefined) return undefined;
+        const model: ProviderModel = { id: name.replace(/^models\//, '') };
+        const displayName = asString(r?.displayName);
+        if (displayName !== undefined) model.displayName = displayName;
+        const contextWindow = asNumber(r?.inputTokenLimit);
+        if (contextWindow !== undefined) model.contextWindow = contextWindow;
+        return model;
+      })
+      .filter((m): m is ProviderModel => m !== undefined);
   },
 
   extractUsage,

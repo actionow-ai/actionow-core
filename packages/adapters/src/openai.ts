@@ -5,6 +5,7 @@ import type {
   ChatStreamEvent,
   ContentPart,
   Message,
+  ProviderModel,
   StopReason,
   StreamEvent,
   SubmitInput,
@@ -483,6 +484,38 @@ export const openaiAdapter: ProviderAdapter = {
     }
 
     yield { type: 'done' };
+  },
+
+  /**
+   * Model discovery for `sync-models`: `GET {endpoint}/models` (OpenAI + any
+   * OpenAI-compatible relay). Returns every listed id as a {@link ProviderModel}
+   * — the relay/operator prunes non-chat entries (this adapter also fronts
+   * openai-compatible upstreams whose ids aren't `gpt-*`, so no name filter).
+   */
+  async listModels(ctx: AdapterContext): Promise<ProviderModel[]> {
+    const endpoint = ctx.endpoint ?? DEFAULT_ENDPOINT;
+    const res = await ctx.http.request({
+      method: 'GET',
+      url: `${endpoint}/models`,
+      headers: { Authorization: `Bearer ${ctx.apiKey ?? ''}` },
+      ...withProxy(ctx),
+    });
+    if (!res.ok) {
+      throw new AdapterError(mapErrorBody(res.status, res.body));
+    }
+    const data = asArray(asRecord(res.body)?.data) ?? [];
+    return data
+      .map((raw): ProviderModel | undefined => {
+        const id = asString(asRecord(raw)?.id);
+        if (id === undefined) return undefined;
+        // Drop unambiguously non-chat OpenAI models (embeddings/audio/image/
+        // moderation) so a chat resource's sync stays clean. These substrings
+        // never appear in openai-COMPATIBLE relay chat ids (deepseek/mimo/etc.),
+        // so relays are unaffected.
+        if (/embedding|whisper|tts-|dall-e|moderation|image-1/.test(id)) return undefined;
+        return { id, displayName: id };
+      })
+      .filter((m): m is ProviderModel => m !== undefined);
   },
 
   extractUsage,

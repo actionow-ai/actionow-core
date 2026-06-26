@@ -5,6 +5,7 @@ import type {
   ChatStreamEvent,
   ContentPart,
   Message,
+  ProviderModel,
   StopReason,
   StreamEvent,
   SubmitInput,
@@ -481,6 +482,36 @@ export const anthropicAdapter: ProviderAdapter = {
     yield { type: 'stop', stopReason };
     yield { type: 'usage', usage: { inputTokens, outputTokens } };
     yield { type: 'done' };
+  },
+
+  /**
+   * Model discovery for `sync-models`: `GET {endpoint}/v1/models` (Anthropic
+   * model list; `x-api-key` + `anthropic-version`). All listed models are chat
+   * models. `?limit=1000` returns the full set in one page.
+   */
+  async listModels(ctx: AdapterContext): Promise<ProviderModel[]> {
+    const endpoint = ctx.endpoint ?? DEFAULT_ENDPOINT;
+    const res = await ctx.http.request({
+      method: 'GET',
+      url: `${endpoint}/v1/models?limit=1000`,
+      headers: { 'x-api-key': ctx.apiKey ?? '', 'anthropic-version': ANTHROPIC_VERSION },
+      ...withProxy(ctx),
+    });
+    if (!res.ok) {
+      throw new AdapterError(mapErrorBody(res.status, res.body));
+    }
+    const data = asArray(asRecord(res.body)?.data) ?? [];
+    return data
+      .map((raw): ProviderModel | undefined => {
+        const r = asRecord(raw);
+        const id = asString(r?.id);
+        if (id === undefined) return undefined;
+        const model: ProviderModel = { id };
+        const displayName = asString(r?.display_name);
+        if (displayName !== undefined) model.displayName = displayName;
+        return model;
+      })
+      .filter((m): m is ProviderModel => m !== undefined);
   },
 
   extractUsage,
