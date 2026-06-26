@@ -46,7 +46,14 @@ import { EngineError, engineError } from './errors.js';
 import { type FaultPolicy, runWithFaultPolicy, wrapHttpWithTimeouts } from './fault-policy.js';
 import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
 import { type TraceContext, TracingHttpClient } from './relay-trace.js';
-import { createChatSettlingStream, createSettlingStream } from './stream.js';
+import {
+  type CommittedChatStream,
+  createChatSettlingStream,
+  createSettlingStream,
+  failStream,
+  openChatStreamCommit,
+  type SettlingStreamDeps,
+} from './stream.js';
 
 /** Default per-body byte cap when the engine deps carry no `traceMaxBytes`. */
 const DEFAULT_TRACE_MAX_BYTES = 1_000_000;
@@ -205,6 +212,14 @@ export interface StreamOutcome {
 export interface ChatStreamOutcome {
   jobId: string;
   events: AsyncIterable<ChatStreamEvent>;
+  /**
+   * The model that ACTUALLY served this stream (the committed model). For a
+   * single-model run it equals `req.usageLogModel`; once the relay loops the
+   * `fallbackModels` chain it is the degraded model that committed — so the
+   * controller can label the SSE chunks with the served model (parity with the
+   * blocking path, which returns the served model's response).
+   */
+  servedModel?: string;
 }
 
 /** The result of a blocking IR {@link runChat}: the job id, IR response, cost. */
@@ -392,7 +407,7 @@ export class ExecutionService {
     // is re-attached to the stream's inputs below.
     const { inputs, holdAmount } = await this.validateAndHold(stripIr(req), jobId);
 
-    const events = createChatSettlingStream({
+    const streamDeps: SettlingStreamDeps = {
       db,
       adapters: this.deps.adapters,
       resolveSecret: this.deps.resolveSecret,
@@ -406,8 +421,32 @@ export class ExecutionService {
       rng: this.deps.rng,
       breaker: this.deps.breaker,
       ...this.traceStreamDeps(),
-    });
-    return { jobId, events };
+    };
+
+    // Phase 1 — open the upstream + pull the first event (with breaker-aware
+    // cross-channel pre-commit failover) DURING this await, BEFORE returning. A
+    // total pre-commit failure releases the hold (the same way the drain's
+    // finalize would) and THROWS, so the throw becomes a real HTTP error
+    // (pre-flush) or drives the relay's model fallback — instead of becoming a
+    // `200` + in-band error frame once the controller has flushed SSE headers.
+    let committed: CommittedChatStream;
+    try {
+      committed = await openChatStreamCommit(streamDeps);
+    } catch (err) {
+      await failStream(streamDeps, toUnified(err));
+      throw toEngineError(err);
+    }
+
+    const outcome: ChatStreamOutcome = {
+      jobId,
+      events: createChatSettlingStream(streamDeps, committed),
+    };
+    // The committed model is `usageLogModel` (the model this run resolved to);
+    // the relay loops the fallback chain ABOVE this, so a degraded attempt is a
+    // fresh runChatStream with its own usageLogModel. Omit when unset so the
+    // controller's `servedModel ?? ir.model` fallback still applies.
+    if (req.usageLogModel !== undefined) outcome.servedModel = req.usageLogModel;
+    return outcome;
   }
 
   /**

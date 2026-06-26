@@ -815,7 +815,7 @@
       "priceEquiv": "µcredits / token · ≈ {{n}} credits / 1,000,000 tokens",
       "rateLimit": "Max requests/min per tenant for this model (model rate limit). Stacks on top of the tenant/resource limits.",
       "rateLimitHint": "0 = no model-specific limit.",
-      "fallbackModels": "Model degradation chain: when a BLOCKING chat exhausts all of this model's channels (retryably), retry these models in order. Non-streaming only.",
+      "fallbackModels": "Model degradation chain: when all of this model's channels are exhausted (retryably), retry these models in order. Applies to both blocking and streaming (streaming degrades before the first byte commits).",
       "status": "Disabled models are hidden from callers.",
       "tags": "Free-form tags for catalog filtering (recommended/cheap/code/roleplay…)",
       "maker": "The model's maker (anthropic/alibaba/z-ai…) — filter by developer",

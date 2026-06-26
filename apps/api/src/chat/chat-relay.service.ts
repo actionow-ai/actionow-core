@@ -104,7 +104,20 @@ export class ChatRelayService {
     private readonly routing: ChannelRoutingService,
   ) {}
 
-  /** Open an IR-streaming chat run for the resolved model (hold runs first). */
+  /**
+   * Open an IR-streaming chat run for the resolved model (hold runs first), with
+   * MODEL-DEGRADATION fallback (模型降级链) — identical control flow to blocking
+   * {@link chat}: walk `chain = [modelName, ...fallback_models]`; on a RETRYABLE
+   * pre-commit failure (every channel of a model exhausted BEFORE the stream
+   * committed), degrade to the next model. Each attempt is a self-contained
+   * `runChatStream` — it holds, opens the upstream + pulls the first event, and
+   * on a total pre-commit failure RELEASES its own hold and throws — so attempts
+   * never double-charge; only the committed model settles. A non-retryable error
+   * (invalid input / content filtered) does NOT fall back. Each attempt uses a
+   * distinct idempotency key so a failed claim can't block the next model. Once a
+   * stream commits, a later mid-stream error stays in-band (no post-commit
+   * failover — bytes are already on the wire).
+   */
   async chatStream(
     modelName: string,
     ir: ChatRequest,
@@ -112,15 +125,25 @@ export class ChatRelayService {
     idempotencyKey?: string,
     routeTag?: string,
   ): Promise<ChatStreamOutcome> {
-    const req = await this.buildChatRunRequest(
-      modelName,
-      ir,
-      ctx,
-      'stream',
-      idempotencyKey,
-      routeTag,
-    );
-    return this.buildService().runChatStream(req);
+    const chain = [modelName, ...(await getModelFallbacks(this.db, modelName))];
+    let lastError: unknown;
+    for (const [i, model] of chain.entries()) {
+      const isLast = i === chain.length - 1;
+      // Distinct per-attempt idempotency key — a fallback is a NEW upstream op.
+      const idem =
+        idempotencyKey === undefined || i === 0
+          ? idempotencyKey
+          : `${idempotencyKey}:fb${String(i)}`;
+      try {
+        const req = await this.buildChatRunRequest(model, ir, ctx, 'stream', idem, routeTag);
+        return await this.buildService().runChatStream(req);
+      } catch (err) {
+        lastError = err;
+        if (isLast || !shouldDegradeToNextModel(err)) throw err;
+        // else: this model's stream failed PRE-COMMIT (exhausted/timeout/5xx) → next model.
+      }
+    }
+    throw lastError;
   }
 
   /**
@@ -131,7 +154,8 @@ export class ChatRelayService {
    * settles or RELEASES the hold on failure — so attempts never double-charge.
    * A non-retryable error (invalid input / content filtered) does NOT fall back.
    * Each attempt uses a distinct idempotency key so a failed claim can't block
-   * the next model. (Streaming has no model fallback — it commits mid-stream.)
+   * the next model. Streaming ({@link chatStream}) now walks the SAME chain — a
+   * model's total PRE-COMMIT failure degrades to the next model.
    */
   async chat(
     modelName: string,
