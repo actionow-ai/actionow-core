@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { AuditBadge } from '../../components/data/AuditBadge';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { ProviderIcon } from '../../components/data/ProviderIcon';
@@ -34,6 +35,7 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ChannelStatus, ChannelView, ModelView, PricebookView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { useLatestAudit } from '../../lib/api/useLatestAudit';
 import { STALE_REFERENCE } from '../../lib/query';
 import { useUrlState } from '../../lib/useUrlState';
 import { ChannelCard } from './ChannelCard';
@@ -160,6 +162,12 @@ export function ResourceDetailPane({ id }: { id: string }) {
   const selectedChannel =
     channelRows.find((c) => c.id === cid) ?? (cid === '' ? channelRows[0] : undefined);
 
+  // Newest audit row per visible channel → the "last changed" version badge.
+  const channelAudit = useLatestAudit(
+    'channel',
+    channelRows.map((c) => c.id),
+  );
+
   // Platform model catalog — the "link existing" picker + name resolution.
   const models = useQuery({
     queryKey: qk.models(),
@@ -265,6 +273,13 @@ export function ResourceDetailPane({ id }: { id: string }) {
         <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
       ),
       width: '100px',
+    },
+    {
+      key: 'audit',
+      header: t('common.lastChanged'),
+      noClip: true,
+      cell: (r) => <AuditBadge entry={channelAudit.get(r.id)} targetType="channel" targetId={r.id} />,
+      width: '180px',
     },
   ];
 

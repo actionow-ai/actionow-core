@@ -4,6 +4,9 @@
       "result": "{{ok}} succeeded, {{failed}} failed"
     }
   },
+  "audit": {
+    "badge": "{{time}} · {{actor}}"
+  },
   "member": {
     "auth": {
       "subtitle": "End-user sign-in",
@@ -1364,7 +1367,8 @@
     "copyFailed": "Copy failed",
     "save": "Save",
     "loadMore": "Load more",
-    "search": "Search"
+    "search": "Search",
+    "lastChanged": "Last changed"
   },
   "confirm": {
     "deleteChannelTitle": "Delete channel?",

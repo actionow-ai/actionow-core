@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
+import { AuditBadge } from '../../components/data/AuditBadge';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
@@ -19,6 +20,7 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ChannelView, RouteGroupView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { useLatestAudit } from '../../lib/api/useLatestAudit';
 
 const BASELINE_BPS = 10000;
 
@@ -57,6 +59,12 @@ export function RouteGroupsPage() {
     queryKey: qk.routeGroups(),
     queryFn: api.listRouteGroups,
   });
+
+  // Newest audit row per visible group → the "last changed" version badge.
+  const audit = useLatestAudit(
+    'route_group',
+    (data ?? []).map((g) => g.id),
+  );
 
   const [editId, setEditId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -130,6 +138,13 @@ export function RouteGroupsPage() {
       header: t('groups.cols.channels'),
       cell: (r) => <ChannelCount groupId={r.id} />,
       width: '96px',
+    },
+    {
+      key: 'audit',
+      header: t('common.lastChanged'),
+      noClip: true,
+      cell: (r) => <AuditBadge entry={audit.get(r.id)} targetType="route_group" targetId={r.id} />,
+      width: '180px',
     },
   ];
 

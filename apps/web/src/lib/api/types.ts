@@ -74,6 +74,8 @@ export type {
   GenerateCodesBody,
   IconAssetView,
   JobView,
+  // --- audit/version badges (前端打磨) ---
+  LatestAuditView,
   LedgerView,
   LimitAlertView,
   LimitPlanView,

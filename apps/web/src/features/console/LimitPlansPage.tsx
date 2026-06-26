@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
+import { AuditBadge } from '../../components/data/AuditBadge';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
@@ -21,6 +22,7 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { LimitPlanView, LimitRuleInput, LimitRuleView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { useLatestAudit } from '../../lib/api/useLatestAudit';
 
 const DIMENSIONS = ['spend', 'requests', 'tokens', 'rpm', 'concurrency'] as const;
 type Dim = (typeof DIMENSIONS)[number];
@@ -57,6 +59,12 @@ export function LimitPlansPage() {
     queryKey: qk.limitPlans(),
     queryFn: api.listLimitPlans,
   });
+
+  // Newest audit row per visible plan → the "last changed" version badge.
+  const audit = useLatestAudit(
+    'limit_plan',
+    (data ?? []).map((p) => p.id),
+  );
 
   const [editId, setEditId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -133,6 +141,13 @@ export function LimitPlansPage() {
         <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
       ),
       width: '100px',
+    },
+    {
+      key: 'audit',
+      header: t('common.lastChanged'),
+      noClip: true,
+      cell: (r) => <AuditBadge entry={audit.get(r.id)} targetType="limit_plan" targetId={r.id} />,
+      width: '180px',
     },
   ];
 

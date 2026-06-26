@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
+import { AuditBadge } from '../../components/data/AuditBadge';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
@@ -21,6 +22,7 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { FaultPolicyView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { useLatestAudit } from '../../lib/api/useLatestAudit';
 
 /** A ms timeout for display: a value or an em-dash for "client default". */
 function ms(n: number | null): string {
@@ -52,6 +54,12 @@ export function FaultPoliciesPage() {
     queryKey: qk.faultPolicies(),
     queryFn: api.listFaultPolicies,
   });
+
+  // Newest audit row per visible policy → the "last changed" version badge.
+  const audit = useLatestAudit(
+    'fault_policy',
+    (data ?? []).map((p) => p.id),
+  );
 
   const [editId, setEditId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -148,6 +156,13 @@ export function FaultPoliciesPage() {
       noClip: true,
       cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
       width: '100px',
+    },
+    {
+      key: 'audit',
+      header: t('common.lastChanged'),
+      noClip: true,
+      cell: (r) => <AuditBadge entry={audit.get(r.id)} targetType="fault_policy" targetId={r.id} />,
+      width: '180px',
     },
   ];
 

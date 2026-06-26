@@ -4,6 +4,9 @@
       "result": "成功 {{ok}} 项，失败 {{failed}} 项"
     }
   },
+  "audit": {
+    "badge": "{{time}} · {{actor}}"
+  },
   "member": {
     "auth": {
       "subtitle": "终端用户登录",
@@ -1364,7 +1367,8 @@
     "copyFailed": "复制失败",
     "save": "保存",
     "loadMore": "加载更多",
-    "search": "搜索"
+    "search": "搜索",
+    "lastChanged": "最近变更"
   },
   "confirm": {
     "deleteChannelTitle": "删除通道?",

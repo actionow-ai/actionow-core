@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { AuditBadge } from '../../components/data/AuditBadge';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
@@ -26,6 +27,7 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ModelView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { useLatestAudit } from '../../lib/api/useLatestAudit';
 import { STALE_REFERENCE } from '../../lib/query';
 import { ModelEditor } from './ModelEditor';
 import { ModelGrantsDrawer } from './ModelGrantsDrawer';
@@ -60,6 +62,13 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
   const rows = useMemo(
     () => (data ?? []).filter((m) => m.resource_id === resourceId),
     [data, resourceId],
+  );
+
+  // Newest audit row per visible model → the "last changed" version badge. Model
+  // audit rows key on the model NAME (the admin identifier), not a uuid.
+  const audit = useLatestAudit(
+    'model',
+    rows.map((m) => m.name),
   );
 
   const [edit, setEdit] = useState<string>(''); // '' closed, NEW = create, else model name
@@ -174,6 +183,13 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
       width: '100px',
       noClip: true,
       cell: (m) => <StatusBadge tone={statusTone(m.status)} label={t('status.' + m.status, m.status)} />,
+    },
+    {
+      key: 'audit',
+      header: t('common.lastChanged'),
+      noClip: true,
+      cell: (m) => <AuditBadge entry={audit.get(m.name)} targetType="model" targetId={m.name} />,
+      width: '180px',
     },
   ];
 

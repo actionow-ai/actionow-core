@@ -41,6 +41,7 @@ import type {
   GenerateCodesBody,
   IconAssetView,
   JobView,
+  LatestAuditView,
   LedgerView,
   LimitAlertView,
   LimitPlanView,
@@ -448,6 +449,14 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
       rawClient.get<ReconcileRowView[]>(
         `/admin/records/reconcile?tenantId=${encodeURIComponent(tenantId)}`,
       ),
+    // Batch-fetch the newest audit_log row per visible entity for the version
+    // badge (前端打磨). RAW: `/admin/audit-log/latest` isn't in the SDK path set.
+    // Only ids that have an audit row come back (ids with no history are absent).
+    latestAudit: (targetType: string, ids: string[]): Promise<LatestAuditView[]> =>
+      rawClient.post<LatestAuditView[]>('/admin/audit-log/latest', {
+        target_type: targetType,
+        ids,
+      }),
 
     // --- Model health status page (持续健康监控) ---
     modelHealth: async (days = 7): Promise<ModelHealthView[]> =>
