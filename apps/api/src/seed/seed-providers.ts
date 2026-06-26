@@ -279,8 +279,13 @@ export const PROVIDER_SEED_IDS: readonly string[] = PROVIDER_SEEDS.map((s) => s.
 
 /** Options for {@link seedProviders}. */
 export interface SeedProvidersOptions {
-  /** The tenant the resources are registered under. */
-  readonly tenantId: string;
+  /**
+   * LEGACY — retained for call-site compatibility but no longer used to OWN the
+   * provider resources. The shared provider relays are created as GLOBAL
+   * resources (`tenant_id = null`) so EVERY tenant (= app) on the self-deployed
+   * platform may run them; tenant ownership is irrelevant to them.
+   */
+  readonly tenantId?: string;
 }
 
 /**
@@ -288,13 +293,16 @@ export interface SeedProvidersOptions {
  * versions + pricebooks + upstream channels) as DATA. Network-free; safe to
  * re-run (find-then-create on the resource id makes a second run a no-op).
  */
-export async function seedProviders(db: Database, opts: SeedProvidersOptions): Promise<void> {
+export async function seedProviders(db: Database, opts: SeedProvidersOptions = {}): Promise<void> {
+  void opts; // legacy `tenantId` no longer owns the (global) provider resources.
   for (const s of PROVIDER_SEEDS) {
     if ((await getResource(db, s.id)) !== undefined) continue;
 
     await createResource(db, {
       id: s.id,
-      tenantId: opts.tenantId,
+      // GLOBAL platform resource: any tenant (= app) on the self-deployed
+      // platform may run the shared media/direct-chat relays.
+      tenantId: null,
       kind: s.kind,
       modality: s.modality,
       providerType: s.providerType,

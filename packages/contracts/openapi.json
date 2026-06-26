@@ -311,7 +311,8 @@
             "type": "string"
           },
           "tenant_id": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "kind": {
             "type": "string"
@@ -3448,6 +3449,7 @@
           },
           "tenantId": {
             "type": "string",
+            "nullable": true,
             "format": "uuid"
           },
           "kind": {

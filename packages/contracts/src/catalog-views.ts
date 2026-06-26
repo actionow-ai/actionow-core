@@ -12,7 +12,8 @@ import { z } from 'zod';
 /** A catalog resource as served by `GET /admin/resources[/:id]`. */
 export const resourceViewSchema = z.object({
   id: z.string(),
-  tenant_id: z.string(),
+  /** Owning tenant id, or `null` for a GLOBAL platform resource (any tenant may run it). */
+  tenant_id: z.string().nullable(),
   kind: z.string(),
   modality: z.string(),
   provider_type: z.string(),

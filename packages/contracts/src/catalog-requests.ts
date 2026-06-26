@@ -19,7 +19,12 @@ import { z } from 'zod';
 /** `POST /admin/resources` — register a catalog resource (+ its io_schema). */
 export const createResourceSchema = z.object({
   id: z.string().min(1),
-  tenantId: z.string().uuid(),
+  /**
+   * Owning tenant, or `null` for a GLOBAL platform resource (usable by ANY
+   * tenant — the shared media/direct-chat relays). A non-null id keeps the
+   * resource tenant-private (isolated to its owner).
+   */
+  tenantId: z.string().uuid().nullable(),
   kind: z.enum(['model', 'workflow']),
   modality: z.enum(['text', 'image', 'video', 'audio', 'composite']),
   providerType: z.string().min(1),

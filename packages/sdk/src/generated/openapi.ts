@@ -10868,7 +10868,7 @@ export interface components {
         };
         ResourceView: {
             id: string;
-            tenant_id: string;
+            tenant_id: string | null;
             kind: string;
             modality: string;
             provider_type: string;
@@ -11637,7 +11637,7 @@ export interface components {
         CreateResourceBody: {
             id: string;
             /** Format: uuid */
-            tenantId: string;
+            tenantId: string | null;
             /** @enum {string} */
             kind: "model" | "workflow";
             /** @enum {string} */

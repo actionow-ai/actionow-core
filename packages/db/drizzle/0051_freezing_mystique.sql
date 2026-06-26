@@ -1,0 +1,1 @@
+ALTER TABLE "resource" ALTER COLUMN "tenant_id" DROP NOT NULL;

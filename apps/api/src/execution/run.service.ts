@@ -194,7 +194,14 @@ export class RunService {
     routeTag?: string,
   ): Promise<RunRequest> {
     const resource = await getResource(this.db, resourceId);
-    if (resource?.tenantId !== ctx.tenantId) {
+    // A GLOBAL platform resource (`tenant_id === null` — the shared media/
+    // direct-chat relays) is runnable by ANY tenant; a TENANT-PRIVATE resource
+    // (`tenant_id` set) stays isolated to its owner. Missing → 404. The
+    // private-resource 404 to a non-owner preserves tenant isolation.
+    if (
+      resource === undefined ||
+      (resource.tenantId !== null && resource.tenantId !== ctx.tenantId)
+    ) {
       throw engineNotFound(`resource ${resourceId} not found`);
     }
     const version = resource.currentVersion;
