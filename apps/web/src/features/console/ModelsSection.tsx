@@ -14,7 +14,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { AuditBadge } from '../../components/data/AuditBadge';
+import { auditColumn } from '../../components/data/AuditBadge';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
@@ -184,13 +184,7 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
       noClip: true,
       cell: (m) => <StatusBadge tone={statusTone(m.status)} label={t('status.' + m.status, m.status)} />,
     },
-    {
-      key: 'audit',
-      header: t('common.lastChanged'),
-      noClip: true,
-      cell: (m) => <AuditBadge entry={audit.get(m.name)} targetType="model" targetId={m.name} />,
-      width: '180px',
-    },
+    auditColumn<ModelView>(t, audit, 'model', (m) => m.name),
   ];
 
   return (

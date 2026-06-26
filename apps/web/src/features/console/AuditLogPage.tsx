@@ -69,6 +69,7 @@ export function AuditLogPage() {
   const [actorType, setActorType] = useUrlState('actor');
   const [action, setAction] = useUrlState('action');
   const [targetType, setTargetType] = useUrlState('target');
+  const [targetId, setTargetId] = useUrlState('target_id');
   const [from, setFrom] = useUrlState('from');
   const [to, setTo] = useUrlState('to');
   const [selected, setSelected] = useState<AuditLogView | undefined>(undefined);
@@ -81,6 +82,7 @@ export function AuditLogPage() {
     actorType: actorType === '' ? undefined : actorType,
     action: action === '' ? undefined : action,
     targetType: targetType === '' ? undefined : targetType,
+    targetId: targetId === '' ? undefined : targetId,
     from: from === '' ? undefined : `${from}T00:00:00Z`,
     to: to === '' ? undefined : `${to}T23:59:59Z`,
   };
@@ -224,6 +226,21 @@ export function AuditLogPage() {
             placeholder={t('auditLog.targetPlaceholder')}
           />
         </div>
+        {targetId !== '' && (
+          <button
+            type="button"
+            onClick={() => setTargetId('')}
+            title={t('auditLog.clearTargetId')}
+            style={{
+              all: 'unset',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+            }}
+          >
+            <Pill tone="run">{t('auditLog.targetIdFilter', { id: SHORT(targetId) })} ✕</Pill>
+          </button>
+        )}
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>
           {t('auditLog.from')}
           <DateField value={from} onChange={setFrom} max={to === '' ? undefined : to} ariaLabel={t('auditLog.from')} />

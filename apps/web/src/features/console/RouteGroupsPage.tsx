@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
-import { AuditBadge } from '../../components/data/AuditBadge';
+import { auditColumn } from '../../components/data/AuditBadge';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
@@ -139,13 +139,7 @@ export function RouteGroupsPage() {
       cell: (r) => <ChannelCount groupId={r.id} />,
       width: '96px',
     },
-    {
-      key: 'audit',
-      header: t('common.lastChanged'),
-      noClip: true,
-      cell: (r) => <AuditBadge entry={audit.get(r.id)} targetType="route_group" targetId={r.id} />,
-      width: '180px',
-    },
+    auditColumn<RouteGroupView>(t, audit, 'route_group', (r) => r.id),
   ];
 
   return (

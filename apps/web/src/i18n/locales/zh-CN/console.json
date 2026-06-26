@@ -997,6 +997,8 @@
     "allTenants": "全部租户",
     "actionPlaceholder": "动作(如 tenant.topup)",
     "targetPlaceholder": "目标类型",
+    "targetIdFilter": "实体:{{id}}",
+    "clearTargetId": "清除实体筛选",
     "from": "起",
     "to": "止",
     "actor": {

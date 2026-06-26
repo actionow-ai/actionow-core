@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
-import { AuditBadge } from '../../components/data/AuditBadge';
+import { auditColumn } from '../../components/data/AuditBadge';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
@@ -142,13 +142,7 @@ export function LimitPlansPage() {
       ),
       width: '100px',
     },
-    {
-      key: 'audit',
-      header: t('common.lastChanged'),
-      noClip: true,
-      cell: (r) => <AuditBadge entry={audit.get(r.id)} targetType="limit_plan" targetId={r.id} />,
-      width: '180px',
-    },
+    auditColumn<LimitPlanView>(t, audit, 'limit_plan', (r) => r.id),
   ];
 
   return (

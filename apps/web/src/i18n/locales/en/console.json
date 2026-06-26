@@ -997,6 +997,8 @@
     "allTenants": "All tenants",
     "actionPlaceholder": "action (e.g. tenant.topup)",
     "targetPlaceholder": "target type",
+    "targetIdFilter": "Entity: {{id}}",
+    "clearTargetId": "Clear entity filter",
     "from": "from",
     "to": "to",
     "actor": {

@@ -10,7 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { AuditBadge } from '../../components/data/AuditBadge';
+import { auditColumn } from '../../components/data/AuditBadge';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { ProviderIcon } from '../../components/data/ProviderIcon';
@@ -274,13 +274,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
       ),
       width: '100px',
     },
-    {
-      key: 'audit',
-      header: t('common.lastChanged'),
-      noClip: true,
-      cell: (r) => <AuditBadge entry={channelAudit.get(r.id)} targetType="channel" targetId={r.id} />,
-      width: '180px',
-    },
+    auditColumn<ChannelView>(t, channelAudit, 'channel', (r) => r.id),
   ];
 
   const pbCols: Column<PricebookView>[] = [

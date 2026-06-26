@@ -101,6 +101,17 @@ describe('audit_log append + list', () => {
       1,
     );
 
+    // targetId filter (前端打磨 badge deep-link) — narrows to the one entity, not its type
+    const byTargetId = await listAuditLog(db, { targetId: 'acc-1' }, { limit: 50 });
+    expect(byTargetId.rows.map((r) => r.action)).toEqual(['tenant.topup']);
+    // combined target_type + target_id (how the badge link arrives)
+    const byTypeAndId = await listAuditLog(
+      db,
+      { targetType: 'limit_plan', targetId: 'plan-1' },
+      { limit: 50 },
+    );
+    expect(byTypeAndId.rows.map((r) => r.action)).toEqual(['limit_plan.update']);
+
     // combined AND: member + tenant t1 → just the api_key.create row
     const combined = await listAuditLog(
       db,

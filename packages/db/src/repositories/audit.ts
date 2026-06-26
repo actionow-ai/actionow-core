@@ -55,6 +55,7 @@ export interface AuditLogFilter {
   readonly actorType?: string | undefined;
   readonly action?: string | undefined;
   readonly targetType?: string | undefined;
+  readonly targetId?: string | undefined;
   readonly from?: Date | undefined;
   readonly to?: Date | undefined;
 }
@@ -71,6 +72,7 @@ export function listAuditLog(
   if (filter.actorType !== undefined) preds.push(eq(auditLog.actorType, filter.actorType));
   if (filter.action !== undefined) preds.push(eq(auditLog.action, filter.action));
   if (filter.targetType !== undefined) preds.push(eq(auditLog.targetType, filter.targetType));
+  if (filter.targetId !== undefined) preds.push(eq(auditLog.targetId, filter.targetId));
   if (filter.from !== undefined) preds.push(gte(auditLog.createdAt, filter.from));
   if (filter.to !== undefined) preds.push(lt(auditLog.createdAt, filter.to));
   return keysetPage<AuditLogRow>(db, {
