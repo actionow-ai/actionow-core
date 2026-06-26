@@ -59,12 +59,20 @@ const VIDEO_IO = {
   ],
   outputs: [{ key: 'video_url', type: 'string' }],
 };
-/** A frozen `io_schema` snapshot for an audio (TTS / generative-audio) resource version. */
+/**
+ * A frozen `io_schema` snapshot for an audio (TTS / generative-audio) resource
+ * version. `format` (OpenAI `response_format`) and `speed` (playback rate) are
+ * declared so the `/v1/audio/speech` dialect's run inputs `{ prompt, voice,
+ * format, speed }` survive the STRICT io_schema validation (unknown keys → 400);
+ * the `async-media` adapter passes both through to the upstream task params.
+ */
 const AUDIO_IO = {
   inputs: [
     { key: 'prompt', type: 'string', required: true },
     { key: 'voice', type: 'string', required: false },
     { key: 'language', type: 'string', required: false },
+    { key: 'format', type: 'string', required: false },
+    { key: 'speed', type: 'number', required: false },
   ],
   outputs: [{ key: 'audio_url', type: 'string' }],
 };
@@ -255,7 +263,7 @@ const PROVIDER_SEEDS: readonly ProviderSeed[] = [
     execModes: ['blocking', 'stream'],
     ioSchema: TEXT_IO,
     pricebookSpec: TOKENS_PRICEBOOK,
-    model: 'claude-3-5-haiku-latest',
+    model: 'claude-haiku-4-5-20251001',
     credentialLocator: 'anthropic',
     proxyRef: 'upstream_proxy',
   },
@@ -268,7 +276,7 @@ const PROVIDER_SEEDS: readonly ProviderSeed[] = [
     execModes: ['blocking', 'stream'],
     ioSchema: TEXT_IO,
     pricebookSpec: TOKENS_PRICEBOOK,
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     credentialLocator: 'gemini',
     proxyRef: 'upstream_proxy',
   },
