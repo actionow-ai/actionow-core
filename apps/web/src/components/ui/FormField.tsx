@@ -26,6 +26,7 @@ export function FormField({
   hint,
   required,
   tooltip,
+  inline = false,
   children,
 }: {
   id: string;
@@ -35,33 +36,58 @@ export function FormField({
   required?: boolean;
   /** When set, renders a ⓘ Tooltip next to the label text with this description. */
   tooltip?: string;
+  /**
+   * Lay the label to the LEFT of the control (a centred flex row) instead of
+   * above it. Used by compact filter/toolbar selects (e.g. 状态 in the TopBar
+   * filter slot). Default keeps the label-above stack so no other field shifts.
+   */
+  inline?: boolean;
   children: ReactNode;
 }) {
+  const labelNode = label !== undefined && (
+    <label
+      htmlFor={id}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 'var(--s-1)',
+        fontSize: 'var(--fs-sm)',
+        fontWeight: 'var(--fw-medium)',
+        color: 'var(--muted)',
+        // In inline mode the label sits beside the control and must not stretch
+        // to full width or wrap, so the select keeps its natural size.
+        ...(inline ? { flexShrink: 0, whiteSpace: 'nowrap' } : null),
+      }}
+    >
+      {label}
+      {required === true && <span style={{ color: 'var(--fail)' }}> *</span>}
+      {tooltip !== undefined && <Tooltip text={tooltip} />}
+    </label>
+  );
+  const tail =
+    error !== undefined ? (
+      <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--fail)' }}>{error}</span>
+    ) : hint !== undefined ? (
+      <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>{hint}</span>
+    ) : null;
+
+  if (inline) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+          {labelNode}
+          <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+        </div>
+        {tail}
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {label !== undefined && (
-        <label
-          htmlFor={id}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--s-1)',
-            fontSize: 'var(--fs-sm)',
-            fontWeight: 'var(--fw-medium)',
-            color: 'var(--muted)',
-          }}
-        >
-          {label}
-          {required === true && <span style={{ color: 'var(--fail)' }}> *</span>}
-          {tooltip !== undefined && <Tooltip text={tooltip} />}
-        </label>
-      )}
+      {labelNode}
       {children}
-      {error !== undefined ? (
-        <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--fail)' }}>{error}</span>
-      ) : hint !== undefined ? (
-        <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>{hint}</span>
-      ) : null}
+      {tail}
     </div>
   );
 }

@@ -76,8 +76,9 @@ export function RedemptionCodesPage() {
 
   useSetConsoleFilters(
     () => (
-      <div style={{ width: 180 }}>
+      <div style={{ width: 240 }}>
         <SelectField
+          inline
           label={t('redemptionCodes.cols.status')}
           value={status}
           onChange={setStatus}
