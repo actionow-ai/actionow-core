@@ -9,6 +9,7 @@ import {
   auditLogViewSchema,
   type BreakerView,
   breakerViewSchema,
+  type BulkResultView,
   type ChannelHealthView,
   channelHealthViewSchema,
   type ChannelModelLinkInput,
@@ -23,6 +24,8 @@ import {
   iconAssetViewSchema,
   type JobView,
   jobViewSchema,
+  type LatestAuditView,
+  latestAuditViewSchema,
   type LedgerView,
   ledgerViewSchema,
   type LimitAlertView,
@@ -95,6 +98,7 @@ import type {
   FaultPolicyRow,
   IconAssetRow,
   Job,
+  LatestAuditRow,
   LedgerRow,
   LimitAlertRow,
   LimitPlanRow,
@@ -163,6 +167,12 @@ import {
   addGroupChannelSchema,
   type AnalyticsUsageQueryDto,
   analyticsUsageQuerySchema,
+  type BulkChannelActionDto,
+  bulkChannelActionSchema,
+  type BulkModelActionDto,
+  bulkModelActionSchema,
+  type BulkOAuthSessionActionDto,
+  bulkOAuthSessionActionSchema,
   type CodexLoginComplete,
   codexLoginCompleteSchema,
   type CodexLoginStart,
@@ -211,6 +221,8 @@ import {
   generateCodesSchema,
   type GrantModelDto,
   grantModelSchema,
+  type LatestAuditRequestDto,
+  latestAuditRequestSchema,
   type ModelTestDto,
   modelTestRequestSchema,
   type OfficialPricesQueryDto,
@@ -927,6 +939,14 @@ export class AdminController {
   @HttpCode(201)
   @Idempotent()
   @ApiOperation({ summary: 'Add an upstream channel to a resource' })
+  @Audit({
+    action: 'channel.create',
+    target: 'channel',
+    resolve: ({ result }) => {
+      const r = result as { id?: string; provider_type?: string };
+      return { targetId: r.id ?? null, meta: { providerType: r.provider_type } };
+    },
+  })
   async createChannel(
     @Param('id') id: string,
     @Body(new ZodBody(createChannelSchema)) dto: CreateChannelDto,
@@ -997,6 +1017,14 @@ export class AdminController {
 
   @Patch('resources/:id/channels/:channelId')
   @ApiOperation({ summary: 'Update an upstream channel (weight/status/endpoint/model/...)' })
+  @Audit({
+    action: 'channel.update',
+    target: 'channel',
+    resolve: ({ params, body }) => {
+      const b = body as { status?: string };
+      return { targetId: params.channelId ?? null, meta: { status: b.status } };
+    },
+  })
   async updateChannel(
     @Param('channelId') channelId: string,
     @Body(new ZodBody(updateChannelSchema)) dto: UpdateChannelDto,
@@ -1007,6 +1035,11 @@ export class AdminController {
   @Delete('resources/:id/channels/:channelId')
   @HttpCode(204)
   @ApiOperation({ summary: 'Soft-delete an upstream channel (channel ∉ resource → 404)' })
+  @Audit({
+    action: 'channel.delete',
+    target: 'channel',
+    resolve: ({ params }) => ({ targetId: params.channelId ?? null }),
+  })
   async deleteChannel(
     @Param('id') id: string,
     @Param('channelId') channelId: string,
@@ -1235,6 +1268,7 @@ export class AdminController {
     @Query('actorType') actorType?: string,
     @Query('action') action?: string,
     @Query('targetType') targetType?: string,
+    @Query('targetId') targetId?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('cursor') cursor?: string,
@@ -1247,6 +1281,7 @@ export class AdminController {
         ...(actorType !== undefined ? { actorType } : {}),
         ...(action !== undefined ? { action } : {}),
         ...(targetType !== undefined ? { targetType } : {}),
+        ...(targetId !== undefined ? { targetId } : {}),
         ...(from !== undefined ? { from: new Date(from) } : {}),
         ...(to !== undefined ? { to: new Date(to) } : {}),
       },
@@ -1259,6 +1294,17 @@ export class AdminController {
   @ApiOperation({ summary: "A tenant's account balance(s) vs ledger sum (记录系统 reconcile)" })
   async reconcile(@Query('tenantId') tenantId: string): Promise<ReconcileRowView[]> {
     return (await this.admin.reconcile(tenantId)).map(toReconcileRowView);
+  }
+
+  @Post('audit-log/latest')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Newest audit_log row per target id (batch; 前端打磨 entity-list audit badges)',
+  })
+  async latestAudit(
+    @Body(new ZodBody(latestAuditRequestSchema)) dto: LatestAuditRequestDto,
+  ): Promise<LatestAuditView[]> {
+    return (await this.admin.latestAudit(dto.target_type, dto.ids)).map(toLatestAuditView);
   }
 
   @Post('api-keys/:id/limit-plan')
@@ -1354,6 +1400,14 @@ export class AdminController {
   @HttpCode(201)
   @Idempotent()
   @ApiOperation({ summary: 'Register a relay model (name → chat resource)' })
+  @Audit({
+    action: 'model.create',
+    target: 'model',
+    resolve: ({ result }) => {
+      const r = result as { name?: string };
+      return { targetId: r.name ?? null };
+    },
+  })
   async createModel(@Body(new ZodBody(createModelSchema)) dto: CreateModelDto): Promise<ModelView> {
     return toModelView(await this.admin.createModel(dto));
   }
@@ -1394,6 +1448,14 @@ export class AdminController {
 
   @Patch('models/:name')
   @ApiOperation({ summary: 'Update a relay model (display/capabilities/prices/visibility/status)' })
+  @Audit({
+    action: 'model.update',
+    target: 'model',
+    resolve: ({ params, body }) => {
+      const b = body as { status?: string; display_name?: string };
+      return { targetId: params.name ?? null, meta: { status: b.status } };
+    },
+  })
   async updateModel(
     @Param('name') name: string,
     @Body(new ZodBody(updateModelSchema)) dto: UpdateModelDto,
@@ -1404,8 +1466,53 @@ export class AdminController {
   @Delete('models/:name')
   @HttpCode(204)
   @ApiOperation({ summary: 'Soft-delete a relay model — it stops routing after' })
+  @Audit({
+    action: 'model.delete',
+    target: 'model',
+    resolve: ({ params }) => ({ targetId: params.name ?? null }),
+  })
   async deleteModel(@Param('name') name: string): Promise<void> {
     await this.admin.deleteModel(name);
+  }
+
+  // ----- bulk admin actions (前端打磨) -----
+  // Each returns a partial-success {succeeded, failed} (one bad id never aborts
+  // the batch) and emits ONE audit_log row per affected entity in the service.
+
+  @Post('models/bulk')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Bulk enable/disable/delete models (by name; partial success + per-entity audit)',
+  })
+  async bulkModels(
+    @Body(new ZodBody(bulkModelActionSchema)) dto: BulkModelActionDto,
+    @Req() req: AdminRequest,
+  ): Promise<BulkResultView> {
+    return this.admin.bulkModels(dto.action, dto.ids, req.admin?.adminId);
+  }
+
+  @Post('channels/bulk')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Bulk enable/disable/delete channels (by id; partial success + per-entity audit)',
+  })
+  async bulkChannels(
+    @Body(new ZodBody(bulkChannelActionSchema)) dto: BulkChannelActionDto,
+    @Req() req: AdminRequest,
+  ): Promise<BulkResultView> {
+    return this.admin.bulkChannels(dto.action, dto.ids, req.admin?.adminId);
+  }
+
+  @Post('oauth-sessions/bulk')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Bulk revoke OAuth sessions (by id; partial success + per-entity audit)',
+  })
+  async bulkRevokeOAuthSessions(
+    @Body(new ZodBody(bulkOAuthSessionActionSchema)) dto: BulkOAuthSessionActionDto,
+    @Req() req: AdminRequest,
+  ): Promise<BulkResultView> {
+    return this.admin.bulkRevokeOAuthSessions(dto.ids, req.admin?.adminId);
   }
 
   @Post('models/:name/grants')
@@ -1628,6 +1735,14 @@ export class AdminController {
   @ApiOperation({
     summary: 'Create a fault-tolerance policy (retry/backoff/timeouts; name unique)',
   })
+  @Audit({
+    action: 'fault_policy.create',
+    target: 'fault_policy',
+    resolve: ({ result }) => {
+      const r = result as { id?: string; name?: string };
+      return { targetId: r.id ?? null, meta: { name: r.name } };
+    },
+  })
   async createFaultPolicy(
     @Body(new ZodBody(createFaultPolicySchema)) dto: CreateFaultPolicyDto,
   ): Promise<FaultPolicyView> {
@@ -1652,6 +1767,14 @@ export class AdminController {
 
   @Patch('fault-policies/:id')
   @ApiOperation({ summary: 'Update a fault policy (retry/backoff/timeouts/triggers/status)' })
+  @Audit({
+    action: 'fault_policy.update',
+    target: 'fault_policy',
+    resolve: ({ params, body }) => {
+      const b = body as { name?: string; status?: string };
+      return { targetId: params.id ?? null, meta: { name: b.name, status: b.status } };
+    },
+  })
   async updateFaultPolicy(
     @Param('id') id: string,
     @Body(new ZodBody(updateFaultPolicySchema)) dto: UpdateFaultPolicyDto,
@@ -1664,6 +1787,11 @@ export class AdminController {
   @ApiOperation({
     summary: 'Soft-delete a fault policy (bound channels fall back to engine defaults)',
   })
+  @Audit({
+    action: 'fault_policy.delete',
+    target: 'fault_policy',
+    resolve: ({ params }) => ({ targetId: params.id ?? null }),
+  })
   async deleteFaultPolicy(@Param('id') id: string): Promise<void> {
     await this.admin.deleteFaultPolicy(id);
   }
@@ -1674,6 +1802,14 @@ export class AdminController {
   @HttpCode(201)
   @Idempotent()
   @ApiOperation({ summary: 'Create a route group (group_ratio_bps in basis points; name unique)' })
+  @Audit({
+    action: 'route_group.create',
+    target: 'route_group',
+    resolve: ({ result }) => {
+      const r = result as { id?: string; name?: string };
+      return { targetId: r.id ?? null, meta: { name: r.name } };
+    },
+  })
   async createRouteGroup(
     @Body(new ZodBody(createRouteGroupSchema)) dto: CreateRouteGroupDto,
   ): Promise<RouteGroupView> {
@@ -1698,6 +1834,14 @@ export class AdminController {
 
   @Patch('route-groups/:id')
   @ApiOperation({ summary: 'Update a route group (name/group_ratio_bps/status/description)' })
+  @Audit({
+    action: 'route_group.update',
+    target: 'route_group',
+    resolve: ({ params, body }) => {
+      const b = body as { name?: string; status?: string };
+      return { targetId: params.id ?? null, meta: { name: b.name, status: b.status } };
+    },
+  })
   async updateRouteGroup(
     @Param('id') id: string,
     @Body(new ZodBody(updateRouteGroupSchema)) dto: UpdateRouteGroupDto,
@@ -1708,6 +1852,11 @@ export class AdminController {
   @Delete('route-groups/:id')
   @HttpCode(204)
   @ApiOperation({ summary: 'Soft-delete a route group (frees the name; drops from routing)' })
+  @Audit({
+    action: 'route_group.delete',
+    target: 'route_group',
+    resolve: ({ params }) => ({ targetId: params.id ?? null }),
+  })
   async deleteRouteGroup(@Param('id') id: string): Promise<void> {
     await this.admin.deleteRouteGroup(id);
   }
@@ -2092,6 +2241,16 @@ function toAuditLogView(row: AuditLogRow): AuditLogView {
     target_id: row.targetId,
     meta: row.meta,
     request_id: row.requestId,
+  });
+}
+
+function toLatestAuditView(row: LatestAuditRow): LatestAuditView {
+  return latestAuditViewSchema.parse({
+    target_id: row.targetId,
+    actor_type: row.actorType,
+    actor_id: row.actorId,
+    action: row.action,
+    created_at: row.createdAt.toISOString(),
   });
 }
 

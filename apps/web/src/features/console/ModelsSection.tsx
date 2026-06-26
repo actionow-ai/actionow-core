@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { auditColumn } from '../../components/data/AuditBadge';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
@@ -26,6 +27,7 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ModelView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { useLatestAudit } from '../../lib/api/useLatestAudit';
 import { STALE_REFERENCE } from '../../lib/query';
 import { ModelEditor } from './ModelEditor';
 import { ModelGrantsDrawer } from './ModelGrantsDrawer';
@@ -62,18 +64,29 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
     [data, resourceId],
   );
 
+  // Newest audit row per visible model → the "last changed" version badge. Model
+  // audit rows key on the model NAME (the admin identifier), not a uuid.
+  const audit = useLatestAudit(
+    'model',
+    rows.map((m) => m.name),
+  );
+
   const [edit, setEdit] = useState<string>(''); // '' closed, NEW = create, else model name
   const [grants, setGrants] = useState('');
   const [delTarget, setDelTarget] = useState<ModelView | undefined>(undefined);
 
+  // Bulk enable/disable via ONE `/admin/models/bulk` call (partial success), not
+  // N parallel single-row PATCHes. The result toast reports succeeded/failed counts.
   const bulkSetStatus = useMutation({
-    mutationFn: async ({ rows: sel, status }: { rows: ModelView[]; status: 'active' | 'disabled'; clear: () => void }) => {
-      await Promise.allSettled(sel.map((m) => api.updateModel(m.name, { status })));
-    },
-    onSuccess: async (_d, { clear }) => {
+    mutationFn: ({ rows: sel, action }: { rows: ModelView[]; action: 'enable' | 'disable'; clear: () => void }) =>
+      api.bulkModels(
+        action,
+        sel.map((m) => m.name),
+      ),
+    onSuccess: async (r, { clear }) => {
       await qc.invalidateQueries({ queryKey: qk.models() });
       clear();
-      toast(t('models.statusUpdated'));
+      toast(t('admin.bulk.result', { ok: r.succeeded.length, failed: r.failed.length }));
     },
     onError: mutationError(t),
   });
@@ -171,6 +184,7 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
       noClip: true,
       cell: (m) => <StatusBadge tone={statusTone(m.status)} label={t('status.' + m.status, m.status)} />,
     },
+    auditColumn<ModelView>(t, audit, 'model', (m) => m.name),
   ];
 
   return (
@@ -201,10 +215,10 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
         )}
         bulkActions={(sel, clear) => (
           <>
-            <Button variant="ghost" size="sm" onClick={() => bulkSetStatus.mutate({ rows: sel, status: 'active', clear })}>
+            <Button variant="ghost" size="sm" onClick={() => bulkSetStatus.mutate({ rows: sel, action: 'enable', clear })}>
               {t('models.actions.enable')}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => bulkSetStatus.mutate({ rows: sel, status: 'disabled', clear })}>
+            <Button variant="ghost" size="sm" onClick={() => bulkSetStatus.mutate({ rows: sel, action: 'disable', clear })}>
               {t('models.actions.disable')}
             </Button>
           </>

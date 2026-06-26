@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { auditColumn } from '../../components/data/AuditBadge';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { ProviderIcon } from '../../components/data/ProviderIcon';
@@ -34,6 +35,7 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ChannelStatus, ChannelView, ModelView, PricebookView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { useLatestAudit } from '../../lib/api/useLatestAudit';
 import { STALE_REFERENCE } from '../../lib/query';
 import { useUrlState } from '../../lib/useUrlState';
 import { ChannelCard } from './ChannelCard';
@@ -92,14 +94,18 @@ export function ResourceDetailPane({ id }: { id: string }) {
     },
     onError: mutationError(t),
   });
+  // Bulk enable/disable via ONE `/admin/channels/bulk` call (partial success), not
+  // N parallel single-row PATCHes. The result toast reports succeeded/failed counts.
   const bulkSetStatus = useMutation({
-    // allSettled so one failed channel doesn't abort the rest of the batch.
-    mutationFn: async ({ rows, status }: { rows: ChannelView[]; status: ChannelStatus }) => {
-      await Promise.allSettled(rows.map((c) => api.updateChannel(id, c.id, { status })));
-    },
-    onSuccess: async () => {
+    mutationFn: ({ rows, action }: { rows: ChannelView[]; action: 'enable' | 'disable'; clear: () => void }) =>
+      api.bulkChannels(
+        action,
+        rows.map((c) => c.id),
+      ),
+    onSuccess: async (r, { clear }) => {
       await qc.invalidateQueries({ queryKey: qk.channels(id) });
-      toast(t('channels.statusUpdated'));
+      clear();
+      toast(t('admin.bulk.result', { ok: r.succeeded.length, failed: r.failed.length }));
     },
     onError: mutationError(t),
   });
@@ -155,6 +161,12 @@ export function ResourceDetailPane({ id }: { id: string }) {
   const channelRows = channels.data ?? [];
   const selectedChannel =
     channelRows.find((c) => c.id === cid) ?? (cid === '' ? channelRows[0] : undefined);
+
+  // Newest audit row per visible channel → the "last changed" version badge.
+  const channelAudit = useLatestAudit(
+    'channel',
+    channelRows.map((c) => c.id),
+  );
 
   // Platform model catalog — the "link existing" picker + name resolution.
   const models = useQuery({
@@ -262,6 +274,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
       ),
       width: '100px',
     },
+    auditColumn<ChannelView>(t, channelAudit, 'channel', (r) => r.id),
   ];
 
   const pbCols: Column<PricebookView>[] = [
@@ -357,20 +370,14 @@ export function ResourceDetailPane({ id }: { id: string }) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                bulkSetStatus.mutate({ rows: sel, status: 'active' });
-                clear();
-              }}
+              onClick={() => bulkSetStatus.mutate({ rows: sel, action: 'enable', clear })}
             >
               {t('channels.actions.enable')}
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                bulkSetStatus.mutate({ rows: sel, status: 'disabled' });
-                clear();
-              }}
+              onClick={() => bulkSetStatus.mutate({ rows: sel, action: 'disable', clear })}
             >
               {t('channels.actions.disable')}
             </Button>

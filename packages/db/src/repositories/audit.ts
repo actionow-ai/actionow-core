@@ -1,5 +1,5 @@
 import type { InferSelectModel, SQL } from 'drizzle-orm';
-import { and, eq, gte, isNull, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
 
 import { account, auditLog, ledgerTxn } from '../schema/index.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
@@ -55,6 +55,7 @@ export interface AuditLogFilter {
   readonly actorType?: string | undefined;
   readonly action?: string | undefined;
   readonly targetType?: string | undefined;
+  readonly targetId?: string | undefined;
   readonly from?: Date | undefined;
   readonly to?: Date | undefined;
 }
@@ -71,6 +72,7 @@ export function listAuditLog(
   if (filter.actorType !== undefined) preds.push(eq(auditLog.actorType, filter.actorType));
   if (filter.action !== undefined) preds.push(eq(auditLog.action, filter.action));
   if (filter.targetType !== undefined) preds.push(eq(auditLog.targetType, filter.targetType));
+  if (filter.targetId !== undefined) preds.push(eq(auditLog.targetId, filter.targetId));
   if (filter.from !== undefined) preds.push(gte(auditLog.createdAt, filter.from));
   if (filter.to !== undefined) preds.push(lt(auditLog.createdAt, filter.to));
   return keysetPage<AuditLogRow>(db, {
@@ -80,6 +82,55 @@ export function listAuditLog(
     where: preds.length > 0 ? and(...preds) : undefined,
     page,
   });
+}
+
+/**
+ * The newest `audit_log` row per target id (前端打磨 — audit/version badges).
+ * Feeds the entity-list badge ("last changed {when} by {who}") via the batch
+ * endpoint `POST /admin/audit-log/latest`.
+ */
+export interface LatestAuditRow {
+  readonly targetId: string;
+  readonly actorType: string;
+  readonly actorId: string | null;
+  readonly action: string;
+  readonly createdAt: Date;
+}
+
+/**
+ * The newest `audit_log` row per `target_id` for the given `target_type`, across
+ * the supplied ids. `DISTINCT ON (target_id)` keeps the first row per target in
+ * the `ORDER BY` — newest `created_at` first, with `id DESC` as a deterministic
+ * tiebreak when two rows share a timestamp. Ids with no audit rows are simply
+ * absent from the result (the badge renders nothing for them).
+ */
+export async function latestAuditByTarget(
+  db: DbOrTx,
+  targetType: string,
+  ids: string[],
+): Promise<LatestAuditRow[]> {
+  if (ids.length === 0) return [];
+  const rows = await db
+    .selectDistinctOn([auditLog.targetId], {
+      targetId: auditLog.targetId,
+      actorType: auditLog.actorType,
+      actorId: auditLog.actorId,
+      action: auditLog.action,
+      createdAt: auditLog.createdAt,
+    })
+    .from(auditLog)
+    .where(and(eq(auditLog.targetType, targetType), inArray(auditLog.targetId, ids)))
+    .orderBy(asc(auditLog.targetId), desc(auditLog.createdAt), desc(auditLog.id));
+  // `target_id` is nullable in the schema but the WHERE pins it to the non-null
+  // ids[], so every returned row has a concrete target id.
+  return rows.map((r) => ({
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- WHERE pins target_id non-null
+    targetId: r.targetId!,
+    actorType: r.actorType,
+    actorId: r.actorId,
+    action: r.action,
+    createdAt: r.createdAt,
+  }));
 }
 
 /** One account's stored balance vs the sum of its ledger deltas (记录系统 reconcile). */

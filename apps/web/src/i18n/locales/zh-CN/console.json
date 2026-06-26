@@ -1,4 +1,12 @@
 {
+  "admin": {
+    "bulk": {
+      "result": "成功 {{ok}} 项，失败 {{failed}} 项"
+    }
+  },
+  "audit": {
+    "badge": "{{time}} · {{actor}}"
+  },
   "member": {
     "auth": {
       "subtitle": "终端用户登录",
@@ -989,6 +997,8 @@
     "allTenants": "全部租户",
     "actionPlaceholder": "动作(如 tenant.topup)",
     "targetPlaceholder": "目标类型",
+    "targetIdFilter": "实体:{{id}}",
+    "clearTargetId": "清除实体筛选",
     "from": "起",
     "to": "止",
     "actor": {
@@ -1359,7 +1369,8 @@
     "copyFailed": "复制失败",
     "save": "保存",
     "loadMore": "加载更多",
-    "search": "搜索"
+    "search": "搜索",
+    "lastChanged": "最近变更"
   },
   "confirm": {
     "deleteChannelTitle": "删除通道?",

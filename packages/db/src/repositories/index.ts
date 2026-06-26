@@ -36,6 +36,8 @@ export {
   type AppendAuditLogInput,
   type AuditLogFilter,
   type AuditLogRow,
+  latestAuditByTarget,
+  type LatestAuditRow,
   listAuditLog,
   type ReconcileRow,
   reconcileTenant,

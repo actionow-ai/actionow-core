@@ -95,3 +95,32 @@ export const provisionViewSchema = z.object({
   api_key: z.object({ id: z.string(), plaintext: z.string() }),
 });
 export type ProvisionView = z.infer<typeof provisionViewSchema>;
+
+/**
+ * The shared result of a bulk admin action (前端打磨 — `POST /admin/<entity>/bulk`).
+ * PARTIAL SUCCESS: `succeeded` holds the ids whose per-id op completed; `failed`
+ * pairs each remaining id with a human error message (e.g. `"not found"`). The
+ * batch is never aborted by one bad id — every id lands in exactly one bucket.
+ */
+export const bulkResultViewSchema = z.object({
+  succeeded: z.array(z.string()),
+  failed: z.array(z.object({ id: z.string(), error: z.string() })),
+});
+export type BulkResultView = z.infer<typeof bulkResultViewSchema>;
+
+/**
+ * The newest `audit_log` row for one entity (前端打磨 — audit/version badges;
+ * `POST /admin/audit-log/latest`). One element per `target_id` that has an audit
+ * row (ids with no history are omitted from the response array, so the badge
+ * renders nothing). `actor_id` is an operator/user id or `null` for system
+ * actions; `created_at` is an ISO timestamp. The FE keys these by `target_id`
+ * into a `Map` to render "{relativeTime} · {actor}" per row.
+ */
+export const latestAuditViewSchema = z.object({
+  target_id: z.string(),
+  actor_type: z.string(),
+  actor_id: z.string().nullable(),
+  action: z.string(),
+  created_at: z.string(),
+});
+export type LatestAuditView = z.infer<typeof latestAuditViewSchema>;

@@ -33,6 +33,11 @@ export const qk = {
     ['admin', 'limit-status', subjectType, subjectId] as const,
   limitAlerts: () => ['admin', 'limit-alerts'] as const,
   auditLog: (params: Record<string, unknown>) => ['admin', 'audit-log', params] as const,
+  // Newest audit row per visible entity (前端打磨 — version badges). Keyed on the
+  // target type + the SORTED visible ids so the same list re-renders share a cache
+  // entry regardless of row order.
+  latestAudit: (targetType: string, sortedIds: string[]) =>
+    ['admin', 'audit-log', 'latest', targetType, sortedIds] as const,
   reconcile: (tenantId: string) => ['admin', 'reconcile', tenantId] as const,
   proxies: () => ['admin', 'proxies'] as const,
   modelHealth: (days: number) => ['admin', 'model-health', days] as const,

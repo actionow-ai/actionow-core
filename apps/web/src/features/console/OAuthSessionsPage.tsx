@@ -112,12 +112,20 @@ export function OAuthSessionsPage() {
     onError: mutationError(t),
   });
 
-  // Bulk revoke (allSettled so one failure doesn't abort the rest).
+  // Bulk revoke. OAuth sessions go through ONE `/admin/oauth-sessions/bulk` call
+  // (partial success → succeeded/failed counts in the toast). Secrets have no bulk
+  // endpoint yet, so they keep the allSettled fan-out (one failure doesn't abort
+  // the rest) until one lands.
   const bulkRevoke = async (ids: string[], kind: CredTab, clear: () => void) => {
-    await Promise.allSettled(
-      ids.map((id) => (kind === 'oauth' ? api.revokeOAuthSession(id) : api.deleteSecret(id))),
-    );
-    await (kind === 'oauth' ? invalidateSessions() : invalidateSecrets());
+    if (kind === 'oauth') {
+      const r = await api.bulkRevokeOAuthSessions(ids);
+      await invalidateSessions();
+      toast(t('admin.bulk.result', { ok: r.succeeded.length, failed: r.failed.length }));
+      clear();
+      return;
+    }
+    await Promise.allSettled(ids.map((id) => api.deleteSecret(id)));
+    await invalidateSecrets();
     toast(t('credentials.bulkRevoked', { n: ids.length }));
     clear();
   };

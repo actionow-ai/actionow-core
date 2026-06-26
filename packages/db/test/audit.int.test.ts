@@ -9,6 +9,7 @@ import {
   createAccount,
   createSubject,
   createTenant,
+  latestAuditByTarget,
   listAuditLog,
 } from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
@@ -100,6 +101,17 @@ describe('audit_log append + list', () => {
       1,
     );
 
+    // targetId filter (前端打磨 badge deep-link) — narrows to the one entity, not its type
+    const byTargetId = await listAuditLog(db, { targetId: 'acc-1' }, { limit: 50 });
+    expect(byTargetId.rows.map((r) => r.action)).toEqual(['tenant.topup']);
+    // combined target_type + target_id (how the badge link arrives)
+    const byTypeAndId = await listAuditLog(
+      db,
+      { targetType: 'limit_plan', targetId: 'plan-1' },
+      { limit: 50 },
+    );
+    expect(byTypeAndId.rows.map((r) => r.action)).toEqual(['limit_plan.update']);
+
     // combined AND: member + tenant t1 → just the api_key.create row
     const combined = await listAuditLog(
       db,
@@ -132,5 +144,55 @@ describe('audit_log append + list', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.subjectId).toBe(null);
     expect(rows[0]?.action).toBe('subject.update');
+  });
+});
+
+describe('latestAuditByTarget (前端打磨 — audit badges)', () => {
+  it('returns the newest row per target id and omits ids with no rows', async () => {
+    const X = 'chan-X';
+    const Y = 'chan-Y';
+    const Z = 'chan-Z';
+
+    // 3 rows for (channel, X) at strictly increasing times; the last is newest.
+    await client`
+      INSERT INTO audit_log (actor_type, actor_id, action, target_type, target_id, created_at) VALUES
+        ('operator', 'op-old', 'channel.enable',  'channel', ${X}, '2026-06-01T00:00:00Z'),
+        ('operator', 'op-mid', 'channel.disable', 'channel', ${X}, '2026-06-02T00:00:00Z'),
+        ('operator', 'op-new', 'channel.delete',  'channel', ${X}, '2026-06-03T00:00:00Z')
+    `;
+    // 1 row for (channel, Y).
+    await client`
+      INSERT INTO audit_log (actor_type, actor_id, action, target_type, target_id, created_at) VALUES
+        ('member', 'user-7', 'channel.update', 'channel', ${Y}, '2026-06-02T12:00:00Z')
+    `;
+    // A different target_type for X — must NOT leak into the channel result.
+    await client`
+      INSERT INTO audit_log (actor_type, actor_id, action, target_type, target_id, created_at) VALUES
+        ('operator', 'op-other', 'model.disable', 'model', ${X}, '2026-06-09T00:00:00Z')
+    `;
+
+    const rows = await latestAuditByTarget(db, 'channel', [X, Y, Z]);
+    const byId = new Map(rows.map((r) => [r.targetId, r]));
+
+    // exactly X and Y are present; Z (no rows) is absent.
+    expect(rows).toHaveLength(2);
+    expect(byId.has(Z)).toBe(false);
+
+    // X → the newest channel row (channel.delete by op-new), not the model row.
+    const x = byId.get(X);
+    expect(x?.action).toBe('channel.delete');
+    expect(x?.actorId).toBe('op-new');
+    expect(x?.actorType).toBe('operator');
+    expect(x?.createdAt).toBeInstanceOf(Date);
+
+    // Y → its single row.
+    const y = byId.get(Y);
+    expect(y?.action).toBe('channel.update');
+    expect(y?.actorId).toBe('user-7');
+    expect(y?.actorType).toBe('member');
+  });
+
+  it('returns [] for an empty id list', async () => {
+    expect(await latestAuditByTarget(db, 'channel', [])).toEqual([]);
   });
 });

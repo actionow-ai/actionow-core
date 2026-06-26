@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { accountViewSchema, subjectViewSchema, tenantViewSchema } from './admin-views.js';
+import {
+  accountViewSchema,
+  bulkResultViewSchema,
+  latestAuditViewSchema,
+  subjectViewSchema,
+  tenantViewSchema,
+} from './admin-views.js';
 
 describe('admin view contracts (single source of truth for FE + BE)', () => {
   it('tenantViewSchema accepts a valid view and rejects a missing field', () => {
@@ -41,5 +47,39 @@ describe('admin view contracts (single source of truth for FE + BE)', () => {
     };
     expect(subjectViewSchema.parse(v)).toEqual(v);
     expect(() => subjectViewSchema.parse({ ...v, status: undefined })).toThrow();
+  });
+
+  it('bulkResultViewSchema accepts a partial-success result and rejects a malformed failure', () => {
+    const v = {
+      succeeded: ['m1', 'm2'],
+      failed: [{ id: 'nope', error: 'not found' }],
+    };
+    expect(bulkResultViewSchema.parse(v)).toEqual(v);
+    // an empty batch result is valid (no ids in either bucket).
+    expect(bulkResultViewSchema.parse({ succeeded: [], failed: [] })).toEqual({
+      succeeded: [],
+      failed: [],
+    });
+    // a failure row MUST carry both id + error string.
+    expect(() => bulkResultViewSchema.parse({ succeeded: [], failed: [{ id: 'x' }] })).toThrow();
+  });
+
+  it('latestAuditViewSchema accepts a row and allows a null actor_id (system action)', () => {
+    const v = {
+      target_id: 'chan-X',
+      actor_type: 'operator',
+      actor_id: 'op-1',
+      action: 'channel.disable',
+      created_at: '2026-06-03T00:00:00Z',
+    };
+    expect(latestAuditViewSchema.parse(v)).toEqual(v);
+    // a system action carries a null actor_id.
+    expect(latestAuditViewSchema.parse({ ...v, actor_type: 'system', actor_id: null })).toEqual({
+      ...v,
+      actor_type: 'system',
+      actor_id: null,
+    });
+    // target_id is required (the FE keys the response Map by it).
+    expect(() => latestAuditViewSchema.parse({ ...v, target_id: undefined })).toThrow();
   });
 });
