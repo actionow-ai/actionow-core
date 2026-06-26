@@ -8,6 +8,7 @@ import type {
 import {
   type AccountRow,
   type ApiKeyRow,
+  claimRedemptionCode,
   countPlanBindings,
   createApiKey,
   type CreatedApiKey,
@@ -58,6 +59,7 @@ import {
   type SubAccountRow,
   type SubjectDeleteResult,
   type SubjectRow,
+  topUp,
   topupSubAccount,
   transferCredits,
   updateLimitPlan,
@@ -639,5 +641,49 @@ export class ConsoleService {
       ...(result.redirectUrl !== undefined ? { redirect_url: result.redirectUrl } : {}),
       ...(result.qr !== undefined ? { qr: result.qr } : {}),
     };
+  }
+
+  // ----- redemption codes -----
+
+  /**
+   * Redeem a single-use gift code, crediting the caller's OWN tenant account.
+   * The whole claim+credit runs in ONE transaction so a code is never consumed
+   * without the matching credit (and a failed credit rolls back the claim flip):
+   *
+   *  1. {@link claimRedemptionCode} atomically flips `unused`→`redeemed` for THIS
+   *     tenant via a single conditional UPDATE (no read-then-write window → no
+   *     double-redeem under concurrency).
+   *  2. On a miss it disambiguates the failure (missing / expired / already
+   *     redeemed) and throws the matching engine error — the throw rolls back the
+   *     tx, un-flipping the row it just touched. So a NOT-claimed outcome leaves
+   *     the row exactly as it was.
+   *  3. On a win it {@link topUp}s the tenant pool by the µcredit grant (appending
+   *     a `topup` ledger row); `topUp` opens a SAVEPOINT under the outer tx, which
+   *     stays atomic.
+   *
+   * Returns the granted amount and the new balance, both µcredit decimal strings.
+   */
+  async redeem(
+    code: string,
+    tenantId: string,
+    accountId: string,
+  ): Promise<{ credited: string; balance: string }> {
+    return this.db.transaction(async (tx) => {
+      const result = await claimRedemptionCode(tx, code, tenantId);
+      if (!result.claimed) {
+        if (result.missing) throw engineNotFound('redemption code not found');
+        if (result.expired) throw engineInvalidInput('redemption code expired');
+        // Otherwise it exists but was already redeemed (by this or another tenant).
+        throw engineInvalidInput('redemption code already redeemed');
+      }
+      // `claimed === true` guarantees `creditAmount` (a µcredit bigint); narrow at
+      // runtime so neither a cast nor a `!` assertion is needed.
+      const { creditAmount } = result;
+      if (creditAmount === undefined) {
+        throw new Error('claimRedemptionCode returned claimed without a creditAmount');
+      }
+      const balanceAfter = await topUp(tx, accountId, tenantId, creditAmount);
+      return { credited: creditAmount.toString(), balance: balanceAfter.toString() };
+    });
   }
 }

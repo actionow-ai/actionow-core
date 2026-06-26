@@ -136,7 +136,13 @@
       },
       "balance": "Balance",
       "held": "Held",
-      "scanQr": "Scan to pay"
+      "scanQr": "Scan to pay",
+      "redeem": {
+        "title": "Redeem code",
+        "placeholder": "Enter a redemption code",
+        "submit": "Redeem",
+        "success": "Redeemed — {{amount}} credited"
+      }
     },
     "settings": {
       "profile": "Profile",

@@ -15,6 +15,7 @@ import { NumberField } from '../../components/ui/NumberField';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TextField } from '../../components/ui/TextField';
+import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type {
@@ -23,6 +24,7 @@ import type {
   ConsolePaymentView,
 } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
+import { formatCredits } from '../../lib/money';
 import { STALE_VOLATILE } from '../../lib/query';
 import { AdminOnlyNote } from './AdminOnlyNote';
 import { useTenantRole } from './useTenantRole';
@@ -45,7 +47,7 @@ type Provider = ConsoleCreateIntentBody['provider'];
 const PROVIDERS = ['stripe', 'alipay', 'wechat', 'crypto'] as const satisfies readonly Provider[];
 
 export function AppBilling() {
-  const { t } = useTranslation('console');
+  const { t, i18n } = useTranslation('console');
   const api = useConsoleApi();
   const qc = useQueryClient();
   // RBAC v1: top-up is an admin-only write; a member sees balance + history only.
@@ -55,6 +57,7 @@ export function AppBilling() {
   const [amount, setAmount] = useState(0);
   const [currency, setCurrency] = useState('usd');
   const [intent, setIntent] = useState<ConsoleIntentView | null>(null);
+  const [redeemCode, setRedeemCode] = useState('');
 
   const balance = useQuery({
     queryKey: qk.consoleBalance(),
@@ -82,6 +85,19 @@ export function AppBilling() {
   });
 
   const canSubmit = amount > 0 && currency.trim() !== '';
+
+  // Redeem a gift code → credit this tenant (admin-only; the server's
+  // TenantAdminGuard is the real boundary, the UI gate below is UX-only).
+  const redeem = useMutation({
+    mutationFn: () => api.redeem({ code: redeemCode.trim() }),
+    onSuccess: async (r) => {
+      toast(t('app.billing.redeem.success', { amount: formatCredits(r.credited, i18n.language) }));
+      setRedeemCode('');
+      await qc.invalidateQueries({ queryKey: qk.consoleBalance() });
+    },
+    onError: mutationError(t),
+  });
+  const canRedeem = redeemCode.trim() !== '';
 
   const history = useInfiniteQuery({
     queryKey: qk.consolePayments(),
@@ -213,6 +229,43 @@ export function AppBilling() {
               disabled={!canSubmit}
             >
               {t('app.billing.submit')}
+            </Button>
+          </div>
+        )}
+
+        {isTenantAdmin && (
+          <div
+            className="panel"
+            style={{
+              borderRadius: 'var(--r-md)',
+              padding: 'var(--s-4)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--s-3)',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 'var(--fs-caption)',
+                textTransform: 'uppercase',
+                letterSpacing: '.06em',
+                color: 'var(--faint)',
+              }}
+            >
+              {t('app.billing.redeem.title')}
+            </div>
+            <TextField
+              value={redeemCode}
+              onChange={setRedeemCode}
+              placeholder={t('app.billing.redeem.placeholder')}
+            />
+            <Button
+              variant="cta"
+              onClick={() => redeem.mutate()}
+              loading={redeem.isPending}
+              disabled={!canRedeem}
+            >
+              {t('app.billing.redeem.submit')}
             </Button>
           </div>
         )}

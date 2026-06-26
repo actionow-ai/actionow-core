@@ -3,6 +3,7 @@ import {
   consoleCreateApiKeySchema,
   consoleCreateIntentSchema,
   createLimitPlanRequestSchema,
+  redeemCodeRequestSchema,
   setLimitPlanRequestSchema,
   updateLimitPlanRequestSchema,
 } from '@actionow/contracts';
@@ -30,6 +31,8 @@ export {
   // surface — same shape, tenant injected server-side. Re-exported so the console
   // controller resolves them from `./dto/console.dto.js` like its other schemas.
   createLimitPlanRequestSchema,
+  // `POST /console/redeem` body — claim a gift code for the caller's own tenant.
+  redeemCodeRequestSchema,
   setLimitPlanRequestSchema,
   updateLimitPlanRequestSchema,
 };
@@ -40,6 +43,7 @@ export type ConsoleChangePasswordDto = z.infer<typeof consoleChangePasswordSchem
 export type ConsoleCreateLimitPlanDto = z.infer<typeof createLimitPlanRequestSchema>;
 export type ConsoleUpdateLimitPlanDto = z.infer<typeof updateLimitPlanRequestSchema>;
 export type ConsoleSetLimitPlanDto = z.infer<typeof setLimitPlanRequestSchema>;
+export type ConsoleRedeemCodeDto = z.infer<typeof redeemCodeRequestSchema>;
 
 /**
  * `GET /console/analytics/usage` — tenant-scoped usage rollups. Unlike the admin

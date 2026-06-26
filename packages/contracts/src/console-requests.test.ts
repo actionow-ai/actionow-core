@@ -6,6 +6,7 @@ import {
   consoleCreateIntentSchema,
   consoleCreateUserSchema,
   consoleUpdateUserSchema,
+  redeemCodeRequestSchema,
 } from './console-requests.js';
 
 describe('console request contracts', () => {
@@ -49,5 +50,12 @@ describe('console request contracts', () => {
     expect(consoleUpdateUserSchema.parse({ tenantRole: 'admin' })).toEqual({ tenantRole: 'admin' });
     expect(() => consoleUpdateUserSchema.parse({ status: 'banned' })).toThrow();
     expect(() => consoleUpdateUserSchema.parse({ tenantRole: 'owner' })).toThrow();
+  });
+
+  it('redeemCodeRequestSchema trims a non-empty code and rejects blank/whitespace', () => {
+    expect(redeemCodeRequestSchema.parse({ code: '  GIFT-123  ' })).toEqual({ code: 'GIFT-123' });
+    expect(() => redeemCodeRequestSchema.parse({ code: '' })).toThrow();
+    expect(() => redeemCodeRequestSchema.parse({ code: '   ' })).toThrow();
+    expect(() => redeemCodeRequestSchema.parse({})).toThrow();
   });
 });
