@@ -20,6 +20,7 @@ import {
   createSubjectSchema,
   createTenantSchema,
   generateCodesSchema,
+  latestAuditRequestSchema,
   provisionSchema,
   topupSchema,
   topupSubAccountSchema,
@@ -33,6 +34,7 @@ import {
   accountViewSchema,
   adminTokenViewSchema,
   bulkResultViewSchema,
+  latestAuditViewSchema,
   provisionViewSchema,
   subAccountViewSchema,
   subjectViewSchema,
@@ -304,6 +306,9 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     bulkOAuthSessionActionSchema,
   );
   const BulkResult = registry.register('BulkResultView', bulkResultViewSchema);
+  // Latest-audit batch (前端打磨 — audit/version badges).
+  const LatestAuditRequest = registry.register('LatestAuditRequestBody', latestAuditRequestSchema);
+  const LatestAudit = registry.register('LatestAuditView', latestAuditViewSchema);
   // catalog (catalog-requests)
   const CreateResource = registry.register('CreateResourceBody', createResourceSchema);
   const UpdateResource = registry.register('UpdateResourceBody', updateResourceSchema);
@@ -606,6 +611,14 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     tag: 'admin',
     body: BulkOAuthSessionAction,
     response: BulkResult,
+  });
+  write({
+    method: 'post',
+    path: '/admin/audit-log/latest',
+    summary: 'Newest audit_log row per target id (batch; for entity-list audit badges)',
+    tag: 'admin',
+    body: LatestAuditRequest,
+    response: z.array(LatestAudit),
   });
   const relayQuery = z.object({
     tenantId: z.string().optional(),

@@ -24,6 +24,8 @@ import {
   iconAssetViewSchema,
   type JobView,
   jobViewSchema,
+  type LatestAuditView,
+  latestAuditViewSchema,
   type LedgerView,
   ledgerViewSchema,
   type LimitAlertView,
@@ -96,6 +98,7 @@ import type {
   FaultPolicyRow,
   IconAssetRow,
   Job,
+  LatestAuditRow,
   LedgerRow,
   LimitAlertRow,
   LimitPlanRow,
@@ -218,6 +221,8 @@ import {
   generateCodesSchema,
   type GrantModelDto,
   grantModelSchema,
+  type LatestAuditRequestDto,
+  latestAuditRequestSchema,
   type ModelTestDto,
   modelTestRequestSchema,
   type OfficialPricesQueryDto,
@@ -1268,6 +1273,17 @@ export class AdminController {
     return (await this.admin.reconcile(tenantId)).map(toReconcileRowView);
   }
 
+  @Post('audit-log/latest')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Newest audit_log row per target id (batch; 前端打磨 entity-list audit badges)',
+  })
+  async latestAudit(
+    @Body(new ZodBody(latestAuditRequestSchema)) dto: LatestAuditRequestDto,
+  ): Promise<LatestAuditView[]> {
+    return (await this.admin.latestAudit(dto.target_type, dto.ids)).map(toLatestAuditView);
+  }
+
   @Post('api-keys/:id/limit-plan')
   @ApiOperation({ summary: "Bind/unbind a key's limit plan (planId null = clear)" })
   @Audit({
@@ -2139,6 +2155,16 @@ function toAuditLogView(row: AuditLogRow): AuditLogView {
     target_id: row.targetId,
     meta: row.meta,
     request_id: row.requestId,
+  });
+}
+
+function toLatestAuditView(row: LatestAuditRow): LatestAuditView {
+  return latestAuditViewSchema.parse({
+    target_id: row.targetId,
+    actor_type: row.actorType,
+    actor_id: row.actorId,
+    action: row.action,
+    created_at: row.createdAt.toISOString(),
   });
 }
 

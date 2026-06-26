@@ -2962,6 +2962,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/audit-log/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Newest audit_log row per target id (batch; for entity-list audit badges) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["LatestAuditRequestBody"];
+                };
+            };
+            responses: {
+                /** @description Newest audit_log row per target id (batch; for entity-list audit badges) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LatestAuditView"][];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/relay-traces": {
         parameters: {
             query?: never;
@@ -11537,6 +11622,17 @@ export interface components {
                 id: string;
                 error: string;
             }[];
+        };
+        LatestAuditRequestBody: {
+            target_type: string;
+            ids: string[];
+        };
+        LatestAuditView: {
+            target_id: string;
+            actor_type: string;
+            actor_id: string | null;
+            action: string;
+            created_at: string;
         };
         CreateResourceBody: {
             id: string;

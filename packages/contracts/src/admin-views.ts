@@ -107,3 +107,20 @@ export const bulkResultViewSchema = z.object({
   failed: z.array(z.object({ id: z.string(), error: z.string() })),
 });
 export type BulkResultView = z.infer<typeof bulkResultViewSchema>;
+
+/**
+ * The newest `audit_log` row for one entity (前端打磨 — audit/version badges;
+ * `POST /admin/audit-log/latest`). One element per `target_id` that has an audit
+ * row (ids with no history are omitted from the response array, so the badge
+ * renders nothing). `actor_id` is an operator/user id or `null` for system
+ * actions; `created_at` is an ISO timestamp. The FE keys these by `target_id`
+ * into a `Map` to render "{relativeTime} · {actor}" per row.
+ */
+export const latestAuditViewSchema = z.object({
+  target_id: z.string(),
+  actor_type: z.string(),
+  actor_id: z.string().nullable(),
+  action: z.string(),
+  created_at: z.string(),
+});
+export type LatestAuditView = z.infer<typeof latestAuditViewSchema>;

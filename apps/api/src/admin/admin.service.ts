@@ -82,6 +82,8 @@ import {
   type IconAssetRow,
   type Job,
   type KeysetResult,
+  latestAuditByTarget,
+  type LatestAuditRow,
   type LedgerRow,
   type LimitAlertRow,
   type LimitPlanRow,
@@ -1066,6 +1068,15 @@ export class AdminService {
 
   reconcile(tenantId: string): Promise<ReconcileRow[]> {
     return reconcileTenant(this.db, tenantId);
+  }
+
+  /**
+   * The newest audit_log row per target id (前端打磨 — entity-list audit badges).
+   * One batch fetch for the ids visible on a list page; ids with no audit row
+   * are simply absent.
+   */
+  latestAudit(targetType: string, ids: string[]): Promise<LatestAuditRow[]> {
+    return latestAuditByTarget(this.db, targetType, ids);
   }
 
   async setApiKeyLimitPlan(apiKeyId: string, planId: string | null): Promise<void> {

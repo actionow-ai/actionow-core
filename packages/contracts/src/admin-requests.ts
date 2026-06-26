@@ -278,3 +278,17 @@ export const bulkOAuthSessionActionSchema = z.object({
   action: z.enum(['revoke']),
 });
 export type BulkOAuthSessionActionBody = z.infer<typeof bulkOAuthSessionActionSchema>;
+
+/**
+ * `POST /admin/audit-log/latest` (前端打磨 — audit/version badges) — fetch the
+ * newest `audit_log` row per target in ONE batch, for the `target_id`s visible
+ * on an entity-list page. `target_type` scopes to one entity kind
+ * (`channel`/`model`/`fault_policy`/`limit_plan`/`route_group`); `ids` is the
+ * visible target ids (empty → empty result). Returns
+ * {@link latestAuditViewSchema}[] — only ids that have an audit row.
+ */
+export const latestAuditRequestSchema = z.object({
+  target_type: z.string(),
+  ids: z.array(z.string()),
+});
+export type LatestAuditRequestBody = z.infer<typeof latestAuditRequestSchema>;

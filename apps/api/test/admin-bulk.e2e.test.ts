@@ -231,3 +231,45 @@ describe('bulk oauth-sessions (smoke)', () => {
     );
   });
 });
+
+describe('latest-audit batch (前端打磨 — entity-list audit badges)', () => {
+  it('returns the newest audit row per target and omits ids with no history', async () => {
+    await createModel('badge-m1');
+    await createModel('badge-m2');
+
+    // A bulk disable emits one `model.disable` audit row per model — the badge source.
+    await auth(
+      request(app.getHttpServer())
+        .post('/admin/models/bulk')
+        .send({ ids: ['badge-m1', 'badge-m2'], action: 'disable' }),
+    ).expect(200);
+
+    const res = await auth(
+      request(app.getHttpServer())
+        .post('/admin/audit-log/latest')
+        // `nope` has no audit row → must be absent from the response.
+        .send({ target_type: 'model', ids: ['badge-m1', 'badge-m2', 'nope'] }),
+    ).expect(200);
+
+    const byId = new Map<string, { action: string; actor_type: string; created_at: string }>(
+      (
+        res.body as { target_id: string; action: string; actor_type: string; created_at: string }[]
+      ).map((r) => [r.target_id, r]),
+    );
+    expect(res.body).toHaveLength(2);
+    expect(byId.has('nope')).toBe(false);
+    expect(byId.get('badge-m1')?.action).toBe('model.disable');
+    expect(byId.get('badge-m1')?.actor_type).toBe('operator');
+    expect(typeof byId.get('badge-m1')?.created_at).toBe('string');
+    expect(byId.get('badge-m2')?.action).toBe('model.disable');
+  });
+
+  it('returns [] for an empty ids[]', async () => {
+    const res = await auth(
+      request(app.getHttpServer())
+        .post('/admin/audit-log/latest')
+        .send({ target_type: 'model', ids: [] }),
+    ).expect(200);
+    expect(res.body).toEqual([]);
+  });
+});

@@ -28,6 +28,7 @@ import {
   ensureResourceSchema,
   generateCodesSchema,
   grantModelSchema,
+  latestAuditRequestSchema,
   modelTestRequestSchema,
   provisionSchema,
   proxyProbeRequestSchema,
@@ -107,6 +108,7 @@ export {
   ensureResourceSchema,
   generateCodesSchema,
   grantModelSchema,
+  latestAuditRequestSchema,
   modelTestRequestSchema,
   provisionSchema,
   proxyProbeRequestSchema,
@@ -137,6 +139,7 @@ export type UpdateCredentialMetaDto = z.infer<typeof updateCredentialMetaSchema>
 export type BulkModelActionDto = z.infer<typeof bulkModelActionSchema>;
 export type BulkChannelActionDto = z.infer<typeof bulkChannelActionSchema>;
 export type BulkOAuthSessionActionDto = z.infer<typeof bulkOAuthSessionActionSchema>;
+export type LatestAuditRequestDto = z.infer<typeof latestAuditRequestSchema>;
 export type CreatePluginDto = z.infer<typeof createPluginRequestSchema>;
 export type UpdatePluginDto = z.infer<typeof updatePluginRequestSchema>;
 export type TestPluginDto = z.infer<typeof testPluginRequestSchema>;
