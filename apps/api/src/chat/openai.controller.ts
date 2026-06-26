@@ -41,8 +41,17 @@ export class OpenAIChatController {
     const idem = idempotencyKeyHeader(req);
     const routeTag = routeTagHeader(req);
     if (body.stream === true) {
-      const { events } = await this.relay.chatStream(ir.model, ir, ctx, idem, routeTag);
-      await pipeSse(res, renderOpenAIChatStream(events, ir.model));
+      // The relay may degrade across the model fallback chain pre-commit, so the
+      // committed model can differ from `ir.model`; label the chunks with the
+      // SERVED model (parity with the blocking path).
+      const { events, servedModel } = await this.relay.chatStream(
+        ir.model,
+        ir,
+        ctx,
+        idem,
+        routeTag,
+      );
+      await pipeSse(res, renderOpenAIChatStream(events, servedModel ?? ir.model));
       return undefined;
     }
     const { response, servedBy } = await this.relay.chat(ir.model, ir, ctx, idem, routeTag);

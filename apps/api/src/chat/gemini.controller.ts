@@ -64,6 +64,10 @@ export class GeminiChatController {
   ): Promise<void> {
     const ctx = this.auth.resolve(req);
     const ir = parseGeminiChat(body, model);
+    // The relay still walks the model fallback chain pre-commit (a degraded model
+    // may serve the committed stream); Gemini's streaming frames carry no
+    // top-level model field, so the renderer takes no served-model arg — the
+    // served model is recorded on the usage_log/relay_trace by the engine.
     const { events } = await this.relay.chatStream(
       ir.model,
       ir,

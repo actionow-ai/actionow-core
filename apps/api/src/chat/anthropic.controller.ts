@@ -44,8 +44,17 @@ export class AnthropicChatController {
     const idem = idempotencyKeyHeader(req);
     const routeTag = routeTagHeader(req);
     if (body.stream === true) {
-      const { events } = await this.relay.chatStream(ir.model, ir, ctx, idem, routeTag);
-      await pipeSse(res, renderAnthropicMessagesStream(events, ir.model));
+      // The relay may degrade across the model fallback chain pre-commit, so the
+      // committed model can differ from `ir.model`; label the message_start with
+      // the SERVED model (parity with the blocking path).
+      const { events, servedModel } = await this.relay.chatStream(
+        ir.model,
+        ir,
+        ctx,
+        idem,
+        routeTag,
+      );
+      await pipeSse(res, renderAnthropicMessagesStream(events, servedModel ?? ir.model));
       return undefined;
     }
     const { response, servedBy } = await this.relay.chat(ir.model, ir, ctx, idem, routeTag);
