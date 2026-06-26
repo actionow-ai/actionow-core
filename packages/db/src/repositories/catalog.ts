@@ -1,6 +1,6 @@
 import type { Markup, PriceSpec } from '@actionow/contracts';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { PgTransaction } from 'drizzle-orm/pg-core';
 
 import {
@@ -762,7 +762,13 @@ export async function listResourcesByTenant(
     table: resource,
     createdAtCol: resource.createdAt,
     idCol: resource.id,
-    where: and(eq(resource.tenantId, tenantId), isNull(resource.deletedAt), restrict),
+    // The caller's own resources PLUS shared platform resources (tenant_id NULL),
+    // so a tenant sees the global relays it can run (mirrors the run-path guard).
+    where: and(
+      or(eq(resource.tenantId, tenantId), isNull(resource.tenantId)),
+      isNull(resource.deletedAt),
+      restrict,
+    ),
     page,
   });
 }

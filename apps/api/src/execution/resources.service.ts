@@ -79,7 +79,9 @@ export class ResourcesService {
       throw engineNotFound(`resource ${resourceId} not found`);
     }
     const row = await getResourceWithSchema(this.db, resourceId);
-    if (row?.tenantId !== ctx.tenantId) {
+    // A global platform resource (tenant_id NULL) is fetchable by any tenant —
+    // mirrors the run-path guard; a tenant-private resource stays owner-only.
+    if (row === undefined || (row.tenantId !== null && row.tenantId !== ctx.tenantId)) {
       throw engineNotFound(`resource ${resourceId} not found`);
     }
     const pricebook = await getActivePricebookEntry(this.db, resourceId, row.currentVersion);
