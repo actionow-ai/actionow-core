@@ -9,6 +9,7 @@ import {
   auditLogViewSchema,
   type BreakerView,
   breakerViewSchema,
+  type BulkResultView,
   type ChannelHealthView,
   channelHealthViewSchema,
   type ChannelModelLinkInput,
@@ -163,6 +164,12 @@ import {
   addGroupChannelSchema,
   type AnalyticsUsageQueryDto,
   analyticsUsageQuerySchema,
+  type BulkChannelActionDto,
+  bulkChannelActionSchema,
+  type BulkModelActionDto,
+  bulkModelActionSchema,
+  type BulkOAuthSessionActionDto,
+  bulkOAuthSessionActionSchema,
   type CodexLoginComplete,
   codexLoginCompleteSchema,
   type CodexLoginStart,
@@ -1406,6 +1413,46 @@ export class AdminController {
   @ApiOperation({ summary: 'Soft-delete a relay model — it stops routing after' })
   async deleteModel(@Param('name') name: string): Promise<void> {
     await this.admin.deleteModel(name);
+  }
+
+  // ----- bulk admin actions (前端打磨) -----
+  // Each returns a partial-success {succeeded, failed} (one bad id never aborts
+  // the batch) and emits ONE audit_log row per affected entity in the service.
+
+  @Post('models/bulk')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Bulk enable/disable/delete models (by name; partial success + per-entity audit)',
+  })
+  async bulkModels(
+    @Body(new ZodBody(bulkModelActionSchema)) dto: BulkModelActionDto,
+    @Req() req: AdminRequest,
+  ): Promise<BulkResultView> {
+    return this.admin.bulkModels(dto.action, dto.ids, req.admin?.adminId);
+  }
+
+  @Post('channels/bulk')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Bulk enable/disable/delete channels (by id; partial success + per-entity audit)',
+  })
+  async bulkChannels(
+    @Body(new ZodBody(bulkChannelActionSchema)) dto: BulkChannelActionDto,
+    @Req() req: AdminRequest,
+  ): Promise<BulkResultView> {
+    return this.admin.bulkChannels(dto.action, dto.ids, req.admin?.adminId);
+  }
+
+  @Post('oauth-sessions/bulk')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Bulk revoke OAuth sessions (by id; partial success + per-entity audit)',
+  })
+  async bulkRevokeOAuthSessions(
+    @Body(new ZodBody(bulkOAuthSessionActionSchema)) dto: BulkOAuthSessionActionDto,
+    @Req() req: AdminRequest,
+  ): Promise<BulkResultView> {
+    return this.admin.bulkRevokeOAuthSessions(dto.ids, req.admin?.adminId);
   }
 
   @Post('models/:name/grants')

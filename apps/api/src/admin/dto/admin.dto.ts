@@ -1,5 +1,8 @@
 import {
   addGroupChannelSchema,
+  bulkChannelActionSchema,
+  bulkModelActionSchema,
+  bulkOAuthSessionActionSchema,
   codexLoginCompleteSchema,
   codexLoginStartSchema,
   createAccountSchema,
@@ -76,6 +79,9 @@ import { z } from 'zod';
 // --- Request-body schemas (single source of truth in @actionow/contracts) ---
 export {
   addGroupChannelSchema,
+  bulkChannelActionSchema,
+  bulkModelActionSchema,
+  bulkOAuthSessionActionSchema,
   codexLoginCompleteSchema,
   codexLoginStartSchema,
   createAccountSchema,
@@ -128,6 +134,9 @@ export {
   updateTenantSchema,
 };
 export type UpdateCredentialMetaDto = z.infer<typeof updateCredentialMetaSchema>;
+export type BulkModelActionDto = z.infer<typeof bulkModelActionSchema>;
+export type BulkChannelActionDto = z.infer<typeof bulkChannelActionSchema>;
+export type BulkOAuthSessionActionDto = z.infer<typeof bulkOAuthSessionActionSchema>;
 export type CreatePluginDto = z.infer<typeof createPluginRequestSchema>;
 export type UpdatePluginDto = z.infer<typeof updatePluginRequestSchema>;
 export type TestPluginDto = z.infer<typeof testPluginRequestSchema>;

@@ -243,3 +243,38 @@ export const updateCredentialMetaSchema = z.object({
   group: z.string().nullable().optional(),
 });
 export type UpdateCredentialMetaBody = z.infer<typeof updateCredentialMetaSchema>;
+
+/**
+ * Bulk admin action request bodies (前端打磨 — true bulk endpoints). Each
+ * `POST /admin/<entity>/bulk` takes a non-empty `ids[]` + an entity-specific
+ * `action`, and returns a {@link bulkResultViewSchema} `{succeeded, failed}` —
+ * PARTIAL SUCCESS: one bad id never aborts the whole batch. The action sets
+ * differ per entity, so each gets its own schema (the controller validates the
+ * action against the right route).
+ *
+ * `ids` semantics vary by entity:
+ * - **models** — model NAMES (the admin identifier; `PATCH /admin/models/:name`).
+ * - **channels** — channel IDS (global; the single-row route is nested but ids are flat).
+ * - **oauth-sessions** — session (secret_ref) IDS.
+ */
+
+/** `POST /admin/models/bulk` — enable/disable/delete a batch of models (by name). */
+export const bulkModelActionSchema = z.object({
+  ids: z.array(z.string()).min(1),
+  action: z.enum(['enable', 'disable', 'delete']),
+});
+export type BulkModelActionBody = z.infer<typeof bulkModelActionSchema>;
+
+/** `POST /admin/channels/bulk` — enable/disable/delete a batch of channels (by id). */
+export const bulkChannelActionSchema = z.object({
+  ids: z.array(z.string()).min(1),
+  action: z.enum(['enable', 'disable', 'delete']),
+});
+export type BulkChannelActionBody = z.infer<typeof bulkChannelActionSchema>;
+
+/** `POST /admin/oauth-sessions/bulk` — revoke a batch of OAuth sessions (by id). */
+export const bulkOAuthSessionActionSchema = z.object({
+  ids: z.array(z.string()).min(1),
+  action: z.enum(['revoke']),
+});
+export type BulkOAuthSessionActionBody = z.infer<typeof bulkOAuthSessionActionSchema>;

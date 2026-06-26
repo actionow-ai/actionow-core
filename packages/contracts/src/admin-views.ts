@@ -95,3 +95,15 @@ export const provisionViewSchema = z.object({
   api_key: z.object({ id: z.string(), plaintext: z.string() }),
 });
 export type ProvisionView = z.infer<typeof provisionViewSchema>;
+
+/**
+ * The shared result of a bulk admin action (前端打磨 — `POST /admin/<entity>/bulk`).
+ * PARTIAL SUCCESS: `succeeded` holds the ids whose per-id op completed; `failed`
+ * pairs each remaining id with a human error message (e.g. `"not found"`). The
+ * batch is never aborted by one bad id — every id lands in exactly one bucket.
+ */
+export const bulkResultViewSchema = z.object({
+  succeeded: z.array(z.string()),
+  failed: z.array(z.object({ id: z.string(), error: z.string() })),
+});
+export type BulkResultView = z.infer<typeof bulkResultViewSchema>;

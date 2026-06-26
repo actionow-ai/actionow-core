@@ -221,6 +221,7 @@ import {
 import { type AppEnv, createHttpClient } from '@actionow/infra';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 
+import { AuditService } from '../audit/audit.service.js';
 import { engineInvalidInput, engineNotFound } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
 import { ADAPTERS, BREAKER, DB, ENV, HTTP } from '../common/tokens.js';
@@ -363,6 +364,32 @@ export interface ProvisionResult {
  */
 export type BreakerStatusWithRate = BreakerStatusRow & { failureRate: number | null };
 
+/** The partial-success result of a bulk admin action (前端打磨). */
+export interface BulkResult {
+  succeeded: string[];
+  failed: { id: string; error: string }[];
+}
+
+/**
+ * Apply a per-id mutation across `ids`, collecting PARTIAL success. Each id runs
+ * its own try/catch — a throwing `perId` lands that id in `failed` (with the
+ * error message) and NEVER aborts the rest of the batch. Ids are processed
+ * sequentially so a failing op can't race the others.
+ */
+async function bulkApply(ids: string[], perId: (id: string) => Promise<void>): Promise<BulkResult> {
+  const succeeded: string[] = [];
+  const failed: { id: string; error: string }[] = [];
+  for (const id of ids) {
+    try {
+      await perId(id);
+      succeeded.push(id);
+    } catch (e) {
+      failed.push({ id, error: e instanceof Error ? e.message : 'failed' });
+    }
+  }
+  return { succeeded, failed };
+}
+
 /** Neutral, no-auth 204 endpoint a proxy probe fetches to prove reachability. */
 const DEFAULT_PROXY_PROBE_URL = 'https://www.gstatic.com/generate_204';
 
@@ -390,6 +417,10 @@ export class AdminService {
     // the provider's `listModels` with a resolved per-channel credential/proxy.
     @Inject(ADAPTERS) private readonly adapters: AdapterRegistry,
     private readonly secrets: SecretResolver,
+    // Best-effort audit writer (记录系统). The bulk endpoints emit ONE audit_log
+    // row per affected entity through this so each entity's badge reflects the
+    // change; a failed audit write never disturbs the bulk op.
+    private readonly audit: AuditService,
     @Optional() @Inject(HTTP) http?: HttpClient,
     // The circuit breaker (弹性2.0) — read-only here, used to enrich the breaker
     // status surface with each `(channel, model)`'s recent-window failure_rate
@@ -1833,6 +1864,96 @@ export class AdminService {
       throw engineNotFound(`model ${name} not found`);
     }
     return { name: deleted };
+  }
+
+  // ----- bulk admin actions (前端打磨) -----
+
+  /**
+   * Bulk enable/disable/delete models BY NAME with partial success. Each name
+   * reuses the SAME single-row repo op as the per-row routes (`updateModel`
+   * status / `softDeleteModel`) and — on success — emits ONE `audit_log` row
+   * (`model.enable|disable|delete`, best-effort via {@link AuditService}) so the
+   * entity's audit badge reflects the bulk change. A name that matched no live
+   * model throws `not found`, landing it in `failed` without aborting the batch.
+   */
+  bulkModels(
+    action: 'enable' | 'disable' | 'delete',
+    names: string[],
+    actorId?: string,
+  ): Promise<BulkResult> {
+    return bulkApply(names, async (name) => {
+      if (action === 'delete') {
+        const deleted = await softDeleteModel(this.db, name);
+        if (deleted === undefined) throw engineNotFound(`model ${name} not found`);
+      } else {
+        const status = action === 'enable' ? 'active' : 'disabled';
+        const row = await updateModel(this.db, name, { status });
+        if (row === undefined) throw engineNotFound(`model ${name} not found`);
+      }
+      await this.audit.record({
+        actorType: 'operator',
+        actorId: actorId ?? null,
+        action: `model.${action}`,
+        targetType: 'model',
+        targetId: name,
+      });
+    });
+  }
+
+  /**
+   * Bulk enable/disable/delete channels BY ID with partial success. Reuses the
+   * single-row repo ops (`updateUpstreamChannel` status / `softDeleteChannel`,
+   * + `unlinkAllForChannel` on delete, mirroring {@link deleteChannel}). Emits
+   * one `audit_log` row per affected channel (`channel.enable|disable|delete`,
+   * best-effort). Channel ids are global, so the soft-delete is NOT
+   * resource-scoped here (the bulk route is flat). An id matching no live
+   * channel throws `not found` → that id lands in `failed`.
+   */
+  bulkChannels(
+    action: 'enable' | 'disable' | 'delete',
+    ids: string[],
+    actorId?: string,
+  ): Promise<BulkResult> {
+    return bulkApply(ids, async (id) => {
+      if (action === 'delete') {
+        const deleted = await softDeleteChannel(this.db, id);
+        if (deleted === undefined) throw engineNotFound(`channel ${id} not found`);
+        await unlinkAllForChannel(this.db, id);
+      } else {
+        const status = action === 'enable' ? 'active' : 'disabled';
+        const row = await updateUpstreamChannel(this.db, id, { status });
+        if (row === undefined) throw engineNotFound(`channel ${id} not found`);
+      }
+      await this.audit.record({
+        actorType: 'operator',
+        actorId: actorId ?? null,
+        action: `channel.${action}`,
+        targetType: 'channel',
+        targetId: id,
+      });
+    });
+  }
+
+  /**
+   * Bulk revoke OAuth sessions BY ID with partial success. Reuses the single-row
+   * {@link revokeOAuthSession} repo op (soft-deletes the session + its
+   * secret_ref). NOT gated on `ENABLE_OAUTH_CHANNELS` — revoking a credential is
+   * a security operation that must always be possible. Emits one `audit_log` row
+   * per revoked session (`oauth_session.revoke`, best-effort). An id matching no
+   * live session throws `not found` → that id lands in `failed`.
+   */
+  bulkRevokeOAuthSessions(ids: string[], actorId?: string): Promise<BulkResult> {
+    return bulkApply(ids, async (id) => {
+      const deleted = await softDeleteOAuthSession(this.db, id);
+      if (deleted === undefined) throw engineNotFound(`oauth session ${id} not found`);
+      await this.audit.record({
+        actorType: 'operator',
+        actorId: actorId ?? null,
+        action: 'oauth_session.revoke',
+        targetType: 'oauth_session',
+        targetId: id,
+      });
+    });
   }
 
   /** Grant a tenant-visibility model (by name) to a tenant. */

@@ -6,6 +6,9 @@ import {
 import { z } from 'zod';
 
 import {
+  bulkChannelActionSchema,
+  bulkModelActionSchema,
+  bulkOAuthSessionActionSchema,
   codexLoginCompleteSchema,
   codexLoginStartSchema,
   createAccountSchema,
@@ -29,6 +32,7 @@ import {
 import {
   accountViewSchema,
   adminTokenViewSchema,
+  bulkResultViewSchema,
   provisionViewSchema,
   subAccountViewSchema,
   subjectViewSchema,
@@ -292,6 +296,14 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     'CodexLoginCompleteBody',
     codexLoginCompleteSchema,
   );
+  // Bulk admin actions (前端打磨) — one batch request → partial-success result.
+  const BulkModelAction = registry.register('BulkModelActionBody', bulkModelActionSchema);
+  const BulkChannelAction = registry.register('BulkChannelActionBody', bulkChannelActionSchema);
+  const BulkOAuthSessionAction = registry.register(
+    'BulkOAuthSessionActionBody',
+    bulkOAuthSessionActionSchema,
+  );
+  const BulkResult = registry.register('BulkResultView', bulkResultViewSchema);
   // catalog (catalog-requests)
   const CreateResource = registry.register('CreateResourceBody', createResourceSchema);
   const UpdateResource = registry.register('UpdateResourceBody', updateResourceSchema);
@@ -569,6 +581,31 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     tag: 'admin',
     body: UpdateCredentialMeta,
     response: Secret,
+  });
+  // Bulk admin actions (前端打磨) — each returns a partial-success {succeeded, failed}.
+  write({
+    method: 'post',
+    path: '/admin/models/bulk',
+    summary: 'Bulk enable/disable/delete models (by name; partial success)',
+    tag: 'catalog',
+    body: BulkModelAction,
+    response: BulkResult,
+  });
+  write({
+    method: 'post',
+    path: '/admin/channels/bulk',
+    summary: 'Bulk enable/disable/delete channels (by id; partial success)',
+    tag: 'catalog',
+    body: BulkChannelAction,
+    response: BulkResult,
+  });
+  write({
+    method: 'post',
+    path: '/admin/oauth-sessions/bulk',
+    summary: 'Bulk revoke OAuth sessions (by id; partial success)',
+    tag: 'admin',
+    body: BulkOAuthSessionAction,
+    response: BulkResult,
   });
   const relayQuery = z.object({
     tenantId: z.string().optional(),
