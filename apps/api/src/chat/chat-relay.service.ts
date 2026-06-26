@@ -282,6 +282,12 @@ export class ChatRelayService {
     // Attribute the mirrored usage_log row to the calling api key when present
     // (absent on the dev `x-tenant-id` fallback) — exactOptionalPropertyTypes.
     if (ctx.apiKeyId !== undefined) req.usageLogApiKeyId = ctx.apiKeyId;
+    // Per-end-user attribution (端用户数据平面): when the calling key is bound to a
+    // subject, thread its id so the engine records `subject_id` on the job/usage_log
+    // AND routes the charge to that subject's HARD sub-wallet (else the tenant pool).
+    // The `/v1/run` + media-dialect paths set this via `resolveRunRequest`; the chat
+    // relay builds its own RunRequest, so it must thread it here too.
+    if (ctx.subjectId != null) req.subjectId = ctx.subjectId;
     // Idempotency-Key (P0): thread the caller's key into the engine so a retried
     // relay POST replays the original job instead of re-charging (runChat) — and
     // a reused key on a stream run is rejected (runChatStream).
