@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   applyMarkup,
+  minimumHold,
   priceFormula,
   priceMatrix,
   priceUnit,
@@ -211,5 +212,36 @@ describe('pricing — exhaustive', () => {
     };
     // 150_000 -> *1.5 = 225_000
     expect(settle(entry, { input_tokens: 1000 })).toBe(225_000n);
+  });
+});
+
+describe('minimumHold (billing-integrity hold floor)', () => {
+  it('unit → markup-adjusted price of one of each dimension', () => {
+    // 150 + 600 = 750 (one input_token + one output_token), no markup.
+    expect(minimumHold(unitEntry)).toBe(750n);
+  });
+
+  it('unit → applies the entry markup to the one-unit floor', () => {
+    const entry: PricebookEntry = { ...unitEntry, markup: { type: 'percent', value: 50 } };
+    expect(minimumHold(entry)).toBe(1125n); // 750 * 1.5
+  });
+
+  it('returns undefined for non-unit methods (no floor applies)', () => {
+    expect(minimumHold(matrixEntry)).toBeUndefined();
+    expect(minimumHold(fixedEntry)).toBeUndefined();
+    expect(minimumHold(passEntry)).toBeUndefined();
+  });
+
+  it('returns undefined for an all-free unit spec (every rate 0)', () => {
+    const free: PricebookEntry = {
+      ...unitEntry,
+      spec: { method: 'unit', dimensions: { images: { rate: 0 } } },
+    };
+    expect(minimumHold(free)).toBeUndefined();
+  });
+
+  it('returns undefined for a unit spec with no dimensions', () => {
+    const empty: PricebookEntry = { ...unitEntry, spec: { method: 'unit', dimensions: {} } };
+    expect(minimumHold(empty)).toBeUndefined();
   });
 });

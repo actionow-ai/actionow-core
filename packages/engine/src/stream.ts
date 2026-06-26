@@ -18,7 +18,7 @@ import { availableChannels, isFailoverRetryable } from './channel-routing.js';
 import { EngineError } from './errors.js';
 import type { RunChannel, RunRequest } from './execution-service.js';
 import { wrapHttpWithTimeouts } from './fault-policy.js';
-import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
+import { serializeAppliedModifiers, settledCost } from './pricing.js';
 import { type TraceContext, TracingHttpClient } from './relay-trace.js';
 
 /** Default per-body byte cap when the stream deps carry no `traceMaxBytes`. */
@@ -524,17 +524,14 @@ async function settleStream(
   usage: UsageVector | undefined,
 ): Promise<MicroCredits> {
   const entry = deps.req.pricebookEntry;
-  const hasUsage = usage !== undefined && Object.keys(usage).length > 0;
-  const { credits: computed, applied } = computeFinalCost(
+  // Shared settle policy: no-usage → held upper bound; cap at hold; floor 0.
+  const { credits: finalCost, applied } = settledCost(
     entry,
     usage ?? {},
     deps.inputs,
     deps.req.modifiers,
+    deps.holdAmount,
   );
-  // No-usage path: charge the held upper bound rather than the empty-usage 0.
-  const candidate = hasUsage ? computed : deps.holdAmount;
-  // Cap at the hold (never settle above what we reserved); floor at 0.
-  const finalCost = candidate < 0n ? 0n : candidate > deps.holdAmount ? deps.holdAmount : candidate;
   await settleJob(deps.db, {
     jobId: deps.jobId,
     accountId: deps.req.accountId,

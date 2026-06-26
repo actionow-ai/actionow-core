@@ -5,6 +5,7 @@ import type { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import { eq } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
@@ -118,6 +119,13 @@ describe('/member/* (end-user read-only self-service, subject-scoped)', () => {
     // Two subjects in the SAME tenant — A is the caller, B is the other end-user.
     const subjectA = await makeSubject(adminToken, 'enduser-a');
     const subjectB = await makeSubject(adminToken, 'enduser-b');
+
+    // Fund the tenant pool — opening a sub-wallet with credits is a CONSERVING
+    // allocation that debits this pool (it never mints).
+    await db
+      .update(schema.account)
+      .set({ creditBalance: 50_000_000n })
+      .where(eq(schema.account.tenantId, tenantId));
 
     // A gets a HARD sub-wallet (10 credits) + a subject-scoped key; B gets its own key.
     await request(server())

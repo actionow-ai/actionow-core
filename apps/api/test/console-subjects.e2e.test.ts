@@ -9,6 +9,7 @@ import type { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import { eq } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
@@ -141,6 +142,18 @@ async function registerAdmin(
     .set('authorization', `Bearer ${res.body.token as string}`)
     .expect(200);
   return { token: res.body.token as string, tenantId: me.body.tenant_id as string };
+}
+
+/**
+ * Fund a tenant's pool account directly (test-only). Conserving sub-wallet
+ * allocations (open opening-balance / topup) debit this pool, so it must hold
+ * credit before a tenant-admin can allocate to a subject.
+ */
+async function fundTenantPool(tenantId: string, credits: number): Promise<void> {
+  await db
+    .update(schema.account)
+    .set({ creditBalance: BigInt(credits) * 1_000_000n })
+    .where(eq(schema.account.tenantId, tenantId));
 }
 
 /**
@@ -348,11 +361,13 @@ describe('/console subject-scoped keys + sub-wallet (tenant-scoped, tenant-admin
     expect(listedB.body.data).toHaveLength(0);
   });
 
-  it('opens, reads, tops up, and transfers a subject sub-wallet (tenant-scoped)', async () => {
-    const { token } = await registerAdmin('wallet-admin@example.com');
+  it('opens, reads, tops up, and transfers a subject sub-wallet (conserving: pool ↔ sub-wallet)', async () => {
+    const { token, tenantId } = await registerAdmin('wallet-admin@example.com');
     const subjectId = await makeSubject(token, 'wallet-subj');
+    // Fund the tenant pool — sub-wallet allocations DEBIT this pool (conserving).
+    await fundTenantPool(tenantId, 20);
 
-    // open with a 10-credit opening balance → 10_000_000 µcredits
+    // open with a 10-credit opening balance → sub-wallet 10cr, pool 20→10.
     const opened = await request(server())
       .post(`/console/subjects/${subjectId}/sub-account/open`)
       .set('authorization', `Bearer ${token}`)
@@ -368,7 +383,7 @@ describe('/console subject-scoped keys + sub-wallet (tenant-scoped, tenant-admin
       .expect(200);
     expect(got.body.credit_balance).toBe('10000000');
 
-    // topup +5 → 15 (internal allocation to the subject's HARD wallet)
+    // topup +5 → sub-wallet 15; pool 10→5 (allocation funded from the pool).
     const topped = await request(server())
       .post(`/console/subjects/${subjectId}/sub-account/topup`)
       .set('authorization', `Bearer ${token}`)
@@ -376,23 +391,86 @@ describe('/console subject-scoped keys + sub-wallet (tenant-scoped, tenant-admin
       .expect(200);
     expect(topped.body.credit_balance).toBe('15000000');
 
-    // transfer 3 BACK to the tenant pool → 12
+    // The pool was debited by open(10) + topup(5) → 20 - 15 = 5cr left.
+    const poolAfterAlloc = await request(server())
+      .get('/console/balance')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(poolAfterAlloc.body.balance).toBe('5000000');
+
+    // transfer 3 BACK to the tenant pool → sub-wallet 12; pool 5→8.
     const moved = await request(server())
       .post(`/console/subjects/${subjectId}/sub-account/transfer`)
       .set('authorization', `Bearer ${token}`)
       .send({ credits: 3, direction: 'to_tenant' })
       .expect(200);
     expect(moved.body.credit_balance).toBe('12000000');
+    const poolAfterReturn = await request(server())
+      .get('/console/balance')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(poolAfterReturn.body.balance).toBe('8000000');
+  });
+
+  it('sub-wallet allocation is conserving: a tenant-admin cannot MINT beyond the funded pool', async () => {
+    const { token, tenantId } = await registerAdmin('wallet-mint@example.com');
+    const subjectId = await makeSubject(token, 'mint-subj');
+
+    // Pool is empty (0). open with an opening balance must be REJECTED (no mint),
+    // and the wallet must NOT be left created (the whole allocation rolls back).
+    const rejectedOpen = await request(server())
+      .post(`/console/subjects/${subjectId}/sub-account/open`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ credits: 1000 })
+      .expect(400);
+    expect(rejectedOpen.body.error.code).toBe('invalid_input');
+
+    // open with NO opening balance is fine — creates the wallet, mints nothing.
+    const opened = await request(server())
+      .post(`/console/subjects/${subjectId}/sub-account/open`)
+      .set('authorization', `Bearer ${token}`)
+      .send({})
+      .expect(201);
+    expect(opened.body.credit_balance).toBe('0');
+
+    // topup beyond the (still empty) pool → rejected; nothing minted.
+    const rejectedTopup = await request(server())
+      .post(`/console/subjects/${subjectId}/sub-account/topup`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ credits: 1000 })
+      .expect(400);
+    expect(rejectedTopup.body.error.code).toBe('invalid_input');
+    const stillZero = await request(server())
+      .get(`/console/subjects/${subjectId}/sub-account`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(stillZero.body.credit_balance).toBe('0');
+
+    // Fund the pool, then a topup succeeds and DEBITS the pool one-for-one.
+    await fundTenantPool(tenantId, 10);
+    const topped = await request(server())
+      .post(`/console/subjects/${subjectId}/sub-account/topup`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ credits: 7 })
+      .expect(200);
+    expect(topped.body.credit_balance).toBe('7000000');
+    const pool = await request(server())
+      .get('/console/balance')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(pool.body.balance).toBe('3000000'); // 10 funded − 7 allocated
   });
 
   it("a tenant cannot read/mutate ANOTHER tenant's sub-wallet (cross-tenant → 404)", async () => {
     const { token: tokenA } = await registerAdmin('wallet-a@example.com');
     const { token: tokenB } = await registerAdmin('wallet-b@example.com');
     const subjectA = await makeSubject(tokenA, 'a-wallet');
+    // Open with no opening balance (this test asserts cross-tenant isolation, not
+    // balances — so it needs no funded pool).
     await request(server())
       .post(`/console/subjects/${subjectA}/sub-account/open`)
       .set('authorization', `Bearer ${tokenA}`)
-      .send({ credits: 4 })
+      .send({})
       .expect(201);
 
     // Tenant B sees a 404 on every sub-wallet route addressed at tenant A's subject.

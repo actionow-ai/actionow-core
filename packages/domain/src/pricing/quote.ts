@@ -53,3 +53,26 @@ export function settle(entry: PricebookEntry, usage: Record<string, number>): Mi
   }
   return applyMarkup(base, entry.markup);
 }
+
+/**
+ * The minimum meaningful hold for a `post`-timed `unit` entry: the markup-adjusted
+ * price of exactly ONE of each priced dimension.
+ *
+ * Used as a SERVER-SIDE floor on the credit hold so a caller-supplied
+ * `estimated_usage` of `{}` / all-zero can never produce a 0 hold — a 0 hold would
+ * let a ~0-balance account start a paid post-timed run and then settle the real
+ * (uncapped) cost, draining the operator's upstream budget for free. Returns
+ * `undefined` when no floor applies — a non-`unit` method, a unit spec with no
+ * dimensions, or an all-free spec (every rate 0) — in which case callers leave the
+ * computed hold unchanged.
+ */
+export function minimumHold(entry: PricebookEntry): MicroCredits | undefined {
+  const spec = entry.spec;
+  if (spec.method !== 'unit') return undefined;
+  const dims = Object.keys(spec.dimensions);
+  if (dims.length === 0) return undefined;
+  const oneOfEach: Record<string, number> = {};
+  for (const dim of dims) oneOfEach[dim] = 1;
+  const floor = settle(entry, oneOfEach);
+  return floor > 0n ? floor : undefined;
+}
