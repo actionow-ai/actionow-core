@@ -32,7 +32,7 @@ export function ServiceTokenDetailPage() {
   const { t } = useTranslation('console');
   const api = useAdminApi();
 
-  useSetConsoleBack({ to: BACK_TO, label: t('serviceTokens') });
+  useSetConsoleBack({ to: BACK_TO, label: t('nav.serviceTokens') });
 
   const tokens = useQuery({
     queryKey: qk.adminTokens(),
