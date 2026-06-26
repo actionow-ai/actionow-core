@@ -1767,6 +1767,8 @@
     "revoked": "Token revoked",
     "never": "Never",
     "cols": {
+      "name": "Name",
+      "status": "Status",
       "created": "Created",
       "expires": "Expires"
     },
@@ -1781,6 +1783,11 @@
     "revokeConfirm": {
       "title": "Revoke token?",
       "msg": "Revoke \"{{name}}\"? Integrations using it will stop working."
+    },
+    "detail": {
+      "back": "Back to service tokens",
+      "notFound": "Service token not found.",
+      "createdBy": "Created by"
     }
   },
   "secrets": {

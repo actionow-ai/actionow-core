@@ -34,6 +34,7 @@ import { RedemptionCodesPage } from './features/console/RedemptionCodesPage';
 import { RelayTracesPage } from './features/console/RelayTracesPage';
 import { ResourcesPage } from './features/console/ResourcesPage';
 import { RouteGroupsPage } from './features/console/RouteGroupsPage';
+import { ServiceTokenDetailPage } from './features/console/ServiceTokenDetailPage';
 import { ServiceTokensPage } from './features/console/ServiceTokensPage';
 import { StatusPage } from './features/console/StatusPage';
 import { TenantDetailPage } from './features/console/TenantDetailPage';
@@ -124,6 +125,7 @@ export function AppRoutes() {
           <Route path="api-keys" element={<ApiKeysPage />} />
           <Route path="api-keys/:id" element={<ApiKeyDetailPage />} />
           <Route path="tokens" element={<ServiceTokensPage />} />
+          <Route path="tokens/:id" element={<ServiceTokenDetailPage />} />
           <Route path="redemption-codes" element={<RedemptionCodesPage />} />
         </Route>
       </Route>

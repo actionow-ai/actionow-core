@@ -1767,6 +1767,8 @@
     "revoked": "令牌已吊销",
     "never": "永不过期",
     "cols": {
+      "name": "名称",
+      "status": "状态",
       "created": "创建时间",
       "expires": "过期时间"
     },
@@ -1781,6 +1783,11 @@
     "revokeConfirm": {
       "title": "吊销令牌？",
       "msg": "确定吊销「{{name}}」？使用它的集成将立即失效。"
+    },
+    "detail": {
+      "back": "返回服务令牌",
+      "notFound": "未找到该服务令牌。",
+      "createdBy": "创建者"
     }
   },
   "secrets": {
