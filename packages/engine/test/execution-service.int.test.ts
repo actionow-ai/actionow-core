@@ -4,6 +4,7 @@ import type {
   AdapterContext,
   ChatRequest,
   ChatResponse,
+  ChatStreamEvent,
   IoSchema,
   PricebookEntry,
   SubmitInput,
@@ -113,7 +114,12 @@ const CHAT_IR: ChatRequest = {
   messages: [{ role: 'user', content: [{ kind: 'text', text: 'hi' }] }],
 };
 
-/** A fake blocking chat adapter returning a fixed IR response + token usage. */
+/**
+ * A fake chat adapter returning a fixed IR response + token usage for the
+ * blocking `chat` path, and a matching `streamChat` (message_start → content →
+ * usage → stop → done) so a `runChatStream` can commit + drain — the streaming
+ * commit now opens the upstream during the awaited `runChatStream` (⑤-S).
+ */
 function fakeChatAdapter(outputTokens: number): ProviderAdapter {
   return {
     providerType: 'fake-chat',
@@ -124,6 +130,14 @@ function fakeChatAdapter(outputTokens: number): ProviderAdapter {
         stopReason: 'stop',
         usage: { inputTokens: 3, outputTokens },
       }),
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async *streamChat(): AsyncIterable<ChatStreamEvent> {
+      yield { type: 'message_start' };
+      yield { type: 'content_delta', text: 'echo: hi' };
+      yield { type: 'usage', usage: { inputTokens: 3, outputTokens } };
+      yield { type: 'stop', stopReason: 'stop' };
+      yield { type: 'done' };
+    },
     extractUsage: () => ({}),
     mapError: () => ({ code: 'upstream_error', message: 'fake', retryable: false }),
   };

@@ -12,8 +12,14 @@ import type { DbOrTx } from '@actionow/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { BreakerStore, RoutableChannelRef } from '../src/breaker.js';
+import { EngineError } from '../src/errors.js';
 import { ExecutionService, type RunRequest } from '../src/execution-service.js';
-import { createChatSettlingStream } from '../src/stream.js';
+import {
+  type CommittedChatStream,
+  createChatSettlingStream,
+  openChatStreamCommit,
+  type SettlingStreamDeps,
+} from '../src/stream.js';
 
 /**
  * A recording {@link BreakerStore}: `filterAvailable` drops the configured
@@ -254,7 +260,7 @@ function failingChatAdapter(): ProviderAdapter {
 function deps(
   overrides: Partial<RunRequest> = {},
   adapter: ProviderAdapter = fakeChatAdapter(),
-): Parameters<typeof createChatSettlingStream>[0] {
+): SettlingStreamDeps {
   const adapters = new AdapterRegistry();
   adapters.register(adapter);
   return depsWith(adapters, overrides);
@@ -264,7 +270,7 @@ function deps(
 function depsWith(
   adapters: AdapterRegistry,
   overrides: Partial<RunRequest> = {},
-): Parameters<typeof createChatSettlingStream>[0] {
+): SettlingStreamDeps {
   const req: RunRequest = {
     resource: {
       id: 'chat-resource',
@@ -295,10 +301,23 @@ function depsWith(
   };
 }
 
+/**
+ * Run BOTH phases the way `runChatStream` does: await `openChatStreamCommit`
+ * (Phase 1 — channel selection + first event, throws on total pre-commit
+ * failure), then drain `createChatSettlingStream(deps, committed)` (Phase 2). A
+ * pre-commit throw propagates here (the caller asserts it); a post-commit error
+ * is forwarded in-band by the drain generator.
+ */
+async function commitAndDrain(d: SettlingStreamDeps): Promise<ChatStreamEvent[]> {
+  const committed = await openChatStreamCommit(d);
+  const events: ChatStreamEvent[] = [];
+  for await (const ev of createChatSettlingStream(d, committed)) events.push(ev);
+  return events;
+}
+
 describe('createChatSettlingStream', () => {
   it('forwards IR events verbatim and settles once with snake_case usage', async () => {
-    const events: ChatStreamEvent[] = [];
-    for await (const ev of createChatSettlingStream(deps())) events.push(ev);
+    const events = await commitAndDrain(deps());
 
     expect(events.map((e) => e.type)).toEqual([
       'message_start',
@@ -315,10 +334,7 @@ describe('createChatSettlingStream', () => {
   });
 
   it('mirrors usage_log once (snake_case) when usageLogModel is set', async () => {
-    const events: ChatStreamEvent[] = [];
-    for await (const ev of createChatSettlingStream(deps({ usageLogModel: 'gpt-4o' }))) {
-      events.push(ev);
-    }
+    await commitAndDrain(deps({ usageLogModel: 'gpt-4o' }));
 
     expect(settleCalls).toHaveLength(1);
     expect(usageLogCalls).toHaveLength(1);
@@ -336,8 +352,7 @@ describe('createChatSettlingStream', () => {
   });
 
   it('mirrors provider_cost from the served channel cost cols on the stream path (Track 5)', async () => {
-    const events: ChatStreamEvent[] = [];
-    for await (const ev of createChatSettlingStream(
+    await commitAndDrain(
       deps({
         usageLogModel: 'gpt-4o',
         // Served channel carries cost rates: $1/1M in, $2/1M out (µUSD/1M).
@@ -351,9 +366,7 @@ describe('createChatSettlingStream', () => {
           },
         ],
       }),
-    )) {
-      events.push(ev);
-    }
+    );
 
     expect(usageLogCalls).toHaveLength(1);
     // usage is in=3 / out=2: provider_cost = roundHalfUp((3*1_000_000 + 2*2_000_000)/1e6)
@@ -362,15 +375,16 @@ describe('createChatSettlingStream', () => {
   });
 
   it('does NOT mirror usage_log when usageLogModel is unset', async () => {
-    const events: ChatStreamEvent[] = [];
-    for await (const ev of createChatSettlingStream(deps())) events.push(ev);
+    await commitAndDrain(deps());
 
     expect(settleCalls).toHaveLength(1);
     expect(usageLogCalls).toHaveLength(0);
   });
 
   it('settles exactly once on consumer early-return (disconnect), charging 0 pre-output', async () => {
-    const stream = createChatSettlingStream(deps());
+    const d = deps();
+    const committed = await openChatStreamCommit(d);
+    const stream = createChatSettlingStream(d, committed);
     const iter = stream[Symbol.asyncIterator]();
     const first = await iter.next();
     expect(first.value).toMatchObject({ type: 'message_start' });
@@ -384,7 +398,9 @@ describe('createChatSettlingStream', () => {
   });
 
   it('charges the measured streamed output on disconnect after content (not the hold)', async () => {
-    const stream = createChatSettlingStream(deps());
+    const d = deps();
+    const committed = await openChatStreamCommit(d);
+    const stream = createChatSettlingStream(d, committed);
     const iter = stream[Symbol.asyncIterator]();
     await iter.next(); // message_start
     await iter.next(); // content_delta 'ok' (2 chars → ceil(2/4)=1 output token)
@@ -396,10 +412,7 @@ describe('createChatSettlingStream', () => {
   });
 
   it('settles the measured partial when the stream ends with no usage frame', async () => {
-    const events: ChatStreamEvent[] = [];
-    for await (const ev of createChatSettlingStream(deps({}, fakeChatAdapterNoUsage()))) {
-      events.push(ev);
-    }
+    const events = await commitAndDrain(deps({}, fakeChatAdapterNoUsage()));
     expect(events.map((e) => e.type)).toEqual(['message_start', 'content_delta', 'stop', 'done']);
     expect(settleCalls).toHaveLength(1);
     expect(failCalls).toHaveLength(0);
@@ -407,13 +420,11 @@ describe('createChatSettlingStream', () => {
     expect(settleCalls[0]?.finalCost).toBe(1n);
   });
 
-  it('forwards a mid-stream IR error in-band and fails (no settle, no throw)', async () => {
-    const events: ChatStreamEvent[] = [];
-    for await (const ev of createChatSettlingStream(deps({}, fakeChatAdapterError()))) {
-      events.push(ev);
-    }
-    // The error event is DELIVERED to the consumer (so the dialect renderer can
+  it('forwards a post-commit mid-stream IR error in-band and fails (no settle, no throw)', async () => {
+    // The channel commits on a good first event (message_start); a LATER error
+    // event is forwarded by the drain generator (so the dialect renderer can
     // frame it), never thrown — and the job fails/releases the hold (no charge).
+    const events = await commitAndDrain(deps({}, fakeChatAdapterError()));
     expect(events.map((e) => e.type)).toEqual(['message_start', 'content_delta', 'error']);
     expect(failCalls).toHaveLength(1);
     expect(settleCalls).toHaveLength(0);
@@ -430,8 +441,7 @@ describe('createChatSettlingStream', () => {
       fakeFailoverChatAdapter(),
     );
     d.rng = () => 0; // weighted pick lands on c1 ('bad') first → fail over to c2
-    const events: ChatStreamEvent[] = [];
-    for await (const ev of createChatSettlingStream(d)) events.push(ev);
+    const events = await commitAndDrain(d);
 
     // c1's retryable first-frame error is NOT forwarded; c2's full stream is.
     expect(events.map((e) => e.type)).toEqual([
@@ -462,8 +472,7 @@ describe('createChatSettlingStream', () => {
     // rng→0.99 would weight-pick 'good' (weight 5) first if it were a single
     // tier; the priority tier forces 'bad' (priority 10) first → fail over to 'good'.
     d.rng = () => 0.99;
-    const events: ChatStreamEvent[] = [];
-    for await (const ev of createChatSettlingStream(d)) events.push(ev);
+    const events = await commitAndDrain(d);
 
     expect(events.map((e) => e.type)).toEqual([
       'message_start',
@@ -476,7 +485,11 @@ describe('createChatSettlingStream', () => {
     expect(failCalls).toHaveLength(0);
   });
 
-  it('every channel errors on the first frame → in-band error, fail, no settle', async () => {
+  it('every channel errors on the first frame → openChatStreamCommit THROWS (not in-band)', async () => {
+    // All channels fail RETRYABLY on the first event, so the commit is exhausted
+    // → it THROWS an EngineError (the relay degrades / the global filter renders a
+    // real HTTP error) rather than yielding an in-band error frame. The throw
+    // preserves the underlying retryable code so the relay's degrade gate fires.
     const d = deps(
       {
         channels: [
@@ -487,12 +500,22 @@ describe('createChatSettlingStream', () => {
       fakeFailoverChatAdapter(),
     );
     d.rng = () => 0;
-    const events: ChatStreamEvent[] = [];
-    for await (const ev of createChatSettlingStream(d)) events.push(ev);
 
-    expect(events.map((e) => e.type)).toEqual(['error']);
-    expect(failCalls).toHaveLength(1);
+    const err = await openChatStreamCommit(d).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(EngineError);
+    // The thrown error carries the LAST channel's retryable code, so the relay's
+    // shouldDegradeToNextModel sees a DEGRADE_CODE and degrades to the next model.
+    expect((err as EngineError).unified).toMatchObject({
+      code: 'rate_limited',
+      retryable: true,
+    });
+    // Nothing settled and nothing failed — runChatStream owns the hold release on
+    // a commit throw, not openChatStreamCommit (which never created a job here).
     expect(settleCalls).toHaveLength(0);
+    expect(failCalls).toHaveLength(0);
   });
 
   it('selects the adapter PER CHANNEL and fails over cross-provider on the first frame', async () => {
@@ -510,8 +533,7 @@ describe('createChatSettlingStream', () => {
       usageLogModel: 'gpt-4o',
     });
     d.rng = () => 0;
-    const events: ChatStreamEvent[] = [];
-    for await (const ev of createChatSettlingStream(d)) events.push(ev);
+    const events = await commitAndDrain(d);
 
     expect(events.map((e) => e.type)).toEqual([
       'message_start',
@@ -542,8 +564,7 @@ describe('createChatSettlingStream', () => {
     );
     d.breaker = breaker;
     d.rng = () => 0; // would weight-pick c1 first if it were available
-    const events: ChatStreamEvent[] = [];
-    for await (const ev of createChatSettlingStream(d)) events.push(ev);
+    const events = await commitAndDrain(d);
 
     expect(events.map((e) => e.type)).toEqual([
       'message_start',
@@ -574,12 +595,115 @@ describe('createChatSettlingStream', () => {
     );
     d.breaker = breaker;
     d.rng = () => 0; // pick c1 ('bad') first → fail over to c2
-    const events: ChatStreamEvent[] = [];
-    for await (const ev of createChatSettlingStream(d)) events.push(ev);
+    await commitAndDrain(d);
 
     expect(settleCalls).toHaveLength(1);
     expect(breaker.failures).toEqual([{ channelId: 'c1', model: '*' }]);
     expect(breaker.successes).toEqual([{ channelId: 'c2', model: '*' }]);
+  });
+});
+
+/** An adapter whose streamChat yields a NON-retryable error on its first event. */
+function fakeChatAdapterNonRetryableFirst(): ProviderAdapter {
+  return {
+    ...fakeChatAdapter(),
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async *streamChat(): AsyncIterable<ChatStreamEvent> {
+      yield {
+        type: 'error',
+        error: { code: 'content_filtered', message: 'nope', retryable: false },
+      };
+    },
+  };
+}
+
+describe('openChatStreamCommit', () => {
+  it('commits to the SECOND channel on a retryable first-event from the first (pre-commit failover)', async () => {
+    const d = deps(
+      {
+        channels: [
+          { id: 'c1', weight: 2, credentialRef: 'r1', model: 'bad' },
+          { id: 'c2', weight: 1, credentialRef: 'r2', model: 'good' },
+        ],
+      },
+      fakeFailoverChatAdapter(),
+    );
+    d.rng = () => 0; // weighted pick lands on c1 ('bad') first → fail over to c2
+
+    const committed = await openChatStreamCommit(d);
+    // The committed stream is served by the SECOND channel, and its first event is
+    // the good channel's first frame (not the first channel's retryable error).
+    expect(committed.servedChannel.id).toBe('c2');
+    expect(committed.first).toMatchObject({ type: 'message_start' });
+    // No settle/fail happened in the commit phase — that is the drain's job.
+    expect(settleCalls).toHaveLength(0);
+    expect(failCalls).toHaveLength(0);
+  });
+
+  it('throws the unified error on a NON-retryable first event (no failover, no degrade)', async () => {
+    const d = deps(
+      {
+        channels: [
+          { id: 'c1', weight: 2, credentialRef: 'r1', model: 'm1' },
+          { id: 'c2', weight: 1, credentialRef: 'r2', model: 'm2' },
+        ],
+      },
+      fakeChatAdapterNonRetryableFirst(),
+    );
+    d.rng = () => 0;
+
+    // A non-retryable first error throws AND preserves retryable:false so the
+    // relay's shouldDegradeToNextModel does NOT degrade to another model.
+    await expect(openChatStreamCommit(d)).rejects.toMatchObject({
+      unified: { code: 'content_filtered', retryable: false },
+    });
+    expect(failCalls).toHaveLength(0);
+    expect(settleCalls).toHaveLength(0);
+  });
+
+  it('throws when the only channel adapter cannot streamChat (no streamable channel)', async () => {
+    // The single channel's adapter exposes no streamChat → the commit cannot open
+    // any upstream, so it THROWS a non-retryable EngineError (the relay does not
+    // degrade on it). Built on a one-channel set so it cannot fail over.
+    const adapters = new AdapterRegistry();
+    adapters.register({
+      providerType: 'no-stream',
+      submit: () => Promise.resolve({ kind: 'sync', output: {}, usage: {} }),
+      chat: () =>
+        Promise.resolve({
+          message: { role: 'assistant', content: [{ kind: 'text', text: 'ok' }] },
+          stopReason: 'stop',
+          usage: { inputTokens: 1, outputTokens: 1 },
+        }),
+      extractUsage: () => ({}),
+      mapError: () => ({ code: 'upstream_error', message: 'mock', retryable: false }),
+    });
+    const d = depsWith(adapters, {
+      channels: [{ id: 'c1', weight: 1, credentialRef: 'r1', providerType: 'no-stream' }],
+    });
+
+    await expect(openChatStreamCommit(d)).rejects.toMatchObject({
+      unified: { code: 'internal_error', retryable: false },
+    });
+  });
+
+  it('resolves a committed stream the drain yields first-then-rest over', async () => {
+    const d = deps();
+    const committed: CommittedChatStream = await openChatStreamCommit(d);
+    expect(committed.first).toMatchObject({ type: 'message_start' });
+
+    const events: ChatStreamEvent[] = [];
+    for await (const ev of createChatSettlingStream(d, committed)) events.push(ev);
+    // first (message_start) then the rest, drained verbatim and settled once.
+    expect(events.map((e) => e.type)).toEqual([
+      'message_start',
+      'content_delta',
+      'usage',
+      'stop',
+      'done',
+    ]);
+    expect(settleCalls).toHaveLength(1);
+    expect(failCalls).toHaveLength(0);
   });
 });
 

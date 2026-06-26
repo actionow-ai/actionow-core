@@ -159,14 +159,182 @@ export async function* createSettlingStream(deps: SettlingStreamDeps): AsyncGene
 }
 
 /**
- * IR chat variant of {@link createSettlingStream}: drives the adapter's
- * `streamChat` over the IR `ChatRequest` placed at `deps.inputs.__ir`, forwards
- * every IR {@link ChatStreamEvent} verbatim to the consumer (including the IR
- * `done`), and **settles exactly once** in `finally` via the SAME
- * `settleStream`/`failStream` helpers — on normal completion, on an IR `error`
- * event (→ fail/release + an in-band error frame, NOT a throw, since SSE headers
- * are already committed), AND on consumer early-`return()` (disconnect). A
- * no-usage end settles a measured partial, never the full hold (see below).
+ * A pre-committed chat stream: the LIVE channel was selected and its first event
+ * already pulled, by {@link openChatStreamCommit}. Once this resolves the client
+ * can begin receiving bytes — there is no more cross-channel failover; a later
+ * (post-commit) error is handled in-band by {@link createChatSettlingStream}.
+ */
+export interface CommittedChatStream {
+  /** The committed channel's IR stream, positioned AFTER the first event. */
+  readonly iterator: AsyncIterator<ChatStreamEvent>;
+  /** The first event already pulled (undefined for an empty stream). */
+  readonly first: ChatStreamEvent | undefined;
+  /** The channel whose stream committed (its first event was non-error). */
+  readonly servedChannel: RunChannel;
+}
+
+/**
+ * Phase 1 of an IR chat stream — pick a LIVE channel and pull the first event,
+ * with **breaker-aware cross-channel pre-commit failover**. We may switch
+ * channels ONLY before any frame is forwarded: a retryable first-event error
+ * (or a thrown connection) cools that `(channel, model)` and advances to the
+ * next; the injected breaker excludes Open channels + trial-gates HalfOpen ones
+ * (fail-open internally) and each pre-commit outcome feeds the FSM
+ * (`onFailure`/`onSuccess`). Once a channel yields a non-error first event (or
+ * an empty `first.done`), it is **committed** and returned as a
+ * {@link CommittedChatStream}.
+ *
+ * On all-channels-exhausted / a non-retryable first error / no streamable
+ * channel it **THROWS** an {@link EngineError} that PRESERVES the underlying
+ * unified `code`/`retryable`. The caller ({@link ExecutionService.runChatStream})
+ * releases the hold and rethrows so the throw becomes a real HTTP error
+ * (pre-flush, before the SSE headers are committed) OR drives the relay's model
+ * fallback — which degrades only on retryable DEGRADE_CODES, so a non-retryable
+ * first error (kept `retryable:false`) never degrades.
+ *
+ * Awaiting this (rather than yielding Phase 1 lazily as the old combined
+ * generator did) is the whole point of ⑤-S: the first good event is in hand
+ * BEFORE the controller flushes SSE headers, so a total pre-commit failure can
+ * still surface as an HTTP status / a cross-model fallback instead of a
+ * `200` + in-band error frame.
+ */
+export async function openChatStreamCommit(deps: SettlingStreamDeps): Promise<CommittedChatStream> {
+  const ir = deps.inputs.__ir as ChatRequest | undefined;
+  if (ir === undefined) {
+    throw new EngineError({
+      code: 'internal_error',
+      message: 'chat settling stream requires an IR ChatRequest at inputs.__ir',
+      retryable: false,
+    });
+  }
+
+  const rng = deps.rng ?? Math.random;
+  const now = deps.now ?? ((): Date => new Date());
+  const model = deps.req.usageLogModel ?? '*';
+  // Feed the breaker's write path on a pre-first-event channel failure: a
+  // retryable error (or a thrown connection) before the stream committed cools
+  // that `(channel, model)` down so the next pre-commit pick can skip it. Like
+  // the blocking `routeBlocking` outcome hooks, this is fire-and-forget — the
+  // store already swallows errors, and `void` guarantees a breaker write can
+  // never block or throw on the streaming hot path.
+  const recordFailureSafe = (channelId: string): Promise<void> => {
+    if (deps.breaker !== undefined) {
+      void deps.breaker.onFailure(channelId, model, now());
+    }
+    return Promise.resolve();
+  };
+  // Feed the breaker's write path once a channel COMMITS (its first event was
+  // non-error / the stream opened cleanly): the upstream connection succeeded,
+  // so close a HalfOpen probe and count the success in the window. Fire-and-
+  // forget like the failure hook. A later mid-stream (in-band) error is NOT a
+  // connection failure of this channel, so it is not recorded here.
+  const recordCommitSafe = (channelId: string): void => {
+    if (deps.breaker !== undefined) void deps.breaker.onSuccess(channelId, model, now());
+  };
+
+  // Breaker-aware pre-first-event selection: the injected store excludes Open
+  // `(channel, model)` and trial-gates HalfOpen ones (fail-open internally), so
+  // the stream's pre-commit failover skips a tripped channel just like the
+  // blocking path. Absent breaker → the full channel set (unchanged).
+  const available = await availableChannels(
+    { db: deps.db, now, rng, breaker: deps.breaker },
+    deps.req.channels,
+    model,
+  );
+  if (available.length === 0) {
+    throw new EngineError({
+      code: 'internal_error',
+      message: 'no upstream channel to route to',
+      retryable: false,
+    });
+  }
+  // Carry each channel's group-membership `priority` (Track 4) into the failover
+  // ordering so the pre-first-event stream failover is priority-tier-aware: the
+  // highest tier is tried first, weighted within the tier, then the next-lower
+  // tier. Absent `priority` → a single tier (legacy flat-weighted).
+  const ordered = orderForFailover(
+    available.map((c) => ({ id: c.id, weight: c.weight, priority: c.priority, value: c })),
+    rng,
+  );
+
+  let lastError: UnifiedError | undefined;
+  for (let i = 0; i < ordered.length; i += 1) {
+    const channel = ordered[i]?.value;
+    if (channel === undefined) continue;
+    const isLast = i === ordered.length - 1;
+    // Select the adapter PER CHANNEL so channels under one resource can target
+    // different providers (cross-provider failover) — mirroring the blocking
+    // `runChat` path. Falls back to the resource provider for single-provider
+    // channels with no per-channel `providerType`.
+    const adapter = deps.adapters.get(channel.providerType ?? deps.req.resource.providerType);
+    if (adapter.streamChat === undefined) {
+      // This channel's adapter cannot stream: record the failure and advance, or
+      // throw a (non-retryable) error if this was the last channel.
+      lastError = {
+        code: 'internal_error',
+        message: `adapter ${adapter.providerType} cannot streamChat`,
+        retryable: false,
+      };
+      if (!isLast) continue;
+      throw new EngineError(lastError);
+    }
+    const ctx = await buildContext(deps, channel);
+    try {
+      const iterator = adapter.streamChat(ir, ctx)[Symbol.asyncIterator]();
+      const first = await iterator.next();
+      if (first.done === true) {
+        // Empty stream (no frames): commit; the drain's `finally` settles a
+        // measured 0.
+        recordCommitSafe(channel.id);
+        return { iterator, first: undefined, servedChannel: channel };
+      }
+      if (first.value.type === 'error') {
+        const e = first.value.error;
+        if (e.retryable && !isLast) {
+          await recordFailureSafe(channel.id);
+          lastError = e;
+          continue;
+        }
+        // Non-retryable, or the last channel: THROW, preserving the underlying
+        // code/retryable so the relay degrades only on retryable DEGRADE_CODES.
+        throw new EngineError(e);
+      }
+      recordCommitSafe(channel.id);
+      return { iterator, first: first.value, servedChannel: channel };
+    } catch (err) {
+      // A decided failure (a non-retryable EngineError we built above, or any
+      // non-retryable carrier) is final — propagate it untouched.
+      if (err instanceof EngineError && !err.unified.retryable) throw err;
+      if (isFailoverRetryable(err) && !isLast) {
+        await recordFailureSafe(channel.id);
+        lastError = toUnified(err);
+        continue;
+      }
+      throw err instanceof EngineError ? err : new EngineError(toUnified(err));
+    }
+  }
+
+  // Every channel failed retryably and the list is exhausted: throw the LAST
+  // channel's error (retryable), so the relay's model fallback fires.
+  throw new EngineError(
+    lastError ?? { code: 'upstream_error', message: 'all channels failed', retryable: false },
+  );
+}
+
+/**
+ * Phase 2 of an IR chat stream — DRAIN the pre-committed channel from
+ * {@link openChatStreamCommit} and **settle exactly once**. Yields `committed.first`,
+ * drains the rest of the iterator, forwards every IR {@link ChatStreamEvent}
+ * verbatim (including the IR `done`), and on a POST-commit mid-stream `error`
+ * event forwards it IN-BAND (→ fail/release + an in-band error frame, NOT a
+ * throw — the SSE headers are already committed) before ending. Settle-once runs
+ * in `finally` via the SAME `settleStream`/`failStream` helpers — on normal
+ * completion, on an in-band error, AND on consumer early-`return()` (disconnect).
+ * A no-usage end settles a measured partial, never the full hold (see below).
+ *
+ * Cross-channel pre-commit failover is NOT here anymore — it moved into the
+ * awaited {@link openChatStreamCommit}; the single committing channel drains
+ * byte-for-byte as before. `servedChannel` is sourced from `committed`.
  *
  * Boundary mapping (CRITICAL): the IR `usage` event carries camelCase
  * `{inputTokens, outputTokens}`, but the engine `UsageVector` / `computeFinalCost`
@@ -180,10 +348,11 @@ export async function* createSettlingStream(deps: SettlingStreamDeps): AsyncGene
  * log-insert failure never fails the settle (the ledger settle is the truth).
  *
  * The IR `done` shape is NOT mutated; the API reads the settled `jobId` from the
- * `StreamOutcome.jobId` `runChatStream` returns (known before streaming begins).
+ * `ChatStreamOutcome.jobId` `runChatStream` returns (known before streaming).
  */
 export async function* createChatSettlingStream(
   deps: SettlingStreamDeps,
+  committed: CommittedChatStream,
 ): AsyncGenerator<ChatStreamEvent> {
   const ir = deps.inputs.__ir as ChatRequest | undefined;
   if (ir === undefined) {
@@ -200,7 +369,7 @@ export async function* createChatSettlingStream(
   // The channel whose stream committed (its first event was non-error), threaded
   // into the usage_log mirror so a streamed chat records which channel/provider
   // ultimately served — matching the blocking `runChat` path (cross-provider).
-  let servedChannel: RunChannel | undefined;
+  const servedChannel = committed.servedChannel;
   // Output bytes actually streamed to the consumer. When a stream ends WITHOUT a
   // usage frame — a clean disconnect BEFORE the trailing usage event (every real
   // adapter emits usage last), or a provider that never reports usage — this
@@ -236,158 +405,21 @@ export async function* createChatSettlingStream(
     }
     const usage = latestUsage ?? measuredUsage();
     const finalCost = await settleStream(deps, usage);
-    await mirrorChatUsageLog(
-      deps,
-      usage,
-      finalCost,
-      servedChannel && {
-        channelId: servedChannel.id,
-        providerType: servedChannel.providerType ?? deps.req.resource.providerType,
-        inputCostPer1m: servedChannel.inputCostPer1m,
-        outputCostPer1m: servedChannel.outputCostPer1m,
-      },
-    );
-  };
-
-  const rng = deps.rng ?? Math.random;
-  const now = deps.now ?? ((): Date => new Date());
-  const model = deps.req.usageLogModel ?? '*';
-  // Feed the breaker's write path on a pre-first-event channel failure: a
-  // retryable error (or a thrown connection) before the stream committed cools
-  // that `(channel, model)` down so the next pre-commit pick can skip it. Like
-  // the blocking `routeBlocking` outcome hooks, this is fire-and-forget — the
-  // store already swallows errors, and `void` guarantees a breaker write can
-  // never block or throw on the streaming hot path.
-  const recordFailureSafe = (channelId: string): Promise<void> => {
-    if (deps.breaker !== undefined) {
-      void deps.breaker.onFailure(channelId, model, now());
-    }
-    return Promise.resolve();
-  };
-  // Feed the breaker's write path once a channel COMMITS (its first event was
-  // non-error / the stream opened cleanly): the upstream connection succeeded,
-  // so close a HalfOpen probe and count the success in the window. Fire-and-
-  // forget like the failure hook. A later mid-stream (in-band) error is NOT a
-  // connection failure of this channel, so it is not recorded here.
-  const recordCommitSafe = (channelId: string): void => {
-    if (deps.breaker !== undefined) void deps.breaker.onSuccess(channelId, model, now());
+    await mirrorChatUsageLog(deps, usage, finalCost, {
+      channelId: servedChannel.id,
+      providerType: servedChannel.providerType ?? deps.req.resource.providerType,
+      inputCostPer1m: servedChannel.inputCostPer1m,
+      outputCostPer1m: servedChannel.outputCostPer1m,
+    });
   };
 
   try {
-    // Phase 1 — pick a LIVE channel (pre-first-event failover). We may switch
-    // channels ONLY before forwarding any frame: a retryable error on the first
-    // event (or a thrown connection) cools that channel down and advances to the
-    // next. Once the upstream yields a non-error first event, the channel is
-    // committed — the client has begun receiving that stream and we cannot
-    // restart elsewhere; a later error is handled in-band in Phase 2.
-    // Breaker-aware pre-first-event selection: the injected store excludes Open
-    // `(channel, model)` and trial-gates HalfOpen ones (fail-open internally),
-    // so the stream's pre-commit failover skips a tripped channel just like the
-    // blocking path. Absent breaker → the full channel set (unchanged).
-    const available = await availableChannels(
-      { db: deps.db, now, rng, breaker: deps.breaker },
-      deps.req.channels,
-      model,
-    );
-    if (available.length === 0) {
-      failure = {
-        code: 'internal_error',
-        message: 'no upstream channel to route to',
-        retryable: false,
-      };
-      yield { type: 'error', error: failure };
-      return;
-    }
-    // Carry each channel's group-membership `priority` (Track 4) into the
-    // failover ordering so the pre-first-event stream failover is priority-tier-
-    // aware: the highest tier is tried first, weighted within the tier, then the
-    // next-lower tier. Absent `priority` → a single tier (legacy flat-weighted).
-    const ordered = orderForFailover(
-      available.map((c) => ({ id: c.id, weight: c.weight, priority: c.priority, value: c })),
-      rng,
-    );
-
-    let committed:
-      | { iterator: AsyncIterator<ChatStreamEvent>; first: ChatStreamEvent | undefined }
-      | undefined;
-    let lastError: UnifiedError | undefined;
-    for (let i = 0; i < ordered.length; i += 1) {
-      const channel = ordered[i]?.value;
-      if (channel === undefined) continue;
-      const isLast = i === ordered.length - 1;
-      // Select the adapter PER CHANNEL so channels under one resource can target
-      // different providers (cross-provider failover) — mirroring the blocking
-      // `runChat` path. Falls back to the resource provider for single-provider
-      // channels with no per-channel `providerType`.
-      const adapter = deps.adapters.get(channel.providerType ?? deps.req.resource.providerType);
-      if (adapter.streamChat === undefined) {
-        // This channel's adapter cannot stream: record the failure and advance,
-        // or surface an in-band error + fail if this was the last channel.
-        lastError = {
-          code: 'internal_error',
-          message: `adapter ${adapter.providerType} cannot streamChat`,
-          retryable: false,
-        };
-        if (!isLast) continue;
-        failure = lastError;
-        yield { type: 'error', error: failure };
-        return;
-      }
-      const ctx = await buildContext(deps, channel);
-      try {
-        const iterator = adapter.streamChat(ir, ctx)[Symbol.asyncIterator]();
-        const first = await iterator.next();
-        if (first.done === true) {
-          // Empty stream (no frames): commit; `finally` settles a measured 0.
-          committed = { iterator, first: undefined };
-          servedChannel = channel;
-          recordCommitSafe(channel.id);
-          break;
-        }
-        if (first.value.type === 'error') {
-          const e = first.value.error;
-          if (e.retryable && !isLast) {
-            await recordFailureSafe(channel.id);
-            lastError = e;
-            continue;
-          }
-          // Non-retryable, or the last channel: surface in-band + fail.
-          failure = e;
-          yield first.value;
-          return;
-        }
-        committed = { iterator, first: first.value };
-        servedChannel = channel;
-        recordCommitSafe(channel.id);
-        break;
-      } catch (err) {
-        if (isFailoverRetryable(err) && !isLast) {
-          await recordFailureSafe(channel.id);
-          lastError = toUnified(err);
-          continue;
-        }
-        throw err; // → outer catch yields an in-band error frame + fails
-      }
-    }
-
-    if (committed === undefined) {
-      // Every channel failed retryably and the list is exhausted.
-      failure = lastError ?? {
-        code: 'upstream_error',
-        message: 'all channels failed',
-        retryable: false,
-      };
-      yield { type: 'error', error: failure };
-      return;
-    }
-
-    // Phase 2 — drain the committed channel (the first event, then the rest),
-    // tallying usage/streamed-bytes and forwarding any mid-stream error in-band.
-    const live = committed;
+    // Drain the committed channel (the first event, then the rest), tallying
+    // usage/streamed-bytes and forwarding any mid-stream error in-band.
     const drain = async function* (): AsyncGenerator<ChatStreamEvent> {
-      if (live.first !== undefined) yield live.first;
+      if (committed.first !== undefined) yield committed.first;
       for (;;) {
-        const next = await live.iterator.next();
+        const next = await committed.iterator.next();
         if (next.done === true) break;
         yield next.value;
       }
@@ -416,9 +448,9 @@ export async function* createChatSettlingStream(
       yield ev;
     }
   } catch (err) {
-    // A raw adapter throw (e.g. the upstream connection failed). Fail/release in
-    // `finally`, then surface the failure IN-BAND as an IR error event rather
-    // than re-throwing into the already-committed SSE stream.
+    // A raw adapter throw (e.g. the upstream connection failed mid-drain).
+    // Fail/release in `finally`, then surface the failure IN-BAND as an IR error
+    // event rather than re-throwing into the already-committed SSE stream.
     const unified = failure ?? toUnified(err);
     failure = unified;
     await finalize();
@@ -522,8 +554,12 @@ async function settleStream(
   return finalCost;
 }
 
-/** Fail the job (release the hold, no charge) once. */
-async function failStream(deps: SettlingStreamDeps, error: UnifiedError): Promise<void> {
+/**
+ * Fail the job (release the hold, no charge) once. Exported so
+ * {@link ExecutionService.runChatStream} can release the hold on a total
+ * pre-commit failure the SAME way the drain generator's `finalize` would.
+ */
+export async function failStream(deps: SettlingStreamDeps, error: UnifiedError): Promise<void> {
   await failJob(deps.db, {
     jobId: deps.jobId,
     accountId: deps.req.accountId,
