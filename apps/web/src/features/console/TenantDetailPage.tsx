@@ -1,11 +1,11 @@
-import { ArrowLeftIcon, PlusIcon } from '@phosphor-icons/react';
+import { PlusIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 
 import { useSetConsoleBack } from '../../components/console/ConsoleChrome';
+import { DetailPage, DetailRow } from '../../components/console/DetailScaffold';
 import { BalanceCard } from '../../components/data/BalanceCard';
 import { CopyField } from '../../components/data/CopyField';
 import type { Column } from '../../components/data/DataTable';
@@ -64,37 +64,17 @@ export function TenantDetailPage() {
   const tenant = (tenants.data ?? []).find((x) => x.id === id);
   const account = (accounts.data ?? []).find((a) => a.tenant_id === id);
 
-  if (tenants.isLoading) {
+  if (tenants.isLoading || tenants.isError || tenant === undefined) {
     return (
-      <div style={{ display: 'grid', placeItems: 'center', padding: 'var(--s-6)' }}>
-        <RoseLoader size={56} />
-      </div>
-    );
-  }
-  if (tenants.isError) {
-    return (
-      <div style={{ padding: 'var(--s-5)' }}>
-        <ErrorState onRetry={() => void tenants.refetch()} />
-      </div>
-    );
-  }
-  if (tenant === undefined) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-        <BackLink label={t('tenants.detail.back')} />
-        <div
-          className="panel"
-          style={{
-            borderRadius: 'var(--r-md)',
-            padding: 'var(--s-5)',
-            color: 'var(--muted)',
-            fontSize: 'var(--fs-sm)',
-            textAlign: 'center',
-          }}
-        >
-          {t('tenants.detail.notFound')}
-        </div>
-      </div>
+      <DetailPage
+        backTo="/console/tenants"
+        backLabel={t('tenants.detail.back')}
+        loading={tenants.isLoading}
+        error={tenants.isError}
+        onRetry={() => void tenants.refetch()}
+        notFound={tenant === undefined}
+        notFoundMessage={t('tenants.detail.notFound')}
+      />
     );
   }
 
@@ -106,46 +86,6 @@ export function TenantDetailPage() {
       accountsError={accounts.isError}
       onRetryAccounts={() => void accounts.refetch()}
     />
-  );
-}
-
-/** The page's top-of-content back link (mirrors the TopBar back slot for an in-page affordance). */
-function BackLink({ label }: { label: string }) {
-  return (
-    <Link
-      to="/console/tenants"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 'var(--s-1)',
-        fontSize: 'var(--fs-sm)',
-        color: 'var(--muted)',
-        textDecoration: 'none',
-        width: 'fit-content',
-      }}
-    >
-      <ArrowLeftIcon size={14} weight="bold" aria-hidden="true" />
-      {label}
-    </Link>
-  );
-}
-
-/** One label / value row in the tenant detail header. */
-function DetailRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-1)' }}>
-      <span
-        style={{
-          fontSize: 'var(--fs-caption)',
-          textTransform: 'uppercase',
-          letterSpacing: '.06em',
-          color: 'var(--faint)',
-        }}
-      >
-        {label}
-      </span>
-      <span style={{ fontSize: 'var(--fs-sm)' }}>{children}</span>
-    </div>
   );
 }
 
@@ -570,8 +510,11 @@ function TenantDetailBody({
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-      <BackLink label={t('tenants.detail.back')} />
+    <DetailPage
+      backTo="/console/tenants"
+      backLabel={t('tenants.detail.back')}
+      notFoundMessage={t('tenants.detail.notFound')}
+    >
       <h1 style={{ fontSize: 'var(--fs-xl)', fontWeight: 'var(--fw-medium)', margin: 0 }}>
         {tenant.name}
       </h1>
@@ -637,6 +580,6 @@ function TenantDetailBody({
           />
         )}
       </Tabs>
-    </div>
+    </DetailPage>
   );
 }

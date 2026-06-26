@@ -1,16 +1,14 @@
-import { ArrowLeftIcon, TrashIcon } from '@phosphor-icons/react';
+import { TrashIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import { useSetConsoleBack } from '../../components/console/ConsoleChrome';
-import { ErrorState } from '../../components/data/ErrorState';
+import { DetailPage, DetailRow } from '../../components/console/DetailScaffold';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { RoseLoader } from '../../components/ui/RoseLoader';
 import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
@@ -42,87 +40,21 @@ export function ServiceTokenDetailPage() {
 
   const token = (tokens.data ?? []).find((tk) => tk.id === id);
 
-  if (tokens.isLoading) {
+  if (tokens.isLoading || tokens.isError || token === undefined) {
     return (
-      <div style={{ display: 'grid', placeItems: 'center', padding: 'var(--s-6)' }}>
-        <RoseLoader size={56} />
-      </div>
-    );
-  }
-  if (tokens.isError) {
-    return (
-      <div style={{ padding: 'var(--s-5)' }}>
-        <ErrorState onRetry={() => void tokens.refetch()} />
-      </div>
-    );
-  }
-  if (token === undefined) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-        <BackLink label={t('tokens.detail.back')} />
-        <NotFound message={t('tokens.detail.notFound')} />
-      </div>
+      <DetailPage
+        backTo={BACK_TO}
+        backLabel={t('tokens.detail.back')}
+        loading={tokens.isLoading}
+        error={tokens.isError}
+        onRetry={() => void tokens.refetch()}
+        notFound={token === undefined}
+        notFoundMessage={t('tokens.detail.notFound')}
+      />
     );
   }
 
   return <ServiceTokenDetailBody token={token} />;
-}
-
-/** The page's top-of-content back link (mirrors the TopBar back slot). */
-function BackLink({ label }: { label: string }) {
-  return (
-    <Link
-      to={BACK_TO}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 'var(--s-1)',
-        fontSize: 'var(--fs-sm)',
-        color: 'var(--muted)',
-        textDecoration: 'none',
-        width: 'fit-content',
-      }}
-    >
-      <ArrowLeftIcon size={14} weight="bold" aria-hidden="true" />
-      {label}
-    </Link>
-  );
-}
-
-function NotFound({ message }: { message: string }) {
-  return (
-    <div
-      className="panel"
-      style={{
-        borderRadius: 'var(--r-md)',
-        padding: 'var(--s-5)',
-        color: 'var(--muted)',
-        fontSize: 'var(--fs-sm)',
-        textAlign: 'center',
-      }}
-    >
-      {message}
-    </div>
-  );
-}
-
-/** One label / value row in the token detail header. */
-function DetailRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-1)' }}>
-      <span
-        style={{
-          fontSize: 'var(--fs-caption)',
-          textTransform: 'uppercase',
-          letterSpacing: '.06em',
-          color: 'var(--faint)',
-        }}
-      >
-        {label}
-      </span>
-      <span style={{ fontSize: 'var(--fs-sm)' }}>{children}</span>
-    </div>
-  );
 }
 
 /** The detail body — the former card content as a page (name, status, created/
@@ -147,8 +79,11 @@ function ServiceTokenDetailBody({ token }: { token: AdminTokenView }) {
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-      <BackLink label={t('tokens.detail.back')} />
+    <DetailPage
+      backTo={BACK_TO}
+      backLabel={t('tokens.detail.back')}
+      notFoundMessage={t('tokens.detail.notFound')}
+    >
       <h1
         style={{
           fontSize: 'var(--fs-lg)',
@@ -196,6 +131,6 @@ function ServiceTokenDetailBody({ token }: { token: AdminTokenView }) {
         onConfirm={() => revoke.mutate()}
         onClose={() => setConfirmRevoke(false)}
       />
-    </div>
+    </DetailPage>
   );
 }
