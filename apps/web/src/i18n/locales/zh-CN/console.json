@@ -136,7 +136,13 @@
       },
       "balance": "余额",
       "held": "冻结",
-      "scanQr": "扫码支付"
+      "scanQr": "扫码支付",
+      "redeem": {
+        "title": "兑换卡密",
+        "placeholder": "输入卡密",
+        "submit": "兑换",
+        "success": "兑换成功,已到账 {{amount}}"
+      }
     },
     "settings": {
       "profile": "资料",

@@ -58,6 +58,17 @@ export const consoleChangePasswordSchema = z.object({
 export type ConsoleChangePasswordBody = z.infer<typeof consoleChangePasswordSchema>;
 
 /**
+ * `POST /console/redeem` — a tenant admin redeems a gift/redemption code to
+ * credit its OWN tenant account. No `tenantId`/`accountId` in the body: both are
+ * supplied by the guard from the authenticated principal, so a code can only ever
+ * be claimed for the caller's own tenant. The `code` is trimmed + non-empty.
+ */
+export const redeemCodeRequestSchema = z.object({
+  code: z.string().trim().min(1),
+});
+export type RedeemCodeBody = z.infer<typeof redeemCodeRequestSchema>;
+
+/**
  * `POST /console/users` (RBAC v1) — a tenant admin invites a sub-user. The
  * server creates a normal USER row (`role='user'`, `tenant_role='member'`) in the
  * caller's own tenant; the `password` is the member's initial credential (same

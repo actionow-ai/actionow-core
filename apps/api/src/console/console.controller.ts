@@ -102,9 +102,11 @@ import {
   type ConsoleCreateIntentDto,
   consoleCreateIntentSchema,
   type ConsoleCreateLimitPlanDto,
+  type ConsoleRedeemCodeDto,
   type ConsoleSetLimitPlanDto,
   type ConsoleUpdateLimitPlanDto,
   createLimitPlanRequestSchema,
+  redeemCodeRequestSchema,
   setLimitPlanRequestSchema,
   updateLimitPlanRequestSchema,
 } from './dto/console.dto.js';
@@ -632,6 +634,35 @@ export class ConsoleController {
   ): Promise<ConsoleCreateIntentResponse> {
     const ctx = ctxOf(req);
     return this.console.selfTopup(dto, ctx.tenantId);
+  }
+
+  /**
+   * Redeem a single-use gift code, crediting YOUR tenant's account. Tenant-admin
+   * only (a member is 403). The claim + credit run in one atomic transaction —
+   * an invalid/expired/already-redeemed code → 404/400, never partial. The grant
+   * and new balance are µcredit decimal strings (same serialization as
+   * `GET /console/balance`).
+   */
+  @Post('redeem')
+  @HttpCode(200)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Redeem a gift code to credit your tenant (single-use, atomic)' })
+  @Audit({
+    action: 'redemption.redeem',
+    target: 'redemption_code',
+    // The code IS the row identity (no unrelated secret); record it as the target
+    // plus the credited µcredit grant from the result.
+    resolve: ({ body, result }) => ({
+      targetId: (body as { code?: string }).code ?? null,
+      meta: { credited: (result as { credited?: string }).credited },
+    }),
+  })
+  async redeem(
+    @Body(new ZodBody(redeemCodeRequestSchema)) dto: ConsoleRedeemCodeDto,
+    @Req() req: ConsoleRequest,
+  ): Promise<{ credited: string; balance: string }> {
+    const ctx = ctxOf(req);
+    return this.console.redeem(dto.code, ctx.tenantId, ctx.accountId);
   }
 
   @Get('limits')

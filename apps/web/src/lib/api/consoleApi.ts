@@ -30,6 +30,7 @@ import type {
   Page,
   PresignUploadBody,
   PresignUploadResult,
+  RedeemCodeBody,
   SubAccountView,
   SubjectView,
   TopupSubAccountBody,
@@ -124,6 +125,15 @@ export function makeConsoleApi(sdk: SdkClient, rawClient: ApiClient, onUnauthori
 
     // Tenant credit balance + held (dedicated endpoint).
     balance: async (): Promise<ConsoleBalanceView> => unwrap(await sdk.GET('/console/balance'), u),
+    // Redeem a gift/redemption code → credit THIS tenant's account (tenant-admin
+    // only; a member 403s server-side via TenantAdminGuard). Returns the credited
+    // amount + the balance after, both µ-credit decimal strings (matching
+    // `balance()`'s serialization). RAW: this console route isn't in the generated
+    // SDK path set (matching the limit-plan / subjects precedent), but its body is
+    // a contract type (`RedeemCodeBody`). The caller's token scopes the tenant —
+    // never a body field.
+    redeem: (body: RedeemCodeBody): Promise<{ credited: string; balance: string }> =>
+      rawClient.post<{ credited: string; balance: string }>('/console/redeem', body),
 
     // Profile + self-serve change-password.
     me: async (): Promise<ConsoleMeView> => unwrap(await sdk.GET('/console/me'), u),

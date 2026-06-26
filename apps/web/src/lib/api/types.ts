@@ -112,6 +112,8 @@ export type {
   ProxyProbeBody,
   ProxyView,
   ReconcileRowView,
+  // --- console redeem request body (console-requests) ---
+  RedeemCodeBody,
   RedemptionCodeView,
   RelayTraceView,
   ResourceView,
