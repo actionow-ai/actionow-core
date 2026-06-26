@@ -30,7 +30,7 @@ import { isFailoverRetryable } from './channel-routing.js';
 import { EngineError } from './errors.js';
 import type { RunChannel } from './execution-service.js';
 import { meterMedia, type PersistedMediaObject } from './media-result.js';
-import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
+import { serializeAppliedModifiers, settledCost } from './pricing.js';
 import { type TraceContext, TracingHttpClient } from './relay-trace.js';
 
 /** Default per-body byte cap when the runner deps carry no `traceMaxBytes`. */
@@ -325,12 +325,14 @@ export class JobRunner {
       output = persisted.result;
     }
     // Cost is computed from `usage` + `job.inputs`, so rewriting `output` does
-    // not affect pricing.
-    const { credits: finalCost, applied } = computeFinalCost(
+    // not affect pricing. Capped at the placed hold (shared policy) so a media
+    // async run can never settle above its (balance-gated) reservation.
+    const { credits: finalCost, applied } = settledCost(
       ctx.pricebookEntry,
       usage,
       job.inputs,
       ctx.modifiers,
+      job.quotedCredits ?? 0n,
     );
     const settleResult = await settleJob(this.deps.db, {
       jobId: job.id,

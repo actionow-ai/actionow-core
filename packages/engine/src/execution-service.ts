@@ -34,6 +34,7 @@ import {
   applyModifiers,
   DomainError,
   type MicroCredits,
+  minimumHold,
   priceProviderCost,
   quote,
   settle,
@@ -44,7 +45,7 @@ import type { BreakerStore } from './breaker.js';
 import { routeBlocking } from './channel-routing.js';
 import { EngineError, engineError } from './errors.js';
 import { type FaultPolicy, runWithFaultPolicy, wrapHttpWithTimeouts } from './fault-policy.js';
-import { computeFinalCost, serializeAppliedModifiers } from './pricing.js';
+import { serializeAppliedModifiers, settledCost } from './pricing.js';
 import { type TraceContext, TracingHttpClient } from './relay-trace.js';
 import {
   type CommittedChatStream,
@@ -695,6 +696,12 @@ export class ExecutionService {
       base = quote(entry, inputs);
     } else if (req.estimatedUsage !== undefined) {
       base = settle(entry, req.estimatedUsage);
+      // SECURITY (billing integrity): `estimatedUsage` is caller-supplied and may
+      // be `{}` / all-zero, yielding a 0 hold that would let a ~0-balance account
+      // start a paid post-timed run (then settle the real cost). Floor the hold at
+      // the price of one unit so it is always a real, balance-gated reservation.
+      const floor = req.holdFloor ?? minimumHold(entry);
+      if (floor !== undefined && base < floor) base = floor;
     } else if (req.holdFloor !== undefined) {
       base = req.holdFloor;
     } else {
@@ -810,11 +817,14 @@ export class ExecutionService {
     served?: ServedChannel,
   ): Promise<RunOutcome> {
     const entry = req.pricebookEntry;
-    const { credits: finalCost, applied } = computeFinalCost(
+    // Cap the real charge at the placed hold (shared policy) — a blocking run can
+    // never settle above what was reserved, so the wallet cannot go negative.
+    const { credits: finalCost, applied } = settledCost(
       entry,
       result.usage,
       req.inputs,
       req.modifiers,
+      holdAmount,
     );
 
     await settleJob(this.deps.db, {

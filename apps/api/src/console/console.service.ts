@@ -60,7 +60,6 @@ import {
   type SubjectDeleteResult,
   type SubjectRow,
   topUp,
-  topupSubAccount,
   transferCredits,
   updateLimitPlan,
   updateSubject,
@@ -560,11 +559,30 @@ export class ConsoleService {
     dto: CreateSubAccountBody,
   ): Promise<SubAccountRow> {
     await this.getSubject(tenantId, subjectId);
-    const creditBalance = dto.credits === undefined ? undefined : creditsToMicro(dto.credits);
-    return createSubAccount(this.db, {
-      tenantId,
-      subjectId,
-      ...(creditBalance !== undefined ? { creditBalance } : {}),
+    const opening = dto.credits === undefined ? 0n : creditsToMicro(dto.credits);
+    // SECURITY (billing integrity): never MINT an opening balance. Create the
+    // wallet at zero, then fund the requested opening amount as a CONSERVING
+    // allocation from the tenant's own pool (atomic; the whole open rolls back if
+    // the pool can't cover it). Mirrors `topupSubAccount`; the minting path stays
+    // reserved for the platform/system-admin grant.
+    return this.db.transaction(async (tx) => {
+      const sub = await createSubAccount(tx, { tenantId, subjectId, creditBalance: 0n });
+      if (opening <= 0n) return sub;
+      try {
+        await transferCredits(tx, {
+          tenantId,
+          subjectId,
+          amount: opening,
+          direction: 'to_subject',
+        });
+      } catch (err) {
+        if (err instanceof Error && err.message.includes('insufficient tenant balance')) {
+          throw engineInvalidInput('insufficient tenant pool balance to fund the sub-wallet');
+        }
+        throw err;
+      }
+      const funded = await getSubAccount(tx, tenantId, subjectId);
+      return funded ?? sub;
     });
   }
 
@@ -580,9 +598,17 @@ export class ConsoleService {
   }
 
   /**
-   * Credit a caller-tenant subject's sub-wallet (internal allocation to the HARD
-   * wallet; amount in credits). 404 when the subject is cross-tenant or has no
-   * open wallet. Returns the new µcredit sub-wallet balance.
+   * Allocate credit to a caller-tenant subject's sub-wallet (amount in credits).
+   * 404 when the subject is cross-tenant or has no open wallet.
+   *
+   * SECURITY (billing integrity): a tenant-admin must NOT be able to mint
+   * sub-wallet credit from nothing — a sub-wallet "topup" is an INTERNAL
+   * ALLOCATION funded from the tenant's OWN pool. So it routes through the
+   * conserving `transferCredits` (atomic pool debit with a no-oversell guard),
+   * NOT the minting `topupSubAccount` (which only credits the sub-wallet and is
+   * reserved for the platform/system-admin grant path). An insufficient tenant
+   * pool balance is rejected (the whole transfer rolls back). Returns the new
+   * µcredit sub-wallet balance.
    */
   async topupSubAccount(
     tenantId: string,
@@ -590,7 +616,21 @@ export class ConsoleService {
     dto: TopupSubAccountBody,
   ): Promise<bigint> {
     await this.getSubAccount(tenantId, subjectId);
-    return topupSubAccount(this.db, tenantId, subjectId, creditsToMicro(dto.credits));
+    try {
+      await transferCredits(this.db, {
+        tenantId,
+        subjectId,
+        amount: creditsToMicro(dto.credits),
+        direction: 'to_subject',
+      });
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('insufficient tenant balance')) {
+        throw engineInvalidInput('insufficient tenant pool balance to allocate to the sub-wallet');
+      }
+      throw err;
+    }
+    const sub = await getSubAccount(this.db, tenantId, subjectId);
+    return sub?.creditBalance ?? 0n;
   }
 
   /**
