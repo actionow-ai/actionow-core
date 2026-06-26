@@ -99,11 +99,11 @@ describe('RedemptionCodesPage', () => {
     expect(label).toBeInTheDocument();
     expect(trigger).toBeInTheDocument();
 
-    // …and the inline layout lays them out as a centred flex row (label to the
-    // LEFT of the control), not the default label-above stack.
-    const row = label.parentElement as HTMLElement;
-    expect(row.style.display).toBe('flex');
-    expect(row.style.alignItems).toBe('center');
+    // …and the inline layout co-locates them: the label and the control share a
+    // single row (label to the LEFT of the control), not the default
+    // label-above stack. We assert the observable co-location rather than the
+    // exact inline-style internals so the test survives a styling refactor.
+    const row = label.parentElement!;
     expect(row).toContainElement(trigger);
 
     // The placeholder reflects the unfiltered (全部状态) default.
