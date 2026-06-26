@@ -939,6 +939,14 @@ export class AdminController {
   @HttpCode(201)
   @Idempotent()
   @ApiOperation({ summary: 'Add an upstream channel to a resource' })
+  @Audit({
+    action: 'channel.create',
+    target: 'channel',
+    resolve: ({ result }) => {
+      const r = result as { id?: string; provider_type?: string };
+      return { targetId: r.id ?? null, meta: { providerType: r.provider_type } };
+    },
+  })
   async createChannel(
     @Param('id') id: string,
     @Body(new ZodBody(createChannelSchema)) dto: CreateChannelDto,
@@ -1009,6 +1017,14 @@ export class AdminController {
 
   @Patch('resources/:id/channels/:channelId')
   @ApiOperation({ summary: 'Update an upstream channel (weight/status/endpoint/model/...)' })
+  @Audit({
+    action: 'channel.update',
+    target: 'channel',
+    resolve: ({ params, body }) => {
+      const b = body as { status?: string };
+      return { targetId: params.channelId ?? null, meta: { status: b.status } };
+    },
+  })
   async updateChannel(
     @Param('channelId') channelId: string,
     @Body(new ZodBody(updateChannelSchema)) dto: UpdateChannelDto,
@@ -1019,6 +1035,11 @@ export class AdminController {
   @Delete('resources/:id/channels/:channelId')
   @HttpCode(204)
   @ApiOperation({ summary: 'Soft-delete an upstream channel (channel ∉ resource → 404)' })
+  @Audit({
+    action: 'channel.delete',
+    target: 'channel',
+    resolve: ({ params }) => ({ targetId: params.channelId ?? null }),
+  })
   async deleteChannel(
     @Param('id') id: string,
     @Param('channelId') channelId: string,
@@ -1379,6 +1400,14 @@ export class AdminController {
   @HttpCode(201)
   @Idempotent()
   @ApiOperation({ summary: 'Register a relay model (name → chat resource)' })
+  @Audit({
+    action: 'model.create',
+    target: 'model',
+    resolve: ({ result }) => {
+      const r = result as { name?: string };
+      return { targetId: r.name ?? null };
+    },
+  })
   async createModel(@Body(new ZodBody(createModelSchema)) dto: CreateModelDto): Promise<ModelView> {
     return toModelView(await this.admin.createModel(dto));
   }
@@ -1419,6 +1448,14 @@ export class AdminController {
 
   @Patch('models/:name')
   @ApiOperation({ summary: 'Update a relay model (display/capabilities/prices/visibility/status)' })
+  @Audit({
+    action: 'model.update',
+    target: 'model',
+    resolve: ({ params, body }) => {
+      const b = body as { status?: string; display_name?: string };
+      return { targetId: params.name ?? null, meta: { status: b.status } };
+    },
+  })
   async updateModel(
     @Param('name') name: string,
     @Body(new ZodBody(updateModelSchema)) dto: UpdateModelDto,
@@ -1429,6 +1466,11 @@ export class AdminController {
   @Delete('models/:name')
   @HttpCode(204)
   @ApiOperation({ summary: 'Soft-delete a relay model — it stops routing after' })
+  @Audit({
+    action: 'model.delete',
+    target: 'model',
+    resolve: ({ params }) => ({ targetId: params.name ?? null }),
+  })
   async deleteModel(@Param('name') name: string): Promise<void> {
     await this.admin.deleteModel(name);
   }
@@ -1693,6 +1735,14 @@ export class AdminController {
   @ApiOperation({
     summary: 'Create a fault-tolerance policy (retry/backoff/timeouts; name unique)',
   })
+  @Audit({
+    action: 'fault_policy.create',
+    target: 'fault_policy',
+    resolve: ({ result }) => {
+      const r = result as { id?: string; name?: string };
+      return { targetId: r.id ?? null, meta: { name: r.name } };
+    },
+  })
   async createFaultPolicy(
     @Body(new ZodBody(createFaultPolicySchema)) dto: CreateFaultPolicyDto,
   ): Promise<FaultPolicyView> {
@@ -1717,6 +1767,14 @@ export class AdminController {
 
   @Patch('fault-policies/:id')
   @ApiOperation({ summary: 'Update a fault policy (retry/backoff/timeouts/triggers/status)' })
+  @Audit({
+    action: 'fault_policy.update',
+    target: 'fault_policy',
+    resolve: ({ params, body }) => {
+      const b = body as { name?: string; status?: string };
+      return { targetId: params.id ?? null, meta: { name: b.name, status: b.status } };
+    },
+  })
   async updateFaultPolicy(
     @Param('id') id: string,
     @Body(new ZodBody(updateFaultPolicySchema)) dto: UpdateFaultPolicyDto,
@@ -1729,6 +1787,11 @@ export class AdminController {
   @ApiOperation({
     summary: 'Soft-delete a fault policy (bound channels fall back to engine defaults)',
   })
+  @Audit({
+    action: 'fault_policy.delete',
+    target: 'fault_policy',
+    resolve: ({ params }) => ({ targetId: params.id ?? null }),
+  })
   async deleteFaultPolicy(@Param('id') id: string): Promise<void> {
     await this.admin.deleteFaultPolicy(id);
   }
@@ -1739,6 +1802,14 @@ export class AdminController {
   @HttpCode(201)
   @Idempotent()
   @ApiOperation({ summary: 'Create a route group (group_ratio_bps in basis points; name unique)' })
+  @Audit({
+    action: 'route_group.create',
+    target: 'route_group',
+    resolve: ({ result }) => {
+      const r = result as { id?: string; name?: string };
+      return { targetId: r.id ?? null, meta: { name: r.name } };
+    },
+  })
   async createRouteGroup(
     @Body(new ZodBody(createRouteGroupSchema)) dto: CreateRouteGroupDto,
   ): Promise<RouteGroupView> {
@@ -1763,6 +1834,14 @@ export class AdminController {
 
   @Patch('route-groups/:id')
   @ApiOperation({ summary: 'Update a route group (name/group_ratio_bps/status/description)' })
+  @Audit({
+    action: 'route_group.update',
+    target: 'route_group',
+    resolve: ({ params, body }) => {
+      const b = body as { name?: string; status?: string };
+      return { targetId: params.id ?? null, meta: { name: b.name, status: b.status } };
+    },
+  })
   async updateRouteGroup(
     @Param('id') id: string,
     @Body(new ZodBody(updateRouteGroupSchema)) dto: UpdateRouteGroupDto,
@@ -1773,6 +1852,11 @@ export class AdminController {
   @Delete('route-groups/:id')
   @HttpCode(204)
   @ApiOperation({ summary: 'Soft-delete a route group (frees the name; drops from routing)' })
+  @Audit({
+    action: 'route_group.delete',
+    target: 'route_group',
+    resolve: ({ params }) => ({ targetId: params.id ?? null }),
+  })
   async deleteRouteGroup(@Param('id') id: string): Promise<void> {
     await this.admin.deleteRouteGroup(id);
   }
