@@ -1,5 +1,12 @@
 import { createDefaultRegistry } from '@actionow/adapters';
-import { createApiKey, createDb, createModel, type Database, schema } from '@actionow/db';
+import {
+  createApiKey,
+  createDb,
+  createModel,
+  createSubject,
+  type Database,
+  schema,
+} from '@actionow/db';
 import { creditsToMicro } from '@actionow/domain';
 import { DefaultBreakerStore } from '@actionow/engine';
 import type { AppEnv } from '@actionow/infra';
@@ -353,6 +360,31 @@ describe('OpenAI dialect (/v1/chat/completions)', () => {
     expect(streamLog).toBeDefined();
     expect(streamLog?.inputTokens).toBe(Number(MOCK_INPUT_TOKENS));
     expect(streamLog?.outputTokens).toBe(Number(MOCK_OUTPUT_TOKENS));
+  });
+});
+
+describe('subject attribution (端用户数据平面)', () => {
+  it('a subject-scoped key records subject_id on the usage_log row', async () => {
+    // A subject (end-user) + a key BOUND to it: the chat relay must thread the
+    // subject id from the auth context into the RunRequest so usage_log/job is
+    // attributed to the end-user (and the charge can route to its sub-wallet).
+    const subj = await createSubject(db, { tenantId, externalId: 'chat-attr-subject' });
+    const subjKey = await createApiKey(db, { tenantId, subjectId: subj.id });
+
+    const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${subjKey.plaintext}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ model: MODEL_NAME, messages: [{ role: 'user', content: 'hi' }] }),
+    });
+    expect(res.status).toBe(200);
+
+    const logs = await db
+      .select()
+      .from(schema.usageLog)
+      .where(eq(schema.usageLog.subjectId, subj.id));
+    expect(logs.length).toBeGreaterThanOrEqual(1);
+    expect(logs[0]?.model).toBe(MODEL_NAME);
+    expect(logs[0]?.apiKeyId).toBe(subjKey.id);
   });
 });
 
