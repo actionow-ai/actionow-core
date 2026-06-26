@@ -1,4 +1,9 @@
 {
+  "admin": {
+    "bulk": {
+      "result": "成功 {{ok}} 项，失败 {{failed}} 项"
+    }
+  },
   "member": {
     "auth": {
       "subtitle": "终端用户登录",

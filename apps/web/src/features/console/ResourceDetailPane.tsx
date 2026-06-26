@@ -92,14 +92,18 @@ export function ResourceDetailPane({ id }: { id: string }) {
     },
     onError: mutationError(t),
   });
+  // Bulk enable/disable via ONE `/admin/channels/bulk` call (partial success), not
+  // N parallel single-row PATCHes. The result toast reports succeeded/failed counts.
   const bulkSetStatus = useMutation({
-    // allSettled so one failed channel doesn't abort the rest of the batch.
-    mutationFn: async ({ rows, status }: { rows: ChannelView[]; status: ChannelStatus }) => {
-      await Promise.allSettled(rows.map((c) => api.updateChannel(id, c.id, { status })));
-    },
-    onSuccess: async () => {
+    mutationFn: ({ rows, action }: { rows: ChannelView[]; action: 'enable' | 'disable'; clear: () => void }) =>
+      api.bulkChannels(
+        action,
+        rows.map((c) => c.id),
+      ),
+    onSuccess: async (r, { clear }) => {
       await qc.invalidateQueries({ queryKey: qk.channels(id) });
-      toast(t('channels.statusUpdated'));
+      clear();
+      toast(t('admin.bulk.result', { ok: r.succeeded.length, failed: r.failed.length }));
     },
     onError: mutationError(t),
   });
@@ -357,20 +361,14 @@ export function ResourceDetailPane({ id }: { id: string }) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                bulkSetStatus.mutate({ rows: sel, status: 'active' });
-                clear();
-              }}
+              onClick={() => bulkSetStatus.mutate({ rows: sel, action: 'enable', clear })}
             >
               {t('channels.actions.enable')}
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                bulkSetStatus.mutate({ rows: sel, status: 'disabled' });
-                clear();
-              }}
+              onClick={() => bulkSetStatus.mutate({ rows: sel, action: 'disable', clear })}
             >
               {t('channels.actions.disable')}
             </Button>

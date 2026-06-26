@@ -10,6 +10,7 @@ import type {
   ApiKeyView,
   AuditLogView,
   BreakerView,
+  BulkResultView,
   ChannelView,
   CodexLoginCompleteBody,
   CodexLoginStartBody,
@@ -266,6 +267,14 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
         u,
       );
     },
+    // Bulk enable/disable/delete channels (by global id — the single-row route is
+    // nested under a resource, but the bulk route is flat). RAW: `/admin/channels/bulk`
+    // isn't in the SDK path set. Partial success `{succeeded, failed}` (前端打磨).
+    bulkChannels: (
+      action: 'enable' | 'disable' | 'delete',
+      ids: string[],
+    ): Promise<BulkResultView> =>
+      rawClient.post<BulkResultView>('/admin/channels/bulk', { ids, action }),
     // HYBRID: the sync-models response (`SyncChannelModelsResult`) is an FE-local
     // shape with no contract view schema — keep on the raw client.
     syncChannelModels: (resourceId: string, channelId: string, body: SyncChannelModelsBody) =>
@@ -564,6 +573,11 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     deleteModel: async (name: string): Promise<void> => {
       unwrap(await sdk.DELETE('/admin/models/{name}', { params: { path: { name } } }), u);
     },
+    // Bulk enable/disable/delete models (by name). RAW: the `/admin/<entity>/bulk`
+    // routes aren't in the generated SDK path set. Partial success — one bad id
+    // never aborts the batch; returns `{succeeded, failed}` (前端打磨).
+    bulkModels: (action: 'enable' | 'disable' | 'delete', ids: string[]): Promise<BulkResultView> =>
+      rawClient.post<BulkResultView>('/admin/models/bulk', { ids, action }),
     // HYBRID: grant returns `{ ok: true }`, which the grants POST path doesn't
     // declare as a response body — keep on raw.
     grantModel: (name: string, body: { tenantId: string }, idempotencyKey?: string) =>
@@ -609,6 +623,10 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     revokeOAuthSession: async (id: string): Promise<void> => {
       unwrap(await sdk.DELETE('/admin/oauth-sessions/{id}', { params: { path: { id } } }), u);
     },
+    // Bulk revoke OAuth sessions (by id). RAW: `/admin/oauth-sessions/bulk` isn't
+    // in the SDK path set. Partial success `{succeeded, failed}` (前端打磨).
+    bulkRevokeOAuthSessions: (ids: string[]): Promise<BulkResultView> =>
+      rawClient.post<BulkResultView>('/admin/oauth-sessions/bulk', { ids, action: 'revoke' }),
     // Edit an OAuth session's metadata (name/notes/group) — never the tokens.
     updateOAuthSession: async (
       id: string,

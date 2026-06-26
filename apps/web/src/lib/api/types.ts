@@ -14,6 +14,8 @@ export type {
   AuditLogView,
   // --- circuit breakers (弹性2.0) ---
   BreakerView,
+  // --- bulk admin actions (前端打磨) ---
+  BulkResultView,
   ChannelHealthView,
   ChannelView,
   CodexLoginCompleteBody,

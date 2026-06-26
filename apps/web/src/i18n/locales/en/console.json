@@ -1,4 +1,9 @@
 {
+  "admin": {
+    "bulk": {
+      "result": "{{ok}} succeeded, {{failed}} failed"
+    }
+  },
   "member": {
     "auth": {
       "subtitle": "End-user sign-in",

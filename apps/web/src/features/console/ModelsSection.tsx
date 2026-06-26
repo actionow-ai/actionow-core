@@ -66,14 +66,18 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
   const [grants, setGrants] = useState('');
   const [delTarget, setDelTarget] = useState<ModelView | undefined>(undefined);
 
+  // Bulk enable/disable via ONE `/admin/models/bulk` call (partial success), not
+  // N parallel single-row PATCHes. The result toast reports succeeded/failed counts.
   const bulkSetStatus = useMutation({
-    mutationFn: async ({ rows: sel, status }: { rows: ModelView[]; status: 'active' | 'disabled'; clear: () => void }) => {
-      await Promise.allSettled(sel.map((m) => api.updateModel(m.name, { status })));
-    },
-    onSuccess: async (_d, { clear }) => {
+    mutationFn: ({ rows: sel, action }: { rows: ModelView[]; action: 'enable' | 'disable'; clear: () => void }) =>
+      api.bulkModels(
+        action,
+        sel.map((m) => m.name),
+      ),
+    onSuccess: async (r, { clear }) => {
       await qc.invalidateQueries({ queryKey: qk.models() });
       clear();
-      toast(t('models.statusUpdated'));
+      toast(t('admin.bulk.result', { ok: r.succeeded.length, failed: r.failed.length }));
     },
     onError: mutationError(t),
   });
@@ -201,10 +205,10 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
         )}
         bulkActions={(sel, clear) => (
           <>
-            <Button variant="ghost" size="sm" onClick={() => bulkSetStatus.mutate({ rows: sel, status: 'active', clear })}>
+            <Button variant="ghost" size="sm" onClick={() => bulkSetStatus.mutate({ rows: sel, action: 'enable', clear })}>
               {t('models.actions.enable')}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => bulkSetStatus.mutate({ rows: sel, status: 'disabled', clear })}>
+            <Button variant="ghost" size="sm" onClick={() => bulkSetStatus.mutate({ rows: sel, action: 'disable', clear })}>
               {t('models.actions.disable')}
             </Button>
           </>
