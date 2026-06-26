@@ -206,10 +206,10 @@ describe('seedProviders (real-provider catalog as DATA)', () => {
       {
         id: 'anthropic-direct',
         providerType: 'anthropic',
-        model: 'claude-3-5-haiku-latest',
+        model: 'claude-haiku-4-5-20251001',
         locator: 'anthropic',
       },
-      { id: 'gemini-direct', providerType: 'gemini', model: 'gemini-2.0-flash', locator: 'gemini' },
+      { id: 'gemini-direct', providerType: 'gemini', model: 'gemini-2.5-flash', locator: 'gemini' },
     ];
     for (const c of cases) {
       const resource = await getResource(db, c.id);

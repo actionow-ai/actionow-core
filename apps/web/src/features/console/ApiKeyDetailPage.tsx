@@ -1,18 +1,16 @@
-import { ArrowLeftIcon, TrashIcon } from '@phosphor-icons/react';
+import { TrashIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { useSetConsoleBack } from '../../components/console/ConsoleChrome';
+import { DetailPage, DetailRow } from '../../components/console/DetailScaffold';
 import { CopyField } from '../../components/data/CopyField';
-import { ErrorState } from '../../components/data/ErrorState';
 import { LimitUsageBars } from '../../components/data/LimitUsageBars';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { RoseLoader } from '../../components/ui/RoseLoader';
 import { SelectField } from '../../components/ui/SelectField';
 import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
@@ -48,34 +46,20 @@ export function ApiKeyDetailPage() {
 
   const key = (keys.data ?? []).find((k) => k.id === id);
 
-  if (tenantId === '') {
+  // When the tenant scope is missing the keys query is disabled, so `isLoading`
+  // is false and `key` is undefined → the not-found branch (matching the prior
+  // explicit `tenantId === ''` short-circuit).
+  if (keys.isLoading || keys.isError || key === undefined) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-        <BackLink to={backTo(tenantId)} label={t('apiKeys.detail.back')} />
-        <NotFound message={t('apiKeys.detail.notFound')} />
-      </div>
-    );
-  }
-  if (keys.isLoading) {
-    return (
-      <div style={{ display: 'grid', placeItems: 'center', padding: 'var(--s-6)' }}>
-        <RoseLoader size={56} />
-      </div>
-    );
-  }
-  if (keys.isError) {
-    return (
-      <div style={{ padding: 'var(--s-5)' }}>
-        <ErrorState onRetry={() => void keys.refetch()} />
-      </div>
-    );
-  }
-  if (key === undefined) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-        <BackLink to={backTo(tenantId)} label={t('apiKeys.detail.back')} />
-        <NotFound message={t('apiKeys.detail.notFound')} />
-      </div>
+      <DetailPage
+        backTo={backTo(tenantId)}
+        backLabel={t('apiKeys.detail.back')}
+        loading={keys.isLoading}
+        error={keys.isError}
+        onRetry={() => void keys.refetch()}
+        notFound={key === undefined}
+        notFoundMessage={t('apiKeys.detail.notFound')}
+      />
     );
   }
 
@@ -87,63 +71,6 @@ function backTo(tenantId: string): string {
   return tenantId !== ''
     ? `/console/api-keys?tenant=${encodeURIComponent(tenantId)}`
     : '/console/api-keys';
-}
-
-/** The page's top-of-content back link (mirrors the TopBar back slot). */
-function BackLink({ to, label }: { to: string; label: string }) {
-  return (
-    <Link
-      to={to}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 'var(--s-1)',
-        fontSize: 'var(--fs-sm)',
-        color: 'var(--muted)',
-        textDecoration: 'none',
-        width: 'fit-content',
-      }}
-    >
-      <ArrowLeftIcon size={14} weight="bold" aria-hidden="true" />
-      {label}
-    </Link>
-  );
-}
-
-function NotFound({ message }: { message: string }) {
-  return (
-    <div
-      className="panel"
-      style={{
-        borderRadius: 'var(--r-md)',
-        padding: 'var(--s-5)',
-        color: 'var(--muted)',
-        fontSize: 'var(--fs-sm)',
-        textAlign: 'center',
-      }}
-    >
-      {message}
-    </div>
-  );
-}
-
-/** One label / value row in the key detail header. */
-function DetailRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-1)' }}>
-      <span
-        style={{
-          fontSize: 'var(--fs-caption)',
-          textTransform: 'uppercase',
-          letterSpacing: '.06em',
-          color: 'var(--faint)',
-        }}
-      >
-        {label}
-      </span>
-      <span style={{ fontSize: 'var(--fs-sm)' }}>{children}</span>
-    </div>
-  );
 }
 
 /**
@@ -214,8 +141,11 @@ function ApiKeyDetailBody({ apiKey, tenantId }: { apiKey: ApiKeyView; tenantId: 
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-      <BackLink to={backTo(tenantId)} label={t('apiKeys.detail.back')} />
+    <DetailPage
+      backTo={backTo(tenantId)}
+      backLabel={t('apiKeys.detail.back')}
+      notFoundMessage={t('apiKeys.detail.notFound')}
+    >
       <h1
         style={{
           fontSize: 'var(--fs-lg)',
@@ -307,7 +237,7 @@ function ApiKeyDetailBody({ apiKey, tenantId }: { apiKey: ApiKeyView; tenantId: 
         onConfirm={() => revoke.mutate()}
         onClose={() => setConfirmRevoke(false)}
       />
-    </div>
+    </DetailPage>
   );
 }
 
