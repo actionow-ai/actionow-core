@@ -16,6 +16,7 @@ import { TenantConsole } from './features/app/TenantConsole';
 import { AuthPage } from './features/auth/AuthPage';
 import { MemberAuthPage } from './features/auth/MemberAuthPage';
 import { OAuthCallbackPage } from './features/auth/OAuthCallbackPage';
+import { ApiKeyDetailPage } from './features/console/ApiKeyDetailPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { AuditLogPage } from './features/console/AuditLogPage';
 import { BreakersPage } from './features/console/BreakersPage';
@@ -33,8 +34,10 @@ import { RedemptionCodesPage } from './features/console/RedemptionCodesPage';
 import { RelayTracesPage } from './features/console/RelayTracesPage';
 import { ResourcesPage } from './features/console/ResourcesPage';
 import { RouteGroupsPage } from './features/console/RouteGroupsPage';
+import { ServiceTokenDetailPage } from './features/console/ServiceTokenDetailPage';
 import { ServiceTokensPage } from './features/console/ServiceTokensPage';
 import { StatusPage } from './features/console/StatusPage';
+import { TenantDetailPage } from './features/console/TenantDetailPage';
 import { TenantsPage } from './features/console/TenantsPage';
 import { ProtectedRoute } from './lib/auth/ProtectedRoute';
 import { RootRoute } from './RootRoute';
@@ -116,10 +119,13 @@ export function AppRoutes() {
           <Route path="dify" element={<DifyImportPage />} />
           <Route path="oauth-sessions" element={<OAuthSessionsPage />} />
           <Route path="tenants" element={<TenantsPage />} />
+          <Route path="tenants/:id" element={<TenantDetailPage />} />
           {/* Accounts merged into the Tenants hub (per-tenant detail drawer). */}
           <Route path="accounts" element={<Navigate to="/console/tenants" replace />} />
           <Route path="api-keys" element={<ApiKeysPage />} />
+          <Route path="api-keys/:id" element={<ApiKeyDetailPage />} />
           <Route path="tokens" element={<ServiceTokensPage />} />
+          <Route path="tokens/:id" element={<ServiceTokenDetailPage />} />
           <Route path="redemption-codes" element={<RedemptionCodesPage />} />
         </Route>
       </Route>

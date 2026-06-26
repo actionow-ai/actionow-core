@@ -1,17 +1,19 @@
-import { PlusIcon, RobotIcon, TrashIcon } from '@phosphor-icons/react';
+import { PlusIcon, ProhibitIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
-import { CardCollection } from '../../components/data/CardCollection';
 import { CopyField } from '../../components/data/CopyField';
-import { EntityCard } from '../../components/data/EntityCard';
+import type { Column } from '../../components/data/DataTable';
+import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { FIELD_INPUT_BASE } from '../../components/ui/fieldStyles';
 import { Modal } from '../../components/ui/Modal';
+import { RowAction } from '../../components/ui/RowAction';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
@@ -26,9 +28,10 @@ import { useAdminApi } from '../../lib/api/useAdminApi';
  * expiry; omitted → never expires.
  */
 export function ServiceTokensPage() {
-  const { t } = useTranslation('console');
+  const { t, i18n } = useTranslation('console');
   const api = useAdminApi();
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const tokens = useQuery({
     queryKey: qk.adminTokens(),
@@ -77,37 +80,48 @@ export function ServiceTokensPage() {
     [t],
   );
 
+  const cols: Column<AdminTokenView>[] = [
+    { key: 'name', header: t('tokens.cols.name'), grow: true, cell: (r) => r.name },
+    {
+      key: 'status',
+      header: t('tokens.cols.status'),
+      noClip: true,
+      width: '148px',
+      cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
+    },
+    {
+      key: 'created',
+      header: t('tokens.cols.created'),
+      width: '170px',
+      cell: (r) => new Date(r.created_at).toLocaleDateString(i18n.language),
+    },
+    {
+      key: 'expires',
+      header: t('tokens.cols.expires'),
+      align: 'right',
+      width: '180px',
+      cell: (r) =>
+        r.expires_at !== null ? new Date(r.expires_at).toLocaleString(i18n.language) : t('tokens.never'),
+    },
+  ];
+
   return (
     <div style={{ height: '100%' }}>
-      <CardCollection
+      <DataTable
+        columns={cols}
         rows={tokens.data ?? []}
+        rowKey={(r) => r.id}
         loading={tokens.isLoading}
         error={tokens.isError}
         onRetry={() => void tokens.refetch()}
         empty={t('tokens.empty')}
-        renderCard={(r) => (
-          <EntityCard
-            key={r.id}
-            icon={RobotIcon}
-            title={r.name}
-            badge={
-              <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
-            }
-            meta={[
-              {
-                label: t('tokens.cols.created'),
-                value: new Date(r.created_at).toLocaleDateString(),
-              },
-              {
-                label: t('tokens.cols.expires'),
-                value: r.expires_at !== null ? new Date(r.expires_at).toLocaleString() : t('tokens.never'),
-              },
-            ]}
-            actions={
-              <Button variant="ghost" onClick={() => setRevokeTarget(r)}>
-                <TrashIcon size={14} weight="bold" aria-hidden="true" /> {t('tokens.revoke')}
-              </Button>
-            }
+        onRowClick={(r) => void navigate('/console/tokens/' + r.id)}
+        rowActions={(r) => (
+          <RowAction
+            icon={ProhibitIcon}
+            label={t('tokens.revoke')}
+            danger
+            onClick={() => setRevokeTarget(r)}
           />
         )}
       />

@@ -534,6 +534,8 @@
       "db": "Database"
     },
     "detail": {
+      "back": "Back to tenants",
+      "notFound": "Tenant not found.",
       "id": "Tenant ID",
       "account": "Account",
       "noAccount": "This tenant has no account yet",
@@ -549,8 +551,15 @@
         "created": "End-user created",
         "deleted": "End-user removed",
         "empty": "No end-users yet",
-        "form": { "externalId": "External ID", "name": "Display name" },
-        "cols": { "identity": "Identity", "name": "Name", "status": "Status" },
+        "form": {
+          "externalId": "External ID",
+          "name": "Display name"
+        },
+        "cols": {
+          "identity": "Identity",
+          "name": "Name",
+          "status": "Status"
+        },
         "detail": {
           "plan": "Limit plan",
           "planTip": "Bind a limit plan (spend budget / rate limit / quota) to this end-user. Unbound = unlimited.",
@@ -679,6 +688,11 @@
       "copy": "Copy",
       "copied": "Copied",
       "done": "Done"
+    },
+    "detail": {
+      "back": "Back to keys",
+      "notFound": "Key not found.",
+      "attrs": "Attributes"
     }
   },
   "resources": {
@@ -1753,6 +1767,8 @@
     "revoked": "Token revoked",
     "never": "Never",
     "cols": {
+      "name": "Name",
+      "status": "Status",
       "created": "Created",
       "expires": "Expires"
     },
@@ -1767,6 +1783,11 @@
     "revokeConfirm": {
       "title": "Revoke token?",
       "msg": "Revoke \"{{name}}\"? Integrations using it will stop working."
+    },
+    "detail": {
+      "back": "Back to service tokens",
+      "notFound": "Service token not found.",
+      "createdBy": "Created by"
     }
   },
   "secrets": {

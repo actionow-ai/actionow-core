@@ -28,6 +28,22 @@ const proxy = {
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Pre-bundle the app's common runtime deps at dev-server startup so Vite does
+  // NOT discover-then-cold-optimize them on first navigation. That cold pass
+  // forces a full reload, which flashes a blank page on a deep `/console/*`
+  // first load. Dev-only; no production effect.
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react-router-dom',
+      '@tanstack/react-query',
+      'react-i18next',
+      'i18next',
+      '@phosphor-icons/react',
+    ],
+  },
   server: {
     port: 5173,
     proxy,

@@ -534,6 +534,8 @@
       "db": "库级"
     },
     "detail": {
+      "back": "返回租户",
+      "notFound": "未找到该租户。",
       "id": "租户 ID",
       "account": "账户",
       "noAccount": "该租户还没有账户",
@@ -549,8 +551,15 @@
         "created": "终端用户已创建",
         "deleted": "终端用户已移除",
         "empty": "暂无终端用户",
-        "form": { "externalId": "外部 ID", "name": "显示名称" },
-        "cols": { "identity": "标识", "name": "名称", "status": "状态" },
+        "form": {
+          "externalId": "外部 ID",
+          "name": "显示名称"
+        },
+        "cols": {
+          "identity": "标识",
+          "name": "名称",
+          "status": "状态"
+        },
         "detail": {
           "plan": "额度套餐",
           "planTip": "为该终端用户绑定额度套餐(消费预算 / 限流 / 配额)。不绑定 = 不受限制。",
@@ -679,6 +688,11 @@
       "copy": "复制",
       "copied": "已复制",
       "done": "完成"
+    },
+    "detail": {
+      "back": "返回 Keys",
+      "notFound": "未找到该 Key。",
+      "attrs": "属性"
     }
   },
   "resources": {
@@ -1753,6 +1767,8 @@
     "revoked": "令牌已吊销",
     "never": "永不过期",
     "cols": {
+      "name": "名称",
+      "status": "状态",
       "created": "创建时间",
       "expires": "过期时间"
     },
@@ -1767,6 +1783,11 @@
     "revokeConfirm": {
       "title": "吊销令牌？",
       "msg": "确定吊销「{{name}}」？使用它的集成将立即失效。"
+    },
+    "detail": {
+      "back": "返回服务令牌",
+      "notFound": "未找到该服务令牌。",
+      "createdBy": "创建者"
     }
   },
   "secrets": {

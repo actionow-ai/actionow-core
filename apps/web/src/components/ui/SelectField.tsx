@@ -19,6 +19,7 @@ export function SelectField({
   error,
   hint,
   tooltip,
+  inline,
 }: {
   label: string;
   value: string;
@@ -28,10 +29,12 @@ export function SelectField({
   error?: string;
   hint?: string;
   tooltip?: string;
+  /** Lay the label to the LEFT of the select (compact filter/toolbar layout). */
+  inline?: boolean;
 }) {
   const fieldId = useFieldId();
   return (
-    <FormField id={fieldId} label={label} error={error} hint={hint} tooltip={tooltip}>
+    <FormField id={fieldId} label={label} error={error} hint={hint} tooltip={tooltip} inline={inline}>
       <Select id={fieldId} value={value} onChange={onChange} options={options} placeholder={placeholder} ariaLabel={label} />
     </FormField>
   );
