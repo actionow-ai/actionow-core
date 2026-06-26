@@ -5,6 +5,7 @@ import type {
   HttpRequest,
   HttpResponse,
   HttpStreamResponse,
+  UnifiedError,
 } from '@actionow/contracts';
 
 import { FetchHttpClient } from './http.js';
@@ -13,6 +14,39 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_STREAM_MAX_MS = 300_000;
 /** Sentinel appended by `-w` so we can split the status code off the body. */
 const STATUS_SENTINEL = '\n__ACTIONOW_CURL_STATUS__:';
+
+/**
+ * A curl TRANSPORT/CONNECTION failure: the request never produced an HTTP
+ * response (connection refused, DNS failure, connect/transfer timeout, TLS
+ * handshake reset). curl signals these with a non-zero exit code and an
+ * `%{http_code}` of `000`, NOT a real upstream status.
+ *
+ * Node's `fetch` egress THROWS a raw error for the same conditions, which the
+ * engine treats as retryable (`isFailoverRetryable` default-true). To match that
+ * semantics this error carries a `unified` payload with `retryable: true` so:
+ *   - the engine's `toUnified`/`isUnifiedCarrier` maps it to a retryable
+ *     `upstream_error`, and
+ *   - `isFailoverRetryable` (which is NOT `instanceof AdapterError/EngineError`
+ *     for this class → hits its default-true branch) enables CROSS-channel
+ *     failover AND circuit-breaker `onFailure` recording for a dead channel.
+ *
+ * A genuine upstream HTTP 4xx/5xx is NOT this: curl returns the real status
+ * code, so {@link CurlHttpClient.request} returns a normal {@link HttpResponse}
+ * and the adapter maps the status (4xx → non-retryable) as before.
+ */
+export class CurlTransportError extends Error {
+  readonly unified: UnifiedError;
+
+  constructor(message: string, exitCode: number) {
+    super(message);
+    this.name = 'CurlTransportError';
+    this.unified = {
+      code: 'upstream_error',
+      message: `curl transport failure (exit ${String(exitCode)})`,
+      retryable: true,
+    };
+  }
+}
 
 /** Serialize a JSON body + default the content-type (mirrors FetchHttpClient.buildInit). */
 function bodyAndHeaders(req: HttpRequest): { body?: string; headers: Record<string, string> } {
@@ -65,11 +99,27 @@ export class CurlHttpClient implements HttpClient {
     const { stdout, stderr, code } = await runCurl(args, body);
     const idx = stdout.lastIndexOf(STATUS_SENTINEL);
     if (idx < 0) {
-      // No status sentinel → curl never completed the HTTP transaction.
-      throw new Error(`curl egress failed (exit ${String(code)}): ${stderr.slice(0, 300)}`);
+      // No status sentinel → curl never completed the HTTP transaction (e.g. the
+      // process was killed). A TRANSPORT failure, not an upstream HTTP error.
+      throw new CurlTransportError(
+        `curl egress failed (exit ${String(code)}): ${stderr.slice(0, 300)}`,
+        code,
+      );
     }
     const text = stdout.slice(0, idx);
     const status = Number(stdout.slice(idx + STATUS_SENTINEL.length).trim());
+    // `%{http_code}` is `000` (→ NaN/0 here) when curl never got an HTTP response:
+    // connection refused, could-not-resolve-host, connect/transfer timeout, TLS
+    // reset. These are TRANSPORT failures (curl exits non-zero) — surface them as
+    // a RETRYABLE upstream error so cross-channel failover + the circuit breaker
+    // engage, matching the Node-fetch egress (which throws for the same cases).
+    // A real upstream status (incl. 4xx/5xx) is > 0 and falls through unchanged.
+    if (!Number.isFinite(status) || status === 0) {
+      throw new CurlTransportError(
+        `curl egress could not reach upstream (exit ${String(code)}): ${stderr.slice(0, 300)}`,
+        code,
+      );
+    }
     let parsed: unknown;
     try {
       parsed = JSON.parse(text);
@@ -155,9 +205,20 @@ export class CurlHttpClient implements HttpClient {
       if (!headersDone) rejectStatus(e);
       bump();
     });
-    child.on('close', () => {
+    child.on('close', (code) => {
       ended = true;
-      if (!headersDone) resolveStatus(0);
+      // Closed before any HTTP response headers: curl never reached the upstream
+      // (connect refused / DNS / connect timeout / TLS reset → non-zero exit).
+      // Reject with a RETRYABLE transport error (matching `request()` + the Node
+      // fetch egress, which throws) so failover + the breaker engage, rather than
+      // surfacing a phantom status-0 response the relay would map non-retryably.
+      if (!headersDone) {
+        if (code !== 0 && code !== null) {
+          rejectStatus(new CurlTransportError(`curl stream could not reach upstream`, code));
+        } else {
+          resolveStatus(0);
+        }
+      }
       bump();
     });
 
