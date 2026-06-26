@@ -35,6 +35,7 @@ import { ResourcesPage } from './features/console/ResourcesPage';
 import { RouteGroupsPage } from './features/console/RouteGroupsPage';
 import { ServiceTokensPage } from './features/console/ServiceTokensPage';
 import { StatusPage } from './features/console/StatusPage';
+import { TenantDetailPage } from './features/console/TenantDetailPage';
 import { TenantsPage } from './features/console/TenantsPage';
 import { ProtectedRoute } from './lib/auth/ProtectedRoute';
 import { RootRoute } from './RootRoute';
@@ -116,6 +117,7 @@ export function AppRoutes() {
           <Route path="dify" element={<DifyImportPage />} />
           <Route path="oauth-sessions" element={<OAuthSessionsPage />} />
           <Route path="tenants" element={<TenantsPage />} />
+          <Route path="tenants/:id" element={<TenantDetailPage />} />
           {/* Accounts merged into the Tenants hub (per-tenant detail drawer). */}
           <Route path="accounts" element={<Navigate to="/console/tenants" replace />} />
           <Route path="api-keys" element={<ApiKeysPage />} />

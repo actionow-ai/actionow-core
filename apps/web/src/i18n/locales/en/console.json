@@ -534,6 +534,8 @@
       "db": "Database"
     },
     "detail": {
+      "back": "Back to tenants",
+      "notFound": "Tenant not found.",
       "id": "Tenant ID",
       "account": "Account",
       "noAccount": "This tenant has no account yet",

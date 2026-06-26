@@ -534,6 +534,8 @@
       "db": "库级"
     },
     "detail": {
+      "back": "返回租户",
+      "notFound": "未找到该租户。",
       "id": "租户 ID",
       "account": "账户",
       "noAccount": "该租户还没有账户",
