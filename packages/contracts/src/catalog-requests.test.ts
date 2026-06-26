@@ -23,6 +23,21 @@ describe('catalog request contracts', () => {
     expect(() => createResourceSchema.parse({ ...body, execModes: [] })).toThrow();
   });
 
+  it('createResourceSchema accepts a null tenantId (a GLOBAL platform resource)', () => {
+    const body = {
+      id: 'image-relay',
+      tenantId: null,
+      kind: 'model' as const,
+      modality: 'image' as const,
+      providerType: 'async-media',
+      execModes: ['async-poll'],
+      ioSchema: {},
+    };
+    expect(createResourceSchema.parse(body)).toEqual(body);
+    // a non-uuid string is still rejected (nullable, not "anything goes").
+    expect(() => createResourceSchema.parse({ ...body, tenantId: 'not-a-uuid' })).toThrow();
+  });
+
   it('createChannelSchema keeps operator cost as a HUMAN-USD number (not a string)', () => {
     const body = { providerType: 'openai', inputCostUsdPer1m: 0.5 };
     expect(createChannelSchema.parse(body)).toEqual(body);

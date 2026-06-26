@@ -250,6 +250,67 @@ async function seedTagged(balance: bigint): Promise<Seed> {
   return { tenantId: t.id, accountId: a.id, resourceId };
 }
 
+/**
+ * Cross-tenant isolation fixture (the global-platform-resources fix). Creates an
+ * `openai-gpt` resource (blocking, post/unit pricebook, one `fake-llm` channel)
+ * whose `tenant_id` is `ownerTenantId` (a TENANT-PRIVATE resource) or `null` (a
+ * GLOBAL platform resource any tenant may run), and a SEPARATE funded "caller"
+ * tenant that will attempt the run. Returns both tenant ids + the caller account.
+ *
+ * - GLOBAL (`ownerTenantId = null`): the caller tenant (which did NOT create it)
+ *   must run it past `buildRequest` → 200.
+ * - PRIVATE (`ownerTenantId` set to tenant A): the caller tenant B must get 404
+ *   (isolation preserved — never a leak across tenants).
+ */
+async function seedCrossTenant(
+  ownerTenantId: string | null,
+): Promise<{ callerTenantId: string; callerAccountId: string; resourceId: string }> {
+  // The "caller" tenant + a funded account (the principal that runs the resource).
+  const [caller] = await db.insert(tenant).values({ name: 'caller-co' }).returning();
+  if (!caller) throw new Error('caller tenant insert returned no row');
+  const [callerAcct] = await db
+    .insert(account)
+    .values({ tenantId: caller.id, creditBalance: 1_000_000n, creditHeld: 0n })
+    .returning();
+  if (!callerAcct) throw new Error('caller account insert returned no row');
+
+  const resourceId = 'openai-gpt';
+  await db.insert(resource).values({
+    id: resourceId,
+    // `null` → GLOBAL (any tenant runs it); a tenant id → private to that owner.
+    tenantId: ownerTenantId,
+    kind: 'model',
+    modality: 'text',
+    providerType: 'fake-llm',
+    execModes: ['blocking'],
+    currentVersion: 1,
+  });
+  await db.insert(resourceVersion).values({
+    resourceId,
+    version: 1,
+    ioSchema: {
+      inputs: [{ key: 'prompt', type: 'string', required: true }],
+      outputs: [{ key: 'text', type: 'string' }],
+    },
+  });
+  await db.insert(pricebookEntry).values({
+    resourceId,
+    resourceVersion: 1,
+    version: 1,
+    method: 'unit',
+    timing: 'post',
+    spec: { method: 'unit', dimensions: { tokens: { rate: 1 } } },
+    active: true,
+  });
+  await db.insert(upstreamChannel).values({
+    resourceId,
+    providerType: 'fake-llm',
+    weight: 1,
+    status: 'active',
+  });
+  return { callerTenantId: caller.id, callerAccountId: callerAcct.id, resourceId };
+}
+
 afterEach(async () => {
   await client`TRUNCATE TABLE webhook_outbox, ledger_txn, idempotency_key, job, pricebook_entry, modifier, upstream_channel, resource_version, resource, account, tenant RESTART IDENTITY CASCADE`;
 });
@@ -455,6 +516,100 @@ describe('POST /v1/run/:resourceId route tagging (染色/标签路由)', () => {
 
     expect(res.body.status).toBe('succeeded');
     expect([RUN_PROVIDER_TAGGED, RUN_PROVIDER_PLAIN]).toContain(res.body.output.served);
+  });
+});
+
+/**
+ * Global platform resources (cross-tenant relays) — the buildRequest guard fix.
+ * A GLOBAL resource (`resource.tenant_id IS NULL`, e.g. the shared media/
+ * direct-chat relays) is runnable by ANY tenant; a TENANT-PRIVATE resource stays
+ * isolated to its owner. This pins both halves of the guard so the
+ * "multiple apps (= tenants) on one self-deployed platform" model works for media
+ * WITHOUT regressing tenant isolation.
+ */
+describe('POST /v1/run/:resourceId cross-tenant resource ownership', () => {
+  it('a tenant that did NOT create a GLOBAL resource (tenant_id null) can run it', async () => {
+    // Resource is global (no owner); the caller tenant did not create it.
+    const s = await seedCrossTenant(null);
+    tenantId = s.callerTenantId;
+
+    const res = await request(app.getHttpServer())
+      .post(`/v1/run/${s.resourceId}`)
+      .set('x-tenant-id', s.callerTenantId)
+      .send({ inputs: { prompt: 'hi' }, estimated_usage: { tokens: 1000 } })
+      .expect(200);
+
+    // Resolved past buildRequest and ran to terminal under the caller tenant.
+    expect(res.body.status).toBe('succeeded');
+    expect(res.body.output).toEqual({ text: 'echo: hi' });
+  });
+
+  it('a TENANT-PRIVATE resource (tenant A) returns 404 to tenant B (isolation preserved)', async () => {
+    // Resource is owned by a DIFFERENT tenant ("owner-co"); the caller is tenant B.
+    const [owner] = await db.insert(tenant).values({ name: 'owner-co' }).returning();
+    if (!owner) throw new Error('owner tenant insert returned no row');
+    const s = await seedCrossTenant(owner.id);
+    tenantId = s.callerTenantId;
+
+    const res = await request(app.getHttpServer())
+      .post(`/v1/run/${s.resourceId}`)
+      .set('x-tenant-id', s.callerTenantId)
+      .send({ inputs: { prompt: 'hi' }, estimated_usage: { tokens: 1000 } })
+      .expect(404);
+
+    expect(res.body.error.code).toBe('resource_not_found');
+    // The cross-tenant 404 fires BEFORE any hold/job — no leak to tenant B.
+    const jobs = await db.select().from(schema.job);
+    expect(jobs).toHaveLength(0);
+  });
+
+  it('the OWNER tenant can still run its own tenant-private resource', async () => {
+    // Create the resource owned by the caller itself: a non-null tenant_id that
+    // matches ctx.tenantId must still resolve (the guard only blocks mismatches).
+    const [owner] = await db.insert(tenant).values({ name: 'self-owner-co' }).returning();
+    if (!owner) throw new Error('owner tenant insert returned no row');
+    await db
+      .insert(account)
+      .values({ tenantId: owner.id, creditBalance: 1_000_000n, creditHeld: 0n });
+    const resourceId = 'private-own';
+    await db.insert(resource).values({
+      id: resourceId,
+      tenantId: owner.id,
+      kind: 'model',
+      modality: 'text',
+      providerType: 'fake-llm',
+      execModes: ['blocking'],
+      currentVersion: 1,
+    });
+    await db.insert(resourceVersion).values({
+      resourceId,
+      version: 1,
+      ioSchema: {
+        inputs: [{ key: 'prompt', type: 'string', required: true }],
+        outputs: [{ key: 'text', type: 'string' }],
+      },
+    });
+    await db.insert(pricebookEntry).values({
+      resourceId,
+      resourceVersion: 1,
+      version: 1,
+      method: 'unit',
+      timing: 'post',
+      spec: { method: 'unit', dimensions: { tokens: { rate: 1 } } },
+      active: true,
+    });
+    await db
+      .insert(upstreamChannel)
+      .values({ resourceId, providerType: 'fake-llm', weight: 1, status: 'active' });
+    tenantId = owner.id;
+
+    const res = await request(app.getHttpServer())
+      .post(`/v1/run/${resourceId}`)
+      .set('x-tenant-id', owner.id)
+      .send({ inputs: { prompt: 'hi' }, estimated_usage: { tokens: 1000 } })
+      .expect(200);
+
+    expect(res.body.status).toBe('succeeded');
   });
 });
 

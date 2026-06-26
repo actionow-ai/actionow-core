@@ -21,9 +21,12 @@ export const resource = pgTable(
   {
     // NOTE: resource.id stays `text` (human-readable slug) — intentional, do not migrate to uuid.
     id: text('id').primaryKey(),
-    tenantId: uuid('tenant_id')
-      .notNull()
-      .references(() => tenant.id),
+    // NULLABLE on purpose: a NULL `tenant_id` marks a GLOBAL platform resource
+    // (the shared media/direct-chat relays) that ANY tenant may run — the engine
+    // guard (`run.service.ts buildRequest`) treats NULL as "no owner = global".
+    // A NON-NULL `tenant_id` stays tenant-private (isolated to its owner). The FK
+    // is retained so a non-null value must reference a real tenant.
+    tenantId: uuid('tenant_id').references(() => tenant.id),
     kind: text('kind').notNull(), // model | workflow
     modality: text('modality').notNull(), // text|image|video|audio|composite
     providerType: text('provider_type').notNull(),

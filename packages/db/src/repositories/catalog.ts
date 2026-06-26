@@ -1,6 +1,6 @@
 import type { Markup, PriceSpec } from '@actionow/contracts';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { PgTransaction } from 'drizzle-orm/pg-core';
 
 import {
@@ -545,7 +545,12 @@ export async function getAccountByTenant(
 export interface CreateResourceInput {
   /** Stable, caller-chosen resource id (e.g. the slug). */
   readonly id: string;
-  readonly tenantId: string;
+  /**
+   * Owning tenant, or `null`/omitted for a GLOBAL platform resource (usable by
+   * ANY tenant — the shared media/direct-chat relays). A non-null id keeps the
+   * resource tenant-private (isolated to its owner).
+   */
+  readonly tenantId?: string | null | undefined;
   /** `model` | `workflow`. */
   readonly kind: string;
   /** `text` | `image` | `video` | `audio` | `composite`. */
@@ -575,7 +580,8 @@ async function writeResource(tx: DbOrTx, input: CreateResourceInput): Promise<Re
       .insert(resource)
       .values({
         id: input.id,
-        tenantId: input.tenantId,
+        // `null` (or omitted) → a GLOBAL platform resource (no owner tenant).
+        tenantId: input.tenantId ?? null,
         kind: input.kind,
         modality: input.modality,
         providerType: input.providerType,
@@ -708,15 +714,20 @@ export async function findResourceByProviderModality(
   return rows[0];
 }
 
-/** The tenant of the newest live resource (the operator's platform tenant), or undefined. */
+/**
+ * The tenant of the newest live TENANT-OWNED resource (the operator's platform
+ * tenant), or undefined. GLOBAL resources (`tenant_id IS NULL`) are excluded so
+ * `ensureResource`'s auto-create still inherits a real owner tenant (never
+ * silently makes a new operator platform global by inheriting a NULL).
+ */
 export async function anyResourceTenantId(db: DbOrTx): Promise<string | undefined> {
   const rows = await db
     .select({ tenantId: resource.tenantId })
     .from(resource)
-    .where(isNull(resource.deletedAt))
+    .where(and(isNull(resource.deletedAt), isNotNull(resource.tenantId)))
     .orderBy(desc(resource.createdAt))
     .limit(1);
-  return rows[0]?.tenantId;
+  return rows[0]?.tenantId ?? undefined;
 }
 
 /** Count live resources (excludes soft-deleted) — authoritative total for the ops summary. */
