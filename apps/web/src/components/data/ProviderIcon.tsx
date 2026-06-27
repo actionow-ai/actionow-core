@@ -94,7 +94,7 @@ export function ProviderIcon({
   ) : (
     <span
       aria-hidden="true"
-      style={{ fontSize: size * 0.52, fontWeight: 800, color: 'var(--accent-2)' }}
+      style={{ fontSize: size * 0.52, fontWeight: 'var(--fw-bold)', color: 'var(--accent-2)' }}
     >
       {(provider.charAt(0) || '?').toUpperCase()}
     </span>

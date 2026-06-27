@@ -10,7 +10,12 @@ export function HowItWorks() {
     <section style={{ maxWidth: 1080, margin: '0 auto', padding: 'var(--s-16) var(--s-4)' }}>
       <Reveal style={{ marginBottom: 'var(--s-10)', textAlign: 'center' }}>
         <h2
-          style={{ fontSize: 'var(--fs-h2)', fontWeight: 780, letterSpacing: '-0.02em', margin: 0 }}
+          style={{
+            fontSize: 'var(--fs-h2)',
+            fontWeight: 780,
+            letterSpacing: 'var(--track-tight)',
+            margin: 0,
+          }}
         >
           {t('how.title')}
         </h2>
@@ -58,7 +63,7 @@ export function HowItWorks() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: 'var(--fs-lg)',
-                    fontWeight: 800,
+                    fontWeight: 'var(--fw-bold)',
                     color: 'var(--ink)',
                     background: 'var(--grad-accent)',
                     boxShadow: 'var(--shadow-accent-md)',

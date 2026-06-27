@@ -39,7 +39,7 @@ export function Nav() {
       <nav
         className="glass"
         style={{
-          maxWidth: 1200,
+          maxWidth: 'var(--content-max)',
           margin: '0 auto',
           minHeight: 60,
           borderRadius: 'var(--r-lg)',

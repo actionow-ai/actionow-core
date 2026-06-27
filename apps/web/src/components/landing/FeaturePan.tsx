@@ -72,7 +72,7 @@ function Panel({
         style={{
           fontSize: 'clamp(22px, 2.6vw, 30px)',
           fontWeight: 760,
-          letterSpacing: '-0.02em',
+          letterSpacing: 'var(--track-tight)',
           marginTop: 'var(--s-5)',
         }}
       >
@@ -126,7 +126,7 @@ export function FeaturePan() {
       style={{
         fontSize: 'var(--fs-h2)',
         fontWeight: 780,
-        letterSpacing: '-0.02em',
+        letterSpacing: 'var(--track-tight)',
         margin: 0,
         maxWidth: 560,
       }}

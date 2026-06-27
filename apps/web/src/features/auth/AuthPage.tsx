@@ -43,7 +43,7 @@ function BrandPanel() {
         className="headline-nowrap"
         style={{
           fontSize: 'var(--fs-h1)',
-          fontWeight: 850,
+          fontWeight: 'var(--fw-display)',
           letterSpacing: '-0.035em',
           lineHeight: 1.04,
           margin: 0,

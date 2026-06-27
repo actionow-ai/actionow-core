@@ -36,7 +36,7 @@ export function CTASection() {
               style={{
                 fontSize: 'var(--fs-h2)',
                 fontWeight: 780,
-                letterSpacing: '-0.02em',
+                letterSpacing: 'var(--track-tight)',
                 margin: 0,
               }}
             >

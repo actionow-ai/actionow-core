@@ -122,7 +122,7 @@ export function LiveConsole() {
             style={{
               fontSize: 'var(--fs-h2)',
               fontWeight: 780,
-              letterSpacing: '-0.02em',
+              letterSpacing: 'var(--track-tight)',
               margin: 'var(--s-3) 0 0',
             }}
           >
@@ -239,7 +239,7 @@ export function LiveConsole() {
             <div
               className="mono"
               style={{
-                background: 'rgba(0, 0, 0, 0.28)',
+                background: 'rgba(0, 0, 0, 0.28)' /* token-exempt: landing demo console overlay */,
                 borderRadius: 'var(--r-md)',
                 padding: 'var(--s-4)',
                 fontSize: 'var(--fs-sm)',

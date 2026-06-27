@@ -52,7 +52,12 @@ export function Scenarios() {
     >
       <Reveal style={{ marginBottom: 'var(--s-8)', textAlign: 'center' }}>
         <h2
-          style={{ fontSize: 'var(--fs-h2)', fontWeight: 780, letterSpacing: '-0.02em', margin: 0 }}
+          style={{
+            fontSize: 'var(--fs-h2)',
+            fontWeight: 780,
+            letterSpacing: 'var(--track-tight)',
+            margin: 0,
+          }}
         >
           {t('scenarios.title')}
         </h2>

@@ -67,7 +67,7 @@ export function UsageBar({
         style={{
           height: 6,
           borderRadius: 999,
-          background: 'var(--hairline, rgba(127,127,127,.18))',
+          background: 'var(--hairline)',
           overflow: 'hidden',
         }}
       >

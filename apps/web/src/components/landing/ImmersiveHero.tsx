@@ -49,7 +49,7 @@ export function ImmersiveHero() {
         className="headline-nowrap"
         style={{
           fontSize: 'var(--fs-display)',
-          fontWeight: 850,
+          fontWeight: 'var(--fw-display)',
           letterSpacing: '-0.04em',
           lineHeight: 0.98,
           margin: 0,

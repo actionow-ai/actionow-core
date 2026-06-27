@@ -41,7 +41,7 @@ export function Footer() {
     <footer style={{ borderTop: '1px solid var(--panel-bd)', marginTop: 'var(--s-8)' }}>
       <div
         style={{
-          maxWidth: 1200,
+          maxWidth: 'var(--content-max)',
           margin: '0 auto',
           padding: 'var(--s-10) var(--s-4)',
           display: 'flex',

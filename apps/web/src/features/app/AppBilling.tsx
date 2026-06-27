@@ -326,7 +326,12 @@ export function AppBilling() {
                 {/* Scannable QR generated locally (no external service → the
                     payment handle never leaves the browser). */}
                 <div
-                  style={{ background: '#fff', padding: 'var(--s-3)', borderRadius: 'var(--r-sm)' }}
+                  style={{
+                    background:
+                      '#fff' /* token-exempt: QR code needs a fixed white quiet-zone for scannability */,
+                    padding: 'var(--s-3)',
+                    borderRadius: 'var(--r-sm)',
+                  }}
                 >
                   <QRCodeSVG value={intent.qr} size={176} />
                 </div>

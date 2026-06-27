@@ -66,7 +66,7 @@
   --grad-accent: linear-gradient(135deg, var(--accent), var(--accent-2));
   /* switch/toggle knob — a brand-constant white puck on the accent track. */
   --switch-thumb: #fff;
-  --track-tight: -0.03em;
+  --track-tight: -0.02em;
   --track-snug: -0.015em;
   /* positive tracking for ALL-CAPS micro labels (eyebrows, section kickers). */
   --track-label: 0.06em;

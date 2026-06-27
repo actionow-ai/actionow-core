@@ -16,7 +16,12 @@ export function Pricing() {
     >
       <Reveal style={{ marginBottom: 'var(--s-8)', textAlign: 'center' }}>
         <h2
-          style={{ fontSize: 'var(--fs-h2)', fontWeight: 780, letterSpacing: '-0.02em', margin: 0 }}
+          style={{
+            fontSize: 'var(--fs-h2)',
+            fontWeight: 780,
+            letterSpacing: 'var(--track-tight)',
+            margin: 0,
+          }}
         >
           {t('pricing.title')}
         </h2>
@@ -57,8 +62,8 @@ export function Pricing() {
               <div
                 style={{
                   fontSize: 'var(--fs-2xl)',
-                  fontWeight: 800,
-                  letterSpacing: '-0.02em',
+                  fontWeight: 'var(--fw-bold)',
+                  letterSpacing: 'var(--track-tight)',
                   margin: 'var(--s-2) 0',
                 }}
               >
