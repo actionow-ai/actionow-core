@@ -27,7 +27,10 @@ describe('SegmentedControl', () => {
   it('marks the selected option with aria-checked', () => {
     render(<SegmentedControl value="register" onChange={() => undefined} options={OPTIONS} />);
     expect(screen.getByRole('radio', { name: 'Sign in' })).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByRole('radio', { name: 'Create account' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'Create account' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
   });
 
   it('fires onChange(value) when an option is clicked', async () => {

@@ -45,7 +45,17 @@ function buildPath(detailScale: number, steps = 360): string {
 
 const wrap = (n: number): number => ((n % 1) + 1) % 1;
 
-export function RoseLoader({ size = 96, speed = 1, label, style }: { size?: number; speed?: number; label?: string; style?: CSSProperties }) {
+export function RoseLoader({
+  size = 96,
+  speed = 1,
+  label,
+  style,
+}: {
+  size?: number;
+  speed?: number;
+  label?: string;
+  style?: CSSProperties;
+}) {
   const reduced = useReducedMotion();
   const groupRef = useRef<SVGGElement>(null);
   const pathRef = useRef<SVGPathElement>(null);
@@ -75,7 +85,11 @@ export function RoseLoader({ size = 96, speed = 1, label, style }: { size?: numb
       const pulse = (time % pulseDur) / pulseDur;
       const detailScale = 0.52 + ((Math.sin(pulse * Math.PI * 2 + 0.55) + 1) / 2) * 0.48;
 
-      if (group) group.setAttribute('transform', `rotate(${String(-((time % rotDur) / rotDur) * 360)} 50 50)`);
+      if (group)
+        group.setAttribute(
+          'transform',
+          `rotate(${String(-((time % rotDur) / rotDur) * 360)} 50 50)`,
+        );
       path.setAttribute('d', buildPath(detailScale));
 
       for (let i = 0; i < dotsRef.current.length; i++) {
@@ -100,7 +114,14 @@ export function RoseLoader({ size = 96, speed = 1, label, style }: { size?: numb
       role="status"
       aria-label={label}
       aria-live="polite"
-      style={{ width: size, height: size, color: 'var(--accent)', display: 'grid', placeItems: 'center', ...style }}
+      style={{
+        width: size,
+        height: size,
+        color: 'var(--accent)',
+        display: 'grid',
+        placeItems: 'center',
+        ...style,
+      }}
     >
       <svg
         viewBox="0 0 100 100"

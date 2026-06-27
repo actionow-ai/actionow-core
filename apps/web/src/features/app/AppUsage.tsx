@@ -134,7 +134,9 @@ export function AppUsage() {
       key: 'status',
       header: t('app.usage.cols.status'),
       noClip: true,
-      cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
+      cell: (r) => (
+        <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
       width: '110px',
     },
   ];

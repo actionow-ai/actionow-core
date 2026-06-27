@@ -129,7 +129,10 @@ export function ChannelEditor({
   });
   const proxyOptions = [
     { value: '', label: t('channels.form.proxyNone') },
-    ...(proxies.data ?? []).map((p) => ({ value: p.id, label: `${p.name} · ${p.scheme} ${p.host}` })),
+    ...(proxies.data ?? []).map((p) => ({
+      value: p.id,
+      label: `${p.name} · ${p.scheme} ${p.host}`,
+    })),
   ];
 
   const [providerType, setProviderType] = useState(channel?.provider_type ?? '');

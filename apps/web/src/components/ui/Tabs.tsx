@@ -40,7 +40,8 @@ export function Tabs({
   const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
     let next = activeIdx;
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (activeIdx + 1) % tabs.length;
-    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (activeIdx - 1 + tabs.length) % tabs.length;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp')
+      next = (activeIdx - 1 + tabs.length) % tabs.length;
     else if (e.key === 'Home') next = 0;
     else if (e.key === 'End') next = tabs.length - 1;
     else return;
@@ -115,7 +116,12 @@ export function Tabs({
           );
         })}
       </div>
-      <div role="tabpanel" id={panelId} aria-labelledby={tabId(tabs[activeIdx]?.value ?? '')} style={{ marginTop: 'var(--s-4)' }}>
+      <div
+        role="tabpanel"
+        id={panelId}
+        aria-labelledby={tabId(tabs[activeIdx]?.value ?? '')}
+        style={{ marginTop: 'var(--s-4)' }}
+      >
         {children}
       </div>
     </div>

@@ -24,7 +24,9 @@ describe('NumberField', () => {
   });
 
   it('passes min/max/step through to the underlying input', () => {
-    render(<NumberField label="Rate" value={1} onChange={() => undefined} min={1} max={100} step={5} />);
+    render(
+      <NumberField label="Rate" value={1} onChange={() => undefined} min={1} max={100} step={5} />,
+    );
     const input = screen.getByLabelText('Rate');
     expect(input).toHaveAttribute('min', '1');
     expect(input).toHaveAttribute('max', '100');

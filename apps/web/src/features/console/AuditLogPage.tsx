@@ -89,8 +89,7 @@ export function AuditLogPage() {
 
   const q = useInfiniteQuery({
     queryKey: qk.auditLog(filters),
-    queryFn: ({ pageParam }) =>
-      api.listAuditLog({ ...filters, limit: '50', cursor: pageParam }),
+    queryFn: ({ pageParam }) => api.listAuditLog({ ...filters, limit: '50', cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     staleTime: STALE_VOLATILE,
@@ -241,13 +240,39 @@ export function AuditLogPage() {
             <Pill tone="run">{t('auditLog.targetIdFilter', { id: SHORT(targetId) })} ✕</Pill>
           </button>
         )}
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 'var(--s-2)',
+            fontSize: 'var(--fs-sm)',
+            color: 'var(--muted)',
+          }}
+        >
           {t('auditLog.from')}
-          <DateField value={from} onChange={setFrom} max={to === '' ? undefined : to} ariaLabel={t('auditLog.from')} />
+          <DateField
+            value={from}
+            onChange={setFrom}
+            max={to === '' ? undefined : to}
+            ariaLabel={t('auditLog.from')}
+          />
         </span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 'var(--s-2)',
+            fontSize: 'var(--fs-sm)',
+            color: 'var(--muted)',
+          }}
+        >
           {t('auditLog.to')}
-          <DateField value={to} onChange={setTo} min={from === '' ? undefined : from} ariaLabel={t('auditLog.to')} />
+          <DateField
+            value={to}
+            onChange={setTo}
+            min={from === '' ? undefined : from}
+            ariaLabel={t('auditLog.to')}
+          />
         </span>
       </div>
 

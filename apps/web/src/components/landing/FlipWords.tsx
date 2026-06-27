@@ -9,7 +9,15 @@ import { DUR, EASE } from '../../lib/motion/tokens';
  * GSAP-driven). Autonomous, so it stops under prefers-reduced-motion (shows the
  * first word). Drives textContent directly to avoid re-rendering the tree.
  */
-export function FlipWords({ words, className, style }: { words: string[]; className?: string; style?: CSSProperties }) {
+export function FlipWords({
+  words,
+  className,
+  style,
+}: {
+  words: string[];
+  className?: string;
+  style?: CSSProperties;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
 
   useGSAP(

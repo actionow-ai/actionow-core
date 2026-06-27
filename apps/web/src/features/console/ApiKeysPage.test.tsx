@@ -19,8 +19,26 @@ const key: ApiKeyView = {
   created_at: '2026-06-01T00:00:00Z',
 };
 const groups: RouteGroupView[] = [
-  { id: 'g1', name: 'team-a', group_ratio_bps: 10000, fallback_group_id: null, status: 'active', description: null, created_at: '', updated_at: '' },
-  { id: 'g2', name: 'team-b', group_ratio_bps: 12000, fallback_group_id: null, status: 'active', description: null, created_at: '', updated_at: '' },
+  {
+    id: 'g1',
+    name: 'team-a',
+    group_ratio_bps: 10000,
+    fallback_group_id: null,
+    status: 'active',
+    description: null,
+    created_at: '',
+    updated_at: '',
+  },
+  {
+    id: 'g2',
+    name: 'team-b',
+    group_ratio_bps: 12000,
+    fallback_group_id: null,
+    status: 'active',
+    description: null,
+    created_at: '',
+    updated_at: '',
+  },
 ];
 
 const mockApi = vi.hoisted(() => ({
@@ -132,7 +150,9 @@ describe('ApiKeyDetailPage binding', () => {
 
     await screen.findByRole('heading', { name: 'k1' });
     await user.click(screen.getByRole('button', { name: i18n.t('console:apiKeys.group.label') }));
-    await user.click(await screen.findByRole('option', { name: i18n.t('console:apiKeys.group.default') }));
+    await user.click(
+      await screen.findByRole('option', { name: i18n.t('console:apiKeys.group.default') }),
+    );
 
     expect(mockApi.updateApiKeyGroup).toHaveBeenCalledWith('k1', { routeGroupId: null });
   });

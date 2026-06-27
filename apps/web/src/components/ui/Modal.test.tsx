@@ -10,7 +10,12 @@ function Harness() {
   return (
     <div>
       <button onClick={() => setOpen(true)}>trigger</button>
-      <Modal open={open} title="Dialog" onClose={() => setOpen(false)} footer={<button>save</button>}>
+      <Modal
+        open={open}
+        title="Dialog"
+        onClose={() => setOpen(false)}
+        footer={<button>save</button>}
+      >
         <input aria-label="name" />
       </Modal>
     </div>

@@ -1,4 +1,9 @@
-import { PencilSimpleIcon, PlusIcon, SlidersHorizontalIcon, TrashIcon } from '@phosphor-icons/react';
+import {
+  PencilSimpleIcon,
+  PlusIcon,
+  SlidersHorizontalIcon,
+  TrashIcon,
+} from '@phosphor-icons/react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useState } from 'react';

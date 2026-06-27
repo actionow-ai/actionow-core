@@ -78,7 +78,9 @@ export function ModelGrantsDrawer({
       cell: (g) => (
         <span style={{ display: 'inline-flex', flexDirection: 'column', minWidth: 0 }}>
           <span style={{ fontWeight: 'var(--fw-medium)' }}>{tenantName(g.tenant_id)}</span>
-          <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>{g.tenant_id}</span>
+          <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>
+            {g.tenant_id}
+          </span>
         </span>
       ),
     },

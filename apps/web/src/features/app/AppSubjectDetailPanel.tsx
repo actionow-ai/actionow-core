@@ -77,8 +77,7 @@ export function AppSubjectDetailPanel({
   });
 
   const refreshSubjects = () => qc.invalidateQueries({ queryKey: qk.consoleSubjects() });
-  const refreshWallet = () =>
-    qc.invalidateQueries({ queryKey: qk.consoleSubAccount(subject.id) });
+  const refreshWallet = () => qc.invalidateQueries({ queryKey: qk.consoleSubAccount(subject.id) });
 
   const bindPlan = useMutation({
     mutationFn: (planId: string | null) => api.setSubjectLimitPlan(subject.id, planId),
@@ -97,7 +96,8 @@ export function AppSubjectDetailPanel({
   const [xferDir, setXferDir] = useState<'to_subject' | 'to_tenant'>('to_subject');
 
   const openWallet = useMutation({
-    mutationFn: () => api.openSubAccount(subject.id, openCredits > 0 ? { credits: openCredits } : {}),
+    mutationFn: () =>
+      api.openSubAccount(subject.id, openCredits > 0 ? { credits: openCredits } : {}),
     onSuccess: async () => {
       await refreshWallet();
       toast(t('app.subjects.detail.walletOpened'));
@@ -201,7 +201,12 @@ export function AppSubjectDetailPanel({
               heldLabel={t('app.subjects.detail.held')}
             />
             <div
-              style={{ display: 'flex', gap: 'var(--s-2)', alignItems: 'flex-end', flexWrap: 'wrap' }}
+              style={{
+                display: 'flex',
+                gap: 'var(--s-2)',
+                alignItems: 'flex-end',
+                flexWrap: 'wrap',
+              }}
             >
               <div style={{ width: 130 }}>
                 <NumberField
@@ -221,7 +226,12 @@ export function AppSubjectDetailPanel({
               </Button>
             </div>
             <div
-              style={{ display: 'flex', gap: 'var(--s-2)', alignItems: 'flex-end', flexWrap: 'wrap' }}
+              style={{
+                display: 'flex',
+                gap: 'var(--s-2)',
+                alignItems: 'flex-end',
+                flexWrap: 'wrap',
+              }}
             >
               <div style={{ width: 130 }}>
                 <NumberField
@@ -264,7 +274,11 @@ export function AppSubjectDetailPanel({
                 min={0}
               />
             </div>
-            <Button variant="cta" onClick={() => openWallet.mutate()} loading={openWallet.isPending}>
+            <Button
+              variant="cta"
+              onClick={() => openWallet.mutate()}
+              loading={openWallet.isPending}
+            >
               <PlusIcon size={14} weight="bold" /> {t('app.subjects.detail.openWallet')}
             </Button>
           </div>
@@ -327,7 +341,11 @@ export function AppSubjectDetailPanel({
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                 <KeyIcon size={14} aria-hidden="true" />
                 <code
-                  style={{ fontSize: 'var(--fs-caption)', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                  style={{
+                    fontSize: 'var(--fs-caption)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
                 >
                   {k.id}
                 </code>

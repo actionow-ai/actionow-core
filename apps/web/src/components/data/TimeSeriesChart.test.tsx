@@ -48,7 +48,9 @@ describe('TimeSeriesChart scaling', () => {
 
 describe('TimeSeriesChart single point', () => {
   it('renders a visible marker for a lone point (a 1-vertex polyline draws nothing)', () => {
-    const { container } = render(<TimeSeriesChart points={[{ label: 'only', micro: '5000000' }]} />);
+    const { container } = render(
+      <TimeSeriesChart points={[{ label: 'only', micro: '5000000' }]} />,
+    );
     const circle = container.querySelector('circle');
     expect(circle).not.toBeNull();
     // A single point is centered horizontally (xFor → VW/2 = 300).

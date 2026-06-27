@@ -107,7 +107,12 @@ export function PluginsPage() {
       cell: (p) => p.modalities.join(', ') || '—',
       width: '160px',
     },
-    { key: 'protocol', header: t('plugins.cols.protocol'), cell: (p) => p.protocol, width: '120px' },
+    {
+      key: 'protocol',
+      header: t('plugins.cols.protocol'),
+      cell: (p) => p.protocol,
+      width: '120px',
+    },
     {
       key: 'auth',
       header: t('plugins.cols.auth'),
@@ -115,7 +120,12 @@ export function PluginsPage() {
       cell: (p) => <span className="chip">{p.auth_strategy}</span>,
       width: '150px',
     },
-    { key: 'version', header: t('plugins.cols.version'), cell: (p) => `v${String(p.version)}`, width: '72px' },
+    {
+      key: 'version',
+      header: t('plugins.cols.version'),
+      cell: (p) => `v${String(p.version)}`,
+      width: '72px',
+    },
     {
       key: 'kind',
       header: t('plugins.cols.kind'),
@@ -130,7 +140,9 @@ export function PluginsPage() {
       header: t('plugins.cols.status'),
       width: '110px',
       noClip: true,
-      cell: (p) => <StatusBadge tone={statusTone(p.status)} label={t('status.' + p.status, p.status)} />,
+      cell: (p) => (
+        <StatusBadge tone={statusTone(p.status)} label={t('status.' + p.status, p.status)} />
+      ),
     },
   ];
 
@@ -148,7 +160,11 @@ export function PluginsPage() {
         actionsWidth="96px"
         rowActions={(p) => (
           <>
-            <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={() => setEditing(p)} />
+            <RowAction
+              icon={PencilSimpleIcon}
+              label={t('common.edit')}
+              onClick={() => setEditing(p)}
+            />
             <RowAction
               icon={TrashIcon}
               label={t('common.delete')}
@@ -215,7 +231,9 @@ export function PluginEditor({
 
   // Test panel state.
   const [testFn, setTestFn] = useState('mapRequest');
-  const [testArg, setTestArg] = useState('{ "inputs": { "prompt": "a cat" }, "model": "gpt-image-1" }');
+  const [testArg, setTestArg] = useState(
+    '{ "inputs": { "prompt": "a cat" }, "model": "gpt-image-1" }',
+  );
   const [testOut, setTestOut] = useState<TestPluginResponse | null>(null);
 
   const manifest = () => ({
@@ -232,7 +250,12 @@ export function PluginEditor({
   const save = useMutation({
     mutationFn: async (): Promise<void> => {
       if (editing) {
-        await api.updatePlugin(plugin.id, { label: label.trim(), manifest: manifest(), handler, icon });
+        await api.updatePlugin(plugin.id, {
+          label: label.trim(),
+          manifest: manifest(),
+          handler,
+          icon,
+        });
       } else {
         await api.createPlugin({
           slug: slug.trim(),
@@ -323,12 +346,12 @@ export function PluginEditor({
         options={SIGNERS.map((s) => ({ value: s, label: s }))}
       />
 
-      <FormField id={handlerId} label={t('plugins.form.handler')} hint={t('plugins.form.handlerHint')}>
-        <CodeEditor
-          value={handler}
-          onChange={setHandler}
-          ariaLabel={t('plugins.form.handler')}
-        />
+      <FormField
+        id={handlerId}
+        label={t('plugins.form.handler')}
+        hint={t('plugins.form.handlerHint')}
+      >
+        <CodeEditor value={handler} onChange={setHandler} ariaLabel={t('plugins.form.handler')} />
       </FormField>
 
       {/* Test panel (spec §3.7) */}

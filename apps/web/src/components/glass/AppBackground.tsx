@@ -13,9 +13,30 @@ import { Z } from '../../lib/zIndex';
  * no-preference`, so nothing moves when the user asks to reduce motion.
  */
 const BLOBS = [
-  { key: 'b1', size: 460, css: { left: '-8%', top: '-14%' }, color: 'var(--b1)', depth: 0.05, idle: [34, -22, 9] },
-  { key: 'b2', size: 380, css: { right: '-6%', top: '6%' }, color: 'var(--b2)', depth: -0.04, idle: [-26, 24, 11] },
-  { key: 'b3', size: 420, css: { left: '34%', top: '46%' }, color: 'var(--b3)', depth: 0.035, idle: [20, 28, 8] },
+  {
+    key: 'b1',
+    size: 460,
+    css: { left: '-8%', top: '-14%' },
+    color: 'var(--b1)',
+    depth: 0.05,
+    idle: [34, -22, 9],
+  },
+  {
+    key: 'b2',
+    size: 380,
+    css: { right: '-6%', top: '6%' },
+    color: 'var(--b2)',
+    depth: -0.04,
+    idle: [-26, 24, 11],
+  },
+  {
+    key: 'b3',
+    size: 420,
+    css: { left: '34%', top: '46%' },
+    color: 'var(--b3)',
+    depth: 0.035,
+    idle: [20, 28, 8],
+  },
 ] as const;
 
 export function AppBackground({ grid = false }: { grid?: boolean }) {
@@ -36,12 +57,23 @@ export function AppBackground({ grid = false }: { grid?: boolean }) {
         BLOBS.forEach((b, i) => {
           const inner = blobs[i]?.firstElementChild;
           if (inner) {
-            gsap.to(inner, { x: b.idle[0], y: b.idle[1], duration: b.idle[2], ease: 'sine.inOut', yoyo: true, repeat: -1 });
+            gsap.to(inner, {
+              x: b.idle[0],
+              y: b.idle[1],
+              duration: b.idle[2],
+              ease: 'sine.inOut',
+              yoyo: true,
+              repeat: -1,
+            });
           }
         });
 
-        const qx = blobs.map((b) => (b ? gsap.quickTo(b, 'x', { duration: 1.1, ease: EASE.out }) : null));
-        const qy = blobs.map((b) => (b ? gsap.quickTo(b, 'y', { duration: 1.1, ease: EASE.out }) : null));
+        const qx = blobs.map((b) =>
+          b ? gsap.quickTo(b, 'x', { duration: 1.1, ease: EASE.out }) : null,
+        );
+        const qy = blobs.map((b) =>
+          b ? gsap.quickTo(b, 'y', { duration: 1.1, ease: EASE.out }) : null,
+        );
         const sx = spot ? gsap.quickTo(spot, 'x', { duration: 0.6, ease: EASE.out }) : null;
         const sy = spot ? gsap.quickTo(spot, 'y', { duration: 0.6, ease: EASE.out }) : null;
 
@@ -64,11 +96,39 @@ export function AppBackground({ grid = false }: { grid?: boolean }) {
   );
 
   return (
-    <div ref={root} aria-hidden="true" style={{ position: 'fixed', inset: 0, overflow: 'hidden', zIndex: Z.background, pointerEvents: 'none' }}>
+    <div
+      ref={root}
+      aria-hidden="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        overflow: 'hidden',
+        zIndex: Z.background,
+        pointerEvents: 'none',
+      }}
+    >
       {grid && <div className="bg-grid" />}
       {BLOBS.map((b) => (
-        <div key={b.key} data-blob={b.key} style={{ position: 'absolute', width: b.size, height: b.size, willChange: 'transform', ...b.css }}>
-          <div style={{ width: '100%', height: '100%', borderRadius: '50%', filter: 'blur(var(--blur))', background: `radial-gradient(circle, ${b.color}, transparent 70%)` }} />
+        <div
+          key={b.key}
+          data-blob={b.key}
+          style={{
+            position: 'absolute',
+            width: b.size,
+            height: b.size,
+            willChange: 'transform',
+            ...b.css,
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              borderRadius: '50%',
+              filter: 'blur(var(--blur))',
+              background: `radial-gradient(circle, ${b.color}, transparent 70%)`,
+            }}
+          />
         </div>
       ))}
       <div

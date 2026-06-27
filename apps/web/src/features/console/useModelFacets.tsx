@@ -50,7 +50,9 @@ function matches(m: FacetableModel, sel: Selected): boolean {
  * Capabilities are AND (a model must have every selected capability). A facet
  * row only renders when it has ≥2 distinct values (else it can't narrow).
  */
-export function useModelFacets<T extends FacetableModel>(models: T[]): {
+export function useModelFacets<T extends FacetableModel>(
+  models: T[],
+): {
   node: ReactNode;
   filtered: T[];
 } {
@@ -75,7 +77,8 @@ export function useModelFacets<T extends FacetableModel>(models: T[]): {
 
   const label = (key: FacetKey, value: string): string => {
     if (key === 'modality') return enumLabel(t, MODALITIES, value);
-    if (key === 'capability') return t(CAPABILITIES.find((c) => c.key === value)?.labelKey ?? value);
+    if (key === 'capability')
+      return t(CAPABILITIES.find((c) => c.key === value)?.labelKey ?? value);
     return value;
   };
 

@@ -143,7 +143,9 @@ export function OfficialPricesPage() {
       header: t('officialPrices.cols.effectiveAt'),
       sortable: true,
       sortValue: (r) => r.effective_at ?? '',
-      cell: (r) => <span className="tabular">{r.effective_at ? r.effective_at.slice(0, 10) : '—'}</span>,
+      cell: (r) => (
+        <span className="tabular">{r.effective_at ? r.effective_at.slice(0, 10) : '—'}</span>
+      ),
       width: '120px',
     },
     {
@@ -155,7 +157,12 @@ export function OfficialPricesPage() {
             href={r.source_url}
             target="_blank"
             rel="noreferrer noopener"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-1)', color: 'var(--accent)' }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 'var(--s-1)',
+              color: 'var(--accent)',
+            }}
           >
             {t('officialPrices.source')}
             <ArrowSquareOutIcon size={13} weight="bold" aria-hidden="true" />
@@ -183,8 +190,17 @@ export function OfficialPricesPage() {
         actionsWidth="92px"
         rowActions={(r) => (
           <>
-            <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={() => setEditId(r.id)} />
-            <RowAction icon={TrashIcon} label={t('common.delete')} danger onClick={() => setDelTarget(r)} />
+            <RowAction
+              icon={PencilSimpleIcon}
+              label={t('common.edit')}
+              onClick={() => setEditId(r.id)}
+            />
+            <RowAction
+              icon={TrashIcon}
+              label={t('common.delete')}
+              danger
+              onClick={() => setDelTarget(r)}
+            />
           </>
         )}
       />
@@ -273,7 +289,9 @@ function OfficialPriceEditor({
   const [inputUsd, setInputUsd] = useState(usd(row?.input_price_per_1m));
   const [outputUsd, setOutputUsd] = useState(usd(row?.output_price_per_1m));
   const [cachedUsd, setCachedUsd] = useState(usd(row?.cached_input_price_per_1m));
-  const [effectiveAt, setEffectiveAt] = useState(row?.effective_at ? row.effective_at.slice(0, 10) : '');
+  const [effectiveAt, setEffectiveAt] = useState(
+    row?.effective_at ? row.effective_at.slice(0, 10) : '',
+  );
   const [sourceUrl, setSourceUrl] = useState(row?.source_url ?? '');
   const [notes, setNotes] = useState(row?.notes ?? '');
 
@@ -292,7 +310,10 @@ function OfficialPriceEditor({
 
   const isoOrNull = (d: string): string | null => (d === '' ? null : `${d}T00:00:00Z`);
   // Create requires positive input/output prices + a model slug (mirrors the backend .positive()).
-  const canSave = modelSlug.trim() !== '' && provider.trim() !== '' && (editing || (inputUsd > 0 && outputUsd > 0));
+  const canSave =
+    modelSlug.trim() !== '' &&
+    provider.trim() !== '' &&
+    (editing || (inputUsd > 0 && outputUsd > 0));
 
   const save = useMutation({
     mutationFn: () => {
@@ -336,7 +357,12 @@ function OfficialPriceEditor({
       title={t(editing ? 'officialPrices.editTitle' : 'officialPrices.new')}
       onClose={onClose}
       footer={
-        <Button variant="cta" onClick={() => save.mutate()} loading={save.isPending} disabled={!canSave}>
+        <Button
+          variant="cta"
+          onClick={() => save.mutate()}
+          loading={save.isPending}
+          disabled={!canSave}
+        >
           {t('officialPrices.save')}
         </Button>
       }
@@ -359,7 +385,11 @@ function OfficialPriceEditor({
         required
         disabled={editing}
       />
-      <TextField label={t('officialPrices.form.displayName')} value={displayName} onChange={setDisplayName} />
+      <TextField
+        label={t('officialPrices.form.displayName')}
+        value={displayName}
+        onChange={setDisplayName}
+      />
       <NumberField
         label={t('officialPrices.form.inputPrice')}
         tooltip={t('officialPrices.tip.price')}

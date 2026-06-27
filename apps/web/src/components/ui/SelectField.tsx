@@ -35,7 +35,14 @@ export function SelectField({
   const fieldId = useFieldId();
   const aria = fieldAria(fieldId, error, hint);
   return (
-    <FormField id={fieldId} label={label} error={error} hint={hint} tooltip={tooltip} inline={inline}>
+    <FormField
+      id={fieldId}
+      label={label}
+      error={error}
+      hint={hint}
+      tooltip={tooltip}
+      inline={inline}
+    >
       <Select
         id={fieldId}
         value={value}

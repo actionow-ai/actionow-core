@@ -26,8 +26,20 @@ interface Props {
  * base size, so only `sm`/`lg` add a size class; `link` is text-only and ignores
  * size padding.
  */
-export function Button({ children, variant = 'cta', size = 'md', to, href, onClick, className, type, disabled, loading }: Props) {
-  const sizeCls = variant === 'link' ? '' : size === 'sm' ? 'btn-sm' : size === 'lg' ? 'btn-lg' : '';
+export function Button({
+  children,
+  variant = 'cta',
+  size = 'md',
+  to,
+  href,
+  onClick,
+  className,
+  type,
+  disabled,
+  loading,
+}: Props) {
+  const sizeCls =
+    variant === 'link' ? '' : size === 'sm' ? 'btn-sm' : size === 'lg' ? 'btn-lg' : '';
   const cls = `btn btn-${variant} ${sizeCls} ${className ?? ''}`.replace(/\s+/g, ' ').trim();
   if (to) {
     return (
@@ -45,8 +57,16 @@ export function Button({ children, variant = 'cta', size = 'md', to, href, onCli
   }
   const isBlocked = disabled === true || loading === true;
   return (
-    <button type={type ?? 'button'} onClick={onClick} disabled={isBlocked} aria-busy={loading === true ? true : undefined} className={cls}>
-      {loading === true && <CircleNotchIcon size={15} weight="bold" className="refresh-spin" aria-hidden="true" />}
+    <button
+      type={type ?? 'button'}
+      onClick={onClick}
+      disabled={isBlocked}
+      aria-busy={loading === true ? true : undefined}
+      className={cls}
+    >
+      {loading === true && (
+        <CircleNotchIcon size={15} weight="bold" className="refresh-spin" aria-hidden="true" />
+      )}
       {children}
     </button>
   );

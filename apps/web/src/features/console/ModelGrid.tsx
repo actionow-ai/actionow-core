@@ -64,12 +64,19 @@ export function ModelGrid({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
       {showHeader && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
-          <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', fontWeight: 'var(--fw-medium)' }}>
+          <span
+            style={{
+              fontSize: 'var(--fs-sm)',
+              color: 'var(--muted)',
+              fontWeight: 'var(--fw-medium)',
+            }}
+          >
             {t('resources.detail.servedModels')} · {channel.provider_type}
           </span>
           <span style={{ flex: 1 }} />
           <Button variant="ghost" size="sm" onClick={onSync} loading={syncing}>
-            <ArrowsClockwiseIcon size={14} weight="bold" aria-hidden="true" /> {t('channels.actions.syncModels')}
+            <ArrowsClockwiseIcon size={14} weight="bold" aria-hidden="true" />{' '}
+            {t('channels.actions.syncModels')}
           </Button>
           <Button variant="ghost" size="sm" onClick={onAddModel}>
             <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('models.link')}
@@ -157,13 +164,19 @@ function ModelCard({
         >
           {model.name}
         </span>
-        <span style={{ width: 7, height: 7, borderRadius: '50%', background: dot, flexShrink: 0 }} aria-hidden="true" />
+        <span
+          style={{ width: 7, height: 7, borderRadius: '50%', background: dot, flexShrink: 0 }}
+          aria-hidden="true"
+        />
       </div>
       <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)', marginTop: 6 }}>
         {enumLabel(t, MODALITIES, model.modality)}
         {model.maker !== null && ` · ${model.maker}`}
       </div>
-      <div className="tabular" style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)', marginTop: 4 }}>
+      <div
+        className="tabular"
+        style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)', marginTop: 4 }}
+      >
         {priced ? `${usd(model.input_price)} / ${usd(model.output_price)}` : t('models.unpriced')}
       </div>
       {model.tags.length > 0 && (

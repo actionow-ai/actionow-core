@@ -34,7 +34,9 @@ beforeEach(() => {
 
 describe('AuthPage hardening adapts', () => {
   it('on a 429 login throttle, disables submit and shows a retry countdown from retryAfterMs', async () => {
-    auth.login.mockRejectedValueOnce(new ApiError('rate_limited', 'too many requests', 429, true, 3000));
+    auth.login.mockRejectedValueOnce(
+      new ApiError('rate_limited', 'too many requests', 429, true, 3000),
+    );
     const user = userEvent.setup();
     const { container } = renderAuth();
 

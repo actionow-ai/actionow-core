@@ -102,7 +102,12 @@ export function Floating({
   children,
 }: FloatingProps) {
   const contentRef = useRef<HTMLDivElement>(null);
-  const anchored = useAnchoredStyle(triggerRef, contentRef, open, { placement, align, gap, margin });
+  const anchored = useAnchoredStyle(triggerRef, contentRef, open, {
+    placement,
+    align,
+    gap,
+    margin,
+  });
 
   if (!open && !keepMounted) return null;
   const visible = open && anchored !== null;

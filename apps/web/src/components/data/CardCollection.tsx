@@ -62,11 +62,27 @@ export function CardCollection<T>({
     );
   }
   if (rows.length === 0) {
-    return <div style={{ padding: 'var(--s-8)', textAlign: 'center', color: 'var(--muted)', fontSize: 'var(--fs-sm)' }}>{empty}</div>;
+    return (
+      <div
+        style={{
+          padding: 'var(--s-8)',
+          textAlign: 'center',
+          color: 'var(--muted)',
+          fontSize: 'var(--fs-sm)',
+        }}
+      >
+        {empty}
+      </div>
+    );
   }
   const style: CSSProperties =
     layout === 'grid'
-      ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--s-4)', alignContent: 'start' }
+      ? {
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gap: 'var(--s-4)',
+          alignContent: 'start',
+        }
       : { display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' };
   return (
     <div ref={gridRef} style={style}>

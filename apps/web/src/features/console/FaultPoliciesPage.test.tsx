@@ -79,12 +79,18 @@ describe('FaultPoliciesPage breaker fields (resilience v2)', () => {
     await user.click(screen.getByRole('button', { name: i18n.t('console:common.edit') }));
 
     // Breaker section is collapsed by default — the failure-rate field is hidden.
-    expect(screen.queryByLabelText(i18n.t('console:faultPolicies.form.breakerFailureRatePct'))).toBeNull();
+    expect(
+      screen.queryByLabelText(i18n.t('console:faultPolicies.form.breakerFailureRatePct')),
+    ).toBeNull();
 
     // Expand the 熔断 section.
-    await user.click(screen.getByRole('button', { name: i18n.t('console:faultPolicies.breakerShow') }));
+    await user.click(
+      screen.getByRole('button', { name: i18n.t('console:faultPolicies.breakerShow') }),
+    );
 
-    const rate = await screen.findByLabelText(i18n.t('console:faultPolicies.form.breakerFailureRatePct'));
+    const rate = await screen.findByLabelText(
+      i18n.t('console:faultPolicies.form.breakerFailureRatePct'),
+    );
     await user.clear(rate);
     await user.type(rate, '80');
 

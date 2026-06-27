@@ -97,7 +97,12 @@ export function KeyValueEditor({
               onChange={(e) => setRow(i, { value: e.target.value })}
               style={inputStyle}
             />
-            <RowAction icon={XIcon} label={t('forms.removeRow')} onClick={() => removeRow(i)} danger />
+            <RowAction
+              icon={XIcon}
+              label={t('forms.removeRow')}
+              onClick={() => removeRow(i)}
+              danger
+            />
           </div>
         ))}
         <div>

@@ -206,9 +206,12 @@ export function OAuthSessionsPage() {
     [t],
   );
 
-  const fmtDate = (s: string | null) => (s !== null ? new Date(s).toLocaleString(i18n.language) : '—');
+  const fmtDate = (s: string | null) =>
+    s !== null ? new Date(s).toLocaleString(i18n.language) : '—';
 
-  const metaCols = <T extends { name: string | null; notes: string | null; group: string | null }>(): Column<T>[] => [
+  const metaCols = <
+    T extends { name: string | null; notes: string | null; group: string | null },
+  >(): Column<T>[] => [
     {
       key: 'name',
       header: t('credentials.name'),
@@ -220,7 +223,11 @@ export function OAuthSessionsPage() {
       header: t('credentials.group'),
       noClip: true,
       cell: (r) =>
-        r.group !== null ? <span className="chip">{r.group}</span> : <span style={{ color: 'var(--faint)' }}>—</span>,
+        r.group !== null ? (
+          <span className="chip">{r.group}</span>
+        ) : (
+          <span style={{ color: 'var(--faint)' }}>—</span>
+        ),
       width: '120px',
     },
   ];
@@ -232,7 +239,9 @@ export function OAuthSessionsPage() {
       header: t('oauthSessions.cols.provider'),
       noClip: true,
       cell: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}>
+        <span
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}
+        >
           <ProviderIcon provider={r.provider_kind} size={16} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.provider_kind}</span>
         </span>
@@ -240,16 +249,29 @@ export function OAuthSessionsPage() {
       width: '160px',
     },
     // account is the elastic column.
-    { key: 'account', header: t('oauthSessions.cols.account'), grow: true, cell: (r) => r.account_label ?? '—' },
+    {
+      key: 'account',
+      header: t('oauthSessions.cols.account'),
+      grow: true,
+      cell: (r) => r.account_label ?? '—',
+    },
     ...metaCols<OAuthSessionListView>().slice(1),
     {
       key: 'status',
       header: t('oauthSessions.cols.status'),
       noClip: true,
-      cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
+      cell: (r) => (
+        <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
       width: '148px',
     },
-    { key: 'expires', header: t('oauthSessions.cols.expires'), cell: (r) => fmtDate(r.expires_at), align: 'right', width: '170px' },
+    {
+      key: 'expires',
+      header: t('oauthSessions.cols.expires'),
+      cell: (r) => fmtDate(r.expires_at),
+      align: 'right',
+      width: '170px',
+    },
   ];
 
   const secretCols: Column<SecretView>[] = [
@@ -259,7 +281,9 @@ export function OAuthSessionsPage() {
       header: t('secrets.cols.provider'),
       noClip: true,
       cell: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}>
+        <span
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}
+        >
           <ProviderIcon provider={r.provider} size={16} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.provider}</span>
         </span>
@@ -273,11 +297,22 @@ export function OAuthSessionsPage() {
       grow: true,
       noClip: true,
       cell: (r) => (
-        <CopyField value={r.id} copyLabel={t('common.copy')} copiedLabel={t('common.copied')} failedLabel={t('common.copyFailed')} />
+        <CopyField
+          value={r.id}
+          copyLabel={t('common.copy')}
+          copiedLabel={t('common.copied')}
+          failedLabel={t('common.copyFailed')}
+        />
       ),
     },
     ...metaCols<SecretView>().slice(1),
-    { key: 'created', header: t('secrets.cols.created'), cell: (r) => fmtDate(r.created_at), align: 'right', width: '170px' },
+    {
+      key: 'created',
+      header: t('secrets.cols.created'),
+      cell: (r) => fmtDate(r.created_at),
+      align: 'right',
+      width: '170px',
+    },
   ];
 
   return (
@@ -305,7 +340,16 @@ export function OAuthSessionsPage() {
             selectable
             actionsWidth="96px"
             bulkActions={(rows, clear) => (
-              <Button variant="ghost" onClick={() => void bulkRevoke(rows.map((r) => r.id), 'oauth', clear)}>
+              <Button
+                variant="ghost"
+                onClick={() =>
+                  void bulkRevoke(
+                    rows.map((r) => r.id),
+                    'oauth',
+                    clear,
+                  )
+                }
+              >
                 {t('credentials.bulkRevoke', { n: rows.length })}
               </Button>
             )}
@@ -314,9 +358,22 @@ export function OAuthSessionsPage() {
                 <RowAction
                   icon={PencilSimpleIcon}
                   label={t('credentials.edit')}
-                  onClick={() => setEditing({ kind: 'oauth', id: r.id, name: r.name ?? '', notes: r.notes ?? '', group: r.group ?? '' })}
+                  onClick={() =>
+                    setEditing({
+                      kind: 'oauth',
+                      id: r.id,
+                      name: r.name ?? '',
+                      notes: r.notes ?? '',
+                      group: r.group ?? '',
+                    })
+                  }
                 />
-                <RowAction icon={ProhibitIcon} label={t('oauthSessions.revoke')} danger onClick={() => setRevokeTarget(r)} />
+                <RowAction
+                  icon={ProhibitIcon}
+                  label={t('oauthSessions.revoke')}
+                  danger
+                  onClick={() => setRevokeTarget(r)}
+                />
               </>
             )}
           />
@@ -339,7 +396,16 @@ export function OAuthSessionsPage() {
             selectable
             actionsWidth="96px"
             bulkActions={(rows, clear) => (
-              <Button variant="ghost" onClick={() => void bulkRevoke(rows.map((r) => r.id), 'secrets', clear)}>
+              <Button
+                variant="ghost"
+                onClick={() =>
+                  void bulkRevoke(
+                    rows.map((r) => r.id),
+                    'secrets',
+                    clear,
+                  )
+                }
+              >
                 {t('credentials.bulkRevoke', { n: rows.length })}
               </Button>
             )}
@@ -348,9 +414,22 @@ export function OAuthSessionsPage() {
                 <RowAction
                   icon={PencilSimpleIcon}
                   label={t('credentials.edit')}
-                  onClick={() => setEditing({ kind: 'secret', id: r.id, name: r.name ?? '', notes: r.notes ?? '', group: r.group ?? '' })}
+                  onClick={() =>
+                    setEditing({
+                      kind: 'secret',
+                      id: r.id,
+                      name: r.name ?? '',
+                      notes: r.notes ?? '',
+                      group: r.group ?? '',
+                    })
+                  }
                 />
-                <RowAction icon={ProhibitIcon} label={t('secrets.revoke')} danger onClick={() => setSecretRevokeTarget(r)} />
+                <RowAction
+                  icon={ProhibitIcon}
+                  label={t('secrets.revoke')}
+                  danger
+                  onClick={() => setSecretRevokeTarget(r)}
+                />
               </>
             )}
           />
@@ -380,9 +459,22 @@ export function OAuthSessionsPage() {
       >
         {editing !== null && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-            <TextField label={t('credentials.name')} value={editing.name} onChange={(v) => setEditing({ ...editing, name: v })} />
-            <TextField label={t('credentials.group')} hint={t('credentials.groupHint')} value={editing.group} onChange={(v) => setEditing({ ...editing, group: v })} />
-            <TextField label={t('credentials.notes')} value={editing.notes} onChange={(v) => setEditing({ ...editing, notes: v })} />
+            <TextField
+              label={t('credentials.name')}
+              value={editing.name}
+              onChange={(v) => setEditing({ ...editing, name: v })}
+            />
+            <TextField
+              label={t('credentials.group')}
+              hint={t('credentials.groupHint')}
+              value={editing.group}
+              onChange={(v) => setEditing({ ...editing, group: v })}
+            />
+            <TextField
+              label={t('credentials.notes')}
+              value={editing.notes}
+              onChange={(v) => setEditing({ ...editing, notes: v })}
+            />
           </div>
         )}
       </Drawer>
@@ -394,28 +486,54 @@ export function OAuthSessionsPage() {
         onClose={closeCodex}
         footer={
           authorize === null ? (
-            <Button variant="cta" onClick={() => start.mutate()} loading={start.isPending} disabled={!codexTos}>
+            <Button
+              variant="cta"
+              onClick={() => start.mutate()}
+              loading={start.isPending}
+              disabled={!codexTos}
+            >
               {t('oauthSessions.codex.start')}
             </Button>
           ) : (
-            <Button variant="cta" onClick={() => complete.mutate()} loading={complete.isPending} disabled={code.trim() === ''}>
+            <Button
+              variant="cta"
+              onClick={() => complete.mutate()}
+              loading={complete.isPending}
+              disabled={code.trim() === ''}
+            >
               {t('oauthSessions.codex.complete')}
             </Button>
           )
         }
       >
-        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--run)' }}>{t('oauthSessions.tosWarn')}</div>
+        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--run)' }}>
+          {t('oauthSessions.tosWarn')}
+        </div>
         {authorize === null ? (
           <Checkbox checked={codexTos} onChange={setCodexTos} label={t('oauthSessions.tosAck')} />
         ) : (
           <>
             <div style={{ fontSize: 'var(--fs-sm)' }}>{t('oauthSessions.codex.openHint')}</div>
-            <CopyField value={authorize.authorize_url} copyLabel={t('oauthSessions.codex.copyUrl')} copiedLabel={t('oauthSessions.copied')} />
-            <a href={authorize.authorize_url} target="_blank" rel="noreferrer" style={{ fontSize: 'var(--fs-sm)' }}>
+            <CopyField
+              value={authorize.authorize_url}
+              copyLabel={t('oauthSessions.codex.copyUrl')}
+              copiedLabel={t('oauthSessions.copied')}
+            />
+            <a
+              href={authorize.authorize_url}
+              target="_blank"
+              rel="noreferrer"
+              style={{ fontSize: 'var(--fs-sm)' }}
+            >
               {t('oauthSessions.codex.openLink')}
             </a>
             <TextField label={t('oauthSessions.codex.code')} value={code} onChange={setCode} />
-            <TextField label={t('oauthSessions.codex.label')} hint={t('oauthSessions.codex.labelHint')} value={codexLabel} onChange={setCodexLabel} />
+            <TextField
+              label={t('oauthSessions.codex.label')}
+              hint={t('oauthSessions.codex.labelHint')}
+              value={codexLabel}
+              onChange={setCodexLabel}
+            />
           </>
         )}
       </Modal>
@@ -426,12 +544,19 @@ export function OAuthSessionsPage() {
         subtitle={t('oauthSessions.paste.subtitle')}
         onClose={closePaste}
         footer={
-          <Button variant="cta" onClick={() => create.mutate()} loading={create.isPending} disabled={!pasteTos || !parsed.ok || parsed.value === undefined}>
+          <Button
+            variant="cta"
+            onClick={() => create.mutate()}
+            loading={create.isPending}
+            disabled={!pasteTos || !parsed.ok || parsed.value === undefined}
+          >
             {t('oauthSessions.paste.submit')}
           </Button>
         }
       >
-        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--run)' }}>{t('oauthSessions.tosWarn')}</div>
+        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--run)' }}>
+          {t('oauthSessions.tosWarn')}
+        </div>
         <JsonField
           label={t('oauthSessions.paste.authJson')}
           value={authJson}
@@ -445,7 +570,9 @@ export function OAuthSessionsPage() {
       <ConfirmDialog
         open={revokeTarget !== undefined}
         title={t('oauthSessions.confirmRevokeTitle')}
-        message={t('oauthSessions.confirmRevokeMsg', { account: revokeTarget?.name ?? revokeTarget?.account_label ?? revokeTarget?.id ?? '' })}
+        message={t('oauthSessions.confirmRevokeMsg', {
+          account: revokeTarget?.name ?? revokeTarget?.account_label ?? revokeTarget?.id ?? '',
+        })}
         confirmLabel={t('common.delete')}
         cancelLabel={t('common.cancel')}
         danger
@@ -459,7 +586,13 @@ export function OAuthSessionsPage() {
       <ConfirmDialog
         open={secretRevokeTarget !== undefined}
         title={t('secrets.confirmRevokeTitle')}
-        message={t('secrets.confirmRevokeMsg', { provider: secretRevokeTarget?.name ?? secretRevokeTarget?.provider ?? secretRevokeTarget?.id ?? '' })}
+        message={t('secrets.confirmRevokeMsg', {
+          provider:
+            secretRevokeTarget?.name ??
+            secretRevokeTarget?.provider ??
+            secretRevokeTarget?.id ??
+            '',
+        })}
         confirmLabel={t('common.delete')}
         cancelLabel={t('common.cancel')}
         danger

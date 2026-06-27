@@ -80,7 +80,8 @@ export function useOpsHealth() {
   const now = Date.now();
   const oauthByRef = useMemo(() => {
     const m = new Map<string, { status: string; expires_at: string | null }>();
-    for (const s of oauth.data?.rows ?? []) m.set(s.id, { status: s.status, expires_at: s.expires_at });
+    for (const s of oauth.data?.rows ?? [])
+      m.set(s.id, { status: s.status, expires_at: s.expires_at });
     return m;
   }, [oauth.data]);
   const channels = useMemo(() => {
@@ -156,7 +157,10 @@ export function ModelHealthCard() {
                 </span>
                 <span style={{ flex: 1 }} />
                 {left !== null && (
-                  <span className="tabular" style={{ fontSize: 'var(--fs-caption)', color: 'var(--fail)' }}>
+                  <span
+                    className="tabular"
+                    style={{ fontSize: 'var(--fs-caption)', color: 'var(--fail)' }}
+                  >
                     {t('overview.health.cooldown', { time: left, n: ch.consecutive_failures })}
                   </span>
                 )}

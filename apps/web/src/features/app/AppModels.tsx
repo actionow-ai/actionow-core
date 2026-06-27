@@ -30,7 +30,12 @@ export function AppModels() {
       grow: true,
       cell: (r) => <span className="mono">{r.name}</span>,
     },
-    { key: 'display', header: t('app.models.cols.display'), width: '180px', cell: (r) => r.display || '—' },
+    {
+      key: 'display',
+      header: t('app.models.cols.display'),
+      width: '180px',
+      cell: (r) => r.display || '—',
+    },
     { key: 'maker', header: t('facets.maker'), width: '120px', cell: (r) => r.maker ?? '—' },
     {
       key: 'modality',

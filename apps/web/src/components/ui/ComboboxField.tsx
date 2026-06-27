@@ -97,7 +97,9 @@ export function ComboboxField({
   // Keep the highlighted option scrolled into view.
   useEffect(() => {
     if (!open || activeIndex < 0) return;
-    const el = menuRef.current?.querySelector(`#${CSS.escape(`${listId}-opt-${String(activeIndex)}`)}`);
+    const el = menuRef.current?.querySelector(
+      `#${CSS.escape(`${listId}-opt-${String(activeIndex)}`)}`,
+    );
     if (el instanceof HTMLElement && typeof el.scrollIntoView === 'function')
       el.scrollIntoView({ block: 'nearest' });
   }, [open, activeIndex, listId]);
@@ -149,7 +151,14 @@ export function ComboboxField({
   };
 
   return (
-    <FormField id={fieldId} label={label} error={error} hint={hint} tooltip={tooltip} required={required}>
+    <FormField
+      id={fieldId}
+      label={label}
+      error={error}
+      hint={hint}
+      tooltip={tooltip}
+      required={required}
+    >
       <div style={{ position: 'relative', display: 'flex' }}>
         <input
           ref={inputRef}

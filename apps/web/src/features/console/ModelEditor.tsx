@@ -231,23 +231,28 @@ export function ModelEditor({
             <Button variant="ghost" onClick={() => test.mutate()} loading={test.isPending}>
               {t('models.test.retry')}
             </Button>
-            <Button variant="cta" onClick={() => create.mutate('disabled')} loading={create.isPending}>
+            <Button
+              variant="cta"
+              onClick={() => create.mutate('disabled')}
+              loading={create.isPending}
+            >
               {t('models.test.addDisabled')}
             </Button>
           </div>
         ) : (
-          <Button
-            variant="cta"
-            onClick={onTestAndAdd}
-            loading={test.isPending || create.isPending}
-          >
+          <Button variant="cta" onClick={onTestAndAdd} loading={test.isPending || create.isPending}>
             {t('models.test.testAndAdd')}
           </Button>
         )
       }
     >
       {editing ? (
-        <TextField label={t('models.form.name')} value={nameField} onChange={() => undefined} disabled />
+        <TextField
+          label={t('models.form.name')}
+          value={nameField}
+          onChange={() => undefined}
+          disabled
+        />
       ) : (
         <TextField
           label={t('models.form.name')}

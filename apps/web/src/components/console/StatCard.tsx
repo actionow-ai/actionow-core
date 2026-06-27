@@ -57,8 +57,26 @@ export function StatCard({
 
   return (
     <div className="glass" style={{ padding: 'var(--s-5)', borderRadius: 'var(--r-md)' }}>
-      <div style={{ fontSize: 'var(--fs-nano)', textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--muted)' }}>{label}</div>
-      <div ref={numRef} className="tabular" style={{ fontSize: 'var(--fs-2xl)', fontWeight: 'var(--fw-bold)', marginTop: 8, letterSpacing: '-.02em' }}>
+      <div
+        style={{
+          fontSize: 'var(--fs-nano)',
+          textTransform: 'uppercase',
+          letterSpacing: '.06em',
+          color: 'var(--muted)',
+        }}
+      >
+        {label}
+      </div>
+      <div
+        ref={numRef}
+        className="tabular"
+        style={{
+          fontSize: 'var(--fs-2xl)',
+          fontWeight: 'var(--fw-bold)',
+          marginTop: 8,
+          letterSpacing: '-.02em',
+        }}
+      >
         {value}
       </div>
       {delta !== undefined && (

@@ -130,7 +130,14 @@ export function OverviewPage() {
     }
     const successRate = requests > 0 ? ((requests - errors) / requests) * 100 : null;
     const avgLatency = latDen > 0 ? Math.round(latNum / latDen) : null;
-    return { requests, errors, cost: cost.toString(), margin: margin.toString(), successRate, avgLatency };
+    return {
+      requests,
+      errors,
+      cost: cost.toString(),
+      margin: margin.toString(),
+      successRate,
+      avgLatency,
+    };
   }, [rows]);
 
   // µ-string → display string (for chart tooltips) and ReactNode (for table cells).
@@ -196,7 +203,10 @@ export function OverviewPage() {
       key: 'margin',
       header: t('analytics.cols.margin'),
       cell: (r) => (
-        <span className="tabular" style={{ color: BigInt(r.margin) < 0n ? 'var(--fail)' : 'var(--ok)' }}>
+        <span
+          className="tabular"
+          style={{ color: BigInt(r.margin) < 0n ? 'var(--fail)' : 'var(--ok)' }}
+        >
           {formatCreditsSigned(r.margin, i18n.language)}
         </span>
       ),
@@ -209,8 +219,13 @@ export function OverviewPage() {
       cell: (r) => {
         if (r.requests === 0) return <span style={{ color: 'var(--faint)' }}>—</span>;
         const rate = ((r.requests - r.errors) / r.requests) * 100;
-        const tone = rate >= 99 ? 'var(--ok)' : rate >= 95 ? 'var(--warn, var(--accent))' : 'var(--fail)';
-        return <span className="tabular" style={{ color: tone }}>{rate.toFixed(1)}%</span>;
+        const tone =
+          rate >= 99 ? 'var(--ok)' : rate >= 95 ? 'var(--warn, var(--accent))' : 'var(--fail)';
+        return (
+          <span className="tabular" style={{ color: tone }}>
+            {rate.toFixed(1)}%
+          </span>
+        );
       },
       align: 'right',
       width: '96px',
@@ -268,7 +283,11 @@ export function OverviewPage() {
         }}
       >
         <div style={{ minWidth: 180 }}>
-          <TenantSelect value={tenantId} onChange={setTenantId} placeholder={t('analytics.allTenants')} />
+          <TenantSelect
+            value={tenantId}
+            onChange={setTenantId}
+            placeholder={t('analytics.allTenants')}
+          />
         </div>
         <SegmentedControl
           ariaLabel={t('analytics.groupByLabel')}
@@ -284,11 +303,21 @@ export function OverviewPage() {
         />
         <span style={DATE_LABEL}>
           {t('analytics.from')}
-          <DateField value={from} onChange={setFrom} max={to === '' ? undefined : to} ariaLabel={t('analytics.from')} />
+          <DateField
+            value={from}
+            onChange={setFrom}
+            max={to === '' ? undefined : to}
+            ariaLabel={t('analytics.from')}
+          />
         </span>
         <span style={DATE_LABEL}>
           {t('analytics.to')}
-          <DateField value={to} onChange={setTo} min={from === '' ? undefined : from} ariaLabel={t('analytics.to')} />
+          <DateField
+            value={to}
+            onChange={setTo}
+            min={from === '' ? undefined : from}
+            ariaLabel={t('analytics.to')}
+          />
         </span>
       </div>
 
@@ -301,7 +330,14 @@ export function OverviewPage() {
         }}
       >
         <div className="glass" style={{ padding: 'var(--s-5)', borderRadius: 'var(--r-md)' }}>
-          <div style={{ fontSize: 'var(--fs-nano)', textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--muted)' }}>
+          <div
+            style={{
+              fontSize: 'var(--fs-nano)',
+              textTransform: 'uppercase',
+              letterSpacing: '.06em',
+              color: 'var(--muted)',
+            }}
+          >
             {t('overview.kpi.health')}
           </div>
           <div style={{ marginTop: 10 }}>
@@ -323,8 +359,14 @@ export function OverviewPage() {
           label={t('overview.kpi.avgLatency')}
           value={totals.avgLatency === null ? '—' : `${totals.avgLatency.toLocaleString()} ms`}
         />
-        <StatCard label={t('analytics.stats.cost')} value={formatCredits(totals.cost, i18n.language)} />
-        <StatCard label={t('analytics.stats.margin')} value={formatCreditsSigned(totals.margin, i18n.language)} />
+        <StatCard
+          label={t('analytics.stats.cost')}
+          value={formatCredits(totals.cost, i18n.language)}
+        />
+        <StatCard
+          label={t('analytics.stats.margin')}
+          value={formatCreditsSigned(totals.margin, i18n.language)}
+        />
         <StatCard
           label={t('overview.kpi.scale')}
           value={
@@ -370,7 +412,14 @@ export function OverviewPage() {
           >
             <QueryBoundary query={usage}>
               {rows.length === 0 ? (
-                <div style={{ padding: 'var(--s-6)', textAlign: 'center', color: 'var(--muted)', fontSize: 'var(--fs-sm)' }}>
+                <div
+                  style={{
+                    padding: 'var(--s-6)',
+                    textAlign: 'center',
+                    color: 'var(--muted)',
+                    fontSize: 'var(--fs-sm)',
+                  }}
+                >
                   {t('analytics.chart.empty')}
                 </div>
               ) : TIME_GRAINS.has(gb) ? (

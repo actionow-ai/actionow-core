@@ -186,7 +186,10 @@ export function AppSubjects() {
       <Drawer
         open={selected !== undefined}
         title={
-          selected?.display_name ?? selected?.external_id ?? selected?.email ?? t('app.subjects.title')
+          selected?.display_name ??
+          selected?.external_id ??
+          selected?.email ??
+          t('app.subjects.title')
         }
         onClose={() => setSelectedId(null)}
       >

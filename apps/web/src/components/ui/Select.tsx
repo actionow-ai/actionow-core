@@ -53,7 +53,12 @@ export function Select({
   const optionId = (i: number) => `${listId}-opt-${String(i)}`;
 
   const openMenu = (index?: number) => {
-    const start = index ?? Math.max(all.findIndex((o) => o.value === value), 0);
+    const start =
+      index ??
+      Math.max(
+        all.findIndex((o) => o.value === value),
+        0,
+      );
     setActiveIndex(start);
     setOpen(true);
   };
@@ -74,7 +79,8 @@ export function Select({
     place();
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node;
-      if (btnRef.current?.contains(t) !== true && menuRef.current?.contains(t) !== true) setOpen(false);
+      if (btnRef.current?.contains(t) !== true && menuRef.current?.contains(t) !== true)
+        setOpen(false);
     };
     document.addEventListener('mousedown', onDown);
     window.addEventListener('resize', place);
@@ -91,8 +97,11 @@ export function Select({
   // Keep the active option scrolled into view.
   useEffect(() => {
     if (!open) return;
-    const el = menuRef.current?.querySelector(`#${CSS.escape(`${listId}-opt-${String(activeIndex)}`)}`);
-    if (el instanceof HTMLElement && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' });
+    const el = menuRef.current?.querySelector(
+      `#${CSS.escape(`${listId}-opt-${String(activeIndex)}`)}`,
+    );
+    if (el instanceof HTMLElement && typeof el.scrollIntoView === 'function')
+      el.scrollIntoView({ block: 'nearest' });
   }, [open, activeIndex, listId]);
 
   const typeAhead = (key: string) => {
@@ -184,7 +193,12 @@ export function Select({
         </span>
         <CaretDownIcon
           size={14}
-          style={{ flexShrink: 0, color: 'var(--muted)', transition: 'transform 0.2s ease', transform: open ? 'rotate(180deg)' : 'none' }}
+          style={{
+            flexShrink: 0,
+            color: 'var(--muted)',
+            transition: 'transform 0.2s ease',
+            transform: open ? 'rotate(180deg)' : 'none',
+          }}
         />
       </button>
       {open &&
@@ -241,7 +255,13 @@ export function Select({
                   }}
                 >
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
-                  {on && <CheckIcon size={14} weight="bold" style={{ flexShrink: 0, color: 'var(--accent-2)' }} />}
+                  {on && (
+                    <CheckIcon
+                      size={14}
+                      weight="bold"
+                      style={{ flexShrink: 0, color: 'var(--accent-2)' }}
+                    />
+                  )}
                 </button>
               );
             })}

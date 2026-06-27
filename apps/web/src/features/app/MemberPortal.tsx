@@ -326,7 +326,12 @@ export function MemberPortal() {
                       }}
                     >
                       <span
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          minWidth: 0,
+                        }}
                       >
                         <KeyIcon size={14} aria-hidden="true" />
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>

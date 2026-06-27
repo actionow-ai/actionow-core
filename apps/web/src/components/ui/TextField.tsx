@@ -40,7 +40,14 @@ export function TextField({
 }) {
   const fieldId = useFieldId(id);
   return (
-    <FormField id={fieldId} label={label} error={error} hint={hint} tooltip={tooltip} required={required}>
+    <FormField
+      id={fieldId}
+      label={label}
+      error={error}
+      hint={hint}
+      tooltip={tooltip}
+      required={required}
+    >
       <input
         id={fieldId}
         type={type}

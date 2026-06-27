@@ -111,7 +111,10 @@ export function RouteGroupsPage() {
             <span className="tabular" style={{ fontWeight: 'var(--fw-medium)' }}>
               ×{ratioMultiplier(r.group_ratio_bps)}
             </span>
-            <span className="tabular" style={{ color: delta === 0 ? 'var(--faint)' : 'var(--muted)' }}>
+            <span
+              className="tabular"
+              style={{ color: delta === 0 ? 'var(--faint)' : 'var(--muted)' }}
+            >
               {delta >= 0 ? '+' : ''}
               {delta}%
             </span>
@@ -124,7 +127,9 @@ export function RouteGroupsPage() {
       key: 'status',
       header: t('groups.cols.status'),
       noClip: true,
-      cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
+      cell: (r) => (
+        <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
       width: '100px',
     },
     {
@@ -159,13 +164,22 @@ export function RouteGroupsPage() {
         actionsWidth="132px"
         rowActions={(r) => (
           <>
-            <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={() => setEditId(r.id)} />
+            <RowAction
+              icon={PencilSimpleIcon}
+              label={t('common.edit')}
+              onClick={() => setEditId(r.id)}
+            />
             <RowAction
               icon={StackIcon}
               label={t('groups.actions.manageChannels')}
               onClick={() => setManageId(r.id)}
             />
-            <RowAction icon={TrashIcon} label={t('common.delete')} danger onClick={() => setDelTarget(r)} />
+            <RowAction
+              icon={TrashIcon}
+              label={t('common.delete')}
+              danger
+              onClick={() => setDelTarget(r)}
+            />
           </>
         )}
       />
@@ -328,11 +342,22 @@ function RouteGroupEditor({
         </Button>
       }
     >
-      <TextField label={t('groups.form.name')} tooltip={t('groups.tip.name')} value={name} onChange={setName} required />
+      <TextField
+        label={t('groups.form.name')}
+        tooltip={t('groups.tip.name')}
+        value={name}
+        onChange={setName}
+        required
+      />
       <NumberField
         label={t('groups.form.ratioPercent')}
         tooltip={t('groups.tip.ratioLive')}
-        hint={t('groups.ratioEquiv', { mult: ratioMultiplier(bps), sign: delta >= 0 ? '+' : '', pct: delta, bps })}
+        hint={t('groups.ratioEquiv', {
+          mult: ratioMultiplier(bps),
+          sign: delta >= 0 ? '+' : '',
+          pct: delta,
+          bps,
+        })}
         value={ratioPct}
         onChange={setRatioPct}
         min={0}
@@ -414,7 +439,8 @@ function GroupChannelsDrawer({
   };
 
   const add = useMutation({
-    mutationFn: (channelId: string) => api.addGroupChannel(groupId, channelId, { priority: 0, weight: 1 }),
+    mutationFn: (channelId: string) =>
+      api.addGroupChannel(groupId, channelId, { priority: 0, weight: 1 }),
     onSuccess: async () => {
       await invalidate();
       toast(t('groups.channels.added'));
@@ -425,8 +451,15 @@ function GroupChannelsDrawer({
   // Priority/weight edit = the SAME PUT upsert (must carry both fields, or the
   // omitted one resets to its default).
   const upsert = useMutation({
-    mutationFn: ({ channelId, priority, weight }: { channelId: string; priority: number; weight: number }) =>
-      api.addGroupChannel(groupId, channelId, { priority, weight }),
+    mutationFn: ({
+      channelId,
+      priority,
+      weight,
+    }: {
+      channelId: string;
+      priority: number;
+      weight: number;
+    }) => api.addGroupChannel(groupId, channelId, { priority, weight }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.routeGroupChannels(groupId) }),
     onError: mutationError(t),
   });
@@ -457,7 +490,9 @@ function GroupChannelsDrawer({
             value={pickChannel}
             onChange={setPickChannel}
             placeholder={
-              available.length === 0 ? t('groups.channels.allAdded') : t('groups.channels.addPlaceholder')
+              available.length === 0
+                ? t('groups.channels.allAdded')
+                : t('groups.channels.addPlaceholder')
             }
             options={available.map((c) => ({ value: c.id, label: channelLabel(c) }))}
           />
@@ -492,9 +527,22 @@ function GroupChannelsDrawer({
             <div
               key={m.channel_id}
               className="panel"
-              style={{ borderRadius: 'var(--r-md)', padding: 'var(--s-3)', display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}
+              style={{
+                borderRadius: 'var(--r-md)',
+                padding: 'var(--s-3)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--s-2)',
+              }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--s-2)' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 'var(--s-2)',
+                }}
+              >
                 <strong style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {rosterLabel(m.channel_id)}
                 </strong>
@@ -508,7 +556,9 @@ function GroupChannelsDrawer({
                     label={t('groups.channels.cols.priority')}
                     hint={t('groups.channels.priorityHint')}
                     value={m.priority}
-                    onChange={(v) => upsert.mutate({ channelId: m.channel_id, priority: v, weight: m.weight })}
+                    onChange={(v) =>
+                      upsert.mutate({ channelId: m.channel_id, priority: v, weight: m.weight })
+                    }
                     min={0}
                     step={10}
                   />
@@ -518,7 +568,9 @@ function GroupChannelsDrawer({
                     label={t('groups.channels.cols.weight')}
                     hint={t('groups.channels.weightHint')}
                     value={m.weight}
-                    onChange={(v) => upsert.mutate({ channelId: m.channel_id, priority: m.priority, weight: v })}
+                    onChange={(v) =>
+                      upsert.mutate({ channelId: m.channel_id, priority: m.priority, weight: v })
+                    }
                     min={0}
                     step={10}
                   />

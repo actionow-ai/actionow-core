@@ -3,7 +3,9 @@
   backdrop-filter: blur(22px) saturate(170%);
   -webkit-backdrop-filter: blur(22px) saturate(170%);
   border: 1px solid var(--glass-bd);
-  box-shadow: inset 0 1px 0 var(--glass-hl), var(--glass-shadow);
+  box-shadow:
+    inset 0 1px 0 var(--glass-hl),
+    var(--glass-shadow);
 }
 .panel {
   background: var(--panel-bg);
@@ -23,7 +25,9 @@
   border-radius: var(--r-sm);
   min-height: 42px;
   padding: 10px 12px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .field:focus,
 .field:focus-visible {
@@ -46,7 +50,11 @@
 
 /* Interactive glass: hover lifts with a WARM tint + border (no blue). */
 .glass-hover {
-  transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    border-color 0.25s ease,
+    background 0.25s ease,
+    box-shadow 0.25s ease;
 }
 .glass-hover:hover {
   transform: translateY(-2px);
@@ -57,11 +65,22 @@
 /* Hero: editorial asymmetric layout. Mobile = stacked; from 960px the code
    showcase sits in a narrower right column and is dropped down + nudged out of
    the container, so the composition reads layered/offset, not a neat 50/50. */
-.hero-grid { grid-template-columns: 1fr; align-items: start; }
-.hero-code { width: 100%; }
+.hero-grid {
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+.hero-code {
+  width: 100%;
+}
 @media (min-width: 960px) {
-  .hero-grid { grid-template-columns: 1.25fr 0.9fr; column-gap: var(--s-8); }
-  .hero-code { margin-top: var(--s-16); transform: translateX(6%); }
+  .hero-grid {
+    grid-template-columns: 1.25fr 0.9fr;
+    column-gap: var(--s-8);
+  }
+  .hero-code {
+    margin-top: var(--s-16);
+    transform: translateX(6%);
+  }
 }
 
 /* Button — pill, tactile. Variants cta/ghost/danger/link; sizes sm/md/lg.
@@ -85,22 +104,52 @@
      otherwise let a button in a tight flex row collapse to a pill-radius circle
      with clipped text. */
   flex-shrink: 0;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease,
-    border-color 0.15s ease, opacity 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
 }
-.btn-cta { background: var(--grad-accent); color: var(--ink); box-shadow: var(--shadow-cta); }
-.btn-cta:hover { transform: translateY(-1px); box-shadow: var(--shadow-cta-hover); }
-.btn-cta:active { transform: translateY(1px) scale(0.99); }
-.btn-ghost { background: var(--glass-bg); border-color: var(--panel-bd); color: var(--text); }
-.btn-ghost:hover { border-color: var(--hover-bd); background: var(--hover-bg); }
+.btn-cta {
+  background: var(--grad-accent);
+  color: var(--ink);
+  box-shadow: var(--shadow-cta);
+}
+.btn-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-cta-hover);
+}
+.btn-cta:active {
+  transform: translateY(1px) scale(0.99);
+}
+.btn-ghost {
+  background: var(--glass-bg);
+  border-color: var(--panel-bd);
+  color: var(--text);
+}
+.btn-ghost:hover {
+  border-color: var(--hover-bd);
+  background: var(--hover-bg);
+}
 .btn-danger {
   background: color-mix(in srgb, var(--fail) 14%, transparent);
   border-color: color-mix(in srgb, var(--fail) 40%, transparent);
   color: var(--fail);
 }
-.btn-danger:hover { background: color-mix(in srgb, var(--fail) 22%, transparent); }
-.btn-sm { padding: 7px 12px; font-size: var(--fs-caption); min-height: 32px; }
-.btn-lg { padding: 13px 22px; font-size: var(--fs-base); min-height: 48px; }
+.btn-danger:hover {
+  background: color-mix(in srgb, var(--fail) 22%, transparent);
+}
+.btn-sm {
+  padding: 7px 12px;
+  font-size: var(--fs-caption);
+  min-height: 32px;
+}
+.btn-lg {
+  padding: 13px 22px;
+  font-size: var(--fs-base);
+  min-height: 48px;
+}
 /* Text-only link variant — outside the design's 3 documented variants but kept
    for existing call-sites (e.g. AuthPage). Ignores size padding. */
 .btn-link {
@@ -113,10 +162,17 @@
   box-shadow: none;
 }
 .btn:disabled,
-.btn[aria-disabled='true'] { opacity: 0.45; cursor: not-allowed; box-shadow: none; transform: none; }
+.btn[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
 @media (prefers-reduced-motion: reduce) {
   .btn-cta:hover,
-  .btn-cta:active { transform: none; }
+  .btn-cta:active {
+    transform: none;
+  }
 }
 
 /* Editorial bento first-screen: a rich left stack + a tall companion code
@@ -147,16 +203,24 @@
 }
 
 /* "Three steps" flow line: only meaningful when the steps sit in a row. */
-.how-rail { display: none; }
+.how-rail {
+  display: none;
+}
 @media (min-width: 768px) {
-  .how-rail { display: block; }
+  .how-rail {
+    display: block;
+  }
 }
 
 /* The flip headline must stay on one line on desktop so the swapping word
    never reflows the line; only a narrow phone is allowed to wrap it. */
-.headline-nowrap { white-space: normal; }
+.headline-nowrap {
+  white-space: normal;
+}
 @media (min-width: 768px) {
-  .headline-nowrap { white-space: nowrap; }
+  .headline-nowrap {
+    white-space: nowrap;
+  }
 }
 
 /* Console icon button (rail + topbar). Color/bg live here so the active state
@@ -174,16 +238,35 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
-.ico-btn:hover { color: var(--text); background: var(--hover-bg); border-color: var(--hover-bd); }
+.ico-btn:hover {
+  color: var(--text);
+  background: var(--hover-bg);
+  border-color: var(--hover-bd);
+}
 /* Bare variant — transparent rest. Used by the rail/topbar (where a filled chip
    would obscure the sliding active indicator behind the button) and by close
    buttons (the design's `.ico-btn.bare`). */
-.ico-btn.bare { background: transparent; border-color: transparent; }
-.ico-btn.bare:hover { background: var(--hover-bg); border-color: transparent; }
-.ico-btn.is-active { color: var(--ink); }
-.ico-btn.is-active:hover { color: var(--ink); background: transparent; border-color: transparent; }
+.ico-btn.bare {
+  background: transparent;
+  border-color: transparent;
+}
+.ico-btn.bare:hover {
+  background: var(--hover-bg);
+  border-color: transparent;
+}
+.ico-btn.is-active {
+  color: var(--ink);
+}
+.ico-btn.is-active:hover {
+  color: var(--ink);
+  background: transparent;
+  border-color: transparent;
+}
 
 /* Tooltip that slides out to the right of a rail button on hover. */
 .ico-tip {
@@ -204,21 +287,30 @@
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
   z-index: var(--z-tooltip);
 }
 .ico-btn:hover .ico-tip,
-.ico-btn:focus-visible .ico-tip { opacity: 1; transform: translateY(-50%) translateX(0); }
+.ico-btn:focus-visible .ico-tip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
 
 .select-opt:hover,
-.select-opt:focus-visible { background: var(--hover-bg); }
+.select-opt:focus-visible {
+  background: var(--hover-bg);
+}
 
 /* Touch hit-slop: on coarse pointers, grow a small control's tap target to
    --min-touch via a centered invisible ::before — WITHOUT changing its visible
    size (the box stays as drawn). Desktop/fine pointers are unaffected. Very
    dense wrapped lists may get slightly overlapping tap zones — an accepted
    touch-only trade-off versus sub-24px targets. */
-.hit-slop { position: relative; }
+.hit-slop {
+  position: relative;
+}
 @media (pointer: coarse) {
   .hit-slop::before {
     content: '';
@@ -236,15 +328,22 @@
 /* Auth field focus accent: a warm border lift on the focused input (no blue).
    The :focus-visible ring (theme.css) still draws on keyboard focus. */
 .auth-form input {
-  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 .auth-form input:focus {
   border-color: var(--hover-bd);
   box-shadow: 0 0 0 1px var(--hover-bd);
 }
 
-.dt-row { cursor: pointer; transition: background 0.15s ease; }
-.dt-row:hover { background: var(--hover-bg); }
+.dt-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.dt-row:hover {
+  background: var(--hover-bg);
+}
 
 /* Compact icon button for DataTable row-actions cells (see RowAction). */
 .row-action {
@@ -259,11 +358,24 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
-.row-action:hover { color: var(--text); background: var(--hover-bg); border-color: var(--hover-bd); }
-.row-action[data-danger]:hover { color: var(--fail); border-color: var(--fail); }
-.row-action:disabled { opacity: 0.5; cursor: default; }
+.row-action:hover {
+  color: var(--text);
+  background: var(--hover-bg);
+  border-color: var(--hover-bd);
+}
+.row-action[data-danger]:hover {
+  color: var(--fail);
+  border-color: var(--fail);
+}
+.row-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 
 /* Entity card — the console's primary unit (cards over tables). */
 .entity-card {
@@ -272,13 +384,27 @@
   padding: var(--s-5);
   background: var(--panel-bg);
   border: 1px solid var(--panel-bd);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
 }
-.entity-card.is-clickable { cursor: pointer; }
-.entity-card.is-clickable:hover { transform: translateY(-2px); border-color: var(--hover-bd); box-shadow: var(--shadow-lift); }
-.entity-card.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.entity-card.is-clickable {
+  cursor: pointer;
+}
+.entity-card.is-clickable:hover {
+  transform: translateY(-2px);
+  border-color: var(--hover-bd);
+  box-shadow: var(--shadow-lift);
+}
+.entity-card.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
 @media (prefers-reduced-motion: reduce) {
-  .entity-card.is-clickable:hover { transform: none; }
+  .entity-card.is-clickable:hover {
+    transform: none;
+  }
 }
 .card-glyph {
   width: 38px;
@@ -314,14 +440,20 @@
   border-radius: var(--r-sm);
   background: linear-gradient(180deg, #ffffff, #f4efe2);
   border: 1px solid rgba(28, 21, 0, 0.09);
-  box-shadow: 0 1px 2px rgba(28, 21, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  box-shadow:
+    0 1px 2px rgba(28, 21, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
-.provider-tile img { display: block; }
+.provider-tile img {
+  display: block;
+}
 /* For white-on-dark marks (e.g. Kimi) — a dark plate so the glyph stays visible. */
 .provider-tile--dark {
   background: linear-gradient(180deg, #2a2a2e, #131316);
   border-color: rgba(255, 255, 255, 0.14);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 /* Icon picker — a wrap grid of selectable brand tiles (IconPicker). */
@@ -339,10 +471,19 @@
   background: transparent;
   border: 1px solid var(--panel-bd);
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
 }
-.icon-pick:hover { border-color: var(--hover-bd); background: var(--hover-bg); }
-.icon-pick.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.icon-pick:hover {
+  border-color: var(--hover-bd);
+  background: var(--hover-bg);
+}
+.icon-pick.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
 
 /* Auto-scrolling provider strip — keeps a long vendor list compact in the hero. */
 .logo-marquee {
@@ -360,7 +501,9 @@
   width: max-content;
   animation: logo-marquee 56s linear infinite;
 }
-.logo-marquee:hover .logo-marquee-track { animation-play-state: paused; }
+.logo-marquee:hover .logo-marquee-track {
+  animation-play-state: paused;
+}
 .logo-marquee-group {
   display: flex;
   align-items: center;
@@ -369,21 +512,44 @@
   flex-shrink: 0;
 }
 @keyframes logo-marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .logo-marquee { overflow-x: auto; overflow-y: hidden; -webkit-mask-image: none; mask-image: none; }
-  .logo-marquee-track { animation: none; }
-  .logo-marquee-dup { display: none; }
+  .logo-marquee {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .logo-marquee-track {
+    animation: none;
+  }
+  .logo-marquee-dup {
+    display: none;
+  }
 }
 
-@keyframes ano-spin { to { transform: rotate(360deg); } }
-.refresh-spin { animation: ano-spin 0.8s linear infinite; }
+@keyframes ano-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.refresh-spin {
+  animation: ano-spin 0.8s linear infinite;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .ico-tip { transition: none; }
-  .refresh-spin { animation: none; }
+  .ico-tip {
+    transition: none;
+  }
+  .refresh-spin {
+    animation: none;
+  }
 }
 
 /* Dot-grid backdrop (Aceternity "grid and dot"), faded to the top via a mask. */
@@ -399,7 +565,10 @@
 }
 
 /* Card spotlight: a warm radial glow that follows the cursor inside the card. */
-.spotlight-card { position: relative; overflow: hidden; }
+.spotlight-card {
+  position: relative;
+  overflow: hidden;
+}
 .spotlight-card .spotlight-glow {
   position: absolute;
   inset: 0;
@@ -412,11 +581,19 @@
     transparent 60%
   );
 }
-.spotlight-card:hover .spotlight-glow { opacity: 1; }
-
+.spotlight-card:hover .spotlight-glow {
+  opacity: 1;
+}
 
 /* Accessibility: reduce transparency → near-opaque surfaces. */
 @media (prefers-reduced-transparency: reduce) {
-  .glass { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--panel-bg); }
-  .panel { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--panel-bg);
+  }
+  .panel {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }

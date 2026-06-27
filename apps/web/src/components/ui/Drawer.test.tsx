@@ -15,7 +15,12 @@ function Harness() {
   return (
     <div>
       <button onClick={() => setOpen(true)}>trigger</button>
-      <Drawer open={open} title="Edit channel" onClose={() => setOpen(false)} footer={<button>save</button>}>
+      <Drawer
+        open={open}
+        title="Edit channel"
+        onClose={() => setOpen(false)}
+        footer={<button>save</button>}
+      >
         <input aria-label="endpoint" />
       </Drawer>
     </div>

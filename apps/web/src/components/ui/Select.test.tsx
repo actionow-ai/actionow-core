@@ -13,7 +13,9 @@ const OPTIONS = [
 
 function Harness({ initial = '' }: { initial?: string }) {
   const [value, setValue] = useState(initial);
-  return <Select value={value} onChange={setValue} options={OPTIONS} ariaLabel="Pick" placeholder="—" />;
+  return (
+    <Select value={value} onChange={setValue} options={OPTIONS} ariaLabel="Pick" placeholder="—" />
+  );
 }
 
 function trigger() {

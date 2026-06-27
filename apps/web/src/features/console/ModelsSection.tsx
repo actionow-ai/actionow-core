@@ -78,7 +78,14 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
   // Bulk enable/disable via ONE `/admin/models/bulk` call (partial success), not
   // N parallel single-row PATCHes. The result toast reports succeeded/failed counts.
   const bulkSetStatus = useMutation({
-    mutationFn: ({ rows: sel, action }: { rows: ModelView[]; action: 'enable' | 'disable'; clear: () => void }) =>
+    mutationFn: ({
+      rows: sel,
+      action,
+    }: {
+      rows: ModelView[];
+      action: 'enable' | 'disable';
+      clear: () => void;
+    }) =>
       api.bulkModels(
         action,
         sel.map((m) => m.name),
@@ -116,14 +123,21 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
         </span>
       ),
     },
-    { key: 'modality', header: t('models.cols.modality'), cell: (m) => enumLabel(t, MODALITIES, m.modality), width: '96px' },
+    {
+      key: 'modality',
+      header: t('models.cols.modality'),
+      cell: (m) => enumLabel(t, MODALITIES, m.modality),
+      width: '96px',
+    },
     {
       key: 'capabilities',
       header: t('models.cols.capabilities'),
       width: '128px',
       noClip: true,
       cell: (m) => {
-        const active = CAPABILITIES.filter((c) => Object.hasOwn(m.capabilities, c.key) && m.capabilities[c.key]);
+        const active = CAPABILITIES.filter(
+          (c) => Object.hasOwn(m.capabilities, c.key) && m.capabilities[c.key],
+        );
         if (active.length === 0) return '—';
         return (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)' }}>
@@ -132,7 +146,13 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
               if (CapIcon === undefined) return null;
               const label = t(c.labelKey);
               return (
-                <span key={c.key} role="img" aria-label={label} title={label} style={{ display: 'inline-flex', color: 'var(--muted)' }}>
+                <span
+                  key={c.key}
+                  role="img"
+                  aria-label={label}
+                  title={label}
+                  style={{ display: 'inline-flex', color: 'var(--muted)' }}
+                >
                   <CapIcon size={15} weight="bold" aria-hidden="true" />
                 </span>
               );
@@ -183,7 +203,9 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
       header: t('models.cols.status'),
       width: '100px',
       noClip: true,
-      cell: (m) => <StatusBadge tone={statusTone(m.status)} label={t('status.' + m.status, m.status)} />,
+      cell: (m) => (
+        <StatusBadge tone={statusTone(m.status)} label={t('status.' + m.status, m.status)} />
+      ),
     },
     auditColumn<ModelView>(t, audit, 'model', (m) => m.name),
   ];
@@ -209,17 +231,38 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
         actionsWidth="132px"
         rowActions={(m) => (
           <>
-            <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={() => setEdit(m.name)} />
-            <RowAction icon={UsersIcon} label={t('models.actions.grants')} onClick={() => setGrants(m.name)} />
-            <RowAction icon={TrashIcon} label={t('common.delete')} danger onClick={() => setDelTarget(m)} />
+            <RowAction
+              icon={PencilSimpleIcon}
+              label={t('common.edit')}
+              onClick={() => setEdit(m.name)}
+            />
+            <RowAction
+              icon={UsersIcon}
+              label={t('models.actions.grants')}
+              onClick={() => setGrants(m.name)}
+            />
+            <RowAction
+              icon={TrashIcon}
+              label={t('common.delete')}
+              danger
+              onClick={() => setDelTarget(m)}
+            />
           </>
         )}
         bulkActions={(sel, clear) => (
           <>
-            <Button variant="ghost" size="sm" onClick={() => bulkSetStatus.mutate({ rows: sel, action: 'enable', clear })}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => bulkSetStatus.mutate({ rows: sel, action: 'enable', clear })}
+            >
               {t('models.actions.enable')}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => bulkSetStatus.mutate({ rows: sel, action: 'disable', clear })}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => bulkSetStatus.mutate({ rows: sel, action: 'disable', clear })}
+            >
               {t('models.actions.disable')}
             </Button>
           </>
@@ -234,7 +277,12 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
         onClose={() => setEdit('')}
       />
       {grants !== '' && (
-        <ModelGrantsDrawer key={grants} name={grants} open={grants !== ''} onClose={() => setGrants('')} />
+        <ModelGrantsDrawer
+          key={grants}
+          name={grants}
+          open={grants !== ''}
+          onClose={() => setGrants('')}
+        />
       )}
       <ConfirmDialog
         open={delTarget !== undefined}

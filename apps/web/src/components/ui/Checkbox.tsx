@@ -61,10 +61,15 @@ export function Checkbox({
           color: 'var(--ink)',
           background: filled ? 'var(--grad-accent)' : 'var(--glass-bg)',
           border: filled ? '1.5px solid transparent' : '1.5px solid var(--panel-bd)',
-          transition: 'background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out)',
+          transition:
+            'background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out)',
         }}
       >
-        {checked ? <CheckIcon size={14} weight="bold" /> : indeterminate === true ? <MinusIcon size={14} weight="bold" /> : null}
+        {checked ? (
+          <CheckIcon size={14} weight="bold" />
+        ) : indeterminate === true ? (
+          <MinusIcon size={14} weight="bold" />
+        ) : null}
       </span>
       {label !== undefined && <span>{label}</span>}
     </button>

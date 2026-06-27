@@ -56,7 +56,9 @@ export function ModelsCatalogPage() {
       header: t('app.models.cols.name'),
       grow: true,
       cell: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}>
+        <span
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}
+        >
           <BrandIcon icon={r.icon} fallbacks={[r.maker, r.modality]} size={16} />
           <span className="mono">{r.name}</span>
         </span>
@@ -113,7 +115,9 @@ export function ModelsCatalogPage() {
       header: t('app.models.cols.status', t('models.cols.status')),
       width: '100px',
       noClip: true,
-      cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
+      cell: (r) => (
+        <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
     },
   ];
 

@@ -56,7 +56,9 @@ describe('KeyValueEditor', () => {
 
     // Rows now carry a stable `id` (React key); assert just the wire fields.
     const last = onChange.mock.calls.at(-1)?.[0] as KvRow[] | undefined;
-    expect(last?.map((r) => ({ key: r.key, value: r.value }))).toEqual([{ key: 'region', value: 'us-east' }]);
+    expect(last?.map((r) => ({ key: r.key, value: r.value }))).toEqual([
+      { key: 'region', value: 'us-east' },
+    ]);
   });
 
   it('adds and removes rows', async () => {

@@ -106,7 +106,14 @@ export function MemberAuthPage() {
             gap: 'var(--s-4)',
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)', alignItems: 'center' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--s-2)',
+              alignItems: 'center',
+            }}
+          >
             <Logo size={28} />
             <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>
               {t('member.auth.subtitle')}

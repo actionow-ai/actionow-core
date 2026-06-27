@@ -53,7 +53,13 @@ beforeAll(async () => {
   );
 });
 
-function Harness({ method, initial }: { method: PricebookMethod; initial?: Partial<SpecFormState> }) {
+function Harness({
+  method,
+  initial,
+}: {
+  method: PricebookMethod;
+  initial?: Partial<SpecFormState>;
+}) {
   const [value, setValue] = useState<SpecFormState>({ ...emptySpecForm(), ...initial });
   return <PricebookSpecForm method={method} value={value} onChange={setValue} />;
 }
@@ -91,12 +97,16 @@ describe('PricebookSpecForm', () => {
 
   it('formula: shows a validation error for a disallowed expression', () => {
     render(<Harness method="formula" initial={{ expr: 'a / b' }} />);
-    expect(screen.getByText('Only + - * ( ), integers and variable names are allowed')).toBeInTheDocument();
+    expect(
+      screen.getByText('Only + - * ( ), integers and variable names are allowed'),
+    ).toBeInTheDocument();
   });
 
   it('formula: no error for a valid expression', () => {
     render(<Harness method="formula" initial={{ expr: 'a + b' }} />);
-    expect(screen.queryByText('Only + - * ( ), integers and variable names are allowed')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Only + - * ( ), integers and variable names are allowed'),
+    ).not.toBeInTheDocument();
   });
 
   it('passthrough: markup fields appear only after enabling the toggle', async () => {

@@ -70,7 +70,8 @@ export function DateField({
     [i18n.language],
   );
   const fmtTrigger = useMemo(
-    () => new Intl.DateTimeFormat(i18n.language, { year: 'numeric', month: 'short', day: 'numeric' }),
+    () =>
+      new Intl.DateTimeFormat(i18n.language, { year: 'numeric', month: 'short', day: 'numeric' }),
     [i18n.language],
   );
   // Sun..Sat short labels, localized (2023-01-01 is a Sunday).
@@ -79,8 +80,7 @@ export function DateField({
     return Array.from({ length: 7 }, (_, i) => f.format(new Date(2023, 0, 1 + i)));
   }, [i18n.language]);
 
-  const isDisabled = (d: Date) =>
-    (minD !== null && d < minD) || (maxD !== null && d > maxD);
+  const isDisabled = (d: Date) => (minD !== null && d < minD) || (maxD !== null && d > maxD);
 
   // 6-week grid covering the visible month.
   const firstOfMonth = new Date(view.y, view.m, 1);

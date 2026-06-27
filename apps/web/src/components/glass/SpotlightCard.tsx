@@ -24,7 +24,12 @@ export function SpotlightCard({
     el.style.setProperty('--my', `${String(e.clientY - r.top)}px`);
   };
   return (
-    <div ref={ref} onPointerMove={onMove} className={`spotlight-card glass glass-hover ${className}`} style={style}>
+    <div
+      ref={ref}
+      onPointerMove={onMove}
+      className={`spotlight-card glass glass-hover ${className}`}
+      style={style}
+    >
       <span className="spotlight-glow" aria-hidden="true" />
       <div style={{ position: 'relative', zIndex: 1, height: '100%' }}>{children}</div>
     </div>

@@ -24,7 +24,10 @@ function stateTone(state: BreakerView['state']): PillTone {
 }
 
 /** Relative remaining cooldown ("in 42s" / "ready") for an open breaker; em-dash when none. */
-function cooldownLabel(iso: string | null, t: (k: string, o?: Record<string, unknown>) => string): string {
+function cooldownLabel(
+  iso: string | null,
+  t: (k: string, o?: Record<string, unknown>) => string,
+): string {
   if (iso === null) return '—';
   const ms = new Date(iso).getTime() - Date.now();
   if (ms <= 0) return t('breakers.cooldown.ready');

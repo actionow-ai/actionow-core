@@ -34,8 +34,12 @@ export function PricebookSpecForm({
 
   if (method === 'unit') {
     const setDim = (i: number, patch: Partial<{ name: string; rate: number }>) =>
-      onChange({ ...value, dimensions: value.dimensions.map((d, j) => (j === i ? { ...d, ...patch } : d)) });
-    const addDim = () => onChange({ ...value, dimensions: [...value.dimensions, emptyDimension()] });
+      onChange({
+        ...value,
+        dimensions: value.dimensions.map((d, j) => (j === i ? { ...d, ...patch } : d)),
+      });
+    const addDim = () =>
+      onChange({ ...value, dimensions: [...value.dimensions, emptyDimension()] });
     const removeDim = (i: number) => {
       const next = value.dimensions.filter((_, j) => j !== i);
       onChange({ ...value, dimensions: next.length > 0 ? next : [emptyDimension()] });
@@ -43,9 +47,16 @@ export function PricebookSpecForm({
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
         {value.dimensions.map((d, i) => (
-          <div key={d.id ?? i} style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--s-2)' }}>
+          <div
+            key={d.id ?? i}
+            style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--s-2)' }}
+          >
             <div style={{ flex: 1, minWidth: 0 }}>
-              <TextField label={t('forms.spec.dimension')} value={d.name} onChange={(v) => setDim(i, { name: v })} />
+              <TextField
+                label={t('forms.spec.dimension')}
+                value={d.name}
+                onChange={(v) => setDim(i, { name: v })}
+              />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <NumberField
@@ -57,7 +68,13 @@ export function PricebookSpecForm({
                 onChange={(n) => setDim(i, { rate: n })}
               />
             </div>
-            <IconButton icon={XIcon} label={t('forms.removeDimension')} onClick={() => removeDim(i)} size={16} bare />
+            <IconButton
+              icon={XIcon}
+              label={t('forms.removeDimension')}
+              onClick={() => removeDim(i)}
+              size={16}
+              bare
+            />
           </div>
         ))}
         <div>
@@ -74,7 +91,8 @@ export function PricebookSpecForm({
     const setCell = (i: number, patch: Partial<{ k: string; cell: number }>) =>
       onChange({ ...value, table: value.table.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
     const addCell = () => onChange({ ...value, table: [...value.table, emptyCell()] });
-    const removeCell = (i: number) => onChange({ ...value, table: value.table.filter((_, j) => j !== i) });
+    const removeCell = (i: number) =>
+      onChange({ ...value, table: value.table.filter((_, j) => j !== i) });
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
         <ChipsField
@@ -84,7 +102,10 @@ export function PricebookSpecForm({
           onChange={(k) => onChange({ ...value, key: k })}
         />
         {value.table.map((r, i) => (
-          <div key={r.id ?? i} style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--s-2)' }}>
+          <div
+            key={r.id ?? i}
+            style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--s-2)' }}
+          >
             <div style={{ flex: 1, minWidth: 0 }}>
               <TextField
                 label={t('forms.spec.cellKey')}
@@ -102,7 +123,13 @@ export function PricebookSpecForm({
                 onChange={(n) => setCell(i, { cell: n })}
               />
             </div>
-            <IconButton icon={XIcon} label={t('forms.removeRow')} onClick={() => removeCell(i)} size={16} bare />
+            <IconButton
+              icon={XIcon}
+              label={t('forms.removeRow')}
+              onClick={() => removeCell(i)}
+              size={16}
+              bare
+            />
           </div>
         ))}
         <div>
@@ -161,14 +188,20 @@ export function PricebookSpecForm({
               <SelectField
                 label={t('forms.spec.markupType')}
                 value={value.markup.type}
-                onChange={(v) => onChange({ ...value, markup: { ...value.markup, type: v as 'percent' | 'flat' } })}
+                onChange={(v) =>
+                  onChange({ ...value, markup: { ...value.markup, type: v as 'percent' | 'flat' } })
+                }
                 options={toOptions(MARKUP_TYPES, (k) => t(k))}
               />
             </div>
             <div style={{ flex: 1, minWidth: 160 }}>
               <NumberField
                 label={t('forms.spec.markupValue')}
-                hint={value.markup.type === 'percent' ? t('forms.spec.markupPercentHint') : t('forms.spec.markupFlatHint')}
+                hint={
+                  value.markup.type === 'percent'
+                    ? t('forms.spec.markupPercentHint')
+                    : t('forms.spec.markupFlatHint')
+                }
                 min={0}
                 value={value.markup.value}
                 onChange={(n) => onChange({ ...value, markup: { ...value.markup, value: n } })}
@@ -182,6 +215,8 @@ export function PricebookSpecForm({
 
   // fixed
   return (
-    <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}>{t('forms.spec.fixedNote')}</p>
+    <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}>
+      {t('forms.spec.fixedNote')}
+    </p>
   );
 }

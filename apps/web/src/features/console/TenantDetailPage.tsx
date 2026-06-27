@@ -449,7 +449,11 @@ function TenantDetailBody({
         onChange={setOpeningCredits}
         min={0}
       />
-      <Button variant="cta" onClick={() => createAccount.mutate()} loading={createAccount.isPending}>
+      <Button
+        variant="cta"
+        onClick={() => createAccount.mutate()}
+        loading={createAccount.isPending}
+      >
         <PlusIcon size={14} weight="bold" /> {t('accounts.new')}
       </Button>
     </div>

@@ -140,8 +140,13 @@ export function FaultPoliciesPage() {
       header: t('faultPolicies.cols.breaker'),
       cell: (r) =>
         r.breaker_enabled ? (
-          <span className="tabular" style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>
-            {t('faultPolicies.breakerOn', { rate: r.breaker_failure_rate_pct ?? DEFAULT_FAILURE_RATE_PCT })}
+          <span
+            className="tabular"
+            style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}
+          >
+            {t('faultPolicies.breakerOn', {
+              rate: r.breaker_failure_rate_pct ?? DEFAULT_FAILURE_RATE_PCT,
+            })}
           </span>
         ) : (
           <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>
@@ -154,7 +159,9 @@ export function FaultPoliciesPage() {
       key: 'status',
       header: t('faultPolicies.cols.status'),
       noClip: true,
-      cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
+      cell: (r) => (
+        <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
       width: '100px',
     },
     auditColumn<FaultPolicyView>(t, audit, 'fault_policy', (r) => r.id),
@@ -177,8 +184,17 @@ export function FaultPoliciesPage() {
         actionsWidth="96px"
         rowActions={(r) => (
           <>
-            <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={() => setEditId(r.id)} />
-            <RowAction icon={TrashIcon} label={t('common.delete')} danger onClick={() => setDelTarget(r)} />
+            <RowAction
+              icon={PencilSimpleIcon}
+              label={t('common.edit')}
+              onClick={() => setEditId(r.id)}
+            />
+            <RowAction
+              icon={TrashIcon}
+              label={t('common.delete')}
+              danger
+              onClick={() => setDelTarget(r)}
+            />
           </>
         )}
       />
@@ -248,7 +264,9 @@ function FaultPolicyEditor({
   const [name, setName] = useState(row?.name ?? '');
   const [mode, setMode] = useState<Mode>(row?.fast_fail ? 'fastFail' : 'retry');
   const [retryCount, setRetryCount] = useState(row?.retry_count ?? 3);
-  const [backoffType, setBackoffType] = useState<Backoff>((row?.backoff_type ?? 'fixed') as Backoff);
+  const [backoffType, setBackoffType] = useState<Backoff>(
+    (row?.backoff_type ?? 'fixed') as Backoff,
+  );
   const [backoffMs, setBackoffMs] = useState(row?.backoff_ms ?? 0);
   const [connectMs, setConnectMs] = useState(row?.connect_timeout_ms ?? 0);
   const [ttftMs, setTtftMs] = useState(row?.ttft_timeout_ms ?? 0);
@@ -274,11 +292,21 @@ function FaultPolicyEditor({
   const [breakerEnabled, setBreakerEnabled] = useState(row?.breaker_enabled ?? true);
   const [breakerWindowMs, setBreakerWindowMs] = useState(row?.breaker_window_ms ?? 0);
   const [breakerMinVolume, setBreakerMinVolume] = useState(row?.breaker_min_volume ?? 0);
-  const [breakerFailureRatePct, setBreakerFailureRatePct] = useState(row?.breaker_failure_rate_pct ?? 0);
-  const [breakerHalfOpenTrial, setBreakerHalfOpenTrial] = useState(row?.breaker_half_open_trial ?? 0);
-  const [breakerHalfOpenSuccesses, setBreakerHalfOpenSuccesses] = useState(row?.breaker_half_open_successes ?? 0);
-  const [breakerOpenCooldownMs, setBreakerOpenCooldownMs] = useState(row?.breaker_open_cooldown_ms ?? 0);
-  const [breakerOpenCooldownCapMs, setBreakerOpenCooldownCapMs] = useState(row?.breaker_open_cooldown_cap_ms ?? 0);
+  const [breakerFailureRatePct, setBreakerFailureRatePct] = useState(
+    row?.breaker_failure_rate_pct ?? 0,
+  );
+  const [breakerHalfOpenTrial, setBreakerHalfOpenTrial] = useState(
+    row?.breaker_half_open_trial ?? 0,
+  );
+  const [breakerHalfOpenSuccesses, setBreakerHalfOpenSuccesses] = useState(
+    row?.breaker_half_open_successes ?? 0,
+  );
+  const [breakerOpenCooldownMs, setBreakerOpenCooldownMs] = useState(
+    row?.breaker_open_cooldown_ms ?? 0,
+  );
+  const [breakerOpenCooldownCapMs, setBreakerOpenCooldownCapMs] = useState(
+    row?.breaker_open_cooldown_cap_ms ?? 0,
+  );
   // Reveal the breaker block when a row already overrides a threshold (or it's off).
   const [showBreaker, setShowBreaker] = useState(false);
 

@@ -123,8 +123,13 @@ export function FilterMenu({
           }}
         >
           {groups.map((g) => (
-            <div key={g.key} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
-              <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>{g.title}</span>
+            <div
+              key={g.key}
+              style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}
+            >
+              <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>
+                {g.title}
+              </span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s-1)' }}>
                 {g.options.map((o) => {
                   const sel = selected[g.key];

@@ -112,7 +112,9 @@ describe('RouteGroupsPage fallback selector (resilience v2)', () => {
     await openFirstEditor(user, 'premium');
 
     await user.click(await screen.findByRole('button', { name: FALLBACK_LABEL() }));
-    await user.click(await screen.findByRole('option', { name: i18n.t('console:groups.form.fallbackNone') }));
+    await user.click(
+      await screen.findByRole('option', { name: i18n.t('console:groups.form.fallbackNone') }),
+    );
 
     await user.click(screen.getByRole('button', { name: i18n.t('console:groups.save') }));
 

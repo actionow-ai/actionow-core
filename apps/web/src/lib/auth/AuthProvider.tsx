@@ -1,5 +1,13 @@
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { config } from '../../config';
 import type { ApiClient } from '../api/client';
@@ -114,7 +122,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [setSession],
   );
 
-  const login = useCallback((email: string, password: string) => authenticate('/login', email, password), [authenticate]);
+  const login = useCallback(
+    (email: string, password: string) => authenticate('/login', email, password),
+    [authenticate],
+  );
   const register = useCallback(
     (email: string, password: string) => authenticate('/register', email, password),
     [authenticate],
@@ -167,7 +178,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession,
       logout,
     }),
-    [token, client, sdk, handleUnauthorized, login, register, loginMember, registerMember, setSession, logout],
+    [
+      token,
+      client,
+      sdk,
+      handleUnauthorized,
+      login,
+      register,
+      loginMember,
+      registerMember,
+      setSession,
+      logout,
+    ],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
