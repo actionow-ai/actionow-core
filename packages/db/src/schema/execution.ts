@@ -17,6 +17,7 @@ import {
 import { account } from './accounts.js';
 import { resource } from './catalog.js';
 import { subject, tenant } from './identity.js';
+import { pricebookEntry } from './pricing.js';
 
 export const job = pgTable(
   'job',
@@ -37,7 +38,9 @@ export const job = pgTable(
     output: jsonb('output').$type<Record<string, unknown>>(),
     usage: jsonb('usage').$type<UsageVector>(),
     upstreamJobHandle: text('upstream_job_handle'),
-    pricebookEntryId: uuid('pricebook_entry_id'),
+    pricebookEntryId: uuid('pricebook_entry_id').references(() => pricebookEntry.id, {
+      onDelete: 'set null',
+    }),
     pricebookVersion: bigint('pricebook_version', { mode: 'number' }),
     // dynamic shape (per-run snapshot of applied modifiers); left untyped intentionally.
     modifiersSnapshot: jsonb('modifiers_snapshot'),
@@ -59,6 +62,12 @@ export const job = pgTable(
     index('job_status_idx').on(t.status),
     index('job_tenant_idx').on(t.tenantId),
     index('job_subject_idx').on(t.subjectId),
+    // Reaper poll (reapExpiredHolds) filters hold_expires_at < now AND status IN
+    // (queued,running). Partial index → only live held jobs, so the sweep is an
+    // index range scan instead of a full-table scan as `job` grows.
+    index('job_due_idx')
+      .on(t.holdExpiresAt)
+      .where(sql`hold_expires_at IS NOT NULL AND status IN ('queued', 'running')`),
     check(
       'job_status_allowed',
       sql`${t.status} IN ('queued', 'running', 'succeeded', 'failed', 'canceled')`,
@@ -102,6 +111,14 @@ export const ledgerTxn = pgTable(
     index('ledger_txn_tenant_idx').on(t.tenantId),
     index('ledger_txn_account_idx').on(t.accountId),
     index('ledger_txn_subject_idx').on(t.subjectId),
+    // The settle-once backstop (ledger_settle_per_job) keys off the literal
+    // 'settle'; guard the discriminator so a typo can't silently bypass it. Set =
+    // every value appendLedger writes (topup/settle/transfer_*) + reserved
+    // lifecycle types (hold/refund/giftcode).
+    check(
+      'ledger_txn_type_allowed',
+      sql`${t.type} IN ('topup', 'settle', 'hold', 'refund', 'giftcode', 'transfer_in', 'transfer_out')`,
+    ),
   ],
 );
 

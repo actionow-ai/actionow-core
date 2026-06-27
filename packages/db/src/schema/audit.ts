@@ -42,6 +42,10 @@ export const auditLog = pgTable(
     index('audit_log_tenant_idx').on(t.tenantId, t.createdAt),
     index('audit_log_subject_idx').on(t.subjectId, t.createdAt),
     index('audit_log_action_idx').on(t.action),
+    // Global keyset feed orders by created_at; latestAuditByTarget does
+    // DISTINCT ON (target_type, target_id) ORDER BY created_at DESC.
+    index('audit_log_created_idx').on(t.createdAt),
+    index('audit_log_target_idx').on(t.targetType, t.targetId, t.createdAt),
     check('audit_log_actor_type_allowed', sql`${t.actorType} IN ('operator', 'member', 'system')`),
   ],
 );
