@@ -8,7 +8,7 @@ import { FakeRateLimitRedis, RedisRateLimiter } from '@actionow/infra';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -439,6 +439,13 @@ describe('Phase 8 signed async-callback ingress (real server)', () => {
       upstreamJobHandle: upstreamId,
       quotedCredits: 50n,
     });
+    // Mirror production: an enqueued async-callback job has its quoted hold PLACED
+    // on the account (validateAndHold). Without it the settle's `credit_held -= 50`
+    // underflows to -50 and trips the `account_held_ge0` CHECK (added in mig 0052).
+    await db
+      .update(schema.account)
+      .set({ creditHeld: sql`${schema.account.creditHeld} + 50` })
+      .where(eq(schema.account.tenantId, tenantId));
     return jobId;
   }
 
@@ -513,6 +520,11 @@ describe('Phase 8 config-driven callback header names (real server)', () => {
       upstreamJobHandle: upstreamId,
       quotedCredits: 50n,
     });
+    // Mirror production: place the quoted hold on the account (see seedAwaitingJob).
+    await db
+      .update(schema.account)
+      .set({ creditHeld: sql`${schema.account.creditHeld} + 50` })
+      .where(eq(schema.account.tenantId, tenantId));
     return jobId;
   }
 
