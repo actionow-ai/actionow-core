@@ -21,7 +21,7 @@ import type {
 } from '@actionow/engine';
 import { ExecutionService } from '@actionow/engine';
 import { type AppEnv, createHttpClient } from '@actionow/infra';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import type { TenantContext } from '../auth/auth.service.js';
 import { ChannelRoutingService } from '../common/channel-routing.service.js';
@@ -29,6 +29,7 @@ import { engineInvalidInput, engineNotFound, engineUnauthorized } from '../commo
 import { SecretResolver } from '../common/secret-resolver.js';
 import { ADAPTERS, BREAKER, DB, ENV, JOB_QUEUE } from '../common/tokens.js';
 import { FilesService } from '../files/files.service.js';
+import { SettingsService } from '../settings/settings.service.js';
 
 /**
  * The `/v1/run` request body — the single source of truth lives in
@@ -60,6 +61,7 @@ export class RunService {
     private readonly secrets: SecretResolver,
     private readonly routing: ChannelRoutingService,
     private readonly files: FilesService,
+    @Optional() private readonly settings?: SettingsService,
   ) {}
 
   /**
@@ -75,7 +77,7 @@ export class RunService {
     routeTag?: string,
   ): Promise<RunOutcome> {
     const req = await this.buildRequest(resourceId, body, ctx, undefined, routeTag);
-    const service = this.buildService();
+    const service = await this.buildService();
     return service.run(req);
   }
 
@@ -117,12 +119,15 @@ export class RunService {
     routeTag?: string,
   ): Promise<StreamOutcome> {
     const req = await this.buildRequest(resourceId, body, ctx, 'stream', routeTag);
-    const service = this.buildService();
+    const service = await this.buildService();
     return service.runStream(req);
   }
 
   /** Construct an {@link ExecutionService} bound to this app's shared deps. */
-  private buildService(): ExecutionService {
+  private async buildService(): Promise<ExecutionService> {
+    const relayTrace = (await this.settings?.get('RELAY_TRACE')) ?? this.env.RELAY_TRACE;
+    const traceMaxBytes =
+      (await this.settings?.get('RELAY_TRACE_MAX_BYTES')) ?? this.env.RELAY_TRACE_MAX_BYTES;
     return new ExecutionService({
       db: this.db,
       adapters: this.adapters,
@@ -131,8 +136,8 @@ export class RunService {
       now: () => new Date(),
       enqueue: (jobId: string): Promise<void> => this.queue.enqueueExec(jobId),
       proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
-      traceUpstream: this.env.RELAY_TRACE === 'full',
-      traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
+      traceUpstream: relayTrace === 'full',
+      traceMaxBytes,
       breaker: this.breaker,
     });
   }

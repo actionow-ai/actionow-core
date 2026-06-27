@@ -28,12 +28,13 @@ import {
   fetchBytesWithTimeout,
   putBytesWithTimeout,
 } from '@actionow/infra';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import type { TenantContext } from '../auth/auth.service.js';
 import { SecretResolver } from '../common/secret-resolver.js';
 import { ADAPTERS, BREAKER, DB, ENV, STORAGE } from '../common/tokens.js';
 import { RunService } from '../execution/run.service.js';
+import { SettingsService } from '../settings/settings.service.js';
 import type { AudioSpeechDto, ImagesGenerationDto } from './dto/media-dialect.dto.js';
 
 /** The seeded media resource ids the dialects relay onto. */
@@ -82,6 +83,7 @@ export class MediaDialectService {
     @Inject(BREAKER) private readonly breaker: BreakerStore,
     private readonly secrets: SecretResolver,
     private readonly runService: RunService,
+    @Optional() private readonly settings?: SettingsService,
   ) {}
 
   /** `POST /v1/images/generations` → relay `image-relay`, return the image url(s). */
@@ -167,8 +169,10 @@ export class MediaDialectService {
       undefined,
       routeTag,
     );
-    const outcome = await this.buildExec().run(req);
-    await this.buildRunner(req).process(outcome.jobId);
+    const exec = await this.buildExec();
+    const outcome = await exec.run(req);
+    const runner = await this.buildRunner(req);
+    await runner.process(outcome.jobId);
     const job = await getJob(this.db, outcome.jobId);
     if (job === undefined) {
       throw new EngineError({
@@ -186,7 +190,10 @@ export class MediaDialectService {
   }
 
   /** An ExecutionService that holds + snapshots the job but does NOT enqueue (no worker). */
-  private buildExec(): ExecutionService {
+  private async buildExec(): Promise<ExecutionService> {
+    const relayTrace = (await this.settings?.get('RELAY_TRACE')) ?? this.env.RELAY_TRACE;
+    const traceMaxBytes =
+      (await this.settings?.get('RELAY_TRACE_MAX_BYTES')) ?? this.env.RELAY_TRACE_MAX_BYTES;
     return new ExecutionService({
       db: this.db,
       adapters: this.adapters,
@@ -195,14 +202,17 @@ export class MediaDialectService {
       now: () => new Date(),
       enqueue: (): Promise<void> => Promise.resolve(),
       proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
-      traceUpstream: this.env.RELAY_TRACE === 'full',
-      traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
+      traceUpstream: relayTrace === 'full',
+      traceMaxBytes,
       breaker: this.breaker,
     });
   }
 
   /** A JobRunner whose context is derived from the in-hand RunRequest (no db re-read). */
-  private buildRunner(req: RunRequest): JobRunner {
+  private async buildRunner(req: RunRequest): Promise<JobRunner> {
+    const relayTrace = (await this.settings?.get('RELAY_TRACE')) ?? this.env.RELAY_TRACE;
+    const traceMaxBytes =
+      (await this.settings?.get('RELAY_TRACE_MAX_BYTES')) ?? this.env.RELAY_TRACE_MAX_BYTES;
     const persistMediaResultFn = this.buildPersistMediaResult();
     const insertUsageLogFn: InsertMediaUsageLogFn = async (row) => {
       await insertUsageLog(this.db, row);
@@ -222,8 +232,8 @@ export class MediaDialectService {
       resolveSecret: (ref: string): Promise<string | undefined> => this.secrets.resolve(ref),
       http: this.http,
       proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
-      traceUpstream: this.env.RELAY_TRACE === 'full',
-      traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
+      traceUpstream: relayTrace === 'full',
+      traceMaxBytes,
       insertUsageLog: insertUsageLogFn,
       // 弹性2.0: the JobRunner does the actual upstream submit routing for the
       // in-process media dialect (/v1/images, /v1/audio), so it must carry the

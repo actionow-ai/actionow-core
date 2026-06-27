@@ -72,7 +72,10 @@ export const upstreamChannel = pgTable(
       .notNull()
       .references(() => resource.id),
     providerType: text('provider_type').notNull(),
-    credentialRef: uuid('credential_ref').references(() => secretRef.id, { onDelete: 'set null' }),
+    // A LOOSE secret locator (NOT an FK): `resolveSecretRef` resolves a uuid to a
+    // secret_ref row, OR — uuid with no row — to a proxy/env value, so it must be
+    // free to hold a non-secret_ref value (same posture as usage_log correlation ids).
+    credentialRef: uuid('credential_ref'),
     /** Per-channel upstream base URL (e.g. https://api.deepseek.com/v1); null → adapter default. */
     endpoint: text('endpoint'),
     /** Per-channel model id (e.g. the upstream's model name); null → resource default. */
@@ -147,9 +150,8 @@ export const difyBinding = pgTable(
     resourceVersion: integer('resource_version').notNull(),
     mode: text('mode').notNull(), // workflow | advanced-chat
     difyAppEndpoint: text('dify_app_endpoint').notNull(),
-    difyServiceKeyRef: uuid('dify_service_key_ref').references(() => secretRef.id, {
-      onDelete: 'set null',
-    }),
+    // A LOOSE secret locator (NOT an FK; resolved via resolveSecretRef like credentialRef).
+    difyServiceKeyRef: uuid('dify_service_key_ref'),
     dslHash: text('dsl_hash').notNull(),
     pricingModel: text('pricing_model').notNull(), // metered | fixed | matrix
     provisionMode: text('provision_mode').notNull().default('byo'), // byo | hosted

@@ -11,12 +11,13 @@ import {
   markFileReady,
 } from '@actionow/db';
 import type { AppEnv } from '@actionow/infra';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import type { TenantContext } from '../auth/auth.service.js';
 import { engineInvalidInput, engineNotFound } from '../common/errors.js';
 import { mapPageEnvelope, type PageEnvelope } from '../common/pagination.js';
 import { DB, ENV, STORAGE } from '../common/tokens.js';
+import { SettingsService } from '../settings/settings.service.js';
 
 /** A presigned-upload grant returned by {@link FilesService.presignUpload}. */
 export interface PresignUploadResult {
@@ -62,6 +63,7 @@ export class FilesService {
     @Inject(DB) private readonly db: Database,
     @Inject(ENV) private readonly env: AppEnv,
     @Inject(STORAGE) private readonly storage: StorageProvider | null,
+    @Optional() private readonly settings?: SettingsService,
   ) {}
 
   /**
@@ -74,9 +76,11 @@ export class FilesService {
     ctx: TenantContext,
   ): Promise<PresignUploadResult> {
     const storage = this.requireStorage();
-    if (body.size > this.env.STORAGE_MAX_UPLOAD_BYTES) {
+    const maxUpload =
+      (await this.settings?.get('STORAGE_MAX_UPLOAD_BYTES')) ?? this.env.STORAGE_MAX_UPLOAD_BYTES;
+    if (body.size > maxUpload) {
       throw engineInvalidInput(
-        `upload size ${String(body.size)} exceeds the maximum of ${String(this.env.STORAGE_MAX_UPLOAD_BYTES)} bytes`,
+        `upload size ${String(body.size)} exceeds the maximum of ${String(maxUpload)} bytes`,
       );
     }
 

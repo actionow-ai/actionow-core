@@ -27,9 +27,10 @@ export interface PaymentServiceDeps {
    * credit = $1 = 1_000_000 µUSD) this is 10_000 (1 USD cent buys 10_000 µUSD,
    * so `$1 = 100 cents × 10_000 = 1_000_000 µUSD`). Fixed at intent creation and
    * persisted on the intent so a later rate change never re-prices an in-flight
-   * topup.
+   * topup. May be a thunk so the api can resolve the LIVE `CREDIT_RATE` dynamic
+   * setting (动态配置) per-intent instead of freezing the boot-time value.
    */
-  creditRate: bigint;
+  creditRate: bigint | (() => bigint | Promise<bigint>);
 }
 
 /** What a caller passes to {@link PaymentService.createIntent}. */
@@ -91,8 +92,11 @@ export class PaymentService {
   async createIntent(input: CreatePaymentIntentInput): Promise<CreatePaymentIntentResult> {
     const provider = this.deps.providers.get(input.provider);
 
-    const creditAmount =
-      input.purpose === 'topup' ? input.amountMinor * this.deps.creditRate : null;
+    const creditRate =
+      typeof this.deps.creditRate === 'function'
+        ? await this.deps.creditRate()
+        : this.deps.creditRate;
+    const creditAmount = input.purpose === 'topup' ? input.amountMinor * creditRate : null;
 
     const providerInput: ProviderCreateIntentInput = {
       tenantId: input.tenantId,
