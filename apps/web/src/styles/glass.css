@@ -597,3 +597,24 @@
     -webkit-backdrop-filter: none;
   }
 }
+
+/* Skip-to-content link: off-screen until keyboard focus, then pinned top-left so
+   keyboard users can jump past the rail/sub-nav straight to the routed view. */
+.skip-link {
+  position: fixed;
+  top: var(--s-2);
+  left: var(--s-2);
+  z-index: var(--z-toast);
+  padding: var(--s-2) var(--s-4);
+  border-radius: var(--r-sm);
+  background: var(--overlay-bg);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  transform: translateY(-200%);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.skip-link:focus {
+  transform: translateY(0);
+}

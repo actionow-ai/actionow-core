@@ -1,4 +1,10 @@
 {
+  "a11y": {
+    "primaryNav": "主导航",
+    "sectionNav": "分区导航",
+    "filters": "筛选",
+    "skipToContent": "跳到主内容"
+  },
   "admin": {
     "bulk": {
       "result": "成功 {{ok}} 项，失败 {{failed}} 项"
@@ -40,6 +46,7 @@
   "auth": {
     "loginTab": "登录",
     "registerTab": "注册",
+    "modeSwitch": "登录或注册",
     "email": "邮箱",
     "password": "密码",
     "loginSubmit": "登录",
@@ -276,6 +283,8 @@
         "toTenant": "端用户 → 资金池",
         "transfer": "划转",
         "transferred": "划转完成",
+        "confirmTopupMsg": "向该端用户子钱包充值 {{credits}} 额度？额度将从租户资金池划出。",
+        "confirmTransferMsg": "划转 {{credits}} 额度（{{direction}}）？此操作不会自动回滚。",
         "keys": "作用域 API Key",
         "mintKey": "签发 Key",
         "noKeys": "暂无作用域 Key"
@@ -922,6 +931,7 @@
       "pluginNone": "未分配",
       "modality": "模态",
       "provider": "Provider 类型",
+      "providerRequired": "保存前请选择或填写 Provider 类型。",
       "icon": "图标",
       "endpoint": "端点",
       "model": "模型",

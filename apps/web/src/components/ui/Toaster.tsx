@@ -13,6 +13,9 @@ interface ToastItem extends ToastMsg {
 
 const LIFETIME_MS = 3500;
 const EXIT_MS = DUR.base * 1000;
+// Cap the visible stack: a burst (e.g. a bulk action firing many errors) would
+// otherwise pile up unbounded assertive announcements and cover the viewport.
+const MAX_TOASTS = 4;
 
 export function Toaster() {
   const [items, setItems] = useState<ToastItem[]>([]);
@@ -21,7 +24,7 @@ export function Toaster() {
   useEffect(() => {
     reduced.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     return subscribeToast((m) => {
-      setItems((xs) => [...xs, { ...m, leaving: false }]);
+      setItems((xs) => [...xs, { ...m, leaving: false }].slice(-MAX_TOASTS));
       // Mark the toast leaving (plays the exit transition), then remove it
       // after the exit duration. Reduced-motion collapses the exit to instant.
       setTimeout(() => {

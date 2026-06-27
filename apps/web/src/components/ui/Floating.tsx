@@ -35,6 +35,8 @@ export interface FloatingProps {
   /** Keep the node mounted while closed (visibility hidden) for aria links. */
   keepMounted?: boolean;
   role?: string;
+  /** Accessible name for the floating element (e.g. a `role="dialog"` popover). */
+  ariaLabel?: string;
   id?: string;
   className?: string;
   style?: CSSProperties;
@@ -96,6 +98,7 @@ export function Floating({
   pointerEvents = 'none',
   keepMounted = false,
   role,
+  ariaLabel,
   id,
   className,
   style,
@@ -116,6 +119,7 @@ export function Floating({
     <div
       ref={contentRef}
       role={role}
+      aria-label={ariaLabel}
       id={id}
       data-open={open ? 'true' : 'false'}
       className={className}

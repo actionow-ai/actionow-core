@@ -78,7 +78,8 @@ export function Rail({ pathname }: { pathname: string }) {
         <span className="ico-tip">{t('topbar.backHome')}</span>
       </button>
 
-      <div
+      <nav
+        aria-label={t('a11y.primaryNav')}
         style={{
           position: 'relative',
           flex: 1,
@@ -126,7 +127,7 @@ export function Rail({ pathname }: { pathname: string }) {
             />
           );
         })}
-      </div>
+      </nav>
 
       <div
         style={{

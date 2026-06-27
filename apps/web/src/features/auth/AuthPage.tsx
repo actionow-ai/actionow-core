@@ -323,6 +323,7 @@ export function AuthPage() {
             design's `.seg` hugs its content rather than stretching the row) */}
         <div style={{ alignSelf: 'center' }}>
           <SegmentedControl
+            ariaLabel={t('auth.modeSwitch')}
             value={mode}
             onChange={(v) => {
               setMode(v as Mode);

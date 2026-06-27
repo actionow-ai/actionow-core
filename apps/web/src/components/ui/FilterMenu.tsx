@@ -103,6 +103,7 @@ export function FilterMenu({
         gap={6}
         layer="popover"
         role="dialog"
+        ariaLabel={t('a11y.filters')}
         pointerEvents="auto"
       >
         <div

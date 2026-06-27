@@ -263,9 +263,11 @@ export function ChannelEditor({
     onError: mutationError(t),
   });
 
-  // A create needs a resolved provider type (the upstream adapter): block the
-  // save until it is set so we never POST a channel with an empty provider_type.
-  // (Edit can't change it — the backend strips it from a PATCH — so edit is valid.)
+  // A create needs a resolved provider type (the upstream adapter). Rather than a
+  // silently-disabled Save (whose reason is invisible to the user / a screen
+  // reader), the button stays enabled; a Save attempt with no provider flags the
+  // field inline (the ComboboxField error is wired to aria-describedby).
+  const [attempted, setAttempted] = useState(false);
   const canSave = editing || providerType.trim() !== '';
 
   return (
@@ -276,9 +278,14 @@ export function ChannelEditor({
       footer={
         <Button
           variant="cta"
-          onClick={() => save.mutate()}
+          onClick={() => {
+            if (!canSave) {
+              setAttempted(true);
+              return;
+            }
+            save.mutate();
+          }}
           loading={save.isPending}
-          disabled={!canSave}
         >
           {t('channels.save')}
         </Button>
@@ -316,6 +323,7 @@ export function ChannelEditor({
       <ComboboxField
         label={t('channels.form.provider')}
         tooltip={t('channels.tip.provider')}
+        error={attempted && !canSave ? t('channels.form.providerRequired') : undefined}
         hint={editing ? t('channels.tip.providerFixed') : t('channels.tip.providerAuto')}
         options={providerOptions}
         value={providerType}

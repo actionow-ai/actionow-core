@@ -122,6 +122,7 @@ export function MemberAuthPage() {
 
           <div style={{ alignSelf: 'center' }}>
             <SegmentedControl
+              ariaLabel={t('auth.modeSwitch')}
               value={mode}
               onChange={(v) => {
                 setMode(v as Mode);
