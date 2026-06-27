@@ -72,7 +72,7 @@ export const upstreamChannel = pgTable(
       .notNull()
       .references(() => resource.id),
     providerType: text('provider_type').notNull(),
-    credentialRef: uuid('credential_ref'),
+    credentialRef: uuid('credential_ref').references(() => secretRef.id, { onDelete: 'set null' }),
     /** Per-channel upstream base URL (e.g. https://api.deepseek.com/v1); null → adapter default. */
     endpoint: text('endpoint'),
     /** Per-channel model id (e.g. the upstream's model name); null → resource default. */
@@ -147,7 +147,9 @@ export const difyBinding = pgTable(
     resourceVersion: integer('resource_version').notNull(),
     mode: text('mode').notNull(), // workflow | advanced-chat
     difyAppEndpoint: text('dify_app_endpoint').notNull(),
-    difyServiceKeyRef: uuid('dify_service_key_ref'),
+    difyServiceKeyRef: uuid('dify_service_key_ref').references(() => secretRef.id, {
+      onDelete: 'set null',
+    }),
     dslHash: text('dsl_hash').notNull(),
     pricingModel: text('pricing_model').notNull(), // metered | fixed | matrix
     provisionMode: text('provision_mode').notNull().default('byo'), // byo | hosted
@@ -157,22 +159,43 @@ export const difyBinding = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [index('dify_binding_resource_idx').on(t.resourceId)],
+  (t) => [
+    index('dify_binding_resource_idx').on(t.resourceId),
+    // One live binding per (resource, version) so "get THE binding" is deterministic.
+    uniqueIndex('dify_binding_resource_version_uq')
+      .on(t.resourceId, t.resourceVersion)
+      .where(sql`deleted_at IS NULL`),
+    check('dify_binding_mode_allowed', sql`${t.mode} IN ('workflow', 'advanced-chat')`),
+    check(
+      'dify_binding_pricing_model_allowed',
+      sql`${t.pricingModel} IN ('metered', 'fixed', 'matrix')`,
+    ),
+    check('dify_binding_provision_mode_allowed', sql`${t.provisionMode} IN ('byo', 'hosted')`),
+  ],
 );
 
-export const secretRef = pgTable('secret_ref', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  provider: text('provider').notNull(), // env | enc | oauth | vault
-  locator: text('locator').notNull(),
-  // Operator-editable metadata (catalog redesign): human name, free-form notes, and
-  // a free-text group tag for organizing/filtering credentials. All nullable.
-  name: text('name'),
-  notes: text('notes'),
-  groupTag: text('group_tag'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  deletedAt: timestamp('deleted_at', { withTimezone: true }),
-});
+export const secretRef = pgTable(
+  'secret_ref',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    provider: text('provider').notNull(), // env | enc | oauth | vault
+    locator: text('locator').notNull(),
+    // Operator-editable metadata (catalog redesign): human name, free-form notes, and
+    // a free-text group tag for organizing/filtering credentials. All nullable.
+    name: text('name'),
+    notes: text('notes'),
+    groupTag: text('group_tag'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => [
+    check('secret_ref_provider_allowed', sql`${t.provider} IN ('env', 'enc', 'oauth', 'vault')`),
+    // (provider, locator) resolution/dedup was a full scan (no secondary index).
+    // Non-unique on purpose: the same env locator may back several named refs.
+    index('secret_ref_provider_locator_idx').on(t.provider, t.locator),
+  ],
+);
 
 /**
  * AES-256-GCM ciphertext for a `provider='enc'` {@link secretRef}. Stored as the

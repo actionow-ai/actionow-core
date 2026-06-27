@@ -1,7 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
   boolean,
-  index,
   integer,
   jsonb,
   pgTable,
@@ -23,7 +22,7 @@ export const providerPlugin = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     /** Stable identity used for clone/seed reference, e.g. 'openai-chat'. */
-    slug: text('slug').notNull().unique(),
+    slug: text('slug').notNull(),
     label: text('label').notNull(),
     modalities: text('modalities')
       .array()
@@ -45,7 +44,13 @@ export const providerPlugin = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [index('provider_plugin_slug_idx').on(t.slug)],
+  (t) => [
+    // PARTIAL unique: only LIVE rows reserve their slug (soft-delete-frees-the-name),
+    // so re-seeding a builtin after a soft-delete no longer trips a unique violation.
+    uniqueIndex('provider_plugin_slug_uq')
+      .on(t.slug)
+      .where(sql`deleted_at IS NULL`),
+  ],
 );
 
 /**

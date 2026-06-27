@@ -68,9 +68,11 @@ export async function resolveSecretRef(db: DbOrTx, ref: string): Promise<string 
           .limit(1);
         if (mat === undefined) return undefined;
         try {
-          return decryptSecret(mat.material, keyB64);
+          // AAD = the secret_ref id (matches createEncryptedSecret). A legacy
+          // pre-versioning blob ignores the AAD; a v1 blob requires it to match.
+          return decryptSecret(mat.material, keyB64, row.id);
         } catch {
-          return undefined; // bad key / tampered → unresolved, never throw to callers
+          return undefined; // bad key / tampered / AAD mismatch → unresolved, never throw
         }
       }
       if (row.provider === 'oauth') {
@@ -137,13 +139,15 @@ export async function createEncryptedSecret(
   db: DbOrTx,
   input: CreateEncryptedSecretInput,
 ): Promise<SecretRefRow> {
-  const material = encryptSecret(input.value, input.keyB64);
   return db.transaction(async (tx) => {
     const [ref] = await tx
       .insert(secretRef)
       .values({ provider: 'enc', locator: input.label ?? '' })
       .returning();
     if (!ref) throw new Error('createEncryptedSecret: secret_ref insert returned no row');
+    // Encrypt AFTER the insert so the ciphertext is AAD-bound to its own
+    // secret_ref id — pinning the blob to this row (resolve passes the same id).
+    const material = encryptSecret(input.value, input.keyB64, ref.id);
     await tx.insert(secretMaterial).values({ secretRefId: ref.id, material });
     return ref;
   });

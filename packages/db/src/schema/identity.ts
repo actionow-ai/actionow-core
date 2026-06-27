@@ -186,6 +186,9 @@ export const subject = pgTable(
       .on(t.tenantId, t.email)
       .where(sql`email IS NOT NULL AND deleted_at IS NULL`),
     check('subject_status_allowed', sql`${t.status} IN ('active', 'disabled')`),
+    // A subject must be addressable by ≥1 identity (Model-A email or Model-B
+    // external_id); neither-set is an unreachable orphan.
+    check('subject_addressable', sql`${t.externalId} IS NOT NULL OR ${t.email} IS NOT NULL`),
   ],
 );
 

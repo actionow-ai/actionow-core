@@ -167,3 +167,59 @@ describe('channel.tags (route tagging)', () => {
     expect(b?.tags).toEqual(['canary', 'beta']);
   });
 });
+
+describe('schema hardening (migration 0052)', () => {
+  /** Insert a tenant + its account; return both ids. */
+  async function makeAccount(name: string): Promise<{ tenantId: string; accountId: string }> {
+    const [t] = await client`INSERT INTO tenant (name) VALUES (${name}) RETURNING id`;
+    if (!t) throw new Error('tenant insert returned no row');
+    const [a] = await client`INSERT INTO account (tenant_id) VALUES (${t.id}) RETURNING id`;
+    if (!a) throw new Error('account insert returned no row');
+    return { tenantId: t.id as string, accountId: a.id as string };
+  }
+
+  it('rejects a ledger_txn.type outside the allowed set', async () => {
+    const { tenantId, accountId } = await makeAccount('lt');
+    await expect(
+      client`INSERT INTO ledger_txn (tenant_id, account_id, type, credits_delta, balance_after) VALUES (${tenantId}, ${accountId}, 'bogus', 0, 0)`,
+    ).rejects.toThrow();
+    // a real type still inserts
+    await client`INSERT INTO ledger_txn (tenant_id, account_id, type, credits_delta, balance_after) VALUES (${tenantId}, ${accountId}, 'transfer_in', 0, 0)`;
+  });
+
+  it('enforces append-only on ledger_txn (UPDATE/DELETE blocked, INSERT allowed)', async () => {
+    const { tenantId, accountId } = await makeAccount('ao');
+    await client`INSERT INTO ledger_txn (tenant_id, account_id, type, credits_delta, balance_after) VALUES (${tenantId}, ${accountId}, 'topup', 100, 100)`;
+    await expect(
+      client`UPDATE ledger_txn SET balance_after = 1 WHERE tenant_id = ${tenantId}`,
+    ).rejects.toThrow();
+    await expect(client`DELETE FROM ledger_txn WHERE tenant_id = ${tenantId}`).rejects.toThrow();
+  });
+
+  it('rejects a negative account balance', async () => {
+    const [t] = await client`INSERT INTO tenant (name) VALUES ('neg') RETURNING id`;
+    if (!t) throw new Error('tenant insert returned no row');
+    await expect(
+      client`INSERT INTO account (tenant_id, credit_balance) VALUES (${t.id}, -5)`,
+    ).rejects.toThrow();
+  });
+
+  it('rejects a subject with neither email nor external_id (addressable)', async () => {
+    const [t] = await client`INSERT INTO tenant (name) VALUES ('subj') RETURNING id`;
+    if (!t) throw new Error('tenant insert returned no row');
+    await expect(
+      client`INSERT INTO subject (tenant_id, status) VALUES (${t.id}, 'active')`,
+    ).rejects.toThrow();
+    // either identity makes it addressable
+    await client`INSERT INTO subject (tenant_id, external_id) VALUES (${t.id}, 'ext-1')`;
+  });
+
+  it('provider_plugin.slug is unique among LIVE rows but freed by soft-delete', async () => {
+    const ins = (slug: string) =>
+      client`INSERT INTO provider_plugin (slug, label, protocol, auth_strategy, manifest, handler) VALUES (${slug}, 'L', 'sync', 'bearer', '{}'::jsonb, 'h')`;
+    await ins('p-uq-soft');
+    await expect(ins('p-uq-soft')).rejects.toThrow(); // duplicate live slug
+    await client`UPDATE provider_plugin SET deleted_at = now() WHERE slug = 'p-uq-soft' AND deleted_at IS NULL`;
+    await ins('p-uq-soft'); // freed after soft-delete
+  });
+});

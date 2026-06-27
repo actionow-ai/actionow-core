@@ -96,6 +96,8 @@ export const model = pgTable(
       .where(sql`deleted_at IS NULL`),
     index('model_resource_idx').on(t.resourceId),
     check('model_status_allowed', sql`${t.status} IN ('active', 'disabled')`),
+    // Security-relevant: visibility gates model_grant access ('tenant' = grant-only).
+    check('model_visibility_allowed', sql`${t.visibility} IN ('public', 'tenant')`),
   ],
 );
 

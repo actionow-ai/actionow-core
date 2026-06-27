@@ -45,8 +45,15 @@ export const account = pgTable(
   },
   (t) => [
     check('account_balance_ge_held', sql`${t.creditBalance} >= ${t.creditHeld}`),
-    // account_tenant_unique also serves as the FK index on tenant_id
-    uniqueIndex('account_tenant_unique').on(t.tenantId),
+    // Mirror sub_account's full money invariants on the HIGHER-value tenant pool:
+    // without these an unguarded releaseHold could drive a balance/held negative.
+    check('account_balance_ge0', sql`${t.creditBalance} >= 0`),
+    check('account_held_ge0', sql`${t.creditHeld} >= 0`),
+    // Partial on deleted_at so a soft-deleted account frees its tenant slot (the
+    // soft-delete-frees-the-name pattern); still serves as the tenant_id FK index.
+    uniqueIndex('account_tenant_unique')
+      .on(t.tenantId)
+      .where(sql`deleted_at IS NULL`),
   ],
 );
 

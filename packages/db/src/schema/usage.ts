@@ -35,11 +35,12 @@ export const usageLog = pgTable(
     latencyMs: bigint('latency_ms', { mode: 'number' }),
     // status allowed values: succeeded | failed | canceled (insertUsageLog)
     status: text('status').notNull(),
-    /** The upstream_channel that served this request (P1b); null if unknown/pre-P1b. */
+    // Best-effort correlation id (P1b), NOT an FK — usage_log is a high-volume log
+    // and the served-channel id is captured loosely (same posture as relay_trace).
     channelId: uuid('channel_id'),
     /** That channel's provider/adapter type (P1b); null if unknown/pre-P1b. */
     providerType: text('provider_type'),
-    /** The api_key that made this call (P1c); null when no key was presented. */
+    // Best-effort correlation id (P1c), NOT an FK (see channelId); null when no key.
     apiKeyId: uuid('api_key_id'),
     /** The subject (end-user) this call is attributed to (unified tenancy G-B); null → tenant-level. */
     subjectId: uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),
@@ -49,8 +50,11 @@ export const usageLog = pgTable(
   },
   (t) => [
     index('usage_log_tenant_idx').on(t.tenantId, t.createdAt),
-    index('usage_log_model_idx').on(t.model),
-    index('usage_log_subject_idx').on(t.subjectId),
+    // Composite (col, created_at) so the governance rolling-window sums and the
+    // model-health time aggregates use the index instead of scanning.
+    index('usage_log_model_idx').on(t.model, t.createdAt),
+    index('usage_log_subject_idx').on(t.subjectId, t.createdAt),
+    index('usage_log_api_key_idx').on(t.apiKeyId, t.createdAt),
     check('usage_log_status_allowed', sql`${t.status} IN ('succeeded', 'failed', 'canceled')`),
   ],
 );

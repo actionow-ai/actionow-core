@@ -67,5 +67,10 @@ export const relayTrace = pgTable(
     /** The per-request route tag (染色) this call was pinned to, when set; else null. */
     routeTag: text('route_tag'),
   },
-  (t) => [index('relay_trace_subject_idx').on(t.subjectId)],
+  (t) => [
+    index('relay_trace_subject_idx').on(t.subjectId),
+    // Time-ordered reads + any retention sweep need created_at on this unbounded
+    // append-only trace. btree now; BRIN is a later size optimization.
+    index('relay_trace_created_idx').on(t.createdAt),
+  ],
 );
