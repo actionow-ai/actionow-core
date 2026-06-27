@@ -58,7 +58,7 @@ function renderPage() {
 async function openFirstEditor(user: ReturnType<typeof userEvent.setup>, name: string) {
   await screen.findByText(name);
   const editButtons = screen.getAllByRole('button', { name: i18n.t('console:common.edit') });
-  await user.click(editButtons[0] as HTMLElement);
+  await user.click(editButtons[0]!);
 }
 
 const FALLBACK_LABEL = () => i18n.t('console:groups.form.fallbackGroup');

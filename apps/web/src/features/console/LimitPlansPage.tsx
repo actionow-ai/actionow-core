@@ -55,7 +55,7 @@ export function LimitPlansPage() {
   const api = useAdminApi();
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: qk.limitPlans(),
     queryFn: api.listLimitPlans,
   });
@@ -152,6 +152,8 @@ export function LimitPlansPage() {
         rows={data ?? []}
         rowKey={(r) => r.id}
         loading={isLoading}
+        error={isError}
+        onRetry={() => void refetch()}
         empty={t('limitPlans.empty')}
         searchable
         pageSize={20}

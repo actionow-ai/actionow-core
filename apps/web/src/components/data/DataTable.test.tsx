@@ -126,7 +126,7 @@ describe('DataTable selection + bulk actions', () => {
 
     const rowChecks = screen.getAllByRole('checkbox', { name: /select row/i });
     expect(rowChecks.length).toBeGreaterThan(0);
-    await user.click(rowChecks[0]);
+    await user.click(rowChecks[0]!);
 
     expect(onRowClick).not.toHaveBeenCalled();
   });
@@ -184,7 +184,7 @@ describe('DataTable select-all indeterminate state', () => {
 
     // select a single row out of several
     const rowChecks = screen.getAllByRole('checkbox', { name: /select row/i });
-    await user.click(rowChecks[0]);
+    await user.click(rowChecks[0]!);
 
     expect(selectAll).toHaveAttribute('aria-checked', 'mixed');
   });
@@ -272,11 +272,11 @@ describe('DataTable sorting', () => {
 
     const header = screen.getByRole('button', { name: /sort by name/i });
     await user.click(header); // asc
-    const firstAsc = screen.getAllByRole('row')[1];
+    const firstAsc = screen.getAllByRole('row')[1]!;
     expect(within(firstAsc).getByText('Alpha')).toBeInTheDocument();
 
     await user.click(header); // desc
-    const firstDesc = screen.getAllByRole('row')[1];
+    const firstDesc = screen.getAllByRole('row')[1]!;
     expect(within(firstDesc).getByText('Echo')).toBeInTheDocument();
   });
 });

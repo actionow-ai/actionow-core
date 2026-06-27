@@ -55,7 +55,7 @@ describe('AuthPage hardening adapts', () => {
     expect(loginPw).not.toHaveAttribute('minLength');
 
     // Switch the segmented control to register (radios: [0]=login, [1]=register).
-    await user.click(screen.getAllByRole('radio')[1]);
+    await user.click(screen.getAllByRole('radio')[1]!);
 
     const regPw = container.querySelector('input[type="password"]')!;
     expect(regPw).toHaveAttribute('minLength', '8');

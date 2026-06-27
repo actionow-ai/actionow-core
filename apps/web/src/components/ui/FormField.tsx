@@ -12,6 +12,29 @@ export function useFieldId(explicit?: string): string {
   return explicit ?? `ff-${generated}`;
 }
 
+/** Deterministic id of a field's error/hint message span, derived from the field id. */
+export function fieldMsgId(id: string): string {
+  return `${id}-msg`;
+}
+
+/**
+ * ARIA wiring shared by every unified field control. Marks the control invalid
+ * when there is an error and points `aria-describedby` at the `FormField` message
+ * span (error or hint) so screen readers announce it on focus. Centralises the
+ * WCAG 1.3.1 / 3.3.1 field-error association so each field spreads `fieldAria(...)`.
+ */
+export function fieldAria(
+  id: string,
+  error?: string,
+  hint?: string,
+): { 'aria-invalid': true | undefined; 'aria-describedby': string | undefined } {
+  const hasMessage = error !== undefined || hint !== undefined;
+  return {
+    'aria-invalid': error !== undefined ? true : undefined,
+    'aria-describedby': hasMessage ? fieldMsgId(id) : undefined,
+  };
+}
+
 /**
  * The shared shell for form fields: a label (with optional required marker),
  * the control, and a single error-or-hint line beneath it. Error wins over hint
@@ -66,9 +89,13 @@ export function FormField({
   );
   const tail =
     error !== undefined ? (
-      <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--fail)' }}>{error}</span>
+      <span id={fieldMsgId(id)} style={{ fontSize: 'var(--fs-caption)', color: 'var(--fail)' }}>
+        {error}
+      </span>
     ) : hint !== undefined ? (
-      <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>{hint}</span>
+      <span id={fieldMsgId(id)} style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>
+        {hint}
+      </span>
     ) : null;
 
   if (inline) {

@@ -45,7 +45,9 @@ export function Tabs({
     else if (e.key === 'End') next = tabs.length - 1;
     else return;
     e.preventDefault();
-    onChange(tabs[next].value);
+    const tb = tabs[next];
+    if (tb === undefined) return;
+    onChange(tb.value);
     // Carry DOM focus to the newly-selected tab. After the re-render it becomes
     // the only tab stop (tabIndex=0); without this, focus is stranded on the
     // now-tabIndex=-1 tab. Focusing by index here never fires on mouse clicks.

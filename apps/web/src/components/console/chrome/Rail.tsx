@@ -119,7 +119,10 @@ export function Rail({ pathname }: { pathname: string }) {
               bare
               size={19}
               weight={on ? 'fill' : 'regular'}
-              onClick={() => void navigate(g.items[0].to)}
+              onClick={() => {
+                const first = g.items[0];
+                if (first !== undefined) void navigate(first.to);
+              }}
             />
           );
         })}

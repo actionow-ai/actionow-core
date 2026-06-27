@@ -56,7 +56,7 @@ export function BreakersPage() {
   const api = useAdminApi();
   const qc = useQueryClient();
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: qk.breakers(),
     queryFn: api.listBreakers,
     refetchInterval: 10_000, // live-ish: a tripped/recovered breaker shows up within 10s
@@ -162,6 +162,8 @@ export function BreakersPage() {
         rows={data ?? []}
         rowKey={(r) => `${r.channel_id}:${r.model}`}
         loading={isLoading}
+        error={isError}
+        onRetry={() => void refetch()}
         empty={t('breakers.empty')}
         searchable
         pageSize={20}

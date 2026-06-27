@@ -24,7 +24,7 @@ describe('TimeSeriesChart scaling', () => {
         ]}
       />,
     );
-    const [y0, y1, y2] = vertexYs(container);
+    const [y0, y1, y2] = vertexYs(container) as [number, number, number];
     expect(y1).toBeLessThan(y0); // peak (3M) is highest on screen → smallest y
     expect(y1).toBeLessThan(y2);
     expect(y0).toBeGreaterThan(y2); // min (1M) is lowest on screen → largest y

@@ -26,8 +26,9 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean
     const previouslyFocused = document.activeElement as HTMLElement | null;
 
     const items = focusables(container);
-    if (items.length > 0) {
-      items[0].focus();
+    const firstItem = items[0];
+    if (firstItem !== undefined) {
+      firstItem.focus();
     } else {
       container.setAttribute('tabindex', '-1');
       container.focus();
@@ -42,6 +43,7 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean
       }
       const first = list[0];
       const last = list[list.length - 1];
+      if (first === undefined || last === undefined) return;
       const activeEl = document.activeElement;
       if (e.shiftKey) {
         if (activeEl === first || !container.contains(activeEl)) {

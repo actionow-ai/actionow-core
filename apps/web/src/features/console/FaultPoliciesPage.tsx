@@ -50,7 +50,7 @@ export function FaultPoliciesPage() {
   const api = useAdminApi();
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: qk.faultPolicies(),
     queryFn: api.listFaultPolicies,
   });
@@ -169,6 +169,8 @@ export function FaultPoliciesPage() {
         rows={data ?? []}
         rowKey={(r) => r.id}
         loading={isLoading}
+        error={isError}
+        onRetry={() => void refetch()}
         empty={t('faultPolicies.empty')}
         searchable
         pageSize={20}
@@ -258,6 +260,15 @@ function FaultPolicyEditor({
   const [description, setDescription] = useState(row?.description ?? '');
   const [attempted, setAttempted] = useState(false);
 
+  // Fresh idempotency key per create-intent — regenerated each open-for-create,
+  // stable while open so a double-submit replays (dedupes). The editor stays
+  // mounted across opens (reseeds via the effect below), so a plain useState
+  // initializer would never refresh.
+  const [idemKey, setIdemKey] = useState(() => crypto.randomUUID());
+  useEffect(() => {
+    if (open && !editing) setIdemKey(crypto.randomUUID());
+  }, [open, editing]);
+
   // Circuit breaker (弹性2.0). On by default for a new policy; each threshold is
   // 0 → omitted → engine global default. Section collapsed unless already tuned.
   const [breakerEnabled, setBreakerEnabled] = useState(row?.breaker_enabled ?? true);
@@ -345,7 +356,7 @@ function FaultPolicyEditor({
       }
       return api.createFaultPolicy(
         { ...body, description: description.trim() === '' ? undefined : description.trim() },
-        crypto.randomUUID(),
+        idemKey,
       );
     },
     onSuccess: async () => {

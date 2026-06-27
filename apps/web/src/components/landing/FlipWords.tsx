@@ -17,7 +17,7 @@ export function FlipWords({ words, className, style }: { words: string[]; classN
       const el = ref.current;
       if (!el || words.length === 0) return;
       // First word is always shown (also the reduced-motion end state).
-      el.textContent = words[0];
+      el.textContent = words[0] ?? '';
       if (words.length < 2) return;
 
       const mm = gsap.matchMedia();
@@ -33,7 +33,7 @@ export function FlipWords({ words, className, style }: { words: string[]; classN
             ease: EASE.in,
             onComplete: () => {
               idx = (idx + 1) % words.length;
-              el.textContent = words[idx];
+              el.textContent = words[idx] ?? '';
             },
           }).fromTo(
             el,

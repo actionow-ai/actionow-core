@@ -16,9 +16,10 @@ export interface JwtClaims {
  */
 export function decodeJwt(token: string): JwtClaims | null {
   const parts = token.split('.');
-  if (parts.length < 2) return null;
+  const payload = parts[1];
+  if (payload === undefined) return null;
   try {
-    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
     const json = decodeURIComponent(
       atob(b64)
         .split('')

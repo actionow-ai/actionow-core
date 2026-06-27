@@ -55,7 +55,7 @@ export function RouteGroupsPage() {
   const api = useAdminApi();
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: qk.routeGroups(),
     queryFn: api.listRouteGroups,
   });
@@ -151,6 +151,8 @@ export function RouteGroupsPage() {
         rows={data ?? []}
         rowKey={(r) => r.id}
         loading={isLoading}
+        error={isError}
+        onRetry={() => void refetch()}
         empty={t('groups.empty')}
         searchable
         pageSize={20}
@@ -254,6 +256,15 @@ function RouteGroupEditor({
   // chain (cycle / max depth), so we only restrict the dropdown to other groups.
   const [fallbackId, setFallbackId] = useState(row?.fallback_group_id ?? '');
 
+  // Fresh idempotency key per create-intent — regenerated each open-for-create,
+  // stable while open so a double-submit replays (dedupes). The editor stays
+  // mounted across opens (reseeds via the effect below), so a plain useState
+  // initializer would never refresh.
+  const [idemKey, setIdemKey] = useState(() => crypto.randomUUID());
+  useEffect(() => {
+    if (open && !editing) setIdemKey(crypto.randomUUID());
+  }, [open, editing]);
+
   useEffect(() => {
     if (row === undefined) return;
     setName(row.name);
@@ -295,7 +306,7 @@ function RouteGroupEditor({
           fallbackGroupId,
           description: desc === '' ? undefined : desc,
         },
-        crypto.randomUUID(),
+        idemKey,
       );
     },
     onSuccess: async () => {

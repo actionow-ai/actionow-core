@@ -129,6 +129,7 @@ export function ModelsSection({ resourceId }: { resourceId: string }) {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)' }}>
             {active.map((c) => {
               const CapIcon = CAP_ICON[c.key];
+              if (CapIcon === undefined) return null;
               const label = t(c.labelKey);
               return (
                 <span key={c.key} role="img" aria-label={label} title={label} style={{ display: 'inline-flex', color: 'var(--muted)' }}>

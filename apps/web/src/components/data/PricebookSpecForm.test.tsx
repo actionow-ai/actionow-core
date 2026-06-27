@@ -83,7 +83,7 @@ describe('PricebookSpecForm', () => {
     );
     const cBefore = screen.getByDisplayValue('c');
     const removeButtons = screen.getAllByRole('button', { name: 'Remove dimension' });
-    await user.click(removeButtons[1]); // middle row (b)
+    await user.click(removeButtons[1]!); // middle row (b)
     const cAfter = screen.getByDisplayValue('c');
     expect(cAfter).toBe(cBefore);
     expect(screen.queryByDisplayValue('b')).not.toBeInTheDocument();

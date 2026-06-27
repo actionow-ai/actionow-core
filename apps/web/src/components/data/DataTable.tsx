@@ -451,7 +451,7 @@ export function DataTable<T>({
                       background: selectedRow ? 'var(--hover-bg)' : undefined,
                     }}
                   >
-                    {visibleColumns.length > 0 && (
+                    {primaryCol !== undefined && (
                       <div
                         style={{
                           fontSize: 'var(--fs-base)',

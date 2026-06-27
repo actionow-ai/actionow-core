@@ -38,7 +38,7 @@ export function CapabilitiesField({
   // A key absent from the record reads as off. `value[k]` is typed `boolean` by
   // the index signature, so guard membership before reading to handle the real
   // runtime `undefined` of a missing flag.
-  const isOn = (key: string) => Object.hasOwn(value, key) && value[key];
+  const isOn = (key: string) => Object.hasOwn(value, key) && value[key] === true;
   const set = (key: string, on: boolean) => onChange({ ...value, [key]: on });
 
   return (

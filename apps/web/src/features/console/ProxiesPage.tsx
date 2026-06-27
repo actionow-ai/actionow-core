@@ -49,7 +49,7 @@ export function ProxiesPage() {
   const api = useAdminApi();
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery({ queryKey: qk.proxies(), queryFn: api.listProxies });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: qk.proxies(), queryFn: api.listProxies });
 
   const [editId, setEditId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -119,6 +119,8 @@ export function ProxiesPage() {
         rows={data ?? []}
         rowKey={(r) => r.id}
         loading={isLoading}
+        error={isError}
+        onRetry={() => void refetch()}
         empty={t('proxies.empty')}
         searchable
         pageSize={20}
@@ -190,6 +192,15 @@ function ProxyEditor({
   const [description, setDescription] = useState(row?.description ?? '');
   const [attempted, setAttempted] = useState(false);
 
+  // Fresh idempotency key per create-intent — regenerated each open-for-create,
+  // stable while open so a double-submit replays (dedupes). The editor stays
+  // mounted across opens (reseeds via the effect below), so a plain useState
+  // initializer would never refresh.
+  const [idemKey, setIdemKey] = useState(() => crypto.randomUUID());
+  useEffect(() => {
+    if (open && !editing) setIdemKey(crypto.randomUUID());
+  }, [open, editing]);
+
   useEffect(() => {
     if (row === undefined) return;
     setName(row.name);
@@ -217,7 +228,7 @@ function ProxyEditor({
           status,
           description: description.trim() === '' ? undefined : description.trim(),
         },
-        crypto.randomUUID(),
+        idemKey,
       );
     },
     onSuccess: async () => {

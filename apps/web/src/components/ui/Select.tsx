@@ -27,6 +27,8 @@ export function Select({
   options,
   placeholder,
   ariaLabel,
+  ariaInvalid,
+  ariaDescribedby,
   id,
 }: {
   value: string;
@@ -34,6 +36,8 @@ export function Select({
   options: Option[];
   placeholder?: string;
   ariaLabel?: string;
+  ariaInvalid?: boolean;
+  ariaDescribedby?: string;
   id?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -55,7 +59,7 @@ export function Select({
   };
 
   const commit = (index: number) => {
-    const opt = all[index] as Option | undefined;
+    const opt = all[index];
     if (opt !== undefined) onChange(opt.value);
     setOpen(false);
     btnRef.current?.focus();
@@ -151,6 +155,8 @@ export function Select({
         id={id}
         type="button"
         aria-label={ariaLabel}
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedby}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listId : undefined}

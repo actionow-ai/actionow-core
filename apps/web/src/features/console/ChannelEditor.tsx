@@ -170,7 +170,8 @@ export function ChannelEditor({
     if (editing || resourceId !== undefined || selectedPlugin === undefined) return;
     const derived = PROVIDER_BY_PLUGIN_SLUG[selectedPlugin.slug];
     if (derived) setProviderType(derived);
-    if (selectedPlugin.modalities.length > 0) setModality(selectedPlugin.modalities[0]);
+    const firstModality = selectedPlugin.modalities[0];
+    if (firstModality !== undefined) setModality(firstModality);
   }, [pluginId, plugins.data, editing, resourceId, selectedPlugin]);
 
   const [credOpen, setCredOpen] = useState(false);
@@ -259,13 +260,23 @@ export function ChannelEditor({
     onError: mutationError(t),
   });
 
+  // A create needs a resolved provider type (the upstream adapter): block the
+  // save until it is set so we never POST a channel with an empty provider_type.
+  // (Edit can't change it — the backend strips it from a PATCH — so edit is valid.)
+  const canSave = editing || providerType.trim() !== '';
+
   return (
     <Drawer
       open={open}
       title={t(editing ? 'channels.editTitle' : 'channels.addTitle')}
       onClose={onClose}
       footer={
-        <Button variant="cta" onClick={() => save.mutate()} loading={save.isPending}>
+        <Button
+          variant="cta"
+          onClick={() => save.mutate()}
+          loading={save.isPending}
+          disabled={!canSave}
+        >
           {t('channels.save')}
         </Button>
       }

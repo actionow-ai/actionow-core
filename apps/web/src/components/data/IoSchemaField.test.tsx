@@ -114,7 +114,7 @@ describe('IoSchemaField', () => {
 
     const addButtons = screen.getAllByRole('button', { name: 'Add field' });
     const before = screen.getAllByDisplayValue('').length;
-    await user.click(addButtons[0]); // inputs section
+    await user.click(addButtons[0]!); // inputs section
     const after = screen.getAllByDisplayValue('').length;
     expect(after).toBeGreaterThan(before);
   });
@@ -136,7 +136,7 @@ describe('IoSchemaField', () => {
     const cBefore = screen.getByDisplayValue('c');
     // Input-section remove buttons come first; [1] is the middle input row (b).
     const removeButtons = screen.getAllByRole('button', { name: 'Remove field' });
-    await user.click(removeButtons[1]);
+    await user.click(removeButtons[1]!);
     const cAfter = screen.getByDisplayValue('c');
     expect(cAfter).toBe(cBefore);
     expect(screen.queryByDisplayValue('b')).not.toBeInTheDocument();

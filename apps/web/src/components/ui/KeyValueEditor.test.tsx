@@ -51,8 +51,8 @@ describe('KeyValueEditor', () => {
     // empty value still renders one blank row → key input + value input
     expect(inputs).toHaveLength(2);
 
-    await user.type(inputs[0], 'region');
-    await user.type(inputs[1], 'us-east');
+    await user.type(inputs[0]!, 'region');
+    await user.type(inputs[1]!, 'us-east');
 
     // Rows now carry a stable `id` (React key); assert just the wire fields.
     const last = onChange.mock.calls.at(-1)?.[0] as KvRow[] | undefined;
@@ -65,12 +65,12 @@ describe('KeyValueEditor', () => {
 
     // The last button is "add row"; the per-row trailing button is "remove".
     const buttons = screen.getAllByRole('button');
-    const addRow = buttons[buttons.length - 1];
+    const addRow = buttons[buttons.length - 1]!;
     await user.click(addRow);
     expect(screen.getAllByRole('textbox')).toHaveLength(4);
 
     // Removing a row drops its two inputs.
-    const removeFirst = screen.getAllByRole('button')[0];
+    const removeFirst = screen.getAllByRole('button')[0]!;
     await user.click(removeFirst);
     expect(screen.getAllByRole('textbox')).toHaveLength(2);
   });
@@ -83,7 +83,7 @@ describe('KeyValueEditor', () => {
     const cBefore = screen.getByDisplayValue('c');
     // Buttons are [removeA, removeB, removeC, addRow]; remove the MIDDLE row (B).
     const buttons = screen.getAllByRole('button');
-    await user.click(buttons[1]);
+    await user.click(buttons[1]!);
 
     // With index keys React reuses node positions and strands the value/focus;
     // with stable per-row ids the surviving node is the SAME element.

@@ -1,5 +1,5 @@
 import { FIELD_INPUT_BASE } from './fieldStyles';
-import { FormField, useFieldId } from './FormField';
+import { fieldAria, FormField, useFieldId } from './FormField';
 
 /**
  * A numeric input on the unified field contract: `onChange(number)` (replacing
@@ -46,7 +46,7 @@ export function NumberField({
         step={step}
         disabled={disabled}
         required={required}
-        aria-invalid={error !== undefined ? true : undefined}
+        {...fieldAria(fieldId, error, hint)}
         onChange={(e) => {
           const n = e.target.valueAsNumber;
           onChange(Number.isNaN(n) ? 0 : n);

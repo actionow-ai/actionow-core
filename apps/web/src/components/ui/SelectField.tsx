@@ -1,4 +1,4 @@
-import { FormField, useFieldId } from './FormField';
+import { fieldAria, FormField, useFieldId } from './FormField';
 import type { Option } from './Select';
 import { Select } from './Select';
 
@@ -33,9 +33,19 @@ export function SelectField({
   inline?: boolean;
 }) {
   const fieldId = useFieldId();
+  const aria = fieldAria(fieldId, error, hint);
   return (
     <FormField id={fieldId} label={label} error={error} hint={hint} tooltip={tooltip} inline={inline}>
-      <Select id={fieldId} value={value} onChange={onChange} options={options} placeholder={placeholder} ariaLabel={label} />
+      <Select
+        id={fieldId}
+        value={value}
+        onChange={onChange}
+        options={options}
+        placeholder={placeholder}
+        ariaLabel={label}
+        ariaInvalid={aria['aria-invalid']}
+        ariaDescribedby={aria['aria-describedby']}
+      />
     </FormField>
   );
 }

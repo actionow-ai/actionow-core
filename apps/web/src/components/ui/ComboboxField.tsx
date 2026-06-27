@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Z } from '../../lib/zIndex';
-import { FormField, useFieldId } from './FormField';
+import { fieldAria, FormField, useFieldId } from './FormField';
 
 /**
  * A typeable dropdown on the unified field contract: a text input plus a
@@ -25,6 +25,7 @@ export function ComboboxField({
   onChange,
   options,
   placeholder,
+  error,
   hint,
   tooltip,
   required,
@@ -36,6 +37,7 @@ export function ComboboxField({
   onChange: (v: string) => void;
   options: string[];
   placeholder?: string;
+  error?: string;
   hint?: string;
   tooltip?: string;
   required?: boolean;
@@ -132,7 +134,7 @@ export function ComboboxField({
       case 'Enter':
         e.preventDefault();
         // A highlighted suggestion wins; otherwise commit the typed text.
-        commit(activeIndex >= 0 && activeIndex < filtered.length ? filtered[activeIndex] : value);
+        commit(activeIndex >= 0 ? (filtered[activeIndex] ?? value) : value);
         break;
       case 'Escape':
         e.preventDefault();
@@ -147,7 +149,7 @@ export function ComboboxField({
   };
 
   return (
-    <FormField id={fieldId} label={label} hint={hint} tooltip={tooltip} required={required}>
+    <FormField id={fieldId} label={label} error={error} hint={hint} tooltip={tooltip} required={required}>
       <div style={{ position: 'relative', display: 'flex' }}>
         <input
           ref={inputRef}
@@ -158,6 +160,7 @@ export function ComboboxField({
           aria-controls={open && filtered.length > 0 ? listId : undefined}
           aria-autocomplete="list"
           aria-activedescendant={open && activeIndex >= 0 ? optionId(activeIndex) : undefined}
+          {...fieldAria(fieldId, error, hint)}
           value={value}
           placeholder={placeholder}
           disabled={disabled}
