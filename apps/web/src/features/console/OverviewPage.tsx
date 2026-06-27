@@ -31,8 +31,6 @@ type GroupBy = AnalyticsUsageQuery['groupBy'];
 const GROUP_BYS: GroupBy[] = ['day', 'hour', 'minute', 'model', 'tenant', 'channel', 'api_key'];
 const METRICS: Metric[] = ['cost', 'margin', 'requests', 'tokens', 'errors'];
 const TIME_GRAINS = new Set<GroupBy>(['minute', 'hour', 'day']);
-/** Fixed bento height so the chart + health card stay compact (health list scrolls). */
-const BENTO_H = 360;
 
 const HEALTH_TONE: Record<HealthState, PillTone> = {
   healthy: 'ok',
@@ -378,16 +376,9 @@ export function OverviewPage() {
       </div>
 
       {/* Bento: main chart (lens-driven) + model-health card. Both panels share a
-          fixed height; the chart centers inside it and the health list scrolls. */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)',
-          gap: 'var(--s-4)',
-          alignItems: 'stretch',
-          height: BENTO_H,
-        }}
-      >
+          fixed height on desktop (chart centers, health list scrolls); `.bento-2col`
+          stacks them with natural height on a phone. */}
+      <div className="bento-2col">
         <div
           className="panel"
           style={{

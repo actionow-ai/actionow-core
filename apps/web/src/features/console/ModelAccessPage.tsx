@@ -161,7 +161,7 @@ export function ModelAccessPage() {
   });
 
   return (
-    <div style={WRAP}>
+    <div className="tri-pane">
       {/* ── Column 1: plugin library ─────────────────────────────────────── */}
       <div style={COL}>
         <ColumnHead
@@ -561,13 +561,7 @@ function modelFacetDefs(t: TFunction): FacetDef<ModelView>[] {
   ];
 }
 
-// Three EQUAL columns (插件 │ 通道 │ 模型).
-const WRAP: CSSProperties = {
-  height: '100%',
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)',
-  gap: 'var(--s-3)',
-};
+// Three EQUAL columns (插件 │ 通道 │ 模型) — `.tri-pane` stacks them on a phone.
 // A column = a fixed header + a scrolling card list beneath it.
 const COL: CSSProperties = {
   height: '100%',

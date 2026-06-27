@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../lib/auth/AuthProvider';
 import { useReducedMotion } from '../../../lib/motion/useReducedMotion';
 import { useTheme } from '../../../lib/theme/ThemeProvider';
+import { HexMark } from '../../brand/HexMark';
 import { IconButton } from '../../ui/IconButton';
 import { useNavConfig } from '../ConsoleChrome';
 import { groupForPath } from '../nav-config';
@@ -49,32 +50,7 @@ export function Rail({ pathname }: { pathname: string }) {
         aria-label={t('topbar.backHome')}
         onClick={() => void navigate('/')}
       >
-        <span
-          aria-hidden="true"
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 8,
-            background: 'var(--grad-accent)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--ink)',
-            boxShadow: 'var(--glow-accent)',
-          }}
-        >
-          <svg
-            width={17}
-            height={17}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinejoin="round"
-          >
-            <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" />
-          </svg>
-        </span>
+        <HexMark size={30} />
         <span className="ico-tip">{t('topbar.backHome')}</span>
       </button>
 

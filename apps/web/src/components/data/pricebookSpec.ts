@@ -90,7 +90,14 @@ export function buildSpec(method: PricebookMethod, s: SpecFormState): Record<str
         ? { method: 'passthrough', markup: { type: s.markup.type, value: s.markup.value } }
         : { method: 'passthrough' };
     case 'fixed':
-    default:
       return { method }; // fixed amount comes from fixedCredits
+    default: {
+      // Exhaustiveness guard: `method` narrows to `never` here once every method
+      // is handled. If PricebookMethod gains a member, this assignment errors and
+      // forces a real branch — while runtime still degrades gracefully (returns
+      // the bare method) for forward-compat with a backend enum addition.
+      const unhandled: never = method;
+      return { method: unhandled };
+    }
   }
 }
