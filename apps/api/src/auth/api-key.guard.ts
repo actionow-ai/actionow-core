@@ -2,11 +2,12 @@ import type { ApiKeyRecord, Database } from '@actionow/db';
 import { findApiKeyByHash, getAccountByTenant, hashApiKey } from '@actionow/db';
 import type { AppEnv } from '@actionow/infra';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { Request } from 'express';
 
 import { engineUnauthorized } from '../common/errors.js';
 import { DB, ENV } from '../common/tokens.js';
+import { SettingsService } from '../settings/settings.service.js';
 
 /**
  * The authenticated caller context the {@link ApiKeyGuard} attaches to the
@@ -87,6 +88,7 @@ export class ApiKeyGuard implements CanActivate {
     @Inject(DB) private readonly db: Database,
     @Inject(API_KEY_REPO) private readonly repo: ApiKeyRepo,
     @Inject(ENV) private readonly env: AppEnv,
+    @Optional() private readonly settings?: SettingsService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -141,7 +143,9 @@ export class ApiKeyGuard implements CanActivate {
    * `ALLOW_DEV_TENANT_HEADER` opt-in, so a real API key is required by default.
    */
   private async resolveDevFallback(req: AuthedRequest): Promise<ApiKeyContext> {
-    if (this.env.NODE_ENV === 'production' || !this.env.ALLOW_DEV_TENANT_HEADER) {
+    const allowDevHeader =
+      (await this.settings?.get('ALLOW_DEV_TENANT_HEADER')) ?? this.env.ALLOW_DEV_TENANT_HEADER;
+    if (this.env.NODE_ENV === 'production' || !allowDevHeader) {
       throw engineUnauthorized('missing API key');
     }
     const header = req.headers['x-tenant-id'];

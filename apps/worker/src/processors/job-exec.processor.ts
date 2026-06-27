@@ -37,24 +37,32 @@ export function createJobExecProcessor(runtime: WorkerRuntime): JobExecProcessor
   const insertUsageLogFn: InsertMediaUsageLogFn = async (row) => {
     await insertUsageLog(runtime.db, row);
   };
-  const runner = new JobRunner({
-    db: runtime.db,
-    adapters: runtime.adapters,
-    loadContext: (job) => loadJobContext(runtime.db, job),
-    resolveSecret: runtime.resolveSecret,
-    http: runtime.http,
-    proxyUrlEnv: runtime.env.UPSTREAM_PROXY_URL,
-    traceUpstream: runtime.env.RELAY_TRACE === 'full',
-    traceMaxBytes: runtime.env.RELAY_TRACE_MAX_BYTES,
-    insertUsageLog: insertUsageLogFn,
-    breaker: runtime.breaker,
-    ...(persistMediaResultFn !== undefined ? { persistMediaResult: persistMediaResultFn } : {}),
-  });
+  // Build the runner per call so the async/media RELAY_TRACE toggle + byte cap are
+  // resolved from the live dynamic settings (动态配置); a fake runtime without
+  // `settings` falls back to env (today's behavior). JobRunner construction is cheap.
+  const buildRunner = async (): Promise<JobRunner> => {
+    const relayTrace = (await runtime.settings?.get('RELAY_TRACE')) ?? runtime.env.RELAY_TRACE;
+    const traceMaxBytes =
+      (await runtime.settings?.get('RELAY_TRACE_MAX_BYTES')) ?? runtime.env.RELAY_TRACE_MAX_BYTES;
+    return new JobRunner({
+      db: runtime.db,
+      adapters: runtime.adapters,
+      loadContext: (job) => loadJobContext(runtime.db, job),
+      resolveSecret: runtime.resolveSecret,
+      http: runtime.http,
+      proxyUrlEnv: runtime.env.UPSTREAM_PROXY_URL,
+      traceUpstream: relayTrace === 'full',
+      traceMaxBytes,
+      insertUsageLog: insertUsageLogFn,
+      breaker: runtime.breaker,
+      ...(persistMediaResultFn !== undefined ? { persistMediaResult: persistMediaResultFn } : {}),
+    });
+  };
 
   return {
-    process: (data: JobExecData): Promise<void> => runner.process(data.jobId),
-    failExhausted: (jobId: string, message: string): Promise<void> =>
-      runner.failExhausted(jobId, message),
+    process: async (data: JobExecData): Promise<void> => (await buildRunner()).process(data.jobId),
+    failExhausted: async (jobId: string, message: string): Promise<void> =>
+      (await buildRunner()).failExhausted(jobId, message),
   };
 }
 

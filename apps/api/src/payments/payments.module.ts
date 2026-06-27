@@ -10,6 +10,7 @@ import { AdminModule } from '../admin/admin.module.js';
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
 import { DB, ENV, PAYMENTS } from '../common/tokens.js';
+import { SettingsService } from '../settings/settings.service.js';
 import { AdminPaymentsController } from './admin-payments.controller.js';
 import { PaymentsController } from './payments.controller.js';
 import { PaymentsService } from './payments.service.js';
@@ -24,8 +25,8 @@ import { PaymentsService } from './payments.service.js';
  */
 const paymentsProvider: Provider = {
   provide: PAYMENTS,
-  inject: [DB, ENV],
-  useFactory: (db: Database, env: AppEnv): PaymentService => {
+  inject: [DB, ENV, SettingsService],
+  useFactory: (db: Database, env: AppEnv, settings: SettingsService): PaymentService => {
     const config = registryConfigFromEnv(env);
     const registry = createPaymentRegistry(config);
     const logger = new Logger('Payments');
@@ -35,7 +36,12 @@ const paymentsProvider: Provider = {
         ? 'no payment providers configured — /v1/payments routes return invalid_input'
         : `payment providers configured: ${kinds.join(', ')}`,
     );
-    return new PaymentService({ db, providers: registry, creditRate: BigInt(env.CREDIT_RATE) });
+    return new PaymentService({
+      db,
+      providers: registry,
+      // Resolve the LIVE CREDIT_RATE per intent (动态配置); still frozen onto the intent.
+      creditRate: async () => BigInt(await settings.get('CREDIT_RATE')),
+    });
   },
 };
 

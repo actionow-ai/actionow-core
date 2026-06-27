@@ -29,11 +29,12 @@ import {
   fetchBytesWithTimeout,
   putBytesWithTimeout,
 } from '@actionow/infra';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { engineUnauthorized } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
 import { ADAPTERS, DB, ENV, STORAGE } from '../common/tokens.js';
+import { SettingsService } from '../settings/settings.service.js';
 
 /** Default signature header name when a channel's `config` does not override it. */
 const DEFAULT_SIGNATURE_HEADER = 'x-actionow-signature';
@@ -61,6 +62,7 @@ export class CallbacksService {
     @Inject(ENV) private readonly env: AppEnv,
     @Inject(STORAGE) private readonly storage: StorageProvider | null,
     private readonly secrets: SecretResolver,
+    @Optional() private readonly settings?: SettingsService,
   ) {}
 
   /**
@@ -97,7 +99,7 @@ export class CallbacksService {
     }
 
     // 3. Route to the dedup-safe engine handler (one ledger row even on replay).
-    const runner = this.buildRunner();
+    const runner = await this.buildRunner();
     return runner.handleCallback(parsedBody);
   }
 
@@ -172,7 +174,10 @@ export class CallbacksService {
   }
 
   /** A `JobRunner` bound to this app's deps + the callback context loader. */
-  private buildRunner(): JobRunner {
+  private async buildRunner(): Promise<JobRunner> {
+    const relayTrace = (await this.settings?.get('RELAY_TRACE')) ?? this.env.RELAY_TRACE;
+    const traceMaxBytes =
+      (await this.settings?.get('RELAY_TRACE_MAX_BYTES')) ?? this.env.RELAY_TRACE_MAX_BYTES;
     const persistMediaResultFn = this.buildPersistMediaResult();
     const insertUsageLogFn: InsertMediaUsageLogFn = async (row) => {
       await insertUsageLog(this.db, row);
@@ -184,8 +189,8 @@ export class CallbacksService {
       resolveSecret: (ref: string): Promise<string | undefined> => this.secrets.resolve(ref),
       http: this.http,
       proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
-      traceUpstream: this.env.RELAY_TRACE === 'full',
-      traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
+      traceUpstream: relayTrace === 'full',
+      traceMaxBytes,
       insertUsageLog: insertUsageLogFn,
       ...(persistMediaResultFn !== undefined ? { persistMediaResult: persistMediaResultFn } : {}),
     });

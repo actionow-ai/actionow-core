@@ -15,6 +15,7 @@ import { JobsModule } from './jobs/jobs.module.js';
 import { MediaDialectModule } from './media-dialect/media-dialect.module.js';
 import { MemberModule } from './member/member.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
+import { SettingsModule } from './settings/settings.module.js';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { PaymentsModule } from './payments/payments.module.js';
     MemberModule,
     ChatModule,
     MediaDialectModule,
+    SettingsModule,
   ],
   controllers: [HealthController],
   // Register the §4.7 filter globally via DI so it also applies under the

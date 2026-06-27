@@ -372,6 +372,20 @@
       "when": 1782575894375,
       "tag": "0052_rainy_genesis",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1782578589821,
+      "tag": "0053_aromatic_moira_mactaggert",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1782580629299,
+      "tag": "0054_quick_diamondback",
+      "breakpoints": true
     }
   ]
 }

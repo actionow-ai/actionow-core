@@ -21,6 +21,7 @@ export * from './model-test.js';
 export * from './modifier.js';
 export * from './ops-views.js';
 export * from './payment.js';
+export * from './platform-setting.js';
 export * from './pricing.js';
 export * from './provider-plugin.js';
 export * from './proxy.js';

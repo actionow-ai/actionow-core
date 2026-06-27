@@ -321,6 +321,12 @@ export {
   setIntentStatus,
 } from './payments.js';
 export {
+  deletePlatformSetting,
+  listPlatformSettings,
+  type PlatformSettingRow,
+  upsertPlatformSetting,
+} from './platform-setting.js';
+export {
   countByPlugin,
   createPlugin,
   type CreatePluginInput,

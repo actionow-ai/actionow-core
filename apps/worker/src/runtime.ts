@@ -2,7 +2,7 @@ import { type AdapterRegistry, createDefaultRegistry } from '@actionow/adapters'
 import type { HttpClient, StorageProvider } from '@actionow/contracts';
 import { appendAuditLog, createDb, type Database, resolveSecretRef } from '@actionow/db';
 import type { BreakerStore, FetchBytes, PutBytes } from '@actionow/engine';
-import { buildBreakerStore, registerEngineAdapters } from '@actionow/engine';
+import { buildBreakerStore, registerEngineAdapters, SettingsResolver } from '@actionow/engine';
 import {
   type AppEnv,
   createHttpClient,
@@ -47,6 +47,12 @@ export interface WorkerRuntime {
    * DI / `AuditService`). Fail-open / best-effort, so it only OPTIMIZES routing.
    */
   breaker: BreakerStore;
+  /**
+   * Resolves dynamic platform settings (动态配置) — the worker's async/media
+   * RELAY_TRACE toggle + byte cap, read per-job. Optional so a fake test runtime
+   * can omit it (falls back to env, today's behavior).
+   */
+  settings?: SettingsResolver;
 }
 
 /** Build the production worker runtime from the environment. */
@@ -80,5 +86,6 @@ export function createWorkerRuntime(): WorkerRuntime {
     fetchBytes: fetchBytesWithTimeout,
     putBytes: putBytesWithTimeout,
     breaker,
+    settings: new SettingsResolver({ db, env }),
   };
 }

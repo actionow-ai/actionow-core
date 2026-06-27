@@ -12,11 +12,12 @@ import {
 } from '@actionow/db';
 import type { AppEnv, ConcurrencyLimiter, RateLimiter, RateLimitResult } from '@actionow/infra';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { Response } from 'express';
 
 import { engineLimitExceeded, engineRateLimited, engineUnauthorized } from '../common/errors.js';
 import { CONCURRENCY_LIMITER, DB, ENV, RATE_LIMITER } from '../common/tokens.js';
+import { SettingsService } from '../settings/settings.service.js';
 import type { AuthedRequest } from './api-key.guard.js';
 
 /** TTL (ms) for the per-model rate-limit cache (legacy bucket). */
@@ -57,6 +58,9 @@ export class GovernanceGuard implements CanActivate {
     @Inject(CONCURRENCY_LIMITER) private readonly concurrency: ConcurrencyLimiter,
     @Inject(ENV) private readonly env: AppEnv,
     @Inject(DB) private readonly db: Database,
+    // Optional: when the global SettingsModule is present (the real app) the RPM
+    // defaults become operator-tunable (动态配置); absent (unit tests) → env.
+    @Optional() private readonly settings?: SettingsService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -96,8 +100,12 @@ export class GovernanceGuard implements CanActivate {
     resourceId: string,
     modelName: string | undefined,
   ): Promise<void> {
-    const tenantLimit = this.env.RATE_LIMIT_TENANT_PER_MIN;
-    const resourceLimit = keyRateLimit ?? this.env.RATE_LIMIT_RESOURCE_PER_MIN;
+    const tenantLimit =
+      (await this.settings?.get('RATE_LIMIT_TENANT_PER_MIN')) ?? this.env.RATE_LIMIT_TENANT_PER_MIN;
+    const resourceLimit =
+      keyRateLimit ??
+      (await this.settings?.get('RATE_LIMIT_RESOURCE_PER_MIN')) ??
+      this.env.RATE_LIMIT_RESOURCE_PER_MIN;
     const [tenantResult, resourceResult] = await Promise.all([
       this.limiter.take(`rl:tenant:${tenantId}`, tenantLimit),
       this.limiter.take(`rl:resource:${tenantId}:${resourceId}`, resourceLimit),

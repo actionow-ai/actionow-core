@@ -11,6 +11,7 @@ export * from './model.js';
 export * from './oauth.js';
 export * from './official-price.js';
 export * from './payment.js';
+export * from './platform-setting.js';
 export * from './plugin.js';
 export * from './pricing.js';
 export * from './proxy.js';

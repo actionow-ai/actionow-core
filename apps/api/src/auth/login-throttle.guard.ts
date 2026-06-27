@@ -1,10 +1,11 @@
 import type { AppEnv, RateLimiter, RateLimitResult } from '@actionow/infra';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type { Request } from 'express';
 
 import { engineRateLimited } from '../common/errors.js';
 import { ENV, RATE_LIMITER } from '../common/tokens.js';
+import { SettingsService } from '../settings/settings.service.js';
 
 /** Per-IP attempts/min on the auth endpoints when `AUTH_RATE_LIMIT_PER_MIN` is unset. */
 const DEFAULT_AUTH_RATE_LIMIT_PER_MIN = 10;
@@ -36,12 +37,16 @@ export class LoginThrottleGuard implements CanActivate {
   constructor(
     @Inject(RATE_LIMITER) private readonly limiter: RateLimiter,
     @Inject(ENV) private readonly env: AppEnv,
+    @Optional() private readonly settings?: SettingsService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
     const ip = clientIp(req);
-    const limit = this.env.AUTH_RATE_LIMIT_PER_MIN ?? DEFAULT_AUTH_RATE_LIMIT_PER_MIN;
+    const limit =
+      (await this.settings?.get('AUTH_RATE_LIMIT_PER_MIN')) ??
+      this.env.AUTH_RATE_LIMIT_PER_MIN ??
+      DEFAULT_AUTH_RATE_LIMIT_PER_MIN;
 
     const result = await this.takeWithTimeout(`rl:login:${ip}`, limit);
     if (result === undefined) return true; // limiter slow/unreachable → fail open

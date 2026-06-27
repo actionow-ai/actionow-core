@@ -25,13 +25,14 @@ import type {
 import { EngineError, ExecutionService } from '@actionow/engine';
 import { type AppEnv, createHttpClient } from '@actionow/infra';
 import { normalizeRequest, readCapabilities } from '@actionow/llm-protocol';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import type { TenantContext } from '../auth/auth.service.js';
 import { ChannelRoutingService } from '../common/channel-routing.service.js';
 import { engineNotFound } from '../common/errors.js';
 import { SecretResolver } from '../common/secret-resolver.js';
 import { ADAPTERS, BREAKER, DB, ENV, JOB_QUEUE } from '../common/tokens.js';
+import { SettingsService } from '../settings/settings.service.js';
 import { ModelResolverService, type ResolvedModel } from './model-resolver.service.js';
 
 /** The opaque inputs key under which the IR `ChatRequest` rides into the engine. */
@@ -102,6 +103,7 @@ export class ChatRelayService {
     private readonly secrets: SecretResolver,
     private readonly resolver: ModelResolverService,
     private readonly routing: ChannelRoutingService,
+    @Optional() private readonly settings?: SettingsService,
   ) {}
 
   /**
@@ -136,7 +138,7 @@ export class ChatRelayService {
           : `${idempotencyKey}:fb${String(i)}`;
       try {
         const req = await this.buildChatRunRequest(model, ir, ctx, 'stream', idem, routeTag);
-        return await this.buildService().runChatStream(req);
+        return await (await this.buildService()).runChatStream(req);
       } catch (err) {
         lastError = err;
         if (isLast || !shouldDegradeToNextModel(err)) throw err;
@@ -175,7 +177,7 @@ export class ChatRelayService {
           : `${idempotencyKey}:fb${String(i)}`;
       try {
         const req = await this.buildChatRunRequest(model, ir, ctx, 'blocking', idem, routeTag);
-        return await this.buildService().runChat(req);
+        return await (await this.buildService()).runChat(req);
       } catch (err) {
         lastError = err;
         if (isLast || !shouldDegradeToNextModel(err)) throw err;
@@ -186,7 +188,10 @@ export class ChatRelayService {
   }
 
   /** Construct an {@link ExecutionService} bound to this app's shared deps. */
-  private buildService(): ExecutionService {
+  private async buildService(): Promise<ExecutionService> {
+    const relayTrace = (await this.settings?.get('RELAY_TRACE')) ?? this.env.RELAY_TRACE;
+    const traceMaxBytes =
+      (await this.settings?.get('RELAY_TRACE_MAX_BYTES')) ?? this.env.RELAY_TRACE_MAX_BYTES;
     return new ExecutionService({
       db: this.db,
       adapters: this.adapters,
@@ -195,8 +200,8 @@ export class ChatRelayService {
       now: () => new Date(),
       enqueue: (jobId: string): Promise<void> => this.queue.enqueueExec(jobId),
       proxyUrlEnv: this.env.UPSTREAM_PROXY_URL,
-      traceUpstream: this.env.RELAY_TRACE === 'full',
-      traceMaxBytes: this.env.RELAY_TRACE_MAX_BYTES,
+      traceUpstream: relayTrace === 'full',
+      traceMaxBytes,
       breaker: this.breaker,
     });
   }
