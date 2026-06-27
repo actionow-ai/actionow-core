@@ -13,6 +13,10 @@ export function useNavConfig(): NavConfig {
   return useContext(NavConfigContext);
 }
 
+// These slot-setter contexts intentionally default to a no-op (NOT a throwing
+// guard like Auth/Theme): the top-bar action/filter/back slots are OPTIONAL, so a
+// page rendered outside the console shell (e.g. in isolation under test) simply
+// publishes nothing rather than crashing. Don't "harden" these into throws.
 /** Setter the console shell provides so a page can publish its top-bar action. */
 export type SetConsoleAction = (node: ReactNode) => void;
 export const ConsoleActionContext = createContext<SetConsoleAction>(() => undefined);

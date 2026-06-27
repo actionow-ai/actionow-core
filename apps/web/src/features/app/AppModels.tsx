@@ -9,6 +9,7 @@ import { qk } from '../../lib/api/queryKeys';
 import type { ConsoleModelView } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
 import { STALE_REFERENCE } from '../../lib/query';
+import { FacetBar } from '../console/FacetBar';
 import { useModelFacets } from '../console/useModelFacets';
 
 export function AppModels() {
@@ -21,7 +22,7 @@ export function AppModels() {
     staleTime: STALE_REFERENCE,
   });
 
-  const { node: facetBar, filtered } = useModelFacets(models.data ?? []);
+  const { filtered, facets } = useModelFacets(models.data ?? []);
 
   const cols: Column<ConsoleModelView>[] = [
     {
@@ -100,7 +101,7 @@ export function AppModels() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {facetBar}
+      <FacetBar facets={facets} />
       <DataTable
         columns={cols}
         rows={filtered}

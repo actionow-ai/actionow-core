@@ -16,7 +16,7 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ApiKeyView, SubjectView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
-import { STALE_REFERENCE } from '../../lib/query';
+import { STALE_DETAIL, STALE_REFERENCE } from '../../lib/query';
 
 const panel = {
   borderRadius: 'var(--r-md)',
@@ -69,7 +69,7 @@ export function SubjectDetailPanel({
     queryKey: qk.limitStatus('subject', subject.id),
     queryFn: () => api.listLimitStatus('subject', subject.id, subject.limit_plan_id ?? ''),
     enabled: subject.limit_plan_id !== null,
-    staleTime: 30_000,
+    staleTime: STALE_DETAIL,
   });
   // The tenant's keys, narrowed to this subject.
   const keys = useQuery({

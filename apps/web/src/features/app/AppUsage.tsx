@@ -59,7 +59,7 @@ export function AppUsage() {
   }, [gb, from, to]);
 
   const analytics = useQuery({
-    queryKey: qk.consoleAnalytics(params as unknown as Record<string, unknown>),
+    queryKey: qk.consoleAnalytics(params),
     queryFn: () => api.analyticsUsage(params),
     staleTime: STALE_VOLATILE,
   });

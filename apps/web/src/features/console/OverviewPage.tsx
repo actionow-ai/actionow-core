@@ -79,7 +79,7 @@ export function OverviewPage() {
   }, [gb, tenantId, from, to]);
 
   const usage = useQuery({
-    queryKey: qk.analyticsUsage(params as unknown as Record<string, unknown>),
+    queryKey: qk.analyticsUsage(params),
     queryFn: () => api.analyticsUsage(params),
     staleTime: STALE_VOLATILE,
   });

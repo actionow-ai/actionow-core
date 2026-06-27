@@ -14,6 +14,7 @@ import { qk } from '../../lib/api/queryKeys';
 import type { ModelView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
+import { FacetBar } from './FacetBar';
 import { ModelEditor } from './ModelEditor';
 import { useModelFacets } from './useModelFacets';
 
@@ -37,7 +38,7 @@ export function ModelsCatalogPage() {
     staleTime: STALE_REFERENCE,
   });
 
-  const { node: facetBar, filtered } = useModelFacets(models.data ?? []);
+  const { filtered, facets } = useModelFacets(models.data ?? []);
   // A model name to edit, the sentinel 'new' (create), or null (closed).
   const [edit, setEdit] = useState<string | null>(null);
 
@@ -123,7 +124,7 @@ export function ModelsCatalogPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {facetBar}
+      <FacetBar facets={facets} />
       <DataTable
         columns={cols}
         rows={filtered}

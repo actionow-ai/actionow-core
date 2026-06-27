@@ -99,7 +99,7 @@ export function RelayTracesPage() {
   };
 
   const q = useInfiniteQuery({
-    queryKey: qk.relayTraces(filters as unknown as Record<string, unknown>),
+    queryKey: qk.relayTraces(filters),
     queryFn: ({ pageParam }) => api.listRelayTraces({ ...filters, limit: 50, cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
