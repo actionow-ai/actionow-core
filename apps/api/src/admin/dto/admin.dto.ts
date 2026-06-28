@@ -32,6 +32,7 @@ import {
   modelTestRequestSchema,
   provisionSchema,
   proxyProbeRequestSchema,
+  refundJobSchema,
   setLimitPlanRequestSchema,
   syncChannelModelsSchema,
   testPluginRequestSchema,
@@ -112,6 +113,7 @@ export {
   modelTestRequestSchema,
   provisionSchema,
   proxyProbeRequestSchema,
+  refundJobSchema,
   setLimitPlanRequestSchema,
   syncChannelModelsSchema,
   testPluginRequestSchema,
@@ -154,6 +156,7 @@ export type TransferCreditsDto = z.infer<typeof transferCreditsSchema>;
 // (dto type aliases above are consumed by admin.service + admin.controller)
 export type CreateAccountDto = z.infer<typeof createAccountSchema>;
 export type TopupDto = z.infer<typeof topupSchema>;
+export type RefundJobDto = z.infer<typeof refundJobSchema>;
 export type CreateApiKeyDto = z.infer<typeof createApiKeySchema>;
 export type CreateAdminTokenDto = z.infer<typeof createAdminTokenSchema>;
 export type UpdateApiKeyGroupDto = z.infer<typeof updateApiKeyGroupSchema>;

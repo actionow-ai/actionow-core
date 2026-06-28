@@ -369,6 +369,12 @@ export {
   type RedemptionCodeRow,
 } from './redemption.js';
 export {
+  refundJob,
+  type RefundJobInput,
+  type RefundJobResult,
+  type RefundStatus,
+} from './refund.js';
+export {
   insertRelayTrace,
   type InsertRelayTraceInput,
   listRelayTraces,

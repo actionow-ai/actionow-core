@@ -99,6 +99,13 @@ export const topupSchema = z.object({
 });
 export type TopupBody = z.infer<typeof topupSchema>;
 
+/** `POST /admin/jobs/:id/refund` — reverse a settled job's charge (amount in credits). */
+export const refundJobSchema = z.object({
+  /** HUMAN credits to refund; omit → the full remaining refundable (capped at the settled cost). */
+  credits: z.number().positive().optional(),
+});
+export type RefundJobBody = z.infer<typeof refundJobSchema>;
+
 /** `POST /admin/api-keys` — mint a key (plaintext returned once). */
 export const createApiKeySchema = z.object({
   tenantId: z.string().uuid(),
