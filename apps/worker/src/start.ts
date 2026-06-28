@@ -5,6 +5,7 @@ import { Redis } from 'ioredis';
 import {
   createHoldReaperProcessor,
   createJobExecProcessor,
+  createRelayTraceReaperProcessor,
   createTokenRefreshProcessor,
   createWebhookOutboxProcessor,
   type JobExecData,
@@ -18,6 +19,8 @@ export const WEBHOOK_SWEEP_MS = 10_000;
 export const REAPER_SWEEP_MS = 30_000;
 /** Default cadence for the repeatable oauth token-refresh sweep (ms). */
 export const TOKEN_REFRESH_SWEEP_MS = 60_000;
+/** Default cadence for the repeatable relay-trace retention sweep (ms; hourly). */
+export const RELAY_TRACE_SWEEP_MS = 3_600_000;
 
 /** Tuning for {@link startWorkers}. */
 export interface StartWorkersOptions {
@@ -27,6 +30,8 @@ export interface StartWorkersOptions {
   reaperSweepMs?: number;
   /** Repeatable token-refresh sweep cadence in ms (default {@link TOKEN_REFRESH_SWEEP_MS}). */
   tokenRefreshSweepMs?: number;
+  /** Repeatable relay-trace retention sweep cadence in ms (default {@link RELAY_TRACE_SWEEP_MS}). */
+  relayTraceSweepMs?: number;
   /**
    * BullMQ connection. When omitted a fresh ioredis client is created from
    * `runtime.env.REDIS_URL` and owned by the returned handle (closed on
@@ -63,11 +68,13 @@ export function startWorkers(
   const webhookSweepMs = opts.webhookSweepMs ?? WEBHOOK_SWEEP_MS;
   const reaperSweepMs = opts.reaperSweepMs ?? REAPER_SWEEP_MS;
   const tokenRefreshSweepMs = opts.tokenRefreshSweepMs ?? TOKEN_REFRESH_SWEEP_MS;
+  const relayTraceSweepMs = opts.relayTraceSweepMs ?? RELAY_TRACE_SWEEP_MS;
 
   const jobExec = createJobExecProcessor(runtime);
   const processWebhookOutbox = createWebhookOutboxProcessor(runtime);
   const processHoldReaper = createHoldReaperProcessor(runtime);
   const processTokenRefresh = createTokenRefreshProcessor(runtime);
+  const processRelayTraceReaper = createRelayTraceReaperProcessor(runtime);
 
   // job-exec: one job per async run, payload { jobId }.
   const jobExecWorker = new Worker(
@@ -99,11 +106,22 @@ export function startWorkers(
     connection,
   });
 
+  // relay-trace-reaper: a repeatable sweep that prunes relay_trace past its retention window.
+  const relayTraceWorker = new Worker('relay-trace-reaper', () => processRelayTraceReaper(), {
+    connection,
+  });
+
   jobExecWorker.on('ready', () => {
     console.log(`worker ready: ${QUEUE_NAMES.join(', ')}`);
   });
 
-  const workers = [jobExecWorker, webhookWorker, reaperWorker, tokenRefreshWorker];
+  const workers = [
+    jobExecWorker,
+    webhookWorker,
+    reaperWorker,
+    tokenRefreshWorker,
+    relayTraceWorker,
+  ];
   for (const worker of workers) {
     worker.on('failed', (job, err) => {
       // Never log secrets — engine/adapter layers sanitize before throwing.
@@ -116,7 +134,8 @@ export function startWorkers(
   const webhookQueue = new Queue('webhook-outbox', { connection });
   const reaperQueue = new Queue('hold-reaper', { connection });
   const tokenRefreshQueue = new Queue('token-refresh', { connection });
-  const queues = [webhookQueue, reaperQueue, tokenRefreshQueue];
+  const relayTraceQueue = new Queue('relay-trace-reaper', { connection });
+  const queues = [webhookQueue, reaperQueue, tokenRefreshQueue, relayTraceQueue];
   const scheduled = Promise.all([
     webhookQueue.add(
       'sweep',
@@ -128,6 +147,11 @@ export function startWorkers(
       'sweep',
       {},
       { repeat: { every: tokenRefreshSweepMs }, jobId: 'token-refresh-sweep' },
+    ),
+    relayTraceQueue.add(
+      'sweep',
+      {},
+      { repeat: { every: relayTraceSweepMs }, jobId: 'relay-trace-reaper-sweep' },
     ),
   ]);
   // Surface a scheduling failure rather than leaving it floating; a real boot
