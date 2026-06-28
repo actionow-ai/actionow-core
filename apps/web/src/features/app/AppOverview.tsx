@@ -47,7 +47,12 @@ export function AppOverview() {
   const limitAlerts = limitsQ.data?.alerts ?? [];
 
   const jobCols: Column<ConsoleJobView>[] = [
-    { key: 'resource', header: t('app.overview.cols.resource'), grow: true, cell: (r) => r.resource_id },
+    {
+      key: 'resource',
+      header: t('app.overview.cols.resource'),
+      grow: true,
+      cell: (r) => r.resource_id,
+    },
     {
       key: 'status',
       header: t('app.overview.cols.status'),

@@ -134,7 +134,9 @@ export function ModelAccessPage() {
 
   const toggleChannel = useMutation({
     mutationFn: (c: ChannelView) =>
-      api.updateChannel(c.resource_id, c.id, { status: c.status === 'active' ? 'disabled' : 'active' }),
+      api.updateChannel(c.resource_id, c.id, {
+        status: c.status === 'active' ? 'disabled' : 'active',
+      }),
     onSuccess: invalidateChannels,
     onError: mutationError(t),
   });
@@ -159,7 +161,7 @@ export function ModelAccessPage() {
   });
 
   return (
-    <div style={WRAP}>
+    <div className="tri-pane">
       {/* ── Column 1: plugin library ─────────────────────────────────────── */}
       <div style={COL}>
         <ColumnHead
@@ -203,7 +205,14 @@ export function ModelAccessPage() {
                   }}
                   style={{ padding: 'var(--s-3) var(--s-4)' }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 'var(--s-2)',
+                      minWidth: 0,
+                    }}
+                  >
                     <BrandIcon icon={p.icon} fallbacks={[p.slug]} size={18} />
                     <span
                       style={{
@@ -229,10 +238,18 @@ export function ModelAccessPage() {
                       />
                     </span>
                   </div>
-                  <div style={{ display: 'flex', gap: 'var(--s-1)', marginTop: 6, flexWrap: 'wrap' }}>
-                    <span className="chip">{t('modelAccess.channelsN', { n: p.channel_count })}</span>
-                    <span className="chip">{t('resources.cards.modelsN', { n: p.model_count })}</span>
-                    <span className="chip">{p.builtin ? t('plugins.builtin') : t('plugins.custom')}</span>
+                  <div
+                    style={{ display: 'flex', gap: 'var(--s-1)', marginTop: 6, flexWrap: 'wrap' }}
+                  >
+                    <span className="chip">
+                      {t('modelAccess.channelsN', { n: p.channel_count })}
+                    </span>
+                    <span className="chip">
+                      {t('resources.cards.modelsN', { n: p.model_count })}
+                    </span>
+                    <span className="chip">
+                      {p.builtin ? t('plugins.builtin') : t('plugins.custom')}
+                    </span>
                   </div>
                 </div>
               );
@@ -264,7 +281,8 @@ export function ModelAccessPage() {
               }
               action={
                 <Button variant="ghost" size="sm" onClick={() => setChannelEdit('new')}>
-                  <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('modelAccess.addChannel')}
+                  <PlusIcon size={14} weight="bold" aria-hidden="true" />{' '}
+                  {t('modelAccess.addChannel')}
                 </Button>
               }
             />
@@ -320,7 +338,9 @@ export function ModelAccessPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => syncChannel.mutate(selectedChannel)}
-                    loading={syncChannel.isPending && syncChannel.variables.id === selectedChannel.id}
+                    loading={
+                      syncChannel.isPending && syncChannel.variables.id === selectedChannel.id
+                    }
                   >
                     <ArrowsClockwiseIcon size={14} weight="bold" aria-hidden="true" />{' '}
                     {t('channels.actions.syncModels')}
@@ -427,7 +447,14 @@ function ColumnHead({
   action: ReactNode;
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)', padding: '0 var(--s-2)' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--s-2)',
+        padding: '0 var(--s-2)',
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}>
         <span
           style={{
@@ -534,13 +561,7 @@ function modelFacetDefs(t: TFunction): FacetDef<ModelView>[] {
   ];
 }
 
-// Three EQUAL columns (插件 │ 通道 │ 模型).
-const WRAP: CSSProperties = {
-  height: '100%',
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)',
-  gap: 'var(--s-3)',
-};
+// Three EQUAL columns (插件 │ 通道 │ 模型) — `.tri-pane` stacks them on a phone.
 // A column = a fixed header + a scrolling card list beneath it.
 const COL: CSSProperties = {
   height: '100%',

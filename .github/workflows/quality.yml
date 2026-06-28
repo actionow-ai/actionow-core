@@ -1,0 +1,44 @@
+name: quality
+
+# Server-side quality gate. The husky/lint-staged hooks are local-only and a
+# `--no-verify` bypasses them, so this is the single enforcement that actually
+# blocks a merge: typecheck, lint, Prettier formatting (now incl. *.tsx + *.css),
+# the design-token guard, and the test suites.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    name: typecheck + lint + format + tokens + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the pnpm version from the root package.json `packageManager` field.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Formatting (Prettier --check, incl. tsx + css)
+        run: pnpm format:check
+
+      - name: Design tokens (every var(--x) must be declared)
+        run: pnpm check:tokens
+
+      - name: Test
+        run: pnpm test

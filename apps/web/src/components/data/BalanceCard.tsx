@@ -55,7 +55,7 @@ export function BalanceCard({
           className="tabular"
           style={{
             fontSize: 'var(--fs-2xl)',
-            fontWeight: 800,
+            fontWeight: 'var(--fw-bold)',
             letterSpacing: '-.02em',
             marginTop: 6,
           }}

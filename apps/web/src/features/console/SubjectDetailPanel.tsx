@@ -16,7 +16,7 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ApiKeyView, SubjectView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
-import { STALE_REFERENCE } from '../../lib/query';
+import { STALE_DETAIL, STALE_REFERENCE } from '../../lib/query';
 
 const panel = {
   borderRadius: 'var(--r-md)',
@@ -69,7 +69,7 @@ export function SubjectDetailPanel({
     queryKey: qk.limitStatus('subject', subject.id),
     queryFn: () => api.listLimitStatus('subject', subject.id, subject.limit_plan_id ?? ''),
     enabled: subject.limit_plan_id !== null,
-    staleTime: 30_000,
+    staleTime: STALE_DETAIL,
   });
   // The tenant's keys, narrowed to this subject.
   const keys = useQuery({
@@ -80,7 +80,8 @@ export function SubjectDetailPanel({
   const subjectKeys = (keys.data ?? []).filter((k: ApiKeyView) => k.subject_id === subject.id);
 
   const refreshSubjects = () => qc.invalidateQueries({ queryKey: qk.subjects(tenantId) });
-  const refreshWallet = () => qc.invalidateQueries({ queryKey: qk.subAccount(tenantId, subject.id) });
+  const refreshWallet = () =>
+    qc.invalidateQueries({ queryKey: qk.subAccount(tenantId, subject.id) });
 
   const bindPlan = useMutation({
     mutationFn: (planId: string | null) => api.setSubjectLimitPlan(tenantId, subject.id, planId),
@@ -194,7 +195,14 @@ export function SubjectDetailPanel({
               held={w.credit_held}
               heldLabel={t('accounts.cols.held')}
             />
-            <div style={{ display: 'flex', gap: 'var(--s-2)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 'var(--s-2)',
+                alignItems: 'flex-end',
+                flexWrap: 'wrap',
+              }}
+            >
               <div style={{ width: 130 }}>
                 <NumberField
                   label={t('accounts.topup.credits')}
@@ -212,7 +220,14 @@ export function SubjectDetailPanel({
                 {t('accounts.topup.action')}
               </Button>
             </div>
-            <div style={{ display: 'flex', gap: 'var(--s-2)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 'var(--s-2)',
+                alignItems: 'flex-end',
+                flexWrap: 'wrap',
+              }}
+            >
               <div style={{ width: 130 }}>
                 <NumberField
                   label={t('tenants.detail.users.detail.transferAmount')}
@@ -243,7 +258,9 @@ export function SubjectDetailPanel({
             </div>
           </>
         ) : (
-          <div style={{ display: 'flex', gap: 'var(--s-2)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div
+            style={{ display: 'flex', gap: 'var(--s-2)', alignItems: 'flex-end', flexWrap: 'wrap' }}
+          >
             <div style={{ width: 130 }}>
               <NumberField
                 label={t('tenants.detail.users.detail.openingCredits')}
@@ -252,7 +269,11 @@ export function SubjectDetailPanel({
                 min={0}
               />
             </div>
-            <Button variant="cta" onClick={() => openWallet.mutate()} loading={openWallet.isPending}>
+            <Button
+              variant="cta"
+              onClick={() => openWallet.mutate()}
+              loading={openWallet.isPending}
+            >
               <PlusIcon size={14} weight="bold" /> {t('tenants.detail.users.detail.openWallet')}
             </Button>
           </div>
@@ -263,12 +284,26 @@ export function SubjectDetailPanel({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={sectionTitle}>{t('tenants.detail.users.detail.keys')}</span>
-          <Button variant="ghost" size="sm" onClick={() => mintKey.mutate()} loading={mintKey.isPending}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => mintKey.mutate()}
+            loading={mintKey.isPending}
+          >
             <PlusIcon size={14} weight="bold" /> {t('tenants.detail.users.detail.mintKey')}
           </Button>
         </div>
         {plaintext !== null && (
-          <div className="panel" style={{ borderRadius: 'var(--r-md)', padding: 'var(--s-3)', display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
+          <div
+            className="panel"
+            style={{
+              borderRadius: 'var(--r-md)',
+              padding: 'var(--s-3)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--s-2)',
+            }}
+          >
             <span style={{ color: 'var(--run)', fontSize: 'var(--fs-caption)' }}>
               {t('apiKeys.reveal.warn')}
             </span>
@@ -291,11 +326,22 @@ export function SubjectDetailPanel({
           subjectKeys.map((k) => (
             <div
               key={k.id}
-              style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', justifyContent: 'space-between' }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--s-2)',
+                justifyContent: 'space-between',
+              }}
             >
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                 <KeyIcon size={14} aria-hidden="true" />
-                <code style={{ fontSize: 'var(--fs-caption)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <code
+                  style={{
+                    fontSize: 'var(--fs-caption)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
                   {k.id}
                 </code>
                 <Pill tone={k.status === 'active' ? 'ok' : 'fail'}>

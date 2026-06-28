@@ -19,7 +19,8 @@ export function SubNav({ pathname }: { pathname: string }) {
   const activeIdx = items.findIndex((it) => pathname.startsWith(it.to));
 
   return (
-    <div
+    <nav
+      aria-label={t('a11y.sectionNav')}
       className="glass"
       style={{ width: 200, borderRadius: 'var(--r-lg)', padding: 'var(--s-4) var(--s-3)' }}
     >
@@ -79,6 +80,6 @@ export function SubNav({ pathname }: { pathname: string }) {
           </NavLink>
         ))}
       </div>
-    </div>
+    </nav>
   );
 }

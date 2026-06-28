@@ -59,7 +59,9 @@ beforeEach(() => {
 describe('RelayTracesPage route_tag column (染色)', () => {
   it('renders the route-tag header column', async () => {
     renderPage();
-    expect(await screen.findByText(i18n.t('console:relayTraces.cols.routeTag'))).toBeInTheDocument();
+    expect(
+      await screen.findByText(i18n.t('console:relayTraces.cols.routeTag')),
+    ).toBeInTheDocument();
   });
 
   it('renders a colored row tag as a chip and null as a dash', async () => {

@@ -31,9 +31,7 @@ import { useTenantRole } from './useTenantRole';
 function RolePill({ role }: { role: string }) {
   const { t } = useTranslation('console');
   return (
-    <Pill tone={role === 'admin' ? 'ok' : 'idle'}>
-      {t(`app.members.roles.${role}`, role)}
-    </Pill>
+    <Pill tone={role === 'admin' ? 'ok' : 'idle'}>{t(`app.members.roles.${role}`, role)}</Pill>
   );
 }
 
@@ -134,7 +132,9 @@ export function MembersPage() {
       key: 'status',
       header: t('app.members.cols.status'),
       noClip: true,
-      cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
+      cell: (r) => (
+        <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
       width: '110px',
     },
     {

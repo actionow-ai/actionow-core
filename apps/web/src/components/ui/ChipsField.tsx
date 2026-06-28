@@ -47,9 +47,10 @@ export function ChipsField({
       e.preventDefault();
       add(draft);
       setDraft('');
-    } else if (e.key === 'Backspace' && draft === '' && value.length > 0) {
+    } else if (e.key === 'Backspace' && draft === '') {
       e.preventDefault();
-      remove(value[value.length - 1]);
+      const last = value.at(-1);
+      if (last !== undefined) remove(last);
     }
   };
 

@@ -103,6 +103,7 @@ export function FilterMenu({
         gap={6}
         layer="popover"
         role="dialog"
+        ariaLabel={t('a11y.filters')}
         pointerEvents="auto"
       >
         <div
@@ -123,11 +124,16 @@ export function FilterMenu({
           }}
         >
           {groups.map((g) => (
-            <div key={g.key} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
-              <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>{g.title}</span>
+            <div
+              key={g.key}
+              style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}
+            >
+              <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>
+                {g.title}
+              </span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s-1)' }}>
                 {g.options.map((o) => {
-                  const sel = selected[g.key] as Set<string> | undefined;
+                  const sel = selected[g.key];
                   const on = sel?.has(o.value) === true;
                   return (
                     <button

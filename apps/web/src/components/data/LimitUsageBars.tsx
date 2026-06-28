@@ -50,9 +50,7 @@ export function LimitUsageBars({ rules }: { rules: RuleStatus[] }) {
               }}
             >
               <span>{label}</span>
-              <Pill tone="idle">
-                {r.dimension === 'rpm' ? `${r.cap}/min` : `×${r.cap}`}
-              </Pill>
+              <Pill tone="idle">{r.dimension === 'rpm' ? `${r.cap}/min` : `×${r.cap}`}</Pill>
             </div>
           );
         }

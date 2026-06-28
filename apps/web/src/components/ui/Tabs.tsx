@@ -40,12 +40,15 @@ export function Tabs({
   const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
     let next = activeIdx;
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (activeIdx + 1) % tabs.length;
-    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (activeIdx - 1 + tabs.length) % tabs.length;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp')
+      next = (activeIdx - 1 + tabs.length) % tabs.length;
     else if (e.key === 'Home') next = 0;
     else if (e.key === 'End') next = tabs.length - 1;
     else return;
     e.preventDefault();
-    onChange(tabs[next].value);
+    const tb = tabs[next];
+    if (tb === undefined) return;
+    onChange(tb.value);
     // Carry DOM focus to the newly-selected tab. After the re-render it becomes
     // the only tab stop (tabIndex=0); without this, focus is stranded on the
     // now-tabIndex=-1 tab. Focusing by index here never fires on mouse clicks.
@@ -113,7 +116,12 @@ export function Tabs({
           );
         })}
       </div>
-      <div role="tabpanel" id={panelId} aria-labelledby={tabId(tabs[activeIdx]?.value ?? '')} style={{ marginTop: 'var(--s-4)' }}>
+      <div
+        role="tabpanel"
+        id={panelId}
+        aria-labelledby={tabId(tabs[activeIdx]?.value ?? '')}
+        style={{ marginTop: 'var(--s-4)' }}
+      >
         {children}
       </div>
     </div>

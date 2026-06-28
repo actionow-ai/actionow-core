@@ -37,12 +37,7 @@ export function IconPicker({
     staleTime: STALE_REFERENCE,
   });
 
-  const tile = (
-    key: string | null,
-    label: string,
-    selected: boolean,
-    node: React.ReactNode,
-  ) => (
+  const tile = (key: string | null, label: string, selected: boolean, node: React.ReactNode) => (
     <button
       key={key ?? '__none__'}
       type="button"

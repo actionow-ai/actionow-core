@@ -137,8 +137,18 @@ export function Drawer({
           background: 'var(--overlay-bg)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--s-3)', flexShrink: 0 }}>
-          <h2 style={{ margin: 0, fontSize: 'var(--fs-lg)', fontWeight: 'var(--fw-semibold)' }}>{title}</h2>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 'var(--s-3)',
+            flexShrink: 0,
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: 'var(--fs-lg)', fontWeight: 'var(--fw-semibold)' }}>
+            {title}
+          </h2>
           <IconButton icon={XIcon} label={t('forms.close')} onClick={onClose} size={18} bare />
         </div>
         <div

@@ -49,7 +49,10 @@ export function ProxiesPage() {
   const api = useAdminApi();
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery({ queryKey: qk.proxies(), queryFn: api.listProxies });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: qk.proxies(),
+    queryFn: api.listProxies,
+  });
 
   const [editId, setEditId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -98,15 +101,28 @@ export function ProxiesPage() {
       cell: (r) => <span className="mono">{r.scheme}</span>,
       width: '110px',
     },
-    { key: 'host', header: t('proxies.cols.host'), grow: true, cell: (r) => <span className="mono">{r.host}</span> },
+    {
+      key: 'host',
+      header: t('proxies.cols.host'),
+      grow: true,
+      cell: (r) => <span className="mono">{r.host}</span>,
+    },
     {
       key: 'status',
       header: t('proxies.cols.status'),
       noClip: true,
-      cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
+      cell: (r) => (
+        <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
       width: '100px',
     },
-    { key: 'health', header: t('proxies.cols.health'), noClip: true, cell: (r) => <HealthPill p={r} />, width: '120px' },
+    {
+      key: 'health',
+      header: t('proxies.cols.health'),
+      noClip: true,
+      cell: (r) => <HealthPill p={r} />,
+      width: '120px',
+    },
   ];
 
   return (
@@ -119,6 +135,8 @@ export function ProxiesPage() {
         rows={data ?? []}
         rowKey={(r) => r.id}
         loading={isLoading}
+        error={isError}
+        onRetry={() => void refetch()}
         empty={t('proxies.empty')}
         searchable
         pageSize={20}
@@ -130,8 +148,17 @@ export function ProxiesPage() {
               label={t('proxies.probe')}
               onClick={() => probe.mutate(r)}
             />
-            <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={() => setEditId(r.id)} />
-            <RowAction icon={TrashIcon} label={t('common.delete')} danger onClick={() => setDelTarget(r)} />
+            <RowAction
+              icon={PencilSimpleIcon}
+              label={t('common.edit')}
+              onClick={() => setEditId(r.id)}
+            />
+            <RowAction
+              icon={TrashIcon}
+              label={t('common.delete')}
+              danger
+              onClick={() => setDelTarget(r)}
+            />
           </>
         )}
       />
@@ -190,6 +217,15 @@ function ProxyEditor({
   const [description, setDescription] = useState(row?.description ?? '');
   const [attempted, setAttempted] = useState(false);
 
+  // Fresh idempotency key per create-intent — regenerated each open-for-create,
+  // stable while open so a double-submit replays (dedupes). The editor stays
+  // mounted across opens (reseeds via the effect below), so a plain useState
+  // initializer would never refresh.
+  const [idemKey, setIdemKey] = useState(() => crypto.randomUUID());
+  useEffect(() => {
+    if (open && !editing) setIdemKey(crypto.randomUUID());
+  }, [open, editing]);
+
   useEffect(() => {
     if (row === undefined) return;
     setName(row.name);
@@ -217,7 +253,7 @@ function ProxyEditor({
           status,
           description: description.trim() === '' ? undefined : description.trim(),
         },
-        crypto.randomUUID(),
+        idemKey,
       );
     },
     onSuccess: async () => {
@@ -270,7 +306,11 @@ function ProxyEditor({
           { value: 'disabled', label: t('status.disabled') },
         ]}
       />
-      <TextField label={t('proxies.form.description')} value={description} onChange={setDescription} />
+      <TextField
+        label={t('proxies.form.description')}
+        value={description}
+        onChange={setDescription}
+      />
     </Drawer>
   );
 }

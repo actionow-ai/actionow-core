@@ -1,4 +1,10 @@
 {
+  "a11y": {
+    "primaryNav": "Primary navigation",
+    "sectionNav": "Section navigation",
+    "filters": "Filters",
+    "skipToContent": "Skip to content"
+  },
   "admin": {
     "bulk": {
       "result": "{{ok}} succeeded, {{failed}} failed"
@@ -40,6 +46,7 @@
   "auth": {
     "loginTab": "Sign in",
     "registerTab": "Register",
+    "modeSwitch": "Sign in or register",
     "email": "Email",
     "password": "Password",
     "loginSubmit": "Sign in",
@@ -276,6 +283,8 @@
         "toTenant": "End-user → pool",
         "transfer": "Transfer",
         "transferred": "Transfer complete",
+        "confirmTopupMsg": "Add {{credits}} credits to this end-user's sub-wallet? Credits move from the tenant pool.",
+        "confirmTransferMsg": "Transfer {{credits}} credits ({{direction}})? This is not automatically reversible.",
         "keys": "Scoped API keys",
         "mintKey": "Mint key",
         "noKeys": "No scoped keys yet"
@@ -922,6 +931,7 @@
       "pluginNone": "Unassigned",
       "modality": "Modality",
       "provider": "Provider type",
+      "providerRequired": "Pick or enter a provider type before saving.",
       "icon": "Icon",
       "endpoint": "Endpoint",
       "model": "Model",

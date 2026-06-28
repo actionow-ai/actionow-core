@@ -55,7 +55,9 @@ export function SegmentedControl({
   // now-tabIndex=-1 button. Focusing here (synchronously, by index) sidesteps the
   // controlled-rerender timing problem and never fires on mouse clicks.
   const moveTo = (next: number) => {
-    onChange(options[next].value);
+    const opt = options[next];
+    if (opt === undefined) return;
+    onChange(opt.value);
     btnRefs.current[next]?.focus();
   };
 
@@ -123,6 +125,9 @@ export function SegmentedControl({
             tabIndex={on ? 0 : -1}
             onClick={() => onChange(o.value)}
             onKeyDown={onKeyDown}
+            // hit-slop grows the tap target to the 44px WCAG-2.5.8 comfort floor
+            // on coarse pointers without inflating the compact 34px visual height.
+            className="hit-slop"
             style={{
               position: 'relative',
               zIndex: 1,

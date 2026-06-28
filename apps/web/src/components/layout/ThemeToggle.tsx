@@ -23,7 +23,11 @@ export function ThemeToggle() {
         cursor: 'pointer',
       }}
     >
-      {theme === 'dark' ? <MoonIcon size={17} weight="regular" /> : <SunIcon size={17} weight="regular" />}
+      {theme === 'dark' ? (
+        <MoonIcon size={17} weight="regular" />
+      ) : (
+        <SunIcon size={17} weight="regular" />
+      )}
     </button>
   );
 }

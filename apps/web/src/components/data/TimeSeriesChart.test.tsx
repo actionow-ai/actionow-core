@@ -24,7 +24,7 @@ describe('TimeSeriesChart scaling', () => {
         ]}
       />,
     );
-    const [y0, y1, y2] = vertexYs(container);
+    const [y0, y1, y2] = vertexYs(container) as [number, number, number];
     expect(y1).toBeLessThan(y0); // peak (3M) is highest on screen → smallest y
     expect(y1).toBeLessThan(y2);
     expect(y0).toBeGreaterThan(y2); // min (1M) is lowest on screen → largest y
@@ -48,7 +48,9 @@ describe('TimeSeriesChart scaling', () => {
 
 describe('TimeSeriesChart single point', () => {
   it('renders a visible marker for a lone point (a 1-vertex polyline draws nothing)', () => {
-    const { container } = render(<TimeSeriesChart points={[{ label: 'only', micro: '5000000' }]} />);
+    const { container } = render(
+      <TimeSeriesChart points={[{ label: 'only', micro: '5000000' }]} />,
+    );
     const circle = container.querySelector('circle');
     expect(circle).not.toBeNull();
     // A single point is centered horizontally (xFor → VW/2 = 300).

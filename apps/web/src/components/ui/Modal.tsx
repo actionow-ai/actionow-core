@@ -78,7 +78,11 @@ export function Modal({
           return;
         }
         gsap.fromTo(backdrop, { opacity: 0 }, { opacity: 1, duration: DUR.base, ease: EASE.out });
-        gsap.fromTo(dialog, { opacity: 0, scale: 0.96, y: 8 }, { opacity: 1, scale: 1, y: 0, duration: DUR.base, ease: EASE.out });
+        gsap.fromTo(
+          dialog,
+          { opacity: 0, scale: 0.96, y: 8 },
+          { opacity: 1, scale: 1, y: 0, duration: DUR.base, ease: EASE.out },
+        );
         return;
       }
 
@@ -137,10 +141,24 @@ export function Modal({
           background: 'var(--overlay-bg)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--s-3)', flexShrink: 0 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 'var(--s-3)',
+            flexShrink: 0,
+          }}
+        >
           <div style={{ minWidth: 0 }}>
-            <h2 style={{ margin: 0, fontSize: 'var(--fs-lg)', fontWeight: 'var(--fw-semibold)' }}>{title}</h2>
-            {subtitle !== undefined && <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', marginTop: 4 }}>{subtitle}</div>}
+            <h2 style={{ margin: 0, fontSize: 'var(--fs-lg)', fontWeight: 'var(--fw-semibold)' }}>
+              {title}
+            </h2>
+            {subtitle !== undefined && (
+              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', marginTop: 4 }}>
+                {subtitle}
+              </div>
+            )}
           </div>
           <IconButton icon={XIcon} label={t('forms.close')} onClick={onClose} size={18} bare />
         </div>
@@ -164,7 +182,15 @@ export function Modal({
           {children}
         </div>
         {footer && (
-          <div style={{ marginTop: 'var(--s-6)', display: 'flex', justifyContent: 'flex-end', gap: 'var(--s-3)', flexShrink: 0 }}>
+          <div
+            style={{
+              marginTop: 'var(--s-6)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 'var(--s-3)',
+              flexShrink: 0,
+            }}
+          >
             {footer}
           </div>
         )}

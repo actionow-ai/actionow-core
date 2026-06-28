@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation } from 'react-router-dom';
 
 import { BP } from '../../lib/breakpoints';
@@ -31,6 +32,7 @@ export function ConsoleLayout({
   status = null,
 }: { nav?: NavConfig; status?: ReactNode } = {}) {
   const { pathname } = useLocation();
+  const { t } = useTranslation('console');
   const isDesktop = useMediaQuery(BP.md);
   const [action, setAction] = useState<ReactNode>(null);
   const [filters, setFilters] = useState<ReactNode>(null);
@@ -63,6 +65,9 @@ export function ConsoleLayout({
         <ConsoleFiltersContext.Provider value={setFilters}>
           <ConsoleBackContext.Provider value={setBack}>
             <AppBackground />
+            <a href="#console-main" className="skip-link">
+              {t('a11y.skipToContent')}
+            </a>
             <div
               style={{
                 position: 'relative',
@@ -78,6 +83,8 @@ export function ConsoleLayout({
               {isDesktop && <Rail pathname={pathname} />}
               {isDesktop && <SubNav pathname={pathname} />}
               <main
+                id="console-main"
+                tabIndex={-1}
                 style={{
                   flex: 1,
                   minWidth: 0,

@@ -2,6 +2,7 @@ import { InfoIcon } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 import { useId, useRef, useState } from 'react';
 
+import { useReducedMotion } from '../../lib/motion/useReducedMotion';
 import { Floating } from './Floating';
 
 /**
@@ -18,6 +19,7 @@ import { Floating } from './Floating';
  */
 export function Tooltip({ text, children }: { text: string; children?: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const reduced = useReducedMotion();
   const tipId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -79,8 +81,10 @@ export function Tooltip({ text, children }: { text: string; children?: ReactNode
           // ano-fade rise (the design's bubble enter). No caret: the bubble is
           // portaled and flips top↔bottom, so a fixed-direction caret would point
           // the wrong way inside Modal/Drawer scrollports.
-          transform: open ? 'translateY(0)' : 'translateY(6px)',
-          transition: 'opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out)',
+          transform: reduced ? 'none' : open ? 'translateY(0)' : 'translateY(6px)',
+          transition: reduced
+            ? 'none'
+            : 'opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out)',
         }}
       >
         {text}

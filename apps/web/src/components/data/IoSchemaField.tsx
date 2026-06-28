@@ -14,7 +14,10 @@ import { Tooltip } from '../ui/Tooltip';
 import type { IoField, IoType } from './ioSchemaShape';
 import { emptyIoField, IO_TYPES } from './ioSchemaShape';
 
-const IO_TYPE_OPTIONS: EnumOption<IoType>[] = IO_TYPES.map((v) => ({ value: v, labelKey: `forms.io.type_${v}` }));
+const IO_TYPE_OPTIONS: EnumOption<IoType>[] = IO_TYPES.map((v) => ({
+  value: v,
+  labelKey: `forms.io.type_${v}`,
+}));
 
 interface IoSchemaValue {
   inputs: IoField[];
@@ -32,7 +35,13 @@ interface IoSchemaValue {
  * raw `IoField[]` arrays on every edit (no internal state, no cleaning). Each
  * field carries an inline hint/tooltip describing the backend shape.
  */
-export function IoSchemaField({ value, onChange }: { value: IoSchemaValue; onChange: (v: IoSchemaValue) => void }) {
+export function IoSchemaField({
+  value,
+  onChange,
+}: {
+  value: IoSchemaValue;
+  onChange: (v: IoSchemaValue) => void;
+}) {
   const { t } = useTranslation('console');
 
   return (
@@ -82,7 +91,11 @@ function FieldSection({
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-1)' }}>
-        <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 'var(--fw-medium)', color: 'var(--text)' }}>{title}</span>
+        <span
+          style={{ fontSize: 'var(--fs-sm)', fontWeight: 'var(--fw-medium)', color: 'var(--text)' }}
+        >
+          {title}
+        </span>
         <Tooltip text={tooltip} />
       </div>
       {rows.map((row, i) => {
@@ -118,10 +131,22 @@ function FieldSection({
                   options={typeOptions}
                 />
               </div>
-              <IconButton icon={XIcon} label={t('forms.removeField')} onClick={() => removeRow(i)} size={16} bare />
+              <IconButton
+                icon={XIcon}
+                label={t('forms.removeField')}
+                onClick={() => removeRow(i)}
+                size={16}
+                bare
+              />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-4)', flexWrap: 'wrap' }}>
-              <Toggle label={t('forms.io.required')} checked={row.required ?? false} onChange={(c) => setRow(i, { required: c })} />
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-4)', flexWrap: 'wrap' }}
+            >
+              <Toggle
+                label={t('forms.io.required')}
+                checked={row.required ?? false}
+                onChange={(c) => setRow(i, { required: c })}
+              />
             </div>
             <div style={{ display: 'flex', gap: 'var(--s-2)', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: 160 }}>

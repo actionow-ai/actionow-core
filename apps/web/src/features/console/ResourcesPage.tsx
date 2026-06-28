@@ -115,9 +115,7 @@ export function ResourcesPage() {
   // On a narrow viewport the detail replaces the list, so offer a back target
   // (clears the selection by dropping `?id`).
   useSetConsoleBack(
-    id !== '' && !isWide
-      ? { to: '/console/catalog', label: t('resources.detail.back') }
-      : null,
+    id !== '' && !isWide ? { to: '/console/catalog', label: t('resources.detail.back') } : null,
   );
 
   const list = (

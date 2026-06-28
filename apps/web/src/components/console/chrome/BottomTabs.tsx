@@ -13,6 +13,7 @@ export function BottomTabs({ pathname }: { pathname: string }) {
   const { mobileTabs } = useNavConfig();
   return (
     <nav
+      aria-label={t('a11y.primaryNav')}
       className="glass"
       style={{
         flexShrink: 0,

@@ -59,7 +59,7 @@ export function AppUsage() {
   }, [gb, from, to]);
 
   const analytics = useQuery({
-    queryKey: qk.consoleAnalytics(params as unknown as Record<string, unknown>),
+    queryKey: qk.consoleAnalytics(params),
     queryFn: () => api.analyticsUsage(params),
     staleTime: STALE_VOLATILE,
   });
@@ -134,7 +134,9 @@ export function AppUsage() {
       key: 'status',
       header: t('app.usage.cols.status'),
       noClip: true,
-      cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
+      cell: (r) => (
+        <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
       width: '110px',
     },
   ];

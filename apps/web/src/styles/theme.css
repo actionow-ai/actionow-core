@@ -11,8 +11,11 @@
   --s-4: 16px;
   --s-5: 20px;
   --s-6: 24px;
+  --s-7: 28px;
   --s-8: 32px;
   --s-10: 40px;
+  --s-12: 48px;
+  --s-14: 56px;
   --s-16: 64px;
   /* radii */
   --r-xs: 8px;
@@ -28,6 +31,9 @@
   --fs-base: 15px;
   --fs-md: 16px;
   --fs-lg: 18px;
+  /* fluid mid heading, fills the gap between --fs-lg (18) and --fs-h2 (26→40);
+     referenced by panel/section titles (MemberPortal, OAuthCallbackPage). */
+  --fs-h3: clamp(19px, 2.2vw, 24px);
   --fs-h2: clamp(26px, 3.4vw, 40px);
   --fs-h1: clamp(28px, 3.4vw, 46px);
   --fs-display: clamp(40px, 8vw, 104px);
@@ -36,6 +42,8 @@
   --fw-medium: 600;
   --fw-semibold: 700;
   --fw-bold: 800;
+  /* heaviest editorial weight — landing display headings / big stat numerals. */
+  --fw-display: 850;
   /* motion */
   --dur-instant: 0.12s;
   --dur-fast: 0.18s;
@@ -56,8 +64,12 @@
   --min-touch: 44px;
   /* accent gradient (accent vars are brand-constant across themes) */
   --grad-accent: linear-gradient(135deg, var(--accent), var(--accent-2));
-  --track-tight: -0.03em;
+  /* switch/toggle knob — a brand-constant white puck on the accent track. */
+  --switch-thumb: #fff;
+  --track-tight: -0.02em;
   --track-snug: -0.015em;
+  /* positive tracking for ALL-CAPS micro labels (eyebrows, section kickers). */
+  --track-label: 0.06em;
   /* layout + accent fx */
   --content-max: 1200px;
   /* CTA shadow: a soft warm glow only — no dark contact layer (it read as a
@@ -104,12 +116,18 @@
   --demo-bg: rgba(255, 255, 255, 0.025);
   --demo-bd: rgba(255, 255, 255, 0.07);
 
-  --panel-bd-strong: rgba(255, 255, 255, 0.1);
   --row-bd: rgba(255, 255, 255, 0.06);
+  /* neutral hairline fill — progress-bar tracks, faint dividers. */
+  --hairline: rgba(255, 255, 255, 0.1);
+  /* strong floating surface (chart tooltips) + its foreground. */
+  --surface-strong: rgba(20, 20, 20, 0.92);
+  --on-strong: #f2efe6;
   --ok: #4ade80;
   --run: #fbbf24;
   --wait: #fb923c;
   --fail: #f87171;
+  /* caution / warning tone (distinct semantic name from --run). */
+  --warn: #fbbf24;
   --idle: #9a9384;
 }
 
@@ -140,10 +158,15 @@
   --demo-bd: rgba(0, 0, 0, 0.05);
 
   --row-bd: rgba(0, 0, 0, 0.05);
+  --hairline: rgba(0, 0, 0, 0.1);
+  /* tooltip stays a dark bubble on the light theme (high contrast over content). */
+  --surface-strong: rgba(40, 32, 12, 0.95);
+  --on-strong: #faf7ef;
   --ok: #16a34a;
   --run: #d9920a;
   --wait: #ea7a26;
   --fail: #dc2626;
+  --warn: #d9920a;
   --idle: #7a7263;
   --log-ok: #2f7d4f;
   --shadow-cta: 0 8px 20px rgba(255, 159, 10, 0.26);
@@ -196,9 +219,9 @@ body {
   font-family:
     -apple-system, system-ui, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   -webkit-font-smoothing: antialiased;
-  transition:
-    background 0.5s ease,
-    color 0.5s ease;
+  /* No theme-swap transition on body alone: it faded background/color over 0.5s
+     while every panel/border (which read --panel-bg/--glass-bd) snapped instantly,
+     reading as a glitch. The swap is now instant and coherent across all surfaces. */
   overflow-x: hidden;
 }
 

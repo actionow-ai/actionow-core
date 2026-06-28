@@ -118,11 +118,21 @@ function ModelCard({ m }: { m: ModelHealthView }) {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
-        <strong style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <strong
+          style={{
+            flex: 1,
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
           {m.model}
         </strong>
         <Pill tone={statusTone(m.last_status)} dot>
-          {m.last_status === null ? t('status.idle') : t('status.last.' + m.last_status, m.last_status)}
+          {m.last_status === null
+            ? t('status.idle')
+            : t('status.last.' + m.last_status, m.last_status)}
         </Pill>
       </div>
 
@@ -144,9 +154,20 @@ function ModelCard({ m }: { m: ModelHealthView }) {
 
       <Sparkline history={m.history} />
 
-      <div style={{ display: 'flex', gap: 'var(--s-4)', fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>
-        <span>{t('status.avgLatency')}: <span className="tabular">{fmtLatency(m.avg_latency_ms)}</span></span>
-        <span>p95: <span className="tabular">{fmtLatency(m.p95_latency_ms)}</span></span>
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--s-4)',
+          fontSize: 'var(--fs-caption)',
+          color: 'var(--muted)',
+        }}
+      >
+        <span>
+          {t('status.avgLatency')}: <span className="tabular">{fmtLatency(m.avg_latency_ms)}</span>
+        </span>
+        <span>
+          p95: <span className="tabular">{fmtLatency(m.p95_latency_ms)}</span>
+        </span>
       </div>
       <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>
         {t('status.requests', { total: m.total, errors: m.errors })}
@@ -159,13 +180,18 @@ function ModelCard({ m }: { m: ModelHealthView }) {
 function Sparkline({ history }: { history: ModelHealthView['history'] }) {
   const { t } = useTranslation('console');
   if (history.length === 0) {
-    return <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>{t('status.noHistory')}</div>;
+    return (
+      <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>
+        {t('status.noHistory')}
+      </div>
+    );
   }
   return (
     <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 28 }}>
       {history.map((b) => {
         const errRate = b.total > 0 ? b.errors / b.total : 0;
-        const tone = b.total === 0 ? '--idle' : errRate === 0 ? '--ok' : errRate >= 1 ? '--fail' : '--wait';
+        const tone =
+          b.total === 0 ? '--idle' : errRate === 0 ? '--ok' : errRate >= 1 ? '--fail' : '--wait';
         return (
           <div
             key={b.day}

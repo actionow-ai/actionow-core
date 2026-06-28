@@ -87,7 +87,9 @@ export function ServiceTokensPage() {
       header: t('tokens.cols.status'),
       noClip: true,
       width: '148px',
-      cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
+      cell: (r) => (
+        <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
     },
     {
       key: 'created',
@@ -101,7 +103,9 @@ export function ServiceTokensPage() {
       align: 'right',
       width: '180px',
       cell: (r) =>
-        r.expires_at !== null ? new Date(r.expires_at).toLocaleString(i18n.language) : t('tokens.never'),
+        r.expires_at !== null
+          ? new Date(r.expires_at).toLocaleString(i18n.language)
+          : t('tokens.never'),
     },
   ];
 

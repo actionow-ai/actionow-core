@@ -112,7 +112,9 @@ export function RedemptionCodesPage() {
       key: 'status',
       header: t('redemptionCodes.cols.status'),
       noClip: true,
-      cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
+      cell: (r) => (
+        <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
       width: '120px',
     },
     {
@@ -158,12 +160,23 @@ export function RedemptionCodesPage() {
         title={t('redemptionCodes.generate')}
         onClose={() => setFormOpen(false)}
         footer={
-          <Button variant="cta" onClick={() => generate.mutate()} loading={generate.isPending} disabled={!canSubmit}>
+          <Button
+            variant="cta"
+            onClick={() => generate.mutate()}
+            loading={generate.isPending}
+            disabled={!canSubmit}
+          >
             {t('redemptionCodes.submit')}
           </Button>
         }
       >
-        <NumberField label={t('redemptionCodes.form.count')} value={count} onChange={setCount} min={1} step={1} />
+        <NumberField
+          label={t('redemptionCodes.form.count')}
+          value={count}
+          onChange={setCount}
+          min={1}
+          step={1}
+        />
         <NumberField
           label={t('redemptionCodes.form.creditPerCode')}
           value={creditsPerCode}
@@ -189,7 +202,9 @@ export function RedemptionCodesPage() {
           </Button>
         }
       >
-        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--run)' }}>{t('redemptionCodes.minted.warn')}</div>
+        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--run)' }}>
+          {t('redemptionCodes.minted.warn')}
+        </div>
         {minted !== null && (
           <CopyField
             value={minted.join('\n')}

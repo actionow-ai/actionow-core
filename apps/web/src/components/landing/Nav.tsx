@@ -39,7 +39,7 @@ export function Nav() {
       <nav
         className="glass"
         style={{
-          maxWidth: 1200,
+          maxWidth: 'var(--content-max)',
           margin: '0 auto',
           minHeight: 60,
           borderRadius: 'var(--r-lg)',
@@ -60,7 +60,11 @@ export function Nav() {
               <a
                 key={l.label}
                 href={l.href}
-                style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', transition: 'color 0.2s' }}
+                style={{
+                  fontSize: 'var(--fs-sm)',
+                  color: 'var(--muted)',
+                  transition: 'color 0.2s',
+                }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--muted)')}
               >
@@ -129,7 +133,14 @@ export function Nav() {
                 {l.label}
               </a>
             ))}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginTop: 'var(--s-2)' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--s-2)',
+                marginTop: 'var(--s-2)',
+              }}
+            >
               <LanguageSwitch />
               <ThemeToggle />
               <Button to={consoleHref}>{t('nav.console')}</Button>

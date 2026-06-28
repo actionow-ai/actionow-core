@@ -17,7 +17,7 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ApiKeyView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
-import { STALE_REFERENCE } from '../../lib/query';
+import { STALE_DETAIL, STALE_REFERENCE } from '../../lib/query';
 
 /**
  * The routed API-key detail page (`/console/api-keys/:id`) — the full-page
@@ -247,7 +247,7 @@ function KeyLimitUsage({ keyId, planId }: { keyId: string; planId: string }) {
   const { data } = useQuery({
     queryKey: qk.limitStatus('key', keyId),
     queryFn: () => api.listLimitStatus('key', keyId, planId),
-    staleTime: 30_000,
+    staleTime: STALE_DETAIL,
   });
   return <LimitUsageBars rules={data ?? []} />;
 }

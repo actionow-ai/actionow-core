@@ -69,7 +69,7 @@ describe('ChannelEditor route tags (染色/标签路由)', () => {
     expect(await screen.findByText('canary')).toBeInTheDocument();
     // The tags field's own input (last textbox in the form) accepts a new tag.
     const inputs = screen.getAllByRole('textbox');
-    const tagInput = inputs[inputs.length - 1];
+    const tagInput = inputs[inputs.length - 1]!;
     await user.type(tagInput, 'beta{Enter}');
     await user.click(screen.getByRole('button', { name: /Save channel/i }));
     await waitFor(() => expect(mockApi.updateChannel).toHaveBeenCalled());

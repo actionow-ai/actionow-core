@@ -431,94 +431,94 @@ export function DataTable<T>({
             : paged.length === 0
               ? emptyState
               : paged.map((r) => {
-                const { selectedRow, handlers } = rowInteraction(r);
-                // Compact card: the first (identity) column spans full width as the
-                // card's headline; the rest pack into a 2-up grid so a wide table
-                // (e.g. 7 model columns) is ~3 grid rows, not a one-screen stack.
-                const [primaryCol, ...restCols] = visibleColumns;
-                return (
-                  <div
-                    key={rowKey(r)}
-                    {...handlers}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 'var(--s-3)',
-                      padding: 'var(--s-4)',
-                      // A clickable card must clear the min touch target even for a short row.
-                      minHeight: clickable ? 'var(--min-touch)' : undefined,
-                      borderBottom: '1px solid var(--row-bd)',
-                      background: selectedRow ? 'var(--hover-bg)' : undefined,
-                    }}
-                  >
-                    {visibleColumns.length > 0 && (
-                      <div
-                        style={{
-                          fontSize: 'var(--fs-base)',
-                          fontWeight: 'var(--fw-medium)',
-                          minWidth: 0,
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {primaryCol.cell(r)}
-                      </div>
-                    )}
-                    {restCols.length > 0 && (
-                      <div
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                          gap: 'var(--s-2) var(--s-4)',
-                        }}
-                      >
-                        {restCols.map((c) => (
-                          <Field
-                            key={c.key}
-                            header={c.header}
-                            value={c.cell(r)}
-                            noClip={c.noClip === true}
-                          />
-                        ))}
-                      </div>
-                    )}
-                    {(selectable === true || rowActions !== undefined) && (
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 'var(--s-3)',
-                          borderTop: '1px solid var(--row-bd)',
-                          paddingTop: 'var(--s-2)',
-                          marginTop: 'var(--s-1)',
-                        }}
-                      >
-                        {selectable === true ? (
-                          <span onClick={stop} onKeyDown={stopKey} role="presentation">
-                            <Checkbox
-                              checked={selected.has(rowKey(r))}
-                              onChange={() => toggleRow(rowKey(r))}
-                              ariaLabel={t('table.selectRow')}
+                  const { selectedRow, handlers } = rowInteraction(r);
+                  // Compact card: the first (identity) column spans full width as the
+                  // card's headline; the rest pack into a 2-up grid so a wide table
+                  // (e.g. 7 model columns) is ~3 grid rows, not a one-screen stack.
+                  const [primaryCol, ...restCols] = visibleColumns;
+                  return (
+                    <div
+                      key={rowKey(r)}
+                      {...handlers}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 'var(--s-3)',
+                        padding: 'var(--s-4)',
+                        // A clickable card must clear the min touch target even for a short row.
+                        minHeight: clickable ? 'var(--min-touch)' : undefined,
+                        borderBottom: '1px solid var(--row-bd)',
+                        background: selectedRow ? 'var(--hover-bg)' : undefined,
+                      }}
+                    >
+                      {primaryCol !== undefined && (
+                        <div
+                          style={{
+                            fontSize: 'var(--fs-base)',
+                            fontWeight: 'var(--fw-medium)',
+                            minWidth: 0,
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {primaryCol.cell(r)}
+                        </div>
+                      )}
+                      {restCols.length > 0 && (
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                            gap: 'var(--s-2) var(--s-4)',
+                          }}
+                        >
+                          {restCols.map((c) => (
+                            <Field
+                              key={c.key}
+                              header={c.header}
+                              value={c.cell(r)}
+                              noClip={c.noClip === true}
                             />
-                          </span>
-                        ) : (
-                          <span />
-                        )}
-                        {rowActions !== undefined && (
-                          <span
-                            onClick={stop}
-                            onKeyDown={stopKey}
-                            role="presentation"
-                            style={{ display: 'inline-flex', gap: 'var(--s-2)' }}
-                          >
-                            {rowActions(r)}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                          ))}
+                        </div>
+                      )}
+                      {(selectable === true || rowActions !== undefined) && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 'var(--s-3)',
+                            borderTop: '1px solid var(--row-bd)',
+                            paddingTop: 'var(--s-2)',
+                            marginTop: 'var(--s-1)',
+                          }}
+                        >
+                          {selectable === true ? (
+                            <span onClick={stop} onKeyDown={stopKey} role="presentation">
+                              <Checkbox
+                                checked={selected.has(rowKey(r))}
+                                onChange={() => toggleRow(rowKey(r))}
+                                ariaLabel={t('table.selectRow')}
+                              />
+                            </span>
+                          ) : (
+                            <span />
+                          )}
+                          {rowActions !== undefined && (
+                            <span
+                              onClick={stop}
+                              onKeyDown={stopKey}
+                              role="presentation"
+                              style={{ display: 'inline-flex', gap: 'var(--s-2)' }}
+                            >
+                              {rowActions(r)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
         {showPager && (
           <Pager page={page} pages={pages} total={sorted.length} onPage={setPage} t={t} />
         )}

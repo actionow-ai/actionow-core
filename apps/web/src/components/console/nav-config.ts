@@ -95,13 +95,21 @@ export const ADMIN_NAV: NavGroup[] = [
 
 /** The group owning `pathname` within `groups`, else the first group. */
 export function groupForPath(pathname: string, groups: NavGroup[]): NavGroup {
-  return groups.find((g) => g.items.some((it) => pathname.startsWith(it.to))) ?? groups[0];
+  const match = groups.find((g) => g.items.some((it) => pathname.startsWith(it.to)));
+  if (match !== undefined) return match;
+  const first = groups[0];
+  if (first === undefined) throw new Error('nav config has no groups');
+  return first;
 }
 
 /** The active leaf for `pathname` within `groups`, else its group’s first item. */
 export function activeItem(pathname: string, groups: NavGroup[]): NavItem {
   const g = groupForPath(pathname, groups);
-  return g.items.find((it) => pathname.startsWith(it.to)) ?? g.items[0];
+  const match = g.items.find((it) => pathname.startsWith(it.to));
+  if (match !== undefined) return match;
+  const first = g.items[0];
+  if (first === undefined) throw new Error('nav group has no items');
+  return first;
 }
 
 /** Flattened leaf items for the mobile bottom tab bar (phone-app pattern). */

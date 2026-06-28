@@ -34,18 +34,41 @@ export function RankingBar({
           <div
             role="listitem"
             key={r.bucket}
-            style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)', fontSize: 'var(--fs-sm)' }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--s-3)',
+              fontSize: 'var(--fs-sm)',
+            }}
           >
             <span
-              style={{ flex: '0 0 30%', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              style={{
+                flex: '0 0 30%',
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
             >
               {r.bucket}
             </span>
             <div
               aria-hidden="true"
-              style={{ flex: 1, height: 8, borderRadius: 'var(--r-pill)', background: 'var(--panel-bd)', overflow: 'hidden' }}
+              style={{
+                flex: 1,
+                height: 8,
+                borderRadius: 'var(--r-pill)',
+                background: 'var(--panel-bd)',
+                overflow: 'hidden',
+              }}
             >
-              <div style={{ width: `${String(pct)}%`, height: '100%', background: 'var(--grad-accent)' }} />
+              <div
+                style={{
+                  width: `${String(pct)}%`,
+                  height: '100%',
+                  background: 'var(--grad-accent)',
+                }}
+              />
             </div>
             <span style={{ flexShrink: 0 }}>
               <Money micro={r.cost} />

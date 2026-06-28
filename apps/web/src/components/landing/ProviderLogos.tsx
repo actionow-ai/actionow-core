@@ -26,7 +26,10 @@ const PROVIDERS = [
 
 function Group({ dup }: { dup?: boolean }) {
   return (
-    <div className={`logo-marquee-group${dup === true ? ' logo-marquee-dup' : ''}`} aria-hidden={dup === true}>
+    <div
+      className={`logo-marquee-group${dup === true ? ' logo-marquee-dup' : ''}`}
+      aria-hidden={dup === true}
+    >
       {PROVIDERS.map((p) => (
         <ProviderIcon key={p} provider={p} size={22} showLabel />
       ))}

@@ -39,7 +39,10 @@ describe('Checkbox', () => {
 
   it('reports aria-checked="mixed" when indeterminate', () => {
     render(<Checkbox checked={false} label="Accept" onChange={() => undefined} indeterminate />);
-    expect(screen.getByRole('checkbox', { name: 'Accept' })).toHaveAttribute('aria-checked', 'mixed');
+    expect(screen.getByRole('checkbox', { name: 'Accept' })).toHaveAttribute(
+      'aria-checked',
+      'mixed',
+    );
   });
 
   it('names an icon-only checkbox via ariaLabel without rendering visible text', () => {

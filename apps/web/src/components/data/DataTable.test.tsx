@@ -122,11 +122,13 @@ describe('DataTable selection + bulk actions', () => {
   it('a checkbox click does not trigger onRowClick', async () => {
     const user = userEvent.setup();
     const onRowClick = vi.fn();
-    render(<DataTable columns={COLS} rows={ROWS} rowKey={rowKey} selectable onRowClick={onRowClick} />);
+    render(
+      <DataTable columns={COLS} rows={ROWS} rowKey={rowKey} selectable onRowClick={onRowClick} />,
+    );
 
     const rowChecks = screen.getAllByRole('checkbox', { name: /select row/i });
     expect(rowChecks.length).toBeGreaterThan(0);
-    await user.click(rowChecks[0]);
+    await user.click(rowChecks[0]!);
 
     expect(onRowClick).not.toHaveBeenCalled();
   });
@@ -151,7 +153,9 @@ describe('DataTable selection across pagination', () => {
     // page 1: Alpha, Bravo — select Alpha's row checkbox.
     const alphaRow = screen.getByText('Alpha').closest('tr');
     expect(alphaRow).not.toBeNull();
-    await user.click(within(alphaRow as HTMLElement).getByRole('checkbox', { name: /select row/i }));
+    await user.click(
+      within(alphaRow as HTMLElement).getByRole('checkbox', { name: /select row/i }),
+    );
 
     // bulk bar reflects exactly one selection
     expect(screen.getByText('bulk:1')).toBeInTheDocument();
@@ -165,10 +169,9 @@ describe('DataTable selection across pagination', () => {
     // Alpha is back and still checked; the bulk count is unchanged
     const alphaRowAgain = screen.getByText('Alpha').closest('tr');
     expect(alphaRowAgain).not.toBeNull();
-    expect(within(alphaRowAgain as HTMLElement).getByRole('checkbox', { name: /select row/i })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
+    expect(
+      within(alphaRowAgain as HTMLElement).getByRole('checkbox', { name: /select row/i }),
+    ).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByText('bulk:1')).toBeInTheDocument();
     expect(screen.getByText(/1 selected/i)).toBeInTheDocument();
   });
@@ -184,7 +187,7 @@ describe('DataTable select-all indeterminate state', () => {
 
     // select a single row out of several
     const rowChecks = screen.getAllByRole('checkbox', { name: /select row/i });
-    await user.click(rowChecks[0]);
+    await user.click(rowChecks[0]!);
 
     expect(selectAll).toHaveAttribute('aria-checked', 'mixed');
   });
@@ -247,7 +250,14 @@ describe('DataTable error state', () => {
     const user = userEvent.setup();
     const onRetry = vi.fn();
     render(
-      <DataTable columns={COLS} rows={[]} rowKey={rowKey} error onRetry={onRetry} empty="No rows" />,
+      <DataTable
+        columns={COLS}
+        rows={[]}
+        rowKey={rowKey}
+        error
+        onRetry={onRetry}
+        empty="No rows"
+      />,
     );
 
     // error wins over the empty state
@@ -272,11 +282,11 @@ describe('DataTable sorting', () => {
 
     const header = screen.getByRole('button', { name: /sort by name/i });
     await user.click(header); // asc
-    const firstAsc = screen.getAllByRole('row')[1];
+    const firstAsc = screen.getAllByRole('row')[1]!;
     expect(within(firstAsc).getByText('Alpha')).toBeInTheDocument();
 
     await user.click(header); // desc
-    const firstDesc = screen.getAllByRole('row')[1];
+    const firstDesc = screen.getAllByRole('row')[1]!;
     expect(within(firstDesc).getByText('Echo')).toBeInTheDocument();
   });
 });

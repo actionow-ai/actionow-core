@@ -138,7 +138,11 @@ export function ApiKeysPage() {
   useSetConsoleFilters(
     () => (
       <div style={{ width: 200 }}>
-        <TenantSelect value={tenantId} onChange={setTenantId} placeholder={t('apiKeys.form.tenant')} />
+        <TenantSelect
+          value={tenantId}
+          onChange={setTenantId}
+          placeholder={t('apiKeys.form.tenant')}
+        />
       </div>
     ),
     [t, tenantId, setTenantId],
@@ -188,7 +192,9 @@ export function ApiKeysPage() {
       header: t('apiKeys.cols.status'),
       noClip: true,
       width: '120px',
-      cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
+      cell: (r) => (
+        <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
     },
     {
       key: 'created',
@@ -214,7 +220,12 @@ export function ApiKeysPage() {
         }}
         actionsWidth="56px"
         rowActions={(r) => (
-          <RowAction icon={ProhibitIcon} label={t('apiKeys.revoke')} danger onClick={() => setRevokeTarget(r)} />
+          <RowAction
+            icon={ProhibitIcon}
+            label={t('apiKeys.revoke')}
+            danger
+            onClick={() => setRevokeTarget(r)}
+          />
         )}
       />
 
@@ -229,7 +240,12 @@ export function ApiKeysPage() {
         }
       >
         <TextField label={t('apiKeys.form.allowlist')} value={allowlist} onChange={setAllowlist} />
-        <NumberField label={t('apiKeys.form.rateLimit')} value={rateLimit} onChange={setRateLimit} min={1} />
+        <NumberField
+          label={t('apiKeys.form.rateLimit')}
+          value={rateLimit}
+          onChange={setRateLimit}
+          min={1}
+        />
         <SelectField
           label={t('apiKeys.group.label')}
           tooltip={t('apiKeys.group.tip')}
@@ -258,8 +274,16 @@ export function ApiKeysPage() {
           </Button>
         }
       >
-        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--run)' }}>{t('apiKeys.reveal.warn')}</div>
-        {plaintext !== null && <CopyField value={plaintext} copyLabel={t('apiKeys.reveal.copy')} copiedLabel={t('apiKeys.reveal.copied')} />}
+        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--run)' }}>
+          {t('apiKeys.reveal.warn')}
+        </div>
+        {plaintext !== null && (
+          <CopyField
+            value={plaintext}
+            copyLabel={t('apiKeys.reveal.copy')}
+            copiedLabel={t('apiKeys.reveal.copied')}
+          />
+        )}
       </Modal>
 
       <ConfirmDialog

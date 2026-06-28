@@ -99,7 +99,7 @@ export function RelayTracesPage() {
   };
 
   const q = useInfiniteQuery({
-    queryKey: qk.relayTraces(filters as unknown as Record<string, unknown>),
+    queryKey: qk.relayTraces(filters),
     queryFn: ({ pageParam }) => api.listRelayTraces({ ...filters, limit: 50, cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
@@ -214,7 +214,8 @@ export function RelayTracesPage() {
       align: 'right',
       // No client-side sort: the list is keyset-paginated newest-first, so sorting
       // only the loaded pages would mislead. Latency stays display-only here.
-      cell: (r) => (r.latency_ms !== null ? <span className="tabular">{r.latency_ms} ms</span> : '—'),
+      cell: (r) =>
+        r.latency_ms !== null ? <span className="tabular">{r.latency_ms} ms</span> : '—',
       width: '96px',
     },
     {
@@ -248,7 +249,11 @@ export function RelayTracesPage() {
         }}
       >
         <div style={{ minWidth: 180 }}>
-          <TenantSelect value={tenantId} onChange={setTenantId} placeholder={t('relayTraces.allTenants')} />
+          <TenantSelect
+            value={tenantId}
+            onChange={setTenantId}
+            placeholder={t('relayTraces.allTenants')}
+          />
         </div>
         <InlineField id="flt-provider" label={t('relayTraces.providerLabel')}>
           <ComboboxField
@@ -294,11 +299,21 @@ export function RelayTracesPage() {
         />
         <span style={DATE_LABEL}>
           {t('relayTraces.from')}
-          <DateField value={from} onChange={setFrom} max={to === '' ? undefined : to} ariaLabel={t('relayTraces.from')} />
+          <DateField
+            value={from}
+            onChange={setFrom}
+            max={to === '' ? undefined : to}
+            ariaLabel={t('relayTraces.from')}
+          />
         </span>
         <span style={DATE_LABEL}>
           {t('relayTraces.to')}
-          <DateField value={to} onChange={setTo} min={from === '' ? undefined : from} ariaLabel={t('relayTraces.to')} />
+          <DateField
+            value={to}
+            onChange={setTo}
+            min={from === '' ? undefined : from}
+            ariaLabel={t('relayTraces.to')}
+          />
         </span>
       </div>
 

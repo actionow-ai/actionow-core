@@ -92,13 +92,20 @@ export function ProviderIcon({
   const mark = brand ? (
     <img src={brand.src} width={size} height={size} alt="" aria-hidden="true" draggable={false} />
   ) : (
-    <span aria-hidden="true" style={{ fontSize: size * 0.52, fontWeight: 800, color: 'var(--accent-2)' }}>
+    <span
+      aria-hidden="true"
+      style={{ fontSize: size * 0.52, fontWeight: 'var(--fw-bold)', color: 'var(--accent-2)' }}
+    >
       {(provider.charAt(0) || '?').toUpperCase()}
     </span>
   );
 
   const glyph = tile ? (
-    <span className={`provider-tile${brand?.tone === 'dark' ? ' provider-tile--dark' : ''}`} style={{ width: size + 16, height: size + 16 }} title={label}>
+    <span
+      className={`provider-tile${brand?.tone === 'dark' ? ' provider-tile--dark' : ''}`}
+      style={{ width: size + 16, height: size + 16 }}
+      title={label}
+    >
       {mark}
     </span>
   ) : (

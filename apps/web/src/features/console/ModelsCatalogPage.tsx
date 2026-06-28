@@ -14,6 +14,7 @@ import { qk } from '../../lib/api/queryKeys';
 import type { ModelView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
+import { FacetBar } from './FacetBar';
 import { ModelEditor } from './ModelEditor';
 import { useModelFacets } from './useModelFacets';
 
@@ -37,7 +38,7 @@ export function ModelsCatalogPage() {
     staleTime: STALE_REFERENCE,
   });
 
-  const { node: facetBar, filtered } = useModelFacets(models.data ?? []);
+  const { filtered, facets } = useModelFacets(models.data ?? []);
   // A model name to edit, the sentinel 'new' (create), or null (closed).
   const [edit, setEdit] = useState<string | null>(null);
 
@@ -56,7 +57,9 @@ export function ModelsCatalogPage() {
       header: t('app.models.cols.name'),
       grow: true,
       cell: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}>
+        <span
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}
+        >
           <BrandIcon icon={r.icon} fallbacks={[r.maker, r.modality]} size={16} />
           <span className="mono">{r.name}</span>
         </span>
@@ -113,13 +116,15 @@ export function ModelsCatalogPage() {
       header: t('app.models.cols.status', t('models.cols.status')),
       width: '100px',
       noClip: true,
-      cell: (r) => <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />,
+      cell: (r) => (
+        <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
     },
   ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {facetBar}
+      <FacetBar facets={facets} />
       <DataTable
         columns={cols}
         rows={filtered}

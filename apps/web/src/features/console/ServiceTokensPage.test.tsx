@@ -101,8 +101,6 @@ describe('ServiceTokenDetailPage', () => {
   it('shows a not-found state for an unknown id', async () => {
     renderDetail('nope');
 
-    expect(
-      await screen.findByText(i18n.t('console:tokens.detail.notFound')),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(i18n.t('console:tokens.detail.notFound'))).toBeInTheDocument();
   });
 });

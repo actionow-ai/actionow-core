@@ -20,7 +20,11 @@ export function ImmersiveHero() {
       mm.add('(prefers-reduced-motion: no-preference)', () => {
         // fromTo (explicit start+end) so a re-run on lang/theme change can't
         // strand an element mid-reveal at partial opacity.
-        gsap.fromTo(targets, { opacity: 0, y: 32 }, { opacity: 1, y: 0, duration: DUR.slower, ease: EASE.out, stagger: 0.1 });
+        gsap.fromTo(
+          targets,
+          { opacity: 0, y: 32 },
+          { opacity: 1, y: 0, duration: DUR.slower, ease: EASE.out, stagger: 0.1 },
+        );
       });
     },
     { scope: root, dependencies: [] },
@@ -45,7 +49,7 @@ export function ImmersiveHero() {
         className="headline-nowrap"
         style={{
           fontSize: 'var(--fs-display)',
-          fontWeight: 850,
+          fontWeight: 'var(--fw-display)',
           letterSpacing: '-0.04em',
           lineHeight: 0.98,
           margin: 0,
@@ -64,11 +68,29 @@ export function ImmersiveHero() {
         {t('hero.title2')}
       </h1>
 
-      <p data-r style={{ fontSize: 'clamp(15px, 1.6vw, 18px)', lineHeight: 1.6, color: 'var(--muted)', marginTop: 'var(--s-5)', maxWidth: 600 }}>
+      <p
+        data-r
+        style={{
+          fontSize: 'clamp(15px, 1.6vw, 18px)',
+          lineHeight: 1.6,
+          color: 'var(--muted)',
+          marginTop: 'var(--s-5)',
+          maxWidth: 600,
+        }}
+      >
         {t('hero.lead')}
       </p>
 
-      <div data-r style={{ display: 'flex', gap: 'var(--s-3)', marginTop: 'var(--s-6)', flexWrap: 'wrap', justifyContent: 'center' }}>
+      <div
+        data-r
+        style={{
+          display: 'flex',
+          gap: 'var(--s-3)',
+          marginTop: 'var(--s-6)',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+        }}
+      >
         <Button to="/login" variant="cta" size="lg">
           {t('hero.ctaPrimary')} <ArrowRightIcon size={16} weight="bold" />
         </Button>

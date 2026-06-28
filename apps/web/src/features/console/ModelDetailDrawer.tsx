@@ -49,7 +49,14 @@ export function ModelDetailDrawer({
       title={model.name}
       onClose={onClose}
       footer={
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--s-2)', width: '100%' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 'var(--s-2)',
+            width: '100%',
+          }}
+        >
           <Button variant="ghost" onClick={onEdit}>
             <PencilSimpleIcon size={14} weight="bold" aria-hidden="true" /> {t('common.edit')}
           </Button>
@@ -59,7 +66,15 @@ export function ModelDetailDrawer({
         </div>
       }
     >
-      <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 'var(--s-3) var(--s-4)', fontSize: 'var(--fs-sm)' }}>
+      <dl
+        style={{
+          margin: 0,
+          display: 'grid',
+          gridTemplateColumns: 'auto 1fr',
+          gap: 'var(--s-3) var(--s-4)',
+          fontSize: 'var(--fs-sm)',
+        }}
+      >
         <Row label={t('models.cols.modality')}>{enumLabel(t, MODALITIES, model.modality)}</Row>
         {model.maker !== null && <Row label={t('models.form.maker')}>{model.maker}</Row>}
         {model.context_length !== null && (
@@ -68,7 +83,9 @@ export function ModelDetailDrawer({
           </Row>
         )}
         {model.reasoning !== null && (
-          <Row label={t('models.form.reasoning')}>{t('models.reasoning.' + model.reasoning, model.reasoning)}</Row>
+          <Row label={t('models.form.reasoning')}>
+            {t('models.reasoning.' + model.reasoning, model.reasoning)}
+          </Row>
         )}
         {model.tags.length > 0 && (
           <Row label={t('models.form.tags')}>
@@ -124,7 +141,10 @@ export function ModelDetailDrawer({
           <Pill tone="idle">{model.visibility}</Pill>
         </Row>
         <Row label={t('models.cols.status')}>
-          <StatusBadge tone={statusTone(model.status)} label={t('status.' + model.status, model.status)} />
+          <StatusBadge
+            tone={statusTone(model.status)}
+            label={t('status.' + model.status, model.status)}
+          />
         </Row>
       </dl>
       <p style={{ marginTop: 'var(--s-4)', fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>

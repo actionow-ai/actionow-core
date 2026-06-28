@@ -41,7 +41,13 @@ const usage: MemberUsageList = {
 };
 
 const keys: MemberKeyView[] = [
-  { id: 'key-1', name: 'default', status: 'active', created_at: '2026-06-01T00:00:00Z', last4: 'ab12' },
+  {
+    id: 'key-1',
+    name: 'default',
+    status: 'active',
+    created_at: '2026-06-01T00:00:00Z',
+    last4: 'ab12',
+  },
 ];
 
 const limits: MemberLimitsView = {

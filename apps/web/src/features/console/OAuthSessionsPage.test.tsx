@@ -92,7 +92,9 @@ describe('OAuthSessionsPage', () => {
     // Select the row → the bulk-action bar appears.
     await user.click(screen.getByRole('checkbox', { name: i18n.t('console:table.selectRow') }));
     await user.click(
-      await screen.findByRole('button', { name: i18n.t('console:credentials.bulkRevoke', { n: 1 }) }),
+      await screen.findByRole('button', {
+        name: i18n.t('console:credentials.bulkRevoke', { n: 1 }),
+      }),
     );
 
     // ONE bulk call (not N single revokes), then a result toast.

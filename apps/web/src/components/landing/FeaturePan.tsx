@@ -24,7 +24,17 @@ const FEATS: { key: string; Icon: Icon }[] = [
   { key: 'logs', Icon: ChartLineIcon },
 ];
 
-function Panel({ index, k, Glyph, wide }: { index: number; k: string; Glyph: Icon; wide?: boolean }) {
+function Panel({
+  index,
+  k,
+  Glyph,
+  wide,
+}: {
+  index: number;
+  k: string;
+  Glyph: Icon;
+  wide?: boolean;
+}) {
   const { t } = useTranslation('landing');
   return (
     <div
@@ -53,12 +63,31 @@ function Panel({ index, k, Glyph, wide }: { index: number; k: string; Glyph: Ico
         >
           <Glyph size={23} weight="duotone" />
         </span>
-        <span className="mono" style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}>{`0${String(index + 1)}`}</span>
+        <span
+          className="mono"
+          style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}
+        >{`0${String(index + 1)}`}</span>
       </div>
-      <div style={{ fontSize: 'clamp(22px, 2.6vw, 30px)', fontWeight: 760, letterSpacing: '-0.02em', marginTop: 'var(--s-5)' }}>
+      <div
+        style={{
+          fontSize: 'clamp(22px, 2.6vw, 30px)',
+          fontWeight: 760,
+          letterSpacing: 'var(--track-tight)',
+          marginTop: 'var(--s-5)',
+        }}
+      >
         {t(`features.items.${k}.t`)}
       </div>
-      <p style={{ fontSize: 'var(--fs-base)', lineHeight: 1.65, color: 'var(--muted)', marginTop: 'var(--s-3)' }}>{t(`features.items.${k}.d`)}</p>
+      <p
+        style={{
+          fontSize: 'var(--fs-base)',
+          lineHeight: 1.65,
+          color: 'var(--muted)',
+          marginTop: 'var(--s-3)',
+        }}
+      >
+        {t(`features.items.${k}.d`)}
+      </p>
     </div>
   );
 }
@@ -93,7 +122,15 @@ export function FeaturePan() {
   );
 
   const heading = (
-    <h2 style={{ fontSize: 'var(--fs-h2)', fontWeight: 780, letterSpacing: '-0.02em', margin: 0, maxWidth: 560 }}>
+    <h2
+      style={{
+        fontSize: 'var(--fs-h2)',
+        fontWeight: 780,
+        letterSpacing: 'var(--track-tight)',
+        margin: 0,
+        maxWidth: 560,
+      }}
+    >
       {t('features.title')}
     </h2>
   );
@@ -102,8 +139,20 @@ export function FeaturePan() {
   if (panned) {
     return (
       <section id="features" ref={wrap} style={{ position: 'relative', overflow: 'hidden' }}>
-        <div ref={track} style={{ display: 'flex', height: '100dvh', alignItems: 'center', gap: 'var(--s-5)', padding: '0 8vw', width: 'max-content' }}>
-          <div style={{ flexShrink: 0, width: 'min(34vw, 360px)', paddingRight: 'var(--s-6)' }}>{heading}</div>
+        <div
+          ref={track}
+          style={{
+            display: 'flex',
+            height: '100dvh',
+            alignItems: 'center',
+            gap: 'var(--s-5)',
+            padding: '0 8vw',
+            width: 'max-content',
+          }}
+        >
+          <div style={{ flexShrink: 0, width: 'min(34vw, 360px)', paddingRight: 'var(--s-6)' }}>
+            {heading}
+          </div>
           {FEATS.map((f, i) => (
             <Panel key={f.key} index={i} k={f.key} Glyph={f.Icon} />
           ))}
@@ -114,7 +163,10 @@ export function FeaturePan() {
 
   // Mobile / reduced-motion: a plain vertical stack of the same panels.
   return (
-    <section id="features" style={{ maxWidth: 1080, margin: '0 auto', padding: 'var(--s-16) var(--s-4)' }}>
+    <section
+      id="features"
+      style={{ maxWidth: 1080, margin: '0 auto', padding: 'var(--s-16) var(--s-4)' }}
+    >
       <div style={{ marginBottom: 'var(--s-8)' }}>{heading}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
         {FEATS.map((f, i) => (

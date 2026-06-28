@@ -1,5 +1,5 @@
 import { FIELD_INPUT_BASE } from './fieldStyles';
-import { FormField, useFieldId } from './FormField';
+import { fieldAria, FormField, useFieldId } from './FormField';
 
 /**
  * A numeric input on the unified field contract: `onChange(number)` (replacing
@@ -36,7 +36,14 @@ export function NumberField({
 }) {
   const fieldId = useFieldId(id);
   return (
-    <FormField id={fieldId} label={label} error={error} hint={hint} tooltip={tooltip} required={required}>
+    <FormField
+      id={fieldId}
+      label={label}
+      error={error}
+      hint={hint}
+      tooltip={tooltip}
+      required={required}
+    >
       <input
         id={fieldId}
         type="number"
@@ -46,7 +53,7 @@ export function NumberField({
         step={step}
         disabled={disabled}
         required={required}
-        aria-invalid={error !== undefined ? true : undefined}
+        {...fieldAria(fieldId, error, hint)}
         onChange={(e) => {
           const n = e.target.valueAsNumber;
           onChange(Number.isNaN(n) ? 0 : n);

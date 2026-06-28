@@ -141,7 +141,11 @@ function TenantPickerModal({
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {triggerText}
         </span>
-        <CaretDownIcon size={14} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--muted)' }} />
+        <CaretDownIcon
+          size={14}
+          aria-hidden="true"
+          style={{ flexShrink: 0, color: 'var(--muted)' }}
+        />
       </button>
 
       <Modal open={open} title={t('tenants.picker.title')} onClose={() => setOpen(false)}>
@@ -182,12 +186,18 @@ function TenantPickerModal({
                   >
                     {tn.name}
                   </span>
-                  <span className="mono" style={{ color: 'var(--faint)', fontSize: 'var(--fs-caption)' }}>
+                  <span
+                    className="mono"
+                    style={{ color: 'var(--faint)', fontSize: 'var(--fs-caption)' }}
+                  >
                     {tn.id.slice(0, 8)}
                   </span>
                   <span style={{ flex: 1 }} />
                   {bal !== undefined && (
-                    <span className="tabular" style={{ color: 'var(--muted)', fontSize: 'var(--fs-caption)' }}>
+                    <span
+                      className="tabular"
+                      style={{ color: 'var(--muted)', fontSize: 'var(--fs-caption)' }}
+                    >
                       {formatCredits(bal, i18n.language)}
                     </span>
                   )}

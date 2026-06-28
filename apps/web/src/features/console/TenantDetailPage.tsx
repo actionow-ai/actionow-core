@@ -31,7 +31,7 @@ import type {
   TenantView,
 } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
-import { STALE_REFERENCE } from '../../lib/query';
+import { STALE_DETAIL, STALE_REFERENCE } from '../../lib/query';
 import { SubjectDetailPanel } from './SubjectDetailPanel';
 
 /**
@@ -132,7 +132,7 @@ function TenantDetailBody({
     queryKey: qk.limitStatus('tenant', tenant.id),
     queryFn: () => api.listLimitStatus('tenant', tenant.id, planId ?? ''),
     enabled: planId !== null,
-    staleTime: 30_000,
+    staleTime: STALE_DETAIL,
   });
 
   const bindPlan = useMutation({
@@ -449,7 +449,11 @@ function TenantDetailBody({
         onChange={setOpeningCredits}
         min={0}
       />
-      <Button variant="cta" onClick={() => createAccount.mutate()} loading={createAccount.isPending}>
+      <Button
+        variant="cta"
+        onClick={() => createAccount.mutate()}
+        loading={createAccount.isPending}
+      >
         <PlusIcon size={14} weight="bold" /> {t('accounts.new')}
       </Button>
     </div>

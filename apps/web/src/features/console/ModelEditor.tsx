@@ -86,9 +86,15 @@ export function ModelEditor({
   // Selectable brand icon (icon_asset.key); null → inherit channel/plugin icon.
   const [icon, setIcon] = useState<string | null>(null);
   const [status, setStatus] = useState<ModelStatus>('active');
-  // A stable idempotency key for this editor instance (remounted per open via
-  // `key`), so an accidental double-submit of a create replays instead of dupes.
-  const [idemKey] = useState(() => crypto.randomUUID());
+  // Idempotency key for a create: a double-submit replays (dedupes) instead of
+  // duplicating. The create mount key is the constant 'new', so React does NOT
+  // remount between successive creates — a plain initializer would reuse the same
+  // key across two distinct creates and collide. Regenerate it on each
+  // open-for-create so every create-intent gets a fresh key, stable while open.
+  const [idemKey, setIdemKey] = useState(() => crypto.randomUUID());
+  useEffect(() => {
+    if (open && !editing) setIdemKey(crypto.randomUUID());
+  }, [open, editing]);
   // Set true on a Save attempt so required-field errors appear only after submit,
   // not on first paint.
   const [attempted, setAttempted] = useState(false);
@@ -225,23 +231,28 @@ export function ModelEditor({
             <Button variant="ghost" onClick={() => test.mutate()} loading={test.isPending}>
               {t('models.test.retry')}
             </Button>
-            <Button variant="cta" onClick={() => create.mutate('disabled')} loading={create.isPending}>
+            <Button
+              variant="cta"
+              onClick={() => create.mutate('disabled')}
+              loading={create.isPending}
+            >
               {t('models.test.addDisabled')}
             </Button>
           </div>
         ) : (
-          <Button
-            variant="cta"
-            onClick={onTestAndAdd}
-            loading={test.isPending || create.isPending}
-          >
+          <Button variant="cta" onClick={onTestAndAdd} loading={test.isPending || create.isPending}>
             {t('models.test.testAndAdd')}
           </Button>
         )
       }
     >
       {editing ? (
-        <TextField label={t('models.form.name')} value={nameField} onChange={() => undefined} disabled />
+        <TextField
+          label={t('models.form.name')}
+          value={nameField}
+          onChange={() => undefined}
+          disabled
+        />
       ) : (
         <TextField
           label={t('models.form.name')}

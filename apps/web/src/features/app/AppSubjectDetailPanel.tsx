@@ -7,6 +7,7 @@ import { BalanceCard } from '../../components/data/BalanceCard';
 import { CopyField } from '../../components/data/CopyField';
 import { LimitUsageBars } from '../../components/data/LimitUsageBars';
 import { Button } from '../../components/ui/Button';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { IconButton } from '../../components/ui/IconButton';
 import { NumberField } from '../../components/ui/NumberField';
 import { Pill } from '../../components/ui/Pill';
@@ -77,8 +78,7 @@ export function AppSubjectDetailPanel({
   });
 
   const refreshSubjects = () => qc.invalidateQueries({ queryKey: qk.consoleSubjects() });
-  const refreshWallet = () =>
-    qc.invalidateQueries({ queryKey: qk.consoleSubAccount(subject.id) });
+  const refreshWallet = () => qc.invalidateQueries({ queryKey: qk.consoleSubAccount(subject.id) });
 
   const bindPlan = useMutation({
     mutationFn: (planId: string | null) => api.setSubjectLimitPlan(subject.id, planId),
@@ -95,9 +95,13 @@ export function AppSubjectDetailPanel({
   const [topupCredits, setTopupCredits] = useState(0);
   const [xferCredits, setXferCredits] = useState(0);
   const [xferDir, setXferDir] = useState<'to_subject' | 'to_tenant'>('to_subject');
+  // Credit-moving actions (top-up / transfer) confirm before firing — they shift
+  // real credits between the tenant pool and the sub-wallet and are not auto-reversible.
+  const [confirmAction, setConfirmAction] = useState<'topup' | 'transfer' | null>(null);
 
   const openWallet = useMutation({
-    mutationFn: () => api.openSubAccount(subject.id, openCredits > 0 ? { credits: openCredits } : {}),
+    mutationFn: () =>
+      api.openSubAccount(subject.id, openCredits > 0 ? { credits: openCredits } : {}),
     onSuccess: async () => {
       await refreshWallet();
       toast(t('app.subjects.detail.walletOpened'));
@@ -111,6 +115,7 @@ export function AppSubjectDetailPanel({
       await refreshWallet();
       toast(t('app.subjects.detail.toppedUp'));
       setTopupCredits(0);
+      setConfirmAction(null);
     },
     onError: mutationError(t),
   });
@@ -122,6 +127,7 @@ export function AppSubjectDetailPanel({
       await qc.invalidateQueries({ queryKey: qk.consoleBalance() });
       toast(t('app.subjects.detail.transferred'));
       setXferCredits(0);
+      setConfirmAction(null);
     },
     onError: mutationError(t),
   });
@@ -201,7 +207,12 @@ export function AppSubjectDetailPanel({
               heldLabel={t('app.subjects.detail.held')}
             />
             <div
-              style={{ display: 'flex', gap: 'var(--s-2)', alignItems: 'flex-end', flexWrap: 'wrap' }}
+              style={{
+                display: 'flex',
+                gap: 'var(--s-2)',
+                alignItems: 'flex-end',
+                flexWrap: 'wrap',
+              }}
             >
               <div style={{ width: 130 }}>
                 <NumberField
@@ -213,7 +224,7 @@ export function AppSubjectDetailPanel({
               </div>
               <Button
                 variant="ghost"
-                onClick={() => topup.mutate()}
+                onClick={() => setConfirmAction('topup')}
                 loading={topup.isPending}
                 disabled={topupCredits <= 0}
               >
@@ -221,7 +232,12 @@ export function AppSubjectDetailPanel({
               </Button>
             </div>
             <div
-              style={{ display: 'flex', gap: 'var(--s-2)', alignItems: 'flex-end', flexWrap: 'wrap' }}
+              style={{
+                display: 'flex',
+                gap: 'var(--s-2)',
+                alignItems: 'flex-end',
+                flexWrap: 'wrap',
+              }}
             >
               <div style={{ width: 130 }}>
                 <NumberField
@@ -244,7 +260,7 @@ export function AppSubjectDetailPanel({
               </div>
               <Button
                 variant="ghost"
-                onClick={() => transfer.mutate()}
+                onClick={() => setConfirmAction('transfer')}
                 loading={transfer.isPending}
                 disabled={xferCredits <= 0}
               >
@@ -264,7 +280,11 @@ export function AppSubjectDetailPanel({
                 min={0}
               />
             </div>
-            <Button variant="cta" onClick={() => openWallet.mutate()} loading={openWallet.isPending}>
+            <Button
+              variant="cta"
+              onClick={() => openWallet.mutate()}
+              loading={openWallet.isPending}
+            >
               <PlusIcon size={14} weight="bold" /> {t('app.subjects.detail.openWallet')}
             </Button>
           </div>
@@ -327,7 +347,11 @@ export function AppSubjectDetailPanel({
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                 <KeyIcon size={14} aria-hidden="true" />
                 <code
-                  style={{ fontSize: 'var(--fs-caption)', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                  style={{
+                    fontSize: 'var(--fs-caption)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
                 >
                   {k.id}
                 </code>
@@ -344,6 +368,35 @@ export function AppSubjectDetailPanel({
           ))
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmAction !== null}
+        title={
+          confirmAction === 'transfer'
+            ? t('app.subjects.detail.transfer')
+            : t('app.subjects.detail.topup')
+        }
+        message={
+          confirmAction === 'transfer'
+            ? t('app.subjects.detail.confirmTransferMsg', {
+                credits: xferCredits,
+                direction: t(
+                  xferDir === 'to_subject'
+                    ? 'app.subjects.detail.toSubject'
+                    : 'app.subjects.detail.toTenant',
+                ),
+              })
+            : t('app.subjects.detail.confirmTopupMsg', { credits: topupCredits })
+        }
+        confirmLabel={t('common.confirm')}
+        cancelLabel={t('common.cancel')}
+        loading={topup.isPending || transfer.isPending}
+        onConfirm={() => {
+          if (confirmAction === 'transfer') transfer.mutate();
+          else if (confirmAction === 'topup') topup.mutate();
+        }}
+        onClose={() => setConfirmAction(null)}
+      />
     </div>
   );
 }

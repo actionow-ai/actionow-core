@@ -22,13 +22,26 @@ export function ModelTestPanel({ result }: { result: ModelTestResult }) {
         gap: 'var(--s-3)',
       }}
     >
-      <Leg label={t('models.test.connectivity')} ok={result.connectivity.ok} message={result.connectivity.message} />
-      <Leg label={t('models.test.functional')} ok={result.functional.ok} message={result.functional.message} />
+      <Leg
+        label={t('models.test.connectivity')}
+        ok={result.connectivity.ok}
+        message={result.connectivity.message}
+      />
+      <Leg
+        label={t('models.test.functional')}
+        ok={result.functional.ok}
+        message={result.functional.message}
+      />
 
       {result.sample?.text !== undefined && (
         <pre
           className="mono"
-          style={{ margin: 0, fontSize: 'var(--fs-sm)', whiteSpace: 'pre-wrap', color: 'var(--text)' }}
+          style={{
+            margin: 0,
+            fontSize: 'var(--fs-sm)',
+            whiteSpace: 'pre-wrap',
+            color: 'var(--text)',
+          }}
         >
           {result.sample.text}
         </pre>
@@ -37,7 +50,12 @@ export function ModelTestPanel({ result }: { result: ModelTestResult }) {
         <img
           src={result.sample.url}
           alt={t('models.test.sample')}
-          style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 'var(--r-md)', objectFit: 'contain' }}
+          style={{
+            maxWidth: '100%',
+            maxHeight: 160,
+            borderRadius: 'var(--r-md)',
+            objectFit: 'contain',
+          }}
         />
       )}
 

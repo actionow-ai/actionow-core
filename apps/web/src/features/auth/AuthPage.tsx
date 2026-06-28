@@ -41,7 +41,13 @@ function BrandPanel() {
       <h1
         data-reveal
         className="headline-nowrap"
-        style={{ fontSize: 'var(--fs-h1)', fontWeight: 850, letterSpacing: '-0.035em', lineHeight: 1.04, margin: 0 }}
+        style={{
+          fontSize: 'var(--fs-h1)',
+          fontWeight: 'var(--fw-display)',
+          letterSpacing: '-0.035em',
+          lineHeight: 1.04,
+          margin: 0,
+        }}
       >
         {t('landing:hero.title1')}
         <FlipWords
@@ -55,25 +61,79 @@ function BrandPanel() {
         />
         {t('landing:hero.title2')}
       </h1>
-      <p data-reveal style={{ fontSize: 'var(--fs-base)', lineHeight: 1.6, color: 'var(--muted)', margin: 0, maxWidth: 440 }}>
+      <p
+        data-reveal
+        style={{
+          fontSize: 'var(--fs-base)',
+          lineHeight: 1.6,
+          color: 'var(--muted)',
+          margin: 0,
+          maxWidth: 440,
+        }}
+      >
         {t('auth.brandLead')}
       </p>
 
-      <ul data-reveal style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
+      <ul
+        data-reveal
+        style={{
+          listStyle: 'none',
+          padding: 0,
+          margin: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--s-2)',
+        }}
+      >
         {bullets.map((b) => (
-          <li key={b} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 'var(--fs-sm)', color: 'var(--text)' }}>
-            <CheckCircleIcon size={17} weight="fill" style={{ color: 'var(--accent)', flexShrink: 0 }} />
+          <li
+            key={b}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              fontSize: 'var(--fs-sm)',
+              color: 'var(--text)',
+            }}
+          >
+            <CheckCircleIcon
+              size={17}
+              weight="fill"
+              style={{ color: 'var(--accent)', flexShrink: 0 }}
+            />
             {t(b)}
           </li>
         ))}
       </ul>
 
       {/* live mini console — what you're signing into */}
-      <div data-reveal className="glass" style={{ borderRadius: 'var(--r-lg)', padding: 'var(--s-4) var(--s-5)', maxWidth: 420 }}>
-        <div style={{ fontSize: 'var(--fs-micro)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--faint)', marginBottom: 'var(--s-3)' }}>
+      <div
+        data-reveal
+        className="glass"
+        style={{ borderRadius: 'var(--r-lg)', padding: 'var(--s-4) var(--s-5)', maxWidth: 420 }}
+      >
+        <div
+          style={{
+            fontSize: 'var(--fs-micro)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            color: 'var(--faint)',
+            marginBottom: 'var(--s-3)',
+          }}
+        >
           {t('landing:live.logTitle')}
         </div>
-        <div className="mono" style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 'var(--fs-sm)', lineHeight: 1.5, color: 'var(--log-ok)' }}>
+        <div
+          className="mono"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 5,
+            fontSize: 'var(--fs-sm)',
+            lineHeight: 1.5,
+            color: 'var(--log-ok)',
+          }}
+        >
           {LOG.map((l) => (
             <span data-log key={l} style={{ whiteSpace: 'nowrap' }}>
               <span style={{ color: 'var(--faint)' }}>POST </span>
@@ -129,7 +189,13 @@ export function AuthPage() {
         gsap.fromTo(
           el.querySelectorAll('[data-log]'),
           { opacity: 0.25 },
-          { opacity: 1, duration: DUR.base, ease: 'none', delay: 0.5, stagger: { each: 0.45, repeat: -1, yoyo: true, repeatDelay: 1.4 } },
+          {
+            opacity: 1,
+            duration: DUR.base,
+            ease: 'none',
+            delay: 0.5,
+            stagger: { each: 0.45, repeat: -1, yoyo: true, repeatDelay: 1.4 },
+          },
         );
       });
     },
@@ -149,7 +215,11 @@ export function AuthPage() {
       if (!body) return;
       const mm = gsap.matchMedia();
       mm.add('(prefers-reduced-motion: no-preference)', () => {
-        gsap.fromTo(body, { opacity: 0.4, y: 6 }, { opacity: 1, y: 0, duration: DUR.base, ease: EASE.out });
+        gsap.fromTo(
+          body,
+          { opacity: 0.4, y: 6 },
+          { opacity: 1, y: 0, duration: DUR.base, ease: EASE.out },
+        );
       });
     },
     { scope: cardRef, dependencies: [mode] },
@@ -166,7 +236,11 @@ export function AuthPage() {
     const styles = getComputedStyle(card);
     const fail = styles.getPropertyValue('--fail').trim();
     const rest = styles.getPropertyValue('--glass-bd').trim();
-    gsap.fromTo(card, { borderColor: fail }, { borderColor: rest, duration: DUR.slower, ease: EASE.out, clearProps: 'borderColor' });
+    gsap.fromTo(
+      card,
+      { borderColor: fail },
+      { borderColor: rest, duration: DUR.slower, ease: EASE.out, clearProps: 'borderColor' },
+    );
   };
 
   // Brief success scale on the submit button before navigating. Resolves when
@@ -174,9 +248,21 @@ export function AuthPage() {
   // no-op (instant resolve) under reduced-motion.
   const successCue = (): Promise<void> => {
     const btn = submitRef.current;
-    if (!btn || !window.matchMedia('(prefers-reduced-motion: no-preference)').matches) return Promise.resolve();
+    if (!btn || !window.matchMedia('(prefers-reduced-motion: no-preference)').matches)
+      return Promise.resolve();
     return new Promise<void>((resolve) => {
-      gsap.fromTo(btn, { scale: 1 }, { scale: 1.04, duration: DUR.instant, ease: EASE.out, yoyo: true, repeat: 1, onComplete: resolve });
+      gsap.fromTo(
+        btn,
+        { scale: 1 },
+        {
+          scale: 1.04,
+          duration: DUR.instant,
+          ease: EASE.out,
+          yoyo: true,
+          repeat: 1,
+          onComplete: resolve,
+        },
+      );
     });
   };
 
@@ -185,7 +271,8 @@ export function AuthPage() {
     setBusy(true);
     setAuthError(null);
     try {
-      const user = mode === 'login' ? await login(email, password) : await register(email, password);
+      const user =
+        mode === 'login' ? await login(email, password) : await register(email, password);
       toast(mode === 'register' ? t('auth.registered') : t('auth.loggedIn'));
       await successCue();
       void navigate(user.role === 'admin' ? '/console/dashboard' : '/app', { replace: true });
@@ -222,7 +309,13 @@ export function AuthPage() {
           void submit();
         }}
         className="glass auth-form"
-        style={{ padding: 'var(--s-6)', borderRadius: 'var(--r-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}
+        style={{
+          padding: 'var(--s-6)',
+          borderRadius: 'var(--r-lg)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--s-4)',
+        }}
       >
         {!isDesktop && <Logo size={28} />}
 
@@ -230,6 +323,7 @@ export function AuthPage() {
             design's `.seg` hugs its content rather than stretching the row) */}
         <div style={{ alignSelf: 'center' }}>
           <SegmentedControl
+            ariaLabel={t('auth.modeSwitch')}
             value={mode}
             onChange={(v) => {
               setMode(v as Mode);
@@ -287,7 +381,15 @@ export function AuthPage() {
 
           {config.oauthEnabled && (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)', color: 'var(--faint)', fontSize: 'var(--fs-caption)' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--s-3)',
+                  color: 'var(--faint)',
+                  fontSize: 'var(--fs-caption)',
+                }}
+              >
                 <span style={{ flex: 1, height: 1, background: 'var(--panel-bd)' }} />
                 {t('auth.or')}
                 <span style={{ flex: 1, height: 1, background: 'var(--panel-bd)' }} />
@@ -315,7 +417,16 @@ export function AuthPage() {
   return (
     <>
       <AppBackground grid />
-      <div style={{ position: 'absolute', top: 'var(--s-4)', right: 'var(--s-4)', zIndex: 2, display: 'flex', gap: 'var(--s-2)' }}>
+      <div
+        style={{
+          position: 'absolute',
+          top: 'var(--s-4)',
+          right: 'var(--s-4)',
+          zIndex: 2,
+          display: 'flex',
+          gap: 'var(--s-2)',
+        }}
+      >
         <LanguageSwitch />
         <ThemeToggle />
       </div>

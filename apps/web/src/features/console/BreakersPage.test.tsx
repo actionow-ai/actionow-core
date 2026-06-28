@@ -73,7 +73,7 @@ describe('BreakersPage (弹性2.0)', () => {
     const confirms = screen.getAllByRole('button', {
       name: i18n.t('console:breakers.reset.action'),
     });
-    await user.click(confirms[confirms.length - 1]);
+    await user.click(confirms[confirms.length - 1]!);
 
     expect(mockApi.resetBreaker).toHaveBeenCalledWith('c1', 'gpt-4o');
   });

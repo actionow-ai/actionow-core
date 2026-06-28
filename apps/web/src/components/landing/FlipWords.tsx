@@ -9,7 +9,15 @@ import { DUR, EASE } from '../../lib/motion/tokens';
  * GSAP-driven). Autonomous, so it stops under prefers-reduced-motion (shows the
  * first word). Drives textContent directly to avoid re-rendering the tree.
  */
-export function FlipWords({ words, className, style }: { words: string[]; className?: string; style?: CSSProperties }) {
+export function FlipWords({
+  words,
+  className,
+  style,
+}: {
+  words: string[];
+  className?: string;
+  style?: CSSProperties;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
 
   useGSAP(
@@ -17,7 +25,7 @@ export function FlipWords({ words, className, style }: { words: string[]; classN
       const el = ref.current;
       if (!el || words.length === 0) return;
       // First word is always shown (also the reduced-motion end state).
-      el.textContent = words[0];
+      el.textContent = words[0] ?? '';
       if (words.length < 2) return;
 
       const mm = gsap.matchMedia();
@@ -33,7 +41,7 @@ export function FlipWords({ words, className, style }: { words: string[]; classN
             ease: EASE.in,
             onComplete: () => {
               idx = (idx + 1) % words.length;
-              el.textContent = words[idx];
+              el.textContent = words[idx] ?? '';
             },
           }).fromTo(
             el,

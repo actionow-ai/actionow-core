@@ -165,8 +165,17 @@ export function DifyImportPage() {
         actionsWidth="92px"
         rowActions={(r) => (
           <>
-            <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={() => setEditing(r)} />
-            <RowAction icon={TrashIcon} label={t('common.delete')} danger onClick={() => setDeleting(r)} />
+            <RowAction
+              icon={PencilSimpleIcon}
+              label={t('common.edit')}
+              onClick={() => setEditing(r)}
+            />
+            <RowAction
+              icon={TrashIcon}
+              label={t('common.delete')}
+              danger
+              onClick={() => setDeleting(r)}
+            />
           </>
         )}
       />

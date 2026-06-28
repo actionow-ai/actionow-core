@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-import { FormField, useFieldId } from './FormField';
+import { fieldAria, FormField, useFieldId } from './FormField';
 
 export type JsonResult = { ok: true; value: unknown } | { ok: false; error: string };
 
@@ -51,14 +51,21 @@ export function JsonField({
 }) {
   const fieldId = useFieldId(id);
   return (
-    <FormField id={fieldId} label={label} error={error} hint={hint} tooltip={tooltip} required={required}>
+    <FormField
+      id={fieldId}
+      label={label}
+      error={error}
+      hint={hint}
+      tooltip={tooltip}
+      required={required}
+    >
       <textarea
         id={fieldId}
         value={value}
         spellCheck={false}
         placeholder={placeholder}
         required={required}
-        aria-invalid={error !== undefined ? true : undefined}
+        {...fieldAria(fieldId, error, hint)}
         onChange={(e) => onChange(e.target.value)}
         className="field"
         style={taStyle}

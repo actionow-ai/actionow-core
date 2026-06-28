@@ -82,7 +82,10 @@ export function ChannelCard({
         >
           {channel.provider_type}
         </span>
-        <StatusBadge tone={statusTone(channel.status)} label={t('status.' + channel.status, channel.status)} />
+        <StatusBadge
+          tone={statusTone(channel.status)}
+          label={t('status.' + channel.status, channel.status)}
+        />
       </div>
       <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)', marginTop: 4 }}>
         {hostOf(channel.endpoint)}
@@ -97,18 +100,29 @@ export function ChannelCard({
         }}
       >
         <span className="chip">{t('resources.cards.modelsN', { n: channel.model_count })}</span>
-        <span className="chip">{t('channels.cols.weight')} {channel.weight}</span>
+        <span className="chip">
+          {t('channels.cols.weight')} {channel.weight}
+        </span>
         {channel.tags.slice(0, 3).map((tg) => (
           <span key={tg} className="chip" style={{ fontSize: 'var(--fs-caption)' }}>
             {tg}
           </span>
         ))}
         <span style={{ flex: 1 }} />
-        <span onClick={stop} onKeyDown={stop} role="presentation" style={{ display: 'inline-flex', gap: 'var(--s-1)' }}>
+        <span
+          onClick={stop}
+          onKeyDown={stop}
+          role="presentation"
+          style={{ display: 'inline-flex', gap: 'var(--s-1)' }}
+        >
           <RowAction icon={PencilSimpleIcon} label={t('common.edit')} onClick={onEdit} />
           <RowAction
             icon={channel.status === 'active' ? PauseIcon : PlayIcon}
-            label={channel.status === 'active' ? t('channels.actions.disable') : t('channels.actions.enable')}
+            label={
+              channel.status === 'active'
+                ? t('channels.actions.disable')
+                : t('channels.actions.enable')
+            }
             loading={toggling}
             onClick={onToggle}
           />
@@ -118,7 +132,12 @@ export function ChannelCard({
             loading={syncing}
             onClick={onSync}
           />
-          <RowAction icon={TrashIcon} label={t('channels.actions.delete')} danger onClick={onDelete} />
+          <RowAction
+            icon={TrashIcon}
+            label={t('channels.actions.delete')}
+            danger
+            onClick={onDelete}
+          />
         </span>
       </div>
     </div>

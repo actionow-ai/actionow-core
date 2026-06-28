@@ -46,7 +46,16 @@ export function Pill({
       }}
     >
       {dot && (
-        <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }} />
+        <span
+          aria-hidden="true"
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: 'currentColor',
+            flexShrink: 0,
+          }}
+        />
       )}
       {children}
     </span>

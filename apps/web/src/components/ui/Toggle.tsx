@@ -57,7 +57,7 @@ export function Toggle({
             width: 20,
             height: 20,
             borderRadius: '50%',
-            background: '#fff',
+            background: 'var(--switch-thumb)',
             transform: checked ? 'translateX(20px)' : 'translateX(0)',
             transition: 'transform var(--dur-base) var(--ease-out)',
             boxShadow: 'var(--shadow-lift)',

@@ -1,5 +1,5 @@
 import { FIELD_INPUT_BASE } from './fieldStyles';
-import { FormField, useFieldId } from './FormField';
+import { fieldAria, FormField, useFieldId } from './FormField';
 
 /**
  * A single-line text input on the unified field contract: `onChange(value)`
@@ -40,7 +40,14 @@ export function TextField({
 }) {
   const fieldId = useFieldId(id);
   return (
-    <FormField id={fieldId} label={label} error={error} hint={hint} tooltip={tooltip} required={required}>
+    <FormField
+      id={fieldId}
+      label={label}
+      error={error}
+      hint={hint}
+      tooltip={tooltip}
+      required={required}
+    >
       <input
         id={fieldId}
         type={type}
@@ -51,7 +58,7 @@ export function TextField({
         required={required}
         minLength={minLength}
         maxLength={maxLength}
-        aria-invalid={error !== undefined ? true : undefined}
+        {...fieldAria(fieldId, error, hint)}
         onChange={(e) => onChange(e.target.value)}
         className="field"
         style={FIELD_INPUT_BASE}

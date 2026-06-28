@@ -34,7 +34,9 @@ beforeEach(() => {
 
 describe('AuthPage hardening adapts', () => {
   it('on a 429 login throttle, disables submit and shows a retry countdown from retryAfterMs', async () => {
-    auth.login.mockRejectedValueOnce(new ApiError('rate_limited', 'too many requests', 429, true, 3000));
+    auth.login.mockRejectedValueOnce(
+      new ApiError('rate_limited', 'too many requests', 429, true, 3000),
+    );
     const user = userEvent.setup();
     const { container } = renderAuth();
 
@@ -55,7 +57,7 @@ describe('AuthPage hardening adapts', () => {
     expect(loginPw).not.toHaveAttribute('minLength');
 
     // Switch the segmented control to register (radios: [0]=login, [1]=register).
-    await user.click(screen.getAllByRole('radio')[1]);
+    await user.click(screen.getAllByRole('radio')[1]!);
 
     const regPw = container.querySelector('input[type="password"]')!;
     expect(regPw).toHaveAttribute('minLength', '8');

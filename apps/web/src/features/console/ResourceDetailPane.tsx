@@ -97,7 +97,14 @@ export function ResourceDetailPane({ id }: { id: string }) {
   // Bulk enable/disable via ONE `/admin/channels/bulk` call (partial success), not
   // N parallel single-row PATCHes. The result toast reports succeeded/failed counts.
   const bulkSetStatus = useMutation({
-    mutationFn: ({ rows, action }: { rows: ChannelView[]; action: 'enable' | 'disable'; clear: () => void }) =>
+    mutationFn: ({
+      rows,
+      action,
+    }: {
+      rows: ChannelView[];
+      action: 'enable' | 'disable';
+      clear: () => void;
+    }) =>
       api.bulkChannels(
         action,
         rows.map((c) => c.id),
@@ -226,14 +233,21 @@ export function ResourceDetailPane({ id }: { id: string }) {
       width: '170px',
       noClip: true,
       cell: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}>
+        <span
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}
+        >
           <ProviderIcon provider={r.provider_type} size={18} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.provider_type}</span>
         </span>
       ),
     },
     // endpoint is the elastic column (long URLs); the rest are width-capped.
-    { key: 'endpoint', header: t('channels.cols.endpoint'), grow: true, cell: (r) => r.endpoint ?? '—' },
+    {
+      key: 'endpoint',
+      header: t('channels.cols.endpoint'),
+      grow: true,
+      cell: (r) => r.endpoint ?? '—',
+    },
     { key: 'model', header: t('channels.cols.model'), width: '150px', cell: (r) => r.model ?? '—' },
     {
       key: 'weight',
@@ -523,7 +537,8 @@ export function ResourceDetailPane({ id }: { id: string }) {
                 setChOpen(true);
               }}
             >
-              <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('resources.detail.addChannel')}
+              <PlusIcon size={14} weight="bold" aria-hidden="true" />{' '}
+              {t('resources.detail.addChannel')}
             </Button>
             <QueryBoundary query={channels}>
               {channelRows.length === 0 ? (
@@ -595,10 +610,14 @@ export function ResourceDetailPane({ id }: { id: string }) {
             options={DETAIL_TABS.map((tb) => ({ value: tb, label: t(`resources.sections.${tb}`) }))}
           />
           {dt === 'channels' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>{channelsPanel}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+              {channelsPanel}
+            </div>
           )}
           {dt === 'pricing' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>{pricingPanel}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+              {pricingPanel}
+            </div>
           )}
           {dt === 'models' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
@@ -714,7 +733,11 @@ export function ResourceDetailPane({ id }: { id: string }) {
                       key={m.id}
                       type="button"
                       className="entity-card is-clickable"
-                      style={{ textAlign: 'left', padding: 'var(--s-3) var(--s-4)', cursor: 'pointer' }}
+                      style={{
+                        textAlign: 'left',
+                        padding: 'var(--s-3) var(--s-4)',
+                        cursor: 'pointer',
+                      }}
                       onClick={() => {
                         linkModel.mutate(
                           { channelId: selectedChannel.id, modelId: m.id },

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { IconPicker } from '../../components/data/IconPicker';
@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { ChipsField } from '../../components/ui/ChipsField';
 import { ComboboxField } from '../../components/ui/ComboboxField';
 import { Drawer } from '../../components/ui/Drawer';
+import { FormErrorSummary } from '../../components/ui/FormErrorSummary';
 import { KeyValueEditor } from '../../components/ui/KeyValueEditor';
 import { type KvRow, objectFromRows, rowsFromObject } from '../../components/ui/kvRows';
 import { NumberField } from '../../components/ui/NumberField';
@@ -129,7 +130,10 @@ export function ChannelEditor({
   });
   const proxyOptions = [
     { value: '', label: t('channels.form.proxyNone') },
-    ...(proxies.data ?? []).map((p) => ({ value: p.id, label: `${p.name} · ${p.scheme} ${p.host}` })),
+    ...(proxies.data ?? []).map((p) => ({
+      value: p.id,
+      label: `${p.name} · ${p.scheme} ${p.host}`,
+    })),
   ];
 
   const [providerType, setProviderType] = useState(channel?.provider_type ?? '');
@@ -170,7 +174,8 @@ export function ChannelEditor({
     if (editing || resourceId !== undefined || selectedPlugin === undefined) return;
     const derived = PROVIDER_BY_PLUGIN_SLUG[selectedPlugin.slug];
     if (derived) setProviderType(derived);
-    if (selectedPlugin.modalities.length > 0) setModality(selectedPlugin.modalities[0]);
+    const firstModality = selectedPlugin.modalities[0];
+    if (firstModality !== undefined) setModality(firstModality);
   }, [pluginId, plugins.data, editing, resourceId, selectedPlugin]);
 
   const [credOpen, setCredOpen] = useState(false);
@@ -259,17 +264,40 @@ export function ChannelEditor({
     onError: mutationError(t),
   });
 
+  // A create needs a resolved provider type (the upstream adapter). Rather than a
+  // silently-disabled Save (whose reason is invisible to the user / a screen
+  // reader), the button stays enabled; a Save attempt with no provider flags the
+  // field inline (the ComboboxField error is wired to aria-describedby).
+  const [attempted, setAttempted] = useState(false);
+  const canSave = editing || providerType.trim() !== '';
+  // Stable id so a failed submit can move keyboard focus to the offending field.
+  const providerFieldId = useId();
+  const formErrors = attempted && !canSave ? [t('channels.form.providerRequired')] : [];
+
   return (
     <Drawer
       open={open}
       title={t(editing ? 'channels.editTitle' : 'channels.addTitle')}
       onClose={onClose}
       footer={
-        <Button variant="cta" onClick={() => save.mutate()} loading={save.isPending}>
+        <Button
+          variant="cta"
+          onClick={() => {
+            if (!canSave) {
+              setAttempted(true);
+              // Jump focus to the first invalid field; the live summary announces it.
+              document.getElementById(providerFieldId)?.focus();
+              return;
+            }
+            save.mutate();
+          }}
+          loading={save.isPending}
+        >
           {t('channels.save')}
         </Button>
       }
     >
+      <FormErrorSummary errors={formErrors} />
       <SelectField
         label={t('channels.form.plugin')}
         tooltip={t('channels.tip.plugin')}
@@ -300,8 +328,10 @@ export function ChannelEditor({
         />
       )}
       <ComboboxField
+        id={providerFieldId}
         label={t('channels.form.provider')}
         tooltip={t('channels.tip.provider')}
+        error={attempted && !canSave ? t('channels.form.providerRequired') : undefined}
         hint={editing ? t('channels.tip.providerFixed') : t('channels.tip.providerAuto')}
         options={providerOptions}
         value={providerType}

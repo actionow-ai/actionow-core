@@ -24,7 +24,10 @@ function stateTone(state: BreakerView['state']): PillTone {
 }
 
 /** Relative remaining cooldown ("in 42s" / "ready") for an open breaker; em-dash when none. */
-function cooldownLabel(iso: string | null, t: (k: string, o?: Record<string, unknown>) => string): string {
+function cooldownLabel(
+  iso: string | null,
+  t: (k: string, o?: Record<string, unknown>) => string,
+): string {
   if (iso === null) return '—';
   const ms = new Date(iso).getTime() - Date.now();
   if (ms <= 0) return t('breakers.cooldown.ready');
@@ -56,7 +59,7 @@ export function BreakersPage() {
   const api = useAdminApi();
   const qc = useQueryClient();
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: qk.breakers(),
     queryFn: api.listBreakers,
     refetchInterval: 10_000, // live-ish: a tripped/recovered breaker shows up within 10s
@@ -162,6 +165,8 @@ export function BreakersPage() {
         rows={data ?? []}
         rowKey={(r) => `${r.channel_id}:${r.model}`}
         loading={isLoading}
+        error={isError}
+        onRetry={() => void refetch()}
         empty={t('breakers.empty')}
         searchable
         pageSize={20}

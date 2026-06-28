@@ -51,7 +51,7 @@ export function useFacets<T>(items: T[], defs: FacetDef<T>[]): Facets<T> {
     defs.every((d) => {
       // Index access is typed non-undefined (noUncheckedIndexedAccess off) but a
       // never-toggled key is absent at runtime — cast so the guard is real.
-      const sel = selected[d.key] as Set<string> | undefined;
+      const sel = selected[d.key];
       if (sel === undefined || sel.size === 0) return true;
       return d.values(item).some((v) => sel.has(v));
     });

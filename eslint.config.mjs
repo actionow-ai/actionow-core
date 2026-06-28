@@ -324,6 +324,18 @@ export default tseslint.config(
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-confusing-void-expression': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
+      // A <DataTable> that takes `loading` MUST also take `error`: otherwise a
+      // failed (or failed-on-refetch) query renders an empty table instead of a
+      // retry state. Pass error={query.isError} + onRetry={() => void refetch()}.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "JSXOpeningElement[name.name='DataTable']:has(JSXAttribute[name.name='loading']):not(:has(JSXAttribute[name.name='error']))",
+          message:
+            'A <DataTable> with `loading` must also pass `error` (wire it to the query’s isError) so a failed fetch surfaces a retry state instead of an empty table. Add error={query.isError} + onRetry={() => void refetch()}.',
+        },
+      ],
     },
   },
   // Test setup / polyfills (e.g. a jsdom matchMedia shim) legitimately use empty
