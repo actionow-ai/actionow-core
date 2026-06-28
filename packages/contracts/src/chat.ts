@@ -116,3 +116,55 @@ export type ChatStreamEvent =
   | { type: 'stop'; stopReason: StopReason }
   | { type: 'done' }
   | { type: 'error'; error: UnifiedError };
+
+// --- Embeddings (OpenAI-compatible /v1/embeddings) -------------------------
+
+/**
+ * Wire request body for `POST /v1/embeddings` (OpenAI-compatible). `input` is a
+ * single string OR a string array (the OpenAI contract also admits token-id
+ * arrays, which this relay does not surface). The relay resolves `model` → a
+ * channel → the provider's `/v1/embeddings`, and bills per INPUT token only.
+ */
+export const embeddingsRequestSchema = z.object({
+  model: z.string(),
+  input: z.union([z.string(), z.array(z.string())]),
+  /** OpenAI `encoding_format`; passed through to the upstream verbatim when set. */
+  encodingFormat: z.enum(['float', 'base64']).optional(),
+  /** OpenAI `dimensions` (output vector length); passed through when set. */
+  dimensions: z.number().int().positive().optional(),
+  /** OpenAI `user` opaque end-user identifier; passed through when set. */
+  user: z.string().optional(),
+});
+export type EmbeddingsRequest = z.infer<typeof embeddingsRequestSchema>;
+
+/** One embedding entry in the OpenAI `data[]` array. */
+export const embeddingSchema = z.object({
+  object: z.literal('embedding'),
+  index: z.number().int().nonnegative(),
+  embedding: z.array(z.number()),
+});
+export type Embedding = z.infer<typeof embeddingSchema>;
+
+/** OpenAI embeddings response shape. `usage` carries INPUT tokens only. */
+export const embeddingsResponseSchema = z.object({
+  object: z.literal('list'),
+  data: z.array(embeddingSchema),
+  model: z.string(),
+  usage: z.object({
+    prompt_tokens: z.number().int().nonnegative(),
+    total_tokens: z.number().int().nonnegative(),
+  }),
+});
+export type EmbeddingsResponse = z.infer<typeof embeddingsResponseSchema>;
+
+/**
+ * The dialect-neutral embeddings result a {@link ProviderAdapter}'s `embed`
+ * returns: one vector per input string (`vectors[i]` ↔ `input[i]`) plus the
+ * input-token usage (camelCase, mirroring {@link ChatUsage}; embeddings have no
+ * output tokens). The relay renders this back to the OpenAI `data[]`/`usage`
+ * wire shape and meters the settle off `inputTokens`.
+ */
+export interface EmbeddingsResult {
+  vectors: number[][];
+  usage: { inputTokens: number };
+}

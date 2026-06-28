@@ -4,6 +4,8 @@ import type {
   ChatResponse,
   ChatStreamEvent,
   ContentPart,
+  EmbeddingsRequest,
+  EmbeddingsResult,
   Message,
   ProviderModel,
   StopReason,
@@ -236,6 +238,13 @@ function buildMessages(inputs: Record<string, unknown>): ChatMessage[] {
   });
 }
 
+/** Coerce an OpenAI `data[].embedding` value into a `number[]` (non-numbers dropped). */
+function parseEmbedding(raw: unknown): number[] {
+  const arr = asArray(raw);
+  if (arr === undefined) return [];
+  return arr.map((v) => asNumber(v)).filter((n): n is number => n !== undefined);
+}
+
 /** Extract `{input_tokens, output_tokens}` from an OpenAI `usage` block. */
 function extractUsage(raw: unknown): UsageVector {
   const usage = asRecord(asRecord(raw)?.usage);
@@ -395,6 +404,54 @@ export const openaiAdapter: ProviderAdapter = {
         inputTokens: asNumber(usage?.prompt_tokens) ?? 0,
         outputTokens: asNumber(usage?.completion_tokens) ?? 0,
       },
+    };
+  },
+
+  async embed(req: EmbeddingsRequest, ctx: AdapterContext): Promise<EmbeddingsResult> {
+    const endpoint = ctx.endpoint ?? DEFAULT_ENDPOINT;
+    const body: Record<string, unknown> = {
+      model: ctx.model ?? req.model,
+      input: req.input,
+    };
+    if (req.encodingFormat !== undefined) body.encoding_format = req.encodingFormat;
+    if (req.dimensions !== undefined) body.dimensions = req.dimensions;
+    if (req.user !== undefined) body.user = req.user;
+
+    const res = await ctx.http.request({
+      method: 'POST',
+      url: `${endpoint}/embeddings`,
+      headers: { Authorization: `Bearer ${ctx.apiKey ?? ''}` },
+      body,
+      ...withProxy(ctx),
+    });
+
+    if (!res.ok) {
+      throw new AdapterError(mapErrorBody(res.status, res.body));
+    }
+
+    const data = asArray(asRecord(res.body)?.data);
+    if (data === undefined) {
+      throw new AdapterError({
+        code: 'upstream_error',
+        message: 'openai embeddings response did not contain a data array',
+        upstream: { provider: PROVIDER },
+        retryable: false,
+      });
+    }
+    // Preserve provider order by `index` (defaults to position) so vectors[i] ↔ input[i].
+    const vectors: number[][] = data
+      .map((entry) => {
+        const rec = asRecord(entry);
+        const index = asNumber(rec?.index) ?? 0;
+        return { index, embedding: parseEmbedding(rec?.embedding) };
+      })
+      .sort((a, b) => a.index - b.index)
+      .map((e) => e.embedding);
+
+    const usage = asRecord(asRecord(res.body)?.usage);
+    return {
+      vectors,
+      usage: { inputTokens: asNumber(usage?.prompt_tokens) ?? 0 },
     };
   },
 
