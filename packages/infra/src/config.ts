@@ -8,12 +8,25 @@ const DEV_ADMIN_JWT_SECRET = 'dev-admin-jwt-secret-do-not-use-in-prod';
 /** Default ceiling on a presigned upload's declared size: 100 MiB. */
 const DEFAULT_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
+/**
+ * Default port for the worker's HTTP liveness server when `WORKER_HEALTH_PORT`
+ * is unset. Applied at the worker bootstrap (not as a zod `.default`, to keep
+ * the inferred `AppEnv` field optional).
+ */
+export const WORKER_HEALTH_PORT_DEFAULT = 3001;
+
 const EnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     DATABASE_URL: z.string().url(),
     REDIS_URL: z.string().url(),
     API_PORT: z.coerce.number().int().positive().default(3000),
+    // Port the headless worker's minimal HTTP liveness server binds (GET
+    // /health → 200 once the BullMQ workers are running). Optional and left
+    // un-defaulted here so adding it does not turn the inferred `AppEnv` field
+    // required (which would force every explicit env literal to set it); the
+    // worker bootstrap applies the `WORKER_HEALTH_PORT_DEFAULT` fallback.
+    WORKER_HEALTH_PORT: z.coerce.number().int().positive().optional(),
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
     // Dev-only fallback tenant id when no `x-tenant-id` header is supplied. The
     // ApiKeyGuard honors this only outside production (real keys are required in
