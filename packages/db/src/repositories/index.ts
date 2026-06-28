@@ -376,6 +376,7 @@ export {
   type RefundStatus,
 } from './refund.js';
 export {
+  deleteRelayTracesOlderThan,
   insertRelayTrace,
   type InsertRelayTraceInput,
   listRelayTraces,

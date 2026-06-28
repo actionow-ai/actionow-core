@@ -4,5 +4,6 @@ export const QUEUE_NAMES = [
   'hold-reaper',
   'token-refresh',
   'poll-upstream',
+  'relay-trace-reaper',
 ] as const;
 export type QueueName = (typeof QUEUE_NAMES)[number];

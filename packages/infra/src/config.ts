@@ -138,6 +138,11 @@ const EnvSchema = z
     // sliced to the cap and the row's `truncated` flag is set — a safety valve so
     // a pathological payload can't bloat a `relay_trace` row unbounded.
     RELAY_TRACE_MAX_BYTES: z.coerce.number().int().positive().default(1_000_000),
+    // Retention for the unbounded debug `relay_trace` table: the worker's
+    // relay-trace-reaper sweep hard-deletes rows older than this many days. Unset
+    // → NO pruning (today's behavior). relay_trace is NOT system-of-record, so a
+    // short window (e.g. 7–30) keeps full request/response bodies from filling PG.
+    RELAY_TRACE_RETENTION_DAYS: z.coerce.number().int().positive().optional(),
     // SSRF opt-in for webhook `callback_url` delivery. Default falsy: a tenant-
     // supplied callback can NEVER reach a private/loopback/link-local/reserved
     // address (notably the cloud metadata IP 169.254.169.254) — the dispatcher

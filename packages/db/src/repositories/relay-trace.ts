@@ -1,5 +1,5 @@
 import type { InferSelectModel, SQL } from 'drizzle-orm';
-import { and, eq, gte, isNotNull, lte, or, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNotNull, lt, lte, or, sql } from 'drizzle-orm';
 
 import { relayTrace } from '../schema/index.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
@@ -132,4 +132,37 @@ export async function listRelayTraces(
     ...(where !== undefined ? { where } : {}),
     page,
   });
+}
+
+/**
+ * Retention sweep: hard-DELETE `relay_trace` rows older than `cutoff`
+ * (`created_at < cutoff`), returning the number removed. relay_trace is a DEBUG
+ * audit table (NOT system-of-record) with no append-only trigger, so a time-based
+ * prune is safe and keeps its unbounded request/response-body store from filling
+ * Postgres. Deleted in id-batches (select ids `< cutoff` LIMIT, then delete by id)
+ * so the first sweep over a large backlog never holds one table-wide lock.
+ */
+export async function deleteRelayTracesOlderThan(
+  db: DbOrTx,
+  cutoff: Date,
+  batchSize = 5000,
+): Promise<number> {
+  let total = 0;
+  for (;;) {
+    const victims = await db
+      .select({ id: relayTrace.id })
+      .from(relayTrace)
+      .where(lt(relayTrace.createdAt, cutoff))
+      .limit(batchSize);
+    if (victims.length === 0) break;
+    await db.delete(relayTrace).where(
+      inArray(
+        relayTrace.id,
+        victims.map((v) => v.id),
+      ),
+    );
+    total += victims.length;
+    if (victims.length < batchSize) break;
+  }
+  return total;
 }
