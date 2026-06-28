@@ -1,0 +1,19 @@
+{
+  "name": "@actionow/example-quickstart",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Runnable, typed example of a thin app backend integrating against Actionow core.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@actionow/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
