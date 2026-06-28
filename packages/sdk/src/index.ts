@@ -5,6 +5,25 @@ import type { components, paths } from './generated/openapi.js';
 export type { components, paths };
 
 /**
+ * Ergonomic data-plane helpers (additive to the generated typed client). They
+ * wrap the few flows where a raw `openapi-fetch` call is awkward: the async-job
+ * submit→poll loop, SSE streaming, and inbound-webhook signature verification.
+ */
+export { consumeSse, SSE_DONE, type SseFrame } from './sse.js';
+export {
+  ActionowApiError,
+  isTerminalJobStatus,
+  JobTimeoutError,
+  submitAndWait,
+  type SubmitAndWaitOptions,
+} from './submit-and-wait.js';
+export {
+  verifyWebhookSignature,
+  WEBHOOK_SIGNATURE_HEADER,
+  type WebhookVerification,
+} from './webhook.js';
+
+/**
  * The contract model types — the SAME single source the backend `.parse()`s and
  * the frontend imports (via @actionow/contracts), here surfaced from the
  * generated OpenAPI types so an external SDK consumer gets identical shapes.

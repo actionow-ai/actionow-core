@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    // The example lives outside the pnpm workspace globs, so map `@actionow/sdk`
+    // straight to its source for a standalone typecheck (no install/build step).
+    "baseUrl": ".",
+    "paths": {
+      "@actionow/sdk": ["../../packages/sdk/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}
