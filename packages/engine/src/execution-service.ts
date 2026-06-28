@@ -11,8 +11,12 @@ import type {
   ExecMode,
   HttpClient,
   IoSchema,
+  ModerationRequest,
+  ModerationResult,
   PluginManifest,
   PricebookEntry,
+  RerankRequest,
+  RerankResult,
   StreamEvent,
   SubmitResult,
   SyncResult,
@@ -238,6 +242,24 @@ export interface ChatRunOutcome {
 export interface EmbedRunOutcome {
   jobId: string;
   result: EmbeddingsResult;
+  cost: RunCost;
+  /** The channel/provider that ultimately served (after any cross-provider failover). */
+  servedBy?: { channelId: string; providerType: string; model?: string };
+}
+
+/** The result of a blocking IR {@link runRerank}: the job id, rerank result, cost. */
+export interface RerankRunOutcome {
+  jobId: string;
+  result: RerankResult;
+  cost: RunCost;
+  /** The channel/provider that ultimately served (after any cross-provider failover). */
+  servedBy?: { channelId: string; providerType: string; model?: string };
+}
+
+/** The result of a blocking IR {@link runModerate}: the job id, moderation result, cost. */
+export interface ModerateRunOutcome {
+  jobId: string;
+  result: ModerationResult;
   cost: RunCost;
   /** The channel/provider that ultimately served (after any cross-provider failover). */
   servedBy?: { channelId: string; providerType: string; model?: string };
@@ -714,6 +736,227 @@ export class ExecutionService {
     return out;
   }
 
+  /**
+   * Blocking IR rerank run. Mirrors {@link runEmbed} exactly — idempotency replay
+   * then {@link executeRerank}. Billed per INPUT token only (the model_token
+   * pricebook's `outputPrice` never fires; the usage vector carries no
+   * `output_tokens`).
+   */
+  async runRerank(req: RunRequest): Promise<RerankRunOutcome> {
+    const { db } = this.deps;
+
+    if (req.idempotencyKey !== undefined) {
+      const probeJobId = randomUUID();
+      const claim = await claimIdempotency(
+        db,
+        req.tenantId,
+        req.idempotencyKey,
+        probeJobId,
+        req.subjectId ?? null,
+      );
+      if (!claim.claimed) {
+        const existing =
+          claim.existingJobId === undefined ? undefined : await getJob(db, claim.existingJobId);
+        if (existing === undefined) {
+          throw engineError('internal_error', 'idempotency key claimed but job missing');
+        }
+        return this.replayRerank(existing);
+      }
+      return this.executeRerank(req, probeJobId);
+    }
+    return this.executeRerank(req, randomUUID());
+  }
+
+  /** Reconstruct a {@link RerankRunOutcome} from a settled rerank job (idempotent replay). */
+  private replayRerank(job: Job): RerankRunOutcome {
+    if (job.status !== 'succeeded') {
+      throw engineError('rate_limited', 'idempotency key still in progress', { retryable: true });
+    }
+    const result = job.output?.[IR_KEY];
+    if (result === undefined) {
+      throw engineError('internal_error', 'replayed rerank job has no result output');
+    }
+    return {
+      jobId: job.id,
+      result: result as RerankResult,
+      cost: { credits: job.costCredits ?? 0n },
+    };
+  }
+
+  /**
+   * The blocking IR rerank body: same hold prefix as {@link executeEmbed}, then
+   * resolve the adapter per channel, call `adapter.rerank(req, ctx)`, map the
+   * input-token usage to the snake_case engine {@link UsageVector} (no
+   * `output_tokens`), and settle via `settleSync`. `jobId` is the claim-owned id.
+   */
+  private async executeRerank(req: RunRequest, jobId: string): Promise<RerankRunOutcome> {
+    const { inputs, holdAmount } = await this.validateAndHold(stripIr(req), jobId);
+    const rerankReq = readRerankIr(inputs, req.inputs);
+
+    let served: RunChannel | undefined;
+    let result: RerankResult;
+    try {
+      result = await routeBlocking(
+        {
+          db: this.deps.db,
+          now: this.deps.now,
+          rng: this.deps.rng ?? Math.random,
+          breaker: this.deps.breaker,
+        },
+        req.channels,
+        req.usageLogModel ?? '*',
+        async (channel) => {
+          const adapter = this.deps.adapters.get(channel.providerType ?? req.resource.providerType);
+          if (adapter.rerank === undefined) {
+            throw engineError(
+              'internal_error',
+              `channel adapter ${adapter.providerType} cannot rerank`,
+            );
+          }
+          const boundRerank = adapter.rerank.bind(adapter);
+          const ctx = await this.buildContext(req, channel, jobId);
+          const r = await runWithFaultPolicy(channel.faultPolicy, () => boundRerank(rerankReq, ctx));
+          served = channel;
+          return r;
+        },
+      );
+    } catch (err) {
+      await this.failBlocking(req, jobId, holdAmount, err);
+      throw toEngineError(err);
+    }
+
+    // Rerank has INPUT tokens only — no output dimension on the vector.
+    const usage: UsageVector = { input_tokens: result.usage.inputTokens };
+    const outcome = await this.settleSync(
+      req,
+      jobId,
+      holdAmount,
+      { kind: 'sync', output: { __ir: result }, usage },
+      served && servedFrom(served, served.providerType ?? req.resource.providerType),
+    );
+    const cost = outcome.status === 'succeeded' ? outcome.cost : { credits: 0n };
+    const out: RerankRunOutcome = { jobId, result, cost };
+    if (served !== undefined) {
+      const servedBy: RerankRunOutcome['servedBy'] = {
+        channelId: served.id,
+        providerType: served.providerType ?? req.resource.providerType,
+      };
+      if (served.model !== undefined) servedBy.model = served.model;
+      out.servedBy = servedBy;
+    }
+    return out;
+  }
+
+  /**
+   * Blocking IR moderation run. Mirrors {@link runEmbed} exactly — idempotency
+   * replay then {@link executeModerate}. Billed per INPUT token only.
+   */
+  async runModerate(req: RunRequest): Promise<ModerateRunOutcome> {
+    const { db } = this.deps;
+
+    if (req.idempotencyKey !== undefined) {
+      const probeJobId = randomUUID();
+      const claim = await claimIdempotency(
+        db,
+        req.tenantId,
+        req.idempotencyKey,
+        probeJobId,
+        req.subjectId ?? null,
+      );
+      if (!claim.claimed) {
+        const existing =
+          claim.existingJobId === undefined ? undefined : await getJob(db, claim.existingJobId);
+        if (existing === undefined) {
+          throw engineError('internal_error', 'idempotency key claimed but job missing');
+        }
+        return this.replayModerate(existing);
+      }
+      return this.executeModerate(req, probeJobId);
+    }
+    return this.executeModerate(req, randomUUID());
+  }
+
+  /** Reconstruct a {@link ModerateRunOutcome} from a settled moderation job (idempotent replay). */
+  private replayModerate(job: Job): ModerateRunOutcome {
+    if (job.status !== 'succeeded') {
+      throw engineError('rate_limited', 'idempotency key still in progress', { retryable: true });
+    }
+    const result = job.output?.[IR_KEY];
+    if (result === undefined) {
+      throw engineError('internal_error', 'replayed moderation job has no result output');
+    }
+    return {
+      jobId: job.id,
+      result: result as ModerationResult,
+      cost: { credits: job.costCredits ?? 0n },
+    };
+  }
+
+  /**
+   * The blocking IR moderation body: same hold prefix as {@link executeEmbed},
+   * then resolve the adapter per channel, call `adapter.moderate(req, ctx)`, map
+   * the input-token usage to the snake_case engine {@link UsageVector} (no
+   * `output_tokens`), and settle via `settleSync`. `jobId` is the claim-owned id.
+   */
+  private async executeModerate(req: RunRequest, jobId: string): Promise<ModerateRunOutcome> {
+    const { inputs, holdAmount } = await this.validateAndHold(stripIr(req), jobId);
+    const moderateReq = readModerateIr(inputs, req.inputs);
+
+    let served: RunChannel | undefined;
+    let result: ModerationResult;
+    try {
+      result = await routeBlocking(
+        {
+          db: this.deps.db,
+          now: this.deps.now,
+          rng: this.deps.rng ?? Math.random,
+          breaker: this.deps.breaker,
+        },
+        req.channels,
+        req.usageLogModel ?? '*',
+        async (channel) => {
+          const adapter = this.deps.adapters.get(channel.providerType ?? req.resource.providerType);
+          if (adapter.moderate === undefined) {
+            throw engineError(
+              'internal_error',
+              `channel adapter ${adapter.providerType} cannot moderate`,
+            );
+          }
+          const boundModerate = adapter.moderate.bind(adapter);
+          const ctx = await this.buildContext(req, channel, jobId);
+          const r = await runWithFaultPolicy(channel.faultPolicy, () =>
+            boundModerate(moderateReq, ctx),
+          );
+          served = channel;
+          return r;
+        },
+      );
+    } catch (err) {
+      await this.failBlocking(req, jobId, holdAmount, err);
+      throw toEngineError(err);
+    }
+
+    const usage: UsageVector = { input_tokens: result.usage.inputTokens };
+    const outcome = await this.settleSync(
+      req,
+      jobId,
+      holdAmount,
+      { kind: 'sync', output: { __ir: result }, usage },
+      served && servedFrom(served, served.providerType ?? req.resource.providerType),
+    );
+    const cost = outcome.status === 'succeeded' ? outcome.cost : { credits: 0n };
+    const out: ModerateRunOutcome = { jobId, result, cost };
+    if (served !== undefined) {
+      const servedBy: ModerateRunOutcome['servedBy'] = {
+        channelId: served.id,
+        providerType: served.providerType ?? req.resource.providerType,
+      };
+      if (served.model !== undefined) servedBy.model = served.model;
+      out.servedBy = servedBy;
+    }
+    return out;
+  }
+
   private async execute(req: RunRequest, jobId: string): Promise<RunOutcome> {
     const { inputs, holdAmount, job } = await this.validateAndHold(req, jobId);
 
@@ -1176,6 +1419,30 @@ function readEmbedIr(
   const ir = (original[IR_KEY] ?? validated[IR_KEY]) as EmbeddingsRequest | undefined;
   if (ir === undefined) {
     throw engineError('internal_error', 'embeddings run requires inputs.__ir');
+  }
+  return ir;
+}
+
+/** Read + assert the IR {@link RerankRequest} carried at `__ir`. */
+function readRerankIr(
+  validated: Record<string, unknown>,
+  original: Record<string, unknown>,
+): RerankRequest {
+  const ir = (original[IR_KEY] ?? validated[IR_KEY]) as RerankRequest | undefined;
+  if (ir === undefined) {
+    throw engineError('internal_error', 'rerank run requires inputs.__ir');
+  }
+  return ir;
+}
+
+/** Read + assert the IR {@link ModerationRequest} carried at `__ir`. */
+function readModerateIr(
+  validated: Record<string, unknown>,
+  original: Record<string, unknown>,
+): ModerationRequest {
+  const ir = (original[IR_KEY] ?? validated[IR_KEY]) as ModerationRequest | undefined;
+  if (ir === undefined) {
+    throw engineError('internal_error', 'moderation run requires inputs.__ir');
   }
   return ir;
 }

@@ -3,6 +3,10 @@ import type {
   ChatStreamEvent,
   EmbeddingsRequest,
   EmbeddingsResult,
+  ModerationRequest,
+  ModerationResult,
+  RerankRequest,
+  RerankResult,
   SubmitResult,
   UnifiedError,
   UsageVector,
@@ -23,6 +27,11 @@ const MOCK_USAGE = { inputTokens: 10, outputTokens: 5 } as const;
 const MOCK_EMBED_TOKENS_PER_INPUT = 4;
 /** The deterministic embedding vector this mock returns for every input string. */
 const MOCK_EMBED_VECTOR: readonly number[] = [0.1, 0.2, 0.3];
+
+/** The fixed per-document INPUT token count this mock's `rerank` reports (+ query). */
+const MOCK_RERANK_TOKENS_PER_DOC = 4;
+/** The fixed per-input-string INPUT token count this mock's `moderate` reports. */
+const MOCK_MODERATE_TOKENS_PER_INPUT = 4;
 
 const CAPABILITIES: AdapterCapabilities = {
   tools: true,
@@ -67,6 +76,39 @@ export function createMockChat(): ProviderAdapter {
       return Promise.resolve({
         vectors: inputs.map(() => [...MOCK_EMBED_VECTOR]),
         usage: { inputTokens: inputs.length * MOCK_EMBED_TOKENS_PER_INPUT },
+      });
+    },
+
+    rerank(req: RerankRequest): Promise<RerankResult> {
+      // Deterministic descending scores by original position (1.0, 0.9, …),
+      // honoring `topN` so the relay's slice/shape is exercised. Echoes the doc.
+      const ranked = req.documents.map((document, index) => ({
+        index,
+        relevanceScore: Math.max(0, 1 - index * 0.1),
+        document,
+      }));
+      const results = req.topN === undefined ? ranked : ranked.slice(0, req.topN);
+      return Promise.resolve({
+        results,
+        // INPUT tokens = (#documents + 1 for the query) * per-doc count.
+        usage: { inputTokens: (req.documents.length + 1) * MOCK_RERANK_TOKENS_PER_DOC },
+      });
+    },
+
+    moderate(req: ModerationRequest): Promise<ModerationResult> {
+      const inputs = Array.isArray(req.input) ? req.input : [req.input];
+      // Deterministic verdict: flag an input iff it contains the literal "bad".
+      const results = inputs.map((text) => {
+        const flagged = text.includes('bad');
+        return {
+          flagged,
+          categories: { violence: flagged },
+          categoryScores: { violence: flagged ? 0.99 : 0.01 },
+        };
+      });
+      return Promise.resolve({
+        results,
+        usage: { inputTokens: inputs.length * MOCK_MODERATE_TOKENS_PER_INPUT },
       });
     },
 

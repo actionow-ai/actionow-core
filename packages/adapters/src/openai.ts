@@ -7,7 +7,11 @@ import type {
   EmbeddingsRequest,
   EmbeddingsResult,
   Message,
+  ModerationRequest,
+  ModerationResult,
   ProviderModel,
+  RerankRequest,
+  RerankResult,
   StopReason,
   StreamEvent,
   SubmitInput,
@@ -245,6 +249,46 @@ function parseEmbedding(raw: unknown): number[] {
   return arr.map((v) => asNumber(v)).filter((n): n is number => n !== undefined);
 }
 
+/** Narrow an unknown to a `boolean`, defaulting to `false`. */
+function asBool(x: unknown): boolean {
+  return typeof x === 'boolean' ? x : false;
+}
+
+/** Coerce a JSON record of unknown values into a `Record<string, boolean>`. */
+function asBoolRecord(raw: unknown): Record<string, boolean> {
+  const rec = asRecord(raw);
+  if (rec === undefined) return {};
+  const out: Record<string, boolean> = {};
+  for (const [k, v] of Object.entries(rec)) out[k] = asBool(v);
+  return out;
+}
+
+/** Coerce a JSON record of unknown values into a `Record<string, number>` (non-numbers dropped). */
+function asNumberRecord(raw: unknown): Record<string, number> {
+  const rec = asRecord(raw);
+  if (rec === undefined) return {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(rec)) {
+    const n = asNumber(v);
+    if (n !== undefined) out[k] = n;
+  }
+  return out;
+}
+
+/** Conventional ~4 bytes/token GPT-family divisor for a local input-token estimate. */
+const BYTES_PER_TOKEN = 4;
+
+/**
+ * A deterministic local input-token count for rerank/moderation upstreams that
+ * return no usage block: `ceil(totalBytes / 4)`, floored at the number of
+ * non-empty strings so a short input still costs at least one token. INPUT only.
+ */
+function countInputTokens(query: string, parts: readonly string[]): number {
+  const strings = [query, ...parts].filter((s) => s.length > 0);
+  const bytes = strings.reduce((sum, s) => sum + s.length, 0);
+  return Math.max(strings.length, Math.ceil(bytes / BYTES_PER_TOKEN));
+}
+
 /** Extract `{input_tokens, output_tokens}` from an OpenAI `usage` block. */
 function extractUsage(raw: unknown): UsageVector {
   const usage = asRecord(asRecord(raw)?.usage);
@@ -453,6 +497,100 @@ export const openaiAdapter: ProviderAdapter = {
       vectors,
       usage: { inputTokens: asNumber(usage?.prompt_tokens) ?? 0 },
     };
+  },
+
+  async rerank(req: RerankRequest, ctx: AdapterContext): Promise<RerankResult> {
+    const endpoint = ctx.endpoint ?? DEFAULT_ENDPOINT;
+    const body: Record<string, unknown> = {
+      model: ctx.model ?? req.model,
+      query: req.query,
+      documents: req.documents,
+      // Cohere/Jina echo each document text back when asked; surface it so the
+      // relay can pass it through verbatim.
+      return_documents: true,
+    };
+    if (req.topN !== undefined) body.top_n = req.topN;
+
+    const res = await ctx.http.request({
+      method: 'POST',
+      url: `${endpoint}/rerank`,
+      headers: { Authorization: `Bearer ${ctx.apiKey ?? ''}` },
+      body,
+      ...withProxy(ctx),
+    });
+
+    if (!res.ok) {
+      throw new AdapterError(mapErrorBody(res.status, res.body));
+    }
+
+    const results = asArray(asRecord(res.body)?.results);
+    if (results === undefined) {
+      throw new AdapterError({
+        code: 'upstream_error',
+        message: 'rerank response did not contain a results array',
+        upstream: { provider: PROVIDER },
+        retryable: false,
+      });
+    }
+    const items = results.map((entry) => {
+      const rec = asRecord(entry);
+      const index = asNumber(rec?.index) ?? 0;
+      const relevanceScore = asNumber(rec?.relevance_score) ?? 0;
+      // Cohere returns `document.text`; Jina returns a flat `document` string.
+      const docText = asString(rec?.document) ?? asString(asRecord(rec?.document)?.text);
+      const item: RerankResult['results'][number] = { index, relevanceScore };
+      if (docText !== undefined) item.document = docText;
+      return item;
+    });
+
+    // Cohere/Jina expose token usage under `meta.billed_units.{search_units,tokens}`
+    // or a flat `usage`; fall back to a deterministic local count when absent so the
+    // settle is always input-token-priced.
+    const meta = asRecord(asRecord(res.body)?.meta);
+    const billed = asRecord(meta?.billed_units);
+    const usageTokens =
+      asNumber(asRecord(asRecord(res.body)?.usage)?.total_tokens) ??
+      asNumber(billed?.tokens) ??
+      countInputTokens(req.query, req.documents);
+    return { results: items, usage: { inputTokens: usageTokens } };
+  },
+
+  async moderate(req: ModerationRequest, ctx: AdapterContext): Promise<ModerationResult> {
+    const endpoint = ctx.endpoint ?? DEFAULT_ENDPOINT;
+    const res = await ctx.http.request({
+      method: 'POST',
+      url: `${endpoint}/moderations`,
+      headers: { Authorization: `Bearer ${ctx.apiKey ?? ''}` },
+      body: { model: ctx.model ?? req.model, input: req.input },
+      ...withProxy(ctx),
+    });
+
+    if (!res.ok) {
+      throw new AdapterError(mapErrorBody(res.status, res.body));
+    }
+
+    const results = asArray(asRecord(res.body)?.results);
+    if (results === undefined) {
+      throw new AdapterError({
+        code: 'upstream_error',
+        message: 'moderation response did not contain a results array',
+        upstream: { provider: PROVIDER },
+        retryable: false,
+      });
+    }
+    const verdicts = results.map((entry) => {
+      const rec = asRecord(entry);
+      return {
+        flagged: asBool(rec?.flagged),
+        categories: asBoolRecord(rec?.categories),
+        categoryScores: asNumberRecord(rec?.category_scores),
+      };
+    });
+
+    // OpenAI's moderations endpoint returns NO usage block, so meter on a
+    // deterministic local input-token estimate (~4 bytes/token) — input only.
+    const inputs = Array.isArray(req.input) ? req.input : [req.input];
+    return { results: verdicts, usage: { inputTokens: countInputTokens('', inputs) } };
   },
 
   async *streamChat(ir: ChatRequest, ctx: AdapterContext): AsyncIterable<ChatStreamEvent> {

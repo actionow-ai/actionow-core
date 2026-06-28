@@ -6,8 +6,12 @@ import type {
   ChatStreamEvent,
   EmbeddingsRequest,
   EmbeddingsResult,
+  ModerationRequest,
+  ModerationResult,
   PollResult,
   ProviderModel,
+  RerankRequest,
+  RerankResult,
   StreamEvent,
   SubmitInput,
   SubmitResult,
@@ -51,6 +55,17 @@ export interface ProviderAdapter {
    * Absent → the adapter has no embeddings support (the relay 500s the channel).
    */
   embed?(req: EmbeddingsRequest, ctx: AdapterContext): Promise<EmbeddingsResult>;
+  /**
+   * IR-level rerank: score each document against the query, returning a ranked
+   * subset + the input-token usage. Absent → no rerank support (the relay 500s
+   * the channel).
+   */
+  rerank?(req: RerankRequest, ctx: AdapterContext): Promise<RerankResult>;
+  /**
+   * IR-level moderation: one verdict per input string + the input-token usage.
+   * Absent → no moderation support (the relay 500s the channel).
+   */
+  moderate?(req: ModerationRequest, ctx: AdapterContext): Promise<ModerationResult>;
   parseCallback?(payload: unknown): CallbackResult;
   /**
    * Optional model discovery: query the provider's official catalog endpoint and
