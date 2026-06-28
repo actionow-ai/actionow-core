@@ -147,6 +147,8 @@ import {
   reconcileTenant,
   recordProxyHealth,
   type RedemptionCodeRow,
+  refundJob,
+  type RefundStatus,
   type RelayTraceFilter,
   type RelayTraceRow,
   removeChannelFromGroup,
@@ -253,6 +255,7 @@ import type {
   GrantModelDto,
   ProvisionDto,
   ProxyProbeDto,
+  RefundJobDto,
   SyncChannelModelsDto,
   TopupDto,
   TopupSubAccountDto,
@@ -656,6 +659,33 @@ export class AdminService {
     }
     const balance = await topUp(this.db, accountId, acct.tenantId, creditsToMicro(dto.credits));
     return { balanceMicro: balance.toString() };
+  }
+
+  /**
+   * Reverse a settled job's charge, crediting back the wallet it debited (subject
+   * sub-wallet in HARD mode, else the tenant pool) and writing a `refund` ledger
+   * row. `credits` (human, optional) → µcredits, capped at the remaining
+   * refundable; omitted → the full remaining. Idempotent (a repeated full refund
+   * is a no-op). 404 for an unknown job; invalid_input when the job isn't settled.
+   */
+  async refundSettledJob(
+    jobId: string,
+    dto: RefundJobDto,
+  ): Promise<{ status: RefundStatus; refunded: string; balance_after: string | null }> {
+    const amount = dto.credits === undefined ? undefined : creditsToMicro(dto.credits);
+    const result = await refundJob(this.db, {
+      jobId,
+      ...(amount !== undefined ? { amount } : {}),
+    });
+    if (result.status === 'job_not_found') throw engineNotFound(`job ${jobId} not found`);
+    if (result.status === 'not_settled') {
+      throw engineInvalidInput('job is not settled or has no charge to refund');
+    }
+    return {
+      status: result.status,
+      refunded: result.refunded.toString(),
+      balance_after: result.balanceAfter === null ? null : result.balanceAfter.toString(),
+    };
   }
 
   // ----- api keys -----

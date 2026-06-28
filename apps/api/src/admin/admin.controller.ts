@@ -233,6 +233,8 @@ import {
   proxyProbeRequestSchema,
   type RedemptionCodesQueryDto,
   redemptionCodesQuerySchema,
+  type RefundJobDto,
+  refundJobSchema,
   type RelayTraceQueryDto,
   relayTraceQuerySchema,
   type SetLimitPlanDto,
@@ -633,6 +635,25 @@ export class AdminController {
   ): Promise<{ account_id: string; balance: string }> {
     const { balanceMicro } = await this.admin.topup(id, dto);
     return { account_id: id, balance: balanceMicro };
+  }
+
+  @Post('jobs/:id/refund')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Refund a settled job (credits → µcredits; capped at the charge)' })
+  @Audit({
+    action: 'job.refund',
+    target: 'job',
+    resolve: ({ params, body }) => ({
+      targetId: params.id ?? null,
+      meta: { ...(body as Record<string, unknown>) },
+    }),
+  })
+  async refundJob(
+    @Param('id') id: string,
+    @Body(new ZodBody(refundJobSchema)) dto: RefundJobDto,
+  ): Promise<{ job_id: string; status: string; refunded: string; balance_after: string | null }> {
+    const result = await this.admin.refundSettledJob(id, dto);
+    return { job_id: id, ...result };
   }
 
   @Get('accounts')
