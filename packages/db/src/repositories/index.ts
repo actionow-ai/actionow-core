@@ -65,6 +65,7 @@ export {
   listUsersByTenant,
   rotateApiKeyForTenant,
   softDeleteApiKey,
+  softDeleteApiKeyForSubject,
   updateUserPassword,
   updateUserStatus,
   updateUserTenantRole,

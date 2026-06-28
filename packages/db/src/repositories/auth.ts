@@ -219,6 +219,38 @@ export async function softDeleteApiKey(
 }
 
 /**
+ * Revoke a SUBJECT-SCOPED api key by SOFT-DELETING it (member self-service). The
+ * predicate is `(id, tenant_id, subject_id)` in SQL, so a member can only ever
+ * revoke its OWN key: another subject's key, a tenant-level key (`subject_id`
+ * NULL), or a cross-tenant id all match no row and return `undefined` — never a
+ * successful revoke. A revoked key authenticates as absent
+ * ({@link findApiKeyByHash} filters `deleted_at IS NULL`). Returns the deleted
+ * key's `id`, or `undefined` when nothing matched (idempotent; a second revoke is
+ * a safe no-op).
+ */
+export async function softDeleteApiKeyForSubject(
+  db: DbOrTx,
+  keyId: string,
+  tenantId: string,
+  subjectId: string,
+): Promise<string | undefined> {
+  const now = new Date();
+  const rows = await db
+    .update(apiKey)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(apiKey.id, keyId),
+        eq(apiKey.tenantId, tenantId),
+        eq(apiKey.subjectId, subjectId),
+        isNull(apiKey.deletedAt),
+      ),
+    )
+    .returning({ id: apiKey.id });
+  return rows[0]?.id;
+}
+
+/**
  * Rotate a tenant's key in one transaction: mint a fresh plaintext that inherits
  * the old key's `resourceAllowlist`/`rateLimit`, then disable the old row. The
  * tenant predicate is in SQL — a cross-tenant id is a no-op returning `undefined`

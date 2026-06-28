@@ -1,21 +1,40 @@
 import {
   type MemberBalanceView,
   memberBalanceViewSchema,
+  memberChangePasswordSchema,
+  memberCreateApiKeySchema,
+  type MemberKeyCreatedView,
   type MemberKeyView,
   memberKeyViewSchema,
   type MemberLimitsView,
   memberLimitsViewSchema,
   type MemberMeView,
   memberMeViewSchema,
+  type MemberUpdateMeBody,
+  memberUpdateMeSchema,
   type MemberUsageList,
   memberUsageListSchema,
 } from '@actionow/contracts';
 import type { ApiKeyRow, SubjectRow, UsageLogRow } from '@actionow/db';
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { engineUnauthorized } from '../common/errors.js';
 import { encodeCursor, toPageParams } from '../common/pagination.js';
+import { ZodBody } from '../common/zod.pipe.js';
+import type { MemberChangePasswordDto, MemberCreateApiKeyDto } from './dto/member.dto.js';
 import { type MemberContext, MemberGuard, type MemberRequest } from './member.guard.js';
 import type { MemberBalance, MemberLimits } from './member.service.js';
 import { MemberService } from './member.service.js';
@@ -99,11 +118,14 @@ function toLimitsView(l: MemberLimits): MemberLimitsView {
 
 /**
  * The end-user self-service plane (`/member/*`, Part B). Every route is gated by
- * the {@link MemberGuard} (MEMBER JWT → `{subjectId, tenantId}`) and is READ-ONLY,
- * locked to the caller's OWN subject — the `subjectId`/`tenantId` come from the
- * guard, NEVER from a body/query/path, so an end-user can only ever read its own
- * identity, usage, wallet, keys, and limits. An operator/admin token is rejected
- * by the guard (it carries no `typ:'subject'`); a member token stays rejected on
+ * the {@link MemberGuard} (MEMBER JWT → `{subjectId, tenantId}`) and locked to the
+ * caller's OWN subject — the `subjectId`/`tenantId` come from the guard, NEVER
+ * from a body/query/path, so an end-user can only ever READ (identity, usage,
+ * wallet, keys, limits) OR WRITE its own data (patch profile, change password,
+ * self-mint + revoke its own keys) without a tenant-admin. The revoke is filtered
+ * on `subject_id` too, so a member can't revoke a sibling subject's (or a tenant-
+ * level) key — a non-owned id is a 404. An operator/admin token is rejected by the
+ * guard (it carries no `typ:'subject'`); a member token stays rejected on
  * `/console`. Money is serialized as decimal µ-unit strings (bigint), never a float.
  */
 @ApiTags('member')
@@ -158,5 +180,54 @@ export class MemberController {
   async limits(@Req() req: MemberRequest): Promise<MemberLimitsView> {
     const ctx = ctxOf(req);
     return toLimitsView(await this.member.limits(ctx.subjectId, ctx.tenantId));
+  }
+
+  @Patch('me')
+  @ApiOperation({ summary: 'Update your own profile (display name only)' })
+  async updateMe(
+    @Req() req: MemberRequest,
+    @Body(new ZodBody(memberUpdateMeSchema)) body: MemberUpdateMeBody,
+  ): Promise<MemberMeView> {
+    const ctx = ctxOf(req);
+    const updated = await this.member.updateProfile(ctx.subjectId, ctx.tenantId, {
+      displayName: body.display_name,
+    });
+    return toMeView(updated);
+  }
+
+  @Post('me/password')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Change your own password (verifies current; Model-A only)' })
+  async changePassword(
+    @Req() req: MemberRequest,
+    @Body(new ZodBody(memberChangePasswordSchema)) body: MemberChangePasswordDto,
+  ): Promise<{ ok: true }> {
+    const ctx = ctxOf(req);
+    await this.member.changePassword(ctx.subjectId, ctx.tenantId, body);
+    return { ok: true };
+  }
+
+  @Post('api-keys')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Self-mint a subject-scoped API key (plaintext returned once)' })
+  async createApiKey(
+    @Req() req: MemberRequest,
+    @Body(new ZodBody(memberCreateApiKeySchema)) body: MemberCreateApiKeyDto,
+  ): Promise<MemberKeyCreatedView> {
+    const ctx = ctxOf(req);
+    const created = await this.member.createApiKey(ctx.subjectId, ctx.tenantId, body);
+    return { id: created.id, plaintext: created.plaintext };
+  }
+
+  @Delete('api-keys/:id')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Revoke one of YOUR OWN API keys (cross-subject id → 404)' })
+  async revokeApiKey(
+    @Req() req: MemberRequest,
+    @Param('id') id: string,
+  ): Promise<{ id: string; status: 'revoked' }> {
+    const ctx = ctxOf(req);
+    await this.member.revokeApiKey(ctx.subjectId, ctx.tenantId, id);
+    return { id, status: 'revoked' };
   }
 }
