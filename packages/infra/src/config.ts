@@ -55,6 +55,10 @@ const EnvSchema = z
       .optional(),
     // Ceiling on a presigned upload's declared size (bytes). Defaults to 100 MiB.
     STORAGE_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(DEFAULT_MAX_UPLOAD_BYTES),
+    // Optional per-tenant TOTAL object-storage cap (bytes); unset → no cap. A
+    // per-tenant override lives in `account.config.storage_quota_bytes`. Enforced
+    // at presign-upload against current usage (Σ live `file_object.size`).
+    STORAGE_TENANT_QUOTA_BYTES: z.coerce.number().int().positive().optional(),
     // Public custom-domain base for persisted media (e.g. https://asset.actionow.ai).
     // Optional: when unset (or storage unconfigured) the settle paths skip media
     // persistence and the job settles with the temp upstream URL.

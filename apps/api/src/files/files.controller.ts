@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -17,7 +18,12 @@ import { AuthService } from '../auth/auth.service.js';
 import { type PageEnvelope, toPageParams } from '../common/pagination.js';
 import { ZodBody } from '../common/zod.pipe.js';
 import { type PresignUploadDto, presignUploadSchema } from './dto/files.dto.js';
-import type { FileUrlResult, FileView, PresignUploadResult } from './files.service.js';
+import type {
+  FileUrlResult,
+  FileView,
+  PresignUploadResult,
+  StorageUsageView,
+} from './files.service.js';
 import { FilesService } from './files.service.js';
 
 /**
@@ -79,5 +85,22 @@ export class FilesController {
   async getUrl(@Param('id') id: string, @Req() req: Request): Promise<FileUrlResult> {
     const ctx = this.auth.resolve(req);
     return this.files.getUrl(id, ctx);
+  }
+
+  /** The caller-tenant's object-storage usage + effective quota (for chargeback / quota UX). */
+  @Get('usage')
+  @ApiOperation({ summary: 'Get the caller’s object-storage usage + quota' })
+  async usage(@Req() req: Request): Promise<StorageUsageView> {
+    const ctx = this.auth.resolve(req);
+    return this.files.usage(ctx);
+  }
+
+  /** Soft-delete a tenant-owned file: tombstone the reference + remove the object. */
+  @Delete(':id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Delete a file (tombstone + remove from bucket)' })
+  async remove(@Param('id') id: string, @Req() req: Request): Promise<void> {
+    const ctx = this.auth.resolve(req);
+    await this.files.delete(id, ctx);
   }
 }

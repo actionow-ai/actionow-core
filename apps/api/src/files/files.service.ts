@@ -7,8 +7,11 @@ import {
   type Database,
   type FileObject,
   getFileObject,
+  getStorageUsage,
+  getTenantStorageQuota,
   listFilesByTenant,
   markFileReady,
+  softDeleteFile,
 } from '@actionow/db';
 import type { AppEnv } from '@actionow/infra';
 import { Inject, Injectable, Optional } from '@nestjs/common';
@@ -41,6 +44,13 @@ export interface FileView {
   content_type: string | null;
   etag: string | null;
   created_at: string;
+}
+
+/** The caller-tenant's object-storage usage + the effective quota (bytes; `quota_bytes` null → no cap). */
+export interface StorageUsageView {
+  bytes: number;
+  count: number;
+  quota_bytes: number | null;
 }
 
 /**
@@ -82,6 +92,20 @@ export class FilesService {
       throw engineInvalidInput(
         `upload size ${String(body.size)} exceeds the maximum of ${String(maxUpload)} bytes`,
       );
+    }
+
+    // Per-tenant TOTAL storage cap (cost/abuse guard): reject the grant if the
+    // declared upload would push live usage past the quota. Enforced on the
+    // declared size at presign time (the gate); a tighter actual-size re-check at
+    // confirm is a follow-up.
+    const quota = await this.resolveQuota(ctx.tenantId);
+    if (quota !== undefined) {
+      const usage = await getStorageUsage(this.db, ctx.tenantId);
+      if (usage.bytes + body.size > quota) {
+        throw engineInvalidInput(
+          `storage quota exceeded: ${String(usage.bytes + body.size)} > ${String(quota)} bytes`,
+        );
+      }
     }
 
     const key = buildKey(ctx.tenantId, body.filename);
@@ -133,6 +157,41 @@ export class FilesService {
     const file = await this.requireFile(id, ctx);
     const presign = await storage.presignGet(file.key);
     return { url: presign.url, expires_in: presign.expiresIn };
+  }
+
+  /**
+   * Soft-delete a tenant/subject-owned file: tombstone the row (so it leaves
+   * listings, downloads, and the quota sum) and best-effort remove the object
+   * from the bucket. The row is the system of record, so a storage error never
+   * fails the delete (an orphaned object is swept later). 404 if not visible.
+   */
+  async delete(id: string, ctx: TenantContext): Promise<void> {
+    const storage = this.requireStorage();
+    const file = await this.requireFile(id, ctx);
+    await softDeleteFile(this.db, file.id, ctx.tenantId, ctx.subjectId ?? null);
+    try {
+      await storage.delete(file.key);
+    } catch {
+      // best-effort: the reference is already tombstoned; an orphaned object is non-fatal.
+    }
+  }
+
+  /**
+   * The caller-tenant's live storage usage + effective quota (`quota_bytes` null →
+   * no cap). A pure DB read — works even when storage is unconfigured.
+   */
+  async usage(ctx: TenantContext): Promise<StorageUsageView> {
+    const [usage, quota] = await Promise.all([
+      getStorageUsage(this.db, ctx.tenantId),
+      this.resolveQuota(ctx.tenantId),
+    ]);
+    return { bytes: usage.bytes, count: usage.count, quota_bytes: quota ?? null };
+  }
+
+  /** Effective per-tenant storage cap (bytes): per-tenant override → global env → none. */
+  private async resolveQuota(tenantId: string): Promise<number | undefined> {
+    const override = await getTenantStorageQuota(this.db, tenantId);
+    return override ?? this.env.STORAGE_TENANT_QUOTA_BYTES;
   }
 
   /**

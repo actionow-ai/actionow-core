@@ -9,8 +9,11 @@ import {
   createSubject,
   type FileObject,
   getFileObject,
+  getStorageUsage,
+  getTenantStorageQuota,
   listFilesByTenant,
   markFileReady,
+  softDeleteFile,
 } from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
 
@@ -217,5 +220,58 @@ describe('listFilesByTenant', () => {
     );
     expect(second.rows.map((r) => r.key)).toEqual(['x1']);
     expect(second.hasMore).toBe(false);
+  });
+});
+
+describe('soft-delete + storage usage + quota', () => {
+  it('softDeleteFile tombstones the row; reads + listings exclude it; idempotent', async () => {
+    const tenantId = await makeTenant();
+    const f = await createFileObject(db, {
+      tenantId,
+      provider: 'minio',
+      bucket: 'b',
+      key: 'k1.png',
+    });
+    await markFileReady(db, f.id, { size: 100 });
+
+    const deleted = await softDeleteFile(db, f.id, tenantId);
+    expect(deleted?.id).toBe(f.id);
+    expect(deleted?.deletedAt).not.toBeNull();
+    expect(await getFileObject(db, f.id, tenantId)).toBeUndefined();
+    expect((await listFilesByTenant(db, tenantId, {}, { limit: 10 })).rows).toHaveLength(0);
+    // idempotent: a second delete finds no LIVE row
+    expect(await softDeleteFile(db, f.id, tenantId)).toBeUndefined();
+  });
+
+  it('softDeleteFile is tenant-scoped (wrong tenant is a no-op)', async () => {
+    const owner = await makeTenant();
+    const other = await makeTenant();
+    const f = await createFileObject(db, {
+      tenantId: owner,
+      provider: 'minio',
+      bucket: 'b',
+      key: 'k.png',
+    });
+    expect(await softDeleteFile(db, f.id, other)).toBeUndefined();
+    expect((await getFileObject(db, f.id, owner))?.id).toBe(f.id); // still live
+  });
+
+  it('getStorageUsage sums live bytes + count, excluding deleted', async () => {
+    const tenantId = await makeTenant();
+    const a = await createFileObject(db, { tenantId, provider: 'minio', bucket: 'b', key: 'a' });
+    await markFileReady(db, a.id, { size: 1000 });
+    const b = await createFileObject(db, { tenantId, provider: 'minio', bucket: 'b', key: 'b' });
+    await markFileReady(db, b.id, { size: 500 });
+    expect(await getStorageUsage(db, tenantId)).toEqual({ bytes: 1500, count: 2 });
+
+    await softDeleteFile(db, b.id, tenantId);
+    expect(await getStorageUsage(db, tenantId)).toEqual({ bytes: 1000, count: 1 });
+  });
+
+  it('getTenantStorageQuota reads the per-tenant override (else undefined)', async () => {
+    const tenantId = await makeTenant();
+    expect(await getTenantStorageQuota(db, tenantId)).toBeUndefined(); // no account row
+    await db.insert(schema.account).values({ tenantId, config: { storage_quota_bytes: 4096 } });
+    expect(await getTenantStorageQuota(db, tenantId)).toBe(4096);
   });
 });

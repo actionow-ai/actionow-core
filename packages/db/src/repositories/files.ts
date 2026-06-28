@@ -1,7 +1,7 @@
 import type { InferInsertModel, InferSelectModel, SQL } from 'drizzle-orm';
-import { and, eq, isNull, like, or } from 'drizzle-orm';
+import { and, eq, isNull, like, or, sql } from 'drizzle-orm';
 
-import { fileObject } from '../schema/index.js';
+import { account, fileObject } from '../schema/index.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
@@ -92,7 +92,12 @@ export async function getFileObject(
   const where =
     tenantId === undefined
       ? eq(fileObject.id, id)
-      : and(eq(fileObject.id, id), eq(fileObject.tenantId, tenantId), fileSubjectScope(subjectId));
+      : and(
+          eq(fileObject.id, id),
+          eq(fileObject.tenantId, tenantId),
+          isNull(fileObject.deletedAt),
+          fileSubjectScope(subjectId),
+        );
   const rows = await db.select().from(fileObject).where(where).limit(1);
   return rows[0];
 }
@@ -118,7 +123,7 @@ export function listFilesByTenant(
   page: PageParams,
   subjectId: string | null = null,
 ): Promise<KeysetResult<FileObject>> {
-  const predicates: SQL[] = [eq(fileObject.tenantId, tenantId)];
+  const predicates: SQL[] = [eq(fileObject.tenantId, tenantId), isNull(fileObject.deletedAt)];
   if (filter.status !== undefined) predicates.push(eq(fileObject.status, filter.status));
   if (filter.kind !== undefined) predicates.push(like(fileObject.contentType, `${filter.kind}/%`));
   const scope = fileSubjectScope(subjectId);
@@ -131,4 +136,70 @@ export function listFilesByTenant(
     where: and(...predicates),
     page,
   });
+}
+
+/**
+ * Soft-delete a tenant/subject-owned file: stamp `deleted_at` (idempotent — only
+ * a still-LIVE row moves). Returns the row (for its `key`) or `undefined` when no
+ * matching live file exists. The actual object removal is the caller's
+ * best-effort storage `delete(key)`.
+ */
+export async function softDeleteFile(
+  db: DbOrTx,
+  id: string,
+  tenantId: string,
+  subjectId: string | null = null,
+): Promise<FileObject | undefined> {
+  const now = new Date();
+  const rows = await db
+    .update(fileObject)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(fileObject.id, id),
+        eq(fileObject.tenantId, tenantId),
+        isNull(fileObject.deletedAt),
+        fileSubjectScope(subjectId),
+      ),
+    )
+    .returning();
+  return rows[0];
+}
+
+/**
+ * Live object-storage usage for a tenant: total bytes (Σ `size`) + file count,
+ * excluding soft-deleted rows. `size` is NULL until an upload is confirmed, so a
+ * pending reference contributes 0 bytes (but is counted). Drives quota checks +
+ * the `/v1/files/usage` read.
+ */
+export async function getStorageUsage(
+  db: DbOrTx,
+  tenantId: string,
+): Promise<{ bytes: number; count: number }> {
+  const [row] = await db
+    .select({
+      bytes: sql<string>`coalesce(sum(${fileObject.size}), 0)`,
+      count: sql<string>`count(*)`,
+    })
+    .from(fileObject)
+    .where(and(eq(fileObject.tenantId, tenantId), isNull(fileObject.deletedAt)));
+  return { bytes: Number(row?.bytes ?? 0), count: Number(row?.count ?? 0) };
+}
+
+/**
+ * Per-tenant object-storage quota override (bytes) from
+ * `account.config.storage_quota_bytes`, or `undefined` when unset/invalid (the
+ * caller then falls back to the global `STORAGE_TENANT_QUOTA_BYTES` env default).
+ */
+export async function getTenantStorageQuota(
+  db: DbOrTx,
+  tenantId: string,
+): Promise<number | undefined> {
+  const [row] = await db
+    .select({ config: account.config })
+    .from(account)
+    .where(eq(account.tenantId, tenantId))
+    .limit(1);
+  const q = row?.config.storage_quota_bytes;
+  return typeof q === 'number' && Number.isFinite(q) && q > 0 ? q : undefined;
 }

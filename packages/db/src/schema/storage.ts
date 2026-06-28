@@ -44,6 +44,10 @@ export const fileObject = pgTable(
     status: text('status').notNull().default('pending'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    // Soft-delete: `DELETE /v1/files/:id` stamps this + removes the object from the
+    // bucket; the row stays as a tombstone (apps may hold the file_id). Reads,
+    // download URLs, and the storage-usage/quota sum all exclude deleted rows.
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (t) => [
     index('file_object_tenant_idx').on(t.tenantId),
