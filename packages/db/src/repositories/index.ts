@@ -165,9 +165,12 @@ export {
   type FileObject,
   type FileReadyInput,
   getFileObject,
+  getStorageUsage,
+  getTenantStorageQuota,
   listFilesByTenant,
   type ListFilesFilter,
   markFileReady,
+  softDeleteFile,
 } from './files.js';
 export { type IconAssetRow, listIconAssets, upsertIconAsset } from './icon.js';
 export { claimIdempotency, type ClaimResult } from './idempotency.js';

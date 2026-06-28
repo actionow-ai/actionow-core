@@ -6,6 +6,7 @@ import { CreateBucketCommand } from '@aws-sdk/client-s3';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import { eq } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
@@ -310,6 +311,79 @@ describe('POST/GET /v1/files over real MinIO', () => {
 
     // Anonymous → 401.
     await request(app.getHttpServer()).get('/v1/files').expect(401);
+  });
+});
+
+describe('DELETE + usage + quota', () => {
+  async function presignPutConfirm(key: string, filename: string, bytes: Uint8Array): Promise<string> {
+    const presign = await request(app.getHttpServer())
+      .post('/v1/files/presign-upload')
+      .set('authorization', `Bearer ${key}`)
+      .send({ filename, content_type: 'text/plain', size: bytes.byteLength })
+      .expect(200);
+    const fileId = String(presign.body.file_id);
+    await fetch(presign.body.upload_url, {
+      method: 'PUT',
+      headers: { 'content-type': 'text/plain' },
+      body: bytes,
+    });
+    await request(app.getHttpServer())
+      .post(`/v1/files/${fileId}/confirm`)
+      .set('authorization', `Bearer ${key}`)
+      .expect(200);
+    return fileId;
+  }
+
+  it('delete tombstones a file: 204, then gone from get-url / list / usage', async () => {
+    const tenantId = await seedTenant('deleter');
+    const { plaintext: key } = await createApiKey(db, { tenantId });
+    const body = new TextEncoder().encode('bye');
+    const fileId = await presignPutConfirm(key, 'gone.txt', body);
+
+    const u1 = await request(app.getHttpServer())
+      .get('/v1/files/usage')
+      .set('authorization', `Bearer ${key}`)
+      .expect(200);
+    expect(u1.body).toMatchObject({ bytes: body.byteLength, count: 1 });
+
+    await request(app.getHttpServer())
+      .delete(`/v1/files/${fileId}`)
+      .set('authorization', `Bearer ${key}`)
+      .expect(204);
+
+    await request(app.getHttpServer())
+      .get(`/v1/files/${fileId}/url`)
+      .set('authorization', `Bearer ${key}`)
+      .expect(404);
+    const list = await request(app.getHttpServer())
+      .get('/v1/files')
+      .set('authorization', `Bearer ${key}`)
+      .expect(200);
+    expect(list.body.data).toHaveLength(0);
+    const u2 = await request(app.getHttpServer())
+      .get('/v1/files/usage')
+      .set('authorization', `Bearer ${key}`)
+      .expect(200);
+    expect(u2.body).toMatchObject({ bytes: 0, count: 0, quota_bytes: null });
+  });
+
+  it('presign-upload 400 when the per-tenant storage quota would be exceeded', async () => {
+    const tenantId = await seedTenant('quota');
+    const { plaintext: key } = await createApiKey(db, { tenantId });
+    // Confirm a 50-byte file so live usage is 50.
+    await presignPutConfirm(key, 'a.txt', new TextEncoder().encode('x'.repeat(50)));
+
+    // A 100-byte per-tenant cap; a further 60 bytes → 110 > 100 → reject at presign.
+    await db
+      .update(account)
+      .set({ config: { storage_quota_bytes: 100 } })
+      .where(eq(account.tenantId, tenantId));
+    const res = await request(app.getHttpServer())
+      .post('/v1/files/presign-upload')
+      .set('authorization', `Bearer ${key}`)
+      .send({ filename: 'b.txt', content_type: 'text/plain', size: 60 })
+      .expect(400);
+    expect(res.body.error.code).toBe('invalid_input');
   });
 });
 
