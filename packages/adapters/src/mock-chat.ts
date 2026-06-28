@@ -1,6 +1,8 @@
 import type {
   ChatResponse,
   ChatStreamEvent,
+  EmbeddingsRequest,
+  EmbeddingsResult,
   SubmitResult,
   UnifiedError,
   UsageVector,
@@ -16,6 +18,11 @@ const DELTAS: readonly string[] = ['hel', 'lo'];
 
 /** The fixed IR usage this mock reports (camelCase, per the chat IR contract). */
 const MOCK_USAGE = { inputTokens: 10, outputTokens: 5 } as const;
+
+/** The fixed per-input-string INPUT token count this mock's `embed` reports. */
+const MOCK_EMBED_TOKENS_PER_INPUT = 4;
+/** The deterministic embedding vector this mock returns for every input string. */
+const MOCK_EMBED_VECTOR: readonly number[] = [0.1, 0.2, 0.3];
 
 const CAPABILITIES: AdapterCapabilities = {
   tools: true,
@@ -52,6 +59,14 @@ export function createMockChat(): ProviderAdapter {
         message: { role: 'assistant', content: [{ kind: 'text', text: DELTAS.join('') }] },
         stopReason: 'stop',
         usage: { ...MOCK_USAGE },
+      });
+    },
+
+    embed(req: EmbeddingsRequest): Promise<EmbeddingsResult> {
+      const inputs = Array.isArray(req.input) ? req.input : [req.input];
+      return Promise.resolve({
+        vectors: inputs.map(() => [...MOCK_EMBED_VECTOR]),
+        usage: { inputTokens: inputs.length * MOCK_EMBED_TOKENS_PER_INPUT },
       });
     },
 

@@ -7,6 +7,8 @@ import { ChannelRoutingService } from '../common/channel-routing.service.js';
 import { SecretResolver } from '../common/secret-resolver.js';
 import { AnthropicChatController } from './anthropic.controller.js';
 import { ChatRelayService } from './chat-relay.service.js';
+import { EmbedRelayService } from './embed-relay.service.js';
+import { EmbeddingsController } from './embeddings.controller.js';
 import { GeminiChatController } from './gemini.controller.js';
 import {
   MODEL_RESOLVER,
@@ -20,6 +22,8 @@ import { OpenAIChatController } from './openai.controller.js';
  * Wires the OpenAI/Anthropic/Gemini chat-relay surface
  * (`POST /v1/chat/completions`, `POST /v1/messages`,
  * `POST /v1beta/models/{model}:generateContent[:streamGenerateContent]`), the
+ * OpenAI-compatible embeddings relay (`POST /v1/embeddings`, billed per input
+ * token via {@link EmbedRelayService}), the
  * {@link ChatRelayService} that funnels each dialect into the engine, and the
  * {@link ModelResolverService} resolving model names via the REAL Track C
  * `resolveModelForTenant` ({@link realModelResolverPort}). Tests override
@@ -30,10 +34,12 @@ import { OpenAIChatController } from './openai.controller.js';
     OpenAIChatController,
     AnthropicChatController,
     GeminiChatController,
+    EmbeddingsController,
     ModelsController,
   ],
   providers: [
     ChatRelayService,
+    EmbedRelayService,
     ModelResolverService,
     AuthService,
     SecretResolver,

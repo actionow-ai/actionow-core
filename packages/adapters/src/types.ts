@@ -4,6 +4,8 @@ import type {
   ChatRequest,
   ChatResponse,
   ChatStreamEvent,
+  EmbeddingsRequest,
+  EmbeddingsResult,
   PollResult,
   ProviderModel,
   StreamEvent,
@@ -44,6 +46,11 @@ export interface ProviderAdapter {
   chat?(ir: ChatRequest, ctx: AdapterContext): Promise<ChatResponse>;
   /** IR-level streaming chat: yields {@link ChatStreamEvent}s. */
   streamChat?(ir: ChatRequest, ctx: AdapterContext): AsyncIterable<ChatStreamEvent>;
+  /**
+   * IR-level embeddings: one vector per input string + the input-token usage.
+   * Absent → the adapter has no embeddings support (the relay 500s the channel).
+   */
+  embed?(req: EmbeddingsRequest, ctx: AdapterContext): Promise<EmbeddingsResult>;
   parseCallback?(payload: unknown): CallbackResult;
   /**
    * Optional model discovery: query the provider's official catalog endpoint and

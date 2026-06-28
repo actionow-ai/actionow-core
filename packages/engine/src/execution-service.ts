@@ -6,6 +6,8 @@ import type {
   ChatRequest,
   ChatResponse,
   ChatStreamEvent,
+  EmbeddingsRequest,
+  EmbeddingsResult,
   ExecMode,
   HttpClient,
   IoSchema,
@@ -227,6 +229,15 @@ export interface ChatStreamOutcome {
 export interface ChatRunOutcome {
   jobId: string;
   response: ChatResponse;
+  cost: RunCost;
+  /** The channel/provider that ultimately served (after any cross-provider failover). */
+  servedBy?: { channelId: string; providerType: string; model?: string };
+}
+
+/** The result of a blocking IR {@link runEmbed}: the job id, embeddings result, cost. */
+export interface EmbedRunOutcome {
+  jobId: string;
+  result: EmbeddingsResult;
   cost: RunCost;
   /** The channel/provider that ultimately served (after any cross-provider failover). */
   servedBy?: { channelId: string; providerType: string; model?: string };
@@ -589,6 +600,118 @@ export class ExecutionService {
       result.servedBy = servedBy;
     }
     return result;
+  }
+
+  /**
+   * Blocking IR embeddings run. Mirrors {@link runChat} exactly — idempotency
+   * replay (a repeated `idempotencyKey` replays the original settled job instead
+   * of a second hold + settle), then {@link executeEmbed}. Embeddings are
+   * billed per INPUT token only (the model_token pricebook's `outputPrice` never
+   * fires because the usage vector carries no `output_tokens`).
+   */
+  async runEmbed(req: RunRequest): Promise<EmbedRunOutcome> {
+    const { db } = this.deps;
+
+    if (req.idempotencyKey !== undefined) {
+      const probeJobId = randomUUID();
+      const claim = await claimIdempotency(
+        db,
+        req.tenantId,
+        req.idempotencyKey,
+        probeJobId,
+        req.subjectId ?? null,
+      );
+      if (!claim.claimed) {
+        const existing =
+          claim.existingJobId === undefined ? undefined : await getJob(db, claim.existingJobId);
+        if (existing === undefined) {
+          throw engineError('internal_error', 'idempotency key claimed but job missing');
+        }
+        return this.replayEmbed(existing);
+      }
+      return this.executeEmbed(req, probeJobId);
+    }
+    return this.executeEmbed(req, randomUUID());
+  }
+
+  /** Reconstruct an {@link EmbedRunOutcome} from a settled embeddings job (idempotent replay). */
+  private replayEmbed(job: Job): EmbedRunOutcome {
+    if (job.status !== 'succeeded') {
+      throw engineError('rate_limited', 'idempotency key still in progress', { retryable: true });
+    }
+    const result = job.output?.[IR_KEY];
+    if (result === undefined) {
+      throw engineError('internal_error', 'replayed embeddings job has no result output');
+    }
+    return {
+      jobId: job.id,
+      result: result as EmbeddingsResult,
+      cost: { credits: job.costCredits ?? 0n },
+    };
+  }
+
+  /**
+   * The blocking IR embeddings body: same hold prefix as {@link executeChat},
+   * then resolve the adapter per channel, call `adapter.embed(req, ctx)`, map the
+   * input-token usage to the snake_case engine {@link UsageVector} (no
+   * `output_tokens`), and settle via `settleSync`. `jobId` is the claim-owned id.
+   */
+  private async executeEmbed(req: RunRequest, jobId: string): Promise<EmbedRunOutcome> {
+    const { inputs, holdAmount } = await this.validateAndHold(stripIr(req), jobId);
+    const embedReq = readEmbedIr(inputs, req.inputs);
+
+    let served: RunChannel | undefined;
+    let result: EmbeddingsResult;
+    try {
+      result = await routeBlocking(
+        {
+          db: this.deps.db,
+          now: this.deps.now,
+          rng: this.deps.rng ?? Math.random,
+          breaker: this.deps.breaker,
+        },
+        req.channels,
+        req.usageLogModel ?? '*',
+        async (channel) => {
+          const adapter = this.deps.adapters.get(channel.providerType ?? req.resource.providerType);
+          if (adapter.embed === undefined) {
+            throw engineError(
+              'internal_error',
+              `channel adapter ${adapter.providerType} cannot embed`,
+            );
+          }
+          const boundEmbed = adapter.embed.bind(adapter);
+          const ctx = await this.buildContext(req, channel, jobId);
+          const r = await runWithFaultPolicy(channel.faultPolicy, () => boundEmbed(embedReq, ctx));
+          served = channel;
+          return r;
+        },
+      );
+    } catch (err) {
+      await this.failBlocking(req, jobId, holdAmount, err);
+      throw toEngineError(err);
+    }
+
+    // Embeddings have INPUT tokens only — no output dimension on the vector.
+    const usage: UsageVector = { input_tokens: result.usage.inputTokens };
+    const outcome = await this.settleSync(
+      req,
+      jobId,
+      holdAmount,
+      { kind: 'sync', output: { __ir: result }, usage },
+      served && servedFrom(served, served.providerType ?? req.resource.providerType),
+    );
+    const cost = outcome.status === 'succeeded' ? outcome.cost : { credits: 0n };
+    const out: EmbedRunOutcome = { jobId, result, cost };
+    if (served !== undefined) {
+      const servedBy: EmbedRunOutcome['servedBy'] = {
+        channelId: served.id,
+        providerType: served.providerType ?? req.resource.providerType,
+      };
+      if (served.model !== undefined) servedBy.model = served.model;
+      out.servedBy = servedBy;
+    }
+    return out;
   }
 
   private async execute(req: RunRequest, jobId: string): Promise<RunOutcome> {
@@ -1041,6 +1164,18 @@ function readIr(
   const ir = (original[IR_KEY] ?? validated[IR_KEY]) as ChatRequest | undefined;
   if (ir === undefined) {
     throw engineError('internal_error', 'chat run requires inputs.__ir');
+  }
+  return ir;
+}
+
+/** Read + assert the IR {@link EmbeddingsRequest} carried at `__ir`. */
+function readEmbedIr(
+  validated: Record<string, unknown>,
+  original: Record<string, unknown>,
+): EmbeddingsRequest {
+  const ir = (original[IR_KEY] ?? validated[IR_KEY]) as EmbeddingsRequest | undefined;
+  if (ir === undefined) {
+    throw engineError('internal_error', 'embeddings run requires inputs.__ir');
   }
   return ir;
 }
