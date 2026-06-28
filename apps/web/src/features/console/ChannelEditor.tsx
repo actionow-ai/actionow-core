@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { IconPicker } from '../../components/data/IconPicker';
@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { ChipsField } from '../../components/ui/ChipsField';
 import { ComboboxField } from '../../components/ui/ComboboxField';
 import { Drawer } from '../../components/ui/Drawer';
+import { FormErrorSummary } from '../../components/ui/FormErrorSummary';
 import { KeyValueEditor } from '../../components/ui/KeyValueEditor';
 import { type KvRow, objectFromRows, rowsFromObject } from '../../components/ui/kvRows';
 import { NumberField } from '../../components/ui/NumberField';
@@ -269,6 +270,9 @@ export function ChannelEditor({
   // field inline (the ComboboxField error is wired to aria-describedby).
   const [attempted, setAttempted] = useState(false);
   const canSave = editing || providerType.trim() !== '';
+  // Stable id so a failed submit can move keyboard focus to the offending field.
+  const providerFieldId = useId();
+  const formErrors = attempted && !canSave ? [t('channels.form.providerRequired')] : [];
 
   return (
     <Drawer
@@ -281,6 +285,8 @@ export function ChannelEditor({
           onClick={() => {
             if (!canSave) {
               setAttempted(true);
+              // Jump focus to the first invalid field; the live summary announces it.
+              document.getElementById(providerFieldId)?.focus();
               return;
             }
             save.mutate();
@@ -291,6 +297,7 @@ export function ChannelEditor({
         </Button>
       }
     >
+      <FormErrorSummary errors={formErrors} />
       <SelectField
         label={t('channels.form.plugin')}
         tooltip={t('channels.tip.plugin')}
@@ -321,6 +328,7 @@ export function ChannelEditor({
         />
       )}
       <ComboboxField
+        id={providerFieldId}
         label={t('channels.form.provider')}
         tooltip={t('channels.tip.provider')}
         error={attempted && !canSave ? t('channels.form.providerRequired') : undefined}
