@@ -16,6 +16,7 @@ export * from './io-schema.js';
 export * from './job.js';
 export * from './limit.js';
 export * from './media-result.js';
+export * from './member-requests.js';
 export * from './member-views.js';
 export * from './model-test.js';
 export * from './modifier.js';

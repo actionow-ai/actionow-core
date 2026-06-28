@@ -1,5 +1,7 @@
 import {
   type ApiKeyRow,
+  createApiKey,
+  type CreatedApiKey,
   type Database,
   getLimitPlanById,
   getSubAccount,
@@ -10,14 +12,18 @@ import {
   listApiKeysBySubject,
   listUsageLogsBySubject,
   type PageParams,
+  softDeleteApiKeyForSubject,
   type SubAccountRow,
   type SubjectRow,
+  updateSubject,
   type UsageLogRow,
 } from '@actionow/db';
+import { hashPassword, verifyPassword } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
 
-import { engineNotFound } from '../common/errors.js';
+import { engineInvalidInput, engineNotFound } from '../common/errors.js';
 import { DB } from '../common/tokens.js';
+import type { MemberChangePasswordDto, MemberCreateApiKeyDto } from './dto/member.dto.js';
 
 /** The caller-subject's wallet, mode-tagged: `hard` (own sub-wallet) | `shared` (tenant pool). */
 export interface MemberBalance {
@@ -33,13 +39,15 @@ export interface MemberLimits {
 }
 
 /**
- * The READ-ONLY data layer behind the {@link MemberController} (`/member/*`, Part
- * B). Every method is locked to the SUBJECT the {@link MemberGuard} resolved from
- * the member token — the `subjectId` is NEVER read from a request body/path, so an
- * end-user can only ever read its own data. A subject is also tenant-scoped via
- * its stored `tenantId`, so a stale token whose subject was reassigned still can't
- * cross the tenant boundary. Mirrors the tenant-scoped {@link ConsoleService}
- * readers, narrowed one level down to a single subject.
+ * The data layer behind the {@link MemberController} (`/member/*`, Part B). Every
+ * method is locked to the SUBJECT the {@link MemberGuard} resolved from the member
+ * token — the `subjectId`/`tenantId` are NEVER read from a request body/path, so
+ * an end-user can only ever read OR mutate its own data. A subject is also tenant-
+ * scoped via its stored `tenantId`, so a stale token whose subject was reassigned
+ * still can't cross the tenant boundary. Mirrors the tenant-scoped
+ * {@link ConsoleService}, narrowed one level down to a single subject. The write
+ * methods (profile, password, self-mint/revoke own keys) reuse the same tenant-
+ * AND-subject-predicated repos so a member can never touch a sibling subject's row.
  */
 @Injectable()
 export class MemberService {
@@ -100,5 +108,77 @@ export class MemberService {
       plan: planRow ? { id: planRow.id, name: planRow.name } : null,
       rules,
     };
+  }
+
+  // ----- writes (self-service; subject+tenant scoped) -----
+
+  /**
+   * Update the caller-subject's own profile (`PATCH /member/me`). Only
+   * `displayName` is mutable here. The update repo is tenant-AND-id predicated;
+   * the id is the guard's `subjectId`, so a member only ever patches its own row.
+   * Returns the refreshed row (404 only on the post-guard-impossible absent row).
+   */
+  async updateProfile(
+    subjectId: string,
+    tenantId: string,
+    dto: { displayName: string | null },
+  ): Promise<SubjectRow> {
+    const updated = await updateSubject(this.db, tenantId, subjectId, {
+      displayName: dto.displayName,
+    });
+    if (updated === undefined) throw engineNotFound(`subject ${subjectId} not found`);
+    return updated;
+  }
+
+  /**
+   * Change the caller-subject's own password (`POST /member/me/password`): verify
+   * `current_password` against the stored scrypt hash, then swap in a hash of the
+   * new one. A passwordless (Model-B) subject — one with no `password_hash` — or a
+   * wrong current password is `invalid_input` (the two are indistinguishable to
+   * the caller by design). The write is tenant+id scoped to the guard's subject.
+   */
+  async changePassword(
+    subjectId: string,
+    tenantId: string,
+    dto: MemberChangePasswordDto,
+  ): Promise<void> {
+    const subject = await this.requireSubject(subjectId, tenantId);
+    if (
+      subject.passwordHash === null ||
+      !verifyPassword(subject.passwordHash, dto.current_password)
+    ) {
+      throw engineInvalidInput('current password is incorrect');
+    }
+    await updateSubject(this.db, tenantId, subjectId, {
+      passwordHash: hashPassword(dto.new_password),
+    });
+  }
+
+  /**
+   * Self-mint a SUBJECT-SCOPED data-plane key (`POST /member/api-keys`); the
+   * plaintext is returned ONCE. The `subjectId`/`tenantId` come from the guard —
+   * NEVER the body — so the key is always bound to the caller's own subject.
+   */
+  createApiKey(
+    subjectId: string,
+    tenantId: string,
+    dto: MemberCreateApiKeyDto,
+  ): Promise<CreatedApiKey> {
+    return createApiKey(this.db, {
+      tenantId,
+      subjectId,
+      resourceAllowlist: dto.resourceAllowlist,
+    });
+  }
+
+  /**
+   * Revoke one of the caller-subject's OWN keys (`DELETE /member/api-keys/:id`).
+   * The repo predicate is `(id, tenant_id, subject_id)`, so a sibling subject's
+   * key, a tenant-level key, or a cross-tenant id matches no row → 404 (never a
+   * successful revoke). Idempotent: a second revoke is also 404.
+   */
+  async revokeApiKey(subjectId: string, tenantId: string, keyId: string): Promise<void> {
+    const revoked = await softDeleteApiKeyForSubject(this.db, keyId, tenantId, subjectId);
+    if (revoked === undefined) throw engineNotFound(`api key ${keyId} not found`);
   }
 }
