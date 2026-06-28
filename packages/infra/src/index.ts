@@ -1,5 +1,10 @@
 export * from './breaker-redis.js';
-export { type AppEnv, loadEnv, storageConfigFromEnv } from './config.js';
+export {
+  type AppEnv,
+  loadEnv,
+  storageConfigFromEnv,
+  WORKER_HEALTH_PORT_DEFAULT,
+} from './config.js';
 export * from './curl-http.js';
 export * from './http.js';
 export * from './media-bytes.js';

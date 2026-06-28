@@ -44,6 +44,18 @@ export class BullmqJobQueue implements JobQueuePort, OnModuleDestroy {
     await this.getQueue().add('exec', { jobId }, { jobId, ...JOB_EXEC_OPTS });
   }
 
+  /**
+   * Readiness check: prove the BullMQ broker (Redis) is reachable. Opens the
+   * lazy queue + connection on first call (so a never-enqueued instance still
+   * verifies the broker) and `waitUntilReady()` resolves only once the
+   * connection is established — rejecting on a connection error. The caller
+   * (`/readyz`) bounds this with a short timeout and treats a reject/timeout as
+   * `down`. Never used on the hot path.
+   */
+  async ping(): Promise<void> {
+    await this.getQueue().waitUntilReady();
+  }
+
   private getQueue(): Queue {
     if (this.queue === undefined) {
       this.connection = new Redis(this.redisUrl, { maxRetriesPerRequest: null });

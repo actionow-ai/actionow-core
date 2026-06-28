@@ -11,6 +11,7 @@ import { DbModule } from './db/db.module.js';
 import { ExecutionModule } from './execution/execution.module.js';
 import { FilesModule } from './files/files.module.js';
 import { HealthController } from './health/health.controller.js';
+import { HealthService } from './health/health.service.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { MediaDialectModule } from './media-dialect/media-dialect.module.js';
 import { MemberModule } from './member/member.module.js';
@@ -36,7 +37,7 @@ import { SettingsModule } from './settings/settings.module.js';
   controllers: [HealthController],
   // Register the §4.7 filter globally via DI so it also applies under the
   // NestJS `Test` harness (where `useGlobalFilters` in main.ts is bypassed).
-  providers: [{ provide: APP_FILTER, useClass: UnifiedErrorFilter }],
+  providers: [HealthService, { provide: APP_FILTER, useClass: UnifiedErrorFilter }],
 })
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- NestJS modules are decorated empty classes
 export class AppModule {}
