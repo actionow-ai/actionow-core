@@ -168,3 +168,118 @@ export interface EmbeddingsResult {
   vectors: number[][];
   usage: { inputTokens: number };
 }
+
+// --- Rerank (Cohere/Jina-style /v1/rerank) ---------------------------------
+
+/**
+ * Wire request body for `POST /v1/rerank` (Cohere/Jina-compatible). The relay
+ * resolves `model` → a channel → the provider's `/rerank`, scoring each of
+ * `documents` against `query`, and bills per INPUT token only (query + every
+ * document — the same `model_token` book as embeddings, INPUT side only).
+ *
+ * The Cohere/Jina wire field is the snake_case `top_n`; a `preprocess` accepts it
+ * (and the camelCase `topN`) and normalizes to the IR's `topN`, so a downstream
+ * Cohere/Jina SDK works unchanged while the contract stays camelCase.
+ */
+export const rerankRequestSchema = z.preprocess(
+  (raw) => {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return raw;
+    const rec = raw as Record<string, unknown>;
+    if (!('topN' in rec) && 'top_n' in rec) {
+      const { top_n: topN, ...rest } = rec;
+      return { ...rest, topN };
+    }
+    return rec;
+  },
+  z.object({
+    model: z.string(),
+    query: z.string(),
+    documents: z.array(z.string()).min(1),
+    /** Return only the top-N results by relevance; absent → all documents, ranked. */
+    topN: z.number().int().positive().optional(),
+  }),
+);
+export type RerankRequest = z.infer<typeof rerankRequestSchema>;
+
+/** One reranked document in the response `results[]` array. */
+export const rerankResultItemSchema = z.object({
+  /** The 0-based index into the original `documents` array. */
+  index: z.number().int().nonnegative(),
+  /** The provider's relevance score for this document (typically 0..1). */
+  relevance_score: z.number(),
+  /** Echo of the document text; present only when the caller asked the provider to return it. */
+  document: z.string().optional(),
+});
+export type RerankResultItem = z.infer<typeof rerankResultItemSchema>;
+
+/** Cohere/Jina rerank response shape. `usage` carries INPUT tokens only. */
+export const rerankResponseSchema = z.object({
+  model: z.string(),
+  results: z.array(rerankResultItemSchema),
+  usage: z.object({
+    input_tokens: z.number().int().nonnegative(),
+  }),
+});
+export type RerankResponse = z.infer<typeof rerankResponseSchema>;
+
+/**
+ * The dialect-neutral rerank result a {@link ProviderAdapter}'s `rerank` returns:
+ * a ranked subset of the input documents (each carrying its original `index` +
+ * `relevanceScore`, optionally the echoed `document`) plus the input-token usage
+ * (camelCase; rerank has no output tokens). The relay renders this back to the
+ * Cohere/Jina `results[]`/`usage` wire shape and meters the settle off
+ * `inputTokens`.
+ */
+export interface RerankResult {
+  results: { index: number; relevanceScore: number; document?: string }[];
+  usage: { inputTokens: number };
+}
+
+// --- Moderation (OpenAI-style /v1/moderations) -----------------------------
+
+/**
+ * Wire request body for `POST /v1/moderations` (OpenAI-compatible). `input` is a
+ * single string OR a string array. The relay resolves `model` → a channel → the
+ * provider's `/moderations`, and bills per INPUT token only (the same
+ * `model_token` book as embeddings, INPUT side only) — feeding the compliance moat.
+ */
+export const moderationRequestSchema = z.object({
+  model: z.string(),
+  input: z.union([z.string(), z.array(z.string())]),
+});
+export type ModerationRequest = z.infer<typeof moderationRequestSchema>;
+
+/** One moderation verdict in the response `results[]` array (one per input). */
+export const moderationResultItemSchema = z.object({
+  /** Whether ANY category tripped its threshold for this input. */
+  flagged: z.boolean(),
+  /** Per-category boolean verdicts (provider-defined category keys). */
+  categories: z.record(z.string(), z.boolean()),
+  /** Per-category confidence scores (0..1), keyed identically to `categories`. */
+  category_scores: z.record(z.string(), z.number()),
+});
+export type ModerationResultItem = z.infer<typeof moderationResultItemSchema>;
+
+/** OpenAI moderations response shape. Billed on INPUT tokens (no `usage` block in the OpenAI wire). */
+export const moderationResponseSchema = z.object({
+  id: z.string(),
+  model: z.string(),
+  results: z.array(moderationResultItemSchema),
+});
+export type ModerationResponse = z.infer<typeof moderationResponseSchema>;
+
+/**
+ * The dialect-neutral moderation result a {@link ProviderAdapter}'s `moderate`
+ * returns: one verdict per input string (`results[i]` ↔ `input[i]`) plus the
+ * input-token usage (camelCase; moderation has no output tokens). The relay
+ * renders this back to the OpenAI `results[]` wire shape (synthesizing the `id`)
+ * and meters the settle off `inputTokens`.
+ */
+export interface ModerationResult {
+  results: {
+    flagged: boolean;
+    categories: Record<string, boolean>;
+    categoryScores: Record<string, number>;
+  }[];
+  usage: { inputTokens: number };
+}

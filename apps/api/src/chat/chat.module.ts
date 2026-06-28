@@ -16,18 +16,24 @@ import {
   realModelResolverPort,
 } from './model-resolver.service.js';
 import { ModelsController } from './models.controller.js';
+import { ModerationRelayService } from './moderation-relay.service.js';
+import { ModerationsController } from './moderations.controller.js';
 import { OpenAIChatController } from './openai.controller.js';
+import { RerankController } from './rerank.controller.js';
+import { RerankRelayService } from './rerank-relay.service.js';
 
 /**
  * Wires the OpenAI/Anthropic/Gemini chat-relay surface
  * (`POST /v1/chat/completions`, `POST /v1/messages`,
  * `POST /v1beta/models/{model}:generateContent[:streamGenerateContent]`), the
  * OpenAI-compatible embeddings relay (`POST /v1/embeddings`, billed per input
- * token via {@link EmbedRelayService}), the
- * {@link ChatRelayService} that funnels each dialect into the engine, and the
- * {@link ModelResolverService} resolving model names via the REAL Track C
- * `resolveModelForTenant` ({@link realModelResolverPort}). Tests override
- * {@link MODEL_RESOLVER} with a fake; production uses the real binding.
+ * token via {@link EmbedRelayService}), the Cohere/Jina-compatible rerank relay
+ * (`POST /v1/rerank` via {@link RerankRelayService}) and the OpenAI-compatible
+ * moderations relay (`POST /v1/moderations` via {@link ModerationRelayService}),
+ * each billed per input token; the {@link ChatRelayService} that funnels each
+ * dialect into the engine, and the {@link ModelResolverService} resolving model
+ * names via the REAL Track C `resolveModelForTenant` ({@link realModelResolverPort}).
+ * Tests override {@link MODEL_RESOLVER} with a fake; production uses the real binding.
  */
 @Module({
   controllers: [
@@ -35,11 +41,15 @@ import { OpenAIChatController } from './openai.controller.js';
     AnthropicChatController,
     GeminiChatController,
     EmbeddingsController,
+    RerankController,
+    ModerationsController,
     ModelsController,
   ],
   providers: [
     ChatRelayService,
     EmbedRelayService,
+    RerankRelayService,
+    ModerationRelayService,
     ModelResolverService,
     AuthService,
     SecretResolver,
