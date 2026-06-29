@@ -81,13 +81,38 @@ export function ChatComposer({
         {streaming ? (
           <IconButton icon={StopIcon} label={t('playground.stop')} onClick={onStop} weight="fill" />
         ) : (
-          <IconButton
-            icon={ArrowUpIcon}
-            label={t('playground.send')}
+          <button
+            type="button"
             onClick={onSend}
-            active={canSend}
-            weight="bold"
-          />
+            disabled={!canSend}
+            aria-label={t('playground.send')}
+            style={{
+              width: 38,
+              height: 38,
+              flexShrink: 0,
+              borderRadius: 'var(--r-md)',
+              border: 'none',
+              display: 'grid',
+              placeItems: 'center',
+              cursor: canSend ? 'pointer' : 'default',
+              background: 'var(--grad-accent)',
+              color: 'var(--bg)',
+              opacity: canSend ? 1 : 0.4,
+              transition:
+                'opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out)',
+            }}
+            onMouseDown={(e) => {
+              if (canSend) e.currentTarget.style.transform = 'scale(0.94)';
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+          >
+            <ArrowUpIcon size={18} weight="bold" />
+          </button>
         )}
       </div>
     </div>

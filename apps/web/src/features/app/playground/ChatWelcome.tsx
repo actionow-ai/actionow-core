@@ -132,9 +132,10 @@ function Badge({ icon, accent }: { icon: React.ReactNode; accent?: boolean }) {
         borderRadius: 'var(--r-lg)',
         display: 'grid',
         placeItems: 'center',
-        background: 'var(--glass-bg)',
-        border: '1px solid var(--panel-bd)',
-        color: accent === true ? 'var(--accent)' : 'var(--muted)',
+        background: accent === true ? 'var(--grad-accent)' : 'var(--glass-bg)',
+        border: accent === true ? 'none' : '1px solid var(--panel-bd)',
+        color: accent === true ? 'var(--bg)' : 'var(--muted)',
+        boxShadow: accent === true ? 'var(--shadow-lift)' : 'none',
       }}
     >
       {icon}

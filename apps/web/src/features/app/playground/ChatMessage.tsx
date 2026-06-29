@@ -37,7 +37,7 @@ export function ChatMessage({ row, onRegenerate }: { row: ChatRow; onRegenerate?
             maxWidth: '80%',
             background: 'var(--glass-bg)',
             border: '1px solid var(--panel-bd)',
-            borderRadius: 'var(--r-lg)',
+            borderRadius: 'var(--r-lg) var(--r-lg) var(--r-sm) var(--r-lg)',
             padding: 'var(--s-2) var(--s-3)',
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
@@ -135,14 +135,14 @@ function Avatar({ error }: { error?: boolean }) {
       aria-hidden="true"
       style={{
         flexShrink: 0,
-        width: 28,
-        height: 28,
-        borderRadius: 999,
+        width: 30,
+        height: 30,
+        borderRadius: 'var(--r-md)',
         display: 'grid',
         placeItems: 'center',
-        background: 'var(--glass-bg)',
-        border: '1px solid var(--panel-bd)',
-        color: error === true ? 'var(--fail)' : 'var(--accent)',
+        background: error === true ? 'var(--glass-bg)' : 'var(--grad-accent)',
+        border: error === true ? '1px solid var(--panel-bd)' : 'none',
+        color: error === true ? 'var(--fail)' : 'var(--bg)',
       }}
     >
       <SparkleIcon size={16} weight="fill" />

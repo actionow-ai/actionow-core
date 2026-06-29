@@ -261,8 +261,28 @@ export function ChatTool() {
       />
 
       <section
-        style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          position: 'relative',
+          isolation: 'isolate',
+        }}
       >
+        {/* Ambient warm aurora behind the canvas (token-tinted, static, behind content). */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: -1,
+            pointerEvents: 'none',
+            background:
+              'radial-gradient(48% 52% at 14% 0%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 60%), radial-gradient(44% 50% at 92% 6%, color-mix(in srgb, var(--accent-2) 11%, transparent), transparent 62%), radial-gradient(56% 60% at 72% 100%, color-mix(in srgb, var(--run) 8%, transparent), transparent 66%)',
+          }}
+        />
         {/* Top bar: the model picker. */}
         <div
           style={{
