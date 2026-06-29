@@ -57,6 +57,7 @@ export const qk = {
   health: () => ['admin', 'health'] as const,
   breakers: () => ['admin', 'breakers'] as const,
   platformSettings: () => ['admin', 'settings'] as const,
+  readyz: () => ['readyz'] as const,
 
   // Tenant self-service console plane.
   consoleApiKeys: () => ['console', 'api-keys'] as const,

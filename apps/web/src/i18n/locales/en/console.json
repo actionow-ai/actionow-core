@@ -1584,6 +1584,11 @@
     "operational": "Operational",
     "degraded": "{{n}} model(s) failing",
     "noData": "No data",
+    "readiness": {
+      "title": "Platform readiness",
+      "ready": "All systems ready",
+      "degraded": "Infrastructure degraded"
+    },
     "window": "Window",
     "days": "{{n}}d",
     "empty": "No traffic in this window yet — make some requests and per-model availability + latency will show here.",
