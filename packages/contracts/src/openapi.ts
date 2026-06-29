@@ -85,9 +85,12 @@ import {
 } from './catalog-views.js';
 import { transcriptionRequestSchema, transcriptionResponseSchema } from './chat.js';
 import {
+  appendMessageSchema,
   consoleChangePasswordSchema,
   consoleCreateApiKeySchema,
   consoleCreateIntentSchema,
+  createConversationSchema,
+  updateConversationSchema,
 } from './console-requests.js';
 import {
   consoleApiKeyViewSchema,
@@ -101,6 +104,9 @@ import {
   consolePaymentViewSchema,
   consoleUsageLogViewSchema,
   consoleUsageRollupViewSchema,
+  conversationDetailViewSchema,
+  conversationViewSchema,
+  messageViewSchema,
   storageUsageViewSchema,
 } from './console-views.js';
 import {
@@ -267,6 +273,16 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const ConsoleIntent = registry.register('ConsoleIntentView', consoleIntentViewSchema);
   const ConsoleFile = registry.register('ConsoleFileView', consoleFileViewSchema);
   const StorageUsage = registry.register('StorageUsageView', storageUsageViewSchema);
+  // Playground conversation persistence (tenant console).
+  const Conversation = registry.register('ConversationView', conversationViewSchema);
+  const ConversationDetail = registry.register(
+    'ConversationDetailView',
+    conversationDetailViewSchema,
+  );
+  const MessageV = registry.register('MessageView', messageViewSchema);
+  const CreateConversation = registry.register('CreateConversationBody', createConversationSchema);
+  const UpdateConversation = registry.register('UpdateConversationBody', updateConversationSchema);
+  const AppendMessage = registry.register('AppendMessageBody', appendMessageSchema);
 
   // data-plane views (data-plane): the generation hot path (/v1/run, /v1/jobs,
   // /v1/resources, /v1/files) an external developer's app drives via @actionow/sdk.
@@ -688,6 +704,15 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   // Tenant asset gallery: ready media files, newest-first, optionally narrowed to a media kind.
   const consoleFilesQuery = keyset.extend({ kind: z.enum(['image', 'video', 'audio']).optional() });
   list('/console/files', 'Your tenant media files', ConsoleFile, 'console', consoleFilesQuery);
+  // Playground: saved chat conversations (keyset, most-recent-activity first).
+  list('/console/conversations', 'Your playground conversations', Conversation, 'console', keyset);
+  getOne(
+    '/console/conversations/{id}',
+    'A conversation with its full transcript',
+    ConversationDetail,
+    'console',
+  );
+  del('/console/conversations/{id}', 'Delete one of your conversations', 'console');
   // `/console/usage` is a composite: two independent keyset envelopes in one body.
   registry.registerPath({
     method: 'get',
@@ -1231,6 +1256,33 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     tag: 'console',
     body: ConsoleCreateApiKey,
     response: apiKeyCreatedSchema,
+    created: true,
+  });
+  // Playground conversations: create / rename+re-model / append a turn.
+  write({
+    method: 'post',
+    path: '/console/conversations',
+    summary: 'Start a playground conversation',
+    tag: 'console',
+    body: CreateConversation,
+    response: Conversation,
+    created: true,
+  });
+  write({
+    method: 'patch',
+    path: '/console/conversations/{id}',
+    summary: 'Rename / re-model a conversation',
+    tag: 'console',
+    body: UpdateConversation,
+    response: Conversation,
+  });
+  write({
+    method: 'post',
+    path: '/console/conversations/{id}/messages',
+    summary: 'Append a turn to a conversation',
+    tag: 'console',
+    body: AppendMessage,
+    response: MessageV,
     created: true,
   });
   // Rotate takes NO body (the `:id` path identifies the key); returns the new

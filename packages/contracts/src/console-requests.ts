@@ -90,3 +90,42 @@ export const consoleUpdateUserSchema = z.object({
   tenantRole: z.enum(['admin', 'member']).optional(),
 });
 export type ConsoleUpdateUserBody = z.infer<typeof consoleUpdateUserSchema>;
+
+/**
+ * `POST /console/conversations` (playground) — start a saved chat conversation for
+ * the caller's tenant. Both fields optional: `title` defaults server-side ("新对话",
+ * renameable), `model` records the picker's initial model. No `tenantId` (guard-scoped).
+ */
+export const createConversationSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  model: z.string().min(1).optional(),
+});
+export type CreateConversationBody = z.infer<typeof createConversationSchema>;
+
+/**
+ * `PATCH /console/conversations/:id` (playground) — rename and/or re-model a saved
+ * conversation. All-optional so either dimension changes alone; `model` may be
+ * cleared to `null`.
+ */
+export const updateConversationSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  model: z.string().min(1).nullable().optional(),
+});
+export type UpdateConversationBody = z.infer<typeof updateConversationSchema>;
+
+/**
+ * `POST /console/conversations/:id/messages` (playground) — persist one turn. The
+ * generation itself ran through the data-plane relay (API key); this only records
+ * the transcript. `seq` is server-assigned. `usage`/`reasoning`/`latency_ms`/`model`
+ * are assistant-turn metadata (omitted/null for a user turn). Field names mirror
+ * `messageViewSchema` so the streamed result can be persisted with no remapping.
+ */
+export const appendMessageSchema = z.object({
+  role: z.enum(['user', 'assistant', 'system']),
+  content: z.string(),
+  reasoning: z.string().nullable().optional(),
+  usage: z.object({ input: z.number().int(), output: z.number().int() }).nullable().optional(),
+  latency_ms: z.number().int().nonnegative().nullable().optional(),
+  model: z.string().min(1).nullable().optional(),
+});
+export type AppendMessageBody = z.infer<typeof appendMessageSchema>;
