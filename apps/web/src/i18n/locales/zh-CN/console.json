@@ -326,6 +326,7 @@
     "breakers": "熔断",
     "relayTraces": "中转追踪",
     "auditLog": "审计日志",
+    "platformSettings": "系统设置",
     "overview": "概览",
     "tusage": "用量",
     "tkeys": "API Keys",
@@ -370,6 +371,7 @@
     "breakers": "已熔断 / 探测中的通道——按(通道·模型)的熔断状态与重置",
     "relayTraces": "上游中转审计——请求、响应、延迟",
     "auditLog": "谁在何时改了什么——资金 / 治理 / 身份变更的操作审计",
+    "platformSettings": "运行时可调的平台配置——覆盖 env 默认值,有审计",
     "overview": "余额、最近任务与流水",
     "tusage": "用量聚合与逐次调用日志",
     "tkeys": "签发与管理你的 API Key",
@@ -499,6 +501,17 @@
         "cost": "花费",
         "status": "状态"
       }
+    }
+  },
+  "settings": {
+    "value": "值",
+    "saved": "设置已保存",
+    "reset": "设置已恢复默认",
+    "resetToDefault": "恢复默认",
+    "overriddenAt": "{{by}} 于 {{time}} 覆盖",
+    "source": {
+      "env": "默认",
+      "db": "已覆盖"
     }
   },
   "relayTraces": {

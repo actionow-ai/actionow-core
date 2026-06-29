@@ -60,6 +60,7 @@ import type {
   OpsSummaryView,
   Page,
   PaymentIntentView,
+  PlatformSettingView,
   PricebookView,
   ProviderPluginView,
   ProvisionBody,
@@ -723,6 +724,17 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
         await sdk.GET('/admin/payments', { params: { query: { tenantId, limit } } }),
         u,
       ),
+
+    // --- dynamic platform config (动态配置, #50) — admin-only, not in the SDK ---
+    // List the 8 tunable settings with their effective value + source (env|db).
+    listPlatformSettings: (): Promise<PlatformSettingView[]> =>
+      rawClient.get<PlatformSettingView[]>('/admin/settings'),
+    // Override one setting at runtime (validated per-key server-side); audited.
+    setPlatformSetting: (key: string, value: unknown): Promise<PlatformSettingView> =>
+      rawClient.put<PlatformSettingView>(`/admin/settings/${key}`, { value }),
+    // Reset one setting back to its env/code default; audited.
+    resetPlatformSetting: (key: string): Promise<PlatformSettingView> =>
+      rawClient.delete<PlatformSettingView>(`/admin/settings/${key}`),
   };
 }
 

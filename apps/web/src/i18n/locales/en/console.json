@@ -326,6 +326,7 @@
     "breakers": "Breakers",
     "relayTraces": "Relay traces",
     "auditLog": "Audit log",
+    "platformSettings": "Platform settings",
     "overview": "Overview",
     "tusage": "Usage",
     "tkeys": "API Keys",
@@ -370,6 +371,7 @@
     "breakers": "Tripped / probing channels — per-(channel, model) breaker state & reset",
     "relayTraces": "Upstream relay audit — requests, responses, latency",
     "auditLog": "Who changed what, when — money / governance / identity mutation audit",
+    "platformSettings": "Runtime-tunable platform config — override an env default, audited",
     "overview": "Balance, recent jobs and ledger",
     "tusage": "Usage aggregation and per-call log",
     "tkeys": "Mint and manage your API keys",
@@ -499,6 +501,17 @@
         "cost": "Cost",
         "status": "Status"
       }
+    }
+  },
+  "settings": {
+    "value": "Value",
+    "saved": "Setting saved",
+    "reset": "Setting reset to its default",
+    "resetToDefault": "Reset to default",
+    "overriddenAt": "Overridden {{time}} by {{by}}",
+    "source": {
+      "env": "Default",
+      "db": "Overridden"
     }
   },
   "relayTraces": {

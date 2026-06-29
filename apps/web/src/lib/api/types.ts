@@ -108,6 +108,9 @@ export type {
   OpsHealthView,
   OpsSummaryView,
   PaymentIntentView,
+  // --- dynamic platform config (动态配置, #50) ---
+  PlatformSettingKey,
+  PlatformSettingView,
   PresignUploadBody,
   PresignUploadResult,
   PricebookView,
@@ -144,6 +147,7 @@ export type {
   UpdateModelBody,
   UpdateModifierBody,
   UpdateOfficialPriceBody,
+  UpdatePlatformSettingRequest,
   UpdatePluginRequest,
   UpdatePricebookBody,
   UpdateProxyBody,

@@ -29,6 +29,7 @@ import { ModifiersPage } from './features/console/ModifiersPage';
 import { OAuthSessionsPage } from './features/console/OAuthSessionsPage';
 import { OfficialPricesPage } from './features/console/OfficialPricesPage';
 import { OverviewPage } from './features/console/OverviewPage';
+import { PlatformSettingsPage } from './features/console/PlatformSettingsPage';
 import { ProxiesPage } from './features/console/ProxiesPage';
 import { RedemptionCodesPage } from './features/console/RedemptionCodesPage';
 import { RelayTracesPage } from './features/console/RelayTracesPage';
@@ -99,6 +100,8 @@ export function AppRoutes() {
           <Route path="breakers" element={<BreakersPage />} />
           <Route path="relay-traces" element={<RelayTracesPage />} />
           <Route path="audit-log" element={<AuditLogPage />} />
+          {/* 系统设置 — runtime platform config (动态配置, #50). */}
+          <Route path="platform-settings" element={<PlatformSettingsPage />} />
           {/* 模型接入 = the 3-pane (plugin → channel → model); the standalone 插件 page folds in here. */}
           <Route path="catalog" element={<ModelAccessPage />} />
           {/* Platform & pricing = the resource master-detail (pricebook + resource CRUD), secondary surface. */}
