@@ -315,7 +315,11 @@ describe('POST/GET /v1/files over real MinIO', () => {
 });
 
 describe('DELETE + usage + quota', () => {
-  async function presignPutConfirm(key: string, filename: string, bytes: Uint8Array): Promise<string> {
+  async function presignPutConfirm(
+    key: string,
+    filename: string,
+    bytes: Uint8Array,
+  ): Promise<string> {
     const presign = await request(app.getHttpServer())
       .post('/v1/files/presign-upload')
       .set('authorization', `Bearer ${key}`)

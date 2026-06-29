@@ -1,10 +1,12 @@
-import {
-  type PlatformSettingView,
-  platformSettingViewSchema,
-} from '@actionow/contracts';
+import { type PlatformSettingView, platformSettingViewSchema } from '@actionow/contracts';
 import { type Database, deletePlatformSetting, upsertPlatformSetting } from '@actionow/db';
 import { SettingsResolver } from '@actionow/engine';
-import { type AppEnv, parseSettingValue, type SettingKey, type SettingValue } from '@actionow/infra';
+import {
+  type AppEnv,
+  parseSettingValue,
+  type SettingKey,
+  type SettingValue,
+} from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { engineInvalidInput } from '../common/errors.js';

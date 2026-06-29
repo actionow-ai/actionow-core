@@ -190,7 +190,9 @@ export class EmbedRelayService {
 
     const versionRow = await getResourceVersion(this.db, resourceId, version);
     if (versionRow === undefined) {
-      throw engineNotFound(`embeddings resource ${resourceId} version ${String(version)} not found`);
+      throw engineNotFound(
+        `embeddings resource ${resourceId} version ${String(version)} not found`,
+      );
     }
 
     const channels = await this.routing.candidatesFor(

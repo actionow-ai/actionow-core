@@ -9,6 +9,7 @@
 **Tech Stack:** TanStack Query v5, React Router v7, TypeScript. No new deps.
 
 **Backend contracts (verified in code):**
+
 - `POST /auth/login {email,password} → { token }`; JWT claims `{ sub, role }` signed with `ADMIN_JWT_SECRET`; `role ∈ {'user','admin'}` ([`local-auth.service.ts`](apps/api/src/auth/local-auth.service.ts)).
 - `/admin/*` requires `Authorization: Bearer <jwt>`; class-level `@Roles('admin')` → a `user`-role token gets `unauthorized` ([`admin.guard.ts`](apps/api/src/admin/auth/admin.guard.ts)).
 - Error envelope: `{ error: { code, message, retryable, retry_after_ms?, upstream? } }` ([`unified-error.filter.ts`](apps/api/src/common/unified-error.filter.ts)). Codes: `invalid_input`(400) `unauthorized`(401) `insufficient_credits`(402) `resource_not_found`(404) `content_filtered`(422) `rate_limited`(429) `upstream_error`(502) `upstream_timeout`(504) `job_failed|internal_error`(500).
@@ -41,6 +42,7 @@ apps/admin/src/
 ## Task 1: Config + `ApiError` + the fetch client
 
 **Files:**
+
 - Create: `apps/admin/src/config.ts`, `apps/admin/src/lib/api/errors.ts`, `apps/admin/src/lib/api/client.ts`
 - Test: `apps/admin/src/lib/api/client.test.ts`
 
@@ -86,6 +88,7 @@ export class NotAdminError extends ApiError {
 - [ ] **Step 3: Write the failing test**
 
 `apps/admin/src/lib/api/client.test.ts`:
+
 ```ts
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
@@ -206,7 +209,13 @@ async function toApiError(res: Response): Promise<ApiError> {
     };
     const e = body.error;
     if (e?.code) {
-      return new ApiError(e.code, e.message ?? e.code, res.status, e.retryable ?? false, e.retry_after_ms);
+      return new ApiError(
+        e.code,
+        e.message ?? e.code,
+        res.status,
+        e.retryable ?? false,
+        e.retry_after_ms,
+      );
     }
   } catch {
     // fall through to a generic error below
@@ -234,12 +243,14 @@ git commit -m "feat(admin): fetch client + ApiError over the unified error envel
 ## Task 2: `Money` (BigInt µcredit formatting)
 
 **Files:**
+
 - Create: `apps/admin/src/lib/money.ts`
 - Test: `apps/admin/src/lib/money.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 `apps/admin/src/lib/money.test.ts`:
+
 ```ts
 import { expect, test } from 'vitest';
 
@@ -310,12 +321,14 @@ git commit -m "feat(admin): bigint-safe µcredit money formatting"
 ## Task 3: JWT decode util
 
 **Files:**
+
 - Create: `apps/admin/src/lib/auth/jwt.ts`
 - Test: `apps/admin/src/lib/auth/jwt.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 `apps/admin/src/lib/auth/jwt.test.ts`:
+
 ```ts
 import { expect, test } from 'vitest';
 
@@ -399,12 +412,14 @@ git commit -m "feat(admin): jwt payload decode + expiry helpers"
 ## Task 4: `AuthProvider` (login via `/auth/login`, role gate, token store)
 
 **Files:**
+
 - Create: `apps/admin/src/lib/auth/AuthProvider.tsx`
 - Test: `apps/admin/src/lib/auth/AuthProvider.test.tsx`
 
 - [ ] **Step 1: Write the failing test**
 
 `apps/admin/src/lib/auth/AuthProvider.test.tsx`:
+
 ```tsx
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -419,7 +434,11 @@ function tokenWith(role: string) {
   return `${b64({ alg: 'HS256' })}.${b64({ sub: 'u1', role, exp: 9999999999 })}.sig`;
 }
 function res(status: number, body: unknown) {
-  return Promise.resolve({ ok: status < 300, status, json: () => Promise.resolve(body) } as Response);
+  return Promise.resolve({
+    ok: status < 300,
+    status,
+    json: () => Promise.resolve(body),
+  } as Response);
 }
 
 beforeEach(() => {
@@ -458,7 +477,9 @@ test('a non-admin login is rejected with NotAdminError and stores nothing', asyn
   let captured: unknown;
   function Probe2() {
     const { login } = useAuth();
-    return <button onClick={() => void login('a@b.c', 'pw').catch((e) => (captured = e))}>go</button>;
+    return (
+      <button onClick={() => void login('a@b.c', 'pw').catch((e) => (captured = e))}>go</button>
+    );
   }
   render(
     <AuthProvider>
@@ -481,7 +502,15 @@ Expected: FAIL — cannot find `./AuthProvider`.
 - [ ] **Step 3: Implement `AuthProvider.tsx`**
 
 ```tsx
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ReactNode } from 'react';
 
 import { config } from '../../config';
@@ -594,12 +623,14 @@ git commit -m "feat(admin): auth provider — /auth/login, admin role gate, toke
 ## Task 5: `ProtectedRoute`
 
 **Files:**
+
 - Create: `apps/admin/src/lib/auth/ProtectedRoute.tsx`
 - Test: `apps/admin/src/lib/auth/ProtectedRoute.test.tsx`
 
 - [ ] **Step 1: Write the failing test**
 
 `apps/admin/src/lib/auth/ProtectedRoute.test.tsx`:
+
 ```tsx
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -679,6 +710,7 @@ git commit -m "feat(admin): protected route (admin-only)"
 ## Task 6: Typed admin API surface (`types.ts`, `admin.ts`)
 
 **Files:**
+
 - Create: `apps/admin/src/lib/api/types.ts`, `apps/admin/src/lib/api/admin.ts`
 - Test: `apps/admin/src/lib/api/admin.test.ts`
 
@@ -768,6 +800,7 @@ export interface CreateApiKeyBody {
 - [ ] **Step 2: Write the failing test**
 
 `apps/admin/src/lib/api/admin.test.ts`:
+
 ```ts
 import { expect, test, vi } from 'vitest';
 
@@ -831,10 +864,12 @@ export function makeAdminApi(client: ApiClient) {
 
     createAccount: (body: CreateAccountBody) => client.post<AccountView>('/admin/accounts', body),
     topup: (accountId: string, body: TopupBody) =>
-      client.post<{ account_id: string; balance: string }>(`/admin/accounts/${accountId}/topup`, body),
+      client.post<{ account_id: string; balance: string }>(
+        `/admin/accounts/${accountId}/topup`,
+        body,
+      ),
 
-    listApiKeys: (tenantId: string) =>
-      client.get<ApiKeyView[]>('/admin/api-keys', { tenantId }),
+    listApiKeys: (tenantId: string) => client.get<ApiKeyView[]>('/admin/api-keys', { tenantId }),
     createApiKey: (body: CreateApiKeyBody) =>
       client.post<ApiKeyCreatedView>('/admin/api-keys', body),
 
@@ -876,6 +911,7 @@ git commit -m "feat(admin): typed /admin api surface + view types"
 ## Task 7: `useKeyset` pagination hook + `useAdminApi`
 
 **Files:**
+
 - Create: `apps/admin/src/lib/query.ts`, `apps/admin/src/lib/api/useAdminApi.ts`
 - Test: `apps/admin/src/lib/query.test.tsx`
 
@@ -897,6 +933,7 @@ export function useAdminApi(): AdminApi {
 - [ ] **Step 2: Write the failing test (keyset accumulates pages)**
 
 `apps/admin/src/lib/query.test.tsx`:
+
 ```tsx
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
@@ -986,11 +1023,13 @@ git commit -m "feat(admin): useKeyset pagination + useAdminApi binding"
 ## Task 8: Wire `AuthProvider` into `App`; protect the shell
 
 **Files:**
+
 - Modify: `apps/admin/src/App.tsx`, `apps/admin/src/routes.tsx`
 
 - [ ] **Step 1: Wrap the app in `AuthProvider`**
 
 Edit `apps/admin/src/App.tsx` — add the import and wrap `<BrowserRouter>`:
+
 ```tsx
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Suspense } from 'react';
@@ -1024,6 +1063,7 @@ export default function App() {
 - [ ] **Step 2: Gate the shell behind `ProtectedRoute`; add the `/login` placeholder route**
 
 Edit `apps/admin/src/routes.tsx`:
+
 ```tsx
 import { Navigate, Route, Routes } from 'react-router-dom';
 
