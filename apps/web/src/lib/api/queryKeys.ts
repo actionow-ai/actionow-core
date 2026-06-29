@@ -82,6 +82,9 @@ export const qk = {
     kind === undefined ? (['console', 'files'] as const) : (['console', 'files', kind] as const),
   consoleFilesUsage: () => ['console', 'files', 'usage'] as const,
   consoleLimits: () => ['console', 'limits'] as const,
+  // Playground saved conversations + one conversation's transcript.
+  conversations: () => ['console', 'conversations'] as const,
+  conversation: (id: string) => ['console', 'conversations', id] as const,
   // Tenant-owned end-users (subjects) + their HARD sub-wallets (end-user data plane;
   // admin-only Subjects page).
   consoleSubjects: () => ['console', 'subjects'] as const,

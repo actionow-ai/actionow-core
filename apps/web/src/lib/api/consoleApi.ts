@@ -3,6 +3,7 @@ import type { SdkClient } from './sdkClient';
 import { page, unwrap } from './sdkClient';
 import type {
   ApiKeyCreatedView,
+  AppendMessageBody,
   ConsoleAnalyticsQuery,
   ConsoleApiKeyView,
   ConsoleBalanceView,
@@ -21,12 +22,16 @@ import type {
   ConsoleUsageRollupView,
   ConsoleUsageView,
   ConsoleUserView,
+  ConversationDetailView,
+  ConversationView,
+  CreateConversationBody,
   CreateLimitPlanRequest,
   CreateSubAccountBody,
   CreateSubjectBody,
   FileView,
   LimitPlanView,
   LimitRuleStatusView,
+  MessageView,
   Page,
   PresignUploadBody,
   PresignUploadResult,
@@ -36,6 +41,7 @@ import type {
   SubjectView,
   TopupSubAccountBody,
   TransferCreditsBody,
+  UpdateConversationBody,
   UpdateLimitPlanRequest,
   UpdateSubjectBody,
 } from './types';
@@ -130,6 +136,32 @@ export function makeConsoleApi(sdk: SdkClient, rawClient: ApiClient, onUnauthori
     deleteFile: async (id: string): Promise<void> => {
       unwrap(await sdk.DELETE('/console/files/{id}', { params: { path: { id } } }), u);
     },
+
+    // --- playground conversations (transcript persistence; generation runs via the API key) ---
+    listConversations: async (
+      params: { cursor?: string; limit?: number } = {},
+    ): Promise<Page<ConversationView>> =>
+      page<ConversationView>(
+        await sdk.GET('/console/conversations', { params: { query: params } }),
+        u,
+      ),
+    createConversation: async (body: CreateConversationBody): Promise<ConversationView> =>
+      unwrap(await sdk.POST('/console/conversations', { body }), u),
+    getConversation: async (id: string): Promise<ConversationDetailView> =>
+      unwrap(await sdk.GET('/console/conversations/{id}', { params: { path: { id } } }), u),
+    updateConversation: async (
+      id: string,
+      body: UpdateConversationBody,
+    ): Promise<ConversationView> =>
+      unwrap(await sdk.PATCH('/console/conversations/{id}', { params: { path: { id } }, body }), u),
+    deleteConversation: async (id: string): Promise<void> => {
+      unwrap(await sdk.DELETE('/console/conversations/{id}', { params: { path: { id } } }), u);
+    },
+    appendMessage: async (id: string, body: AppendMessageBody): Promise<MessageView> =>
+      unwrap(
+        await sdk.POST('/console/conversations/{id}/messages', { params: { path: { id } }, body }),
+        u,
+      ),
 
     // Tenant credit balance + held (dedicated endpoint).
     balance: async (): Promise<ConsoleBalanceView> => unwrap(await sdk.GET('/console/balance'), u),
