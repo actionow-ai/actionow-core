@@ -2575,6 +2575,7 @@ function toModelView(row: ModelRow, servedChannelIds: string[] = []): ModelView 
     resource_id: row.resourceId,
     input_price: row.inputPrice.toString(),
     output_price: row.outputPrice.toString(),
+    cached_input_price: row.cachedInputPrice === null ? null : row.cachedInputPrice.toString(),
     rate_limit: row.rateLimit,
     fallback_models: row.fallbackModels,
     served_channel_ids: servedChannelIds,

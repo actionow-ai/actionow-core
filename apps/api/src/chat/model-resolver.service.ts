@@ -15,6 +15,8 @@ export interface ResolvedModel {
   readonly resourceId: string;
   readonly inputPrice: bigint;
   readonly outputPrice: bigint;
+  /** Optional µUSD per 1M cached-input tokens (用拆分计费); null → no cached rate. */
+  readonly cachedInputPrice: bigint | null;
   readonly capabilities: Record<string, unknown>;
 }
 

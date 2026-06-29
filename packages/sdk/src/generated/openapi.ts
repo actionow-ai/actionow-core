@@ -11881,6 +11881,7 @@ export interface components {
             resource_id: string;
             input_price: string;
             output_price: string;
+            cached_input_price: string | null;
             rate_limit: number | null;
             fallback_models: string[] | null;
             served_channel_ids: string[];
@@ -12805,6 +12806,7 @@ export interface components {
             visibility?: "public" | "tenant";
             inputPrice?: number;
             outputPrice?: number;
+            cachedInputPrice?: number;
             rateLimit?: number;
             fallbackModels?: string[];
             tags?: string[];
@@ -12823,6 +12825,7 @@ export interface components {
             };
             inputPrice?: number;
             outputPrice?: number;
+            cachedInputPrice?: number | null;
             /** @enum {string} */
             visibility?: "public" | "tenant";
             rateLimit?: number | null;

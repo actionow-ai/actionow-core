@@ -48,6 +48,16 @@ export const model = pgTable(
     outputPrice: bigint('output_price', { mode: 'bigint' })
       .notNull()
       .default(sql`0`),
+    /**
+     * Optional µUSD per 1M CACHED-input tokens (用拆分计费). Frozen into the
+     * `model_token` pricebook spec so `priceModelToken` bills prompt-cached input
+     * (`usage.cached_input_tokens`, captured by #70) at this cheaper rate instead
+     * of the full `input_price`. Auto-wired from a matched
+     * `official_model_price.cached_input_price_per_1m` (sync-models / admin create
+     * / update). Nullable → non-breaking: when null, ALL input bills at
+     * `input_price` exactly as before.
+     */
+    cachedInputPrice: bigint('cached_input_price', { mode: 'bigint' }),
     // Set `true` by `sync-models` when no official price matched the discovered
     // slug (Track 2; spec D7). Such a model is created `disabled` and is NEVER
     // billable at 0 — it stays out of routing until an admin prices it.

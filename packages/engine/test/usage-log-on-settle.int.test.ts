@@ -274,6 +274,68 @@ describe('ExecutionService.settleSync — usage_log mirror', () => {
     expect(625n - BigInt(logs[0]?.provider_cost as string)).toBe(375n);
   });
 
+  it('用拆分计费: settles cheaper when the spec has a cached rate AND usage carries cached_input_tokens', async () => {
+    const s = await seed(10_000_000n);
+    const adapters = new AdapterRegistry();
+    // Adapter emits the #70 breakdown: 100 input of which 30 cached, 50 output.
+    adapters.register(
+      fakeLlmAdapter({ input_tokens: 100, output_tokens: 50, cached_input_tokens: 30 }),
+    );
+    const svc = buildService(adapters);
+
+    // model_token spec WITH a cached rate ($0.125/1M vs $1.25/1M input).
+    const outcome = await svc.run(
+      baseRequest(s, {
+        usageLogModel: 'gpt-4o',
+        pricebookEntry: {
+          resourceId: 'openai',
+          resourceVersion: 1,
+          version: 1,
+          method: 'model_token',
+          timing: 'post',
+          spec: {
+            method: 'model_token',
+            inputPrice: 1_250_000,
+            outputPrice: 10_000_000,
+            cachedInputPrice: 125_000,
+          },
+        },
+      }),
+    );
+    expect(outcome.status).toBe('succeeded');
+
+    const logs = await client`SELECT cost, cached_input_tokens FROM usage_log`;
+    expect(logs).toHaveLength(1);
+    // The settle saw the breakdown vector → bills cached cheaper:
+    //   non-cached 70 @ 1_250_000 = 8.75e7
+    //   cached     30 @ 125_000   = 3.75e6
+    //   output     50 @ 10_000_000 = 5.0e8
+    //   product = 5.9125e8 → /1e6 = roundHalfUp(591.25) = 591 µUSD.
+    expect(BigInt(logs[0]?.cost as string)).toBe(591n);
+    // Strictly cheaper than the all-input-at-input charge (625) for identical totals.
+    expect(BigInt(logs[0]?.cost as string)).toBeLessThan(625n);
+    // The breakdown column is still mirrored.
+    expect(Number(logs[0]?.cached_input_tokens)).toBe(30);
+  });
+
+  it('用拆分计费 regression: a spec WITHOUT a cached rate ignores cached_input_tokens (cost unchanged)', async () => {
+    const s = await seed(10_000_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(
+      fakeLlmAdapter({ input_tokens: 100, output_tokens: 50, cached_input_tokens: 30 }),
+    );
+    const svc = buildService(adapters);
+
+    // Default MODEL_TOKEN_PRICEBOOK has NO cachedInputPrice → all input at inputPrice.
+    const outcome = await svc.run(baseRequest(s, { usageLogModel: 'gpt-4o' }));
+    expect(outcome.status).toBe('succeeded');
+
+    const logs = await client`SELECT cost FROM usage_log`;
+    expect(logs).toHaveLength(1);
+    // Identical to the no-breakdown charge: roundHalfUp((100*1_250_000 + 50*10_000_000)/1e6) = 625.
+    expect(BigInt(logs[0]?.cost as string)).toBe(625n);
+  });
+
   it('provider_cost is 0 when the served channel has null cost cols (subscription ≈ free)', async () => {
     const s = await seed(10_000_000n);
     const adapters = new AdapterRegistry();

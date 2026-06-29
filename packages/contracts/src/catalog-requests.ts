@@ -266,6 +266,12 @@ export const createModelSchema = z.object({
   inputPrice: z.number().int().nonnegative().optional(),
   /** µcredit-per-OUTPUT-token (integer). Same convention. Defaults to 0. */
   outputPrice: z.number().int().nonnegative().optional(),
+  /**
+   * µUSD per 1M CACHED-input tokens (用拆分计费); same µUSD-per-1M convention as
+   * `inputPrice`. When set, prompt-cached input bills at this cheaper rate;
+   * omitted → all input bills at `inputPrice` (non-breaking).
+   */
+  cachedInputPrice: z.number().int().nonnegative().optional(),
   /** Per-model rate limit in requests/minute (模型限流); omitted → no model-specific cap. */
   rateLimit: z.number().int().positive().max(1_000_000).optional(),
   /** Ordered model-degradation chain (模型降级链): fallback model names, tried in order on failure. */
@@ -295,6 +301,8 @@ export const updateModelSchema = z.object({
   capabilities: z.record(z.string(), z.boolean()).optional(),
   inputPrice: z.number().int().nonnegative().optional(),
   outputPrice: z.number().int().nonnegative().optional(),
+  /** µUSD per 1M cached-input tokens (用拆分计费); `null` clears the cached rate. */
+  cachedInputPrice: z.number().int().nonnegative().nullable().optional(),
   visibility: z.enum(['public', 'tenant']).optional(),
   /** Per-model rate limit in requests/minute (模型限流); `null` clears it. */
   rateLimit: z.number().int().positive().max(1_000_000).nullable().optional(),

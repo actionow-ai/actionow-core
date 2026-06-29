@@ -345,6 +345,12 @@ export class ChatRelayService {
         method: 'model_token',
         inputPrice: Number(resolved.inputPrice),
         outputPrice: Number(resolved.outputPrice),
+        // 用拆分计费: freeze the cached-input rate so `priceModelToken` bills
+        // prompt-cached input (#70's `cached_input_tokens`) cheaper. Null → omit
+        // (all input bills at `inputPrice`, exactly as before).
+        ...(resolved.cachedInputPrice !== null
+          ? { cachedInputPrice: Number(resolved.cachedInputPrice) }
+          : {}),
         groupRatioBps,
       },
     };

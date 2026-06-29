@@ -1827,6 +1827,9 @@ export class AdminService {
       ...(dto.visibility !== undefined ? { visibility: dto.visibility } : {}),
       ...(dto.inputPrice !== undefined ? { inputPrice: BigInt(dto.inputPrice) } : {}),
       ...(dto.outputPrice !== undefined ? { outputPrice: BigInt(dto.outputPrice) } : {}),
+      ...(dto.cachedInputPrice !== undefined
+        ? { cachedInputPrice: BigInt(dto.cachedInputPrice) }
+        : {}),
       ...(dto.rateLimit !== undefined ? { rateLimit: dto.rateLimit } : {}),
       ...(dto.fallbackModels !== undefined ? { fallbackModels: dto.fallbackModels } : {}),
       ...(dto.tags !== undefined ? { tags: dto.tags } : {}),
@@ -1885,6 +1888,7 @@ export class AdminService {
       capabilities?: Record<string, boolean>;
       inputPrice?: bigint;
       outputPrice?: bigint;
+      cachedInputPrice?: bigint | null;
       visibility?: string;
       rateLimit?: number | null;
       fallbackModels?: string[] | null;
@@ -1899,6 +1903,8 @@ export class AdminService {
     if (dto.capabilities !== undefined) patch.capabilities = dto.capabilities;
     if (dto.inputPrice !== undefined) patch.inputPrice = BigInt(dto.inputPrice);
     if (dto.outputPrice !== undefined) patch.outputPrice = BigInt(dto.outputPrice);
+    if (dto.cachedInputPrice !== undefined)
+      patch.cachedInputPrice = dto.cachedInputPrice === null ? null : BigInt(dto.cachedInputPrice);
     if (dto.visibility !== undefined) patch.visibility = dto.visibility;
     if (dto.rateLimit !== undefined) patch.rateLimit = dto.rateLimit;
     if (dto.fallbackModels !== undefined) patch.fallbackModels = dto.fallbackModels;

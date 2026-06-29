@@ -58,6 +58,14 @@ export const modelTokenSpecSchema = z.object({
   /** µUSD per 1M output tokens (frozen from the model's `output_price`). */
   outputPrice: z.number().int().nonnegative(),
   /**
+   * OPTIONAL µUSD per 1M CACHED-input tokens (用拆分计费), frozen from the model's
+   * `cached_input_price`. When present, `priceModelToken` bills the
+   * `usage.cached_input_tokens` portion of input (captured by #70) at THIS rate
+   * and the remainder at `inputPrice`; absent → ALL input bills at `inputPrice`
+   * (byte-identical to the pre-breakdown math — the regression invariant).
+   */
+  cachedInputPrice: z.number().int().nonnegative().optional(),
+  /**
    * The per-group customer-price ratio in integer BASIS POINTS (`10000 = 1.0×`;
    * Track 5, spec §"Pricing model"). The key's route group resolves this
    * pre-routing (`route_group.group_ratio_bps`; default group → 10000); it is
