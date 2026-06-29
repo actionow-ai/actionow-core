@@ -150,6 +150,20 @@ export {
   type UpsertBreakerInput,
 } from './channel-breaker.js';
 export {
+  appendMessage,
+  type AppendMessageInput,
+  type Conversation,
+  createConversation,
+  type CreateConversationInput,
+  getConversation,
+  listConversations,
+  listMessages,
+  type Message,
+  softDeleteConversation,
+  updateConversation,
+  type UpdateConversationInput,
+} from './conversation.js';
+export {
   createFaultPolicy,
   type CreateFaultPolicyInput,
   type FaultPolicyRow,

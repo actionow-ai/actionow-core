@@ -2,6 +2,7 @@ export * from './accounts.js';
 export * from './audit.js';
 export * from './catalog.js';
 export * from './channel-breaker.js';
+export * from './conversation.js';
 export * from './execution.js';
 export * from './fault-policy.js';
 export * from './icon.js';
