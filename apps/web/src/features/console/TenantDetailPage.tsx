@@ -1,6 +1,6 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 
@@ -33,8 +33,12 @@ import type {
   TenantView,
 } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { useJobStream } from '../../lib/api/useJobStream';
 import { STALE_DETAIL, STALE_REFERENCE } from '../../lib/query';
 import { SubjectDetailPanel } from './SubjectDetailPanel';
+
+/** Terminal job statuses (mirrors the backend) — anything else is in-flight. */
+const TERMINAL_JOB = new Set(['succeeded', 'failed', 'canceled']);
 
 /**
  * The routed tenant detail page (`/console/tenants/:id`) — the full-page successor
@@ -207,6 +211,23 @@ function TenantDetailBody({
     queryFn: () => api.listJobs({ tenantId: tenant.id, limit: 50 }),
     enabled: tab === 'jobs',
   });
+
+  // Live job progress (#62): watch the newest in-flight job over SSE; when it
+  // settles, refresh the list (status/cost) + the account balance. Only one
+  // stream at a time — terminal reveals the next non-terminal job, if any.
+  const liveJobId =
+    tab === 'jobs'
+      ? ((jobs.data?.rows ?? []).find((j) => !TERMINAL_JOB.has(j.status))?.job_id ?? null)
+      : null;
+  const liveJob = useJobStream(liveJobId);
+  useEffect(() => {
+    if (!liveJob.terminal) return;
+    // A settled job changes its row's status/cost and may have moved the balance.
+    void Promise.all([
+      qc.invalidateQueries({ queryKey: qk.jobs(tenant.id) }),
+      qc.invalidateQueries({ queryKey: qk.accounts() }),
+    ]);
+  }, [liveJob.terminal, qc, tenant.id]);
 
   const refundJob = useMutation({
     mutationFn: () => {
@@ -708,15 +729,41 @@ function TenantDetailBody({
         ) : tab === 'users' ? (
           usersPanel
         ) : tab === 'jobs' ? (
-          <DataTable
-            columns={jobCols}
-            rows={jobs.data?.rows ?? []}
-            rowKey={(r) => r.job_id}
-            loading={jobs.isLoading}
-            error={jobs.isError}
-            onRetry={() => void jobs.refetch()}
-            empty={t('tenants.detail.jobs.empty')}
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
+            {liveJob.live && (
+              <span
+                style={{
+                  alignSelf: 'flex-start',
+                  fontSize: 'var(--fs-caption)',
+                  color: 'var(--muted)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 'var(--s-1)',
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: 999,
+                    background: 'var(--ok)',
+                    display: 'inline-block',
+                  }}
+                />
+                {t('tenants.detail.jobs.live')}
+              </span>
+            )}
+            <DataTable
+              columns={jobCols}
+              rows={jobs.data?.rows ?? []}
+              rowKey={(r) => r.job_id}
+              loading={jobs.isLoading}
+              error={jobs.isError}
+              onRetry={() => void jobs.refetch()}
+              empty={t('tenants.detail.jobs.empty')}
+            />
+          </div>
         ) : tab === 'ledger' ? (
           <DataTable
             columns={ledgerCols}

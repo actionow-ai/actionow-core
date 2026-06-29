@@ -49,6 +49,9 @@ interface AuthCtx {
    *  stores it like a login; throws on a malformed/expired token. */
   setSession: (token: string) => AuthUser;
   logout: () => void;
+  /** The current access token (or null) — for hand-rolled fetches the SDK/client
+   *  middleware can't cover, e.g. an SSE stream read that sets its own headers. */
+  getToken: () => string | null;
 }
 const Ctx = createContext<AuthCtx | null>(null);
 
@@ -260,6 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       registerMember,
       setSession,
       logout,
+      getToken: () => tokenRef.current,
     }),
     [
       token,
@@ -298,4 +302,14 @@ export function useAuth(): AuthCtx {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
+}
+
+/**
+ * Like {@link useAuth} but returns `null` instead of throwing when rendered
+ * outside an `AuthProvider`. For incidental consumers (e.g. an SSE hook) that
+ * should stay inert — rather than crash — in isolated renders/tests where the
+ * provider isn't mounted. The real app always mounts it at the root.
+ */
+export function useOptionalAuth(): AuthCtx | null {
+  return useContext(Ctx);
 }

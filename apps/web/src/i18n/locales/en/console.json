@@ -602,6 +602,7 @@
       "jobs": {
         "tab": "Jobs",
         "empty": "No jobs yet",
+        "live": "Live — watching an in-flight job",
         "refund": "Refund",
         "refunded": "Refunded {{credits}} credits",
         "refundTitle": "Refund job",

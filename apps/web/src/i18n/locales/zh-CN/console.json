@@ -602,6 +602,7 @@
       "jobs": {
         "tab": "任务",
         "empty": "暂无任务",
+        "live": "实时跟踪进行中的任务",
         "refund": "退款",
         "refunded": "已退款 {{credits}} 额度",
         "refundTitle": "任务退款",
