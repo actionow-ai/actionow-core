@@ -9,7 +9,47 @@ import {
 } from '@actionow/contracts';
 
 import { ProtocolError } from '../errors.js';
-import { asArray, asNumber, asRecord, asString, parseJsonRecord } from '../internal/json.js';
+import {
+  asArray,
+  asNumber,
+  asRecord,
+  asString,
+  collectExtra,
+  parseJsonRecord,
+} from '../internal/json.js';
+
+/**
+ * Top-level OpenAI body keys the parser already promotes to first-class IR
+ * fields, plus transport keys the adapter rebuilds. Anything else is swept into
+ * `ir.extra` for generic passthrough (penalties, top_k, n, logprobs,
+ * top_logprobs, logit_bias, parallel_tool_calls, prompt_cache_key, service_tier,
+ * user, …). `max_completion_tokens` is intentionally NOT listed so a reasoning
+ * caller's explicit completion cap still forwards verbatim.
+ */
+const OPENAI_KNOWN_KEYS: ReadonlySet<string> = new Set([
+  'model',
+  'messages',
+  'stream',
+  'stream_options',
+  'tools',
+  'tool_choice',
+  'temperature',
+  'top_p',
+  'max_tokens',
+  'stop',
+  'seed',
+  'response_format',
+  'reasoning_effort',
+]);
+
+/** Map an OpenAI `reasoning_effort` string to the normalized IR enum (drops `none`/unknown). */
+function parseReasoningEffort(raw: unknown): ChatParams['reasoningEffort'] {
+  const v = asString(raw);
+  if (v === 'minimal' || v === 'low' || v === 'medium' || v === 'high' || v === 'xhigh') {
+    return v;
+  }
+  return undefined;
+}
 
 /**
  * Parse an OpenAI ChatCompletions request body (typed `unknown`) into the
@@ -47,6 +87,11 @@ export function parseOpenAIChat(wire: unknown): ChatRequest {
   const params = parseParams(body);
   if (params !== undefined) {
     ir.params = params;
+  }
+
+  const extra = collectExtra(body, OPENAI_KNOWN_KEYS);
+  if (extra !== undefined) {
+    ir.extra = extra;
   }
 
   const result = chatRequestSchema.safeParse(ir);
@@ -223,13 +268,26 @@ function parseParams(body: Record<string, unknown>): ChatParams | undefined {
     params.seed = seed;
   }
 
-  const responseFormat = asString(asRecord(body.response_format)?.type);
+  const responseFormatRec = asRecord(body.response_format);
+  const responseFormat = asString(responseFormatRec?.type);
   if (
     responseFormat === 'text' ||
     responseFormat === 'json_object' ||
     responseFormat === 'json_schema'
   ) {
     params.responseFormat = responseFormat;
+  }
+  // The actual structured-output schema lives at `response_format.json_schema.schema`.
+  if (responseFormat === 'json_schema') {
+    const schema = asRecord(asRecord(responseFormatRec?.json_schema)?.schema);
+    if (schema !== undefined) {
+      params.jsonSchema = schema;
+    }
+  }
+
+  const reasoningEffort = parseReasoningEffort(body.reasoning_effort);
+  if (reasoningEffort !== undefined) {
+    params.reasoningEffort = reasoningEffort;
   }
 
   return Object.keys(params).length > 0 ? params : undefined;

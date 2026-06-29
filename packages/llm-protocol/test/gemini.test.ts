@@ -221,6 +221,46 @@ describe('parseGeminiChat', () => {
     expect(none.toolChoice).toBe('none');
   });
 
+  it('lifts thinkingConfig + responseSchema into params and re-nests unknown gen keys under extra', () => {
+    const ir = parseGeminiChat(
+      {
+        contents: [{ role: 'user', parts: [{ text: 'hi' }] }],
+        cachedContent: 'cachedContents/abc',
+        safetySettings: [{ category: 'HARM', threshold: 'OFF' }],
+        generationConfig: {
+          temperature: 0.4,
+          frequencyPenalty: 0.2,
+          topK: 40,
+          candidateCount: 2,
+          seed: 7,
+          responseSchema: { type: 'OBJECT' },
+          thinkingConfig: { thinkingBudget: 4096 },
+        },
+      },
+      'gemini-3-pro',
+    );
+    expect(ir.params?.reasoningBudgetTokens).toBe(4096);
+    expect(ir.params?.responseFormat).toBe('json_schema');
+    expect(ir.params?.jsonSchema).toEqual({ type: 'OBJECT' });
+    // Top-level unknowns are flat; unknown gen sub-keys re-nest under extra.generationConfig.
+    expect(ir.extra).toEqual({
+      cachedContent: 'cachedContents/abc',
+      safetySettings: [{ category: 'HARM', threshold: 'OFF' }],
+      generationConfig: { frequencyPenalty: 0.2, topK: 40, candidateCount: 2, seed: 7 },
+    });
+  });
+
+  it('maps thinkingConfig.thinkingLevel to the normalized effort enum', () => {
+    const ir = parseGeminiChat(
+      {
+        contents: [{ role: 'user', parts: [{ text: 'hi' }] }],
+        generationConfig: { thinkingConfig: { thinkingLevel: 'high' } },
+      },
+      'gemini-3-pro',
+    );
+    expect(ir.params?.reasoningEffort).toBe('high');
+  });
+
   it('throws ProtocolError when contents is absent', () => {
     expect(() => parseGeminiChat({}, 'gemini-1.5-pro')).toThrow();
   });

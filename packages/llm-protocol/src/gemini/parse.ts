@@ -9,7 +9,42 @@ import {
 } from '@actionow/contracts';
 
 import { ProtocolError } from '../errors.js';
-import { asArray, asNumber, asRecord, asString } from '../internal/json.js';
+import { asArray, asNumber, asRecord, asString, collectExtra } from '../internal/json.js';
+
+/**
+ * Top-level Gemini body keys the parser promotes to first-class IR fields or
+ * rebuilds. `generationConfig` is handled specially: its KNOWN sub-keys are
+ * lifted into `params`, and its remaining sub-keys (frequencyPenalty, topK,
+ * candidateCount, seed, …) are swept into a nested `extra.generationConfig` so
+ * the adapter merges them back into the rebuilt config. Other top-level keys
+ * (cachedContent, safetySettings, labels, …) sweep into the flat `extra`.
+ */
+const GEMINI_KNOWN_TOP_KEYS: ReadonlySet<string> = new Set([
+  'contents',
+  'systemInstruction',
+  'tools',
+  'toolConfig',
+  'generationConfig',
+]);
+
+/** `generationConfig` sub-keys the parser lifts into `params` (so they don't double-forward via extra). */
+const GEMINI_KNOWN_GEN_KEYS: ReadonlySet<string> = new Set([
+  'temperature',
+  'topP',
+  'maxOutputTokens',
+  'stopSequences',
+  'responseMimeType',
+  'responseSchema',
+  'responseJsonSchema',
+  'thinkingConfig',
+]);
+
+/** Map a Gemini `thinkingConfig.thinkingLevel` to the normalized IR effort enum. */
+function parseThinkingLevel(raw: unknown): ChatParams['reasoningEffort'] {
+  const v = asString(raw);
+  if (v === 'low' || v === 'medium' || v === 'high') return v;
+  return undefined;
+}
 
 /**
  * Parse a Gemini `generateContent` request body (typed `unknown`) into the
@@ -79,11 +114,31 @@ export function parseGeminiChat(wire: unknown, model: string): ChatRequest {
     ir.params = params;
   }
 
+  const extra = collectGeminiExtra(body);
+  if (extra !== undefined) {
+    ir.extra = extra;
+  }
+
   const result = chatRequestSchema.safeParse(ir);
   if (!result.success) {
     throw new ProtocolError('invalid_input', `invalid gemini request: ${result.error.message}`);
   }
   return result.data;
+}
+
+/**
+ * Build `ir.extra` for Gemini: the unknown top-level keys (flat) PLUS any unknown
+ * `generationConfig` sub-keys re-nested under `extra.generationConfig`, so the
+ * adapter can merge those (penalties/topK/candidateCount/seed) back into the
+ * rebuilt `generationConfig`. Returns `undefined` when nothing is left over.
+ */
+function collectGeminiExtra(body: Record<string, unknown>): Record<string, unknown> | undefined {
+  const top = collectExtra(body, GEMINI_KNOWN_TOP_KEYS) ?? {};
+  const genExtra = collectExtra(asRecord(body.generationConfig) ?? {}, GEMINI_KNOWN_GEN_KEYS);
+  if (genExtra !== undefined) {
+    top.generationConfig = genExtra;
+  }
+  return Object.keys(top).length > 0 ? top : undefined;
 }
 
 /**
@@ -322,6 +377,28 @@ function parseParams(config: Record<string, unknown> | undefined): ChatParams | 
 
   if (asString(config.responseMimeType) === 'application/json') {
     params.responseFormat = 'json_object';
+  }
+
+  // Structured-output schema: `responseSchema` (OpenAPI subset) or
+  // `responseJsonSchema` (full JSON Schema). Either lifts the request to
+  // `json_schema` and populates the IR schema body.
+  const schema = asRecord(config.responseJsonSchema) ?? asRecord(config.responseSchema);
+  if (schema !== undefined) {
+    params.responseFormat = 'json_schema';
+    params.jsonSchema = schema;
+  }
+
+  // Reasoning: `thinkingConfig.thinkingBudget` (explicit budget) takes
+  // precedence; otherwise `thinkingConfig.thinkingLevel` (enum). They are
+  // mutually exclusive on the wire, so at most one survives.
+  const thinking = asRecord(config.thinkingConfig);
+  const budget = asNumber(thinking?.thinkingBudget);
+  if (budget !== undefined && budget > 0) {
+    params.reasoningBudgetTokens = budget;
+  }
+  const level = parseThinkingLevel(thinking?.thinkingLevel);
+  if (level !== undefined) {
+    params.reasoningEffort = level;
   }
 
   return Object.keys(params).length > 0 ? params : undefined;

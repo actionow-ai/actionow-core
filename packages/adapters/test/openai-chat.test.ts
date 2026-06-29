@@ -92,6 +92,66 @@ describe('openaiAdapter.chat', () => {
     expect(res.usage).toEqual({ inputTokens: 7, outputTokens: 3 });
   });
 
+  it('spreads extra into the body, never overriding model/messages/tools, and maps reasoning_effort + json_schema', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp(
+      {
+        status: 200,
+        body: {
+          choices: [{ message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+          usage: { prompt_tokens: 1, completion_tokens: 1 },
+        },
+      },
+      (r) => {
+        seen = r;
+      },
+    );
+    const richIr: ChatRequest = {
+      model: 'gpt-5.5',
+      messages: [{ role: 'user', content: [{ kind: 'text', text: 'hi' }] }],
+      tools: [{ name: 'f', parameters: { type: 'object' } }],
+      params: {
+        reasoningEffort: 'high',
+        responseFormat: 'json_schema',
+        jsonSchema: { type: 'object', properties: { x: { type: 'string' } } },
+      },
+      extra: {
+        presence_penalty: 0.5,
+        top_k: 40,
+        parallel_tool_calls: false,
+        // Hostile keys that MUST NOT override the first-class/critical fields:
+        model: 'EVIL',
+        messages: 'EVIL',
+        tools: 'EVIL',
+      },
+    };
+    await openaiAdapter.chat?.(richIr, {
+      providerType: 'openai',
+      model: 'gpt-5.5',
+      apiKey: 'sk',
+      http,
+    });
+    const body = seen?.body as Record<string, unknown>;
+    // extra rode through…
+    expect(body.presence_penalty).toBe(0.5);
+    expect(body.top_k).toBe(40);
+    expect(body.parallel_tool_calls).toBe(false);
+    // …but never clobbered the critical fields.
+    expect(body.model).toBe('gpt-5.5');
+    expect(Array.isArray(body.messages)).toBe(true);
+    expect(body.tools).toMatchObject([{ type: 'function', function: { name: 'f' } }]);
+    // reasoning_effort + full json_schema body forwarded.
+    expect(body.reasoning_effort).toBe('high');
+    expect(body.response_format).toEqual({
+      type: 'json_schema',
+      json_schema: {
+        name: 'response',
+        schema: { type: 'object', properties: { x: { type: 'string' } } },
+        strict: true,
+      },
+    });
+  });
+
   it('renders a base64 image part as a data: URI image_url (not a raw payload)', async () => {
     let seen: HttpRequest | undefined;
     const http = fakeHttp(

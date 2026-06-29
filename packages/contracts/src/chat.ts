@@ -61,6 +61,17 @@ export const messageSchema = z.object({
 export type Message = z.infer<typeof messageSchema>;
 
 export const RESPONSE_FORMATS = ['text', 'json_object', 'json_schema'] as const;
+
+/**
+ * Normalized reasoning-effort enum. The dialect-neutral knob the relay maps down
+ * to each provider's effort control (OpenAI `reasoning_effort`, Anthropic
+ * `output_config.effort`, Gemini `thinkingConfig.thinkingLevel`). `minimal`/`xhigh`
+ * are OpenAI-only extremes; adapters clamp them to the nearest supported value
+ * for narrower providers.
+ */
+export const REASONING_EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh'] as const;
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+
 export const chatParamsSchema = z.object({
   temperature: z.number().optional(),
   topP: z.number().optional(),
@@ -68,7 +79,21 @@ export const chatParamsSchema = z.object({
   stop: z.array(z.string()).optional(),
   seed: z.number().int().optional(),
   responseFormat: z.enum(RESPONSE_FORMATS).optional(),
+  /**
+   * The actual structured-output JSON Schema body (the `response_format`/
+   * `responseSchema` schema), populated when the caller sends a `json_schema`
+   * response format. Adapters forward it to the provider's strict structured-
+   * output field; absent → only the bare format type is forwarded.
+   */
   jsonSchema: jsonSchema.optional(),
+  /** Normalized reasoning effort; adapters map it to the per-provider effort knob. */
+  reasoningEffort: z.enum(REASONING_EFFORTS).optional(),
+  /**
+   * Reasoning/thinking token budget (Anthropic `thinking.budget_tokens`, Gemini
+   * `thinkingConfig.thinkingBudget`). When set, takes precedence over the effort
+   * enum on providers that accept an explicit budget.
+   */
+  reasoningBudgetTokens: z.number().int().positive().optional(),
 });
 export type ChatParams = z.infer<typeof chatParamsSchema>;
 
@@ -80,6 +105,16 @@ export const chatRequestSchema = z.object({
   toolChoice: z.union([z.enum(TOOL_CHOICES), z.object({ name: z.string() })]).optional(),
   params: chatParamsSchema.optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
+  /**
+   * Typed-but-OPEN passthrough bag: top-level upstream body keys the dialect
+   * parser did not recognize as first-class IR fields (and that are not transport
+   * — `stream`/`model`/`messages`). Each adapter SPREADS this into the upstream
+   * body FIRST, before setting first-class/critical fields, so first-class fields
+   * (and `model`/`messages`/`stream`/`tools`) always win and `extra` can never
+   * override them. Forwards penalties, top_k, n, logprobs, logit_bias,
+   * parallel_tool_calls, prompt_cache_key, service_tier, etc. generically.
+   */
+  extra: z.record(z.string(), z.unknown()).optional(),
 });
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
 

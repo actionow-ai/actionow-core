@@ -9,7 +9,42 @@ import {
 } from '@actionow/contracts';
 
 import { ProtocolError } from '../errors.js';
-import { asArray, asNumber, asRecord, asString } from '../internal/json.js';
+import { asArray, asNumber, asRecord, asString, collectExtra } from '../internal/json.js';
+
+/**
+ * Top-level Anthropic body keys the parser already promotes to first-class IR
+ * fields, plus transport/consumed keys the adapter rebuilds (`system` is hoisted
+ * into a leading IR message — it must NOT re-enter the body via `extra`).
+ * `thinking`/`output_config` carry reasoning controls the parser lifts into
+ * `params.reasoning*` and the adapter re-emits, so they are excluded too.
+ * Anything else (top_k, metadata, container, service_tier, cache_control, …)
+ * sweeps into `ir.extra`.
+ */
+const ANTHROPIC_KNOWN_KEYS: ReadonlySet<string> = new Set([
+  'model',
+  'messages',
+  'system',
+  'stream',
+  'tools',
+  'tool_choice',
+  'temperature',
+  'top_p',
+  'max_tokens',
+  'stop_sequences',
+  'thinking',
+  'output_config',
+]);
+
+/** Map an Anthropic `output_config.effort` string to the normalized IR enum. */
+function parseEffort(raw: unknown): ChatParams['reasoningEffort'] {
+  const v = asString(raw);
+  // Anthropic adds `max` (above xhigh); clamp it to the IR's top `xhigh`.
+  if (v === 'max') return 'xhigh';
+  if (v === 'low' || v === 'medium' || v === 'high' || v === 'xhigh' || v === 'minimal') {
+    return v;
+  }
+  return undefined;
+}
 
 /**
  * Parse an Anthropic Messages request body (typed `unknown`) into the neutral
@@ -62,6 +97,11 @@ export function parseAnthropicChat(wire: unknown): ChatRequest {
   const params = parseParams(body);
   if (params !== undefined) {
     ir.params = params;
+  }
+
+  const extra = collectExtra(body, ANTHROPIC_KNOWN_KEYS);
+  if (extra !== undefined) {
+    ir.extra = extra;
   }
 
   const result = chatRequestSchema.safeParse(ir);
@@ -284,6 +324,18 @@ function parseParams(body: Record<string, unknown>): ChatParams | undefined {
   });
   if (stop !== undefined) {
     params.stop = stop;
+  }
+
+  // Reasoning: a `thinking.budget_tokens` budget takes precedence; otherwise the
+  // `output_config.effort` enum (both lifted off the body so the adapter re-emits
+  // them from the normalized IR rather than leaking the raw shapes via `extra`).
+  const budget = asNumber(asRecord(body.thinking)?.budget_tokens);
+  if (budget !== undefined && budget > 0) {
+    params.reasoningBudgetTokens = budget;
+  }
+  const effort = parseEffort(asRecord(body.output_config)?.effort);
+  if (effort !== undefined) {
+    params.reasoningEffort = effort;
   }
 
   return Object.keys(params).length > 0 ? params : undefined;

@@ -80,6 +80,87 @@ describe('geminiAdapter.chat', () => {
     expect(res.stopReason).toBe('stop');
     expect(res.usage).toEqual({ inputTokens: 7, outputTokens: 3 });
   });
+
+  it('spreads top-level extra + gen extra, maps reasoning + responseSchema, never clobbering criticals', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp(
+      {
+        status: 200,
+        body: {
+          candidates: [{ content: { parts: [{ text: 'ok' }] }, finishReason: 'STOP' }],
+          usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 },
+        },
+      },
+      (r) => {
+        seen = r;
+      },
+    );
+    const richIr: ChatRequest = {
+      model: 'gemini-3-pro',
+      messages: [{ role: 'user', content: [{ kind: 'text', text: 'hi' }] }],
+      params: {
+        temperature: 0.4,
+        reasoningBudgetTokens: 4096,
+        responseFormat: 'json_schema',
+        jsonSchema: { type: 'OBJECT' },
+      },
+      extra: {
+        cachedContent: 'cachedContents/abc',
+        // unknown gen sub-keys re-nested by the parser; merged into generationConfig.
+        generationConfig: { frequencyPenalty: 0.2, topK: 40, candidateCount: 2 },
+        // hostile keys MUST NOT win:
+        contents: 'EVIL',
+        systemInstruction: 'EVIL',
+      },
+    };
+    await geminiAdapter.chat?.(richIr, {
+      providerType: 'gemini',
+      model: 'gemini-3-pro',
+      apiKey: 'k',
+      http,
+    });
+    const body = seen?.body as Record<string, unknown>;
+    // Top-level extra rode through; criticals untouched.
+    expect(body.cachedContent).toBe('cachedContents/abc');
+    expect(Array.isArray(body.contents)).toBe(true);
+    // generationConfig merges gen-extra + first-class + reasoning + responseSchema.
+    expect(body.generationConfig).toEqual({
+      frequencyPenalty: 0.2,
+      topK: 40,
+      candidateCount: 2,
+      temperature: 0.4,
+      responseMimeType: 'application/json',
+      responseSchema: { type: 'OBJECT' },
+      thinkingConfig: { thinkingBudget: 4096 },
+    });
+  });
+
+  it('maps reasoningEffort to thinkingConfig.thinkingLevel when no budget is set', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp(
+      {
+        status: 200,
+        body: {
+          candidates: [{ content: { parts: [{ text: 'ok' }] }, finishReason: 'STOP' }],
+          usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 },
+        },
+      },
+      (r) => {
+        seen = r;
+      },
+    );
+    await geminiAdapter.chat?.(
+      {
+        model: 'gemini-3-pro',
+        messages: [{ role: 'user', content: [{ kind: 'text', text: 'hi' }] }],
+        params: { reasoningEffort: 'low' },
+      },
+      { providerType: 'gemini', model: 'gemini-3-pro', apiKey: 'k', http },
+    );
+    expect((seen?.body as { generationConfig: unknown }).generationConfig).toEqual({
+      thinkingConfig: { thinkingLevel: 'low' },
+    });
+  });
 });
 
 async function drainChat(it: AsyncIterable<ChatStreamEvent>): Promise<ChatStreamEvent[]> {

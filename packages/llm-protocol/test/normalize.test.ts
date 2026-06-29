@@ -91,18 +91,89 @@ describe('normalizeRequest', () => {
     const out = normalizeRequest(full, { tools: true, vision: true, audio: true, json: true });
     expect(out.tools).toHaveLength(1);
   });
+
+  it('DOWNGRADES (drops) temperature/top_p/stop + penalties/logprobs for a reasoning model', () => {
+    const req: ChatRequest = {
+      ...base,
+      params: { temperature: 0.7, topP: 0.9, stop: ['END'], maxOutputTokens: 256 },
+      extra: {
+        presence_penalty: 0.5,
+        frequency_penalty: 0.2,
+        logprobs: true,
+        top_logprobs: 5,
+        prompt_cache_key: 'keep-me',
+      },
+    };
+    const out = normalizeRequest(req, {
+      tools: false,
+      vision: false,
+      audio: false,
+      json: false,
+      reasoning: true,
+    });
+    // The rejected sampling params are gone…
+    expect(out.params?.temperature).toBeUndefined();
+    expect(out.params?.topP).toBeUndefined();
+    expect(out.params?.stop).toBeUndefined();
+    // …but harmless params survive.
+    expect(out.params?.maxOutputTokens).toBe(256);
+    // Penalties/logprobs stripped from extra; the cache key is untouched.
+    expect(out.extra).toEqual({ prompt_cache_key: 'keep-me' });
+  });
+
+  it('does NOT downgrade params for a non-reasoning model', () => {
+    const req: ChatRequest = {
+      ...base,
+      params: { temperature: 0.7, topP: 0.9, stop: ['END'] },
+      extra: { presence_penalty: 0.5 },
+    };
+    const out = normalizeRequest(req, {
+      tools: false,
+      vision: false,
+      audio: false,
+      json: false,
+      reasoning: false,
+    });
+    expect(out.params).toEqual({ temperature: 0.7, topP: 0.9, stop: ['END'] });
+    expect(out.extra).toEqual({ presence_penalty: 0.5 });
+  });
+
+  it('still 400s a reasoning model on genuine capability misuse (tools)', () => {
+    const withTools: ChatRequest = {
+      ...base,
+      tools: [{ name: 'f', parameters: { type: 'object' } }],
+      params: { temperature: 0.7 },
+    };
+    expect(() =>
+      normalizeRequest(withTools, {
+        tools: false,
+        vision: false,
+        audio: false,
+        json: false,
+        reasoning: true,
+      }),
+    ).toThrow(ProtocolError);
+  });
 });
 
 describe('readCapabilities', () => {
   it('reads only strict boolean-true flags', () => {
     expect(
-      readCapabilities({ tools: true, vision: true, audio: true, json: true, file: true }),
+      readCapabilities({
+        tools: true,
+        vision: true,
+        audio: true,
+        json: true,
+        file: true,
+        reasoning: true,
+      }),
     ).toEqual({
       tools: true,
       vision: true,
       audio: true,
       json: true,
       file: true,
+      reasoning: true,
     });
   });
 
@@ -113,6 +184,7 @@ describe('readCapabilities', () => {
       audio: false,
       json: false,
       file: false,
+      reasoning: false,
     });
     expect(readCapabilities({ tools: 'true', vision: 1, audio: null, json: undefined })).toEqual({
       tools: false,
@@ -120,6 +192,7 @@ describe('readCapabilities', () => {
       audio: false,
       json: false,
       file: false,
+      reasoning: false,
     });
   });
 });

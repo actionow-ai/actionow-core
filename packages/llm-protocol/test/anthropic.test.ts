@@ -161,6 +161,42 @@ describe('parseAnthropicChat', () => {
     expect(named.toolChoice).toEqual({ name: 'f' });
   });
 
+  it('lifts thinking.budget_tokens + output_config.effort into reasoning params and sweeps the rest into extra', () => {
+    const ir = parseAnthropicChat({
+      model: 'claude-opus-4-8',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: 'hi' }],
+      top_k: 40,
+      thinking: { type: 'enabled', budget_tokens: 2048 },
+      service_tier: 'standard_only',
+      metadata: { user_id: 'u1' },
+    });
+    expect(ir.params?.reasoningBudgetTokens).toBe(2048);
+    // `thinking`/`output_config`/`system` are consumed, NOT re-leaked into extra.
+    expect(ir.extra).toEqual({
+      top_k: 40,
+      service_tier: 'standard_only',
+      metadata: { user_id: 'u1' },
+    });
+  });
+
+  it('maps output_config.effort (and clamps `max`) to the normalized effort enum', () => {
+    const high = parseAnthropicChat({
+      model: 'claude-opus-4-8',
+      max_tokens: 16,
+      messages: [{ role: 'user', content: 'hi' }],
+      output_config: { effort: 'high' },
+    });
+    expect(high.params?.reasoningEffort).toBe('high');
+    const max = parseAnthropicChat({
+      model: 'claude-opus-4-8',
+      max_tokens: 16,
+      messages: [{ role: 'user', content: 'hi' }],
+      output_config: { effort: 'max' },
+    });
+    expect(max.params?.reasoningEffort).toBe('xhigh');
+  });
+
   it('throws ProtocolError when messages is absent', () => {
     expect(() => parseAnthropicChat({ model: 'claude-3-5-sonnet', max_tokens: 16 })).toThrow();
   });

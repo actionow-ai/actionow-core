@@ -47,3 +47,24 @@ export function parseJsonRecord(text: string): Record<string, unknown> | undefin
     return undefined;
   }
 }
+
+/**
+ * Collect the body keys NOT in `known` into a typed-but-open `extra` bag for the
+ * IR's generic passthrough. `known` lists every key the dialect parser already
+ * promotes to a first-class IR field PLUS transport keys (`stream`/`model`/
+ * `messages`/etc.) that the adapter rebuilds itself — those must never re-enter
+ * the upstream body via `extra`. Returns `undefined` when nothing is left over,
+ * so the parser can leave `ir.extra` unset (keeping the shape additive).
+ */
+export function collectExtra(
+  body: Record<string, unknown>,
+  known: ReadonlySet<string>,
+): Record<string, unknown> | undefined {
+  const extra: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(body)) {
+    if (known.has(k)) continue;
+    if (v === undefined) continue;
+    extra[k] = v;
+  }
+  return Object.keys(extra).length > 0 ? extra : undefined;
+}

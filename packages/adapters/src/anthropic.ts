@@ -114,11 +114,13 @@ function buildChatBody(
     }
   }
 
-  const body: Record<string, unknown> = {
-    model: ctx.model ?? ir.model,
-    max_tokens: ir.params?.maxOutputTokens ?? DEFAULT_MAX_TOKENS,
-    messages: turns.map(irMessageToAnthropic),
-  };
+  // Spread the typed-open passthrough bag FIRST so every first-class/critical
+  // field set below overrides it (top_k, metadata, container, service_tier,
+  // cache_control, … ride through; model/max_tokens/messages/stream/tools always win).
+  const body: Record<string, unknown> = { ...(ir.extra ?? {}) };
+  body.model = ctx.model ?? ir.model;
+  body.max_tokens = ir.params?.maxOutputTokens ?? DEFAULT_MAX_TOKENS;
+  body.messages = turns.map(irMessageToAnthropic);
   if (stream) {
     body.stream = true;
   }
@@ -150,6 +152,16 @@ function buildChatBody(
     }
     if (params.stop !== undefined) {
       body.stop_sequences = params.stop;
+    }
+    // Reasoning: an explicit token budget → `thinking:{type:'enabled', budget_tokens}`;
+    // otherwise the normalized effort → `output_config.effort` (Anthropic's enum).
+    // NOTE: Anthropic has no native `response_format`/json_schema field, so the IR
+    // `jsonSchema` is intentionally NOT forwarded here (a client can pass
+    // `output_config.format` via the `extra` bag manually until first-class).
+    if (params.reasoningBudgetTokens !== undefined) {
+      body.thinking = { type: 'enabled', budget_tokens: params.reasoningBudgetTokens };
+    } else if (params.reasoningEffort !== undefined) {
+      body.output_config = { effort: params.reasoningEffort };
     }
   }
   return body;
