@@ -27,6 +27,10 @@ import {
   consoleUsageRollupViewSchema,
   type ConsoleUserView,
   consoleUserViewSchema,
+  type ConversationDetailView,
+  conversationDetailViewSchema,
+  type ConversationView,
+  conversationViewSchema,
   type CreateSubAccountBody,
   createSubAccountSchema,
   type CreateSubjectBody,
@@ -37,6 +41,8 @@ import {
   limitRuleStatusViewSchema,
   type LimitRuleView,
   limitRuleViewSchema,
+  type MessageView,
+  messageViewSchema,
   type SubAccountView,
   subAccountViewSchema,
   type SubjectView,
@@ -50,11 +56,13 @@ import {
 } from '@actionow/contracts';
 import type {
   ApiKeyRow,
+  Conversation,
   FileObject,
   Job,
   LedgerRow,
   LimitPlanRow,
   LimitRuleRow,
+  Message,
   PaymentIntentRow,
   SubAccountRow,
   SubjectRow,
@@ -97,21 +105,27 @@ import { type ConsoleContext, ConsoleGuard, type ConsoleRequest } from './consol
 import type { ConsoleCreateIntentResponse } from './console.service.js';
 import { ConsoleService } from './console.service.js';
 import {
+  appendMessageSchema,
   type ConsoleAnalyticsUsageDto,
   consoleAnalyticsUsageSchema,
+  type ConsoleAppendMessageDto,
   type ConsoleChangePasswordDto,
   consoleChangePasswordSchema,
   type ConsoleCreateApiKeyDto,
   consoleCreateApiKeySchema,
+  type ConsoleCreateConversationDto,
   type ConsoleCreateIntentDto,
   consoleCreateIntentSchema,
   type ConsoleCreateLimitPlanDto,
   type ConsoleRedeemCodeDto,
   type ConsoleSetLimitPlanDto,
+  type ConsoleUpdateConversationDto,
   type ConsoleUpdateLimitPlanDto,
+  createConversationSchema,
   createLimitPlanRequestSchema,
   redeemCodeRequestSchema,
   setLimitPlanRequestSchema,
+  updateConversationSchema,
   updateLimitPlanRequestSchema,
 } from './dto/console.dto.js';
 import type { ModelView } from './models.port.js';
@@ -254,6 +268,40 @@ function toConsoleFileView(row: FileObject, publicBase: string | undefined): Fil
     size: row.size,
     url: publicBase !== undefined ? `${publicBase}/${row.key}` : null,
     created_at: row.createdAt.toISOString(),
+  });
+}
+
+/** Project a conversation row to its list view (tenant scope is implicit). */
+function toConversationView(c: Conversation): ConversationView {
+  return conversationViewSchema.parse({
+    id: c.id,
+    title: c.title,
+    model: c.model,
+    created_at: c.createdAt.toISOString(),
+    updated_at: c.updatedAt.toISOString(),
+  });
+}
+
+/** Project a persisted turn to its message view. `usage` is the stored `{input,output}` jsonb. */
+function toMessageView(m: Message): MessageView {
+  return messageViewSchema.parse({
+    id: m.id,
+    seq: m.seq,
+    role: m.role,
+    content: m.content,
+    reasoning: m.reasoning,
+    usage: m.usage,
+    latency_ms: m.latencyMs,
+    model: m.model,
+    created_at: m.createdAt.toISOString(),
+  });
+}
+
+/** Project a conversation + its ordered transcript to the detail view. */
+function toConversationDetailView(c: Conversation, messages: Message[]): ConversationDetailView {
+  return conversationDetailViewSchema.parse({
+    ...toConversationView(c),
+    messages: messages.map(toMessageView),
   });
 }
 
@@ -579,6 +627,78 @@ export class ConsoleController {
   async removeFile(@Param('id') id: string, @Req() req: ConsoleRequest): Promise<void> {
     const ctx = ctxOf(req);
     await this.filesService.delete(id, { tenantId: ctx.tenantId, accountId: ctx.accountId });
+  }
+
+  // ----- playground conversations -----
+  // The generation runs through the data-plane relay (API key); these endpoints
+  // only persist the transcript, tenant-scoped by the JWT (never a body field).
+
+  @Get('conversations')
+  @ApiOperation({ summary: 'Your playground conversations (keyset, most-recent first)' })
+  async conversations(
+    @Req() req: ConsoleRequest,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PageEnvelope<ConversationView>> {
+    const ctx = ctxOf(req);
+    const result = await this.console.listConversations(
+      ctx.tenantId,
+      toPageParams({ cursor, limit }),
+    );
+    return mapPageEnvelope(result, (r) => r.id, toConversationView);
+  }
+
+  @Post('conversations')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Start a playground conversation' })
+  async createConversation(
+    @Body(new ZodBody(createConversationSchema)) dto: ConsoleCreateConversationDto,
+    @Req() req: ConsoleRequest,
+  ): Promise<ConversationView> {
+    const ctx = ctxOf(req);
+    return toConversationView(await this.console.createConversation(ctx.tenantId, dto));
+  }
+
+  @Get('conversations/:id')
+  @ApiOperation({ summary: 'A conversation with its full transcript' })
+  async conversation(
+    @Param('id') id: string,
+    @Req() req: ConsoleRequest,
+  ): Promise<ConversationDetailView> {
+    const ctx = ctxOf(req);
+    const { conversation, messages } = await this.console.getConversationDetail(id, ctx.tenantId);
+    return toConversationDetailView(conversation, messages);
+  }
+
+  @Patch('conversations/:id')
+  @ApiOperation({ summary: 'Rename / re-model a conversation' })
+  async updateConversation(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateConversationSchema)) dto: ConsoleUpdateConversationDto,
+    @Req() req: ConsoleRequest,
+  ): Promise<ConversationView> {
+    const ctx = ctxOf(req);
+    return toConversationView(await this.console.updateConversation(id, ctx.tenantId, dto));
+  }
+
+  @Delete('conversations/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Delete one of your conversations (soft-delete)' })
+  async deleteConversation(@Param('id') id: string, @Req() req: ConsoleRequest): Promise<void> {
+    const ctx = ctxOf(req);
+    await this.console.deleteConversation(id, ctx.tenantId);
+  }
+
+  @Post('conversations/:id/messages')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Append a turn to a conversation' })
+  async appendMessage(
+    @Param('id') id: string,
+    @Body(new ZodBody(appendMessageSchema)) dto: ConsoleAppendMessageDto,
+    @Req() req: ConsoleRequest,
+  ): Promise<MessageView> {
+    const ctx = ctxOf(req);
+    return toMessageView(await this.console.appendMessage(id, ctx.tenantId, dto));
   }
 
   @Get('balance')
