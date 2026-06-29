@@ -131,6 +131,8 @@ export type {
   RouteGroupView,
   SecretView,
   SetFileTtlBody,
+  // --- object-storage usage/quota (#53) ---
+  StorageUsageView,
   SubAccountView,
   SubjectView,
   SyncChannelModelsBody,

@@ -1,6 +1,6 @@
-import { MusicNotesIcon, UploadSimpleIcon } from '@phosphor-icons/react';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRef } from 'react';
+import { MusicNotesIcon, TrashIcon, UploadSimpleIcon } from '@phosphor-icons/react';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleAction, useSetConsoleFilters } from '../../components/console/ConsoleChrome';
@@ -8,10 +8,13 @@ import { CardCollection } from '../../components/data/CardCollection';
 import { CopyField } from '../../components/data/CopyField';
 import { LoadMore } from '../../components/data/LoadMore';
 import { Button } from '../../components/ui/Button';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { IconButton } from '../../components/ui/IconButton';
 import { SelectField } from '../../components/ui/SelectField';
 import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
+import type { ConsoleFileView, StorageUsageView } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
 import { useUrlState } from '../../lib/useUrlState';
 import { AdminOnlyNote } from './AdminOnlyNote';
@@ -47,6 +50,7 @@ export function AppMedia() {
   const { isTenantAdmin } = useTenantRole();
 
   const [kind, setKind] = useUrlState('kind');
+  const [deleteTarget, setDeleteTarget] = useState<ConsoleFileView | null>(null);
   const filter = kind === 'image' || kind === 'video' || kind === 'audio' ? kind : undefined;
   const files = useInfiniteQuery({
     queryKey: qk.consoleFiles(filter),
@@ -55,6 +59,19 @@ export function AppMedia() {
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
   const rows = files.data?.pages.flatMap((p) => p.rows) ?? [];
+
+  // Object-storage usage + quota (drives the quota bar). Cheap single read.
+  const usage = useQuery({
+    queryKey: qk.consoleFilesUsage(),
+    queryFn: () => api.filesUsage(),
+  });
+
+  // Invalidate both the file lists and the usage totals after a write.
+  const refreshFiles = () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: qk.consoleFiles() }),
+      qc.invalidateQueries({ queryKey: qk.consoleFilesUsage() }),
+    ]);
 
   // Upload: presign → PUT the bytes straight to object storage → confirm
   // (head → ready). The bytes never transit the API.
@@ -75,8 +92,19 @@ export function AppMedia() {
       await api.confirmFile(grant.file_id);
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: qk.consoleFiles() });
+      await refreshFiles();
       toast(t('app.media.uploaded'));
+    },
+    onError: mutationError(t),
+  });
+
+  // Delete a file (admin-only): tombstone the reference + remove the object.
+  const remove = useMutation({
+    mutationFn: (id: string) => api.deleteFile(id),
+    onSuccess: async () => {
+      await refreshFiles();
+      toast(t('app.media.deleted'));
+      setDeleteTarget(null);
     },
     onError: mutationError(t),
   });
@@ -133,6 +161,7 @@ export function AppMedia() {
           <AdminOnlyNote />
         </div>
       )}
+      {usage.data !== undefined && <StorageQuotaBar usage={usage.data} />}
       <CardCollection
         rows={rows}
         loading={files.isLoading}
@@ -247,11 +276,22 @@ export function AppMedia() {
                   }}
                 >
                   <span className="chip">{kindLabel}</span>
-                  <span
-                    className="tabular"
-                    style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}
-                  >
-                    {formatBytes(f.size)}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+                    <span
+                      className="tabular"
+                      style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}
+                    >
+                      {formatBytes(f.size)}
+                    </span>
+                    {isTenantAdmin && (
+                      <IconButton
+                        icon={TrashIcon}
+                        label={t('app.media.delete')}
+                        bare
+                        size={16}
+                        onClick={() => setDeleteTarget(f)}
+                      />
+                    )}
                   </span>
                 </div>
                 <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>
@@ -274,6 +314,107 @@ export function AppMedia() {
         isFetchingNextPage={files.isFetchingNextPage}
         onLoadMore={() => void files.fetchNextPage()}
       />
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={t('app.media.confirmDeleteTitle')}
+        message={t('app.media.confirmDeleteMsg')}
+        confirmLabel={t('app.media.delete')}
+        cancelLabel={t('common.cancel')}
+        danger
+        loading={remove.isPending}
+        onConfirm={() => {
+          if (deleteTarget !== null) remove.mutate(deleteTarget.id);
+        }}
+        onClose={() => setDeleteTarget(null)}
+      />
     </>
+  );
+}
+
+/**
+ * The asset-gallery storage usage/quota bar. Shows live bytes + file count, the
+ * effective per-tenant quota (a progress bar that escalates ok → amber at 80% →
+ * red at/over cap; or "no quota" when uncapped), and the opt-in file-lifecycle
+ * TTL ("retain forever" when unset).
+ */
+function StorageQuotaBar({ usage }: { usage: StorageUsageView }) {
+  const { t } = useTranslation('console');
+  const quota = usage.quota_bytes;
+  const capped = quota !== null && quota > 0;
+  const ratio = quota !== null && quota > 0 ? Math.min(1, usage.bytes / quota) : 0;
+  const pct = Math.round(ratio * 100);
+  const tone = ratio >= 1 ? 'var(--fail)' : ratio >= 0.8 ? 'var(--run)' : 'var(--ok)';
+
+  return (
+    <div
+      className="panel"
+      style={{
+        borderRadius: 'var(--r-md)',
+        padding: 'var(--s-3)',
+        marginBottom: 'var(--s-3)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--s-2)',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 'var(--s-2)',
+          fontSize: 'var(--fs-caption)',
+          flexWrap: 'wrap',
+        }}
+      >
+        <span style={{ color: 'var(--muted)' }}>
+          {t('app.media.storage')}
+          <span style={{ color: 'var(--faint)' }}>
+            {' · '}
+            {t('app.media.fileCount', { n: usage.count })}
+          </span>
+        </span>
+        <span className="tabular" style={{ color: 'var(--text)' }}>
+          {formatBytes(usage.bytes)}
+          {capped ? (
+            <>
+              {' / '}
+              {formatBytes(usage.quota_bytes)}
+              <span style={{ color: 'var(--faint)' }}> ({pct}%)</span>
+            </>
+          ) : (
+            <span style={{ color: 'var(--faint)' }}> · {t('app.media.noQuota')}</span>
+          )}
+        </span>
+      </div>
+      {capped && (
+        <div
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          style={{
+            height: 6,
+            borderRadius: 999,
+            background: 'var(--hairline)',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              width: `${String(Math.max(2, pct))}%`,
+              height: '100%',
+              background: tone,
+              borderRadius: 999,
+              transition: 'width .3s ease',
+            }}
+          />
+        </div>
+      )}
+      <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>
+        {usage.effective_ttl_days === null
+          ? t('app.media.ttlForever')
+          : t('app.media.ttlDays', { days: usage.effective_ttl_days })}
+      </div>
+    </div>
   );
 }

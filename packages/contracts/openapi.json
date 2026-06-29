@@ -2649,6 +2649,31 @@
           "created_at"
         ]
       },
+      "StorageUsageView": {
+        "type": "object",
+        "properties": {
+          "bytes": {
+            "type": "number"
+          },
+          "count": {
+            "type": "number"
+          },
+          "quota_bytes": {
+            "type": "number",
+            "nullable": true
+          },
+          "effective_ttl_days": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "bytes",
+          "count",
+          "quota_bytes",
+          "effective_ttl_days"
+        ]
+      },
       "RunResponse": {
         "type": "object",
         "properties": {
@@ -12762,6 +12787,76 @@
         }
       }
     },
+    "/console/files/usage": {
+      "get": {
+        "summary": "Your tenant object-storage usage + quota",
+        "tags": [
+          "console"
+        ],
+        "responses": {
+          "200": {
+            "description": "Your tenant object-storage usage + quota",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageUsageView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/resources/{id}/channels/{channelId}": {
       "delete": {
         "summary": "Delete a channel",
@@ -13772,6 +13867,79 @@
         "responses": {
           "204": {
             "description": "Revoke a model grant"
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/files/{id}": {
+      "delete": {
+        "summary": "Delete one of your tenant’s files",
+        "tags": [
+          "console"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Delete one of your tenant’s files"
           },
           "400": {
             "description": "Invalid input",

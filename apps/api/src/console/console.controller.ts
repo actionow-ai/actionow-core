@@ -87,7 +87,11 @@ import { mapPageEnvelope, type PageEnvelope, toPageParams } from '../common/pagi
 import { ENV } from '../common/tokens.js';
 import { ZodBody } from '../common/zod.pipe.js';
 import { type PresignUploadDto, presignUploadSchema } from '../files/dto/files.dto.js';
-import type { FileView as FilesFileView, PresignUploadResult } from '../files/files.service.js';
+import type {
+  FileView as FilesFileView,
+  PresignUploadResult,
+  StorageUsageView,
+} from '../files/files.service.js';
 import { FilesService } from '../files/files.service.js';
 import { type ConsoleContext, ConsoleGuard, type ConsoleRequest } from './console.guard.js';
 import type { ConsoleCreateIntentResponse } from './console.service.js';
@@ -548,6 +552,33 @@ export class ConsoleController {
   async confirmFile(@Param('id') id: string, @Req() req: ConsoleRequest): Promise<FilesFileView> {
     const ctx = ctxOf(req);
     return this.filesService.confirm(id, { tenantId: ctx.tenantId, accountId: ctx.accountId });
+  }
+
+  /**
+   * Your tenant's object-storage usage + effective quota — the JWT-plane twin of
+   * the API-key `GET /v1/files/usage`, so the asset gallery can render a usage /
+   * quota bar without minting a data-plane key. Read-only → any console role.
+   * Declared before the `files/:id` delete so the static path wins route matching.
+   */
+  @Get('files/usage')
+  @ApiOperation({ summary: 'Your tenant object-storage usage + quota (for the gallery quota bar)' })
+  async filesUsage(@Req() req: ConsoleRequest): Promise<StorageUsageView> {
+    const ctx = ctxOf(req);
+    return this.filesService.usage({ tenantId: ctx.tenantId, accountId: ctx.accountId });
+  }
+
+  /**
+   * Delete one of your tenant's files (tombstone the reference + remove the
+   * object) — the JWT-plane twin of `DELETE /v1/files/:id`. Tenant-admin only
+   * (destructive). Tenant-scoped by the JWT, never a body field.
+   */
+  @Delete('files/:id')
+  @HttpCode(204)
+  @UseGuards(TenantAdminGuard)
+  @ApiOperation({ summary: 'Delete one of your tenant’s files (tombstone + remove from bucket)' })
+  async removeFile(@Param('id') id: string, @Req() req: ConsoleRequest): Promise<void> {
+    const ctx = ctxOf(req);
+    await this.filesService.delete(id, { tenantId: ctx.tenantId, accountId: ctx.accountId });
   }
 
   @Get('balance')

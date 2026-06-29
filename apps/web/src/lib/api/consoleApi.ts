@@ -31,6 +31,7 @@ import type {
   PresignUploadBody,
   PresignUploadResult,
   RedeemCodeBody,
+  StorageUsageView,
   SubAccountView,
   SubjectView,
   TopupSubAccountBody,
@@ -122,6 +123,13 @@ export function makeConsoleApi(sdk: SdkClient, rawClient: ApiClient, onUnauthori
       kind?: 'image' | 'video' | 'audio';
     }): Promise<Page<ConsoleFileView>> =>
       page<ConsoleFileView>(await sdk.GET('/console/files', { params: { query: params } }), u),
+    // Object-storage usage + effective quota (drives the gallery quota bar).
+    filesUsage: async (): Promise<StorageUsageView> =>
+      unwrap(await sdk.GET('/console/files/usage'), u),
+    // Delete one of the tenant's files (tombstone + remove the object) — 204 → void.
+    deleteFile: async (id: string): Promise<void> => {
+      unwrap(await sdk.DELETE('/console/files/{id}', { params: { path: { id } } }), u);
+    },
 
     // Tenant credit balance + held (dedicated endpoint).
     balance: async (): Promise<ConsoleBalanceView> => unwrap(await sdk.GET('/console/balance'), u),

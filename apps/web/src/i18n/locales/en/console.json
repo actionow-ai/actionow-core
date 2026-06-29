@@ -207,7 +207,16 @@
         "audio": "Audio"
       },
       "upload": "Upload",
-      "uploaded": "File uploaded"
+      "uploaded": "File uploaded",
+      "delete": "Delete",
+      "deleted": "File deleted",
+      "confirmDeleteTitle": "Delete this file?",
+      "confirmDeleteMsg": "The file is removed from storage and can't be recovered. References in past jobs keep their record.",
+      "storage": "Storage used",
+      "fileCount": "{{n}} files",
+      "noQuota": "no quota",
+      "ttlForever": "Files are retained forever (no lifecycle TTL set).",
+      "ttlDays": "Files auto-expire after {{days}} days."
     },
     "adminOnly": "Read-only view — this action requires a tenant admin.",
     "currentRole": "Current role",
