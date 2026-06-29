@@ -142,7 +142,7 @@ function Avatar({ error }: { error?: boolean }) {
         placeItems: 'center',
         background: 'var(--glass-bg)',
         border: '1px solid var(--panel-bd)',
-        color: error === true ? 'var(--fail)' : 'var(--cta)',
+        color: error === true ? 'var(--fail)' : 'var(--accent)',
       }}
     >
       <SparkleIcon size={16} weight="fill" />

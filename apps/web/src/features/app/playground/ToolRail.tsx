@@ -52,7 +52,7 @@ function Tool({ icon: IconCmp, label, active }: { icon: Icon; label: string; act
         display: 'grid',
         placeItems: 'center',
         background: active === true ? 'var(--glass-bg)' : 'transparent',
-        color: active === true ? 'var(--cta)' : 'var(--faint)',
+        color: active === true ? 'var(--accent)' : 'var(--faint)',
         opacity: active === true ? 1 : 0.5,
         cursor: active === true ? 'default' : 'not-allowed',
       }}
