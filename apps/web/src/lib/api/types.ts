@@ -85,10 +85,15 @@ export type {
   LimitUsageView,
   // --- member (end-user) self-service views (member-views) ---
   MemberBalanceView,
+  // --- member self-service request bodies (member-requests, #57) ---
+  MemberChangePasswordBody,
+  MemberCreateApiKeyBody,
+  MemberKeyCreatedView,
   MemberKeyView,
   MemberLimitRuleView,
   MemberLimitsView,
   MemberMeView,
+  MemberUpdateMeBody,
   MemberUsageList,
   MemberUsageRow,
   ModelGrantView,

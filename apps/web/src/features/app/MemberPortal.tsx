@@ -1,6 +1,14 @@
-import { KeyIcon, SignOutIcon, UserCircleIcon } from '@phosphor-icons/react';
-import { useQuery } from '@tanstack/react-query';
+import {
+  KeyIcon,
+  PencilSimpleIcon,
+  PlusIcon,
+  SignOutIcon,
+  TrashIcon,
+  UserCircleIcon,
+} from '@phosphor-icons/react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -17,8 +25,14 @@ import { AppBackground } from '../../components/glass/AppBackground';
 import { LanguageSwitch } from '../../components/layout/LanguageSwitch';
 import { ThemeToggle } from '../../components/layout/ThemeToggle';
 import { Button } from '../../components/ui/Button';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { IconButton } from '../../components/ui/IconButton';
+import { Modal } from '../../components/ui/Modal';
 import { Pill } from '../../components/ui/Pill';
 import { SectionHeader } from '../../components/ui/SectionHeader';
+import { TextField } from '../../components/ui/TextField';
+import { toast } from '../../components/ui/toast';
+import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { MemberUsageRow } from '../../lib/api/types';
 import { useMemberApi } from '../../lib/api/useMemberApi';
@@ -93,6 +107,55 @@ export function MemberPortal() {
     queryKey: qk.memberApiKeys(),
     queryFn: () => api.apiKeys(),
     staleTime: STALE_REFERENCE,
+  });
+
+  const qc = useQueryClient();
+
+  // --- self-service writes (#57) ---------------------------------------------
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const saveName = useMutation({
+    mutationFn: () =>
+      api.updateMe({ display_name: nameDraft.trim() === '' ? null : nameDraft.trim() }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.memberMe() });
+      setEditingName(false);
+      toast(t('member.portal.nameSaved'));
+    },
+    onError: mutationError(t),
+  });
+
+  const [curPw, setCurPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const changePw = useMutation({
+    mutationFn: () => api.changePassword({ current_password: curPw, new_password: newPw }),
+    onSuccess: () => {
+      setCurPw('');
+      setNewPw('');
+      toast(t('member.portal.passwordChanged'));
+    },
+    onError: mutationError(t),
+  });
+
+  // Plaintext is returned ONCE on create; revoke confirms first.
+  const [plaintext, setPlaintext] = useState<string | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
+  const createKey = useMutation({
+    mutationFn: () => api.createApiKey({}),
+    onSuccess: async (r) => {
+      await qc.invalidateQueries({ queryKey: qk.memberApiKeys() });
+      setPlaintext(r.plaintext);
+    },
+    onError: mutationError(t),
+  });
+  const revokeKey = useMutation({
+    mutationFn: (id: string) => api.revokeApiKey(id),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.memberApiKeys() });
+      setRevokeTarget(null);
+      toast(t('member.portal.keyRevoked'));
+    },
+    onError: mutationError(t),
   });
 
   const ident = me.data;
@@ -207,11 +270,51 @@ export function MemberPortal() {
             <QueryBoundary query={me}>
               {ident !== undefined && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-                  {ident.display_name !== null && (
-                    <Row label={t('member.portal.name')}>
-                      <span>{ident.display_name}</span>
-                    </Row>
-                  )}
+                  <Row label={t('member.portal.name')}>
+                    {editingName ? (
+                      <div style={{ display: 'flex', gap: 'var(--s-2)', alignItems: 'center' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <TextField
+                            value={nameDraft}
+                            onChange={setNameDraft}
+                            placeholder={t('member.portal.namePlaceholder')}
+                            maxLength={256}
+                          />
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="cta"
+                          onClick={() => saveName.mutate()}
+                          loading={saveName.isPending}
+                        >
+                          {t('common.save')}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}>
+                          {t('common.cancel')}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 'var(--s-2)', alignItems: 'center' }}>
+                        <span
+                          style={
+                            ident.display_name === null ? { color: 'var(--faint)' } : undefined
+                          }
+                        >
+                          {ident.display_name ?? t('member.portal.noName')}
+                        </span>
+                        <IconButton
+                          icon={PencilSimpleIcon}
+                          label={t('common.edit')}
+                          bare
+                          size={14}
+                          onClick={() => {
+                            setNameDraft(ident.display_name ?? '');
+                            setEditingName(true);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </Row>
                   {ident.email !== null && (
                     <Row label={t('member.portal.email')}>
                       <span>{ident.email}</span>
@@ -236,6 +339,46 @@ export function MemberPortal() {
                 </div>
               )}
             </QueryBoundary>
+          </div>
+
+          {/* Account security — change own password (Model-A members; others 403) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+            <SectionHeader title={t('member.portal.security')} />
+            <div
+              className="panel"
+              style={{
+                borderRadius: 'var(--r-md)',
+                padding: 'var(--s-4)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--s-3)',
+              }}
+            >
+              <TextField
+                label={t('member.portal.currentPassword')}
+                type="password"
+                value={curPw}
+                onChange={setCurPw}
+                autoComplete="current-password"
+              />
+              <TextField
+                label={t('member.portal.newPassword')}
+                type="password"
+                value={newPw}
+                onChange={setNewPw}
+                autoComplete="new-password"
+                minLength={8}
+                hint={t('member.portal.passwordHint')}
+              />
+              <Button
+                variant="cta"
+                onClick={() => changePw.mutate()}
+                loading={changePw.isPending}
+                disabled={curPw === '' || newPw.length < 8}
+              >
+                {t('member.portal.changePassword')}
+              </Button>
+            </div>
           </div>
 
           {/* Wallet balance */}
@@ -296,7 +439,7 @@ export function MemberPortal() {
             </QueryBoundary>
           </div>
 
-          {/* Own API keys (masked, read-only) */}
+          {/* Own API keys — masked list + self-service mint/revoke (#57) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
             <SectionHeader title={t('member.portal.keys')} />
             <QueryBoundary query={keys}>
@@ -341,12 +484,33 @@ export function MemberPortal() {
                           ····{k.last4}
                         </code>
                       </span>
-                      <Pill tone={k.status === 'active' ? 'ok' : 'fail'}>
-                        {t('status.' + k.status, k.status)}
-                      </Pill>
+                      <span
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)' }}
+                      >
+                        <Pill tone={k.status === 'active' ? 'ok' : 'fail'}>
+                          {t('status.' + k.status, k.status)}
+                        </Pill>
+                        {k.status === 'active' && (
+                          <IconButton
+                            icon={TrashIcon}
+                            label={t('member.portal.revokeKey')}
+                            bare
+                            size={14}
+                            onClick={() => setRevokeTarget(k.id)}
+                          />
+                        )}
+                      </span>
                     </div>
                   ))
                 )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => createKey.mutate()}
+                  loading={createKey.isPending}
+                >
+                  <PlusIcon size={14} weight="bold" /> {t('member.portal.createKey')}
+                </Button>
                 <span style={{ color: 'var(--faint)', fontSize: 'var(--fs-caption)' }}>
                   {t('member.portal.keysNote')}
                 </span>
@@ -369,6 +533,44 @@ export function MemberPortal() {
           </div>
         </div>
       </div>
+
+      {/* Self-minted key plaintext — shown ONCE, copy-and-close. */}
+      <Modal
+        open={plaintext !== null}
+        title={t('member.portal.revealTitle')}
+        onClose={() => setPlaintext(null)}
+        footer={
+          <Button variant="cta" onClick={() => setPlaintext(null)}>
+            {t('member.portal.revealDone')}
+          </Button>
+        }
+      >
+        <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', margin: '0 0 var(--s-3)' }}>
+          {t('member.portal.revealWarn')}
+        </p>
+        {plaintext !== null && (
+          <CopyField
+            value={plaintext}
+            copyLabel={t('common.copy')}
+            copiedLabel={t('common.copied')}
+            failedLabel={t('common.copyFailed')}
+          />
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        open={revokeTarget !== null}
+        title={t('member.portal.confirmRevokeTitle')}
+        message={t('member.portal.confirmRevokeMsg')}
+        confirmLabel={t('member.portal.revokeKey')}
+        cancelLabel={t('common.cancel')}
+        danger
+        loading={revokeKey.isPending}
+        onConfirm={() => {
+          if (revokeTarget !== null) revokeKey.mutate(revokeTarget);
+        }}
+        onClose={() => setRevokeTarget(null)}
+      />
     </>
   );
 }
