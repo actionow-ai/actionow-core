@@ -283,3 +283,86 @@ export interface ModerationResult {
   }[];
   usage: { inputTokens: number };
 }
+
+// --- Speech-to-text (OpenAI-compatible /v1/audio/transcriptions) -----------
+
+/** The transcription response shapes a caller may request (OpenAI `response_format`). */
+export const TRANSCRIPTION_FORMATS = ['json', 'text', 'verbose_json'] as const;
+export type TranscriptionFormat = (typeof TRANSCRIPTION_FORMATS)[number];
+
+/**
+ * The NON-FILE fields of a `POST /v1/audio/transcriptions` multipart request
+ * (OpenAI-compatible). The audio binary itself rides as the multipart `file`
+ * part (handled by the controller's `FileInterceptor`, never by this schema).
+ * `model` selects the STT model; `language`/`prompt`/`temperature` are passed
+ * through to the upstream verbatim when set; `responseFormat` (OpenAI
+ * `response_format`) shapes the client response and defaults to `json`. The
+ * relay always requests `verbose_json` UPSTREAM (for the billed `duration`),
+ * regardless of the client `responseFormat`.
+ */
+export const transcriptionRequestSchema = z.object({
+  model: z.string(),
+  /** ISO-639-1 language hint; passed through to the upstream when set. */
+  language: z.string().optional(),
+  /** Optional decoding prompt (style/spelling hint); passed through when set. */
+  prompt: z.string().optional(),
+  /** Client-facing response shape; defaults to `json`. */
+  responseFormat: z.enum(TRANSCRIPTION_FORMATS).default('json'),
+  /** Sampling temperature; passed through to the upstream when set. */
+  temperature: z.number().optional(),
+});
+export type TranscriptionRequest = z.infer<typeof transcriptionRequestSchema>;
+
+/** One transcribed segment in a `verbose_json` response. */
+export const transcriptionSegmentSchema = z.object({
+  id: z.number().int().nonnegative().optional(),
+  start: z.number().optional(),
+  end: z.number().optional(),
+  text: z.string(),
+});
+export type TranscriptionSegment = z.infer<typeof transcriptionSegmentSchema>;
+
+/** OpenAI `verbose_json` transcription response shape (the relay's richest output). */
+export const transcriptionResponseSchema = z.object({
+  text: z.string(),
+  language: z.string().optional(),
+  duration: z.number().optional(),
+  segments: z.array(transcriptionSegmentSchema).optional(),
+});
+export type TranscriptionResponse = z.infer<typeof transcriptionResponseSchema>;
+
+/**
+ * The IR a {@link ProviderAdapter}'s `transcribe` carries to the engine: the
+ * uploaded audio bytes + filename + content-type, the resolved model, and the
+ * pass-through decoding hints. The file rides as bytes (the adapter rebuilds the
+ * multipart upstream request from them); the engine never inspects them.
+ */
+export interface TranscriptionInput {
+  model: string;
+  /** The uploaded audio binary. */
+  file: Uint8Array;
+  /** The original upload filename (drives the upstream multipart part + content-type sniff). */
+  filename: string;
+  /** The upload's declared content-type, when the client supplied one. */
+  contentType?: string;
+  language?: string;
+  prompt?: string;
+  temperature?: number;
+}
+
+/**
+ * The dialect-neutral transcription result a {@link ProviderAdapter}'s
+ * `transcribe` returns: the transcript `text`, the ACTUAL upstream-reported
+ * audio `duration` (seconds) folded into `usage.audioSeconds` (the engine meters
+ * the settle off it), and the optional `language`/`segments` a `verbose_json`
+ * client response needs. `usage.audioSeconds` is what the `unit/post` pricebook
+ * charges on the `audio_seconds` dimension; when the upstream omits a duration,
+ * the relay falls back to the hold ESTIMATE so STT can never settle free.
+ */
+export interface TranscriptionResult {
+  text: string;
+  language?: string;
+  duration?: number;
+  segments?: TranscriptionSegment[];
+  usage: { audioSeconds: number };
+}

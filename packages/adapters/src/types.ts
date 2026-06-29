@@ -15,6 +15,8 @@ import type {
   StreamEvent,
   SubmitInput,
   SubmitResult,
+  TranscriptionInput,
+  TranscriptionResult,
   UnifiedError,
   UsageVector,
 } from '@actionow/contracts';
@@ -66,6 +68,13 @@ export interface ProviderAdapter {
    * Absent → no moderation support (the relay 500s the channel).
    */
   moderate?(req: ModerationRequest, ctx: AdapterContext): Promise<ModerationResult>;
+  /**
+   * IR-level speech-to-text: transcribe the uploaded audio bytes, returning the
+   * transcript + the ACTUAL upstream-reported `audioSeconds` usage (billed on the
+   * `audio_seconds` dimension). Absent → no STT support (the relay 500s the
+   * channel).
+   */
+  transcribe?(req: TranscriptionInput, ctx: AdapterContext): Promise<TranscriptionResult>;
   parseCallback?(payload: unknown): CallbackResult;
   /**
    * Optional model discovery: query the provider's official catalog endpoint and

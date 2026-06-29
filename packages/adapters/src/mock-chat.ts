@@ -8,6 +8,8 @@ import type {
   RerankRequest,
   RerankResult,
   SubmitResult,
+  TranscriptionInput,
+  TranscriptionResult,
   UnifiedError,
   UsageVector,
 } from '@actionow/contracts';
@@ -32,6 +34,15 @@ const MOCK_EMBED_VECTOR: readonly number[] = [0.1, 0.2, 0.3];
 const MOCK_RERANK_TOKENS_PER_DOC = 4;
 /** The fixed per-input-string INPUT token count this mock's `moderate` reports. */
 const MOCK_MODERATE_TOKENS_PER_INPUT = 4;
+/** The canned transcript this mock's `transcribe` returns. */
+const MOCK_TRANSCRIPT = 'hello world';
+/**
+ * Bytes-per-second divisor the mock uses to DERIVE a deterministic audio duration
+ * from the uploaded file size, so a test can assert the settle bills on the
+ * adapter-reported `audioSeconds` (NOT the relay's hold estimate). Distinct from
+ * the relay's conservative hold divisor so the two never coincide by accident.
+ */
+const MOCK_TRANSCRIBE_BYTES_PER_SECOND = 1000;
 
 const CAPABILITIES: AdapterCapabilities = {
   tools: true,
@@ -109,6 +120,23 @@ export function createMockChat(): ProviderAdapter {
       return Promise.resolve({
         results,
         usage: { inputTokens: inputs.length * MOCK_MODERATE_TOKENS_PER_INPUT },
+      });
+    },
+
+    transcribe(req: TranscriptionInput): Promise<TranscriptionResult> {
+      // Derive a deterministic duration from the uploaded byte count (≥1) so a
+      // test can assert the settle bills on THIS (adapter-reported) duration, not
+      // the relay's hold estimate. Returns a fixed transcript + a single segment.
+      const audioSeconds = Math.max(
+        1,
+        Math.ceil(req.file.length / MOCK_TRANSCRIBE_BYTES_PER_SECOND),
+      );
+      return Promise.resolve({
+        text: MOCK_TRANSCRIPT,
+        language: req.language ?? 'en',
+        duration: audioSeconds,
+        segments: [{ id: 0, start: 0, end: audioSeconds, text: MOCK_TRANSCRIPT }],
+        usage: { audioSeconds },
       });
     },
 

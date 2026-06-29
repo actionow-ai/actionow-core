@@ -58,8 +58,15 @@ function buildInit(
   signal?: AbortSignal,
 ): RequestInit {
   const headers: Record<string, string> = { ...req.headers };
-  let body: string | undefined;
-  if (req.body !== undefined) {
+  // A FormData body (multipart upload, e.g. the STT /v1/audio/transcriptions
+  // relay) is passed through UNTOUCHED: `fetch` streams it and sets the
+  // `multipart/form-data; boundary=…` content-type itself, so we must NOT
+  // JSON.stringify it nor force an `application/json` header (either would
+  // corrupt the boundary). Everything else is JSON-serialized as before.
+  let body: string | FormData | undefined;
+  if (req.body instanceof FormData) {
+    body = req.body;
+  } else if (req.body !== undefined) {
     body = JSON.stringify(req.body);
     if (!('content-type' in headers) && !('Content-Type' in headers)) {
       headers['content-type'] = 'application/json';

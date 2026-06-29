@@ -20,6 +20,8 @@ import type {
   StreamEvent,
   SubmitResult,
   SyncResult,
+  TranscriptionInput,
+  TranscriptionResult,
   UnifiedError,
   UsageVector,
 } from '@actionow/contracts';
@@ -260,6 +262,15 @@ export interface RerankRunOutcome {
 export interface ModerateRunOutcome {
   jobId: string;
   result: ModerationResult;
+  cost: RunCost;
+  /** The channel/provider that ultimately served (after any cross-provider failover). */
+  servedBy?: { channelId: string; providerType: string; model?: string };
+}
+
+/** The result of a blocking IR {@link runTranscribe}: the job id, transcription result, cost. */
+export interface TranscribeRunOutcome {
+  jobId: string;
+  result: TranscriptionResult;
   cost: RunCost;
   /** The channel/provider that ultimately served (after any cross-provider failover). */
   servedBy?: { channelId: string; providerType: string; model?: string };
@@ -815,7 +826,9 @@ export class ExecutionService {
           }
           const boundRerank = adapter.rerank.bind(adapter);
           const ctx = await this.buildContext(req, channel, jobId);
-          const r = await runWithFaultPolicy(channel.faultPolicy, () => boundRerank(rerankReq, ctx));
+          const r = await runWithFaultPolicy(channel.faultPolicy, () =>
+            boundRerank(rerankReq, ctx),
+          );
           served = channel;
           return r;
         },
@@ -948,6 +961,129 @@ export class ExecutionService {
     const out: ModerateRunOutcome = { jobId, result, cost };
     if (served !== undefined) {
       const servedBy: ModerateRunOutcome['servedBy'] = {
+        channelId: served.id,
+        providerType: served.providerType ?? req.resource.providerType,
+      };
+      if (served.model !== undefined) servedBy.model = served.model;
+      out.servedBy = servedBy;
+    }
+    return out;
+  }
+
+  /**
+   * Blocking IR speech-to-text run. Mirrors {@link runEmbed} exactly —
+   * idempotency replay then {@link executeTranscribe}. Billed per AUDIO SECOND
+   * (the resource's `unit/post` pricebook over the `audio_seconds` dimension):
+   * the relay sizes the hold from the upload BYTES (a conservative over-estimate)
+   * and the settle re-prices on the upstream's ACTUAL duration, capped at the
+   * hold — so STT is always balance-gated and can never settle free.
+   */
+  async runTranscribe(req: RunRequest): Promise<TranscribeRunOutcome> {
+    const { db } = this.deps;
+
+    if (req.idempotencyKey !== undefined) {
+      const probeJobId = randomUUID();
+      const claim = await claimIdempotency(
+        db,
+        req.tenantId,
+        req.idempotencyKey,
+        probeJobId,
+        req.subjectId ?? null,
+      );
+      if (!claim.claimed) {
+        const existing =
+          claim.existingJobId === undefined ? undefined : await getJob(db, claim.existingJobId);
+        if (existing === undefined) {
+          throw engineError('internal_error', 'idempotency key claimed but job missing');
+        }
+        return this.replayTranscribe(existing);
+      }
+      return this.executeTranscribe(req, probeJobId);
+    }
+    return this.executeTranscribe(req, randomUUID());
+  }
+
+  /** Reconstruct a {@link TranscribeRunOutcome} from a settled STT job (idempotent replay). */
+  private replayTranscribe(job: Job): TranscribeRunOutcome {
+    if (job.status !== 'succeeded') {
+      throw engineError('rate_limited', 'idempotency key still in progress', { retryable: true });
+    }
+    const result = job.output?.[IR_KEY];
+    if (result === undefined) {
+      throw engineError('internal_error', 'replayed transcription job has no result output');
+    }
+    return {
+      jobId: job.id,
+      result: result as TranscriptionResult,
+      cost: { credits: job.costCredits ?? 0n },
+    };
+  }
+
+  /**
+   * The blocking IR speech-to-text body: same hold prefix as {@link executeEmbed}
+   * (the relay sizes `estimatedUsage.audio_seconds` from the upload bytes →
+   * `computeHold` floors it at `minimumHold`), then resolve the adapter per
+   * channel, call `adapter.transcribe(req, ctx)`, map the upstream's ACTUAL
+   * `audioSeconds` to the snake_case engine {@link UsageVector} (`audio_seconds`),
+   * and settle via `settleSync` (capped at the hold). `jobId` is the claim-owned id.
+   */
+  private async executeTranscribe(req: RunRequest, jobId: string): Promise<TranscribeRunOutcome> {
+    const { inputs, holdAmount } = await this.validateAndHold(stripIr(req), jobId);
+    const transcribeReq = readTranscribeIr(inputs, req.inputs);
+
+    let served: RunChannel | undefined;
+    let result: TranscriptionResult;
+    try {
+      result = await routeBlocking(
+        {
+          db: this.deps.db,
+          now: this.deps.now,
+          rng: this.deps.rng ?? Math.random,
+          breaker: this.deps.breaker,
+        },
+        req.channels,
+        req.usageLogModel ?? '*',
+        async (channel) => {
+          const adapter = this.deps.adapters.get(channel.providerType ?? req.resource.providerType);
+          if (adapter.transcribe === undefined) {
+            throw engineError(
+              'internal_error',
+              `channel adapter ${adapter.providerType} cannot transcribe`,
+            );
+          }
+          const boundTranscribe = adapter.transcribe.bind(adapter);
+          const ctx = await this.buildContext(req, channel, jobId);
+          const r = await runWithFaultPolicy(channel.faultPolicy, () =>
+            boundTranscribe(transcribeReq, ctx),
+          );
+          served = channel;
+          return r;
+        },
+      );
+    } catch (err) {
+      await this.failBlocking(req, jobId, holdAmount, err);
+      throw toEngineError(err);
+    }
+
+    // STT bills on the upstream's ACTUAL audio duration. A duration-less upstream
+    // returns `audioSeconds: 0`; fall back to the hold estimate so the settle is
+    // never free (the cap-at-hold then bounds it). No token dimension.
+    const audioSeconds =
+      result.usage.audioSeconds > 0
+        ? result.usage.audioSeconds
+        : (req.estimatedUsage?.audio_seconds ?? 0);
+    const usage: UsageVector = { audio_seconds: audioSeconds };
+    const outcome = await this.settleSync(
+      req,
+      jobId,
+      holdAmount,
+      { kind: 'sync', output: { __ir: result }, usage },
+      served && servedFrom(served, served.providerType ?? req.resource.providerType),
+    );
+    const cost = outcome.status === 'succeeded' ? outcome.cost : { credits: 0n };
+    const out: TranscribeRunOutcome = { jobId, result, cost };
+    if (served !== undefined) {
+      const servedBy: TranscribeRunOutcome['servedBy'] = {
         channelId: served.id,
         providerType: served.providerType ?? req.resource.providerType,
       };
@@ -1443,6 +1579,18 @@ function readModerateIr(
   const ir = (original[IR_KEY] ?? validated[IR_KEY]) as ModerationRequest | undefined;
   if (ir === undefined) {
     throw engineError('internal_error', 'moderation run requires inputs.__ir');
+  }
+  return ir;
+}
+
+/** Read + assert the IR {@link TranscriptionInput} carried at `__ir`. */
+function readTranscribeIr(
+  validated: Record<string, unknown>,
+  original: Record<string, unknown>,
+): TranscriptionInput {
+  const ir = (original[IR_KEY] ?? validated[IR_KEY]) as TranscriptionInput | undefined;
+  if (ir === undefined) {
+    throw engineError('internal_error', 'transcription run requires inputs.__ir');
   }
   return ir;
 }

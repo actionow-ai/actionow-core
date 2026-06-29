@@ -21,6 +21,8 @@ import { ModerationsController } from './moderations.controller.js';
 import { OpenAIChatController } from './openai.controller.js';
 import { RerankController } from './rerank.controller.js';
 import { RerankRelayService } from './rerank-relay.service.js';
+import { SttRelayService } from './stt-relay.service.js';
+import { TranscriptionsController } from './transcriptions.controller.js';
 
 /**
  * Wires the OpenAI/Anthropic/Gemini chat-relay surface
@@ -43,6 +45,7 @@ import { RerankRelayService } from './rerank-relay.service.js';
     EmbeddingsController,
     RerankController,
     ModerationsController,
+    TranscriptionsController,
     ModelsController,
   ],
   providers: [
@@ -50,6 +53,7 @@ import { RerankRelayService } from './rerank-relay.service.js';
     EmbedRelayService,
     RerankRelayService,
     ModerationRelayService,
+    SttRelayService,
     ModelResolverService,
     AuthService,
     SecretResolver,

@@ -76,6 +76,17 @@ const AUDIO_IO = {
   ],
   outputs: [{ key: 'audio_url', type: 'string' }],
 };
+/**
+ * A frozen `io_schema` snapshot for the speech-to-text resource. EMPTY (like the
+ * chat/embeddings relay resources): the STT relay builds the upstream request
+ * from the multipart upload + the IR carried at `inputs.__ir`, NOT from
+ * `io_schema.inputs`, so a required input here would make every transcribe call
+ * fail strict io_schema validation. The `__ir` key is stripped before validation.
+ */
+const STT_IO = {
+  inputs: [],
+  outputs: [],
+};
 
 /** Placeholder token pricing: unit/post over the `tokens` dimension (1 µcredit/token). */
 const TOKENS_PRICEBOOK = { method: 'unit', dimensions: { tokens: { rate: 1 } } } as const;
@@ -110,6 +121,19 @@ const AUDIO_TASK_PRICEBOOK = {
     audio_seconds: { rate: 50_000 },
     tasks: { rate: 250_000 },
   },
+} as const;
+/**
+ * Speech-to-text pricing: unit/post per SECOND of transcribed audio. The STT
+ * relay (`POST /v1/audio/transcriptions`) meters `{ audio_seconds: N }` from the
+ * upstream's reported `duration` at settle. Rate = 100 µUSD/s ($0.006/min,
+ * mirroring OpenAI Whisper's published price) — sized to OVER the channel's real
+ * cost so margin stays positive; refine in the admin pricebook. NO `tasks`
+ * fallback dim: the relay always yields `audio_seconds` (falling back to the hold
+ * estimate when the upstream omits a duration), so the settle is never 0.
+ */
+const STT_PRICEBOOK = {
+  method: 'unit',
+  dimensions: { audio_seconds: { rate: 100 } },
 } as const;
 
 /**
@@ -201,6 +225,23 @@ const PROVIDER_SEEDS: readonly ProviderSeed[] = [
     model: 'audio-tts-1.0',
     credentialLocator: 'huimeng',
     config: RELAY_CONFIG,
+  },
+  // 2c. Speech-to-text relay — synchronous OpenAI-dialect STT via the openai
+  // adapter's `transcribe` (multipart upload → `/v1/audio/transcriptions`). Routes
+  // by RESOURCE (no model row); billed per `audio_seconds` via the unit/post
+  // pricebook. Direct OpenAI host → `proxy_ref` so it is reachable via the egress
+  // proxy. Point the channel at the operator's real STT host/model in production.
+  {
+    id: 'stt-relay',
+    kind: 'model',
+    modality: 'audio',
+    providerType: 'openai',
+    execModes: ['blocking'],
+    ioSchema: STT_IO,
+    pricebookSpec: STT_PRICEBOOK,
+    model: 'whisper-1',
+    credentialLocator: 'openai',
+    proxyRef: 'upstream_proxy',
   },
   // 3. DeepSeek chat — openai-compatible host via the openai adapter.
   {
