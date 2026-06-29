@@ -71,11 +71,10 @@ const card = {
  * plane Part B). A member JWT is rejected by every operator plane
  * (`ConsoleGuard`/`AdminGuard`), so this portal calls ONLY the read-only
  * `/member/*` endpoints (via {@link useMemberApi}, the member-token raw client),
- * each token-scoped to the caller's OWN subject server-side. Read-only in v1:
- * the member sees identity + wallet balance + governance plan/usage + their own
- * masked keys + recent usage — but no write controls (no plan binding, no key
- * mint, no top-up; those live on the tenant-admin `/app` plane and would 403/404
- * for a member).
+ * each token-scoped to the caller's OWN subject server-side. The member sees
+ * identity + wallet balance + governance plan/usage + recent usage, and self-
+ * services their own profile name, password (Model-A), and API keys (#57). Plan
+ * binding and top-ups stay on the tenant-admin `/app` plane (a member would 403).
  */
 export function MemberPortal() {
   const { t } = useTranslation('console');

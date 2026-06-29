@@ -26,7 +26,16 @@ export const createResourceSchema = z.object({
    */
   tenantId: z.string().uuid().nullable(),
   kind: z.enum(['model', 'workflow']),
-  modality: z.enum(['text', 'image', 'video', 'audio', 'composite']),
+  modality: z.enum([
+    'text',
+    'image',
+    'video',
+    'audio',
+    'composite',
+    'embedding',
+    'rerank',
+    'moderation',
+  ]),
   providerType: z.string().min(1),
   execModes: z.array(z.string().min(1)).min(1),
   /** The frozen io_schema snapshot (stored as jsonb). */
@@ -141,7 +150,7 @@ export const createPricebookSchema = z.object({
   resourceId: z.string().min(1),
   resourceVersion: z.number().int().positive(),
   version: z.number().int().positive(),
-  method: z.enum(['unit', 'matrix', 'fixed', 'formula', 'passthrough']),
+  method: z.enum(['unit', 'matrix', 'fixed', 'formula', 'passthrough', 'model_token']),
   timing: z.enum(['pre', 'post']),
   /**
    * The pricing spec (stored as jsonb). When `method` is `fixed`, `fixedCredits`
@@ -167,7 +176,7 @@ export type CreatePricebookBody = z.infer<typeof createPricebookSchema>;
  * valid when the effective `method` is `fixed`).
  */
 export const updatePricebookSchema = z.object({
-  method: z.enum(['unit', 'matrix', 'fixed', 'formula', 'passthrough']).optional(),
+  method: z.enum(['unit', 'matrix', 'fixed', 'formula', 'passthrough', 'model_token']).optional(),
   timing: z.enum(['pre', 'post']).optional(),
   spec: z.unknown().optional(),
   /** HUMAN-credit amount → µcredit `spec.amount` (only for `method: 'fixed'`). */

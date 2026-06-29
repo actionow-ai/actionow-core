@@ -17,6 +17,9 @@ describe('enums', () => {
       'video',
       'audio',
       'composite',
+      'embedding',
+      'rerank',
+      'moderation',
     ]);
   });
 

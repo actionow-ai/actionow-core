@@ -186,8 +186,22 @@ export interface Page<T> {
 // @actionow/contracts (billing-views), and the matching Create*/Update* request
 // bodies from billing-requests — see the type-only re-export at the top.
 
-export type Modality = 'text' | 'image' | 'video' | 'audio' | 'composite';
-export type PricebookMethod = 'unit' | 'matrix' | 'fixed' | 'formula' | 'passthrough';
+export type Modality =
+  | 'text'
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'composite'
+  | 'embedding'
+  | 'rerank'
+  | 'moderation';
+export type PricebookMethod =
+  | 'unit'
+  | 'matrix'
+  | 'fixed'
+  | 'formula'
+  | 'passthrough'
+  | 'model_token';
 export type PricebookTiming = 'pre' | 'post';
 export type ModifierOp = 'override_rate' | 'percent_off' | 'flat_off' | 'percent_add';
 export type DifyPricingModel = 'fixed' | 'matrix' | 'metered';

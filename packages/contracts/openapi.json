@@ -3466,7 +3466,10 @@
               "image",
               "video",
               "audio",
-              "composite"
+              "composite",
+              "embedding",
+              "rerank",
+              "moderation"
             ]
           },
           "providerType": {
@@ -3697,7 +3700,8 @@
               "matrix",
               "fixed",
               "formula",
-              "passthrough"
+              "passthrough",
+              "model_token"
             ]
           },
           "timing": {
@@ -3739,7 +3743,8 @@
               "matrix",
               "fixed",
               "formula",
-              "passthrough"
+              "passthrough",
+              "model_token"
             ]
           },
           "timing": {

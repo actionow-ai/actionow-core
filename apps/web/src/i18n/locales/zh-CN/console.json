@@ -1591,7 +1591,10 @@
       "image": "图像",
       "video": "视频",
       "audio": "音频",
-      "composite": "复合"
+      "composite": "复合",
+      "embedding": "向量(Embedding)",
+      "rerank": "重排(Rerank)",
+      "moderation": "内容审核"
     },
     "kind": {
       "model": "模型",
@@ -1602,7 +1605,8 @@
       "matrix": "矩阵计价",
       "fixed": "固定计价",
       "formula": "公式计价",
-      "passthrough": "透传计价"
+      "passthrough": "透传计价",
+      "model_token": "按 Token 计价"
     },
     "timing": {
       "pre": "预计费",
@@ -1635,7 +1639,9 @@
       "vision": "视觉",
       "audio": "音频",
       "json": "JSON 模式",
-      "stream": "流式"
+      "stream": "流式",
+      "multilingual": "多语言",
+      "moderation": "内容审核"
     }
   },
   "forms": {
@@ -1703,7 +1709,12 @@
       "markupValue": "加价数值",
       "markupPercentHint": "在上游成本之上叠加的整数百分比。",
       "markupFlatHint": "在上游成本之上叠加的定额 µcredits。",
-      "fixedNote": "请在定价表单的「固定 credit」字段中设置价格。"
+      "fixedNote": "请在定价表单的「固定 credit」字段中设置价格。",
+      "inputPrice": "输入单价",
+      "outputPrice": "输出单价",
+      "perTokenHint": "每 token 的 µcredits(1 credit = 1,000,000 µcredits)。",
+      "groupRatioBps": "分组比率(bps,可选)",
+      "groupRatioBpsHint": "折算进基础单价的 basis-points 修正;0 = 无(10000 = ×1.00)。"
     }
   },
   "errors": {

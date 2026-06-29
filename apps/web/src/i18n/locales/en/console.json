@@ -1591,7 +1591,10 @@
       "image": "Image",
       "video": "Video",
       "audio": "Audio",
-      "composite": "Composite"
+      "composite": "Composite",
+      "embedding": "Embedding",
+      "rerank": "Rerank",
+      "moderation": "Moderation"
     },
     "kind": {
       "model": "Model",
@@ -1602,7 +1605,8 @@
       "matrix": "Matrix",
       "fixed": "Fixed",
       "formula": "Formula",
-      "passthrough": "Passthrough"
+      "passthrough": "Passthrough",
+      "model_token": "Model token"
     },
     "timing": {
       "pre": "Pre",
@@ -1635,7 +1639,9 @@
       "vision": "Vision",
       "audio": "Audio",
       "json": "JSON mode",
-      "stream": "Streaming"
+      "stream": "Streaming",
+      "multilingual": "Multilingual",
+      "moderation": "Moderation"
     }
   },
   "forms": {
@@ -1703,7 +1709,12 @@
       "markupValue": "Markup value",
       "markupPercentHint": "Whole percent added on top of the upstream cost.",
       "markupFlatHint": "Flat µcredits added on top of the upstream cost.",
-      "fixedNote": "Set the price via the Fixed credits field in the pricing form."
+      "fixedNote": "Set the price via the Fixed credits field in the pricing form.",
+      "inputPrice": "Input price",
+      "outputPrice": "Output price",
+      "perTokenHint": "µcredits per token (1 credit = 1,000,000 µcredits).",
+      "groupRatioBps": "Group ratio (bps, optional)",
+      "groupRatioBpsHint": "Basis-points modifier folded into the base rate; 0 = none (10000 = ×1.00)."
     }
   },
   "errors": {

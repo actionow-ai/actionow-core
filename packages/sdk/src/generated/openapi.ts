@@ -11987,7 +11987,7 @@ export interface components {
             /** @enum {string} */
             kind: "model" | "workflow";
             /** @enum {string} */
-            modality: "text" | "image" | "video" | "audio" | "composite";
+            modality: "text" | "image" | "video" | "audio" | "composite" | "embedding" | "rerank" | "moderation";
             providerType: string;
             execModes: string[];
             ioSchema?: unknown;
@@ -12049,7 +12049,7 @@ export interface components {
             resourceVersion: number;
             version: number;
             /** @enum {string} */
-            method: "unit" | "matrix" | "fixed" | "formula" | "passthrough";
+            method: "unit" | "matrix" | "fixed" | "formula" | "passthrough" | "model_token";
             /** @enum {string} */
             timing: "pre" | "post";
             spec?: unknown;
@@ -12059,7 +12059,7 @@ export interface components {
         };
         UpdatePricebookBody: {
             /** @enum {string} */
-            method?: "unit" | "matrix" | "fixed" | "formula" | "passthrough";
+            method?: "unit" | "matrix" | "fixed" | "formula" | "passthrough" | "model_token";
             /** @enum {string} */
             timing?: "pre" | "post";
             spec?: unknown;
