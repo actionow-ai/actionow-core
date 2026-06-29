@@ -254,7 +254,7 @@ over the **raw bytes** — do not parse-then-restringify before verifying.
 
 ```ts
 import express from 'express';
-import { verifyWebhookSignature } from '@actionow/sdk';
+import { verifyWebhookSignature } from '@actionow/sdk/webhook';
 
 app.post('/webhooks/actionow', express.raw({ type: 'application/json' }), (req, res) => {
   const result = verifyWebhookSignature(
