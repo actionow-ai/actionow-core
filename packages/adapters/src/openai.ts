@@ -124,10 +124,13 @@ function buildChatBody(
   ctx: AdapterContext,
   stream: boolean,
 ): Record<string, unknown> {
-  const body: Record<string, unknown> = {
-    model: ctx.model ?? ir.model,
-    messages: ir.messages.map(irMessageToOpenAi),
-  };
+  // Spread the typed-open passthrough bag FIRST so every first-class/critical
+  // field set below overrides it — `extra` can never clobber model/messages/
+  // stream/tools/etc. (penalties, top_k, n, logprobs, logit_bias,
+  // parallel_tool_calls, prompt_cache_key, service_tier, … ride through here).
+  const body: Record<string, unknown> = { ...(ir.extra ?? {}) };
+  body.model = ctx.model ?? ir.model;
+  body.messages = ir.messages.map(irMessageToOpenAi);
   if (stream) {
     body.stream = true;
     body.stream_options = { include_usage: true };
@@ -165,7 +168,18 @@ function buildChatBody(
       body.seed = params.seed;
     }
     if (params.responseFormat !== undefined && params.responseFormat !== 'text') {
-      body.response_format = { type: params.responseFormat };
+      // Forward the full strict json_schema body when present; otherwise the bare type.
+      if (params.responseFormat === 'json_schema' && params.jsonSchema !== undefined) {
+        body.response_format = {
+          type: 'json_schema',
+          json_schema: { name: 'response', schema: params.jsonSchema, strict: true },
+        };
+      } else {
+        body.response_format = { type: params.responseFormat };
+      }
+    }
+    if (params.reasoningEffort !== undefined) {
+      body.reasoning_effort = params.reasoningEffort;
     }
   }
   return body;

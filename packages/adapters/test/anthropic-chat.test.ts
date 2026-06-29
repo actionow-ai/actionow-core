@@ -98,6 +98,61 @@ describe('anthropicAdapter.chat', () => {
     expect(res.stopReason).toBe('tool_calls');
     expect(res.usage).toEqual({ inputTokens: 7, outputTokens: 3 });
   });
+
+  it('spreads extra (without clobbering criticals) and maps reasoning effort/budget', async () => {
+    const respBody = {
+      type: 'message',
+      role: 'assistant',
+      content: [{ type: 'text', text: 'ok' }],
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 1, output_tokens: 1 },
+    };
+
+    // Budget → thinking:{type:'enabled', budget_tokens}.
+    let budgetSeen: HttpRequest | undefined;
+    await anthropicAdapter.chat?.(
+      {
+        model: 'claude-opus-4-8',
+        messages: [{ role: 'user', content: [{ kind: 'text', text: 'hi' }] }],
+        params: { reasoningBudgetTokens: 2048 },
+        extra: { top_k: 40, service_tier: 'standard_only', model: 'EVIL', messages: 'EVIL' },
+      },
+      {
+        providerType: 'anthropic',
+        model: 'claude-opus-4-8',
+        apiKey: 'sk',
+        http: fakeHttp({ status: 200, body: respBody }, (r) => {
+          budgetSeen = r;
+        }),
+      },
+    );
+    const bBody = budgetSeen?.body as Record<string, unknown>;
+    expect(bBody.thinking).toEqual({ type: 'enabled', budget_tokens: 2048 });
+    expect(bBody.top_k).toBe(40);
+    expect(bBody.service_tier).toBe('standard_only');
+    // criticals untouched by the hostile extra keys.
+    expect(bBody.model).toBe('claude-opus-4-8');
+    expect(Array.isArray(bBody.messages)).toBe(true);
+
+    // Effort (no budget) → output_config.effort.
+    let effortSeen: HttpRequest | undefined;
+    await anthropicAdapter.chat?.(
+      {
+        model: 'claude-opus-4-8',
+        messages: [{ role: 'user', content: [{ kind: 'text', text: 'hi' }] }],
+        params: { reasoningEffort: 'high' },
+      },
+      {
+        providerType: 'anthropic',
+        model: 'claude-opus-4-8',
+        apiKey: 'sk',
+        http: fakeHttp({ status: 200, body: respBody }, (r) => {
+          effortSeen = r;
+        }),
+      },
+    );
+    expect((effortSeen?.body as Record<string, unknown>).output_config).toEqual({ effort: 'high' });
+  });
 });
 
 async function drainChat(it: AsyncIterable<ChatStreamEvent>): Promise<ChatStreamEvent[]> {

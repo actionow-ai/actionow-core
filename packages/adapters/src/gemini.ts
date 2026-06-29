@@ -92,7 +92,18 @@ function buildChatBody(ir: ChatRequest): Record<string, unknown> {
     }
   }
 
-  const body: Record<string, unknown> = { contents };
+  // Spread the typed-open passthrough bag FIRST (minus `generationConfig`, which
+  // is merged into the rebuilt gen config below) so first-class/critical fields
+  // override it — `contents`/`systemInstruction`/`tools` always win. Top-level
+  // keys (cachedContent, safetySettings, labels, …) ride through here.
+  const extra = ir.extra ?? {};
+  const extraGen = asRecord(extra.generationConfig);
+  const body: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(extra)) {
+    if (k === 'generationConfig') continue;
+    body[k] = v;
+  }
+  body.contents = contents;
   if (systemParts.length > 0) {
     body.systemInstruction = { parts: systemParts };
   }
@@ -110,8 +121,10 @@ function buildChatBody(ir: ChatRequest): Record<string, unknown> {
     ];
   }
   const params = ir.params;
+  // Merge the passed-through `generationConfig` sub-keys (penalties/topK/
+  // candidateCount/seed/…) FIRST so the first-class fields below override them.
+  const gen: Record<string, unknown> = { ...(extraGen ?? {}) };
   if (params !== undefined) {
-    const gen: Record<string, unknown> = {};
     if (params.temperature !== undefined) {
       gen.temperature = params.temperature;
     }
@@ -127,9 +140,20 @@ function buildChatBody(ir: ChatRequest): Record<string, unknown> {
     if (params.responseFormat === 'json_object' || params.responseFormat === 'json_schema') {
       gen.responseMimeType = 'application/json';
     }
-    if (Object.keys(gen).length > 0) {
-      body.generationConfig = gen;
+    // Forward the full structured-output schema (Gemini's `responseSchema`) when present.
+    if (params.responseFormat === 'json_schema' && params.jsonSchema !== undefined) {
+      gen.responseSchema = params.jsonSchema;
     }
+    // Reasoning: an explicit budget → `thinkingConfig.thinkingBudget`; otherwise
+    // the normalized effort → `thinkingConfig.thinkingLevel` (mutually exclusive).
+    if (params.reasoningBudgetTokens !== undefined) {
+      gen.thinkingConfig = { thinkingBudget: params.reasoningBudgetTokens };
+    } else if (params.reasoningEffort !== undefined) {
+      gen.thinkingConfig = { thinkingLevel: params.reasoningEffort };
+    }
+  }
+  if (Object.keys(gen).length > 0) {
+    body.generationConfig = gen;
   }
   return body;
 }

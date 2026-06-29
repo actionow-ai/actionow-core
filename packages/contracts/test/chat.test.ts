@@ -54,6 +54,37 @@ describe('chat IR schemas', () => {
     expect(chatRequestSchema.safeParse(bad).success).toBe(false);
   });
 
+  it('accepts the typed-open extra bag, reasoning effort/budget, and a populated jsonSchema', () => {
+    const req: ChatRequest = {
+      model: 'gpt-5.5',
+      messages: [{ role: 'user', content: [{ kind: 'text', text: 'hi' }] }],
+      params: {
+        reasoningEffort: 'high',
+        reasoningBudgetTokens: 4096,
+        responseFormat: 'json_schema',
+        jsonSchema: { type: 'object', properties: { x: { type: 'string' } } },
+      },
+      extra: { presence_penalty: 0.5, top_k: 40, parallel_tool_calls: false },
+    };
+    const parsed = chatRequestSchema.parse(req);
+    expect(parsed.params?.reasoningEffort).toBe('high');
+    expect(parsed.params?.reasoningBudgetTokens).toBe(4096);
+    expect(parsed.params?.jsonSchema).toEqual({
+      type: 'object',
+      properties: { x: { type: 'string' } },
+    });
+    expect(parsed.extra).toEqual({ presence_penalty: 0.5, top_k: 40, parallel_tool_calls: false });
+  });
+
+  it('rejects an out-of-enum reasoning effort', () => {
+    const bad = {
+      model: 'x',
+      messages: [{ role: 'user', content: [{ kind: 'text', text: 'hi' }] }],
+      params: { reasoningEffort: 'extreme' },
+    };
+    expect(chatRequestSchema.safeParse(bad).success).toBe(false);
+  });
+
   it('types a response + stream events', () => {
     const res: ChatResponse = {
       message: { role: 'assistant', content: [{ kind: 'text', text: 'ok' }] },

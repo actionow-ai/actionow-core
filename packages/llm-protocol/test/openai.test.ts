@@ -107,6 +107,52 @@ describe('parseOpenAIChat', () => {
     expect(named.toolChoice).toEqual({ name: 'f' });
   });
 
+  it('sweeps unknown body keys into extra and lifts reasoning_effort + json_schema body', () => {
+    const ir = parseOpenAIChat({
+      model: 'gpt-5.5',
+      messages: [{ role: 'user', content: 'hi' }],
+      temperature: 0.5,
+      presence_penalty: 0.3,
+      frequency_penalty: 0.1,
+      top_k: 40,
+      n: 2,
+      logprobs: true,
+      top_logprobs: 5,
+      logit_bias: { '50256': -100 },
+      parallel_tool_calls: false,
+      prompt_cache_key: 'pck',
+      reasoning_effort: 'high',
+      response_format: {
+        type: 'json_schema',
+        json_schema: { name: 'r', schema: { type: 'object' }, strict: true },
+      },
+    });
+    expect(ir.params?.reasoningEffort).toBe('high');
+    expect(ir.params?.responseFormat).toBe('json_schema');
+    expect(ir.params?.jsonSchema).toEqual({ type: 'object' });
+    // First-class fields are NOT duplicated into extra; the rest passes through.
+    expect(ir.extra).toEqual({
+      presence_penalty: 0.3,
+      frequency_penalty: 0.1,
+      top_k: 40,
+      n: 2,
+      logprobs: true,
+      top_logprobs: 5,
+      logit_bias: { '50256': -100 },
+      parallel_tool_calls: false,
+      prompt_cache_key: 'pck',
+    });
+  });
+
+  it('leaves extra unset when there is nothing unknown', () => {
+    const ir = parseOpenAIChat({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: 'hi' }],
+      temperature: 0.5,
+    });
+    expect(ir.extra).toBeUndefined();
+  });
+
   it('throws ProtocolError when messages is absent', () => {
     expect(() => parseOpenAIChat({ model: 'gpt-4o' })).toThrow();
   });

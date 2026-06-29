@@ -223,7 +223,11 @@ export class ChatRelayService {
     routeTag?: string,
   ): Promise<RunRequest> {
     const resolved = await this.resolver.resolve(modelName, ctx.tenantId);
-    normalizeRequest(ir, readCapabilities(resolved.capabilities));
+    // `normalizeRequest` both GATES (400 on capability misuse) and, for reasoning
+    // models, DOWNGRADES the rejected sampling params — returning a cleaned copy.
+    // Use that copy from here on (the `inputs.__ir` + stream estimate downstream
+    // must see the downgraded request, not the raw one).
+    const normalizedIr = normalizeRequest(ir, readCapabilities(resolved.capabilities));
 
     const { resourceId } = resolved;
     const resource = await getResource(this.db, resourceId);
@@ -277,7 +281,7 @@ export class ChatRelayService {
       pricebookEntry: this.modelTokenPricebook(resolved, version, groupRatioBps),
       modifiers: modifierRows.map(toModifier),
       channels,
-      inputs: { [IR_KEY]: ir },
+      inputs: { [IR_KEY]: normalizedIr },
       execMode,
       tenantId: ctx.tenantId,
       accountId: ctx.accountId,
@@ -307,7 +311,7 @@ export class ChatRelayService {
       // `estimatedUsage` (priced via the SAME in-process model_token book), so
       // we supply a generous placeholder-ceiling estimate here. The over-hold
       // is fully refunded at settle once the adapter's true usage is observed.
-      req.estimatedUsage = estimateStreamUsage(ir);
+      req.estimatedUsage = estimateStreamUsage(normalizedIr);
     } else {
       // BLOCKING settles via `settleSync`, which does NOT cap at the hold, so a
       // 0 floor (settle-time pricing only) is correct and avoids over-holding.
