@@ -10,6 +10,7 @@ import { afterAll, afterEach, beforeAll, describe, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { DB, ENV } from '../src/common/tokens.js';
+import { resetDb } from './reset-db.js';
 
 const ADMIN_SECRET = 'e2e-admin-secret';
 
@@ -53,7 +54,10 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE api_key, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`;
+  await resetDb(
+    () =>
+      client`TRUNCATE TABLE api_key, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`,
+  );
 });
 
 async function provision(name: string): Promise<{ tenantId: string; key: string }> {

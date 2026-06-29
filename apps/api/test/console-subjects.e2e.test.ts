@@ -18,6 +18,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { DB, ENV, JOB_QUEUE, PAYMENTS, RATE_LIMITER } from '../src/common/tokens.js';
+import { resetDb } from './reset-db.js';
 
 const CREDIT_RATE = 10_000n;
 const PROVIDER_REF = 'sess_console_subjects_e2e';
@@ -122,7 +123,10 @@ afterEach(async () => {
   // such rows on a separate connection; let them drain before TRUNCATE so the
   // FK-cascade truncate of audit_log doesn't deadlock against an in-flight INSERT.
   await new Promise((resolve) => setTimeout(resolve, 50));
-  await client`TRUNCATE TABLE audit_log, subject, file_object, api_key, ledger_txn, payment_intent, payment_event, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`;
+  await resetDb(
+    () =>
+      client`TRUNCATE TABLE audit_log, subject, file_object, api_key, ledger_txn, payment_intent, payment_event, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`,
+  );
 });
 
 const server = (): ReturnType<typeof app.getHttpServer> => app.getHttpServer();

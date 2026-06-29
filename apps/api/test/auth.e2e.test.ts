@@ -13,6 +13,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { DB, ENV } from '../src/common/tokens.js';
+import { resetDb } from './reset-db.js';
 
 const ADMIN_SECRET = 'e2e-auth-secret';
 
@@ -56,7 +57,9 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE api_key, account, "user", tenant RESTART IDENTITY CASCADE`;
+  await resetDb(
+    () => client`TRUNCATE TABLE api_key, account, "user", tenant RESTART IDENTITY CASCADE`,
+  );
 });
 
 function claimsOf(token: string): { sub: string; role: string } {

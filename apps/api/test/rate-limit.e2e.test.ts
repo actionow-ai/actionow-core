@@ -15,6 +15,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { ADAPTERS, DB, ENV, JOB_QUEUE, RATE_LIMITER } from '../src/common/tokens.js';
+import { resetDb } from './reset-db.js';
 
 const { account, pricebookEntry, resource, resourceVersion, tenant, upstreamChannel } = schema;
 
@@ -127,7 +128,10 @@ async function seedResource(resourceId: string): Promise<{ tenantId: string }> {
 }
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE api_key, webhook_outbox, ledger_txn, idempotency_key, job, pricebook_entry, upstream_channel, resource_version, resource, account, tenant RESTART IDENTITY CASCADE`;
+  await resetDb(
+    () =>
+      client`TRUNCATE TABLE api_key, webhook_outbox, ledger_txn, idempotency_key, job, pricebook_entry, upstream_channel, resource_version, resource, account, tenant RESTART IDENTITY CASCADE`,
+  );
 });
 
 describe('rate limiting on POST /v1/run', () => {

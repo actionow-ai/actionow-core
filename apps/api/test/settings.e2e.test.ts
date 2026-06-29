@@ -11,6 +11,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 
 import { AppModule } from '../src/app.module.js';
 import { DB, ENV } from '../src/common/tokens.js';
+import { resetDb } from './reset-db.js';
 
 /**
  * E2E for the dynamic-config admin surface (动态配置): `/admin/settings` list /
@@ -80,7 +81,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE "user" RESTART IDENTITY CASCADE`;
+  await resetDb(() => client`TRUNCATE TABLE "user" RESTART IDENTITY CASCADE`);
 });
 
 const server = (): ReturnType<typeof app.getHttpServer> => app.getHttpServer();

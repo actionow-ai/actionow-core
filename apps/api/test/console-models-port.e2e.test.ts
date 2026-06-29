@@ -17,6 +17,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { DB, ENV, JOB_QUEUE, PAYMENTS, RATE_LIMITER } from '../src/common/tokens.js';
 import { MODELS_PORT } from '../src/console/models.port.js';
+import { resetDb } from './reset-db.js';
 
 const CREDIT_RATE = 1000n;
 const PROVIDER_REF = 'sess_console_models_e2e';
@@ -144,7 +145,10 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE api_key, ledger_txn, payment_intent, payment_event, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`;
+  await resetDb(
+    () =>
+      client`TRUNCATE TABLE api_key, ledger_txn, payment_intent, payment_event, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`,
+  );
 });
 
 const server = (): ReturnType<typeof app.getHttpServer> => app.getHttpServer();

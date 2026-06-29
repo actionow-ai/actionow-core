@@ -11,6 +11,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 
 import { AppModule } from '../src/app.module.js';
 import { DB, ENV } from '../src/common/tokens.js';
+import { resetDb } from './reset-db.js';
 
 /**
  * E2E for the official model price catalog admin CRUD (Track 2). Asserts the
@@ -78,7 +79,10 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE request_idempotency, official_model_price, "user" RESTART IDENTITY CASCADE`;
+  await resetDb(
+    () =>
+      client`TRUNCATE TABLE request_idempotency, official_model_price, "user" RESTART IDENTITY CASCADE`,
+  );
 });
 
 function auth(req: request.Test): request.Test {

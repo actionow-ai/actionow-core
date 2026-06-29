@@ -12,6 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { DB, ENV } from '../src/common/tokens.js';
+import { resetDb } from './reset-db.js';
 
 const ADMIN_SECRET = 'e2e-jwks-secret';
 
@@ -75,7 +76,7 @@ describe('GET /.well-known/jwks.json — RS256 configured', () => {
     const app = await buildApp({ JWT_SIGNING_ALG: 'RS256', JWT_PRIVATE_KEY: pem });
     try {
       // Clean slate so the admin login below is deterministic.
-      await client`TRUNCATE TABLE session, "user", tenant RESTART IDENTITY CASCADE`;
+      await resetDb(() => client`TRUNCATE TABLE session, "user", tenant RESTART IDENTITY CASCADE`);
       await createUser(db, {
         email: 'jwks-admin@actionow.local',
         passwordHash: hashPassword('hunter2'),
