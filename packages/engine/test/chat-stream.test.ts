@@ -105,6 +105,22 @@ vi.mock('@actionow/db', () => ({
       return Promise.resolve({});
     },
   ),
+  // Real pass-through of the usage-log breakdown projection (snake_case vector →
+  // camelCase insert fields), mirroring the repo helper so the mirror's spread
+  // works under the partial db mock.
+  usageBreakdownFields: (vector: Record<string, number>) => {
+    const out: Record<string, number> = {};
+    if (vector.reasoning_tokens !== undefined) out.reasoningTokens = vector.reasoning_tokens;
+    if (vector.cached_input_tokens !== undefined) out.cachedInputTokens = vector.cached_input_tokens;
+    if (vector.cache_creation_tokens !== undefined) {
+      out.cacheCreationTokens = vector.cache_creation_tokens;
+    }
+    if (vector.audio_input_tokens !== undefined) out.audioInputTokens = vector.audio_input_tokens;
+    if (vector.audio_output_tokens !== undefined) {
+      out.audioOutputTokens = vector.audio_output_tokens;
+    }
+    return out;
+  },
   // Enough of the hold/create surface for runChatStream's validateAndHold prefix.
   holdCredits: vi.fn(() => Promise.resolve(true)),
   createJob: vi.fn((_db: unknown, p: { id: string }) => Promise.resolve({ id: p.id })),

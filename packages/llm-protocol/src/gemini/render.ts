@@ -1,4 +1,4 @@
-import type { ChatResponse, StopReason, ToolCall } from '@actionow/contracts';
+import type { ChatResponse, ChatUsage, StopReason, ToolCall } from '@actionow/contracts';
 
 /**
  * Render an IR {@link ChatResponse} into a non-streaming Gemini
@@ -21,8 +21,6 @@ export function renderGeminiChat(res: ChatResponse): Record<string, unknown> {
     parts.push(renderToolCall(call));
   }
 
-  const { inputTokens, outputTokens } = res.usage;
-
   return {
     candidates: [
       {
@@ -32,12 +30,26 @@ export function renderGeminiChat(res: ChatResponse): Record<string, unknown> {
         safetyRatings: [],
       },
     ],
-    usageMetadata: {
-      promptTokenCount: inputTokens,
-      candidatesTokenCount: outputTokens,
-      totalTokenCount: inputTokens + outputTokens,
-    },
+    usageMetadata: geminiUsageMetadata(res.usage),
   };
+}
+
+/**
+ * Build the Gemini wire `usageMetadata` from the IR {@link ChatUsage}: the totals
+ * (always), plus `thoughtsTokenCount`/`cachedContentTokenCount` surfaced ONLY when
+ * the IR carries the corresponding breakdown field — so a provider that did not
+ * report thoughts/cache yields the plain back-compat usageMetadata shape.
+ */
+export function geminiUsageMetadata(usage: ChatUsage): Record<string, unknown> {
+  const { inputTokens, outputTokens } = usage;
+  const out: Record<string, unknown> = {
+    promptTokenCount: inputTokens,
+    candidatesTokenCount: outputTokens,
+    totalTokenCount: inputTokens + outputTokens,
+  };
+  if (usage.reasoningTokens !== undefined) out.thoughtsTokenCount = usage.reasoningTokens;
+  if (usage.cachedInputTokens !== undefined) out.cachedContentTokenCount = usage.cachedInputTokens;
+  return out;
 }
 
 /** Map an IR {@link ToolCall} → a Gemini `functionCall` part. */

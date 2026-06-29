@@ -14,6 +14,7 @@ import type {
   UnifiedError,
   UsageVector,
 } from '@actionow/contracts';
+import { vectorToChatUsage } from '@actionow/contracts';
 
 import { AdapterError, httpStatusToUnified } from './errors.js';
 import { asArray, asNumber, asRecord, asString, parseJsonRecord } from './internal/json.js';
@@ -206,13 +207,28 @@ function buildContents(inputs: Record<string, unknown>): GeminiContent[] {
   });
 }
 
-/** Extract `{input_tokens, output_tokens}` from `usageMetadata`. */
+/**
+ * Fold Gemini's `usageMetadata` breakdown into the snake_case vector keys, ONLY
+ * when reported: `thoughtsTokenCount` → reasoning;
+ * `cachedContentTokenCount` → cachedInput. An absent field leaves the key unset
+ * so the vector stays additive.
+ */
+function addGeminiBreakdown(vector: UsageVector, meta: Record<string, unknown> | undefined): void {
+  const thoughts = asNumber(meta?.thoughtsTokenCount);
+  if (thoughts !== undefined) vector.reasoning_tokens = thoughts;
+  const cached = asNumber(meta?.cachedContentTokenCount);
+  if (cached !== undefined) vector.cached_input_tokens = cached;
+}
+
+/** Extract `{input_tokens, output_tokens}` (+ thoughts/cache breakdown) from `usageMetadata`. */
 function extractUsage(raw: unknown): UsageVector {
   const meta = asRecord(asRecord(raw)?.usageMetadata);
-  return {
+  const vector: UsageVector = {
     input_tokens: asNumber(meta?.promptTokenCount) ?? 0,
     output_tokens: asNumber(meta?.candidatesTokenCount) ?? 0,
   };
+  addGeminiBreakdown(vector, meta);
+  return vector;
 }
 
 /** Map a Gemini error body to a {@link UnifiedError}. Falls back by status. */
@@ -286,10 +302,8 @@ export const geminiAdapter: ProviderAdapter = {
 
       const meta = asRecord(obj.usageMetadata);
       if (meta !== undefined) {
-        usage = {
-          input_tokens: asNumber(meta.promptTokenCount) ?? 0,
-          output_tokens: asNumber(meta.candidatesTokenCount) ?? 0,
-        };
+        // Route through extractUsage so the breakdown rides into the vector.
+        usage = extractUsage(obj);
       }
 
       const candidate = asRecord(asArray(obj.candidates)?.[0]);
@@ -329,14 +343,11 @@ export const geminiAdapter: ProviderAdapter = {
       irMessage.toolCalls = toolCalls;
     }
 
-    const meta = asRecord(asRecord(res.body)?.usageMetadata);
     return {
       message: irMessage,
       stopReason: mapFinishReason(asString(candidate?.finishReason)),
-      usage: {
-        inputTokens: asNumber(meta?.promptTokenCount) ?? 0,
-        outputTokens: asNumber(meta?.candidatesTokenCount) ?? 0,
-      },
+      // camelCase IR usage from the snake_case vector (totals + thoughts/cache breakdown).
+      usage: vectorToChatUsage(extractUsage(res.body)),
     };
   },
 
@@ -359,7 +370,8 @@ export const geminiAdapter: ProviderAdapter = {
     }
 
     let started = false;
-    let usage: { inputTokens: number; outputTokens: number } | undefined;
+    // The latest full usage vector seen (totals + breakdown); mapped to IR usage below.
+    let usage: UsageVector | undefined;
     let stopReason: StopReason = 'stop';
     // Stream-global tool-call counter: Gemini streams each functionCall in its
     // own SSE frame, so a per-frame index would reset to 0 and collide parallel
@@ -408,15 +420,13 @@ export const geminiAdapter: ProviderAdapter = {
 
       const meta = asRecord(obj.usageMetadata);
       if (meta !== undefined) {
-        usage = {
-          inputTokens: asNumber(meta.promptTokenCount) ?? 0,
-          outputTokens: asNumber(meta.candidatesTokenCount) ?? 0,
-        };
+        // Route through extractUsage so the breakdown rides into the vector.
+        usage = extractUsage(obj);
       }
     }
 
     if (usage !== undefined) {
-      yield { type: 'usage', usage };
+      yield { type: 'usage', usage: vectorToChatUsage(usage) };
     }
     yield { type: 'stop', stopReason };
     yield { type: 'done' };

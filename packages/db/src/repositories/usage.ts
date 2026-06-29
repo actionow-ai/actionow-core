@@ -14,6 +14,16 @@ export interface InsertUsageLogInput {
   readonly model: string;
   readonly inputTokens?: number | undefined;
   readonly outputTokens?: number | undefined;
+  /**
+   * Response token-usage BREAKDOWN (all optional, default 0). Subsets/annotations
+   * of the totals — captured for correct cache/reasoning billing later; they do
+   * NOT change today's metering. Persisted only when the run's usage carries them.
+   */
+  readonly reasoningTokens?: number | undefined;
+  readonly cachedInputTokens?: number | undefined;
+  readonly cacheCreationTokens?: number | undefined;
+  readonly audioInputTokens?: number | undefined;
+  readonly audioOutputTokens?: number | undefined;
   /** Final µcredit charge (mirrors the settle cost). Defaults to 0. */
   readonly cost?: bigint | undefined;
   /**
@@ -36,6 +46,47 @@ export interface InsertUsageLogInput {
   readonly routeTag?: string | null | undefined;
 }
 
+/**
+ * The {@link InsertUsageLogInput} breakdown fields a caller derives from a run's
+ * snake_case usage vector — the persisted-only-when-present subset. The five
+ * optional token counts the usage_log mirror spreads into its insert.
+ */
+export type UsageLogBreakdownInput = Pick<
+  InsertUsageLogInput,
+  | 'reasoningTokens'
+  | 'cachedInputTokens'
+  | 'cacheCreationTokens'
+  | 'audioInputTokens'
+  | 'audioOutputTokens'
+>;
+
+/**
+ * Project a run's snake_case usage vector's BREAKDOWN keys into the
+ * {@link InsertUsageLogInput} breakdown fields, ONLY for keys the vector carries
+ * (so the engine mirror persists them only when an adapter reported them). The
+ * totals (`input_tokens`/`output_tokens`) are NOT here — they have dedicated
+ * fields. A plain `Record<string, number>` arg avoids a contracts dependency.
+ */
+export function usageBreakdownFields(
+  vector: Readonly<Record<string, number>>,
+): UsageLogBreakdownInput {
+  const out: {
+    reasoningTokens?: number;
+    cachedInputTokens?: number;
+    cacheCreationTokens?: number;
+    audioInputTokens?: number;
+    audioOutputTokens?: number;
+  } = {};
+  if (vector.reasoning_tokens !== undefined) out.reasoningTokens = vector.reasoning_tokens;
+  if (vector.cached_input_tokens !== undefined) out.cachedInputTokens = vector.cached_input_tokens;
+  if (vector.cache_creation_tokens !== undefined) {
+    out.cacheCreationTokens = vector.cache_creation_tokens;
+  }
+  if (vector.audio_input_tokens !== undefined) out.audioInputTokens = vector.audio_input_tokens;
+  if (vector.audio_output_tokens !== undefined) out.audioOutputTokens = vector.audio_output_tokens;
+  return out;
+}
+
 /** Insert one per-call `usage_log` row and return it. */
 export async function insertUsageLog(db: DbOrTx, input: InsertUsageLogInput): Promise<UsageLogRow> {
   const rows = await db
@@ -45,6 +96,18 @@ export async function insertUsageLog(db: DbOrTx, input: InsertUsageLogInput): Pr
       model: input.model,
       ...(input.inputTokens !== undefined ? { inputTokens: input.inputTokens } : {}),
       ...(input.outputTokens !== undefined ? { outputTokens: input.outputTokens } : {}),
+      // Breakdown columns (default 0 in the schema) — persisted only when present.
+      ...(input.reasoningTokens !== undefined ? { reasoningTokens: input.reasoningTokens } : {}),
+      ...(input.cachedInputTokens !== undefined
+        ? { cachedInputTokens: input.cachedInputTokens }
+        : {}),
+      ...(input.cacheCreationTokens !== undefined
+        ? { cacheCreationTokens: input.cacheCreationTokens }
+        : {}),
+      ...(input.audioInputTokens !== undefined ? { audioInputTokens: input.audioInputTokens } : {}),
+      ...(input.audioOutputTokens !== undefined
+        ? { audioOutputTokens: input.audioOutputTokens }
+        : {}),
       ...(input.cost !== undefined ? { cost: input.cost } : {}),
       providerCost: input.providerCost ?? null,
       ...(input.latencyMs !== undefined ? { latencyMs: input.latencyMs } : {}),

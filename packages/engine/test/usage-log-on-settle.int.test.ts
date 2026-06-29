@@ -179,6 +179,64 @@ describe('ExecutionService.settleSync — usage_log mirror', () => {
     expect(logs[0]?.status).toBe('succeeded');
   });
 
+  it('persists the response token-usage breakdown columns from the result usage', async () => {
+    const s = await seed(10_000_000n);
+    const adapters = new AdapterRegistry();
+    // A usage vector carrying the full breakdown (reasoning/cached/cache-creation/
+    // audio) alongside the totals — the shape an adapter emits when the upstream
+    // reports it. The totals still drive metering; the breakdown is captured.
+    adapters.register(
+      fakeLlmAdapter({
+        input_tokens: 100,
+        output_tokens: 50,
+        reasoning_tokens: 20,
+        cached_input_tokens: 30,
+        cache_creation_tokens: 12,
+        audio_input_tokens: 7,
+        audio_output_tokens: 3,
+      }),
+    );
+    const svc = buildService(adapters);
+
+    const outcome = await svc.run(baseRequest(s, { usageLogModel: 'gpt-4o' }));
+    expect(outcome.status).toBe('succeeded');
+
+    const logs = await client`
+      SELECT input_tokens, output_tokens, reasoning_tokens, cached_input_tokens,
+             cache_creation_tokens, audio_input_tokens, audio_output_tokens
+      FROM usage_log`;
+    expect(logs).toHaveLength(1);
+    // Totals unchanged (metering reads these); breakdown columns persisted as-is.
+    expect(Number(logs[0]?.input_tokens)).toBe(100);
+    expect(Number(logs[0]?.output_tokens)).toBe(50);
+    expect(Number(logs[0]?.reasoning_tokens)).toBe(20);
+    expect(Number(logs[0]?.cached_input_tokens)).toBe(30);
+    expect(Number(logs[0]?.cache_creation_tokens)).toBe(12);
+    expect(Number(logs[0]?.audio_input_tokens)).toBe(7);
+    expect(Number(logs[0]?.audio_output_tokens)).toBe(3);
+  });
+
+  it('defaults the breakdown columns to 0 when the result usage carries none (back-compat)', async () => {
+    const s = await seed(10_000_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(fakeLlmAdapter({ input_tokens: 100, output_tokens: 50 }));
+    const svc = buildService(adapters);
+
+    const outcome = await svc.run(baseRequest(s, { usageLogModel: 'gpt-4o' }));
+    expect(outcome.status).toBe('succeeded');
+
+    const logs = await client`
+      SELECT reasoning_tokens, cached_input_tokens, cache_creation_tokens,
+             audio_input_tokens, audio_output_tokens
+      FROM usage_log`;
+    expect(logs).toHaveLength(1);
+    expect(Number(logs[0]?.reasoning_tokens)).toBe(0);
+    expect(Number(logs[0]?.cached_input_tokens)).toBe(0);
+    expect(Number(logs[0]?.cache_creation_tokens)).toBe(0);
+    expect(Number(logs[0]?.audio_input_tokens)).toBe(0);
+    expect(Number(logs[0]?.audio_output_tokens)).toBe(0);
+  });
+
   it('computes provider_cost from the served channel cost cols (Track 5); cost unaffected', async () => {
     const s = await seed(10_000_000n);
     const adapters = new AdapterRegistry();

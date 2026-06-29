@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { UnifiedError } from './adapter.js';
+import type { UnifiedError, UsageVector } from './adapter.js';
 
 export const CHAT_ROLES = ['system', 'user', 'assistant', 'tool'] as const;
 export type ChatRole = (typeof CHAT_ROLES)[number];
@@ -86,10 +86,94 @@ export type ChatRequest = z.infer<typeof chatRequestSchema>;
 export const STOP_REASONS = ['stop', 'length', 'tool_calls', 'content_filter', 'error'] as const;
 export type StopReason = (typeof STOP_REASONS)[number];
 
-/** Token usage in the IR's canonical camelCase shape. */
+/**
+ * Token usage in the IR's canonical camelCase shape.
+ *
+ * `inputTokens`/`outputTokens` are the always-present totals the metering math
+ * prices off (semantics unchanged). The remaining OPTIONAL fields are the
+ * provider-reported breakdown that lets later billing price cached/reasoning
+ * tokens differently — each is set ONLY when the upstream reports it, so the
+ * shape stays additive (absence === the provider did not break it out).
+ *
+ * `reasoningTokens` (a SUBSET of `outputTokens`) and `cachedInputTokens`
+ * (a SUBSET of `inputTokens`) are NOT additional tokens — they annotate which
+ * portion of the totals fell into the reasoning/cache bucket. `cacheCreationTokens`
+ * (Anthropic cache writes) is reported alongside the input total.
+ */
 export interface ChatUsage {
   inputTokens: number;
   outputTokens: number;
+  /** Reasoning/thinking tokens (subset of `outputTokens`); billed at full output rate. */
+  reasoningTokens?: number;
+  /** Input tokens served from the provider's prompt cache (subset of `inputTokens`); cheaper. */
+  cachedInputTokens?: number;
+  /** Input tokens WRITTEN to the provider's prompt cache (Anthropic cache-creation). */
+  cacheCreationTokens?: number;
+  /** Audio input tokens (subset of `inputTokens`), when the provider breaks them out. */
+  audioInputTokens?: number;
+  /** Audio output tokens (subset of `outputTokens`), when the provider breaks them out. */
+  audioOutputTokens?: number;
+}
+
+/**
+ * The snake_case {@link UsageVector} keys that carry the token-usage BREAKDOWN,
+ * paired with their camelCase {@link ChatUsage} field. A single source of truth
+ * so adapters (populate the vector), the engine boundary (vector ⇄ ChatUsage),
+ * and the dialect renderers (surface back to the wire) stay consistent. The two
+ * totals (`input_tokens`/`output_tokens`) are NOT here — they are always present
+ * and handled explicitly; these five are additive + only-when-present.
+ */
+export const USAGE_BREAKDOWN_KEYS = [
+  ['reasoning_tokens', 'reasoningTokens'],
+  ['cached_input_tokens', 'cachedInputTokens'],
+  ['cache_creation_tokens', 'cacheCreationTokens'],
+  ['audio_input_tokens', 'audioInputTokens'],
+  ['audio_output_tokens', 'audioOutputTokens'],
+] as const satisfies readonly (readonly [string, keyof ChatUsage])[];
+
+/**
+ * Fold a snake_case {@link UsageVector}'s breakdown keys into a {@link ChatUsage}
+ * already carrying the two totals. Each optional field is set ONLY when the
+ * vector has that key (a positive or zero number) — an absent key leaves the
+ * field unset so the shape stays additive. Used at the engine adapter boundary
+ * (vector → IR usage) so the same mapping is not hand-rolled per adapter.
+ */
+export function applyUsageBreakdown(base: ChatUsage, vector: UsageVector): ChatUsage {
+  const out: ChatUsage = base;
+  for (const [vecKey, irKey] of USAGE_BREAKDOWN_KEYS) {
+    const v = vector[vecKey];
+    if (v !== undefined) out[irKey] = v;
+  }
+  return out;
+}
+
+/**
+ * Convert a full snake_case {@link UsageVector} (the shape `extractUsage` returns)
+ * into the camelCase {@link ChatUsage} the IR `ChatResponse`/stream carries: the
+ * two required totals (`input_tokens`/`output_tokens`, missing → 0) plus every
+ * present breakdown key. The single mapping each adapter's `chat()`/`streamChat()`
+ * uses so the breakdown rides through identically.
+ */
+export function vectorToChatUsage(vector: UsageVector): ChatUsage {
+  return applyUsageBreakdown(
+    { inputTokens: vector.input_tokens ?? 0, outputTokens: vector.output_tokens ?? 0 },
+    vector,
+  );
+}
+
+/**
+ * Project a {@link ChatUsage}'s breakdown fields back into a snake_case partial
+ * {@link UsageVector} (only the set fields), for the dialect renderers to surface
+ * the breakdown on the client wire. The two totals are NOT included — callers
+ * already have them.
+ */
+export function usageBreakdownVector(usage: ChatUsage): UsageVector {
+  const out: UsageVector = {};
+  for (const [vecKey, irKey] of USAGE_BREAKDOWN_KEYS) {
+    const v = usage[irKey];
+    if (v !== undefined) out[vecKey] = v;
+  }
+  return out;
 }
 
 export interface ChatResponse {

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { ChatStreamEvent, StopReason } from '@actionow/contracts';
 
 import { sseData } from '../sse.js';
+import { openAiUsage } from './render.js';
 
 /**
  * Render an IR {@link ChatStreamEvent} stream into OpenAI
@@ -72,18 +73,15 @@ export async function* renderOpenAIChatStream(
       }
       case 'usage':
         // Real OpenAI usage chunks (stream_options.include_usage) carry an empty
-        // `choices` array — not a synthetic empty-delta choice.
+        // `choices` array — not a synthetic empty-delta choice. The breakdown
+        // (cached/reasoning/audio details) surfaces only when the IR carries it.
         yield sseData({
           id,
           object: 'chat.completion.chunk',
           created,
           model,
           choices: [],
-          usage: {
-            prompt_tokens: event.usage.inputTokens,
-            completion_tokens: event.usage.outputTokens,
-            total_tokens: event.usage.inputTokens + event.usage.outputTokens,
-          },
+          usage: openAiUsage(event.usage),
         });
         break;
       case 'stop':

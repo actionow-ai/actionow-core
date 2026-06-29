@@ -2,6 +2,7 @@ import type { ChatStreamEvent, ChatUsage, StopReason } from '@actionow/contracts
 
 import { parseJsonRecord } from '../internal/json.js';
 import { sseData } from '../sse.js';
+import { geminiUsageMetadata } from './render.js';
 
 /**
  * Render an IR {@link ChatStreamEvent} stream into Gemini
@@ -61,11 +62,8 @@ export async function* renderGeminiGenerateContentStream(
       case 'stop': {
         const final: Record<string, unknown> = candidateChunk([], mapStop(event.stopReason));
         if (usage !== undefined) {
-          final.usageMetadata = {
-            promptTokenCount: usage.inputTokens,
-            candidatesTokenCount: usage.outputTokens,
-            totalTokenCount: usage.inputTokens + usage.outputTokens,
-          };
+          // Surface thoughts/cache breakdown only when the IR carries it.
+          final.usageMetadata = geminiUsageMetadata(usage);
         }
         yield sseData(final);
         return;

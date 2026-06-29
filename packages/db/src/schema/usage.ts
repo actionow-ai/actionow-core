@@ -21,6 +21,19 @@ export const usageLog = pgTable(
     model: text('model').notNull(),
     inputTokens: bigint('input_tokens', { mode: 'number' }).notNull().default(0),
     outputTokens: bigint('output_tokens', { mode: 'number' }).notNull().default(0),
+    /**
+     * Response token-usage BREAKDOWN (additive; all default 0). These annotate
+     * which portion of the totals fell into each bucket — `reasoning_tokens` and
+     * `audio_output_tokens` are subsets of `output_tokens`; `cached_input_tokens`
+     * and `audio_input_tokens` are subsets of `input_tokens`; `cache_creation_tokens`
+     * (Anthropic cache writes) is reported alongside the input total. Captured for
+     * correct cache/reasoning billing later — they do NOT change today's metering.
+     */
+    reasoningTokens: bigint('reasoning_tokens', { mode: 'number' }).notNull().default(0),
+    cachedInputTokens: bigint('cached_input_tokens', { mode: 'number' }).notNull().default(0),
+    cacheCreationTokens: bigint('cache_creation_tokens', { mode: 'number' }).notNull().default(0),
+    audioInputTokens: bigint('audio_input_tokens', { mode: 'number' }).notNull().default(0),
+    audioOutputTokens: bigint('audio_output_tokens', { mode: 'number' }).notNull().default(0),
     cost: bigint('cost', { mode: 'bigint' })
       .notNull()
       .default(sql`0`),

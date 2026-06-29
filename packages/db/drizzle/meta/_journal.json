@@ -407,6 +407,13 @@
       "when": 1782734798067,
       "tag": "0057_gray_dracula",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1782750944233,
+      "tag": "0058_high_cassandra_nova",
+      "breakpoints": true
     }
   ]
 }

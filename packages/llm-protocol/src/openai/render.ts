@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import type { ChatResponse, StopReason, ToolCall } from '@actionow/contracts';
+import type { ChatResponse, ChatUsage, StopReason, ToolCall } from '@actionow/contracts';
 
 /**
  * Render an IR {@link ChatResponse} into a non-streaming OpenAI
@@ -23,8 +23,6 @@ export function renderOpenAIChat(res: ChatResponse, model: string): Record<strin
     message.tool_calls = toolCalls.map(renderToolCall);
   }
 
-  const { inputTokens, outputTokens } = res.usage;
-
   return {
     id: `chatcmpl-${randomUUID()}`,
     object: 'chat.completion',
@@ -37,12 +35,34 @@ export function renderOpenAIChat(res: ChatResponse, model: string): Record<strin
         finish_reason: mapStop(res.stopReason),
       },
     ],
-    usage: {
-      prompt_tokens: inputTokens,
-      completion_tokens: outputTokens,
-      total_tokens: inputTokens + outputTokens,
-    },
+    usage: openAiUsage(res.usage),
   };
+}
+
+/**
+ * Build the OpenAI wire `usage` from the IR {@link ChatUsage}: the two totals
+ * (always), plus `prompt_tokens_details`/`completion_tokens_details` sub-objects
+ * surfaced ONLY when the IR carries the corresponding breakdown field — so a
+ * provider that did not report it yields the plain back-compat usage shape.
+ */
+export function openAiUsage(usage: ChatUsage): Record<string, unknown> {
+  const { inputTokens, outputTokens } = usage;
+  const out: Record<string, unknown> = {
+    prompt_tokens: inputTokens,
+    completion_tokens: outputTokens,
+    total_tokens: inputTokens + outputTokens,
+  };
+  const promptDetails: Record<string, number> = {};
+  if (usage.cachedInputTokens !== undefined) promptDetails.cached_tokens = usage.cachedInputTokens;
+  if (usage.audioInputTokens !== undefined) promptDetails.audio_tokens = usage.audioInputTokens;
+  if (Object.keys(promptDetails).length > 0) out.prompt_tokens_details = promptDetails;
+  const completionDetails: Record<string, number> = {};
+  if (usage.reasoningTokens !== undefined) completionDetails.reasoning_tokens = usage.reasoningTokens;
+  if (usage.audioOutputTokens !== undefined) {
+    completionDetails.audio_tokens = usage.audioOutputTokens;
+  }
+  if (Object.keys(completionDetails).length > 0) out.completion_tokens_details = completionDetails;
+  return out;
 }
 
 /** Map an IR {@link ToolCall} → an OpenAI assistant `tool_calls[]` entry. */

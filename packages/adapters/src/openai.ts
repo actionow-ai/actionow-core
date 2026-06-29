@@ -23,6 +23,7 @@ import type {
   UnifiedError,
   UsageVector,
 } from '@actionow/contracts';
+import { vectorToChatUsage } from '@actionow/contracts';
 
 import { AdapterError, httpStatusToUnified } from './errors.js';
 import { asArray, asNumber, asRecord, asString, parseJsonRecord } from './internal/json.js';
@@ -313,13 +314,37 @@ function countInputTokens(query: string, parts: readonly string[]): number {
   return Math.max(strings.length, Math.ceil(bytes / BYTES_PER_TOKEN));
 }
 
-/** Extract `{input_tokens, output_tokens}` from an OpenAI `usage` block. */
+/**
+ * Fold OpenAI's usage-breakdown sub-objects into the snake_case vector keys,
+ * ONLY when the upstream reports them: `completion_tokens_details.reasoning_tokens`
+ * → reasoning; `prompt_tokens_details.cached_tokens` → cachedInput;
+ * `prompt_tokens_details.audio_tokens` → audioInput;
+ * `completion_tokens_details.audio_tokens` → audioOutput. A present-but-zero count
+ * is preserved (the provider broke it out); an absent sub-object leaves the key
+ * unset so the vector stays additive.
+ */
+function addOpenAiBreakdown(vector: UsageVector, usage: Record<string, unknown> | undefined): void {
+  const promptDetails = asRecord(usage?.prompt_tokens_details);
+  const completionDetails = asRecord(usage?.completion_tokens_details);
+  const reasoning = asNumber(completionDetails?.reasoning_tokens);
+  if (reasoning !== undefined) vector.reasoning_tokens = reasoning;
+  const cached = asNumber(promptDetails?.cached_tokens);
+  if (cached !== undefined) vector.cached_input_tokens = cached;
+  const audioIn = asNumber(promptDetails?.audio_tokens);
+  if (audioIn !== undefined) vector.audio_input_tokens = audioIn;
+  const audioOut = asNumber(completionDetails?.audio_tokens);
+  if (audioOut !== undefined) vector.audio_output_tokens = audioOut;
+}
+
+/** Extract `{input_tokens, output_tokens}` (+ breakdown) from an OpenAI `usage` block. */
 function extractUsage(raw: unknown): UsageVector {
   const usage = asRecord(asRecord(raw)?.usage);
-  return {
+  const vector: UsageVector = {
     input_tokens: asNumber(usage?.prompt_tokens) ?? 0,
     output_tokens: asNumber(usage?.completion_tokens) ?? 0,
   };
+  addOpenAiBreakdown(vector, usage);
+  return vector;
 }
 
 /** Map an OpenAI error body to a {@link UnifiedError}. Falls back by status. */
@@ -414,13 +439,11 @@ export const openaiAdapter: ProviderAdapter = {
         continue;
       }
 
-      // A trailing chunk carries usage with an empty `choices` array.
+      // A trailing chunk carries usage with an empty `choices` array; route it
+      // through `extractUsage` so the breakdown rides into the vector too.
       const chunkUsage = asRecord(obj.usage);
       if (chunkUsage !== undefined) {
-        usage = {
-          input_tokens: asNumber(chunkUsage.prompt_tokens) ?? 0,
-          output_tokens: asNumber(chunkUsage.completion_tokens) ?? 0,
-        };
+        usage = extractUsage(obj);
         yield { kind: 'usage', usage };
       }
 
@@ -464,14 +487,12 @@ export const openaiAdapter: ProviderAdapter = {
       irMessage.toolCalls = toolCalls;
     }
 
-    const usage = asRecord(asRecord(res.body)?.usage);
     return {
       message: irMessage,
       stopReason: mapFinishReason(asString(choice?.finish_reason)),
-      usage: {
-        inputTokens: asNumber(usage?.prompt_tokens) ?? 0,
-        outputTokens: asNumber(usage?.completion_tokens) ?? 0,
-      },
+      // Build the camelCase IR usage from the snake_case vector (totals +
+      // breakdown) so reasoning/cached/audio counts surface on the response.
+      usage: vectorToChatUsage(extractUsage(res.body)),
     };
   },
 
@@ -751,16 +772,12 @@ export const openaiAdapter: ProviderAdapter = {
         yield { type: 'stop', stopReason: mapFinishReason(finish) };
       }
 
-      // A trailing chunk carries usage with an empty `choices` array.
+      // A trailing chunk carries usage with an empty `choices` array. Route it
+      // through `extractUsage` so the breakdown (reasoning/cached/audio) rides
+      // into the IR `usage` event alongside the totals.
       const usage = asRecord(obj.usage);
       if (usage !== undefined) {
-        yield {
-          type: 'usage',
-          usage: {
-            inputTokens: asNumber(usage.prompt_tokens) ?? 0,
-            outputTokens: asNumber(usage.completion_tokens) ?? 0,
-          },
-        };
+        yield { type: 'usage', usage: vectorToChatUsage(extractUsage(obj)) };
       }
     }
 
