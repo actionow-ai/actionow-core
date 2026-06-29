@@ -126,6 +126,7 @@ export type {
   TenantView,
   TestPluginRequest,
   TestPluginResponse,
+  TokenPair,
   TopupBody,
   TopupSubAccountBody,
   TransferCreditsBody,
