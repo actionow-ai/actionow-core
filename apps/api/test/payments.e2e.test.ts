@@ -17,6 +17,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { DB, ENV, JOB_QUEUE, PAYMENTS, RATE_LIMITER } from '../src/common/tokens.js';
+import { resetDb } from './reset-db.js';
 
 const { account, ledgerTxn, paymentEvent, paymentIntent, tenant } = schema;
 
@@ -122,7 +123,10 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await client`TRUNCATE TABLE payment_event, payment_intent, ledger_txn, api_key, account, tenant, "user" RESTART IDENTITY CASCADE`;
+  await resetDb(
+    () =>
+      client`TRUNCATE TABLE payment_event, payment_intent, ledger_txn, api_key, account, tenant, "user" RESTART IDENTITY CASCADE`,
+  );
 });
 
 const ADMIN_EMAIL = 'admin@actionow.local';

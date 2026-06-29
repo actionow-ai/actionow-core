@@ -11,6 +11,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 
 import { AppModule } from '../src/app.module.js';
 import { DB, ENV } from '../src/common/tokens.js';
+import { resetDb } from './reset-db.js';
 
 const ADMIN_SECRET = 'e2e-admin-secret';
 const ADMIN_EMAIL = 'admin@actionow.local';
@@ -95,7 +96,10 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE audit_log, request_idempotency, model_grant, model, api_key, ledger_txn, pricebook_entry, channel_model, upstream_channel, fault_policy, route_group, resource_version, resource, account, tenant, "user" RESTART IDENTITY CASCADE`;
+  await resetDb(
+    () =>
+      client`TRUNCATE TABLE audit_log, request_idempotency, model_grant, model, api_key, ledger_txn, pricebook_entry, channel_model, upstream_channel, fault_policy, route_group, resource_version, resource, account, tenant, "user" RESTART IDENTITY CASCADE`,
+  );
 });
 
 function auth(req: request.Test): request.Test {
@@ -139,8 +143,14 @@ async function createRouteGroup(name: string): Promise<string> {
 async function latestAuditFor(
   targetType: string,
   id: string,
+  expectedAction?: string,
 ): Promise<{ action: string; actor_type: string } | undefined> {
-  for (let attempt = 0; attempt < 20; attempt++) {
+  // The @Audit write is fire-and-forget, so for a target that is mutated twice
+  // (e.g. a `*.create` THEN the asserted `*.update`) the latest row is briefly the
+  // earlier action until the second write lands. Poll until the latest row IS the
+  // expected action (when given) — otherwise the first row that appears wins. The
+  // window is generous (2s) for CI headroom.
+  for (let attempt = 0; attempt < 40; attempt++) {
     const res = await auth(
       request(app.getHttpServer())
         .post('/admin/audit-log/latest')
@@ -149,7 +159,9 @@ async function latestAuditFor(
     const row = (res.body as { target_id: string; action: string; actor_type: string }[]).find(
       (r) => r.target_id === id,
     );
-    if (row !== undefined) return row;
+    if (row !== undefined && (expectedAction === undefined || row.action === expectedAction)) {
+      return row;
+    }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   return undefined;
@@ -177,6 +189,11 @@ describe('bulk models (partial success + per-entity audit)', () => {
     const m2 = await auth(request(app.getHttpServer()).get('/admin/models/bulk-m2')).expect(200);
     expect(m1.body.status).toBe('disabled');
     expect(m2.body.status).toBe('disabled');
+
+    // Barrier: the per-model `model.disable` audit is written fire-and-forget, so
+    // wait for both to land before the count read below (else a transient 0/1).
+    await latestAuditFor('model', 'bulk-m1', 'model.disable');
+    await latestAuditFor('model', 'bulk-m2', 'model.disable');
 
     // One audit_log row PER disabled model (action `model.disable`).
     const rows = await client<{ target_id: string; action: string; actor_type: string }[]>`
@@ -235,6 +252,9 @@ describe('bulk channels (smoke)', () => {
     expect(res.body.failed).toHaveLength(1);
     expect(res.body.failed[0].id).toBe('no-such-channel');
 
+    // Barrier: the `channel.disable` audit is written fire-and-forget — wait for it.
+    await latestAuditFor('channel', channelId, 'channel.disable');
+
     const rows = await client<{ target_id: string }[]>`
       SELECT target_id FROM audit_log WHERE target_type = 'channel' AND action = 'channel.disable'`;
     expect(rows.map((r) => r.target_id)).toEqual([channelId]);
@@ -282,6 +302,12 @@ describe('latest-audit batch (前端打磨 — entity-list audit badges)', () =>
         .send({ ids: ['badge-m1', 'badge-m2'], action: 'disable' }),
     ).expect(200);
 
+    // Barrier: the per-model `model.disable` audits are fire-and-forget — wait for
+    // both to land so the batch read below sees `model.disable` as the latest (not
+    // the earlier `model.create`).
+    await latestAuditFor('model', 'badge-m1', 'model.disable');
+    await latestAuditFor('model', 'badge-m2', 'model.disable');
+
     const res = await auth(
       request(app.getHttpServer())
         .post('/admin/audit-log/latest')
@@ -319,7 +345,7 @@ describe('single-row audit emission feeds badges (前端打磨)', () => {
       request(app.getHttpServer()).patch('/admin/models/single-m1').send({ status: 'disabled' }),
     ).expect(200);
 
-    const row = await latestAuditFor('model', 'single-m1');
+    const row = await latestAuditFor('model', 'single-m1', 'model.update');
     expect(row?.action).toBe('model.update');
     expect(row?.actor_type).toBe('operator');
   });
@@ -332,20 +358,20 @@ describe('single-row audit emission feeds badges (前端打磨)', () => {
         .send({ status: 'disabled' }),
     ).expect(200);
 
-    const row = await latestAuditFor('channel', channelId);
+    const row = await latestAuditFor('channel', channelId, 'channel.update');
     expect(row?.action).toBe('channel.update');
   });
 
   it('creating a fault policy emits a fault_policy.create row (previously badge-less)', async () => {
     const id = await createFaultPolicy('single-fp');
-    const row = await latestAuditFor('fault_policy', id);
+    const row = await latestAuditFor('fault_policy', id, 'fault_policy.create');
     expect(row?.action).toBe('fault_policy.create');
     expect(row?.actor_type).toBe('operator');
   });
 
   it('creating a route group emits a route_group.create row (previously badge-less)', async () => {
     const id = await createRouteGroup('single-rg');
-    const row = await latestAuditFor('route_group', id);
+    const row = await latestAuditFor('route_group', id, 'route_group.create');
     expect(row?.action).toBe('route_group.create');
   });
 });

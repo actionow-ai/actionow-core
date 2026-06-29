@@ -12,6 +12,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 
 import { AppModule } from '../src/app.module.js';
 import { DB, ENV } from '../src/common/tokens.js';
+import { resetDb } from './reset-db.js';
 
 const ADMIN_SECRET = 'e2e-admin-secret';
 const ADMIN_EMAIL = 'admin@actionow.local';
@@ -106,7 +107,10 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE channel_breaker, audit_log, route_group_channel, route_group, api_key, upstream_channel, resource_version, resource, account, tenant, "user" RESTART IDENTITY CASCADE`;
+  await resetDb(
+    () =>
+      client`TRUNCATE TABLE channel_breaker, audit_log, route_group_channel, route_group, api_key, upstream_channel, resource_version, resource, account, tenant, "user" RESTART IDENTITY CASCADE`,
+  );
 });
 
 function auth(req: request.Test): request.Test {
@@ -190,9 +194,15 @@ describe('admin breaker status surface (弹性2.0)', () => {
     const after = await auth(request(app.getHttpServer()).get('/admin/breakers')).expect(200);
     expect(after.body).toHaveLength(0);
 
-    // 记录系统: a `breaker.reset` audit row was appended for the channel.
-    const audit =
+    // 记录系统: a `breaker.reset` audit row was appended for the channel. The
+    // @Audit write is fire-and-forget (after the response), so poll for it.
+    let audit =
       await client`SELECT action, target_type, target_id, meta FROM audit_log WHERE action = 'breaker.reset'`;
+    for (let attempt = 0; attempt < 40 && audit.length < 1; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      audit =
+        await client`SELECT action, target_type, target_id, meta FROM audit_log WHERE action = 'breaker.reset'`;
+    }
     expect(audit).toHaveLength(1);
     const row = audit[0];
     expect(row).toBeDefined();

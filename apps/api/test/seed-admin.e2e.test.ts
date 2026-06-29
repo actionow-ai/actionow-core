@@ -7,6 +7,7 @@ import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { seedAll } from '../src/seed/seed.js';
+import { resetDb } from './reset-db.js';
 
 /**
  * Track B Task 9 regression — guards §B.1's "exactly one operator admin"
@@ -43,7 +44,7 @@ describe('seed provisions exactly one operator admin (Track B Task 9)', () => {
   });
 
   it('seeds NO admin when seedAdmin is false (prod-safety: no published-credential admin)', async () => {
-    await client`TRUNCATE TABLE "user" RESTART IDENTITY CASCADE`;
+    await resetDb(() => client`TRUNCATE TABLE "user" RESTART IDENTITY CASCADE`);
     await seedAll(db, { providerType: 'stub', seedAdmin: false });
 
     const admins = await db.select().from(schema.user).where(eq(schema.user.role, 'admin'));
@@ -51,7 +52,7 @@ describe('seed provisions exactly one operator admin (Track B Task 9)', () => {
   });
 
   it('hashes the operator-supplied adminPassword (not the dev default)', async () => {
-    await client`TRUNCATE TABLE "user" RESTART IDENTITY CASCADE`;
+    await resetDb(() => client`TRUNCATE TABLE "user" RESTART IDENTITY CASCADE`);
     await seedAll(db, { providerType: 'stub', adminPassword: 'operator-chosen-strong-pass' });
 
     const [admin] = await db.select().from(schema.user).where(eq(schema.user.role, 'admin'));

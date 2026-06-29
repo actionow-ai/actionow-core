@@ -13,6 +13,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { AppModule } from '../src/app.module.js';
 import { DB, ENV } from '../src/common/tokens.js';
+import { resetDb } from './reset-db.js';
 
 const ADMIN_SECRET = 'e2e-oauth-secret';
 
@@ -62,7 +63,10 @@ afterAll(async () => {
 
 afterEach(async () => {
   vi.unstubAllGlobals();
-  await client`TRUNCATE TABLE api_key, account, user_identity, "user", tenant RESTART IDENTITY CASCADE`;
+  await resetDb(
+    () =>
+      client`TRUNCATE TABLE api_key, account, user_identity, "user", tenant RESTART IDENTITY CASCADE`,
+  );
 });
 
 function claimsOf(token: string): { sub: string; role: string } {

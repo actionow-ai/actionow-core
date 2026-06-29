@@ -14,6 +14,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { DB, ENV, JOB_QUEUE, RATE_LIMITER } from '../src/common/tokens.js';
+import { resetDb } from './reset-db.js';
 
 const ADMIN_SECRET = 'member-e2e-secret';
 
@@ -71,7 +72,10 @@ afterAll(async () => {
 afterEach(async () => {
   // Let the fire-and-forget audit inserts drain before the FK-cascade TRUNCATE.
   await new Promise((resolve) => setTimeout(resolve, 50));
-  await client`TRUNCATE TABLE audit_log, sub_account, subject, file_object, api_key, ledger_txn, usage_log, payment_intent, payment_event, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`;
+  await resetDb(
+    () =>
+      client`TRUNCATE TABLE audit_log, sub_account, subject, file_object, api_key, ledger_txn, usage_log, payment_intent, payment_event, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`,
+  );
 });
 
 const server = (): ReturnType<typeof app.getHttpServer> => app.getHttpServer();

@@ -10,6 +10,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { DB, ENV } from '../src/common/tokens.js';
+import { resetDb } from './reset-db.js';
 
 const ADMIN_SECRET = 'e2e-sessions-secret';
 
@@ -53,7 +54,10 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE session, api_key, subject, account, "user", tenant RESTART IDENTITY CASCADE`;
+  await resetDb(
+    () =>
+      client`TRUNCATE TABLE session, api_key, subject, account, "user", tenant RESTART IDENTITY CASCADE`,
+  );
 });
 
 describe('POST /auth/login → additive token pair', () => {
