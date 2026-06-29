@@ -1738,6 +1738,7 @@
     },
     "spec": {
       "dimension": "维度",
+      "dimensionHint": "中继计量的用量维度，如 images / audio_seconds（TTS 与语音转写）/ video_seconds / characters。须与引擎在该模态下输出的维度名一致。",
       "rate": "费率",
       "rateHint": "每单位的 µcredits（1 credit = 1,000,000 µcredits）。",
       "muCreditNote": "此处金额单位为 µcredits——1 credit = 1,000,000 µcredits。",

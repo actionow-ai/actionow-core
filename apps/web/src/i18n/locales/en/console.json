@@ -1738,6 +1738,7 @@
     },
     "spec": {
       "dimension": "Dimension",
+      "dimensionHint": "The usage dimension the relay meters, e.g. images / audio_seconds (TTS & speech-to-text) / video_seconds / characters. Must match the name the engine emits for this modality.",
       "rate": "Rate",
       "rateHint": "µcredits per unit (1 credit = 1,000,000 µcredits).",
       "muCreditNote": "Amounts here are µcredits — 1 credit = 1,000,000 µcredits.",

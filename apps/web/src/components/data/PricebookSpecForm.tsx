@@ -54,6 +54,7 @@ export function PricebookSpecForm({
             <div style={{ flex: 1, minWidth: 0 }}>
               <TextField
                 label={t('forms.spec.dimension')}
+                tooltip={t('forms.spec.dimensionHint')}
                 value={d.name}
                 onChange={(v) => setDim(i, { name: v })}
               />
