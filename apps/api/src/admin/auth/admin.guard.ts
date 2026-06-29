@@ -1,12 +1,10 @@
-import type { AppEnv } from '@actionow/infra';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 
+import { TokenVerifierService } from '../../auth/token-verifier.service.js';
 import { engineUnauthorized } from '../../common/errors.js';
-import { ENV } from '../../common/tokens.js';
 import type { AdminClaims } from './admin-auth.service.js';
 import { ADMIN_TOKEN_PREFIX, AdminTokenAuthService } from './admin-token-auth.service.js';
 import { ROLES_KEY } from './roles.decorator.js';
@@ -36,9 +34,8 @@ export interface AdminRequest extends Request {
 @Injectable()
 export class AdminGuard implements CanActivate {
   constructor(
-    private readonly jwt: JwtService,
+    private readonly verifier: TokenVerifierService,
     private readonly reflector: Reflector,
-    @Inject(ENV) private readonly env: AppEnv,
     private readonly tokenAuth: AdminTokenAuthService,
   ) {}
 
@@ -62,20 +59,22 @@ export class AdminGuard implements CanActivate {
     return true;
   }
 
-  /** Validate a human admin login JWT; `undefined` on any failure (fail closed). */
+  /**
+   * Validate a human admin login JWT via the shared alg-aware verifier (RS256
+   * first, then legacy HS256 when enabled); `undefined` on any failure (fail
+   * closed). The `typ:'subject'` rejection below is UNCHANGED — a member token must
+   * never authenticate an operator route, regardless of signing alg.
+   */
   private async verifyJwt(token: string): Promise<AdminContext | undefined> {
-    try {
-      const claims = await this.jwt.verifyAsync<AdminClaims & { typ?: string }>(token, {
-        secret: this.env.ADMIN_JWT_SECRET,
-      });
-      // A member (end-user) token (`typ:'subject'`, unified tenancy G-F) shares
-      // the JWT secret but must NEVER authenticate an operator route — reject it
-      // before any user lookup (defense-in-depth, spec §5.2).
-      if (claims.typ === 'subject') return undefined;
-      return { adminId: claims.sub, role: claims.role };
-    } catch {
-      return undefined;
-    }
+    const claims = await this.verifier.verify(token);
+    if (claims === undefined) return undefined;
+    // A member (end-user) token (`typ:'subject'`, unified tenancy G-F) must NEVER
+    // authenticate an operator route — reject it before any user lookup
+    // (defense-in-depth, spec §5.2).
+    if (claims.typ === 'subject') return undefined;
+    const { sub, role } = claims as unknown as AdminClaims;
+    if (typeof role !== 'string') return undefined;
+    return { adminId: sub, role };
   }
 
   /** Enforce a route's `@Roles(...)` requirement (no metadata → any admin). */

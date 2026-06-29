@@ -41,6 +41,12 @@ import {
   tenantViewSchema,
 } from './admin-views.js';
 import {
+  jwksResponseSchema,
+  logoutRequestSchema,
+  refreshRequestSchema,
+  tokenPairSchema,
+} from './auth-requests.js';
+import {
   addGroupChannelSchema,
   createOfficialPriceSchema,
   createRouteGroupSchema,
@@ -360,6 +366,12 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   // data-plane request bodies (data-plane)
   const RunReq = registry.register('RunBody', runBodySchema);
   const PresignReq = registry.register('PresignUploadBody', presignUploadSchema);
+
+  // platform-auth session contracts (auth-sessions slice)
+  const TokenPair = registry.register('TokenPair', tokenPairSchema);
+  const RefreshReq = registry.register('RefreshBody', refreshRequestSchema);
+  const LogoutReq = registry.register('LogoutBody', logoutRequestSchema);
+  const Jwks = registry.register('JwksResponse', jwksResponseSchema);
 
   /**
    * Derive the OpenAPI path-parameter schema from the `{token}`s in a path.
@@ -1314,6 +1326,46 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     },
   });
   getOne('/v1/files/{id}/url', 'Get a presigned download URL', FileUrl, 'data-plane');
+
+  // --- platform-auth session paths (auth-sessions slice) --------------------
+  // `/auth/refresh` + `/auth/logout` are credential-exchange endpoints (no Bearer
+  // needed — the refresh token IS the credential); the JWKS is fully public.
+  registry.registerPath({
+    method: 'post',
+    path: '/auth/refresh',
+    summary: 'Rotate a refresh token (returns a new access + refresh pair)',
+    tags: ['auth'],
+    security: [],
+    request: { body: { content: { 'application/json': { schema: RefreshReq } }, required: true } },
+    responses: {
+      200: {
+        description: 'New token pair',
+        content: { 'application/json': { schema: TokenPair } },
+      },
+    },
+  });
+  registry.registerPath({
+    method: 'post',
+    path: '/auth/logout',
+    summary: 'Revoke a refresh token (logout)',
+    tags: ['auth'],
+    security: [],
+    request: { body: { content: { 'application/json': { schema: LogoutReq } }, required: true } },
+    responses: { 204: { description: 'Logged out (idempotent)' } },
+  });
+  registry.registerPath({
+    method: 'get',
+    path: '/.well-known/jwks.json',
+    summary: 'Public JWK set for verifying RS256 access tokens (empty under HS256)',
+    tags: ['well-known'],
+    security: [],
+    responses: {
+      200: {
+        description: 'JWK set',
+        content: { 'application/json': { schema: Jwks } },
+      },
+    },
+  });
 
   const generator = new OpenApiGeneratorV3(registry.definitions);
   const doc = generator.generateDocument({

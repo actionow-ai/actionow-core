@@ -13,18 +13,22 @@ import {
   findSubjectByEmail,
   findUserByEmail,
 } from '@actionow/db';
-import type { AppEnv } from '@actionow/infra';
 import { hashPassword, verifyPassword } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 
 import { engineInvalidInput, engineUnauthorized } from '../common/errors.js';
-import { DB, ENV } from '../common/tokens.js';
+import { DB } from '../common/tokens.js';
+import type { SessionReqMeta, TokenPair } from './session.service.js';
+import { SessionService } from './session.service.js';
+import { TokenIssuerService } from './token-issuer.service.js';
 
-/** A successful register/login: the signed JWT. */
-export interface AuthResult {
-  token: string;
-}
+/**
+ * A successful register/login. ADDITIVE (auth-sessions slice): the signed access
+ * token is now accompanied by a refresh token + the matching session. `token` is
+ * RETAINED (and always equals `accessToken`) so existing clients/tests/apps-web
+ * keep working unchanged.
+ */
+export type AuthResult = TokenPair;
 
 /** The `{sub, role}` claims embedded in every issued JWT (admin + user share). */
 export interface AuthClaims {
@@ -89,9 +93,6 @@ export const defaultLocalAuthRepo: LocalAuthRepo = {
 /** DI token for the (overridable) {@link LocalAuthRepo}. */
 export const LOCAL_AUTH_REPO = Symbol('LOCAL_AUTH_REPO');
 
-/** Token lifetime: re-auth daily (mirrors the admin login TTL). */
-const TOKEN_TTL = '12h';
-
 /**
  * Unified local authentication (Phase 9). `register` provisions a fresh
  * tenant+account for a new self-serve user and mints a `{sub, role}` JWT;
@@ -106,8 +107,8 @@ export class LocalAuthService {
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(LOCAL_AUTH_REPO) private readonly repo: LocalAuthRepo,
-    private readonly jwt: JwtService,
-    @Inject(ENV) private readonly env: AppEnv,
+    private readonly issuer: TokenIssuerService,
+    private readonly sessions: SessionService,
   ) {}
 
   /**
@@ -115,7 +116,7 @@ export class LocalAuthService {
    * provision a tenant+account, persist the user with that tenant, and return a
    * freshly-signed JWT.
    */
-  async register(creds: Credentials): Promise<AuthResult> {
+  async register(creds: Credentials, meta?: SessionReqMeta): Promise<AuthResult> {
     const existing = await this.repo.findUserByEmail(this.db, creds.email);
     if (existing !== undefined) {
       throw engineInvalidInput('email already registered');
@@ -135,7 +136,7 @@ export class LocalAuthService {
       tenantId: tenant.id,
     });
 
-    return this.issueToken(user);
+    return this.issueToken(user, meta);
   }
 
   /**
@@ -143,7 +144,7 @@ export class LocalAuthService {
    * error for an unknown email, a disabled account, a password-less (OAuth-only)
    * account, or a wrong password — so the response can't enumerate users.
    */
-  async login(creds: Credentials): Promise<AuthResult> {
+  async login(creds: Credentials, meta?: SessionReqMeta): Promise<AuthResult> {
     const user = await this.repo.findUserByEmail(this.db, creds.email);
     if (
       user?.status !== 'active' ||
@@ -152,17 +153,25 @@ export class LocalAuthService {
     ) {
       throw engineUnauthorized('invalid credentials');
     }
-    return this.issueToken(user);
+    return this.issueToken(user, meta);
   }
 
-  /** Sign a `{sub, role}` JWT for a user (shared by register/login + OAuth). */
-  async issueToken(user: Pick<UserRecord, 'id' | 'role'>): Promise<AuthResult> {
-    const claims: AuthClaims = { sub: user.id, role: user.role };
-    const token = await this.jwt.signAsync(claims, {
-      secret: this.env.ADMIN_JWT_SECRET,
-      expiresIn: TOKEN_TTL,
-    });
-    return { token };
+  /**
+   * Sign a `{sub, role}` access token for a user AND open a login session (shared
+   * by register/login + OAuth). The access token is signed by the alg-aware
+   * {@link TokenIssuerService}; the {@link SessionService} mints the paired refresh
+   * token. Returns the additive `{token, accessToken, refreshToken, expiresIn}`.
+   */
+  async issueToken(
+    user: Pick<UserRecord, 'id' | 'role'>,
+    meta?: SessionReqMeta,
+  ): Promise<AuthResult> {
+    const accessToken = await this.issuer.issueAccess({ sub: user.id, role: user.role });
+    return this.sessions.createForPrincipal(
+      { principalKind: 'user', id: user.id, role: user.role },
+      accessToken,
+      meta ?? {},
+    );
   }
 
   /**
@@ -170,7 +179,7 @@ export class LocalAuthService {
    * tenancy G-F) — creates a `subject` (NOT a tenant, unlike {@link register}),
    * rejecting a duplicate email within that tenant, and returns a member JWT.
    */
-  async registerMember(creds: MemberCredentials): Promise<AuthResult> {
+  async registerMember(creds: MemberCredentials, meta?: SessionReqMeta): Promise<AuthResult> {
     const existing = await this.repo.findSubjectByEmail(this.db, creds.tenantId, creds.email);
     if (existing !== undefined) {
       throw engineInvalidInput('email already registered for this tenant');
@@ -187,14 +196,14 @@ export class LocalAuthService {
       // a clean 400 rather than a 500.
       throw engineInvalidInput('unknown tenant');
     }
-    return this.issueMemberToken(subject);
+    return this.issueMemberToken(subject, meta);
   }
 
   /**
    * Authenticate a MEMBER by `(tenant, email, password)`. Uniform `unauthorized`
    * for an unknown email, disabled/credential-less subject, or wrong password.
    */
-  async loginMember(creds: MemberCredentials): Promise<AuthResult> {
+  async loginMember(creds: MemberCredentials, meta?: SessionReqMeta): Promise<AuthResult> {
     const subject = await this.repo.findSubjectByEmail(this.db, creds.tenantId, creds.email);
     if (
       subject?.status !== 'active' ||
@@ -203,16 +212,27 @@ export class LocalAuthService {
     ) {
       throw engineUnauthorized('invalid credentials');
     }
-    return this.issueMemberToken(subject);
+    return this.issueMemberToken(subject, meta);
   }
 
-  /** Sign a member (end-user) JWT carrying `typ:'subject'` (rejected by operator guards). */
-  async issueMemberToken(subject: Pick<SubjectRow, 'id' | 'tenantId'>): Promise<AuthResult> {
-    const claims: MemberClaims = { sub: subject.id, tenant_id: subject.tenantId, typ: 'subject' };
-    const token = await this.jwt.signAsync(claims, {
-      secret: this.env.ADMIN_JWT_SECRET,
-      expiresIn: TOKEN_TTL,
-    });
-    return { token };
+  /**
+   * Sign a member (end-user) access token carrying `typ:'subject'` (rejected by
+   * operator guards) AND open a `subject` login session. Returns the additive
+   * token pair; the re-minted token on refresh keeps `typ:'subject'` + tenant_id.
+   */
+  async issueMemberToken(
+    subject: Pick<SubjectRow, 'id' | 'tenantId'>,
+    meta?: SessionReqMeta,
+  ): Promise<AuthResult> {
+    const accessToken = await this.issuer.issueAccess({
+      sub: subject.id,
+      tenant_id: subject.tenantId,
+      typ: 'subject',
+    } satisfies MemberClaims);
+    return this.sessions.createForPrincipal(
+      { principalKind: 'subject', id: subject.id, tenantId: subject.tenantId },
+      accessToken,
+      meta ?? {},
+    );
   }
 }

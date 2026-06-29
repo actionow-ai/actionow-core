@@ -1,14 +1,13 @@
 import type { Database, UserRecord } from '@actionow/db';
 import { findUserById, getAccountByTenant } from '@actionow/db';
-import type { AppEnv } from '@actionow/infra';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Inject, Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 
 import type { AuthClaims } from '../auth/local-auth.service.js';
+import { TokenVerifierService } from '../auth/token-verifier.service.js';
 import { engineUnauthorized } from '../common/errors.js';
-import { DB, ENV } from '../common/tokens.js';
+import { DB } from '../common/tokens.js';
 
 /** The authenticated tenant-console context the guard attaches as `req.console`. */
 export interface ConsoleContext {
@@ -53,10 +52,9 @@ export const CONSOLE_REPO = Symbol('CONSOLE_REPO');
 @Injectable()
 export class ConsoleGuard implements CanActivate {
   constructor(
-    private readonly jwt: JwtService,
+    private readonly verifier: TokenVerifierService,
     @Inject(DB) private readonly db: Database,
     @Inject(CONSOLE_REPO) private readonly repo: ConsoleRepo,
-    @Inject(ENV) private readonly env: AppEnv,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -66,15 +64,13 @@ export class ConsoleGuard implements CanActivate {
       throw engineUnauthorized('missing console token');
     }
 
-    let claims: AuthClaims & { typ?: string };
-    try {
-      claims = await this.jwt.verifyAsync<AuthClaims & { typ?: string }>(token, {
-        secret: this.env.ADMIN_JWT_SECRET,
-      });
-    } catch {
-      // Covers expiry, bad signature, and malformed tokens — fail closed.
+    // The shared alg-aware verifier (RS256 first, then legacy HS256). `undefined`
+    // covers expiry/bad signature/malformed — fail closed.
+    const verified = await this.verifier.verify(token);
+    if (verified === undefined) {
       throw engineUnauthorized('invalid or expired console token');
     }
+    const claims = verified as unknown as AuthClaims & { typ?: string };
     // A member (end-user) token (`typ:'subject'`, unified tenancy G-F) is NOT an
     // operator console token — reject it before any user lookup (spec §5.2). The
     // end-user console (G-F) authenticates members on its own dedicated path.

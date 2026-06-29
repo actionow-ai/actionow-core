@@ -4,10 +4,18 @@ import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import { describe, expect, it } from 'vitest';
 
+import { TokenVerifierService } from '../src/auth/token-verifier.service.js';
 import { MemberGuard, type MemberRepo } from '../src/member/member.guard.js';
 
 const SECRET = 'member-test-secret';
 const jwt = new JwtService({ secret: SECRET });
+
+/** A real HS256-only verifier (no RS256 key) — the default-env path. */
+const verifier = new TokenVerifierService(
+  { ADMIN_JWT_SECRET: SECRET, JWT_VERIFY_LEGACY_HS256: true } as never,
+  jwt,
+  null,
+);
 
 function ctxFor(req: Partial<Request>): ExecutionContext {
   const request = { headers: {}, ...req } as Request;
@@ -41,7 +49,7 @@ function repoWith(subj: Partial<SubjectRow> | undefined): MemberRepo {
 }
 
 function guard(repo: MemberRepo): MemberGuard {
-  return new MemberGuard(jwt, {} as never, repo, { ADMIN_JWT_SECRET: SECRET } as never);
+  return new MemberGuard(verifier, {} as never, repo);
 }
 
 async function memberToken(sub: string, tenantId: string): Promise<string> {

@@ -66,6 +66,29 @@ Copy `.env.example` → `.env` and fill in. The full contract is `packages/infra
 | OAuth login (optional)                                      | —             | `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET`, `OAUTH_REDIRECT_BASE`.                                                                                                                                              |
 | `ENABLE_OAUTH_CHANNELS`                                     | `false`       | Gate for BYO OAuth-subscription upstream channels (operator's own paid sub). Keep `false` unless intentionally used.                                                                                                      |
 
+### Sessions + refresh-token rotation + JWKS/RS256 (all optional — defaults preserve today's behavior)
+
+Login/register/admin-login responses are **additive**: `{ token, accessToken, refreshToken, expiresIn }` where `token === accessToken` (the `token` field is retained for back-compat). `POST /auth/refresh` rotates the pair (reuse of a rotated refresh revokes the whole session family — theft detection); `POST /auth/logout` revokes it. RS256 asymmetric signing + a published JWKS are **opt-in and OFF by default** — with no JWT\_\* vars set, access tokens stay HS256 (signed with `ADMIN_JWT_SECRET`) at a 12h TTL, exactly as before.
+
+| Var                       | Default | Effect                                                                                                                                                         |
+| ------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `JWT_SIGNING_ALG`         | `HS256` | `RS256` switches access-token signing to the asymmetric key + publishes a JWKS. Strictly opt-in.                                                               |
+| `JWT_PRIVATE_KEY`         | —       | RS256 private key, as PEM **or base64-encoded PEM**. Required when `JWT_SIGNING_ALG=RS256` in production. Never logged or returned.                            |
+| `JWT_PUBLIC_KEY`          | —       | RS256 public key (PEM/base64-PEM). Optional — derived from the private key when unset. Published via `/.well-known/jwks.json`.                                 |
+| `JWT_KID`                 | —       | Stable `kid` for the published JWK + token header. Defaults to the key's JWK thumbprint (so adding a second key under a new `kid` is non-breaking).            |
+| `JWT_ACCESS_TTL`          | `12h`   | Access-token lifetime. Kept at 12h to match existing sessions — do not shorten without planning for re-auth.                                                   |
+| `JWT_REFRESH_TTL`         | `30d`   | Refresh-token (session) lifetime.                                                                                                                              |
+| `JWT_VERIFY_LEGACY_HS256` | `true`  | Guards accept legacy HS256 tokens even under an RS256 config (so flipping to RS256 does not invalidate live sessions). Set `false` after HS256 tokens age out. |
+| `JWT_ISSUER`              | —       | Optional `iss` claim stamped on issued tokens and checked on verify.                                                                                           |
+
+The `/.well-known/jwks.json` endpoint is **unauthenticated and public**; it returns `{ keys: [] }` under HS256 (it never exposes the HMAC secret) and the public JWK array under RS256.
+
+**Safe rollout order** (no big-bang cutover; each step is independently shippable):
+
+1. Ship this release as-is — clients gain `refreshToken` and the `/auth/refresh` + `/auth/logout` endpoints while access tokens stay HS256/12h. Nothing else changes.
+2. Later, generate an RSA keypair and set `JWT_SIGNING_ALG=RS256` + `JWT_PRIVATE_KEY` (base64-PEM). New tokens are RS256; `JWT_VERIFY_LEGACY_HS256=true` (default) keeps existing HS256 sessions valid.
+3. After all HS256 tokens have expired (≥ `JWT_ACCESS_TTL`), set `JWT_VERIFY_LEGACY_HS256=false` and rotate `ADMIN_JWT_SECRET`.
+
 ## 4. Build + migrate
 
 ```bash

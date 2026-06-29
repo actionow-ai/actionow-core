@@ -11,8 +11,44 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { LocalAuthRepo } from '../src/auth/local-auth.service.js';
 import { LocalAuthService } from '../src/auth/local-auth.service.js';
+import type { SessionPrincipal, SessionReqMeta, TokenPair } from '../src/auth/session.service.js';
+import type { SessionService } from '../src/auth/session.service.js';
+import { TokenIssuerService } from '../src/auth/token-issuer.service.js';
 
 const SECRET = 'test-auth-secret';
+
+/** A real HS256 issuer (no RS256 keys) — the default-env path. */
+function issuer(): TokenIssuerService {
+  return new TokenIssuerService(
+    { ADMIN_JWT_SECRET: SECRET, JWT_SIGNING_ALG: 'HS256', JWT_ACCESS_TTL: '12h' } as never,
+    new JwtService({ secret: SECRET }),
+    null,
+  );
+}
+
+/**
+ * A stub SessionService that skips the DB: it just wraps the already-minted access
+ * token into the additive pair, with a deterministic refresh token. The session
+ * REPO's own persistence is covered by the db int test.
+ */
+class FakeSessions {
+  readonly created: SessionPrincipal[] = [];
+  readonly metas: (SessionReqMeta | undefined)[] = [];
+  createForPrincipal(
+    principal: SessionPrincipal,
+    accessToken: string,
+    meta?: SessionReqMeta,
+  ): Promise<TokenPair> {
+    this.created.push(principal);
+    this.metas.push(meta);
+    return Promise.resolve({
+      token: accessToken,
+      accessToken,
+      refreshToken: 'rt_fake',
+      expiresIn: '12h',
+    });
+  }
+}
 
 /** An in-memory fake of the db surface the service uses. */
 class FakeRepo implements LocalAuthRepo {
@@ -95,9 +131,12 @@ class FakeRepo implements LocalAuthRepo {
 }
 
 function service(repo: LocalAuthRepo): LocalAuthService {
-  return new LocalAuthService({} as Database, repo, new JwtService({ secret: SECRET }), {
-    ADMIN_JWT_SECRET: SECRET,
-  } as never);
+  return new LocalAuthService(
+    {} as Database,
+    repo,
+    issuer(),
+    new FakeSessions() as unknown as SessionService,
+  );
 }
 
 function claimsOf(token: string): { sub: string; role: string } {

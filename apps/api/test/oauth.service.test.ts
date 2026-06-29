@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { LocalAuthService } from '../src/auth/local-auth.service.js';
 import type { OauthProfile, OauthRepo, ProfileResolver } from '../src/auth/oauth.service.js';
 import { OauthService } from '../src/auth/oauth.service.js';
+import type { SessionService, TokenPair } from '../src/auth/session.service.js';
+import { TokenIssuerService } from '../src/auth/token-issuer.service.js';
 
 /** A minimal env with both providers configured, for the `start` URL assertions. */
 const ENV_WITH_PROVIDERS = {
@@ -113,9 +115,22 @@ describe('OauthService.callback self-register (rbac)', () => {
       emailVerified: true,
     };
     const resolver: ProfileResolver = () => Promise.resolve(profile);
-    const localAuth = new LocalAuthService({} as Database, {} as never, new JwtService({}), {
-      ADMIN_JWT_SECRET: 'test-secret',
-    } as unknown as AppEnv);
+    const issuer = new TokenIssuerService(
+      { ADMIN_JWT_SECRET: 'test-secret', JWT_SIGNING_ALG: 'HS256', JWT_ACCESS_TTL: '12h' } as never,
+      new JwtService({ secret: 'test-secret' }),
+      null,
+    );
+    // A stub SessionService that wraps the access token without touching the db.
+    const fakeSessions = {
+      createForPrincipal: (_p: unknown, accessToken: string): Promise<TokenPair> =>
+        Promise.resolve({
+          token: accessToken,
+          accessToken,
+          refreshToken: 'rt_x',
+          expiresIn: '12h',
+        }),
+    } as unknown as SessionService;
+    const localAuth = new LocalAuthService({} as Database, {} as never, issuer, fakeSessions);
     const svc = new OauthService({} as Database, ENV_WITH_PROVIDERS, localAuth, repo, resolver);
 
     const { token } = await svc.callback('github', 'auth-code');

@@ -193,6 +193,72 @@ export const subject = pgTable(
 );
 
 /**
+ * A platform LOGIN SESSION — the persistence behind refresh-token rotation
+ * (auth-sessions slice). One row is minted per successful login (operator, admin,
+ * OR member/subject), and it owns the LIVE refresh token: only the sha256 hex
+ * `refresh_hash` of the one-time `rt_<base64url>` plaintext is stored, mirroring
+ * {@link adminToken}. On refresh the row is ROTATED in place — the old row is
+ * stamped `revoked_at` + `replaced_by`, and a fresh row is inserted in the SAME
+ * `family_id`. A refresh whose hash matches an already-revoked row is reuse/theft:
+ * the whole family is revoked. Unlike {@link adminToken} this table is NOT
+ * append-only — `revoked_at`/`last_used_at`/`replaced_by` are mutated operationally;
+ * the correctness boundary is `findLiveSessionByHash` filtering revoked/expired.
+ *
+ * `principal_kind` (`user`|`subject`|`admin`) records which token kind to re-mint;
+ * exactly one of `user_id`/`subject_id` is set for `user`/`subject`, and `admin`
+ * carries neither (the admin login is a `user` row with `role='admin'`, attributed
+ * via the claims re-minted from the session, not a FK here).
+ */
+export const session = pgTable(
+  'session',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // Which token kind this session re-mints on refresh.
+    principalKind: text('principal_kind').notNull(),
+    // The operator/admin user this session belongs to (NULL for a subject session).
+    userId: uuid('user_id').references(() => user.id, { onDelete: 'cascade' }),
+    // The end-user (subject) this session belongs to (NULL for a user/admin session).
+    subjectId: uuid('subject_id').references(() => subject.id, { onDelete: 'cascade' }),
+    // The tenant scope re-minted into a subject token; informational for a user.
+    tenantId: uuid('tenant_id').references(() => tenant.id),
+    // sha256 hex of the one-time `rt_<base64url>` refresh plaintext (UNIQUE). The
+    // plaintext is never stored — a session is found ONLY by hashing a presented token.
+    refreshHash: text('refresh_hash').notNull().unique(),
+    // Stable across a rotation chain — all rotations of one login share this id, so
+    // reuse-detection revokes the entire lineage in one shot.
+    familyId: uuid('family_id').notNull(),
+    issuedAt: timestamp('issued_at', { withTimezone: true }).notNull().defaultNow(),
+    // Hard expiry of the refresh token (JWT_REFRESH_TTL from issuance).
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    // Stamped when the row is rotated/revoked/logged-out — a non-null value reads as absent.
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    // The id of the row that superseded this one on rotation (audit lineage).
+    replacedBy: uuid('replaced_by'),
+    userAgent: text('user_agent'),
+    ip: text('ip'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('session_family_idx').on(t.familyId),
+    index('session_user_idx').on(t.userId),
+    index('session_subject_idx').on(t.subjectId),
+    index('session_expires_idx').on(t.expiresAt),
+    check(
+      'session_principal_kind_allowed',
+      sql`${t.principalKind} IN ('user', 'subject', 'admin')`,
+    ),
+    // Linkage: a `user` session has user_id (no subject_id); a `subject` session has
+    // subject_id (no user_id); an `admin` session carries neither FK.
+    check(
+      'session_linkage',
+      sql`(${t.principalKind} = 'user' AND ${t.userId} IS NOT NULL AND ${t.subjectId} IS NULL) OR (${t.principalKind} = 'subject' AND ${t.subjectId} IS NOT NULL AND ${t.userId} IS NULL) OR (${t.principalKind} = 'admin')`,
+    ),
+  ],
+);
+
+/**
  * A federated identity linking a {@link user} to an external OAuth provider
  * (Phase 9). Keyed on `(provider, provider_user_id)` — the provider's stable
  * subject id, NEVER the email — so a provider account links to exactly one

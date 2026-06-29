@@ -1,6 +1,7 @@
 export * from './adapter.js';
 export * from './admin-requests.js';
 export * from './admin-views.js';
+export * from './auth-requests.js';
 export * from './billing-requests.js';
 export * from './billing-views.js';
 export * from './catalog-requests.js';

@@ -8,9 +8,17 @@ import type { AdminRequest } from '../src/admin/auth/admin.guard.js';
 import { AdminGuard } from '../src/admin/auth/admin.guard.js';
 import type { AdminTokenAuthService } from '../src/admin/auth/admin-token-auth.service.js';
 import { ROLES_KEY } from '../src/admin/auth/roles.decorator.js';
+import { TokenVerifierService } from '../src/auth/token-verifier.service.js';
 
 const SECRET = 'test-admin-secret';
 const jwt = new JwtService({ secret: SECRET });
+
+/** A real HS256-only verifier (no RS256 key) — the default-env path. */
+const verifier = new TokenVerifierService(
+  { ADMIN_JWT_SECRET: SECRET, JWT_VERIFY_LEGACY_HS256: true } as never,
+  jwt,
+  null,
+);
 
 /** A stand-in controller class for the ExecutionContext's `getClass()`. */
 class FakeController {
@@ -39,9 +47,8 @@ function ctx(authHeader: string | undefined, requiredRoles?: string[]): Executio
  */
 function guard(tokenAuth?: Pick<AdminTokenAuthService, 'verify'>): AdminGuard {
   return new AdminGuard(
-    jwt,
+    verifier,
     new Reflector(),
-    { ADMIN_JWT_SECRET: SECRET } as never,
     (tokenAuth ?? { verify: () => Promise.resolve(undefined) }) as AdminTokenAuthService,
   );
 }
