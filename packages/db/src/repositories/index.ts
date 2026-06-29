@@ -417,6 +417,21 @@ export {
   resolveSecretRef,
 } from './secret-resolver.js';
 export {
+  createSession,
+  type CreateSessionInput,
+  findLiveSessionByHash,
+  findSessionByHashAnyState,
+  generateRefreshToken,
+  hashRefreshToken,
+  revokeFamily,
+  revokeSession,
+  rotateSession,
+  type RotateSessionInput,
+  type SessionPrincipalKind,
+  type SessionRow,
+  sweepExpiredSessions,
+} from './session.js';
+export {
   failJob,
   type FailJobInput,
   type OutboxInput,

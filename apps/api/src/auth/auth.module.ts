@@ -43,6 +43,7 @@ import {
     { provide: OAUTH_REPO, useValue: defaultOauthRepo },
     { provide: PROFILE_RESOLVER, useValue: defaultProfileResolver },
   ],
+  // SessionService + TokenIssuerService come from the @Global AuthCryptoModule.
   exports: [LocalAuthService, JwtModule],
 })
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- NestJS modules are decorated empty classes

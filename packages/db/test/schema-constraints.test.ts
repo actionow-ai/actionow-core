@@ -168,6 +168,73 @@ describe('channel.tags (route tagging)', () => {
   });
 });
 
+describe('session (migration 0056 — refresh-token rotation)', () => {
+  /** Insert a user; return its id (for `principal_kind='user'` linkage). */
+  async function makeUserRow(email: string): Promise<string> {
+    const [u] =
+      await client`INSERT INTO "user" (email, role, tenant_role) VALUES (${email}, 'user', 'admin') RETURNING id`;
+    if (!u) throw new Error('user insert returned no row');
+    return u.id as string;
+  }
+
+  it('rejects a principal_kind outside (user|subject|admin)', async () => {
+    await expect(
+      client`INSERT INTO session (principal_kind, refresh_hash, family_id, expires_at) VALUES ('bogus', 'h1', gen_random_uuid(), now() + interval '1 day')`,
+    ).rejects.toThrow();
+  });
+
+  it('rejects a user session with NULL user_id (linkage CHECK)', async () => {
+    await expect(
+      client`INSERT INTO session (principal_kind, refresh_hash, family_id, expires_at) VALUES ('user', 'h2', gen_random_uuid(), now() + interval '1 day')`,
+    ).rejects.toThrow();
+  });
+
+  it('rejects a user session that ALSO sets subject_id (linkage CHECK)', async () => {
+    const uid = await makeUserRow('linkage-user@x.com');
+    const [t] = await client`INSERT INTO tenant (name) VALUES ('lk') RETURNING id`;
+    if (!t) throw new Error('tenant insert returned no row');
+    const [s] =
+      await client`INSERT INTO subject (tenant_id, external_id) VALUES (${t.id}, 'lk-ext') RETURNING id`;
+    if (!s) throw new Error('subject insert returned no row');
+    await expect(
+      client`INSERT INTO session (principal_kind, user_id, subject_id, refresh_hash, family_id, expires_at) VALUES ('user', ${uid}, ${s.id}, 'h3', gen_random_uuid(), now() + interval '1 day')`,
+    ).rejects.toThrow();
+  });
+
+  it('rejects a subject session with NULL subject_id (linkage CHECK)', async () => {
+    await expect(
+      client`INSERT INTO session (principal_kind, refresh_hash, family_id, expires_at) VALUES ('subject', 'h4', gen_random_uuid(), now() + interval '1 day')`,
+    ).rejects.toThrow();
+  });
+
+  it('accepts a valid user session, a subject session, and an admin session', async () => {
+    const uid = await makeUserRow('ok-user@x.com');
+    const [t] = await client`INSERT INTO tenant (name) VALUES ('ok') RETURNING id`;
+    if (!t) throw new Error('tenant insert returned no row');
+    const [s] =
+      await client`INSERT INTO subject (tenant_id, external_id) VALUES (${t.id}, 'ok-ext') RETURNING id`;
+    if (!s) throw new Error('subject insert returned no row');
+
+    await client`INSERT INTO session (principal_kind, user_id, refresh_hash, family_id, expires_at) VALUES ('user', ${uid}, 'ok-h-user', gen_random_uuid(), now() + interval '1 day')`;
+    await client`INSERT INTO session (principal_kind, subject_id, tenant_id, refresh_hash, family_id, expires_at) VALUES ('subject', ${s.id}, ${t.id}, 'ok-h-subject', gen_random_uuid(), now() + interval '1 day')`;
+    // admin carries neither FK (the user id may be stored in user_id; both pass).
+    await client`INSERT INTO session (principal_kind, refresh_hash, family_id, expires_at) VALUES ('admin', 'ok-h-admin', gen_random_uuid(), now() + interval '1 day')`;
+
+    const rows = await client<
+      { principal_kind: string }[]
+    >`SELECT principal_kind FROM session ORDER BY principal_kind`;
+    expect(rows.map((r) => r.principal_kind)).toEqual(['admin', 'subject', 'user']);
+  });
+
+  it('enforces UNIQUE on refresh_hash', async () => {
+    const uid = await makeUserRow('uq-user@x.com');
+    await client`INSERT INTO session (principal_kind, user_id, refresh_hash, family_id, expires_at) VALUES ('user', ${uid}, 'dup-hash', gen_random_uuid(), now() + interval '1 day')`;
+    await expect(
+      client`INSERT INTO session (principal_kind, user_id, refresh_hash, family_id, expires_at) VALUES ('user', ${uid}, 'dup-hash', gen_random_uuid(), now() + interval '1 day')`,
+    ).rejects.toThrow();
+  });
+});
+
 describe('schema hardening (migration 0052)', () => {
   /** Insert a tenant + its account; return both ids. */
   async function makeAccount(name: string): Promise<{ tenantId: string; accountId: string }> {

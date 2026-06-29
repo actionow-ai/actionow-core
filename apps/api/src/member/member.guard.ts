@@ -1,13 +1,12 @@
 import type { Database, SubjectRow } from '@actionow/db';
 import { getSubjectById } from '@actionow/db';
-import type { AppEnv } from '@actionow/infra';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Inject, Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 
+import { TokenVerifierService } from '../auth/token-verifier.service.js';
 import { engineUnauthorized } from '../common/errors.js';
-import { DB, ENV } from '../common/tokens.js';
+import { DB } from '../common/tokens.js';
 
 /** The authenticated end-user (member) context the guard attaches as `req.member`. */
 export interface MemberContext {
@@ -51,10 +50,9 @@ export const MEMBER_REPO = Symbol('MEMBER_REPO');
 @Injectable()
 export class MemberGuard implements CanActivate {
   constructor(
-    private readonly jwt: JwtService,
+    private readonly verifier: TokenVerifierService,
     @Inject(DB) private readonly db: Database,
     @Inject(MEMBER_REPO) private readonly repo: MemberRepo,
-    @Inject(ENV) private readonly env: AppEnv,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -64,16 +62,13 @@ export class MemberGuard implements CanActivate {
       throw engineUnauthorized('missing member token');
     }
 
-    let claims: { sub: string; tenant_id?: string; typ?: string };
-    try {
-      claims = await this.jwt.verifyAsync<{ sub: string; tenant_id?: string; typ?: string }>(
-        token,
-        { secret: this.env.ADMIN_JWT_SECRET },
-      );
-    } catch {
-      // Covers expiry, bad signature, and malformed tokens — fail closed.
+    // The shared alg-aware verifier (RS256 first, then legacy HS256). `undefined`
+    // covers expiry/bad signature/malformed — fail closed.
+    const verified = await this.verifier.verify(token);
+    if (verified === undefined) {
       throw engineUnauthorized('invalid or expired member token');
     }
+    const claims = verified as { sub: string; tenant_id?: string; typ?: string };
 
     // Only a MEMBER token (`typ:'subject'`, with a tenant scope) reaches Part B.
     // An operator/admin token (no `typ:'subject'`) is rejected here, mirroring

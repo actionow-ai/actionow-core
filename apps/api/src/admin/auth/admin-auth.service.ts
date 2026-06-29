@@ -1,17 +1,19 @@
 import type { Database, UserRecord } from '@actionow/db';
 import { findUserByEmail } from '@actionow/db';
-import type { AppEnv } from '@actionow/infra';
 import { verifyPassword } from '@actionow/infra';
 import { Inject, Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 
+import { type SessionReqMeta, SessionService, type TokenPair } from '../../auth/session.service.js';
+import { TokenIssuerService } from '../../auth/token-issuer.service.js';
 import { engineUnauthorized } from '../../common/errors.js';
-import { DB, ENV } from '../../common/tokens.js';
+import { DB } from '../../common/tokens.js';
 
-/** A successful login: the signed admin JWT. */
-export interface LoginResult {
-  token: string;
-}
+/**
+ * A successful admin login. ADDITIVE (auth-sessions slice): the access token is
+ * accompanied by a refresh token + session. `token` is RETAINED (== accessToken)
+ * so existing clients/tests keep working unchanged.
+ */
+export type LoginResult = TokenPair;
 
 /** The claims embedded in an admin JWT. */
 export interface AdminClaims {
@@ -35,9 +37,6 @@ export const defaultAdminAuthRepo: AdminAuthRepo = { findUserByEmail };
 /** DI token for the (overridable) {@link AdminAuthRepo}. */
 export const ADMIN_AUTH_REPO = Symbol('ADMIN_AUTH_REPO');
 
-/** Token lifetime: admins re-auth daily. */
-const TOKEN_TTL = '12h';
-
 /**
  * Authenticates admin logins and mints JWTs (§8, repointed to the unified `user`
  * model in Phase 9). Looks the user up by email, requires `role==='admin'` and
@@ -54,11 +53,11 @@ export class AdminAuthService {
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(ADMIN_AUTH_REPO) private readonly repo: AdminAuthRepo,
-    private readonly jwt: JwtService,
-    @Inject(ENV) private readonly env: AppEnv,
+    private readonly issuer: TokenIssuerService,
+    private readonly sessions: SessionService,
   ) {}
 
-  async login(email: string, password: string): Promise<LoginResult> {
+  async login(email: string, password: string, meta?: SessionReqMeta): Promise<LoginResult> {
     const user = await this.repo.findUserByEmail(this.db, email);
     // Uniform rejection regardless of which check fails (no user enumeration):
     // must be an active admin with a local password that verifies.
@@ -71,11 +70,17 @@ export class AdminAuthService {
       throw engineUnauthorized('invalid credentials');
     }
 
-    const claims: AdminClaims = { sub: user.id, role: user.role };
-    const token = await this.jwt.signAsync(claims, {
-      secret: this.env.ADMIN_JWT_SECRET,
-      expiresIn: TOKEN_TTL,
-    });
-    return { token };
+    // The admin login is a `user` row with role='admin'; the access token keeps the
+    // `{sub, role}` shape, but the session is `principal_kind='admin'` so a refresh
+    // re-mints the admin role and gates the admin plane again.
+    const accessToken = await this.issuer.issueAccess({
+      sub: user.id,
+      role: user.role,
+    } satisfies AdminClaims);
+    return this.sessions.createForPrincipal(
+      { principalKind: 'admin', id: user.id, role: user.role, tenantId: user.tenantId },
+      accessToken,
+      meta ?? {},
+    );
   }
 }

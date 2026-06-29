@@ -177,6 +177,40 @@ const EnvSchema = z
     JOB_STREAM_HEARTBEAT_MS: z.coerce.number().int().positive().optional(),
     JOB_STREAM_POLL_MS: z.coerce.number().int().positive().optional(),
     JOB_STREAM_MAX_MS: z.coerce.number().int().positive().optional(),
+
+    // --- platform sessions + refresh-token rotation + opt-in JWKS/RS256 -------
+    // All keys are left optional (un-defaulted) — like WORKER_HEALTH_PORT above —
+    // so adding them does NOT turn the inferred `AppEnv` field required (which would
+    // force every explicit env literal in tests to set them). The consumers apply
+    // the documented defaults via `?? …`, so the EFFECTIVE defaults are still
+    // HS256 / 12h / 30d / legacy-accept-on; RS256/JWKS stays strictly opt-in.
+    //
+    // The signing algorithm for ACCESS tokens. Effective default `HS256` (today's
+    // behavior: signed with ADMIN_JWT_SECRET). Set `RS256` to sign with an
+    // asymmetric private key + publish a JWKS — strictly opt-in, OFF by default.
+    JWT_SIGNING_ALG: z.enum(['HS256', 'RS256']).optional(),
+    // RS256 PRIVATE key (PEM or base64-encoded PEM). Required only when
+    // JWT_SIGNING_ALG=RS256 in production (see superRefine). NEVER logged/returned.
+    JWT_PRIVATE_KEY: z.string().min(1).optional(),
+    // RS256 PUBLIC key (PEM or base64-PEM). Optional even under RS256 — when
+    // absent it is DERIVED from the private key. Published via /.well-known/jwks.json.
+    JWT_PUBLIC_KEY: z.string().min(1).optional(),
+    // Stable `kid` for the published JWK + signed token header. Optional; when
+    // unset under RS256 a JWK thumbprint is used so rotation stays non-breaking.
+    JWT_KID: z.string().min(1).optional(),
+    // Access-token TTL. Effective default `12h` (the current value) — do NOT shorten.
+    JWT_ACCESS_TTL: z.string().min(1).optional(),
+    // Refresh-token TTL (the session's hard expiry). Effective default 30 days.
+    JWT_REFRESH_TTL: z.string().min(1).optional(),
+    // When unset/`true` (effective default), guards also accept legacy HS256 tokens
+    // even under an RS256 config — so flipping to RS256 does not invalidate live
+    // sessions. Set `false` (after HS256 tokens age out) to drop legacy acceptance.
+    JWT_VERIFY_LEGACY_HS256: z
+      .enum(['true', 'false'])
+      .transform((v) => v === 'true')
+      .optional(),
+    // Optional `iss` claim stamped on issued access tokens + checked on verify.
+    JWT_ISSUER: z.string().min(1).optional(),
   })
   .transform((env) => ({
     ...env,
@@ -189,6 +223,20 @@ const EnvSchema = z
         code: z.ZodIssueCode.custom,
         path: ['ADMIN_JWT_SECRET'],
         message: 'ADMIN_JWT_SECRET is required in production',
+      });
+    }
+    // RS256 needs a private key to sign with. Enforced only in production so dev
+    // can flip JWT_SIGNING_ALG=RS256 for a quick local test without keys (the
+    // token-issuer fails closed at mint time if it truly can't sign).
+    if (
+      env.JWT_SIGNING_ALG === 'RS256' &&
+      env.NODE_ENV === 'production' &&
+      env.JWT_PRIVATE_KEY === undefined
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['JWT_PRIVATE_KEY'],
+        message: 'JWT_PRIVATE_KEY is required when JWT_SIGNING_ALG=RS256 in production',
       });
     }
   });

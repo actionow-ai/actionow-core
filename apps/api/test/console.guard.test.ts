@@ -4,10 +4,18 @@ import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import { describe, expect, it } from 'vitest';
 
+import { TokenVerifierService } from '../src/auth/token-verifier.service.js';
 import { ConsoleGuard, type ConsoleRepo } from '../src/console/console.guard.js';
 
 const SECRET = 'console-test-secret';
 const jwt = new JwtService({ secret: SECRET });
+
+/** A real HS256-only verifier (no RS256 key) — the default-env path. */
+const verifier = new TokenVerifierService(
+  { ADMIN_JWT_SECRET: SECRET, JWT_VERIFY_LEGACY_HS256: true } as never,
+  jwt,
+  null,
+);
 
 function ctxFor(req: Partial<Request>): ExecutionContext {
   const request = { headers: {}, ...req } as Request;
@@ -37,7 +45,7 @@ function repoWith(user: Partial<UserRecord> | undefined): ConsoleRepo {
 }
 
 function guard(repo: ConsoleRepo): ConsoleGuard {
-  return new ConsoleGuard(jwt, {} as never, repo, { ADMIN_JWT_SECRET: SECRET } as never);
+  return new ConsoleGuard(verifier, {} as never, repo);
 }
 
 async function token(sub: string): Promise<string> {

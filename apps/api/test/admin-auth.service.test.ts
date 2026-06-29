@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { AdminAuthRepo } from '../src/admin/auth/admin-auth.service.js';
 import { AdminAuthService } from '../src/admin/auth/admin-auth.service.js';
+import type { SessionPrincipal, SessionService, TokenPair } from '../src/auth/session.service.js';
+import { TokenIssuerService } from '../src/auth/token-issuer.service.js';
 
 const SECRET = 'test-admin-secret';
 
@@ -16,9 +18,17 @@ function makeRepo(found: UserRecord | undefined): AdminAuthRepo {
 }
 
 function service(repo: AdminAuthRepo): AdminAuthService {
-  return new AdminAuthService({} as Database, repo, new JwtService({ secret: SECRET }), {
-    ADMIN_JWT_SECRET: SECRET,
-  } as never);
+  const issuer = new TokenIssuerService(
+    { ADMIN_JWT_SECRET: SECRET, JWT_SIGNING_ALG: 'HS256', JWT_ACCESS_TTL: '12h' } as never,
+    new JwtService({ secret: SECRET }),
+    null,
+  );
+  // A stub SessionService that wraps the access token without touching the db.
+  const sessions = {
+    createForPrincipal: (_p: SessionPrincipal, accessToken: string): Promise<TokenPair> =>
+      Promise.resolve({ token: accessToken, accessToken, refreshToken: 'rt_x', expiresIn: '12h' }),
+  } as unknown as SessionService;
+  return new AdminAuthService({} as Database, repo, issuer, sessions);
 }
 
 const admin: UserRecord = {

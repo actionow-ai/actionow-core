@@ -1,5 +1,6 @@
-import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 
 import { LoginThrottleGuard } from '../../auth/login-throttle.guard.js';
 import { engineInvalidInput } from '../../common/errors.js';
@@ -25,12 +26,16 @@ export class AdminAuthController {
    */
   @Post('login')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Exchange admin email + password for a JWT' })
-  async login(@Body() body: LoginBody): Promise<LoginResult> {
+  @ApiOperation({ summary: 'Exchange admin email + password for an access + refresh token pair' })
+  async login(@Body() body: LoginBody, @Req() req: Request): Promise<LoginResult> {
     const { email, password } = body;
     if (typeof email !== 'string' || email === '' || typeof password !== 'string') {
       throw engineInvalidInput('email and password are required');
     }
-    return this.auth.login(email, password);
+    const ua = req.headers['user-agent'];
+    return this.auth.login(email, password, {
+      userAgent: typeof ua === 'string' ? ua : null,
+      ip: typeof req.ip === 'string' ? req.ip : null,
+    });
   }
 }
