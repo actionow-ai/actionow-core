@@ -1,0 +1,1019 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Actionow Core · 架构与场景图谱</title>
+<style>
+  :root{
+    --bg:#0a0e16; --bg2:#0d1320; --surface:#111826; --surface2:#161f30;
+    --border:#243049; --border2:#2f3d59;
+    --text:#e6edf3; --muted:#93a1b5; --faint:#64748b;
+    --platform:#a78bfa; --tenant:#22d3ee; --subject:#f59e0b;
+    --engine:#34d399; --data:#60a5fa; --money:#fb7185; --resil:#fb923c;
+    --radius:16px; --maxw:1180px;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;font-family:var(--sans);color:var(--text);
+    background:
+      radial-gradient(900px 500px at 12% -8%, rgba(167,139,250,.16), transparent 60%),
+      radial-gradient(900px 520px at 92% -4%, rgba(34,211,238,.12), transparent 60%),
+      var(--bg);
+    line-height:1.6;-webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--tenant);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* ── top bar ─────────────────────────────── */
+  header.top{
+    position:sticky;top:0;z-index:50;
+    backdrop-filter:saturate(140%) blur(12px);
+    background:rgba(10,14,22,.72);border-bottom:1px solid var(--border);
+  }
+  .top-inner{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;gap:18px;padding:12px 22px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.2px;white-space:nowrap}
+  .brand .dot{width:12px;height:12px;border-radius:4px;background:linear-gradient(135deg,var(--platform),var(--tenant));box-shadow:0 0 14px rgba(34,211,238,.6)}
+  .brand small{color:var(--muted);font-weight:500}
+  nav.toc{display:flex;flex-wrap:wrap;gap:4px;margin-left:auto;justify-content:flex-end}
+  nav.toc a{
+    color:var(--muted);font-size:12.5px;padding:5px 10px;border-radius:999px;border:1px solid transparent;
+    transition:.15s;white-space:nowrap;
+  }
+  nav.toc a:hover{color:var(--text);background:var(--surface);text-decoration:none}
+  nav.toc a.active{color:#fff;border-color:var(--border2);background:var(--surface2)}
+
+  /* ── layout ─────────────────────────────── */
+  main{max-width:var(--maxw);margin:0 auto;padding:0 22px 120px}
+  .hero{padding:64px 0 30px}
+  .hero h1{font-size:clamp(30px,5vw,52px);line-height:1.04;margin:0 0 16px;letter-spacing:-1px;
+    background:linear-gradient(120deg,#fff 20%,#a9b6cc 90%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p.lead{font-size:clamp(15px,2vw,19px);color:var(--muted);max-width:760px;margin:0}
+  .meta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);
+    background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:6px 12px}
+  .chip b{color:var(--text);font-weight:600}
+
+  section{scroll-margin-top:74px;padding:46px 0;border-top:1px solid var(--border)}
+  section:first-of-type{border-top:none}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+  .sec-num{font-family:var(--mono);font-size:13px;color:var(--faint);border:1px solid var(--border);border-radius:8px;padding:2px 8px}
+  h2{font-size:clamp(22px,3vw,30px);margin:0;letter-spacing:-.4px}
+  h2 .zh{color:var(--muted);font-weight:500;font-size:.7em;margin-left:8px}
+  .sec-desc{color:var(--muted);max-width:840px;margin:10px 0 26px}
+  h3.sub{font-size:16px;margin:34px 0 12px;color:var(--text);display:flex;align-items:center;gap:9px}
+  h3.sub::before{content:"";width:8px;height:8px;border-radius:3px;background:var(--tenant)}
+
+  /* ── diagram frame ─────────────────────────────── */
+  .figure{
+    background:linear-gradient(180deg,var(--surface),var(--bg2));
+    border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px;margin:6px 0 8px;overflow:hidden;
+    box-shadow:0 18px 40px -28px rgba(0,0,0,.9);
+  }
+  .figure .scroll{overflow-x:auto;padding-bottom:4px}
+  .figure pre.mermaid{margin:0;background:transparent;text-align:center;min-height:40px}
+  figcaption{color:var(--faint);font-size:12.5px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);text-align:center}
+  .mmerr{color:var(--money);font-family:var(--mono);font-size:12px;padding:14px;text-align:left}
+
+  /* ── layered stack (custom) ─────────────────────────────── */
+  .stack{display:flex;flex-direction:column;gap:0;margin:8px 0}
+  .layer{position:relative;display:grid;grid-template-columns:200px 1fr;gap:18px;align-items:center;
+    background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--c,var(--border2));
+    border-radius:12px;padding:16px 18px}
+  .layer + .layer{margin-top:26px}
+  .layer + .layer::before{content:"";position:absolute;top:-22px;left:34px;width:2px;height:22px;background:linear-gradient(var(--border2),transparent)}
+  .layer + .layer::after{content:"▾";position:absolute;top:-23px;left:28px;color:var(--faint);font-size:14px}
+  .layer .lname{font-weight:700;color:#fff}
+  .layer .lname small{display:block;color:var(--c,var(--muted));font-weight:600;font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;margin-bottom:3px}
+  .layer .lbody{color:var(--muted);font-size:14px}
+  .layer .lbody code{font-family:var(--mono);font-size:12.5px;color:var(--text);background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:1px 6px}
+
+  /* ── legend ─────────────────────────────── */
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 4px}
+  .lg{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);
+    background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:7px 12px}
+  .sw{width:13px;height:13px;border-radius:4px;border:1px solid rgba(255,255,255,.25)}
+
+  /* ── cards / grid ─────────────────────────────── */
+  .grid{display:grid;gap:16px}
+  .grid.two{grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
+  .card.scn{border-top:3px solid var(--c,var(--tenant))}
+  .card h4{margin:0 0 4px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .card .who{color:var(--c,var(--tenant));font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+  .card p{margin:8px 0 0;color:var(--muted);font-size:14px}
+  .card p .mp{color:var(--money);font-weight:600}
+  .card .tag{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--text);background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:1px 7px;margin:2px 2px 0 0}
+
+  /* ── table ─────────────────────────────── */
+  .tbl{width:100%;border-collapse:collapse;font-size:13.5px;margin:6px 0}
+  .tbl th,.tbl td{text-align:left;padding:11px 13px;border-bottom:1px solid var(--border);vertical-align:top}
+  .tbl th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.5px;background:var(--surface)}
+  .tbl tr:hover td{background:rgba(255,255,255,.018)}
+  .tbl td code,.tbl th code{font-family:var(--mono);font-size:12px;color:var(--tenant)}
+  .tbl .mp{color:var(--money);font-weight:600}
+
+  .callout{display:flex;gap:12px;background:linear-gradient(180deg,var(--surface2),var(--surface));border:1px solid var(--border2);
+    border-radius:12px;padding:14px 16px;margin:18px 0;color:var(--muted);font-size:13.5px}
+  .callout .i{flex:0 0 auto;font-size:18px;line-height:1.3}
+  .callout b{color:var(--text)}
+
+  code.k{font-family:var(--mono);font-size:.92em;color:var(--tenant);background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:1px 5px}
+
+  footer{max-width:var(--maxw);margin:0 auto;padding:30px 22px 70px;color:var(--faint);font-size:12.5px;border-top:1px solid var(--border)}
+  footer code{font-family:var(--mono);color:var(--muted)}
+
+  @media (max-width:720px){
+    nav.toc{display:none}
+    .layer{grid-template-columns:1fr;gap:8px}
+    .layer{border-left-width:4px}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand"><span class="dot"></span>Actionow&nbsp;Core <small>· 架构图谱</small></div>
+    <nav class="toc" id="toc">
+      <a href="#context">上下文</a>
+      <a href="#arch">分层</a>
+      <a href="#modules">模块</a>
+      <a href="#guards">守卫</a>
+      <a href="#data">数据模型</a>
+      <a href="#flow">中继流</a>
+      <a href="#routing">路由弹性</a>
+      <a href="#pricing">计价</a>
+      <a href="#ledger">钱包账本</a>
+      <a href="#governance">治理</a>
+      <a href="#tenancy">租户</a>
+      <a href="#scenarios">使用场景</a>
+      <a href="#payments">充值</a>
+      <a href="#caveats">注记</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- HERO -->
+  <div class="hero">
+    <h1>Actionow Core<br/>架构与场景图谱</h1>
+    <p class="lead">
+      一个<strong>内部部署</strong>的垂直 AI 中台 / 多租户 AI 网关 BaaS：把上游 LLM / 媒体调用统一中继、计量，
+      并以一份<strong>仅追加的账本</strong>同时完成「内部成本分摊」与「对外营收」。后端 NestJS 11 + Drizzle/PostgreSQL，
+      前端 React 19 + Vite 6，契约优先 SDK（<code class="k">@actionow/sdk</code>）。货币单位 <code class="k">µUSD</code>。
+    </p>
+    <div class="meta-row">
+      <span class="chip"><b>3</b> 身份层级 · 平台 / 租户 / 端用户</span>
+      <span class="chip"><b>5</b> 请求平面 · <code class="k">/admin /console /member /v1 /auth</code></span>
+      <span class="chip"><b>~50</b> 张表 · PostgreSQL</span>
+      <span class="chip"><b>4</b> 商业模式 · B2B2C / B2B / B2C / 内部分摊</span>
+    </div>
+
+    <div class="legend">
+      <span class="lg"><span class="sw" style="background:#2a1d40;border-color:#a78bfa"></span>平台 / 运营方 Platform</span>
+      <span class="lg"><span class="sw" style="background:#0f2f38;border-color:#22d3ee"></span>租户 / 应用 Tenant</span>
+      <span class="lg"><span class="sw" style="background:#3a2a12;border-color:#f59e0b"></span>端用户 Subject</span>
+      <span class="lg"><span class="sw" style="background:#0e2c22;border-color:#34d399"></span>中继引擎 Engine</span>
+      <span class="lg"><span class="sw" style="background:#3a1f12;border-color:#fb923c"></span>路由 / 弹性 Resilience</span>
+      <span class="lg"><span class="sw" style="background:#3a1424;border-color:#fb7185"></span>资金 / 账本 Money</span>
+      <span class="lg"><span class="sw" style="background:#14233f;border-color:#60a5fa"></span>数据存储 Data</span>
+    </div>
+  </div>
+
+  <!-- 1 · CONTEXT -->
+  <section id="context">
+    <div class="sec-head"><span class="sec-num">01</span><h2>系统上下文<span class="zh">谁在用，连到哪</span></h2></div>
+    <p class="sec-desc">
+      四类外部参与者经由各自的请求平面进入网关；网关向下游连接上游模型/媒体供应商、支付渠道，
+      以及三类存储（PostgreSQL、Redis、对象存储）。三个运营/成员 JWT 平面由<strong>同一把 <code class="k">ADMIN_JWT_SECRET</code></strong> 签发，靠 claims 区分。
+    </p>
+    <div class="figure"><div class="scroll"><pre class="mermaid">
+flowchart LR
+  classDef actor fill:#1f2533,stroke:#94a3b8,color:#e2e8f0;
+  classDef platform fill:#2a1d40,stroke:#a78bfa,color:#ede9fe;
+  classDef tenant fill:#0f2f38,stroke:#22d3ee,color:#cffafe;
+  classDef subject fill:#3a2a12,stroke:#f59e0b,color:#fef3c7;
+  classDef core fill:#0e2c22,stroke:#34d399,color:#d1fae5;
+  classDef data fill:#14233f,stroke:#60a5fa,color:#dbeafe;
+  classDef upstream fill:#1f2533,stroke:#94a3b8,color:#e2e8f0;
+
+  OP["Platform Operator"]:::actor
+  TA["Tenant Admin / Member"]:::actor
+  EU["End-User (Subject)"]:::actor
+  APP["Tenant app / API client"]:::actor
+
+  subgraph CORE["Actionow Core — NestJS gateway / 中台"]
+    direction TB
+    PA["/admin · 运营"]:::platform
+    PC["/console · 租户运营"]:::tenant
+    PM["/member · 端用户"]:::subject
+    PV["/v1 · 中继数据面"]:::core
+  end
+
+  OP --> PA
+  TA --> PC
+  EU --> PM
+  APP -->|"ak_* API key"| PV
+
+  PV --> UP["Upstream LLM / 媒体供应商"]:::upstream
+  PV --> PAY["支付渠道 Stripe · Alipay · WeChat · Crypto"]:::upstream
+  CORE --> PG[("PostgreSQL · ~50 表")]:::data
+  CORE --> RD[("Redis · RPM · 并发槽 · 熔断 FSM")]:::data
+  CORE --> S3[("S3 / R2 对象存储")]:::data
+    </pre></div><figcaption>图 1 · 系统上下文（C4 Level-1）</figcaption></div>
+  </section>
+
+  <!-- 2 · LAYERED ARCH -->
+  <section id="arch">
+    <div class="sec-head"><span class="sec-num">02</span><h2>分层架构<span class="zh">一个请求自上而下穿过的栈</span></h2></div>
+    <p class="sec-desc">从客户端表面到上游供应商共六层。守卫管线按平面分流；中继引擎是真正的「热路径」。</p>
+    <div class="stack">
+      <div class="layer" style="--c:var(--platform)">
+        <div class="lname"><small>Client surfaces</small>客户端表面</div>
+        <div class="lbody">React 19 SPA — <code>/console</code>（运营）· <code>/app</code>（租户）· <code>/portal</code>+<code>/member</code>（端用户）；外部 API 客户端经 SDK / 裸 HTTP 打到 <code>/v1</code></div>
+      </div>
+      <div class="layer" style="--c:var(--resil)">
+        <div class="lname"><small>API gateway / pipeline</small>守卫管线</div>
+        <div class="lbody">全局 <code>UnifiedErrorFilter</code> · <code>IdempotencyInterceptor</code> · <code>AuditInterceptor</code>；分平面守卫 <code>ApiKeyGuard→GovernanceGuard</code>（/v1）· <code>AdminGuard</code> · <code>ConsoleGuard→TenantAdminGuard</code> · <code>MemberGuard</code></div>
+      </div>
+      <div class="layer" style="--c:var(--tenant)">
+        <div class="lname"><small>Domain modules</small>领域模块</div>
+        <div class="lbody">Admin · Auth · Console · Member · Execution · Chat · MediaDialect · Payments · Files · Jobs · Callbacks · Audit</div>
+      </div>
+      <div class="layer" style="--c:var(--engine)">
+        <div class="lname"><small>Relay engine</small>中继引擎</div>
+        <div class="lbody"><code>ModelResolver</code> → <code>ChannelRouting</code>（分组候选 · group_ratio · 染色）→ <code>createChatSettlingStream</code>（故障转移 + 熔断 + 容错策略 + 持有/结算）→ adapters</div>
+      </div>
+      <div class="layer" style="--c:var(--data)">
+        <div class="lname"><small>Provider plugins / upstreams</small>供应商插件 / 上游</div>
+        <div class="lbody"><code>provider_plugin</code>（清单 + 沙箱 JS handler · protocol sync|async-poll · auth bearer|volcSignV4…）+ 按 providerType 的 adapters → 上游通道，经可选托管代理</div>
+      </div>
+      <div class="layer" style="--c:var(--money)">
+        <div class="lname"><small>Data stores</small>数据存储</div>
+        <div class="lbody">PostgreSQL（Drizzle · ~50 表）· Redis（RPM 窗口 · 并发槽 · 熔断 FSM）· S3/R2 对象存储（<code>file_object</code>）</div>
+      </div>
+    </div>
+    <div class="callout"><span class="i">🧩</span><div><b>全局 DI 单例</b>（由 <code class="k">DbModule</code> 提供）：<code class="k">DB · ENV · STORAGE · ADAPTERS · SecretResolver · PAYMENTS · RATE_LIMITER · CONCURRENCY_LIMITER</code></div></div>
+  </section>
+
+  <!-- 3 · MODULES -->
+  <section id="modules">
+    <div class="sec-head"><span class="sec-num">03</span><h2>后端模块地图<span class="zh">按领域分组</span></h2></div>
+    <p class="sec-desc">数据面（<code class="k">/v1</code> 引擎）向左依赖路由/弹性与目录供给，向下写入治理与记录；身份面把变更写进审计。</p>
+    <div class="figure"><div class="scroll"><pre class="mermaid">
+flowchart TB
+  classDef id fill:#2a1d40,stroke:#a78bfa,color:#ede9fe;
+  classDef cat fill:#14233f,stroke:#60a5fa,color:#dbeafe;
+  classDef route fill:#3a1f12,stroke:#fb923c,color:#ffedd5;
+  classDef gov fill:#0f2f38,stroke:#22d3ee,color:#cffafe;
+  classDef rec fill:#3a1424,stroke:#fb7185,color:#ffe4e6;
+  classDef eng fill:#0e2c22,stroke:#34d399,color:#d1fae5;
+  classDef x fill:#1f2533,stroke:#94a3b8,color:#e2e8f0;
+
+  subgraph IDM["身份 / RBAC / 认证"]
+    A1["AuthModule&lt;br/&gt;/auth"]:::id
+    A2["AdminModule&lt;br/&gt;/admin"]:::id
+    A3["ConsoleModule&lt;br/&gt;/console"]:::id
+    A4["MemberModule&lt;br/&gt;/member"]:::id
+  end
+  subgraph CAT["目录 / 供给"]
+    C1["Resources · Models · Channels"]:::cat
+    C2["Provider Plugins · Proxies · Secrets"]:::cat
+    C3["Official Prices · Icons"]:::cat
+  end
+  subgraph RR["路由与弹性（引擎服务）"]
+    R1["ChannelRoutingService&lt;br/&gt;route_group · 染色"]:::route
+    R2["Circuit Breaker&lt;br/&gt;channel_breaker FSM"]:::route
+    R3["Fault Policy&lt;br/&gt;retry · backoff · timeouts"]:::route
+  end
+  subgraph GOV["治理与额度"]
+    G1["GovernanceGuard"]:::gov
+    G2["limit_plan · limit_rule"]:::gov
+    G3["limit_usage · limit_alert"]:::gov
+  end
+  subgraph REC["记录 / 账本 / 支付"]
+    M1["AuditModule&lt;br/&gt;audit_log"]:::rec
+    M2["ledger_txn (SoT)"]:::rec
+    M3["usage_log · relay_trace"]:::rec
+    M4["PaymentsModule&lt;br/&gt;intents · webhooks"]:::rec
+  end
+  subgraph ENG["中继引擎（数据面 /v1）"]
+    E1["ChatModule&lt;br/&gt;OpenAI · Anthropic · Gemini"]:::eng
+    E2["MediaDialectModule&lt;br/&gt;images · audio"]:::eng
+    E3["ExecutionModule&lt;br/&gt;run · resources"]:::eng
+    E4["Jobs · Files · Callbacks"]:::eng
+  end
+  subgraph XC["横切关注点"]
+    X1["DbModule (DI 单例)"]:::x
+    X2["CommonModule&lt;br/&gt;UnifiedErrorFilter · Idempotency"]:::x
+  end
+
+  ENG --> RR --> CAT
+  ENG --> GOV
+  ENG --> REC
+  IDM --> REC
+    </pre></div><figcaption>图 3 · 模块依赖（领域分组）</figcaption></div>
+  </section>
+
+  <!-- 4 · GUARDS -->
+  <section id="guards">
+    <div class="sec-head"><span class="sec-num">04</span><h2>守卫与请求管线<span class="zh">每个平面的认证链</span></h2></div>
+    <p class="sec-desc">每个平面有独立的守卫链；webhook / callback 没有守卫——对原始报文的签名（HMAC / 供应商签名）<strong>即是</strong>认证。</p>
+    <div class="figure"><div class="scroll"><pre class="mermaid">
+flowchart TB
+  classDef plane fill:#18212f,stroke:#5b6b85,color:#e6edf3;
+  classDef guard fill:#3a1f12,stroke:#fb923c,color:#ffedd5;
+  classDef ok fill:#0e2c22,stroke:#34d399,color:#d1fae5;
+
+  subgraph V1["/v1 · 中继数据面"]
+    direction LR
+    v0["Request ak_*"]:::plane --> v1g["ApiKeyGuard"]:::guard --> v2g["GovernanceGuard"]:::guard --> vok["Controller → 引擎"]:::ok
+  end
+  subgraph ADM["/admin · 运营"]
+    direction LR
+    a0["Request"]:::plane --> a1["AdminGuard&lt;br/&gt;JWT 或 at_* token"]:::guard --> aok["AdminController"]:::ok
+  end
+  subgraph CON["/console · 租户运营"]
+    direction LR
+    c0["Request"]:::plane --> c1["ConsoleGuard&lt;br/&gt;tenant_role 取自 DB"]:::guard --> c2["TenantAdminGuard&lt;br/&gt;(仅敏感) 否则 403"]:::guard --> cok["ConsoleController"]:::ok
+  end
+  subgraph MEM["/member · 端用户"]
+    direction LR
+    m0["Request"]:::plane --> m1["MemberGuard&lt;br/&gt;typ:subject"]:::guard --> mok["MemberController"]:::ok
+  end
+  subgraph WH["webhooks / callbacks"]
+    direction LR
+    w0["Request"]:::plane --> w1["HMAC / 供应商签名&lt;br/&gt;over raw body"]:::guard --> wok["Handler"]:::ok
+  end
+    </pre></div><figcaption>图 4 · 五条守卫链</figcaption></div>
+
+    <table class="tbl">
+      <thead><tr><th>守卫</th><th>保护</th><th>规则要点</th></tr></thead>
+      <tbody>
+        <tr><td><code>AdminGuard</code></td><td><code>/admin/*</code></td><td>登录 JWT 验 <code>ADMIN_JWT_SECRET</code>，或 <code>at_*</code> 服务令牌验 <code>admin_token</code>；拒 <code>typ:subject</code>；<code>@Roles</code> 强制</td></tr>
+        <tr><td><code>ConsoleGuard</code></td><td><code>/console/*</code></td><td>USER JWT；<code>status=active</code> 且 <code>tenant_id</code> 非空；<strong><code>tenant_role</code> 从 DB 解析（非 JWT）</strong></td></tr>
+        <tr><td><code>TenantAdminGuard</code></td><td>敏感 <code>/console/*</code></td><td>接在 ConsoleGuard 之后；<code>tenantRole==='admin'</code> 否则 <strong>403</strong></td></tr>
+        <tr><td><code>MemberGuard</code></td><td><code>/member/*</code></td><td>MEMBER JWT <code>typ:subject</code>；锁定 <code>claims.tenant_id</code>（跨租户隔离）；subject 须 active</td></tr>
+        <tr><td><code>ApiKeyGuard</code></td><td><code>/v1/*</code></td><td>sha256 查 <code>ak_*</code>；subject-active 校验；<code>resourceAllowlist</code>；dev 下可 <code>x-tenant-id</code> 兜底</td></tr>
+        <tr><td><code>GovernanceGuard</code></td><td><code>/v1/*</code></td><td>接在 ApiKeyGuard 后；RPM + limit_plan（key ∪ tenant ∪ subject）→ 429 / 402</td></tr>
+        <tr><td><em>（无守卫）</em></td><td><code>/v1/callbacks/:provider</code> · <code>/v1/payments/webhooks/:provider</code></td><td>对原始报文的 HMAC / 供应商签名即认证</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 5 · DATA MODEL -->
+  <section id="data">
+    <div class="sec-head"><span class="sec-num">05</span><h2>数据模型<span class="zh">核心实体与关系</span></h2></div>
+    <p class="sec-desc">
+      货币一律为整数 <code class="k">µUSD</code>（<code class="k">bigint</code>；1 credit = $1 = 1,000,000 µUSD），线上以十进制字符串传输，统一<strong>四舍五入（round-half-up）</strong>。
+      <code class="k">subject_id</code> 在多数记录表上为 <code class="k">ON DELETE SET NULL</code>——记录在端用户删除后存续，账本仍是归因的唯一真相源。
+    </p>
+    <div class="figure"><div class="scroll"><pre class="mermaid">
+erDiagram
+  TENANT ||--|| ACCOUNT : owns
+  TENANT ||--o{ USER : has
+  TENANT ||--o{ SUBJECT : has
+  TENANT ||--o{ API_KEY : issues
+  TENANT ||--o{ ROUTE_GROUP : defines
+  TENANT ||--o{ LIMIT_PLAN : owns
+  TENANT ||--o{ JOB : scopes
+  TENANT ||--o{ LEDGER_TXN : books
+  TENANT ||--o{ USAGE_LOG : logs
+  TENANT ||--o{ AUDIT_LOG : records
+  TENANT ||--o{ PAYMENT_INTENT : initiates
+  SUBJECT ||--o| SUB_ACCOUNT : owns
+  SUBJECT ||--o{ API_KEY : "scoped to"
+  SUBJECT ||--o{ JOB : attributes
+  ACCOUNT ||--o{ LEDGER_TXN : "ledgered in"
+  RESOURCE ||--o{ UPSTREAM_CHANNEL : "served by"
+  RESOURCE ||--o{ MODEL : exposes
+  MODEL ||--o{ CHANNEL_MODEL : maps
+  UPSTREAM_CHANNEL ||--o{ CHANNEL_MODEL : maps
+  MODEL ||--o{ MODEL_GRANT : "granted via"
+  TENANT ||--o{ MODEL_GRANT : receives
+  ROUTE_GROUP ||--o{ ROUTE_GROUP_CHANNEL : groups
+  UPSTREAM_CHANNEL ||--o{ ROUTE_GROUP_CHANNEL : "member of"
+  ROUTE_GROUP ||--o{ API_KEY : binds
+  FAULT_POLICY ||--o{ UPSTREAM_CHANNEL : tunes
+  PROVIDER_PLUGIN ||--o{ UPSTREAM_CHANNEL : powers
+  UPSTREAM_CHANNEL ||--o{ CHANNEL_BREAKER : "FSM per model"
+  LIMIT_PLAN ||--o{ LIMIT_RULE : bundles
+  LIMIT_PLAN ||--o{ API_KEY : caps
+  LIMIT_PLAN ||--o{ ACCOUNT : caps
+  LIMIT_PLAN ||--o{ SUBJECT : caps
+  JOB ||--o{ LEDGER_TXN : settles
+  JOB ||--o{ RELAY_TRACE : traces
+  PAYMENT_INTENT ||--o{ PAYMENT_EVENT : "confirmed by"
+
+  TENANT {
+    uuid id PK
+    text name
+    text isolation_mode
+    jsonb config
+  }
+  SUBJECT {
+    uuid id PK
+    uuid tenant_id FK
+    text external_id
+    text email
+    uuid limit_plan_id FK
+  }
+  ACCOUNT {
+    uuid id PK
+    uuid tenant_id FK
+    bigint credit_balance
+    bigint credit_held
+  }
+  SUB_ACCOUNT {
+    uuid id PK
+    uuid subject_id FK
+    bigint credit_balance
+    bigint credit_held
+    text status
+  }
+  API_KEY {
+    uuid id PK
+    uuid tenant_id FK
+    uuid subject_id FK
+    uuid route_group_id FK
+    uuid limit_plan_id FK
+    text hash
+  }
+  UPSTREAM_CHANNEL {
+    uuid id PK
+    text resource_id FK
+    text provider_type
+    bigint input_cost_per_1m
+    bigint output_cost_per_1m
+    uuid fault_policy_id FK
+  }
+  MODEL {
+    uuid id PK
+    text name
+    text resource_id FK
+    bigint input_price
+    bigint output_price
+    text visibility
+  }
+  ROUTE_GROUP {
+    uuid id PK
+    text name
+    int group_ratio_bps
+    uuid fallback_group_id FK
+  }
+  LIMIT_RULE {
+    uuid id PK
+    uuid plan_id FK
+    text dimension
+    text period
+    bigint cap
+  }
+  JOB {
+    uuid id PK
+    uuid tenant_id FK
+    uuid subject_id FK
+    text status
+    bigint cost_credits
+  }
+  LEDGER_TXN {
+    uuid id PK
+    uuid account_id FK
+    uuid subject_id FK
+    text type
+    bigint credits_delta
+    bigint balance_after
+  }
+    </pre></div><figcaption>图 5 · 核心 ER（约 25 张表；省略部分属性）</figcaption></div>
+
+    <div class="grid two">
+      <div class="card">
+        <h4>💳 资金与钱包</h4>
+        <p><code class="k">account</code>（租户钱包，1:1）持 <code class="k">credit_balance</code> / <code class="k">credit_held</code>；可选 <code class="k">sub_account</code>（端用户 HARD 钱包）覆盖租户池，缺省则共享（SHARED）。原子条件更新 <code class="k">balance − held ≥ amount</code> 防超卖；每 job 仅一条结算（partial-unique index）。</p>
+      </div>
+      <div class="card">
+        <h4>🧾 记录三件套</h4>
+        <p><span class="tag">ledger_txn</span> 资金真相源（仅追加，不可变）· <span class="tag">usage_log</span> 每次调用一行（best-effort 镜像）· <span class="tag">relay_trace</span> 上游报文留痕（无 FK，密钥脱敏）· <span class="tag">audit_log</span> 变更轨迹（actor/action/target）。</p>
+      </div>
+      <div class="card">
+        <h4>🗂️ 目录与路由</h4>
+        <p><code class="k">resource</code>（slug 主键）→ <code class="k">model</code> / <code class="k">upstream_channel</code>（多对多经 <code class="k">channel_model</code>）。<code class="k">route_group</code> 携 <code class="k">group_ratio_bps</code> 与自引用 <code class="k">fallback_group_id</code>；成员经 <code class="k">route_group_channel</code>（priority / weight）。</p>
+      </div>
+      <div class="card">
+        <h4>🛡️ 治理</h4>
+        <p><code class="k">limit_plan</code>（<code class="k">tenant_id</code> 为空 = 平台级）打包 <code class="k">limit_rule</code>（维度 × 周期），绑定到 key / account / subject；<code class="k">limit_usage</code> 累加器 + <code class="k">limit_alert</code> 阈值告警（同维度仅触发一次）。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 · RELAY FLOW -->
+  <section id="flow">
+    <div class="sec-head"><span class="sec-num">06</span><h2>中继请求数据流<span class="zh">一次 LLM 调用的全过程</span></h2></div>
+    <p class="sec-desc">
+      认证 → 治理预检 → 模型/通道解析 → 持有额度 → 故障转移结算流 → 结算一次 → 镜像观测。
+      结算在 <code class="k">finally</code> 中<strong>幂等地只发生一次</strong>；流式持有为「慷慨上限」，结算永不超过持有额度。
+    </p>
+    <div class="figure"><div class="scroll"><pre class="mermaid">
+sequenceDiagram
+  autonumber
+  participant C as Client app
+  participant AK as ApiKeyGuard
+  participant GV as GovernanceGuard
+  participant RS as ChatRelayService
+  participant RT as ChannelRouting
+  participant BR as Breaker (Redis)
+  participant EX as SettlingStream
+  participant AD as Adapter
+  participant UP as Upstream
+  participant DB as Wallet + Ledger (PG)
+
+  C->>AK: POST /v1/messages (ak_*, IR, route-tag, idem-key)
+  AK->>AK: sha256 lookup, resolve tenant / subject / account
+  alt 无效 key / subject 失活
+    AK-->>C: 401
+  end
+  AK->>GV: ApiKeyContext
+  GV->>GV: RPM + 并发 (Redis) + limit_plan (key ∪ tenant ∪ subject)
+  alt 超额度
+    GV-->>C: 429 (rpm/并发) / 402 (spend/tokens/requests)
+  end
+  GV->>RS: TenantContext
+  RS->>RS: 解析 model→resource, 归一化 IR
+  RS->>RT: candidatesFor(resource, group, model, tag)
+  RT-->>RS: 有序 RunChannel[] + group_ratio_bps
+  RS->>DB: holdCredits (HARD 则 sub_account, 否则租户池)
+  alt 余额不足
+    DB-->>C: 402 insufficient_credits
+  end
+  RS->>EX: createChatSettlingStream
+  loop 跨通道 / 跨 fallback 组 故障转移
+    EX->>BR: availableChannels (排除 Open, 半开试探)
+    EX->>AD: streamChat (容错策略超时)
+    AD->>UP: HTTP (代理, 签名)
+    alt 首事件成功
+      UP-->>AD: 流
+      EX->>BR: 记成功
+    else 可重试错误
+      EX->>BR: 记失败 (冷却) → 下一通道
+    end
+  end
+  EX-->>C: SSE 增量 (按方言渲染)
+  EX->>DB: 结算一次 — 扣最终费, 追加 ledger_txn settle
+  EX->>DB: usage_log + relay_trace (best-effort)
+  EX-->>C: done {jobId, usage, cost.credits}
+    </pre></div><figcaption>图 6 · 中继请求时序（流式路径）</figcaption></div>
+    <div class="callout"><span class="i">⚠️</span><div><b>模型降级链（模型降级）</b>仅限中继、<b>仅阻塞式</b>、<b>仅可重试错误</b>；每次尝试用独立幂等键 <code class="k">${orig}:fb${i}</code>。流式无模型降级——一旦中途提交即不可换模型。</div></div>
+  </section>
+
+  <!-- 7 · ROUTING & RESILIENCE -->
+  <section id="routing">
+    <div class="sec-head"><span class="sec-num">07</span><h2>路由与弹性<span class="zh">通道怎么选、坏了怎么办</span></h2></div>
+    <p class="sec-desc">三层防御：同通道容错策略重试 → 熔断感知的跨通道/跨组故障转移 → 每(通道,模型) 熔断 FSM。<strong>失败开放（fail-open）</strong>：熔断器自身故障绝不阻断请求。</p>
+
+    <h3 class="sub">通道选择与故障转移</h3>
+    <div class="figure"><div class="scroll"><pre class="mermaid">
+flowchart TB
+  classDef route fill:#3a1f12,stroke:#fb923c,color:#ffedd5;
+  classDef step fill:#18212f,stroke:#5b6b85,color:#e6edf3;
+  classDef bad fill:#3a1424,stroke:#fb7185,color:#ffe4e6;
+  classDef ok fill:#0e2c22,stroke:#34d399,color:#d1fae5;
+
+  S0["解析 group = key.route_group ?? default"]:::step
+  S1["候选 = 组成员 + fallback 组链 (降级到更低层)"]:::route
+  S2{"为空?"}:::step
+  S2b["回退到全部活跃通道 (priority 0)"]:::step
+  S3["按 route-tag 过滤 (X-Actionow-Route-Tag)"]:::route
+  S3b["无匹配 → 400 (硬失败, 不泄漏)"]:::bad
+  S4["优先 model-linked 通道 (channel_model)"]:::step
+  S5["熔断过滤: 排除 Open, 半开试探"]:::route
+  S6["按 priority 分层, 层内按 weight 加权"]:::step
+  S7["经容错策略调用通道 (retry/backoff/超时)"]:::route
+  S8{"结果?"}:::step
+  S9["提交 + 结算"]:::ok
+  S10["可重试 → 冷却熔断 → 下一通道/层/fallback 组"]:::route
+  S11["不可重试 → 抛出错误"]:::bad
+
+  S0 --> S1 --> S2
+  S2 -->|是| S2b --> S3
+  S2 -->|否| S3
+  S3 -->|无匹配| S3b
+  S3 --> S4 --> S5 --> S6 --> S7 --> S8
+  S8 -->|成功| S9
+  S8 -->|可重试| S10 --> S7
+  S8 -->|不可重试| S11
+    </pre></div><figcaption>图 7 · 通道路由 + 故障转移决策</figcaption></div>
+
+    <h3 class="sub">熔断状态机（弹性2.0 · 每「通道 × 模型」）</h3>
+    <div class="figure"><div class="scroll"><pre class="mermaid">
+stateDiagram-v2
+  direction LR
+  [*] --> Closed
+  Closed --> Open: volume&gt;=20 且 失败率&gt;=50%
+  Open --> HalfOpen: 冷却到期 (指数退避)
+  HalfOpen --> Closed: 连续 2 次成功
+  HalfOpen --> Open: 任一失败 (冷却 x2)
+  Closed --> Closed: 成功 / 未达阈值
+    </pre></div><figcaption>图 8 · 熔断器 FSM（Redis 存储，fire-and-forget）</figcaption></div>
+
+    <div class="grid two">
+      <div class="card"><h4>🔁 容错策略 fault_policy</h4><p><code class="k">fastFail</code> · <code class="k">retryCount</code> · <code class="k">backoffType</code>（fixed|exponential，<code class="k">×2^(n-1)</code> 上限 60s）· 每尝试 connect/TTFT/total/idle 超时（经 <code class="k">wrapHttpWithTimeouts</code>）· <code class="k">retryCodes</code>/<code class="k">retryMessages</code> 触发器。</p></div>
+      <div class="card"><h4>🏷️ 路由染色 / 标签路由</h4><p><code class="k">X-Actionow-Route-Tag</code> 仅<strong>收窄</strong>候选集（绝不放宽）；无匹配硬 <strong>400</strong>，杜绝静默泄漏到未打标通道。标签记入 <code class="k">relay_trace</code> 与 <code class="k">usage_log</code> 供金丝雀聚合。</p></div>
+    </div>
+  </section>
+
+  <!-- 8 · PRICING -->
+  <section id="pricing">
+    <div class="sec-head"><span class="sec-num">08</span><h2>计价管线<span class="zh">客户该付多少、平台赚多少</span></h2></div>
+    <p class="sec-desc">客户收费与供应商成本<strong>各算各的</strong>：margin 仅作分析（记入 <code class="k">usage_log.provider_cost</code>），永不影响客户收费。group_ratio 与 /1M 除法做<strong>单次取整折叠</strong>，避免复利误差。</p>
+    <div class="figure"><div class="scroll"><pre class="mermaid">
+flowchart LR
+  classDef money fill:#3a1424,stroke:#fb7185,color:#ffe4e6;
+  classDef step fill:#18212f,stroke:#5b6b85,color:#e6edf3;
+
+  OFF["official_model_price&lt;br/&gt;运营成本基准 µUSD/1M"]:::step
+  BASE["model_token 基价&lt;br/&gt;(in·inPrice + out·outPrice) / 1e6"]:::step
+  GR["× group_ratio_bps&lt;br/&gt;(10000 = 1.0×) 按 route_group 分层"]:::step
+  MOD["× modifiers&lt;br/&gt;add · mul · cap · floor"]:::step
+  FIN["客户收费 µUSD&lt;br/&gt;round-half-up"]:::money
+  PC["provider_cost&lt;br/&gt;(in·inCostPer1m + out·outCostPer1m) / 1e6"]:::step
+  MARG["margin = 收费 − provider_cost&lt;br/&gt;(usage_log.provider_cost)"]:::money
+
+  OFF --> BASE --> GR --> MOD --> FIN
+  PC --> MARG
+  FIN --> MARG
+    </pre></div><figcaption>图 9 · 计价管线与毛利</figcaption></div>
+  </section>
+
+  <!-- 9 · WALLET & LEDGER -->
+  <section id="ledger">
+    <div class="sec-head"><span class="sec-num">09</span><h2>钱包与账本<span class="zh">资金如何流动与记账</span></h2></div>
+    <p class="sec-desc">
+      <code class="k">ledger_txn</code> 是唯一真相源（仅追加、不可变）；<code class="k">balance_after</code> 在同一事务里经 <code class="k">UPDATE…RETURNING</code> 读出。
+      <strong>同一张表</strong>承载内部成本分摊（<code class="k">subject_id=null</code>，租户级）与对外营收（<code class="k">subject_id=uuid</code>，端用户级）。
+    </p>
+    <div class="figure"><div class="scroll"><pre class="mermaid">
+flowchart TB
+  classDef money fill:#3a1424,stroke:#fb7185,color:#ffe4e6;
+  classDef step fill:#18212f,stroke:#5b6b85,color:#e6edf3;
+  classDef ok fill:#0e2c22,stroke:#34d399,color:#d1fae5;
+
+  TOP["topup (payment_event / gift_code / redemption_code 卡密)"]:::step --> ACC{{"account.credit_balance"}}:::money
+  ACC --> SUB{{"sub_account (HARD) — 可选, 按 subject"}}:::money
+  REQ["中继请求"]:::step --> HOLD["hold: credit_held += 报价&lt;br/&gt;(原子: balance − held ≥ amount)"]:::step
+  HOLD --> RUN["调用上游"]:::step
+  RUN -->|成功| SET["settle: 扣最终费, 释放持有&lt;br/&gt;追加 ledger_txn settle"]:::ok
+  RUN -->|失败| REL["释放持有, 不扣费&lt;br/&gt;追加 ledger_txn"]:::step
+  SET --> UL["usage_log 镜像 (best-effort)"]:::step
+    </pre></div><figcaption>图 10 · 钱包持有/结算与账本（µUSD）</figcaption></div>
+    <div class="callout"><span class="i">💡</span><div><b>账本类型（schema 确认）</b>：<code class="k">topup · giftcode · hold · settle · refund</code>。运营叙事中提到的 <code class="k">chargeback / transfer</code> 目前仍属<b>构想</b>（见 §14 注记），以 schema 为准。</div></div>
+  </section>
+
+  <!-- 10 · GOVERNANCE -->
+  <section id="governance">
+    <div class="sec-head"><span class="sec-num">10</span><h2>治理与额度<span class="zh">多维多周期的限额</span></h2></div>
+    <p class="sec-desc">多态限额系统作用于三类主体（key / tenant / subject）：有效规则 = 三者并集。日历/总额周期物化在 <code class="k">limit_usage</code>，滚动窗口按需计算并短缓存，rpm/并发走 Redis。<strong>未绑定计划 = 无限</strong>（向后兼容）。</p>
+    <div class="figure"><div class="scroll"><pre class="mermaid">
+flowchart TB
+  classDef gov fill:#0f2f38,stroke:#22d3ee,color:#cffafe;
+  classDef step fill:#18212f,stroke:#5b6b85,color:#e6edf3;
+  classDef bad fill:#3a1424,stroke:#fb7185,color:#ffe4e6;
+
+  LP["limit_plan (可复用; tenant_id 空 = 平台级)"]:::gov
+  LR["limit_rule: 维度 × 周期"]:::gov
+  DIM["维度: spend · requests · tokens · rpm · concurrency"]:::step
+  PER["周期: day · month · rolling_24h · rolling_30d · total · minute"]:::step
+  BIND["绑定: api_key ∪ tenant account ∪ subject"]:::step
+  ENF["GovernanceGuard 预检"]:::gov
+  E429["429 rpm / 并发"]:::bad
+  E402["402 requests / spend / tokens"]:::bad
+  ACCN["limit_usage 累加 + limit_alert (触发一次)"]:::step
+
+  LP --> LR
+  LR --> DIM
+  LR --> PER
+  LP --> BIND --> ENF
+  ENF --> E429
+  ENF --> E402
+  ENF --> ACCN
+    </pre></div><figcaption>图 11 · 治理/额度模型</figcaption></div>
+  </section>
+
+  <!-- 11 · TENANCY -->
+  <section id="tenancy">
+    <div class="sec-head"><span class="sec-num">11</span><h2>身份与租户层级<span class="zh">平台 → 租户 → 端用户</span></h2></div>
+    <p class="sec-desc">三层既是<strong>供应</strong>层级，也是<strong>归因</strong>与<strong>治理</strong>维度。钱包/密钥/限额一路下沉到每个端用户：平台拥有 Model-A，应用拥有 Model-B。</p>
+    <div class="figure"><div class="scroll"><pre class="mermaid">
+flowchart TB
+  classDef platform fill:#2a1d40,stroke:#a78bfa,color:#ede9fe;
+  classDef tenant fill:#0f2f38,stroke:#22d3ee,color:#cffafe;
+  classDef subject fill:#3a2a12,stroke:#f59e0b,color:#fef3c7;
+  classDef money fill:#3a1424,stroke:#fb7185,color:#ffe4e6;
+
+  P["Platform / Operator&lt;br/&gt;user.role=admin · admin_token at_*"]:::platform
+  T1["Tenant (应用)"]:::tenant
+  U["users (tenant_role admin|member)"]:::tenant
+  ACC{{"account 钱包"}}:::money
+  RG["route_groups · limit_plans"]:::tenant
+  AK["api_keys ak_* (租户级)"]:::tenant
+  S["subjects (端用户)"]:::subject
+  SW{{"sub_account 钱包 (可选)"}}:::money
+  SK["subject 级 api_keys ak_*"]:::subject
+
+  P --> T1
+  T1 --> U
+  T1 --> ACC
+  T1 --> RG
+  T1 --> AK
+  T1 --> S
+  S --> SW
+  S --> SK
+    </pre></div><figcaption>图 12 · 租户/身份层级树</figcaption></div>
+
+    <table class="tbl">
+      <thead><tr><th>角色</th><th>范围</th><th>能做什么</th></tr></thead>
+      <tbody>
+        <tr><td><b>system-admin</b></td><td><code>/admin</code> 平台级 / <code>at_*</code></td><td>租户生命周期、管理员与令牌、账户、租户充值、全部审计、平台限额计划、官方定价</td></tr>
+        <tr><td><b>tenant-admin</b></td><td>单租户（Console+TenantAdmin）</td><td>建/转/删密钥、管理 subjects 与子钱包及充值/划转、租户限额计划、邀请/移除成员、计费治理</td></tr>
+        <tr><td><b>tenant-member</b></td><td>单租户，只读（Console）</td><td>只读 keys/subjects/usage/balance/payments/plans</td></tr>
+        <tr><td><b>subject 端用户</b></td><td>自助，锁定 (tenant,subject)（Member）</td><td>只读 me/usage/balance/api-keys（掩码 last4）/limits</td></tr>
+      </tbody>
+    </table>
+
+    <h3 class="sub">前端三平面</h3>
+    <div class="grid two">
+      <div class="card scn" style="--c:var(--platform)"><div class="who">/console · 运营控制台</div><p>overview · status · breakers(熔断) · relay-traces · audit-log(审计日志) · models · catalog(模型接入 3-pane) · platforms(平台与定价) · proxies · dify · oauth-sessions · groups(路由分组) · limit-plans(额度套餐) · fault-policies · official-prices(官方定价) · modifiers · tenants · api-keys · tokens · redemption-codes</p></div>
+      <div class="card scn" style="--c:var(--tenant)"><div class="who">/app · 租户控制台（按角色门控）</div><p>overview · usage · media · models · keys · billing · <b>subjects(端用户, 仅管理员)</b> · <b>plans(额度套餐, 仅管理员)</b> · <b>members(成员管理, RBAC)</b> · settings</p></div>
+      <div class="card scn" style="--c:var(--subject)"><div class="who">/portal + /member · 端用户自助</div><p>MemberPortal（余额 · 用量 · 身份 · 凭据 — Model-A）；MemberAuthPage（email + password + tenant_id — Model-B / G-F）</p></div>
+    </div>
+  </section>
+
+  <!-- 12 · SCENARIOS -->
+  <section id="scenarios">
+    <div class="sec-head"><span class="sec-num">12</span><h2>使用场景<span class="zh">B2B2C · B2B · B2C · 内部分摊</span></h2></div>
+    <p class="sec-desc">同一套引擎与账本，按「端用户钱包是否启用」与「<code class="k">subject_id</code> 是否归因」组合出四种商业模式。下方每图标注<strong>资金路径</strong>。</p>
+
+    <!-- B2B2C -->
+    <h3 class="sub">① B2B2C · 内部平台 + 对外 AIGC 产品</h3>
+    <div class="grid two" style="grid-template-columns:1.3fr .9fr;align-items:start">
+      <div class="figure"><div class="scroll"><pre class="mermaid">
+flowchart LR
+  classDef platform fill:#2a1d40,stroke:#a78bfa,color:#ede9fe;
+  classDef tenant fill:#0f2f38,stroke:#22d3ee,color:#cffafe;
+  classDef subject fill:#3a2a12,stroke:#f59e0b,color:#fef3c7;
+  classDef core fill:#0e2c22,stroke:#34d399,color:#d1fae5;
+  classDef money fill:#3a1424,stroke:#fb7185,color:#ffe4e6;
+  classDef upstream fill:#1f2533,stroke:#94a3b8,color:#e2e8f0;
+
+  EU["End-User (subject)"]:::subject
+  TA["Team A 产品 = Tenant"]:::tenant
+  CORE["Actionow Core 中继"]:::core
+  W{{"subject sub_account (HARD)&lt;br/&gt;或 租户池 (SHARED)"}}:::money
+  L[("ledger_txn settle(subject_id)")]:::money
+  UP["Upstream LLM"]:::upstream
+  OP["Operator (平台)"]:::platform
+
+  EU -->|"① 付零售价 $X"| TA
+  TA -->|"② /v1 调用 (ak_*)"| CORE
+  CORE -->|"③ hold + settle µUSD"| W
+  CORE -->|"④ 中继"| UP
+  CORE -->|"⑤ 记账"| L
+  TA -.->|"⑥ topup 批发价 $Y"| CORE
+  OP -.->|"承担上游成本"| UP
+      </pre></div><figcaption>图 13 · B2B2C 资金与调用</figcaption></div>
+      <div class="card scn" style="--c:var(--subject)">
+        <div class="who">运营方 · Team A(租户) · 端用户(subject)</div>
+        <p>公司内部署 Actionow，Team A 以预付 µUSD 账户成为租户；其端用户注册即建 <code class="k">subject</code>（可选 HARD 子钱包，否则共享租户池）。产品调 <code class="k">/v1/chat/completions</code>；引擎从子钱包或租户池 hold/settle，<code class="k">usage_log</code> + <code class="k">ledger settle(subject_id)</code> 逐端用户归因。</p>
+        <p class="mp">资金路径：端用户 → Team A（零售）；Team A → 运营方 topup（批发）。毛利 = X − Y；按 subject 限额防失控。</p>
+      </div>
+    </div>
+
+    <!-- B2B -->
+    <h3 class="sub">② B2B · 租户向合作方批售席位/能力</h3>
+    <div class="grid two" style="grid-template-columns:1.3fr .9fr;align-items:start">
+      <div class="figure"><div class="scroll"><pre class="mermaid">
+flowchart LR
+  classDef tenant fill:#0f2f38,stroke:#22d3ee,color:#cffafe;
+  classDef subject fill:#3a2a12,stroke:#f59e0b,color:#fef3c7;
+  classDef core fill:#0e2c22,stroke:#34d399,color:#d1fae5;
+  classDef money fill:#3a1424,stroke:#fb7185,color:#ffe4e6;
+  classDef upstream fill:#1f2533,stroke:#94a3b8,color:#e2e8f0;
+
+  PC["Partner Co (批量席位)"]:::subject
+  TB["Tenant B (代理商)"]:::tenant
+  CORE["Actionow Core 中继"]:::core
+  ACC{{"Tenant B account (共享池)"}}:::money
+  L[("ledger settle(subject_id = null)")]:::money
+  UP["Upstream LLM"]:::upstream
+
+  PC -->|"① 月度席位费 (合约外)"| TB
+  PC -->|"② 租户级 ak_* 调用"| CORE
+  CORE -->|"③ hold/settle"| ACC
+  CORE -->|"④ 中继"| UP
+  CORE -->|"⑤ 租户级记账"| L
+  TB -.->|"⑥ topup 按 token 成本"| CORE
+      </pre></div><figcaption>图 14 · B2B（无端用户拆分）</figcaption></div>
+      <div class="card scn" style="--c:var(--tenant)">
+        <div class="who">运营方 · Tenant B(代理) · Partner Co(买方)</div>
+        <p>Partner Co 拿到<strong>租户级</strong> <code class="k">ak_*</code>（无 subject 绑定）；key 级 <code class="k">limit_plan</code> 卡 rpm/日/总额；所有调用共享 Tenant B 账户，<code class="k">ledger settle(subject_id=null)</code> 仅租户级归因。月底凭 <code class="k">usage_log</code> 开票。</p>
+        <p class="mp">资金路径：Partner Co → Tenant B（月度席位费）；Tenant B → 运营方 topup（按 token）。超限即 402/429。</p>
+      </div>
+    </div>
+
+    <!-- B2C -->
+    <h3 class="sub">③ B2C · 单一产品直面消费者</h3>
+    <div class="grid two" style="grid-template-columns:1.3fr .9fr;align-items:start">
+      <div class="figure"><div class="scroll"><pre class="mermaid">
+flowchart LR
+  classDef tenant fill:#0f2f38,stroke:#22d3ee,color:#cffafe;
+  classDef subject fill:#3a2a12,stroke:#f59e0b,color:#fef3c7;
+  classDef core fill:#0e2c22,stroke:#34d399,color:#d1fae5;
+  classDef money fill:#3a1424,stroke:#fb7185,color:#ffe4e6;
+  classDef upstream fill:#1f2533,stroke:#94a3b8,color:#e2e8f0;
+
+  CON["Consumer (subject, 自有钱包)"]:::subject
+  TC["Tenant C (消费级应用)"]:::tenant
+  PAY["Stripe / Alipay / WeChat"]:::upstream
+  CORE["Actionow Core 中继"]:::core
+  SW{{"subject sub_account (HARD)"}}:::money
+  UP["Upstream LLM"]:::upstream
+
+  CON -->|"① 预付 (信用卡)"| PAY
+  PAY -->|"② webhook payment_event"| CORE
+  CORE -->|"③ 充值"| SW
+  CON -->|"④ 使用 App → /v1"| TC --> CORE
+  CORE -->|"⑤ 从子钱包 hold/settle"| SW
+  CORE -->|"⑥ 中继"| UP
+      </pre></div><figcaption>图 15 · B2C（每用户独立钱包）</figcaption></div>
+      <div class="card scn" style="--c:var(--subject)">
+        <div class="who">运营方 · Tenant C(应用) · 消费者(subject)</div>
+        <p>消费者注册（Model-A 本地 email/密码；或 Model-B 经 <code class="k">external_id</code> JIT 建号）。首次调用解析/即时创建 <code class="k">subject</code>；HARD 子钱包被扣。消费者经 <code class="k">payment_intent</code> 预付 → webhook 充值子钱包；余额不足报 <code class="k">insufficient_credits</code>。</p>
+        <p class="mp">资金路径：消费者 → Tenant C（刷卡）→ subject 子钱包；引擎从子钱包结算；运营成本由 Tenant C topup 覆盖。可按 subject 设花费上限。</p>
+      </div>
+    </div>
+
+    <!-- Internal chargeback -->
+    <h3 class="sub">④ 内部分摊 · 多团队共享预算</h3>
+    <div class="grid two" style="grid-template-columns:1.3fr .9fr;align-items:start">
+      <div class="figure"><div class="scroll"><pre class="mermaid">
+flowchart TB
+  classDef platform fill:#2a1d40,stroke:#a78bfa,color:#ede9fe;
+  classDef tenant fill:#0f2f38,stroke:#22d3ee,color:#cffafe;
+  classDef core fill:#0e2c22,stroke:#34d399,color:#d1fae5;
+  classDef money fill:#3a1424,stroke:#fb7185,color:#ffe4e6;
+  classDef upstream fill:#1f2533,stroke:#94a3b8,color:#e2e8f0;
+
+  OP["Operator (成本分摊者)"]:::platform
+  subgraph TEAMS["内部团队 = 租户"]
+    D1["Tenant D1&lt;br/&gt;$10k/月 额度"]:::tenant
+    D2["Tenant D2"]:::tenant
+    D3["Tenant D3"]:::tenant
+  end
+  CORE["Actionow Core 中继"]:::core
+  L[("ledger_txn settle 按租户")]:::money
+  UP["Upstream LLM"]:::upstream
+
+  OP -->|"注资共享池"| TEAMS
+  D1 --> CORE
+  D2 --> CORE
+  D3 --> CORE
+  CORE -->|"hold/settle"| L
+  CORE -->|"中继"| UP
+  L -.->|"月末对账 vs LLM 账单"| OP
+      </pre></div><figcaption>图 16 · 内部成本分摊</figcaption></div>
+      <div class="card scn" style="--c:var(--platform)">
+        <div class="who">运营/平台管理员 · 多内部团队 D1/D2/D3</div>
+        <p>每团队作为独立租户领月度额度；key 绑 <code class="k">limit_plan</code>（月花费 + 请求上限）。引擎按各租户账户 hold/settle，<code class="k">settle(subject_id=null)</code> 计入团队总花费；80% 触发告警。</p>
+        <p class="mp">资金路径：运营注资共享池；各团队结算扣减；月末汇总 D1+D2+D3 对账上游真实账单（分摊机制部分仍属构想，见注记）。</p>
+      </div>
+    </div>
+
+    <h3 class="sub">资金路径速查</h3>
+    <table class="tbl">
+      <thead><tr><th>场景</th><th>平台 / 租户 / 端用户</th><th>钱包来源</th><th class="mp">资金路径</th></tr></thead>
+      <tbody>
+        <tr><td><b>B2B2C</b></td><td>运营 / Team A / 付费端用户</td><td>subject 子钱包(HARD) 或 租户池</td><td class="mp">端用户→Team A（零售）；Team A→运营 topup（批发）</td></tr>
+        <tr><td><b>B2B</b></td><td>运营 / 代理 Tenant B / Partner（无 subject）</td><td>Tenant B 共享账户</td><td class="mp">Partner→Tenant B（席位费）；Tenant B→运营 topup</td></tr>
+        <tr><td><b>B2C</b></td><td>运营 / 应用 Tenant C / 消费者</td><td>每 subject 子钱包(HARD)</td><td class="mp">消费者→Tenant C（刷卡）→子钱包；引擎结算</td></tr>
+        <tr><td><b>内部分摊</b></td><td>运营 / 团队 D1·D2·D3（无 subject）</td><td>各租户账户</td><td class="mp">运营注资；各团队结算扣减；月末对账上游账单</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 13 · PAYMENTS -->
+  <section id="payments">
+    <div class="sec-head"><span class="sec-num">13</span><h2>充值 / 支付流<span class="zh">把钱变成 µUSD</span></h2></div>
+    <p class="sec-desc">下单时锁定汇率（fixed credit rate）；webhook 对原始报文验签，幂等于 <code class="k">(provider, provider_event_id)</code>，仅履约一次（fulfill-once）。</p>
+    <div class="figure"><div class="scroll"><pre class="mermaid">
+sequenceDiagram
+  autonumber
+  participant C as Client / 消费者
+  participant API as /v1/payments
+  participant P as 支付渠道 (Stripe/Alipay/…)
+  participant WH as Webhook handler
+  participant DB as Wallet + Ledger
+
+  C->>API: POST /v1/payments/intents (金额)
+  API->>DB: 建 payment_intent (锁定 credit 汇率)
+  API-->>C: intent + 收银台 URL
+  C->>P: 支付
+  P->>WH: POST /v1/payments/webhooks/:provider (签名)
+  WH->>WH: 对 raw body 验签
+  WH->>DB: 记 payment_event (幂等 provider_event_id)
+  WH->>DB: 充值 account / sub_account (topup 账本行, 仅一次)
+  WH-->>P: 200
+    </pre></div><figcaption>图 17 · 充值/支付时序</figcaption></div>
+  </section>
+
+  <!-- 14 · CAVEATS -->
+  <section id="caveats">
+    <div class="sec-head"><span class="sec-num">14</span><h2>注记与待确认<span class="zh">诚实标注：图中哪些尚未在代码中坐实</span></h2></div>
+    <p class="sec-desc">本图谱由对代码库的并行探查综合而成（2026-06-26）。以下为各探查器无法完全互证之处，作图时已采信更稳妥来源，但建议核对源码后再对外引用。</p>
+    <ul style="color:var(--muted);font-size:14px;line-height:1.9;max-width:900px">
+      <li><b>账本类型不一致</b>：schema 列出 <code class="k">topup|giftcode|hold|settle|refund</code>；运营叙事另提 <code class="k">chargeback / transfer</code>（且自称 transfer「future」）。本图采信 schema；<b>需确认 <code class="k">chargeback</code> 类型是否真实存在于代码</b>。</li>
+      <li><b>内部分摊机制部分为构想</b>：月末按比例再分配是「自动账本行」还是「运营侧手工对账」尚未坐实。</li>
+      <li><b><code class="k">limit_usage.model_scope</code> 列</b>：运营叙事的存储键引用了它，但数据模型未列出——存在性待确认。</li>
+      <li><b>HARD/SHARED 子钱包开关位置</b>：<code class="k">jit_provisioning_enabled</code> 与 wallet_mode 在 <code class="k">tenant.config</code> 与 <code class="k">account.config</code> 之间说法不一——确认真正驱动子钱包激活的字段。</li>
+      <li><b><code class="k">/app</code> 平面</b>：本图按「前端 SPA 路由树，调 <code class="k">/console</code> 与 <code class="k">/member</code>」处理；确认不存在独立的 <code class="k">/app</code> 后端控制器。</li>
+      <li><b>流式持有常量</b>（<code class="k">ESTIMATE_OUTPUT_TOKENS_CEILING=32k</code>、输入 ×2、输出 ÷4 近似）仅来自中继探查注释——引用前请核对引擎常量。</li>
+      <li><b>熔断阈值</b>（minVolume=20、failureRate=50%、halfOpenSuccesses=2、指数冷却上限）为默认值；每通道 <code class="k">fault_policy</code> 可能覆盖——确认哪些可配、哪些硬编码。</li>
+      <li><b>pricebook method 枚举</b>跨探查器描述略有出入（<code class="k">unit|matrix|fixed|formula|passthrough</code> vs <code class="k">model_token|…</code>）；中继路径确用 <code class="k">model_token</code>（post-timed），完整枚举待复核。</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  <div><b>Actionow Core · 架构与场景图谱</b> — 生成于 2026-06-26，源自对 <code>/Users/alienworm/actionow-core</code> 的 7 个并行探查代理（后端模块 · 数据模型 · 中继引擎 · 租户/RBAC · 前端 · 商业模型 + 综合）。</div>
+  <div style="margin-top:8px">核对入口：API 模块 <code>apps/api/src/</code> · Drizzle schema <code>apps/api/src/db/</code> · 迁移 <code>0015–0050</code> · 前端 <code>apps/web/src/</code>（console / app / portal 路由树）。图表由 Mermaid 渲染。</div>
+</footer>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: 'loose',
+    theme: 'base',
+    themeVariables: {
+      darkMode: true,
+      fontFamily: '"Inter", ui-sans-serif, system-ui, "PingFang SC", "Microsoft YaHei", sans-serif',
+      fontSize: '14px',
+      background: '#0d1320',
+      primaryColor: '#18212f',
+      primaryTextColor: '#e6edf3',
+      primaryBorderColor: '#33415c',
+      lineColor: '#6b7a96',
+      secondaryColor: '#18212f',
+      tertiaryColor: '#131a26',
+      clusterBkg: 'rgba(255,255,255,0.02)',
+      clusterBorder: '#2f3d59',
+      titleColor: '#e6edf3',
+      edgeLabelBackground: '#0d1320',
+      // sequence
+      actorBkg: '#18212f', actorBorder: '#5b6b85', actorTextColor: '#e6edf3', actorLineColor: '#3a4760',
+      signalColor: '#9fb0c7', signalTextColor: '#cbd5e1',
+      labelBoxBkgColor: '#18212f', labelBoxBorderColor: '#33415c', labelTextColor: '#e6edf3',
+      loopTextColor: '#cbd5e1', activationBkgColor: '#22304a',
+      noteBkgColor: '#243049', noteTextColor: '#e6edf3', noteBorderColor: '#3b4a66',
+      // state
+      transitionColor: '#6b7a96', transitionLabelColor: '#cbd5e1',
+      stateBkg: '#18212f', stateBorder: '#5b6b85',
+    },
+    flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis', padding: 14, nodeSpacing: 46, rankSpacing: 54 },
+    sequence: { useMaxWidth: false, showSequenceNumbers: true, wrap: true, width: 168, mirrorActors: false, boxMargin: 8 },
+    er: { useMaxWidth: false, layoutDirection: 'TB' },
+    state: { useMaxWidth: false },
+  });
+
+  // render each diagram in isolation so one parse error never blanks the rest
+  const blocks = document.querySelectorAll('pre.mermaid');
+  for (let i = 0; i < blocks.length; i++) {
+    const el = blocks[i];
+    try {
+      await mermaid.run({ nodes: [el], suppressErrors: false });
+    } catch (e) {
+      el.innerHTML = '<div class="mmerr">⚠ 图 #' + (i + 1) + ' 渲染失败：' + (e && e.message ? e.message : e) + '</div>';
+    }
+  }
+
+  // active-section highlighting in the TOC
+  const links = Array.from(document.querySelectorAll('nav.toc a'));
+  const map = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        links.forEach(a => a.classList.remove('active'));
+        const a = map.get(en.target.id);
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-45% 0px -50% 0px', threshold: 0 });
+  document.querySelectorAll('main section[id]').forEach(s => obs.observe(s));
+</script>
+</body>
+</html>

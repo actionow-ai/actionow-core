@@ -590,6 +590,28 @@
       "payments": "Payments",
       "noLedger": "No ledger entries",
       "noPayments": "No payments",
+      "jobs": {
+        "tab": "Jobs",
+        "empty": "No jobs yet",
+        "refund": "Refund",
+        "refunded": "Refunded {{credits}} credits",
+        "refundTitle": "Refund job",
+        "refundHint": "Refund a settled job's captured cost back to the tenant's balance. Leave the amount at 0 to refund the full remaining refundable.",
+        "amount": "Refund amount (credits)",
+        "amountTip": "0 = full remaining refundable. A partial amount is capped at the job's settled cost.",
+        "cols": {
+          "resource": "Resource",
+          "cost": "Cost"
+        }
+      },
+      "fileTtl": {
+        "label": "Asset TTL (days)",
+        "tip": "Auto-expire this tenant's generated files after N days. Set 0 and Clear to keep them forever.",
+        "apply": "Set TTL",
+        "clear": "Clear TTL",
+        "set": "Asset TTL set to {{days}} days",
+        "cleared": "Asset TTL cleared"
+      },
       "users": {
         "tab": "End-users",
         "add": "Add end-user",

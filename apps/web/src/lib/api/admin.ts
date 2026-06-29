@@ -69,12 +69,14 @@ import type {
   ProxyView,
   ReconcileRowView,
   RedemptionCodeView,
+  RefundJobBody,
   RelayTraceQuery,
   RelayTraceView,
   ResourceView,
   RouteGroupChannelView,
   RouteGroupView,
   SecretView,
+  SetFileTtlBody,
   SubAccountView,
   SubjectView,
   SyncChannelModelsBody,
@@ -735,6 +737,25 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     // Reset one setting back to its env/code default; audited.
     resetPlatformSetting: (key: string): Promise<PlatformSettingView> =>
       rawClient.delete<PlatformSettingView>(`/admin/settings/${key}`),
+
+    // --- refunds (#55) + file TTL (#61) — admin-only, responses have no SDK schema ---
+    // Refund a settled job; omit `credits` for the full remaining refundable (capped
+    // at the settled cost). Returns the new job status + refunded amount + balance.
+    refundJob: (
+      jobId: string,
+      body: RefundJobBody,
+    ): Promise<{
+      job_id: string;
+      status: string;
+      refunded: string;
+      balance_after: string | null;
+    }> => rawClient.post(`/admin/jobs/${jobId}/refund`, body),
+    // Set (days > 0) or clear (null) a tenant account's opt-in file-lifecycle TTL.
+    setFileTtl: (
+      accountId: string,
+      days: SetFileTtlBody['days'],
+    ): Promise<{ account_id: string; file_ttl_days: number | null }> =>
+      rawClient.post(`/admin/accounts/${accountId}/file-ttl`, { days }),
   };
 }
 

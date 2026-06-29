@@ -590,6 +590,28 @@
       "payments": "支付",
       "noLedger": "暂无流水",
       "noPayments": "暂无支付",
+      "jobs": {
+        "tab": "任务",
+        "empty": "暂无任务",
+        "refund": "退款",
+        "refunded": "已退款 {{credits}} 额度",
+        "refundTitle": "任务退款",
+        "refundHint": "将已结算任务的实际扣费退回租户余额。金额保持为 0 即退还全部可退余额。",
+        "amount": "退款金额（额度）",
+        "amountTip": "0 = 退还全部可退余额。部分退款的金额不会超过任务的结算费用。",
+        "cols": {
+          "resource": "资源",
+          "cost": "费用"
+        }
+      },
+      "fileTtl": {
+        "label": "资产保留期（天）",
+        "tip": "在 N 天后自动清理该租户生成的文件。设为 0 并点击清除则永久保留。",
+        "apply": "设置保留期",
+        "clear": "清除保留期",
+        "set": "资产保留期已设为 {{days}} 天",
+        "cleared": "资产保留期已清除"
+      },
       "users": {
         "tab": "终端用户",
         "add": "添加终端用户",

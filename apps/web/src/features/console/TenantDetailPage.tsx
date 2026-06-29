@@ -15,6 +15,7 @@ import { LimitUsageBars } from '../../components/data/LimitUsageBars';
 import { Money } from '../../components/data/Money';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
+import { Modal } from '../../components/ui/Modal';
 import { NumberField } from '../../components/ui/NumberField';
 import { RoseLoader } from '../../components/ui/RoseLoader';
 import { SelectField } from '../../components/ui/SelectField';
@@ -25,6 +26,7 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type {
   AccountView,
+  JobView,
   LedgerView,
   PaymentIntentView,
   SubjectView,
@@ -116,6 +118,11 @@ function TenantDetailBody({
   const [topupOpen, setTopupOpen] = useState(false);
   const [topupCredits, setTopupCredits] = useState(0);
   const [openingCredits, setOpeningCredits] = useState(0);
+  // Refund flow (#55): a settled job opens the modal; `refundCredits` 0 = full.
+  const [refundTarget, setRefundTarget] = useState<JobView | null>(null);
+  const [refundCredits, setRefundCredits] = useState(0);
+  // Opt-in file-lifecycle TTL (#61): set days > 0 or clear (0 → null).
+  const [ttlDays, setTtlDays] = useState(0);
 
   const refreshAccounts = () => qc.invalidateQueries({ queryKey: qk.accounts() });
 
@@ -193,6 +200,46 @@ function TenantDetailBody({
     queryKey: qk.payments(tenant.id),
     queryFn: () => api.listPayments(tenant.id, 50),
     enabled: tab === 'payments',
+  });
+  // Jobs tab (#55): settled async-media jobs are refundable (full or partial).
+  const jobs = useQuery({
+    queryKey: qk.jobs(tenant.id),
+    queryFn: () => api.listJobs({ tenantId: tenant.id, limit: 50 }),
+    enabled: tab === 'jobs',
+  });
+
+  const refundJob = useMutation({
+    mutationFn: () => {
+      const job = refundTarget;
+      if (job === null) throw new Error('no job');
+      // 0 → full remaining refundable; backend caps a partial amount at the cost.
+      return api.refundJob(job.job_id, refundCredits > 0 ? { credits: refundCredits } : {});
+    },
+    onSuccess: async (res) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: qk.jobs(tenant.id) }),
+        refreshAccounts(),
+        qc.invalidateQueries({ queryKey: qk.ledger(tenant.id) }),
+      ]);
+      toast(t('tenants.detail.jobs.refunded', { credits: res.refunded }));
+      setRefundTarget(null);
+      setRefundCredits(0);
+    },
+    onError: mutationError(t),
+  });
+
+  const setFileTtl = useMutation({
+    mutationFn: (days: number | null) => api.setFileTtl(account?.id ?? '', days),
+    onSuccess: async (res) => {
+      await refreshAccounts();
+      toast(
+        res.file_ttl_days === null
+          ? t('tenants.detail.fileTtl.cleared')
+          : t('tenants.detail.fileTtl.set', { days: res.file_ttl_days }),
+      );
+      setTtlDays(0);
+    },
+    onError: mutationError(t),
   });
 
   // Subjects (end-users; unified tenancy G-A) — lazy-loaded with the tab.
@@ -353,6 +400,66 @@ function TenantDetailBody({
     },
   ];
 
+  const jobCols: Column<JobView>[] = [
+    {
+      key: 'time',
+      header: t('tenants.detail.cols.time'),
+      cell: (r) => new Date(r.created_at).toLocaleDateString(),
+      width: '104px',
+    },
+    {
+      key: 'resource',
+      header: t('tenants.detail.jobs.cols.resource'),
+      grow: true,
+      cell: (r) => (
+        <span className="mono" style={{ fontSize: 'var(--fs-caption)' }} title={r.resource_id}>
+          {r.resource_id}
+        </span>
+      ),
+    },
+    {
+      key: 'cost',
+      header: t('tenants.detail.jobs.cols.cost'),
+      numeric: true,
+      cell: (r) =>
+        r.cost === null ? (
+          <span style={{ color: 'var(--faint)' }}>—</span>
+        ) : (
+          <Money micro={r.cost} />
+        ),
+      width: '110px',
+    },
+    {
+      key: 'status',
+      header: t('tenants.detail.cols.status'),
+      noClip: true,
+      cell: (r) => (
+        <StatusBadge tone={statusTone(r.status)} label={t('status.' + r.status, r.status)} />
+      ),
+      width: '96px',
+    },
+    {
+      key: 'actions',
+      header: '',
+      noClip: true,
+      width: '96px',
+      // Only a settled job has a captured cost to give back.
+      cell: (r) =>
+        r.status === 'settled' && r.cost !== null ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setRefundCredits(0);
+              setRefundTarget(r);
+            }}
+          >
+            {t('tenants.detail.jobs.refund')}
+          </Button>
+        ) : null,
+    },
+  ];
+
   const accountPanel = accountsLoading ? (
     <div style={{ display: 'grid', placeItems: 'center', padding: 'var(--s-5)' }}>
       <RoseLoader size={48} />
@@ -427,6 +534,43 @@ function TenantDetailBody({
           placeholder={t('tenants.detail.plan.none')}
         />
         {planId !== null && <LimitUsageBars rules={usage.data ?? []} />}
+      </div>
+
+      {/* Opt-in file-lifecycle TTL (#61): generated assets auto-expire after N days. */}
+      <div
+        className="panel"
+        style={{
+          borderRadius: 'var(--r-md)',
+          padding: 'var(--s-4)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--s-3)',
+        }}
+      >
+        <NumberField
+          label={t('tenants.detail.fileTtl.label')}
+          tooltip={t('tenants.detail.fileTtl.tip')}
+          value={ttlDays}
+          onChange={setTtlDays}
+          min={0}
+        />
+        <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
+          <Button
+            variant="ghost"
+            onClick={() => setFileTtl.mutate(ttlDays)}
+            loading={setFileTtl.isPending}
+            disabled={ttlDays <= 0}
+          >
+            {t('tenants.detail.fileTtl.apply')}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setFileTtl.mutate(null)}
+            loading={setFileTtl.isPending}
+          >
+            {t('tenants.detail.fileTtl.clear')}
+          </Button>
+        </div>
       </div>
     </div>
   ) : (
@@ -554,6 +698,7 @@ function TenantDetailBody({
         tabs={[
           { value: 'account', label: t('tenants.detail.account') },
           { value: 'users', label: t('tenants.detail.users.tab') },
+          { value: 'jobs', label: t('tenants.detail.jobs.tab') },
           { value: 'ledger', label: t('tenants.detail.ledger') },
           { value: 'payments', label: t('tenants.detail.payments') },
         ]}
@@ -562,6 +707,16 @@ function TenantDetailBody({
           accountPanel
         ) : tab === 'users' ? (
           usersPanel
+        ) : tab === 'jobs' ? (
+          <DataTable
+            columns={jobCols}
+            rows={jobs.data?.rows ?? []}
+            rowKey={(r) => r.job_id}
+            loading={jobs.isLoading}
+            error={jobs.isError}
+            onRetry={() => void jobs.refetch()}
+            empty={t('tenants.detail.jobs.empty')}
+          />
         ) : tab === 'ledger' ? (
           <DataTable
             columns={ledgerCols}
@@ -584,6 +739,46 @@ function TenantDetailBody({
           />
         )}
       </Tabs>
+
+      {/* Refund a settled job: optional partial amount (0 → full refundable). */}
+      <Modal
+        open={refundTarget !== null}
+        title={t('tenants.detail.jobs.refundTitle')}
+        subtitle={refundTarget?.job_id}
+        onClose={() => setRefundTarget(null)}
+        footer={
+          <div style={{ display: 'flex', gap: 'var(--s-2)', justifyContent: 'flex-end' }}>
+            <Button variant="ghost" onClick={() => setRefundTarget(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => refundJob.mutate()}
+              loading={refundJob.isPending}
+            >
+              {t('tenants.detail.jobs.refund')}
+            </Button>
+          </div>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+          <p style={{ margin: 0, color: 'var(--muted)', fontSize: 'var(--fs-sm)' }}>
+            {t('tenants.detail.jobs.refundHint')}
+          </p>
+          {refundTarget?.cost != null && (
+            <DetailRow label={t('tenants.detail.jobs.cols.cost')}>
+              <Money micro={refundTarget.cost} />
+            </DetailRow>
+          )}
+          <NumberField
+            label={t('tenants.detail.jobs.amount')}
+            tooltip={t('tenants.detail.jobs.amountTip')}
+            value={refundCredits}
+            onChange={setRefundCredits}
+            min={0}
+          />
+        </div>
+      </Modal>
     </DetailPage>
   );
 }

@@ -123,11 +123,14 @@ export type {
   // --- console redeem request body (console-requests) ---
   RedeemCodeBody,
   RedemptionCodeView,
+  // --- refunds (#55) + file TTL (#61) request bodies ---
+  RefundJobBody,
   RelayTraceView,
   ResourceView,
   RouteGroupChannelView,
   RouteGroupView,
   SecretView,
+  SetFileTtlBody,
   SubAccountView,
   SubjectView,
   SyncChannelModelsBody,
