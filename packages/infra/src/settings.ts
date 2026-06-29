@@ -45,6 +45,14 @@ export const SETTINGS_REGISTRY = {
     type: 'number',
     description: 'relay_trace 单条 body 截断上限（字节）',
   }),
+  RELAY_TRACE_RETENTION_DAYS: def<number | undefined>({
+    // Optional: a positive day-count enables the worker's relay-trace reaper;
+    // unset (reset-to-default with no env) keeps traces forever (no sweep).
+    schema: z.number().int().positive().optional(),
+    default: (e: AppEnv) => e.RELAY_TRACE_RETENTION_DAYS,
+    type: 'number',
+    description: 'relay_trace 留存天数；设置后由后台清理超期追踪，留空=永久保留',
+  }),
   RATE_LIMIT_TENANT_PER_MIN: def({
     schema: z.number().int().positive(),
     default: (e: AppEnv) => e.RATE_LIMIT_TENANT_PER_MIN,
