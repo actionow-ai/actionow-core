@@ -23,6 +23,10 @@ node_modules
 **/.env
 !**/.env.example
 
-# Docs (not needed to build/run)
+# Docs (not needed to build/run) — EXCEPT the normalized model catalog the
+# seed importer (seed-catalog.ts) reads at seed runtime to populate model_spec +
+# the trustworthy official_model_price cost basis.
 docs
+!docs/research
+!docs/research/official-model-catalog-normalized.json
 *.md

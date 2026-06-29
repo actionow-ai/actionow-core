@@ -26,6 +26,7 @@ import {
 import { creditsToMicro } from '@actionow/domain';
 import { hashPassword } from '@actionow/infra';
 
+import { importCatalog } from './seed-catalog.js';
 import { seedIcons } from './seed-icons.js';
 import { OFFICIAL_PRICE_SEED_KEYS, seedOfficialPrices } from './seed-official-prices.js';
 import { backfillChannelPlugins, seedPlugins } from './seed-plugins.js';
@@ -218,6 +219,21 @@ export async function seedAll(db: Database, options: SeedOptions = {}): Promise<
   //    weight 1). Additive only — nothing routes/prices by the group yet (Track
   //    4/5); the group merely exists so the wiring is in place + manageable.
   const defaultGroupId = await seedDefaultRouteGroup(db, tenantId);
+
+  // 7. 接入与供给: import the OFFICIAL normalized model catalog (model_spec for
+  //    every model + the firstparty cost basis into official_model_price).
+  //    Idempotent + network-free. Wrapped so a missing JSON / import error only
+  //    LOGS — it must NEVER fail the seed (e.g. the Docker migrate+seed step).
+  try {
+    const counts = await importCatalog(db);
+    if (counts.modelSpecs > 0) {
+      console.log(
+        `  catalog   : ${String(counts.modelSpecs)} model_spec, ${String(counts.officialPrices)} official_price (trustworthy)`,
+      );
+    }
+  } catch (err: unknown) {
+    console.warn('[seed] importCatalog failed (non-fatal):', err);
+  }
 
   return {
     tenantId,

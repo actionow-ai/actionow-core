@@ -154,4 +154,44 @@ describe('matchOfficialPrice', () => {
     // unknown slug → no match.
     expect(await matchOfficialPrice(db, 'openai', 'gpt-9-ultra')).toBeUndefined();
   });
+
+  it('NEVER auto-prices a needs-review (billing_eligible=false) row (defense-in-depth)', async () => {
+    // A catalog-only row (e.g. a reconstructed video price) is present but not
+    // billable — the matcher must return undefined even though the row exists.
+    await createOfficialPrice(db, {
+      provider: 'kling',
+      modelSlug: 'kling-v3-0',
+      inputPricePer1m: 0n,
+      outputPricePer1m: 0n,
+      confidence: 'reconstructed',
+      billingEligible: false,
+    });
+    expect(await getOfficialPrice(db, 'kling', 'kling-v3-0')).toBeUndefined();
+    expect(await matchOfficialPrice(db, 'kling', 'kling-v3-0')).toBeUndefined();
+
+    // The same row flipped eligible DOES match.
+    await createOfficialPrice(db, {
+      provider: 'kling',
+      modelSlug: 'kling-pro',
+      inputPricePer1m: 5n,
+      outputPricePer1m: 9n,
+      billingEligible: true,
+    });
+    expect((await matchOfficialPrice(db, 'kling', 'kling-pro'))?.inputPricePer1m).toBe(5n);
+  });
+
+  it('persists currency / confidence / billingEligible governance columns', async () => {
+    const row = await createOfficialPrice(db, {
+      provider: 'deepseek',
+      modelSlug: 'deepseek-chat',
+      inputPricePer1m: 270_000n,
+      outputPricePer1m: 1_100_000n,
+      currency: 'USD',
+      confidence: 'firstparty',
+      billingEligible: true,
+    });
+    expect(row.currency).toBe('USD');
+    expect(row.confidence).toBe('firstparty');
+    expect(row.billingEligible).toBe(true);
+  });
 });
