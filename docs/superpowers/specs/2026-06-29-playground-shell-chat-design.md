@@ -30,20 +30,27 @@ spec covers **sub-project 1 only: the shell + the chat (text) tool.**
 
 ## Architecture
 
+Playground is a **top-level nav group** in the `/app` icon rail (no separate
+tool-rail column — that was redundant with the rail). The **2nd-column sub-nav**
+(`ConsoleLayout`'s standard `SubNav`) is the modality switcher: 对话 / 图片 / 视频 /
+音频. Each modality is a routed sibling under `/app/playground/*`; only Chat is live.
+
 ```
-PlaygroundShell  (route element, full-height flex; auto-collapses /app sidebar)
-├─ ToolRail        vertical icon strip — only "Chat" now; image/video/audio slots later
-├─ <Outlet/>  →  ChatTool
-│   ├─ ConversationPanel   "新对话" + saved-conversation list (今天/更早), rename/delete
-│   ├─ ChatCanvas
-│   │   ├─ TopBar          PlaygroundModelPicker (text models) + params button
-│   │   ├─ ChatTranscript  ChatMessage[]  (user bubble / assistant: reasoning + content + metrics)
-│   │   └─ ChatComposer    textarea + send/stop + token hint
+/app icon rail  →  [home] [✦ playground] [account]        (column 1)
+   playground active → SubNav: 对话 / 图片 / 视频 / 音频    (column 2)
+      /app/playground/chat   → ChatTool                    (the Outlet)
+      │  ├─ ConversationPanel   "新对话" + saved list, rename/delete   (column 3)
+      │  └─ ChatCanvas
+      │     ├─ TopBar          PlaygroundModelPicker (text models)
+      │     ├─ ChatTranscript  ChatMessage[] (reasoning + content + metrics)
+      │     └─ ChatComposer    textarea + send/stop
+      /app/playground/{image,video,audio} → PlaygroundComingSoon
 ```
 
-Frontend feature dir: `apps/web/src/features/app/playground/`. Later phases add
-`ImageTool`/`VideoTool`/`AudioTool` as sibling routes (`/app/playground/image` …)
-plugged into the same `ToolRail` — no shell changes.
+`/app/playground` redirects to `/app/playground/chat`. Frontend feature dir:
+`apps/web/src/features/app/playground/`. Later phases swap each `PlaygroundComingSoon`
+route for the real `ImageTool`/`VideoTool`/`AudioTool` — the nav group + sub-nav are
+already in place, so no shell changes.
 
 ## Backend — conversation persistence
 
