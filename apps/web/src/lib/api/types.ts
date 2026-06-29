@@ -85,10 +85,15 @@ export type {
   LimitUsageView,
   // --- member (end-user) self-service views (member-views) ---
   MemberBalanceView,
+  // --- member self-service request bodies (member-requests, #57) ---
+  MemberChangePasswordBody,
+  MemberCreateApiKeyBody,
+  MemberKeyCreatedView,
   MemberKeyView,
   MemberLimitRuleView,
   MemberLimitsView,
   MemberMeView,
+  MemberUpdateMeBody,
   MemberUsageList,
   MemberUsageRow,
   ModelGrantView,
@@ -103,6 +108,9 @@ export type {
   OpsHealthView,
   OpsSummaryView,
   PaymentIntentView,
+  // --- dynamic platform config (动态配置, #50) ---
+  PlatformSettingKey,
+  PlatformSettingView,
   PresignUploadBody,
   PresignUploadResult,
   PricebookView,
@@ -115,17 +123,23 @@ export type {
   // --- console redeem request body (console-requests) ---
   RedeemCodeBody,
   RedemptionCodeView,
+  // --- refunds (#55) + file TTL (#61) request bodies ---
+  RefundJobBody,
   RelayTraceView,
   ResourceView,
   RouteGroupChannelView,
   RouteGroupView,
   SecretView,
+  SetFileTtlBody,
+  // --- object-storage usage/quota (#53) ---
+  StorageUsageView,
   SubAccountView,
   SubjectView,
   SyncChannelModelsBody,
   TenantView,
   TestPluginRequest,
   TestPluginResponse,
+  TokenPair,
   TopupBody,
   TopupSubAccountBody,
   TransferCreditsBody,
@@ -138,6 +152,7 @@ export type {
   UpdateModelBody,
   UpdateModifierBody,
   UpdateOfficialPriceBody,
+  UpdatePlatformSettingRequest,
   UpdatePluginRequest,
   UpdatePricebookBody,
   UpdateProxyBody,
@@ -180,8 +195,22 @@ export interface Page<T> {
 // @actionow/contracts (billing-views), and the matching Create*/Update* request
 // bodies from billing-requests — see the type-only re-export at the top.
 
-export type Modality = 'text' | 'image' | 'video' | 'audio' | 'composite';
-export type PricebookMethod = 'unit' | 'matrix' | 'fixed' | 'formula' | 'passthrough';
+export type Modality =
+  | 'text'
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'composite'
+  | 'embedding'
+  | 'rerank'
+  | 'moderation';
+export type PricebookMethod =
+  | 'unit'
+  | 'matrix'
+  | 'fixed'
+  | 'formula'
+  | 'passthrough'
+  | 'model_token';
 export type PricebookTiming = 'pre' | 'post';
 export type ModifierOp = 'override_rate' | 'percent_off' | 'flat_off' | 'percent_add';
 export type DifyPricingModel = 'fixed' | 'matrix' | 'metered';

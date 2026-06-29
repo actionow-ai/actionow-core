@@ -101,6 +101,7 @@ import {
   consolePaymentViewSchema,
   consoleUsageLogViewSchema,
   consoleUsageRollupViewSchema,
+  storageUsageViewSchema,
 } from './console-views.js';
 import {
   fileUrlResultSchema,
@@ -265,6 +266,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const ConsoleBalance = registry.register('ConsoleBalanceView', consoleBalanceViewSchema);
   const ConsoleIntent = registry.register('ConsoleIntentView', consoleIntentViewSchema);
   const ConsoleFile = registry.register('ConsoleFileView', consoleFileViewSchema);
+  const StorageUsage = registry.register('StorageUsageView', storageUsageViewSchema);
 
   // data-plane views (data-plane): the generation hot path (/v1/run, /v1/jobs,
   // /v1/resources, /v1/files) an external developer's app drives via @actionow/sdk.
@@ -833,6 +835,13 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
       200: { description: 'Confirmed file', content: { 'application/json': { schema: FileV } } },
     },
   });
+  // Object-storage usage + quota (JWT plane) — the asset-gallery quota bar.
+  getOne(
+    '/console/files/usage',
+    'Your tenant object-storage usage + quota',
+    StorageUsage,
+    'console',
+  );
 
   // --- DELETE (revoke/remove → 204; the FE methods return void) -------------
   del('/admin/resources/{id}/channels/{channelId}', 'Delete a channel', 'catalog');
@@ -848,6 +857,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   del('/admin/secrets/{id}', 'Revoke an encrypted credential', 'admin');
   del('/admin/models/{name}', 'Delete a relay model', 'catalog');
   del('/admin/models/{name}/grants/{tenantId}', 'Revoke a model grant', 'catalog');
+  del('/console/files/{id}', 'Delete one of your tenant’s files', 'console');
 
   // --- write paths referencing the migrated request-body contracts ----------
   // admin core

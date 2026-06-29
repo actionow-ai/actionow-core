@@ -184,6 +184,21 @@ export const consoleFileViewSchema = z.object({
 export type ConsoleFileView = z.infer<typeof consoleFileViewSchema>;
 
 /**
+ * The caller-tenant's object-storage usage + effective quota (`GET
+ * /console/files/usage`) — drives the asset-gallery usage/quota bar. `bytes`/
+ * `count` are the live totals; `quota_bytes` is the effective per-tenant cap
+ * (`null` → no cap); `effective_ttl_days` is the opt-in file-lifecycle TTL in
+ * days (`null` → retain forever). Mirrors the data-plane `GET /v1/files/usage`.
+ */
+export const storageUsageViewSchema = z.object({
+  bytes: z.number(),
+  count: z.number(),
+  quota_bytes: z.number().nullable(),
+  effective_ttl_days: z.number().nullable(),
+});
+export type StorageUsageView = z.infer<typeof storageUsageViewSchema>;
+
+/**
  * One effective governance rule for the caller-tenant's bound plan paired with
  * its current usage (`GET /console/limits` → `rules`). `cap`/`used` are decimal
  * **strings** (bigint: µUSD for `spend`, else a count); `rpm`/`concurrency` are

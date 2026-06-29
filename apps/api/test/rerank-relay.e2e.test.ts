@@ -299,7 +299,10 @@ describe('Cohere/Jina rerank (/v1/rerank)', () => {
   });
 
   it('insufficient credits → 402 insufficient_credits', async () => {
-    const [poorTenant] = await db.insert(schema.tenant).values({ name: 'broke-rerank' }).returning();
+    const [poorTenant] = await db
+      .insert(schema.tenant)
+      .values({ name: 'broke-rerank' })
+      .returning();
     if (!poorTenant) throw new Error('no tenant');
     await db
       .insert(schema.account)

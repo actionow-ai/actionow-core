@@ -48,9 +48,17 @@ export async function refundJob(db: DbOrTx, p: RefundJobInput): Promise<RefundJo
 
     // Lock the target wallet row → serialize concurrent refunds for this job.
     if (sub !== undefined) {
-      await tx.select({ id: subAccount.id }).from(subAccount).where(eq(subAccount.id, sub.id)).for('update');
+      await tx
+        .select({ id: subAccount.id })
+        .from(subAccount)
+        .where(eq(subAccount.id, sub.id))
+        .for('update');
     } else {
-      await tx.select({ id: account.id }).from(account).where(eq(account.id, job.accountId)).for('update');
+      await tx
+        .select({ id: account.id })
+        .from(account)
+        .where(eq(account.id, job.accountId))
+        .for('update');
     }
 
     const [agg] = await tx

@@ -18,13 +18,20 @@ export type HandlerFn =
   | 'mapCallback';
 
 export interface RunHandlerOptions {
-  /** Hard wall-clock cap (default 50ms) — an interrupt handler aborts past it. */
+  /** Hard wall-clock cap (default 500ms) — an interrupt handler aborts past it. */
   timeoutMs?: number;
   /** Hard memory cap in MB (default 16). */
   memoryMb?: number;
 }
 
-const DEFAULT_TIMEOUT_MS = 50;
+// A pure JSON mapper runs in single-digit ms once warm, so this cap is purely a
+// runaway-loop guard, NOT an expected runtime. It is deliberately generous (was
+// 50ms) to absorb cold QuickJS-WASM runtime/context init on the FIRST handler
+// call after a process boots — under a loaded CI runner that warmup alone could
+// exceed a tight 50ms cap and spuriously interrupt a legitimate mapper (a real
+// cold-start bug, not just a flaky test). The interrupt handler still kills a
+// genuine infinite loop within this bound.
+const DEFAULT_TIMEOUT_MS = 500;
 const DEFAULT_MEMORY_MB = 16;
 
 let modulePromise: Promise<QuickJSWASMModule> | undefined;

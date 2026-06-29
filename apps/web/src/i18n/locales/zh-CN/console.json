@@ -38,7 +38,24 @@
       "keys": "API Key",
       "noKeys": "暂无 API Key",
       "unnamedKey": "未命名",
-      "keysNote": "Key 由运营方签发。如需新增或吊销,请联系你所属的产品方。",
+      "keysNote": "请妥善保管你的密钥 —— 任何持有者都能消耗你账户的额度。完整密钥仅在创建时显示一次。",
+      "noName": "未设置",
+      "namePlaceholder": "你的昵称",
+      "nameSaved": "昵称已更新",
+      "security": "账户安全",
+      "currentPassword": "当前密码",
+      "newPassword": "新密码",
+      "passwordHint": "至少 8 位",
+      "changePassword": "修改密码",
+      "passwordChanged": "密码已修改",
+      "createKey": "创建 Key",
+      "revokeKey": "吊销 Key",
+      "keyRevoked": "Key 已吊销",
+      "revealTitle": "复制你的新 Key",
+      "revealWarn": "完整 Key 仅此一次显示。请立即复制并妥善保存。",
+      "revealDone": "我已保存",
+      "confirmRevokeTitle": "吊销这个 Key?",
+      "confirmRevokeMsg": "任何使用此 Key 的应用将立即失效。此操作不可撤销。",
       "usage": "近期用量",
       "noUsage": "暂无用量记录"
     }
@@ -190,7 +207,16 @@
         "audio": "音频"
       },
       "upload": "上传",
-      "uploaded": "文件已上传"
+      "uploaded": "文件已上传",
+      "delete": "删除",
+      "deleted": "文件已删除",
+      "confirmDeleteTitle": "删除此文件？",
+      "confirmDeleteMsg": "文件将从存储中移除且无法恢复。历史任务中的引用记录将保留。",
+      "storage": "已用存储",
+      "fileCount": "{{n}} 个文件",
+      "noQuota": "无上限",
+      "ttlForever": "文件永久保留（未设置生命周期 TTL）。",
+      "ttlDays": "文件将在 {{days}} 天后自动过期。"
     },
     "adminOnly": "只读视图——此操作需要租户管理员权限。",
     "currentRole": "当前角色",
@@ -309,6 +335,7 @@
     "breakers": "熔断",
     "relayTraces": "中转追踪",
     "auditLog": "审计日志",
+    "platformSettings": "系统设置",
     "overview": "概览",
     "tusage": "用量",
     "tkeys": "API Keys",
@@ -353,6 +380,7 @@
     "breakers": "已熔断 / 探测中的通道——按(通道·模型)的熔断状态与重置",
     "relayTraces": "上游中转审计——请求、响应、延迟",
     "auditLog": "谁在何时改了什么——资金 / 治理 / 身份变更的操作审计",
+    "platformSettings": "运行时可调的平台配置——覆盖 env 默认值,有审计",
     "overview": "余额、最近任务与流水",
     "tusage": "用量聚合与逐次调用日志",
     "tkeys": "签发与管理你的 API Key",
@@ -484,6 +512,17 @@
       }
     }
   },
+  "settings": {
+    "value": "值",
+    "saved": "设置已保存",
+    "reset": "设置已恢复默认",
+    "resetToDefault": "恢复默认",
+    "overriddenAt": "{{by}} 于 {{time}} 覆盖",
+    "source": {
+      "env": "默认",
+      "db": "已覆盖"
+    }
+  },
   "relayTraces": {
     "title": "中转追踪",
     "allTenants": "全部租户",
@@ -560,6 +599,29 @@
       "payments": "支付",
       "noLedger": "暂无流水",
       "noPayments": "暂无支付",
+      "jobs": {
+        "tab": "任务",
+        "empty": "暂无任务",
+        "live": "实时跟踪进行中的任务",
+        "refund": "退款",
+        "refunded": "已退款 {{credits}} 额度",
+        "refundTitle": "任务退款",
+        "refundHint": "将已结算任务的实际扣费退回租户余额。金额保持为 0 即退还全部可退余额。",
+        "amount": "退款金额（额度）",
+        "amountTip": "0 = 退还全部可退余额。部分退款的金额不会超过任务的结算费用。",
+        "cols": {
+          "resource": "资源",
+          "cost": "费用"
+        }
+      },
+      "fileTtl": {
+        "label": "资产保留期（天）",
+        "tip": "在 N 天后自动清理该租户生成的文件。设为 0 并点击清除则永久保留。",
+        "apply": "设置保留期",
+        "clear": "清除保留期",
+        "set": "资产保留期已设为 {{days}} 天",
+        "cleared": "资产保留期已清除"
+      },
       "users": {
         "tab": "终端用户",
         "add": "添加终端用户",
@@ -1554,6 +1616,11 @@
     "operational": "运行正常",
     "degraded": "{{n}} 个模型异常",
     "noData": "暂无数据",
+    "readiness": {
+      "title": "平台就绪",
+      "ready": "全部依赖正常",
+      "degraded": "基础设施异常"
+    },
     "window": "时间窗口",
     "days": "{{n}} 天",
     "empty": "窗口内暂无调用流量;先产生一些请求,这里就会显示各模型的可用性与延迟。",
@@ -1574,7 +1641,10 @@
       "image": "图像",
       "video": "视频",
       "audio": "音频",
-      "composite": "复合"
+      "composite": "复合",
+      "embedding": "向量(Embedding)",
+      "rerank": "重排(Rerank)",
+      "moderation": "内容审核"
     },
     "kind": {
       "model": "模型",
@@ -1585,7 +1655,8 @@
       "matrix": "矩阵计价",
       "fixed": "固定计价",
       "formula": "公式计价",
-      "passthrough": "透传计价"
+      "passthrough": "透传计价",
+      "model_token": "按 Token 计价"
     },
     "timing": {
       "pre": "预计费",
@@ -1618,7 +1689,9 @@
       "vision": "视觉",
       "audio": "音频",
       "json": "JSON 模式",
-      "stream": "流式"
+      "stream": "流式",
+      "multilingual": "多语言",
+      "moderation": "内容审核"
     }
   },
   "forms": {
@@ -1665,6 +1738,7 @@
     },
     "spec": {
       "dimension": "维度",
+      "dimensionHint": "中继计量的用量维度，如 images / audio_seconds（TTS 与语音转写）/ video_seconds / characters。须与引擎在该模态下输出的维度名一致。",
       "rate": "费率",
       "rateHint": "每单位的 µcredits（1 credit = 1,000,000 µcredits）。",
       "muCreditNote": "此处金额单位为 µcredits——1 credit = 1,000,000 µcredits。",
@@ -1686,7 +1760,12 @@
       "markupValue": "加价数值",
       "markupPercentHint": "在上游成本之上叠加的整数百分比。",
       "markupFlatHint": "在上游成本之上叠加的定额 µcredits。",
-      "fixedNote": "请在定价表单的「固定 credit」字段中设置价格。"
+      "fixedNote": "请在定价表单的「固定 credit」字段中设置价格。",
+      "inputPrice": "输入单价",
+      "outputPrice": "输出单价",
+      "perTokenHint": "每 token 的 µcredits(1 credit = 1,000,000 µcredits)。",
+      "groupRatioBps": "分组比率(bps,可选)",
+      "groupRatioBpsHint": "折算进基础单价的 basis-points 修正;0 = 无(10000 = ×1.00)。"
     }
   },
   "errors": {

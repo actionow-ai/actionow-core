@@ -56,6 +56,8 @@ export const qk = {
   summary: () => ['admin', 'summary'] as const,
   health: () => ['admin', 'health'] as const,
   breakers: () => ['admin', 'breakers'] as const,
+  platformSettings: () => ['admin', 'settings'] as const,
+  readyz: () => ['readyz'] as const,
 
   // Tenant self-service console plane.
   consoleApiKeys: () => ['console', 'api-keys'] as const,
@@ -78,6 +80,7 @@ export const qk = {
   consoleBalance: () => ['console', 'balance'] as const,
   consoleFiles: (kind?: string) =>
     kind === undefined ? (['console', 'files'] as const) : (['console', 'files', kind] as const),
+  consoleFilesUsage: () => ['console', 'files', 'usage'] as const,
   consoleLimits: () => ['console', 'limits'] as const,
   // Tenant-owned end-users (subjects) + their HARD sub-wallets (end-user data plane;
   // admin-only Subjects page).

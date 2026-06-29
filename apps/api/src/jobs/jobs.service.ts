@@ -57,6 +57,20 @@ export class JobsService {
   }
 
   /**
+   * Resolve an admin-scoped {@link TenantContext} for any job by id — the job's
+   * OWN tenant, subject-agnostic (`subjectId: null` widens the read past
+   * per-subject scoping). Returns `undefined` when the job is absent. Lets an
+   * admin SSE-stream any tenant's job by reusing the tenant-scoped
+   * {@link JobStreamService} unchanged (the stream's own `jobs.get(ctx)` then
+   * matches because `ctx.tenantId` is the job's tenant).
+   */
+  async resolveAdminContext(jobId: string): Promise<TenantContext | undefined> {
+    const job = await getJob(this.db, jobId);
+    if (job === undefined) return undefined;
+    return { tenantId: job.tenantId, accountId: job.accountId ?? '', subjectId: null };
+  }
+
+  /**
    * Cancel a queued job: `failJob` transitions `queued|running → canceled` and
    * releases the hold in one atomic transaction. Idempotent — a job that has
    * already left those states (succeeded/failed/canceled) yields the current

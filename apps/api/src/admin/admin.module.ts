@@ -6,6 +6,8 @@ import { AuditModule } from '../audit/audit.module.js';
 import { LoginThrottleGuard } from '../auth/login-throttle.guard.js';
 import { IdempotencyInterceptor } from '../common/idempotency.interceptor.js';
 import { ENV, HTTP, KNOWN_MODELS } from '../common/tokens.js';
+import { JobStreamService } from '../jobs/job-stream.service.js';
+import { JobsService } from '../jobs/jobs.service.js';
 import { AdminController } from './admin.controller.js';
 import { AdminService } from './admin.service.js';
 import { AdminDifyController } from './admin-dify.controller.js';
@@ -48,6 +50,11 @@ import { ModelTestService } from './model-test.service.js';
     AdminDifyService,
     AdminTokenService,
     ModelTestService,
+    // Job SSE progress (#62): admin watches any tenant's in-flight job. The
+    // stream service is tenant-scoped; the admin handler resolves the job's own
+    // tenant (JobsService.resolveAdminContext) and reuses it unchanged.
+    JobsService,
+    JobStreamService,
     AdminGuard,
     // M2M service-token auth: the guard delegates `at_`-prefixed credentials to
     // this service, which looks them up via the (overridable) repo.

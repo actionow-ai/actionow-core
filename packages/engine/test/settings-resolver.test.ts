@@ -45,7 +45,9 @@ describe('SettingsResolver', () => {
 
   it('applies a valid override (source = db)', async () => {
     const r = new SettingsResolver({
-      db: fakeDb(() => [{ key: 'RELAY_TRACE', value: 'full', updatedBy: 'a1', updatedAt: new Date(0) }]),
+      db: fakeDb(() => [
+        { key: 'RELAY_TRACE', value: 'full', updatedBy: 'a1', updatedAt: new Date(0) },
+      ]),
       env: ENV,
     });
     expect(await r.get('RELAY_TRACE')).toBe('full');
@@ -56,7 +58,9 @@ describe('SettingsResolver', () => {
 
   it('ignores an override whose value fails the schema (falls back to env)', async () => {
     const r = new SettingsResolver({
-      db: fakeDb(() => [{ key: 'RELAY_TRACE', value: 'bogus', updatedBy: null, updatedAt: new Date(0) }]),
+      db: fakeDb(() => [
+        { key: 'RELAY_TRACE', value: 'bogus', updatedBy: null, updatedAt: new Date(0) },
+      ]),
       env: ENV,
     });
     expect(await r.get('RELAY_TRACE')).toBe('off');

@@ -162,6 +162,35 @@ describe('seedProviders (real-provider catalog as DATA)', () => {
     });
   });
 
+  it('seeds the speech-to-text relay channel: openai dialect, whisper-1, per-second pricing, proxy_ref', async () => {
+    const { tenantId } = await seedAll(db, { providerType: 'stub' });
+    await seedProviders(db, { tenantId });
+
+    const stt = await getResource(db, 'stt-relay');
+    expect(stt?.providerType).toBe('openai');
+    expect(stt?.modality).toBe('audio');
+    // Synchronous transcription — blocking only (no async-poll/callback).
+    expect(stt?.execModes).toEqual(['blocking']);
+
+    const [channel] = await listChannels(db, 'stt-relay');
+    expect(channel?.providerType).toBe('openai');
+    expect(channel?.endpoint).toBeNull(); // use the adapter default OpenAI host
+    expect(channel?.model).toBe('whisper-1');
+    expect(channel?.status).toBe('active');
+    expect(channel?.proxyRef).toBe('upstream_proxy'); // direct OpenAI host → egress proxy
+    expect(await credentialLocator(channel)).toBe('openai');
+
+    // STT bills per SECOND of transcribed audio (100 µcredits/s); the relay always
+    // yields `audio_seconds`, so there is no `tasks` fallback dimension.
+    const pricebook = await getActivePricebookEntry(db, 'stt-relay', 1);
+    expect(pricebook?.method).toBe('unit');
+    expect(pricebook?.timing).toBe('post');
+    expect(pricebook?.spec).toEqual({
+      method: 'unit',
+      dimensions: { audio_seconds: { rate: 100 } },
+    });
+  });
+
   it('seeds the openai-compatible chat channels with per-channel endpoint/model + token pricing', async () => {
     const { tenantId } = await seedAll(db, { providerType: 'stub' });
     await seedProviders(db, { tenantId });
@@ -226,13 +255,14 @@ describe('seedProviders (real-provider catalog as DATA)', () => {
     }
   });
 
-  it('exports exactly nine provider seed ids', () => {
-    expect(PROVIDER_SEED_IDS).toHaveLength(9);
+  it('exports exactly ten provider seed ids', () => {
+    expect(PROVIDER_SEED_IDS).toHaveLength(10);
     expect(new Set(PROVIDER_SEED_IDS)).toEqual(
       new Set([
         'image-relay',
         'video-relay',
         'audio-relay',
+        'stt-relay',
         'deepseek-chat',
         'xiaomi-mimo',
         'relay-text',

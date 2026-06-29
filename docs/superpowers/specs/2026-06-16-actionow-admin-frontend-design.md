@@ -17,26 +17,26 @@ The architecture, design system, component library, data layer, **auth layer, an
 
 ## 2. Tech Stack (decided)
 
-| Concern | Choice | Why |
-|---|---|---|
-| Build | **Vite + React 19 + TypeScript** (SPA) | Internal admin against a separate API; no SSR; fast dev; lives at `apps/admin`. |
-| Styling | **Tailwind CSS v4** (`@tailwindcss/vite`, `@theme`) | Required by coss; tokens via `@theme`. |
-| Components | **coss** (Base UI primitives) + custom Liquid Glass layer | Accessible primitives; wrapped with glass styling. |
-| Animation | **GSAP** (+ `useGSAP`, Flip) | Liquid background, nav-pill morph, count-ups, sheet transitions; cleanup via `useGSAP`. |
-| Data | **TanStack Query v5** | Caching, mutations, keyset pagination, invalidation. |
-| Routing | **React Router v7** | Nested layout + protected routes. |
-| **i18n** | **i18next + react-i18next** + `i18next-browser-languagedetector` | zh-CN \| en from day one; namespaced JSON; `Intl` for number/currency/date. |
-| Data source | **Real API + seed** | `docker compose up` + `pnpm --filter @actionow/api seed`; dev proxy to `:3000`. |
-| Tests | **Vitest + Testing Library**; **Playwright** smoke (later) | Component + critical-path. |
+| Concern     | Choice                                                           | Why                                                                                     |
+| ----------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Build       | **Vite + React 19 + TypeScript** (SPA)                           | Internal admin against a separate API; no SSR; fast dev; lives at `apps/admin`.         |
+| Styling     | **Tailwind CSS v4** (`@tailwindcss/vite`, `@theme`)              | Required by coss; tokens via `@theme`.                                                  |
+| Components  | **coss** (Base UI primitives) + custom Liquid Glass layer        | Accessible primitives; wrapped with glass styling.                                      |
+| Animation   | **GSAP** (+ `useGSAP`, Flip)                                     | Liquid background, nav-pill morph, count-ups, sheet transitions; cleanup via `useGSAP`. |
+| Data        | **TanStack Query v5**                                            | Caching, mutations, keyset pagination, invalidation.                                    |
+| Routing     | **React Router v7**                                              | Nested layout + protected routes.                                                       |
+| **i18n**    | **i18next + react-i18next** + `i18next-browser-languagedetector` | zh-CN \| en from day one; namespaced JSON; `Intl` for number/currency/date.             |
+| Data source | **Real API + seed**                                              | `docker compose up` + `pnpm --filter @actionow/api seed`; dev proxy to `:3000`.         |
+| Tests       | **Vitest + Testing Library**; **Playwright** smoke (later)       | Component + critical-path.                                                              |
 
 ## 3. Backend Roadmap Alignment (what's live / planned, and how the MVP accommodates it)
 
-| Phase | Backend status | Frontend implication |
-|---|---|---|
-| 7 — OSS files | ✓ `/v1/files/*` (api-key/tenant-scoped) | No admin endpoint → **reserve** a Files module; relevant later for Catalog `file` io_schema. Not MVP. |
-| 8 — exec modes | In progress: SSE `stream` + `async-callback`, `/v1/callbacks/:provider` | `exec_mode` values now include `stream`/`async-callback` → `StatusBadge`/exec-mode display + later **Jobs monitor** must handle them. A future "试运行" console could consume SSE. Not MVP. |
+| Phase                        | Backend status                                                                                                                                                                                                                     | Frontend implication                                                                                                                                                                                                         |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 7 — OSS files                | ✓ `/v1/files/*` (api-key/tenant-scoped)                                                                                                                                                                                            | No admin endpoint → **reserve** a Files module; relevant later for Catalog `file` io_schema. Not MVP.                                                                                                                        |
+| 8 — exec modes               | In progress: SSE `stream` + `async-callback`, `/v1/callbacks/:provider`                                                                                                                                                            | `exec_mode` values now include `stream`/`async-callback` → `StatusBadge`/exec-mode display + later **Jobs monitor** must handle them. A future "试运行" console could consume SSE. Not MVP.                                  |
 | 9 — OAuth + unified identity | ✓ **merged**: `user`+`user_identity` replace `admin_user`; `POST /auth/login`, `POST /auth/register`, `GET /auth/oauth/:provider`(+`/callback`), `POST /auth/link/:provider`; roles `admin\|user`; `/admin/auth/login` kept legacy | **Auth layer targets unified `/auth/login` and gates on `role==='admin'`** (see §10). OAuth buttons reserved (callback returns `{token}`; SPA redirect handoff is a backend follow-up). Settings will host identity linking. |
-| 10 — payments | In progress: `payment_intent`/`payment_event`, `/v1/payments/*`, admin **列支付/对账** | Manual `POST /admin/accounts/:id/topup` stays as the operational tool for MVP but kept **minimal** (payments will supersede it). **Reserve** a Payments/对账 module; Ledger already shows `topup`-type rows. |
+| 10 — payments                | In progress: `payment_intent`/`payment_event`, `/v1/payments/*`, admin **列支付/对账**                                                                                                                                             | Manual `POST /admin/accounts/:id/topup` stays as the operational tool for MVP but kept **minimal** (payments will supersede it). **Reserve** a Payments/对账 module; Ledger already shows `topup`-type rows.                 |
 
 **Net effect on MVP:** the only structural change vs. a naive build is the **auth layer** (unified `/auth`, role-gated, OAuth-ready) and **reserved nav slots** (Payments, Files). Everything else (Tenants/Accounts/API-Keys/Dashboard) is unaffected by 7–10.
 
@@ -56,16 +56,16 @@ Liquid Glass, dark-dominant, vibrant-yellow accent, **no blue**, **no emoji** (S
 
 **Themes** (`data-theme` on `<html>`, persisted to `localStorage`, default dark, honor `prefers-color-scheme` first load):
 
-| Token | Dark | Light |
-|---|---|---|
-| `--bg` | `#0d0c0a` | `#f1eee4` |
-| `--text`/`--muted`/`--faint` | `#f2efe6`/`#9a9384`/`#8f897a` | `#272219`/`#7a7263`/`#9b927f` |
-| `--glass-bg` | `rgba(255,255,255,.06)` | `rgba(255,255,255,.55)` |
-| `--glass-bd` | `rgba(255,255,255,.12)` | `rgba(0,0,0,.05)` |
-| `--glass-hl` | `rgba(255,255,255,.22)` | `rgba(255,255,255,.65)` |
-| `--glass-shadow` | `0 1px 1px rgba(0,0,0,.25),0 12px 28px rgba(0,0,0,.4)` | `0 1px 2px rgba(60,45,5,.05),0 10px 24px rgba(120,90,20,.1)` |
-| `--panel-bg` | `rgba(18,16,12,.82)` | `rgba(255,255,255,.66)` |
-| blobs `--b1/2/3`,`--spot` | warm amber/gold/orange | softer warm |
+| Token                        | Dark                                                   | Light                                                        |
+| ---------------------------- | ------------------------------------------------------ | ------------------------------------------------------------ |
+| `--bg`                       | `#0d0c0a`                                              | `#f1eee4`                                                    |
+| `--text`/`--muted`/`--faint` | `#f2efe6`/`#9a9384`/`#8f897a`                          | `#272219`/`#7a7263`/`#9b927f`                                |
+| `--glass-bg`                 | `rgba(255,255,255,.06)`                                | `rgba(255,255,255,.55)`                                      |
+| `--glass-bd`                 | `rgba(255,255,255,.12)`                                | `rgba(0,0,0,.05)`                                            |
+| `--glass-hl`                 | `rgba(255,255,255,.22)`                                | `rgba(255,255,255,.65)`                                      |
+| `--glass-shadow`             | `0 1px 1px rgba(0,0,0,.25),0 12px 28px rgba(0,0,0,.4)` | `0 1px 2px rgba(60,45,5,.05),0 10px 24px rgba(120,90,20,.1)` |
+| `--panel-bg`                 | `rgba(18,16,12,.82)`                                   | `rgba(255,255,255,.66)`                                      |
+| blobs `--b1/2/3`,`--spot`    | warm amber/gold/orange                                 | softer warm                                                  |
 
 **Spacing:** 8px grid (`--s-1..--s-8` = 4/8/12/16/20/24/32); gutter 16, module gap 12, card pad 16. **Radii:** `--r-sm:11 --r-md:14 --r-lg:18 --r-pill:20`. **Type:** system UI; bold, slightly tight headings; `tabular-nums` for money/metrics. **Status:** succeeded=green, running=amber, queued=orange, failed=red, canceled=neutral (no blue).
 
@@ -82,15 +82,15 @@ Apple's rule — **glass = functional layer above content; content stays primary
 
 `useGSAP` (scoped, auto-cleanup). **Autonomous** motion gated by `prefers-reduced-motion`; **pointer-driven** parallax stays on. Transforms/opacity only.
 
-| # | Motion | Technique | Reduced-motion |
-|---|---|---|---|
-| 1 | Blobs follow cursor (3 depths + reverse) | `gsap.quickTo`, listener on **`document`**, offset from stage rect | keep |
-| 2 | Cursor spotlight | `gsap.quickTo` + opacity fade | keep |
-| 3 | Idle blob breathing | `gsap.to(...,{yoyo,repeat:-1,'sine.inOut'})` | disable |
-| 4 | Active nav pill morph | GSAP **Flip** (or `offsetTop/offsetHeight` tween) | snap |
-| 5 | Stat count-up | `gsap.to({v:0}→target,onUpdate)` | final value |
-| 6 | Dialog/sheet materialize | scale `.98→1`+opacity+blur-in | opacity only |
-| 7 | Row stagger / toast slide | `gsap.from(rows,{stagger})` | none |
+| #   | Motion                                   | Technique                                                          | Reduced-motion |
+| --- | ---------------------------------------- | ------------------------------------------------------------------ | -------------- |
+| 1   | Blobs follow cursor (3 depths + reverse) | `gsap.quickTo`, listener on **`document`**, offset from stage rect | keep           |
+| 2   | Cursor spotlight                         | `gsap.quickTo` + opacity fade                                      | keep           |
+| 3   | Idle blob breathing                      | `gsap.to(...,{yoyo,repeat:-1,'sine.inOut'})`                       | disable        |
+| 4   | Active nav pill morph                    | GSAP **Flip** (or `offsetTop/offsetHeight` tween)                  | snap           |
+| 5   | Stat count-up                            | `gsap.to({v:0}→target,onUpdate)`                                   | final value    |
+| 6   | Dialog/sheet materialize                 | scale `.98→1`+opacity+blur-in                                      | opacity only   |
+| 7   | Row stagger / toast slide                | `gsap.from(rows,{stagger})`                                        | none           |
 
 `src/lib/motion/`: `gsap.ts` (register Flip), `useReducedMotion.ts`. **Lessons baked in:** mouse listener on `document` (not a glass-covered element); pointer parallax **not** gated by reduced-motion.
 
@@ -123,8 +123,9 @@ Rail groups: **运营**(Dashboard, Tenants) · **计费**(Accounts, Ledger, **Pa
 Backend (Phase 9, merged): unified `user` with `role` (`admin`/`user`); `POST /auth/login {email,password} → {token}` (JWT `{sub,role}`); OAuth `GET /auth/oauth/:provider`(+`/callback` returns `{token}`); `/admin/auth/login` legacy.
 
 Frontend:
+
 - `lib/auth/` with a small **auth client** pointed at a configurable `AUTH_BASE` (default `/auth`) so the path is one constant, not scattered. MVP calls `POST {AUTH_BASE}/login`.
-- **Gate on role:** after login, decode the JWT; require `role === 'admin'` (else show "需要管理员权限"). This is what makes a *unified* user model serve an *admin* console.
+- **Gate on role:** after login, decode the JWT; require `role === 'admin'` (else show "需要管理员权限"). This is what makes a _unified_ user model serve an _admin_ console.
 - Token in `localStorage` (+ in-memory mirror); `ProtectedRoute` guards the shell; `401`/expired → clear + `/login`. No refresh endpoint → re-login (noted limitation).
 - **OAuth reserved:** Login page renders disabled-but-present "用 Google / GitHub 登录" buttons behind a `VITE_OAUTH_ENABLED` flag (default off) → `GET /auth/oauth/:provider`. Enabled once the backend wires the callback→SPA redirect handoff. **No public register** in the admin console (admins are provisioned).
 
@@ -148,7 +149,7 @@ Frontend:
 ## 13. MVP Screens
 
 - **Login** — centered glass card (hero-refraction candidate) over `AppBackground`; email + password (coss `Field`); submit → `POST /auth/login` → require `role==='admin'` → store token → `/dashboard`; error toast on 401/non-admin. Reserved OAuth buttons (flag-gated). Lang + theme switch present.
-- **Dashboard** — 4 `StatCard`s (tenants, active API keys, today's jobs, today's spend) with count-up; "Recent jobs" `DataTable`. *No single stats endpoint exists → aggregate client-side from list endpoints; any count needing server support is flagged in the plan, not invented.*
+- **Dashboard** — 4 `StatCard`s (tenants, active API keys, today's jobs, today's spend) with count-up; "Recent jobs" `DataTable`. _No single stats endpoint exists → aggregate client-side from list endpoints; any count needing server support is flagged in the plan, not invented._
 - **Tenants** — `DataTable` (name, isolation_mode, created_at); "新建租户" `Dialog` (name + isolationMode `Select`). Create → invalidate + toast.
 - **Accounts** — list per tenant (`Money` balance, held, created_at); create (tenant `Select` + opening credits); row **Top up** `Dialog` (credits) → refresh. (Kept minimal — Phase 10 payments will extend this.)
 - **API Keys** — list per tenant; **Mint key** `Dialog` (tenant, resource allowlist, rate limit) → result shows **plaintext once** in `CopyField` with a clear "不会再次显示" warning.

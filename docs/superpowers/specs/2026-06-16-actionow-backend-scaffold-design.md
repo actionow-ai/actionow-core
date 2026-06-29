@@ -9,23 +9,23 @@
 
 ## 0. 决策记录 (Decisions Log)
 
-| # | 决策 | 选择 | 备注 |
-|---|---|---|---|
-| D1 | 技术路线 | TypeScript 单体仓库（greenfield） | 不基于 New API，避免 AGPL 耦合与阻抗失配 |
-| D2 | 数据库 | PostgreSQL | |
-| D3 | 金额表示 | credits = 整数最小单位（bigint，微 credit） | 禁二进制浮点做账（评审 #6） |
-| D4 | 后端框架 | NestJS | 多子域模块边界 + DI + guards |
-| D5 | ORM | Drizzle（SQL-first） | 利于账本原子条件更新 / 精确 decimal / 版本快照 |
-| D6 | 消息队列 | BullMQ（Redis 支撑） | 统一承载 job 执行 / webhook outbox / reaper / poll |
-| D7 | 缓存/锁/限流/幂等 | Redis | 与 BullMQ 共用实例 |
-| D8 | Dify 深度 | DSL 解析 + BYO 注册管线（不含托管 provision） | 仅 `workflow` 模式 |
-| D9 | 前端 | 本期不做 | API 出 OpenAPI |
-| D10 | 安全/合规层 | 排除（user 明确不需要） | 仅保留 SecretRef 抽象与不落日志纪律 |
-| D11 | 首批适配器 | `openai` · `anthropic` · `gemini` · `async-media-mock` · `dify-byo` | gemini 为独立映射，非 openai 别名 |
-| D12 | OpenAI 兼容端点 | 本期做（薄视图，复用同一管线） | 仅 `modality=text` |
-| D13 | 代码组织 | 模块化单体 @ pnpm monorepo（api 应用 + worker 应用共享 packages） | 可后续拆服务 |
-| D14 | 脚手架将内建评审的结构性修复 | 是 | 见 §10 映射表 |
-| D15 | 代码风格 | Profile 1：ESLint+Prettier · 严格类型 · 架构边界 | 详见 §14 |
+| #   | 决策                         | 选择                                                                | 备注                                               |
+| --- | ---------------------------- | ------------------------------------------------------------------- | -------------------------------------------------- |
+| D1  | 技术路线                     | TypeScript 单体仓库（greenfield）                                   | 不基于 New API，避免 AGPL 耦合与阻抗失配           |
+| D2  | 数据库                       | PostgreSQL                                                          |                                                    |
+| D3  | 金额表示                     | credits = 整数最小单位（bigint，微 credit）                         | 禁二进制浮点做账（评审 #6）                        |
+| D4  | 后端框架                     | NestJS                                                              | 多子域模块边界 + DI + guards                       |
+| D5  | ORM                          | Drizzle（SQL-first）                                                | 利于账本原子条件更新 / 精确 decimal / 版本快照     |
+| D6  | 消息队列                     | BullMQ（Redis 支撑）                                                | 统一承载 job 执行 / webhook outbox / reaper / poll |
+| D7  | 缓存/锁/限流/幂等            | Redis                                                               | 与 BullMQ 共用实例                                 |
+| D8  | Dify 深度                    | DSL 解析 + BYO 注册管线（不含托管 provision）                       | 仅 `workflow` 模式                                 |
+| D9  | 前端                         | 本期不做                                                            | API 出 OpenAPI                                     |
+| D10 | 安全/合规层                  | 排除（user 明确不需要）                                             | 仅保留 SecretRef 抽象与不落日志纪律                |
+| D11 | 首批适配器                   | `openai` · `anthropic` · `gemini` · `async-media-mock` · `dify-byo` | gemini 为独立映射，非 openai 别名                  |
+| D12 | OpenAI 兼容端点              | 本期做（薄视图，复用同一管线）                                      | 仅 `modality=text`                                 |
+| D13 | 代码组织                     | 模块化单体 @ pnpm monorepo（api 应用 + worker 应用共享 packages）   | 可后续拆服务                                       |
+| D14 | 脚手架将内建评审的结构性修复 | 是                                                                  | 见 §10 映射表                                      |
+| D15 | 代码风格                     | Profile 1：ESLint+Prettier · 严格类型 · 架构边界                    | 详见 §14                                           |
 
 ---
 
@@ -67,15 +67,15 @@ actionow-core/
 
 ### 3.1 公共面 `/v1`（需 API Key 鉴权，以租户上下文执行）
 
-| 端点 | 说明 |
-|---|---|
-| `POST /v1/run/{resource_id}` | 通用调用；按 io_schema 校验；exec_mode auto/blocking/stream/async |
-| `GET /v1/jobs/{id}` | Job 轮询 |
-| `POST /v1/jobs/{id}/cancel` | 取消（仅 queued/running；终态幂等）（补评审 #13） |
-| `GET /v1/jobs` | 列表 + 游标分页（运维/恢复枚举 in-flight） |
-| `GET /v1/resources` / `GET /v1/resources/{id}` | 资源目录发现 |
-| `POST /v1/chat/completions` | OpenAI 兼容薄视图，仅 `modality=text`（D12） |
-| `POST /v1/callbacks/{provider}` | 上游异步回调入口（async-callback） |
+| 端点                                           | 说明                                                              |
+| ---------------------------------------------- | ----------------------------------------------------------------- |
+| `POST /v1/run/{resource_id}`                   | 通用调用；按 io_schema 校验；exec_mode auto/blocking/stream/async |
+| `GET /v1/jobs/{id}`                            | Job 轮询                                                          |
+| `POST /v1/jobs/{id}/cancel`                    | 取消（仅 queued/running；终态幂等）（补评审 #13）                 |
+| `GET /v1/jobs`                                 | 列表 + 游标分页（运维/恢复枚举 in-flight）                        |
+| `GET /v1/resources` / `GET /v1/resources/{id}` | 资源目录发现                                                      |
+| `POST /v1/chat/completions`                    | OpenAI 兼容薄视图，仅 `modality=text`（D12）                      |
+| `POST /v1/callbacks/{provider}`                | 上游异步回调入口（async-callback）                                |
 
 SSE：`POST /v1/run/{id}` 带 `Accept: text/event-stream` → `delta`/`usage`/`done`/`error` 事件。
 
@@ -178,6 +178,7 @@ secret_ref(id, provider, locator, created_at)                    -- vault 指针
 ### 6.3 quote → hold → settle
 
 统一覆盖事前/事后/同步/异步/流式（见 §4）。失败退款**按 pricing_model 分叉**（评审 #2/#8 焊入骨架接口，策略可配）：
+
 - 透传/post 类工作流：工作流层不独立 settle，只对已完成子调用计量求和 + 加价；部分失败 = 未发生子调用不计（依赖 Dify node 事件，本期 BYO 不支持 metered，故此分支为接口预留）。
 - fixed/matrix 类：工作流层独立 hold/settle，失败按固定价退款策略。
 
@@ -199,13 +200,13 @@ secret_ref(id, provider, locator, created_at)                    -- vault 指针
 
 接口：`validate · submit · poll · parse_callback · extract_usage · map_error` + 能力位 `idempotent_submit`。
 
-| adapter | modality | exec_modes | 落地深度 |
-|---|---|---|---|
-| `openai` | text | blocking, stream | 真实；复用给 `/chat/completions` |
-| `anthropic` | text | blocking, stream | 真实；messages 映射 |
-| `gemini` | text | blocking, stream | 真实；**独立映射**（`contents[]`/`generateContent` 或 Google OpenAI-compat 层），非 openai 别名 |
-| `async-media-mock` | image/video | async-poll, async-callback | 上游可 mock（假延迟），让异步状态机/poll/webhook 全链路无需付费 key 即可跑通 |
-| `dify-workflow` | composite/text | async-poll | 真实 BYO（见 §7） |
+| adapter            | modality       | exec_modes                 | 落地深度                                                                                        |
+| ------------------ | -------------- | -------------------------- | ----------------------------------------------------------------------------------------------- |
+| `openai`           | text           | blocking, stream           | 真实；复用给 `/chat/completions`                                                                |
+| `anthropic`        | text           | blocking, stream           | 真实；messages 映射                                                                             |
+| `gemini`           | text           | blocking, stream           | 真实；**独立映射**（`contents[]`/`generateContent` 或 Google OpenAI-compat 层），非 openai 别名 |
+| `async-media-mock` | image/video    | async-poll, async-callback | 上游可 mock（假延迟），让异步状态机/poll/webhook 全链路无需付费 key 即可跑通                    |
+| `dify-workflow`    | composite/text | async-poll                 | 真实 BYO（见 §7）                                                                               |
 
 新增上游 = 新增一个 adapter，不改调用面。多上游路由复用 §4.1 的加权随机 + 故障转移。
 
@@ -224,19 +225,19 @@ secret_ref(id, provider, locator, created_at)                    -- vault 指针
 
 ## 10. 评审修复 → 骨架映射
 
-| 评审项 | 骨架内建做法 |
-|---|---|
+| 评审项                        | 骨架内建做法                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------------ |
 | #3 故障转移盲目重试非幂等任务 | pre/post-submit 失败区分 + `idempotent_submit` 能力位 + attempt 记录（§4.1.8） |
-| #4 job 不冻结版本快照 | job 建时冻结 resource_version/pricebook/modifier 快照（§4.1.6, §5） |
-| #6 浮点积分 | credits = bigint 最小单位，唯一取整时机（§4.2, D3） |
-| #7 modifier 无版本 | modifier 版本化 + 命中值固化进 job/ledger（§5, §6.2） |
-| #10 account 并发超卖 | 原子条件更新 + `CHECK(balance>=held)`（§4.1.6, §5） |
-| #11 settle 去重 + 跨表原子性 | 原子状态转移 + `unique(job_id) where type=settle` + 事务性 outbox（§4.2） |
-| #12 孤儿 hold | `hold_expires_at` + hold-reaper（§4.3, §9） |
-| #13 缺生命周期端点 | `/jobs/{id}/cancel` + `GET /jobs` 分页（§3.1） |
-| #2 BYO 下 metered 不成立 | `provision_mode=byo ⇒ pricing_model≠metered` 焊死（§7） |
-| 契约空洞（幂等） | `idempotency_key` 全链路语义（§4.1.2, §5） |
-| 可观测缺位 | trace_id/metrics/health（§9） |
+| #4 job 不冻结版本快照         | job 建时冻结 resource_version/pricebook/modifier 快照（§4.1.6, §5）            |
+| #6 浮点积分                   | credits = bigint 最小单位，唯一取整时机（§4.2, D3）                            |
+| #7 modifier 无版本            | modifier 版本化 + 命中值固化进 job/ledger（§5, §6.2）                          |
+| #10 account 并发超卖          | 原子条件更新 + `CHECK(balance>=held)`（§4.1.6, §5）                            |
+| #11 settle 去重 + 跨表原子性  | 原子状态转移 + `unique(job_id) where type=settle` + 事务性 outbox（§4.2）      |
+| #12 孤儿 hold                 | `hold_expires_at` + hold-reaper（§4.3, §9）                                    |
+| #13 缺生命周期端点            | `/jobs/{id}/cancel` + `GET /jobs` 分页（§3.1）                                 |
+| #2 BYO 下 metered 不成立      | `provision_mode=byo ⇒ pricing_model≠metered` 焊死（§7）                        |
+| 契约空洞（幂等）              | `idempotency_key` 全链路语义（§4.1.2, §5）                                     |
+| 可观测缺位                    | trace_id/metrics/health（§9）                                                  |
 
 ---
 
@@ -296,15 +297,15 @@ ESLint 强制：`no-explicit-any`(error)、`explicit-module-boundary-types`、`c
 
 按 package 定义 element 类型，强制依赖方向（违反即 lint 报错）：
 
-| package | 允许导入 |
-|---|---|
-| `contracts` | （叶子，不依赖任何内部包） |
-| `domain` | `contracts` **only** — 禁 db/infra/adapters/nestjs/drizzle/redis/bullmq（保持纯函数核心） |
-| `db` | `contracts` · `domain` |
-| `adapters` | `contracts` · `domain` · `infra` |
-| `dify` | `contracts` · `domain` · `infra` |
-| `infra` | `contracts` |
-| `apps/api` · `apps/worker` | 任意 package |
+| package                    | 允许导入                                                                                  |
+| -------------------------- | ----------------------------------------------------------------------------------------- |
+| `contracts`                | （叶子，不依赖任何内部包）                                                                |
+| `domain`                   | `contracts` **only** — 禁 db/infra/adapters/nestjs/drizzle/redis/bullmq（保持纯函数核心） |
+| `db`                       | `contracts` · `domain`                                                                    |
+| `adapters`                 | `contracts` · `domain` · `infra`                                                          |
+| `dify`                     | `contracts` · `domain` · `infra`                                                          |
+| `infra`                    | `contracts`                                                                               |
+| `apps/api` · `apps/worker` | 任意 package                                                                              |
 
 `domain` 额外用 `no-restricted-imports` 黑名单 `nestjs/drizzle/ioredis/bullmq` 二次兜底。
 

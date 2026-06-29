@@ -38,6 +38,11 @@ export interface SpecFormState {
   perItem: string;
   /** passthrough: an optional markup over the upstream cost. */
   markup: { enabled: boolean; type: 'percent' | 'flat'; value: number };
+  /** model_token: per-input-token + per-output-token µcredit rates (embeddings/rerank). */
+  modelInputPrice: number;
+  modelOutputPrice: number;
+  /** model_token (optional): a basis-points modifier folded into the base rate. */
+  modelGroupRatioBps: number;
 }
 
 /** A fresh blank unit dimension row with a stable id. */
@@ -59,6 +64,9 @@ export function emptySpecForm(): SpecFormState {
     multiplier: '',
     perItem: '',
     markup: { enabled: false, type: 'percent', value: 0 },
+    modelInputPrice: 0,
+    modelOutputPrice: 0,
+    modelGroupRatioBps: 0,
   };
 }
 
@@ -89,6 +97,16 @@ export function buildSpec(method: PricebookMethod, s: SpecFormState): Record<str
       return s.markup.enabled
         ? { method: 'passthrough', markup: { type: s.markup.type, value: s.markup.value } }
         : { method: 'passthrough' };
+    case 'model_token': {
+      // Per-token relay pricing (embeddings/rerank): µcredit per input/output token.
+      const out: Record<string, unknown> = {
+        method: 'model_token',
+        inputPrice: s.modelInputPrice,
+        outputPrice: s.modelOutputPrice,
+      };
+      if (s.modelGroupRatioBps > 0) out.groupRatioBps = s.modelGroupRatioBps;
+      return out;
+    }
     case 'fixed':
       return { method }; // fixed amount comes from fixedCredits
     default: {

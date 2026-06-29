@@ -54,6 +54,7 @@ export function PricebookSpecForm({
             <div style={{ flex: 1, minWidth: 0 }}>
               <TextField
                 label={t('forms.spec.dimension')}
+                tooltip={t('forms.spec.dimensionHint')}
                 value={d.name}
                 onChange={(v) => setDim(i, { name: v })}
               />
@@ -209,6 +210,42 @@ export function PricebookSpecForm({
             </div>
           </div>
         )}
+      </div>
+    );
+  }
+
+  if (method === 'model_token') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+        <div style={{ display: 'flex', gap: 'var(--s-2)', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <NumberField
+              label={t('forms.spec.inputPrice')}
+              tooltip={t('forms.spec.muCreditNote')}
+              hint={t('forms.spec.perTokenHint')}
+              min={0}
+              value={value.modelInputPrice}
+              onChange={(n) => onChange({ ...value, modelInputPrice: n })}
+            />
+          </div>
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <NumberField
+              label={t('forms.spec.outputPrice')}
+              tooltip={t('forms.spec.muCreditNote')}
+              hint={t('forms.spec.perTokenHint')}
+              min={0}
+              value={value.modelOutputPrice}
+              onChange={(n) => onChange({ ...value, modelOutputPrice: n })}
+            />
+          </div>
+        </div>
+        <NumberField
+          label={t('forms.spec.groupRatioBps')}
+          hint={t('forms.spec.groupRatioBpsHint')}
+          min={0}
+          value={value.modelGroupRatioBps}
+          onChange={(n) => onChange({ ...value, modelGroupRatioBps: n })}
+        />
       </div>
     );
   }

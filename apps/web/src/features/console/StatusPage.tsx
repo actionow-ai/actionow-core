@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Pill, type PillTone } from '../../components/ui/Pill';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { config } from '../../config';
 import { qk } from '../../lib/api/queryKeys';
 import type { ModelHealthView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
@@ -83,6 +84,8 @@ export function StatusPage() {
         </div>
       </div>
 
+      <ReadinessCard />
+
       {isLoading ? (
         <p style={{ color: 'var(--muted)' }}>{t('common.loading')}</p>
       ) : models.length === 0 ? (
@@ -100,6 +103,63 @@ export function StatusPage() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** The /readyz body (200 ready or 503 degraded — both carry the same shape). */
+interface ReadyzReport {
+  status: 'ready' | 'degraded';
+  checks: { postgres: string; redis: string; queue: string };
+}
+
+/**
+ * Platform readiness (#56) — the infra dependency probe, distinct from the
+ * AI-model health below. Fetches /readyz directly (it returns 503 when degraded,
+ * which the standard client would treat as an error) and surfaces postgres / redis
+ * / queue status so an operator separates "infra down" from "a model degraded".
+ */
+function ReadinessCard() {
+  const { t } = useTranslation('console');
+  const { data } = useQuery({
+    queryKey: qk.readyz(),
+    queryFn: async (): Promise<ReadyzReport> => {
+      const res = await fetch(`${config.apiBase}/readyz`);
+      return (await res.json()) as ReadyzReport;
+    },
+    refetchInterval: 30_000,
+  });
+  const dep = (name: string, status: string | undefined) => (
+    <Pill tone={status === undefined ? 'idle' : status === 'ok' ? 'ok' : 'fail'} dot>
+      {name}
+    </Pill>
+  );
+  return (
+    <div
+      className="panel"
+      style={{
+        padding: 'var(--s-3)',
+        borderRadius: 'var(--r-md)',
+        marginBottom: 'var(--s-3)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--s-2)',
+        flexWrap: 'wrap',
+      }}
+    >
+      <strong style={{ fontSize: 'var(--fs-sm)' }}>{t('status.readiness.title')}</strong>
+      {data !== undefined && (
+        <Pill tone={data.status === 'ready' ? 'ok' : 'fail'} dot>
+          {t('status.readiness.' + data.status, data.status)}
+        </Pill>
+      )}
+      <span
+        style={{ marginLeft: 'auto', display: 'inline-flex', gap: 'var(--s-2)', flexWrap: 'wrap' }}
+      >
+        {dep('PostgreSQL', data?.checks.postgres)}
+        {dep('Redis', data?.checks.redis)}
+        {dep('Queue', data?.checks.queue)}
+      </span>
     </div>
   );
 }

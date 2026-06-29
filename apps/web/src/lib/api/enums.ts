@@ -24,6 +24,10 @@ export const MODALITIES: EnumOption<Modality>[] = [
   { value: 'video', labelKey: 'enums.modality.video' },
   { value: 'audio', labelKey: 'enums.modality.audio' },
   { value: 'composite', labelKey: 'enums.modality.composite' },
+  // Relay-model modalities (#59/#60/#64): embeddings, reranking, moderation.
+  { value: 'embedding', labelKey: 'enums.modality.embedding' },
+  { value: 'rerank', labelKey: 'enums.modality.rerank' },
+  { value: 'moderation', labelKey: 'enums.modality.moderation' },
 ];
 
 export const RESOURCE_KINDS: EnumOption<'model' | 'workflow'>[] = [
@@ -37,6 +41,8 @@ export const PRICEBOOK_METHODS: EnumOption<PricebookMethod>[] = [
   { value: 'fixed', labelKey: 'enums.method.fixed' },
   { value: 'formula', labelKey: 'enums.method.formula' },
   { value: 'passthrough', labelKey: 'enums.method.passthrough' },
+  // Per-token model pricing (embeddings/rerank relays, #59/#60): input/output µcredit.
+  { value: 'model_token', labelKey: 'enums.method.model_token' },
 ];
 
 export const PRICEBOOK_TIMINGS: EnumOption<PricebookTiming>[] = [
@@ -101,6 +107,8 @@ export const CAPABILITIES: CapabilityDef[] = [
   { key: 'audio', labelKey: 'enums.capability.audio' },
   { key: 'json', labelKey: 'enums.capability.json' },
   { key: 'stream', labelKey: 'enums.capability.stream' },
+  { key: 'multilingual', labelKey: 'enums.capability.multilingual' },
+  { key: 'moderation', labelKey: 'enums.capability.moderation' },
 ];
 
 /** Common upstream provider identifiers — suggestions for free-text fields (not an enum). */
@@ -112,6 +120,7 @@ export const COMMON_PROVIDERS = [
   'bedrock',
   'cohere',
   'mistral',
+  'jina',
 ] as const;
 
 /** Known exec-mode values — suggestions for the resource `execModes` chips field. */

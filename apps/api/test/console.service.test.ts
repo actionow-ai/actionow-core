@@ -20,17 +20,15 @@ function service(overrides: {
 
 describe('ConsoleService', () => {
   it('listModels delegates to the ModelsPort with the caller tenant', async () => {
-    const listVisibleModels = vi
-      .fn()
-      .mockResolvedValue([
-        {
-          name: 'gpt-4o',
-          display: 'GPT-4o',
-          modality: 'chat',
-          capabilities: {},
-          visibility: 'public',
-        },
-      ]);
+    const listVisibleModels = vi.fn().mockResolvedValue([
+      {
+        name: 'gpt-4o',
+        display: 'GPT-4o',
+        modality: 'chat',
+        capabilities: {},
+        visibility: 'public',
+      },
+    ]);
     const svc = service({ models: { listVisibleModels } });
     const out = await svc.listModels('tenant-1');
     expect(listVisibleModels).toHaveBeenCalledWith(fakeDb, 'tenant-1');

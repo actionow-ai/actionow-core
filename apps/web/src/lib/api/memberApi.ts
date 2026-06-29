@@ -1,16 +1,21 @@
 import type { ApiClient } from './client';
 import type {
   MemberBalanceView,
+  MemberChangePasswordBody,
+  MemberCreateApiKeyBody,
+  MemberKeyCreatedView,
   MemberKeyView,
   MemberLimitsView,
   MemberMeView,
+  MemberUpdateMeBody,
   MemberUsageList,
 } from './types';
 
 /**
  * The end-user self-service **member** client — sibling to `makeConsoleApi`,
  * scoped to the caller's OWN subject (the backend `MemberGuard` derives the
- * subject from the member JWT, never from a body/path). Read-only in v1.
+ * subject from the member JWT, never from a body/path). Reads identity/balance/
+ * usage/keys/limits; writes the caller's own profile, password, and API keys (#57).
  *
  * Everything goes through the hand-written `rawClient` (carrying the member JWT
  * the `/member/login` flow already stored as `actionow.token`): the `/member/*`
@@ -36,6 +41,20 @@ export function makeMemberApi(rawClient: ApiClient) {
     apiKeys: (): Promise<MemberKeyView[]> => rawClient.get<MemberKeyView[]>('/member/api-keys'),
     // The caller-subject's governance status (effective plan + usage-vs-cap bars).
     limits: (): Promise<MemberLimitsView> => rawClient.get<MemberLimitsView>('/member/limits'),
+
+    // --- self-service writes (#57) — all scoped to the caller's own subject ---
+    // Update own display name (null clears it).
+    updateMe: (body: MemberUpdateMeBody): Promise<MemberMeView> =>
+      rawClient.patch<MemberMeView>('/member/me', body),
+    // Change own password (verifies current; Model-A members only — others 403).
+    changePassword: (body: MemberChangePasswordBody): Promise<{ ok: true }> =>
+      rawClient.post<{ ok: true }>('/member/me/password', body),
+    // Self-mint a subject-scoped API key — plaintext returned ONCE.
+    createApiKey: (body: MemberCreateApiKeyBody): Promise<MemberKeyCreatedView> =>
+      rawClient.post<MemberKeyCreatedView>('/member/api-keys', body),
+    // Revoke one of the caller's own keys (a cross-subject id 404s server-side).
+    revokeApiKey: (id: string): Promise<{ id: string; status: 'revoked' }> =>
+      rawClient.delete<{ id: string; status: 'revoked' }>(`/member/api-keys/${id}`),
   };
 }
 

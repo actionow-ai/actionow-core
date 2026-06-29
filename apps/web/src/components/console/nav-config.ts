@@ -46,6 +46,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { to: '/console/breakers', labelKey: 'breakers' },
       { to: '/console/relay-traces', labelKey: 'relayTraces' },
       { to: '/console/audit-log', labelKey: 'auditLog' },
+      { to: '/console/platform-settings', labelKey: 'platformSettings' },
     ],
   },
   {

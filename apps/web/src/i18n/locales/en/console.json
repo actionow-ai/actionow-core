@@ -38,7 +38,24 @@
       "keys": "API keys",
       "noKeys": "No API keys yet",
       "unnamedKey": "Unnamed",
-      "keysNote": "Keys are issued by the operator. Contact the product you belong to to add or revoke a key.",
+      "keysNote": "Keep your secret keys safe — anyone with a key can spend your account's quota. The full key is shown only once, when you create it.",
+      "noName": "Not set",
+      "namePlaceholder": "Your display name",
+      "nameSaved": "Name updated",
+      "security": "Account security",
+      "currentPassword": "Current password",
+      "newPassword": "New password",
+      "passwordHint": "At least 8 characters",
+      "changePassword": "Change password",
+      "passwordChanged": "Password changed",
+      "createKey": "Create key",
+      "revokeKey": "Revoke key",
+      "keyRevoked": "Key revoked",
+      "revealTitle": "Copy your new key",
+      "revealWarn": "This is the only time the full key is shown. Copy it now and store it securely.",
+      "revealDone": "I've saved it",
+      "confirmRevokeTitle": "Revoke this key?",
+      "confirmRevokeMsg": "Any app using this key will immediately stop working. This can't be undone.",
       "usage": "Recent usage",
       "noUsage": "No usage yet"
     }
@@ -190,7 +207,16 @@
         "audio": "Audio"
       },
       "upload": "Upload",
-      "uploaded": "File uploaded"
+      "uploaded": "File uploaded",
+      "delete": "Delete",
+      "deleted": "File deleted",
+      "confirmDeleteTitle": "Delete this file?",
+      "confirmDeleteMsg": "The file is removed from storage and can't be recovered. References in past jobs keep their record.",
+      "storage": "Storage used",
+      "fileCount": "{{n}} files",
+      "noQuota": "no quota",
+      "ttlForever": "Files are retained forever (no lifecycle TTL set).",
+      "ttlDays": "Files auto-expire after {{days}} days."
     },
     "adminOnly": "Read-only view — this action requires a tenant admin.",
     "currentRole": "Current role",
@@ -309,6 +335,7 @@
     "breakers": "Breakers",
     "relayTraces": "Relay traces",
     "auditLog": "Audit log",
+    "platformSettings": "Platform settings",
     "overview": "Overview",
     "tusage": "Usage",
     "tkeys": "API Keys",
@@ -353,6 +380,7 @@
     "breakers": "Tripped / probing channels — per-(channel, model) breaker state & reset",
     "relayTraces": "Upstream relay audit — requests, responses, latency",
     "auditLog": "Who changed what, when — money / governance / identity mutation audit",
+    "platformSettings": "Runtime-tunable platform config — override an env default, audited",
     "overview": "Balance, recent jobs and ledger",
     "tusage": "Usage aggregation and per-call log",
     "tkeys": "Mint and manage your API keys",
@@ -484,6 +512,17 @@
       }
     }
   },
+  "settings": {
+    "value": "Value",
+    "saved": "Setting saved",
+    "reset": "Setting reset to its default",
+    "resetToDefault": "Reset to default",
+    "overriddenAt": "Overridden {{time}} by {{by}}",
+    "source": {
+      "env": "Default",
+      "db": "Overridden"
+    }
+  },
   "relayTraces": {
     "title": "Relay traces",
     "allTenants": "All tenants",
@@ -560,6 +599,29 @@
       "payments": "Payments",
       "noLedger": "No ledger entries",
       "noPayments": "No payments",
+      "jobs": {
+        "tab": "Jobs",
+        "empty": "No jobs yet",
+        "live": "Live — watching an in-flight job",
+        "refund": "Refund",
+        "refunded": "Refunded {{credits}} credits",
+        "refundTitle": "Refund job",
+        "refundHint": "Refund a settled job's captured cost back to the tenant's balance. Leave the amount at 0 to refund the full remaining refundable.",
+        "amount": "Refund amount (credits)",
+        "amountTip": "0 = full remaining refundable. A partial amount is capped at the job's settled cost.",
+        "cols": {
+          "resource": "Resource",
+          "cost": "Cost"
+        }
+      },
+      "fileTtl": {
+        "label": "Asset TTL (days)",
+        "tip": "Auto-expire this tenant's generated files after N days. Set 0 and Clear to keep them forever.",
+        "apply": "Set TTL",
+        "clear": "Clear TTL",
+        "set": "Asset TTL set to {{days}} days",
+        "cleared": "Asset TTL cleared"
+      },
       "users": {
         "tab": "End-users",
         "add": "Add end-user",
@@ -1554,6 +1616,11 @@
     "operational": "Operational",
     "degraded": "{{n}} model(s) failing",
     "noData": "No data",
+    "readiness": {
+      "title": "Platform readiness",
+      "ready": "All systems ready",
+      "degraded": "Infrastructure degraded"
+    },
     "window": "Window",
     "days": "{{n}}d",
     "empty": "No traffic in this window yet — make some requests and per-model availability + latency will show here.",
@@ -1574,7 +1641,10 @@
       "image": "Image",
       "video": "Video",
       "audio": "Audio",
-      "composite": "Composite"
+      "composite": "Composite",
+      "embedding": "Embedding",
+      "rerank": "Rerank",
+      "moderation": "Moderation"
     },
     "kind": {
       "model": "Model",
@@ -1585,7 +1655,8 @@
       "matrix": "Matrix",
       "fixed": "Fixed",
       "formula": "Formula",
-      "passthrough": "Passthrough"
+      "passthrough": "Passthrough",
+      "model_token": "Model token"
     },
     "timing": {
       "pre": "Pre",
@@ -1618,7 +1689,9 @@
       "vision": "Vision",
       "audio": "Audio",
       "json": "JSON mode",
-      "stream": "Streaming"
+      "stream": "Streaming",
+      "multilingual": "Multilingual",
+      "moderation": "Moderation"
     }
   },
   "forms": {
@@ -1665,6 +1738,7 @@
     },
     "spec": {
       "dimension": "Dimension",
+      "dimensionHint": "The usage dimension the relay meters, e.g. images / audio_seconds (TTS & speech-to-text) / video_seconds / characters. Must match the name the engine emits for this modality.",
       "rate": "Rate",
       "rateHint": "µcredits per unit (1 credit = 1,000,000 µcredits).",
       "muCreditNote": "Amounts here are µcredits — 1 credit = 1,000,000 µcredits.",
@@ -1686,7 +1760,12 @@
       "markupValue": "Markup value",
       "markupPercentHint": "Whole percent added on top of the upstream cost.",
       "markupFlatHint": "Flat µcredits added on top of the upstream cost.",
-      "fixedNote": "Set the price via the Fixed credits field in the pricing form."
+      "fixedNote": "Set the price via the Fixed credits field in the pricing form.",
+      "inputPrice": "Input price",
+      "outputPrice": "Output price",
+      "perTokenHint": "µcredits per token (1 credit = 1,000,000 µcredits).",
+      "groupRatioBps": "Group ratio (bps, optional)",
+      "groupRatioBpsHint": "Basis-points modifier folded into the base rate; 0 = none (10000 = ×1.00)."
     }
   },
   "errors": {

@@ -24,6 +24,7 @@
 ## Task 1: Monorepo root scaffolding
 
 **Files:**
+
 - Create: `package.json`, `pnpm-workspace.yaml`, `.npmrc`, `.nvmrc`, `tsconfig.base.json`, `turbo.json`
 - Modify: `.gitignore`
 
@@ -147,6 +148,7 @@ git commit -m "chore: scaffold pnpm monorepo root (turbo, tsconfig, workspace)"
 ## Task 2: Lint/format toolchain (Profile 1, §14)
 
 **Files:**
+
 - Create: `eslint.config.mjs`, `.prettierrc.json`, `.prettierignore`, `commitlint.config.cjs`, `.husky/pre-commit`, `.husky/commit-msg`
 - Modify: root `package.json` (add devDeps + lint-staged)
 
@@ -230,7 +232,11 @@ export default tseslint.config(
       '@typescript-eslint/no-misused-promises': 'error',
       '@typescript-eslint/naming-convention': [
         'error',
-        { selector: 'interface', format: ['PascalCase'], custom: { regex: '^I[A-Z]', match: false } },
+        {
+          selector: 'interface',
+          format: ['PascalCase'],
+          custom: { regex: '^I[A-Z]', match: false },
+        },
         { selector: 'typeLike', format: ['PascalCase'] },
       ],
       'boundaries/element-types': [
@@ -260,7 +266,10 @@ export default tseslint.config(
       ],
     },
   },
-  { files: ['**/*.spec.ts', '**/*.test.ts'], rules: { '@typescript-eslint/no-unsafe-assignment': 'off' } },
+  {
+    files: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: { '@typescript-eslint/no-unsafe-assignment': 'off' },
+  },
   prettier,
 );
 ```
@@ -283,6 +292,7 @@ module.exports = { extends: ['@commitlint/config-conventional'] };
 - [ ] **Step 7: Init husky hooks**
 
 Run:
+
 ```bash
 pnpm exec husky init
 printf "pnpm exec lint-staged\n" > .husky/pre-commit
@@ -306,6 +316,7 @@ git commit -m "chore: add eslint(flat)+prettier+boundaries+husky+commitlint"
 ## Task 3: Local infra (docker-compose) + env
 
 **Files:**
+
 - Create: `docker-compose.yml`, `.env.example`
 
 - [ ] **Step 1: Create `docker-compose.yml`**
@@ -366,6 +377,7 @@ git commit -m "chore: add docker-compose (postgres+redis) and .env.example"
 ## Task 4: Leaf package skeletons (contracts, infra)
 
 **Files:**
+
 - Create: `packages/contracts/{package.json,tsconfig.json,src/index.ts}`
 - Create: `packages/infra/{package.json,tsconfig.json,src/index.ts,src/config.ts}`
 
@@ -393,7 +405,11 @@ git commit -m "chore: add docker-compose (postgres+redis) and .env.example"
 - [ ] **Step 2: `packages/contracts/tsconfig.json`**
 
 ```json
-{ "extends": "../../tsconfig.base.json", "compilerOptions": { "outDir": "dist", "rootDir": "src" }, "include": ["src"] }
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "outDir": "dist", "rootDir": "src" },
+  "include": ["src"]
+}
 ```
 
 - [ ] **Step 3: `packages/contracts/src/index.ts`** (placeholder export so the package is importable)
@@ -474,6 +490,7 @@ git commit -m "feat(packages): add contracts + infra skeletons with zod env conf
 ## Task 5: `packages/db` skeleton + Drizzle wiring
 
 **Files:**
+
 - Create: `packages/db/{package.json,tsconfig.json,drizzle.config.ts,src/index.ts,src/client.ts}`
 - Create: `packages/db/src/schema/index.ts`
 
@@ -521,7 +538,9 @@ export default defineConfig({
   schema: './src/schema/index.ts',
   out: './drizzle',
   dialect: 'postgresql',
-  dbCredentials: { url: process.env.DATABASE_URL ?? 'postgresql://actionow:actionow@localhost:5432/actionow' },
+  dbCredentials: {
+    url: process.env.DATABASE_URL ?? 'postgresql://actionow:actionow@localhost:5432/actionow',
+  },
 });
 ```
 
@@ -576,6 +595,7 @@ git commit -m "feat(db): add drizzle client + db/domain package skeletons"
 ## Task 6: Drizzle schema — identity & accounts (§5)
 
 **Files:**
+
 - Create: `packages/db/src/schema/identity.ts`, `packages/db/src/schema/accounts.ts`
 - Modify: `packages/db/src/schema/index.ts`
 
@@ -583,7 +603,16 @@ git commit -m "feat(db): add drizzle client + db/domain package skeletons"
 
 ```ts
 import { sql } from 'drizzle-orm';
-import { bigint, index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 export const tenant = pgTable('tenant', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -596,14 +625,22 @@ export const apiKey = pgTable(
   'api_key',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenant_id').notNull().references(() => tenant.id),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenant.id),
     hash: text('hash').notNull(),
-    resourceAllowlist: jsonb('resource_allowlist').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    resourceAllowlist: jsonb('resource_allowlist')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     rateLimit: bigint('rate_limit', { mode: 'number' }),
     status: text('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => ({ hashIdx: uniqueIndex('api_key_hash_idx').on(t.hash), tenantIdx: index('api_key_tenant_idx').on(t.tenantId) }),
+  (t) => ({
+    hashIdx: uniqueIndex('api_key_hash_idx').on(t.hash),
+    tenantIdx: index('api_key_tenant_idx').on(t.tenantId),
+  }),
 );
 
 export const adminUser = pgTable('admin_user', {
@@ -628,12 +665,16 @@ export const account = pgTable(
   'account',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenant_id').notNull().references(() => tenant.id),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenant.id),
     creditBalance: bigint('credit_balance', { mode: 'bigint' }).notNull().default(0n),
     creditHeld: bigint('credit_held', { mode: 'bigint' }).notNull().default(0n),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => ({ balanceCheck: check('account_balance_ge_held', sql`${t.creditBalance} >= ${t.creditHeld}`) }),
+  (t) => ({
+    balanceCheck: check('account_balance_ge_held', sql`${t.creditBalance} >= ${t.creditHeld}`),
+  }),
 );
 ```
 
@@ -661,19 +702,31 @@ git commit -m "feat(db): add identity + account schema with balance>=held check"
 ## Task 7: Drizzle schema — catalog & pricing (§5)
 
 **Files:**
+
 - Create: `packages/db/src/schema/catalog.ts`, `packages/db/src/schema/pricing.ts`
 - Modify: `packages/db/src/schema/index.ts`
 
 - [ ] **Step 1: `catalog.ts`** — `resource`, `resource_version` (unique(resource_id,version)), `upstream_channel`, `dify_binding`, `secret_ref`
 
 ```ts
-import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 import { tenant } from './identity.js';
 
 export const resource = pgTable('resource', {
   id: text('id').primaryKey(),
-  tenantId: uuid('tenant_id').notNull().references(() => tenant.id),
+  tenantId: uuid('tenant_id')
+    .notNull()
+    .references(() => tenant.id),
   kind: text('kind').notNull(), // model | workflow
   modality: text('modality').notNull(), // text|image|video|audio|composite
   providerType: text('provider_type').notNull(),
@@ -686,7 +739,9 @@ export const resource = pgTable('resource', {
 export const resourceVersion = pgTable(
   'resource_version',
   {
-    resourceId: text('resource_id').notNull().references(() => resource.id),
+    resourceId: text('resource_id')
+      .notNull()
+      .references(() => resource.id),
     version: integer('version').notNull(),
     ioSchema: jsonb('io_schema').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -698,7 +753,9 @@ export const upstreamChannel = pgTable(
   'upstream_channel',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    resourceId: text('resource_id').notNull().references(() => resource.id),
+    resourceId: text('resource_id')
+      .notNull()
+      .references(() => resource.id),
     providerType: text('provider_type').notNull(),
     credentialRef: uuid('credential_ref'),
     weight: integer('weight').notNull().default(1),
@@ -708,7 +765,9 @@ export const upstreamChannel = pgTable(
 );
 
 export const difyBinding = pgTable('dify_binding', {
-  resourceId: text('resource_id').notNull().references(() => resource.id),
+  resourceId: text('resource_id')
+    .notNull()
+    .references(() => resource.id),
   resourceVersion: integer('resource_version').notNull(),
   mode: text('mode').notNull(), // workflow | advanced-chat
   difyAppEndpoint: text('dify_app_endpoint').notNull(),
@@ -731,7 +790,17 @@ export const secretRef = pgTable('secret_ref', {
 - [ ] **Step 2: `pricing.ts`** — `pricebook_entry` (versioned), `modifier` (versioned, review #7), `gift_code`
 
 ```ts
-import { bigint, boolean, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 import { resource } from './catalog.js';
 
@@ -739,7 +808,9 @@ export const pricebookEntry = pgTable(
   'pricebook_entry',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    resourceId: text('resource_id').notNull().references(() => resource.id),
+    resourceId: text('resource_id')
+      .notNull()
+      .references(() => resource.id),
     resourceVersion: integer('resource_version').notNull(),
     version: integer('version').notNull(),
     method: text('method').notNull(), // unit|matrix|fixed|formula|passthrough
@@ -789,6 +860,7 @@ git commit -m "feat(db): add catalog + pricing schema (versioned pricebook/modif
 ## Task 8: Drizzle schema — jobs, ledger, idempotency, outbox (§5, review #4/#11/#12)
 
 **Files:**
+
 - Create: `packages/db/src/schema/execution.ts`
 - Modify: `packages/db/src/schema/index.ts`
 
@@ -796,7 +868,16 @@ git commit -m "feat(db): add catalog + pricing schema (versioned pricebook/modif
 
 ```ts
 import { sql } from 'drizzle-orm';
-import { bigint, index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 import { account } from './accounts.js';
 import { resource } from './catalog.js';
@@ -806,8 +887,12 @@ export const job = pgTable(
   'job',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenant_id').notNull().references(() => tenant.id),
-    resourceId: text('resource_id').notNull().references(() => resource.id),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenant.id),
+    resourceId: text('resource_id')
+      .notNull()
+      .references(() => resource.id),
     resourceVersion: bigint('resource_version', { mode: 'number' }).notNull(),
     status: text('status').notNull(), // queued|running|succeeded|failed|canceled
     execMode: text('exec_mode').notNull(),
@@ -829,15 +914,22 @@ export const job = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => ({ statusIdx: index('job_status_idx').on(t.status), tenantIdx: index('job_tenant_idx').on(t.tenantId) }),
+  (t) => ({
+    statusIdx: index('job_status_idx').on(t.status),
+    tenantIdx: index('job_tenant_idx').on(t.tenantId),
+  }),
 );
 
 export const ledgerTxn = pgTable(
   'ledger_txn',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenant_id').notNull().references(() => tenant.id),
-    accountId: uuid('account_id').notNull().references(() => account.id),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenant.id),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id),
     type: text('type').notNull(), // topup|giftcode|hold|settle|refund
     creditsDelta: bigint('credits_delta', { mode: 'bigint' }).notNull(),
     balanceAfter: bigint('balance_after', { mode: 'bigint' }).notNull(),
@@ -850,7 +942,9 @@ export const ledgerTxn = pgTable(
   },
   (t) => ({
     // review #11: at most one settle per job
-    settleUniq: uniqueIndex('ledger_settle_per_job').on(t.jobId).where(sql`type = 'settle'`),
+    settleUniq: uniqueIndex('ledger_settle_per_job')
+      .on(t.jobId)
+      .where(sql`type = 'settle'`),
     jobIdx: index('ledger_job_idx').on(t.jobId),
   }),
 );
@@ -858,7 +952,9 @@ export const ledgerTxn = pgTable(
 export const idempotencyKey = pgTable(
   'idempotency_key',
   {
-    tenantId: uuid('tenant_id').notNull().references(() => tenant.id),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenant.id),
     key: text('key').notNull(),
     jobId: uuid('job_id').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -882,7 +978,7 @@ export const webhookOutbox = pgTable(
 );
 ```
 
-> Note: the partial-unique `ledger_settle_per_job` index uses `.where(sql\`type = 'settle'\`)` — `sql` is imported at the top of the file (review #11: at most one settle row per job).
+> Note: the partial-unique `ledger_settle_per_job` index uses `.where(sql\`type = 'settle'\`)`—`sql` is imported at the top of the file (review #11: at most one settle row per job).
 
 - [ ] **Step 2: Re-export** — append `export * from './execution.js';` to `schema/index.ts`.
 
@@ -900,6 +996,7 @@ git commit -m "feat(db): add job/ledger/idempotency/outbox schema with settle un
 ## Task 9: Generate migration + integration smoke test (Testcontainers)
 
 **Files:**
+
 - Create: `packages/db/drizzle/*` (generated), `packages/db/test/schema.int.test.ts`, `packages/db/vitest.config.ts`
 
 - [ ] **Step 1: Generate migration**
@@ -912,7 +1009,9 @@ Expected: a SQL migration file appears under `packages/db/drizzle/` containing a
 ```ts
 import { defineConfig } from 'vitest/config';
 
-export default defineConfig({ test: { include: ['test/**/*.test.ts'], testTimeout: 60000, hookTimeout: 120000 } });
+export default defineConfig({
+  test: { include: ['test/**/*.test.ts'], testTimeout: 60000, hookTimeout: 120000 },
+});
 ```
 
 - [ ] **Step 3: Write the failing integration test** `packages/db/test/schema.int.test.ts`
@@ -969,6 +1068,7 @@ git commit -m "test(db): migration + balance check integration test (testcontain
 ## Task 10: `apps/api` NestJS skeleton + health
 
 **Files:**
+
 - Create: `apps/api/{package.json,tsconfig.json,nest-cli.json,src/main.ts,src/app.module.ts}`
 - Create: `apps/api/src/health/health.controller.ts`, `apps/api/test/health.e2e.test.ts`
 
@@ -1011,7 +1111,11 @@ git commit -m "test(db): migration + balance check integration test (testcontain
 - [ ] **Step 2: `apps/api/nest-cli.json`**
 
 ```json
-{ "$schema": "https://json.schemastore.org/nest-cli", "collection": "@nestjs/schematics", "sourceRoot": "src" }
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "src"
+}
 ```
 
 - [ ] **Step 3: `apps/api/tsconfig.json`** — extends base; `outDir dist`, `rootDir .`, include `src`.
@@ -1107,6 +1211,7 @@ git commit -m "feat(api): NestJS skeleton with health/ready + e2e test"
 ## Task 11: `apps/worker` skeleton (BullMQ wiring, no-op queue)
 
 **Files:**
+
 - Create: `apps/worker/{package.json,tsconfig.json,src/main.ts,src/queues.ts}`
 
 - [ ] **Step 1: `apps/worker/package.json`** — mirror `apps/api/package.json` (Task 10 Step 1) with name `@actionow/worker`, but:
