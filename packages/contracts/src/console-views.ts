@@ -199,6 +199,48 @@ export const storageUsageViewSchema = z.object({
 export type StorageUsageView = z.infer<typeof storageUsageViewSchema>;
 
 /**
+ * One saved playground conversation in the caller-tenant's list (`GET
+ * /console/conversations`). `model` is the last-used model name (`null` until a
+ * turn runs). Tenant scope is implicit (the JWT), so `tenant_id` is omitted.
+ */
+export const conversationViewSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  model: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+export type ConversationView = z.infer<typeof conversationViewSchema>;
+
+/**
+ * One persisted turn of a conversation (`GET /console/conversations/:id` →
+ * `messages`). `reasoning` is the assistant chain-of-thought (DeepSeek-style),
+ * `usage` the `{ input, output }` token counts, `latency_ms` the client-measured
+ * total — all `null` for a user/system turn. `seq` is the turn order.
+ */
+export const messageViewSchema = z.object({
+  id: z.string(),
+  seq: z.number(),
+  role: z.string(),
+  content: z.string(),
+  reasoning: z.string().nullable(),
+  usage: z.object({ input: z.number(), output: z.number() }).nullable(),
+  latency_ms: z.number().nullable(),
+  model: z.string().nullable(),
+  created_at: z.string(),
+});
+export type MessageView = z.infer<typeof messageViewSchema>;
+
+/**
+ * A conversation with its full ordered transcript (`GET /console/conversations/:id`)
+ * — the list view fields plus the `message` rows in `seq` order.
+ */
+export const conversationDetailViewSchema = conversationViewSchema.extend({
+  messages: z.array(messageViewSchema),
+});
+export type ConversationDetailView = z.infer<typeof conversationDetailViewSchema>;
+
+/**
  * One effective governance rule for the caller-tenant's bound plan paired with
  * its current usage (`GET /console/limits` → `rules`). `cap`/`used` are decimal
  * **strings** (bigint: µUSD for `spend`, else a count); `rpm`/`concurrency` are

@@ -8,9 +8,12 @@ import type {
 import {
   type AccountRow,
   type ApiKeyRow,
+  appendMessage,
   claimRedemptionCode,
+  type Conversation,
   countPlanBindings,
   createApiKey,
+  createConversation,
   type CreatedApiKey,
   createLimitPlan,
   createSubAccount,
@@ -22,6 +25,7 @@ import {
   findUserByEmail,
   findUserById,
   getAccount,
+  getConversation,
   getIntentByIdForTenant,
   getLimitPlanById,
   getLimitPlanForTenant,
@@ -38,22 +42,26 @@ import {
   type LimitRuleStatus,
   limitRuleStatus,
   listApiKeys,
+  listConversations,
   listFilesByTenant,
   listIntentsByTenant,
   listJobs,
   listLedger,
   listLimitAlertsForSubject,
   listLimitPlansByTenant,
+  listMessages,
   listRulesByPlan,
   listRulesByPlanIds,
   listSubjectsByTenant,
   listUsageLogsByTenant,
   listUsersByTenant,
+  type Message,
   type PageParams,
   type PaymentIntentRow,
   replacePlanRules,
   rollupUsage,
   rotateApiKeyForTenant,
+  softDeleteConversation,
   softDeleteLimitPlan,
   softDeleteSubject,
   type SubAccountRow,
@@ -61,6 +69,7 @@ import {
   type SubjectRow,
   topUp,
   transferCredits,
+  updateConversation,
   updateLimitPlan,
   updateSubject,
   updateUserPassword,
@@ -80,10 +89,13 @@ import { engineInvalidInput, engineNotFound } from '../common/errors.js';
 import { DB, PAYMENTS } from '../common/tokens.js';
 import type {
   ConsoleAnalyticsUsageDto,
+  ConsoleAppendMessageDto,
   ConsoleChangePasswordDto,
   ConsoleCreateApiKeyDto,
+  ConsoleCreateConversationDto,
   ConsoleCreateIntentDto,
   ConsoleCreateLimitPlanDto,
+  ConsoleUpdateConversationDto,
   ConsoleUpdateLimitPlanDto,
 } from './dto/console.dto.js';
 import { MODELS_PORT, type ModelsPort, type ModelView } from './models.port.js';
@@ -200,6 +212,75 @@ export class ConsoleService {
       { status: 'ready', ...(filter.kind !== undefined ? { kind: filter.kind } : {}) },
       page,
     );
+  }
+
+  // ----- playground conversations -----
+
+  /** The caller-tenant's LIVE saved conversations, keyset, most-recent-activity first. */
+  listConversations(tenantId: string, page: PageParams): Promise<KeysetResult<Conversation>> {
+    return listConversations(this.db, tenantId, page);
+  }
+
+  /** Start a conversation for the caller's tenant (title defaults server-side). */
+  createConversation(tenantId: string, dto: ConsoleCreateConversationDto): Promise<Conversation> {
+    return createConversation(this.db, {
+      tenantId,
+      ...(dto.title !== undefined ? { title: dto.title } : {}),
+      ...(dto.model !== undefined ? { model: dto.model } : {}),
+    });
+  }
+
+  /** A conversation + its ordered transcript, or 404 (cross-tenant/deleted → 404). */
+  async getConversationDetail(
+    id: string,
+    tenantId: string,
+  ): Promise<{ conversation: Conversation; messages: Message[] }> {
+    const conversation = await getConversation(this.db, id, tenantId);
+    if (conversation === undefined) throw engineNotFound(`conversation ${id} not found`);
+    const messages = await listMessages(this.db, id);
+    return { conversation, messages };
+  }
+
+  /** Rename / re-model one of the caller-tenant's conversations, or 404. */
+  async updateConversation(
+    id: string,
+    tenantId: string,
+    dto: ConsoleUpdateConversationDto,
+  ): Promise<Conversation> {
+    const updated = await updateConversation(this.db, id, tenantId, {
+      ...(dto.title !== undefined ? { title: dto.title } : {}),
+      ...(dto.model !== undefined ? { model: dto.model } : {}),
+    });
+    if (updated === undefined) throw engineNotFound(`conversation ${id} not found`);
+    return updated;
+  }
+
+  /** Soft-delete one of the caller-tenant's conversations, or 404. */
+  async deleteConversation(id: string, tenantId: string): Promise<void> {
+    const deleted = await softDeleteConversation(this.db, id, tenantId);
+    if (deleted === undefined) throw engineNotFound(`conversation ${id} not found`);
+  }
+
+  /**
+   * Append one persisted turn to a conversation. Verifies tenant ownership FIRST
+   * (a cross-tenant/unknown/deleted id → 404), so a turn can never be written to
+   * another tenant's conversation.
+   */
+  async appendMessage(
+    id: string,
+    tenantId: string,
+    dto: ConsoleAppendMessageDto,
+  ): Promise<Message> {
+    const conversation = await getConversation(this.db, id, tenantId);
+    if (conversation === undefined) throw engineNotFound(`conversation ${id} not found`);
+    return appendMessage(this.db, id, {
+      role: dto.role,
+      content: dto.content,
+      ...(dto.reasoning !== undefined ? { reasoning: dto.reasoning } : {}),
+      ...(dto.usage !== undefined ? { usage: dto.usage } : {}),
+      ...(dto.latency_ms !== undefined ? { latencyMs: dto.latency_ms } : {}),
+      ...(dto.model !== undefined ? { model: dto.model } : {}),
+    });
   }
 
   // ----- balance -----

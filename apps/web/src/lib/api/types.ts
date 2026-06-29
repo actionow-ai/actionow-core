@@ -10,6 +10,8 @@ export type {
   AddGroupChannelBody,
   AdminTokenView,
   ApiKeyView,
+  // --- playground conversations (#playground) ---
+  AppendMessageBody,
   // --- records (记录系统) ---
   AuditLogView,
   // --- circuit breakers (弹性2.0) ---
@@ -43,11 +45,14 @@ export type {
   ConsoleUsageLogView,
   ConsoleUsageRollupView,
   ConsoleUserView,
+  ConversationDetailView,
+  ConversationView,
   CreateAccountBody,
   CreateAdminTokenBody,
   CreateApiKeyBody,
   // --- catalog request bodies (catalog-requests) ---
   CreateChannelBody,
+  CreateConversationBody,
   CreateFaultPolicyBody,
   // --- governance limits (额度套餐) ---
   CreateLimitPlanRequest,
@@ -96,6 +101,7 @@ export type {
   MemberUpdateMeBody,
   MemberUsageList,
   MemberUsageRow,
+  MessageView,
   ModelGrantView,
   ModelHealthView,
   ModelTestRequest,
@@ -145,6 +151,7 @@ export type {
   TransferCreditsBody,
   UpdateApiKeyGroupBody,
   UpdateChannelBody,
+  UpdateConversationBody,
   UpdateCredentialMetaBody,
   UpdateDifyBody,
   UpdateFaultPolicyBody,

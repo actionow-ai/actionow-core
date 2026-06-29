@@ -317,6 +317,56 @@
       }
     }
   },
+  "playground": {
+    "newChat": "New chat",
+    "noConversations": "No conversations yet",
+    "empty": "Pick a model and send a message to start.",
+    "selectModel": "Select a model",
+    "noModels": "No text models are available to your tenant yet.",
+    "rename": "Rename",
+    "send": "Send",
+    "stop": "Stop",
+    "regenerate": "Regenerate",
+    "reasoning": "Reasoning",
+    "comingSoon": "coming soon",
+    "comingSoonBody": "This playground is coming soon.",
+    "welcome": {
+      "title": "Chat with {{model}}",
+      "body": "Type below, or start from one of these.",
+      "noModelsTitle": "No models yet",
+      "browseModels": "Browse models"
+    },
+    "examples": {
+      "0": "Explain the Transformer attention mechanism in three sentences.",
+      "1": "Rewrite this Python function to be async.",
+      "2": "Compare transaction isolation levels in Postgres and MySQL.",
+      "3": "Draft a short, polite out-of-office email."
+    },
+    "keyProvisioning": "Provisioning a playground key…",
+    "keyError": "Couldn't provision a playground API key.",
+    "loadFailed": "Couldn't load this conversation.",
+    "saveFailed": "Couldn't save — the chat still works, but this turn wasn't persisted.",
+    "runFailed": "The model request failed.",
+    "deleteFailed": "Couldn't delete this conversation.",
+    "confirmDeleteTitle": "Delete this conversation?",
+    "confirmDeleteMsg": "\"{{title}}\" and its messages will be removed.",
+    "tool": {
+      "chat": "Chat",
+      "image": "Image",
+      "video": "Video",
+      "audio": "Audio"
+    },
+    "metrics": {
+      "latency": "Latency",
+      "total": "Total",
+      "input": "In",
+      "output": "Out"
+    },
+    "composer": {
+      "placeholder": "Send a message…",
+      "disabled": "Not ready yet…"
+    }
+  },
   "nav": {
     "groups": {
       "ops": "Operations",
@@ -324,6 +374,7 @@
       "billing": "Billing & Routing",
       "tenants": "Tenants",
       "home": "Home",
+      "playground": "Playground",
       "account": "Account",
       "models": "Models",
       "access": "Access"
@@ -337,6 +388,10 @@
     "auditLog": "Audit log",
     "platformSettings": "Platform settings",
     "overview": "Overview",
+    "pgChat": "Chat",
+    "pgImage": "Image",
+    "pgVideo": "Video",
+    "pgAudio": "Audio",
     "tusage": "Usage",
     "tkeys": "API Keys",
     "tmodels": "Models",

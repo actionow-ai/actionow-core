@@ -7,7 +7,9 @@ export type { components, paths };
 /**
  * Ergonomic data-plane helpers (additive to the generated typed client). They
  * wrap the few flows where a raw `openapi-fetch` call is awkward: the async-job
- * submit→poll loop, SSE streaming, and inbound-webhook signature verification.
+ * submit→poll loop and SSE streaming. (Inbound-webhook signature verification is
+ * server-only — it uses `node:crypto` — so it lives at the `@actionow/sdk/webhook`
+ * subpath, keeping this main entry browser-safe so apps/web can bundle it.)
  */
 export {
   consumeJobStream,
@@ -23,11 +25,6 @@ export {
   submitAndWait,
   type SubmitAndWaitOptions,
 } from './submit-and-wait.js';
-export {
-  verifyWebhookSignature,
-  WEBHOOK_SIGNATURE_HEADER,
-  type WebhookVerification,
-} from './webhook.js';
 
 /**
  * The contract model types — the SAME single source the backend `.parse()`s and

@@ -12,6 +12,8 @@ import { AppSubjects } from './features/app/AppSubjects';
 import { AppUsage } from './features/app/AppUsage';
 import { MemberPortal } from './features/app/MemberPortal';
 import { MembersPage } from './features/app/MembersPage';
+import { ChatTool } from './features/app/playground/ChatTool';
+import { PlaygroundComingSoon } from './features/app/playground/PlaygroundComingSoon';
 import { TenantConsole } from './features/app/TenantConsole';
 import { AuthPage } from './features/auth/AuthPage';
 import { MemberAuthPage } from './features/auth/MemberAuthPage';
@@ -64,6 +66,12 @@ export function AppRoutes() {
         <Route path="/app" element={<TenantConsole />}>
           <Route index element={<Navigate to="/app/overview" replace />} />
           <Route path="overview" element={<AppOverview />} />
+          {/* Playground (its own nav group; the 2nd-column sub-nav switches modality). */}
+          <Route path="playground" element={<Navigate to="/app/playground/chat" replace />} />
+          <Route path="playground/chat" element={<ChatTool />} />
+          <Route path="playground/image" element={<PlaygroundComingSoon modality="image" />} />
+          <Route path="playground/video" element={<PlaygroundComingSoon modality="video" />} />
+          <Route path="playground/audio" element={<PlaygroundComingSoon modality="audio" />} />
           <Route path="usage" element={<AppUsage />} />
           <Route path="media" element={<AppMedia />} />
           <Route path="keys" element={<AppKeys />} />

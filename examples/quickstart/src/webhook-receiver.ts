@@ -1,4 +1,4 @@
-import { verifyWebhookSignature, WEBHOOK_SIGNATURE_HEADER } from '@actionow/sdk';
+import { verifyWebhookSignature, WEBHOOK_SIGNATURE_HEADER } from '@actionow/sdk/webhook';
 
 /**
  * Webhook receiver for the async job-done callback (the PUSH alternative to

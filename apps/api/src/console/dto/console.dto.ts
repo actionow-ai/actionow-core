@@ -1,10 +1,13 @@
 import {
+  appendMessageSchema,
   consoleChangePasswordSchema,
   consoleCreateApiKeySchema,
   consoleCreateIntentSchema,
+  createConversationSchema,
   createLimitPlanRequestSchema,
   redeemCodeRequestSchema,
   setLimitPlanRequestSchema,
+  updateConversationSchema,
   updateLimitPlanRequestSchema,
 } from '@actionow/contracts';
 import { z } from 'zod';
@@ -24,9 +27,12 @@ import { z } from 'zod';
 
 // --- Request-body schemas (single source of truth in @actionow/contracts) ---
 export {
+  // Playground conversation bodies (create / rename+re-model / append a turn).
+  appendMessageSchema,
   consoleChangePasswordSchema,
   consoleCreateApiKeySchema,
   consoleCreateIntentSchema,
+  createConversationSchema,
   // The 额度套餐 (limit-plan) create/update/bind bodies are SHARED with the admin
   // surface — same shape, tenant injected server-side. Re-exported so the console
   // controller resolves them from `./dto/console.dto.js` like its other schemas.
@@ -34,12 +40,16 @@ export {
   // `POST /console/redeem` body — claim a gift code for the caller's own tenant.
   redeemCodeRequestSchema,
   setLimitPlanRequestSchema,
+  updateConversationSchema,
   updateLimitPlanRequestSchema,
 };
 
 export type ConsoleCreateApiKeyDto = z.infer<typeof consoleCreateApiKeySchema>;
 export type ConsoleCreateIntentDto = z.infer<typeof consoleCreateIntentSchema>;
 export type ConsoleChangePasswordDto = z.infer<typeof consoleChangePasswordSchema>;
+export type ConsoleCreateConversationDto = z.infer<typeof createConversationSchema>;
+export type ConsoleUpdateConversationDto = z.infer<typeof updateConversationSchema>;
+export type ConsoleAppendMessageDto = z.infer<typeof appendMessageSchema>;
 export type ConsoleCreateLimitPlanDto = z.infer<typeof createLimitPlanRequestSchema>;
 export type ConsoleUpdateLimitPlanDto = z.infer<typeof updateLimitPlanRequestSchema>;
 export type ConsoleSetLimitPlanDto = z.infer<typeof setLimitPlanRequestSchema>;

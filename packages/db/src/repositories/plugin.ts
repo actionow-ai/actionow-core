@@ -213,6 +213,11 @@ export async function upsertBuiltinPlugin(
     })
     .onConflictDoUpdate({
       target: providerPlugin.slug,
+      // `provider_plugin_slug_uq` is a PARTIAL unique index (slug WHERE deleted_at
+      // IS NULL, mig 0052), so the ON CONFLICT arbiter needs the matching predicate
+      // — without it Postgres can't infer the index (42P10), which broke seeding
+      // against a fresh fully-migrated DB.
+      targetWhere: isNull(providerPlugin.deletedAt),
       set: {
         label: input.label,
         modalities: input.modalities,

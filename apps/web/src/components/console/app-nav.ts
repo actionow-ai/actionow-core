@@ -1,4 +1,10 @@
-import { ChartLineIcon, CoinsIcon, KeyIcon, SquaresFourIcon } from '@phosphor-icons/react';
+import {
+  ChartLineIcon,
+  CoinsIcon,
+  KeyIcon,
+  SparkleIcon,
+  SquaresFourIcon,
+} from '@phosphor-icons/react';
 
 import type { NavConfig } from './nav-config';
 
@@ -18,6 +24,18 @@ export const TENANT_NAV_CONFIG: NavConfig = {
         { to: '/app/usage', labelKey: 'tusage' },
         { to: '/app/media', labelKey: 'tmedia' },
         { to: '/app/models', labelKey: 'tmodels' },
+      ],
+    },
+    {
+      // Playground is its own primary entry; the sub-nav switches modality
+      // (对话 / 图片 / 视频 / 音频). Only Chat is live; the rest are coming-soon pages.
+      key: 'playground',
+      icon: SparkleIcon,
+      items: [
+        { to: '/app/playground/chat', labelKey: 'pgChat' },
+        { to: '/app/playground/image', labelKey: 'pgImage' },
+        { to: '/app/playground/video', labelKey: 'pgVideo' },
+        { to: '/app/playground/audio', labelKey: 'pgAudio' },
       ],
     },
     {
