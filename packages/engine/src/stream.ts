@@ -10,7 +10,15 @@ import type {
   UnifiedError,
   UsageVector,
 } from '@actionow/contracts';
-import { type DbOrTx, failJob, insertRelayTrace, insertUsageLog, settleJob } from '@actionow/db';
+import { usageBreakdownVector } from '@actionow/contracts';
+import {
+  type DbOrTx,
+  failJob,
+  insertRelayTrace,
+  insertUsageLog,
+  settleJob,
+  usageBreakdownFields,
+} from '@actionow/db';
 import { type MicroCredits, priceProviderCost } from '@actionow/domain';
 
 import type { BreakerStore } from './breaker.js';
@@ -426,8 +434,14 @@ export async function* createChatSettlingStream(
     };
     for await (const ev of drain()) {
       if (ev.type === 'usage') {
-        // camelCase IR → snake_case engine UsageVector at the boundary.
-        latestUsage = { input_tokens: ev.usage.inputTokens, output_tokens: ev.usage.outputTokens };
+        // camelCase IR → snake_case engine UsageVector at the boundary. The
+        // breakdown (reasoning/cached/cache-creation/audio) rides along when the
+        // IR carries it, so the usage_log mirror can persist it.
+        latestUsage = {
+          input_tokens: ev.usage.inputTokens,
+          output_tokens: ev.usage.outputTokens,
+          ...usageBreakdownVector(ev.usage),
+        };
       }
       // Tally what the consumer actually received, for the no-usage settle.
       if (ev.type === 'content_delta') streamedChars += ev.text.length;
@@ -488,6 +502,8 @@ async function mirrorChatUsageLog(
       model,
       inputTokens: usage?.input_tokens ?? 0,
       outputTokens: usage?.output_tokens ?? 0,
+      // Persist the response token-usage breakdown when the stream captured it.
+      ...usageBreakdownFields(usage ?? {}),
       cost: finalCost,
       status: 'succeeded',
       ...(deps.req.routeTag !== undefined ? { routeTag: deps.req.routeTag } : {}),

@@ -26,6 +26,7 @@ import type {
   UsageVector,
 } from '@actionow/contracts';
 import type { Modifier } from '@actionow/contracts';
+import { usageBreakdownVector } from '@actionow/contracts';
 import {
   claimIdempotency,
   createJob,
@@ -36,6 +37,7 @@ import {
   insertUsageLog,
   type Job,
   settleJob,
+  usageBreakdownFields,
 } from '@actionow/db';
 import { insertRelayTrace } from '@actionow/db';
 import {
@@ -610,10 +612,14 @@ export class ExecutionService {
       throw toEngineError(err);
     }
 
-    // camelCase IR usage → snake_case engine UsageVector at the boundary.
+    // camelCase IR usage → snake_case engine UsageVector at the boundary. The
+    // breakdown (reasoning/cached/cache-creation/audio) rides along when the IR
+    // carries it, so the usage_log mirror can persist it. The two totals keep
+    // their semantics — metering still prices off input/output only.
     const usage: UsageVector = {
       input_tokens: response.usage.inputTokens,
       output_tokens: response.usage.outputTokens,
+      ...usageBreakdownVector(response.usage),
     };
     const outcome = await this.settleSync(
       req,
@@ -1382,6 +1388,9 @@ export class ExecutionService {
         subjectId: req.subjectId ?? null,
         inputTokens: usage.input_tokens ?? 0,
         outputTokens: usage.output_tokens ?? 0,
+        // Persist the response token-usage breakdown when the run carries it
+        // (chat only; embeddings/rerank/moderation/STT vectors have none).
+        ...usageBreakdownFields(usage),
         cost: finalCost,
         status: 'succeeded',
         ...(req.routeTag !== undefined ? { routeTag: req.routeTag } : {}),

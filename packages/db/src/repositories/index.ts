@@ -490,6 +490,8 @@ export {
   listUsageLogsByTenant,
   listUsageLogsGlobal,
   rollupUsage,
+  usageBreakdownFields,
+  type UsageLogBreakdownInput,
   type UsageLogRow,
   type UsageRollupQuery,
   type UsageRollupRow,

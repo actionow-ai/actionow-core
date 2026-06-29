@@ -14,6 +14,7 @@ import type {
   UnifiedError,
   UsageVector,
 } from '@actionow/contracts';
+import { vectorToChatUsage } from '@actionow/contracts';
 
 import { AdapterError, httpStatusToUnified } from './errors.js';
 import { asArray, asNumber, asRecord, asString, parseJsonRecord } from './internal/json.js';
@@ -201,13 +202,28 @@ function buildMessages(inputs: Record<string, unknown>): ChatMessage[] {
   });
 }
 
-/** Extract `{input_tokens, output_tokens}` from an Anthropic `usage` block. */
+/**
+ * Fold Anthropic's cache usage into the snake_case vector keys, ONLY when the
+ * upstream reports them: `usage.cache_read_input_tokens` → cachedInput;
+ * `usage.cache_creation_input_tokens` → cacheCreation. An absent field leaves
+ * the key unset so the vector stays additive.
+ */
+function addAnthropicBreakdown(vector: UsageVector, usage: Record<string, unknown> | undefined): void {
+  const cacheRead = asNumber(usage?.cache_read_input_tokens);
+  if (cacheRead !== undefined) vector.cached_input_tokens = cacheRead;
+  const cacheCreation = asNumber(usage?.cache_creation_input_tokens);
+  if (cacheCreation !== undefined) vector.cache_creation_tokens = cacheCreation;
+}
+
+/** Extract `{input_tokens, output_tokens}` (+ cache breakdown) from an Anthropic `usage` block. */
 function extractUsage(raw: unknown): UsageVector {
   const usage = asRecord(asRecord(raw)?.usage);
-  return {
+  const vector: UsageVector = {
     input_tokens: asNumber(usage?.input_tokens) ?? 0,
     output_tokens: asNumber(usage?.output_tokens) ?? 0,
   };
+  addAnthropicBreakdown(vector, usage);
+  return vector;
 }
 
 /** Map an Anthropic error body to a {@link UnifiedError}. Falls back by status. */
@@ -298,6 +314,8 @@ export const anthropicAdapter: ProviderAdapter = {
 
     let inputTokens = 0;
     let outputTokens = 0;
+    // Cache breakdown (set only when message_start reports it; subset of input).
+    const breakdown: UsageVector = {};
 
     for await (const frame of parseSse(res.lines)) {
       const obj = parseJsonRecord(frame.data);
@@ -311,6 +329,7 @@ export const anthropicAdapter: ProviderAdapter = {
         const usage = asRecord(asRecord(obj.message)?.usage);
         inputTokens = asNumber(usage?.input_tokens) ?? inputTokens;
         outputTokens = asNumber(usage?.output_tokens) ?? outputTokens;
+        addAnthropicBreakdown(breakdown, usage);
       } else if (type === 'content_block_delta') {
         const text = asString(asRecord(obj.delta)?.text);
         if (text !== undefined && text.length > 0) {
@@ -326,7 +345,11 @@ export const anthropicAdapter: ProviderAdapter = {
       // message_stop / ping / content_block_start|stop carry no usage/delta.
     }
 
-    const usage: UsageVector = { input_tokens: inputTokens, output_tokens: outputTokens };
+    const usage: UsageVector = {
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      ...breakdown,
+    };
     yield { kind: 'usage', usage };
     yield { kind: 'done', usage };
   },
@@ -378,14 +401,11 @@ export const anthropicAdapter: ProviderAdapter = {
       irMessage.toolCalls = toolCalls;
     }
 
-    const usage = asRecord(asRecord(res.body)?.usage);
     return {
       message: irMessage,
       stopReason: mapStopReason(asString(asRecord(res.body)?.stop_reason)),
-      usage: {
-        inputTokens: asNumber(usage?.input_tokens) ?? 0,
-        outputTokens: asNumber(usage?.output_tokens) ?? 0,
-      },
+      // camelCase IR usage from the snake_case vector (totals + cache breakdown).
+      usage: vectorToChatUsage(extractUsage(res.body)),
     };
   },
 
@@ -412,6 +432,8 @@ export const anthropicAdapter: ProviderAdapter = {
     let inputTokens = 0;
     let outputTokens = 0;
     let stopReason: StopReason = 'stop';
+    // Cache breakdown (set only when message_start reports it).
+    const breakdown: UsageVector = {};
 
     for await (const frame of parseSse(res.lines)) {
       const obj = parseJsonRecord(frame.data);
@@ -425,6 +447,7 @@ export const anthropicAdapter: ProviderAdapter = {
         const usage = asRecord(asRecord(obj.message)?.usage);
         inputTokens = asNumber(usage?.input_tokens) ?? inputTokens;
         outputTokens = asNumber(usage?.output_tokens) ?? outputTokens;
+        addAnthropicBreakdown(breakdown, usage);
       } else if (type === 'content_block_start') {
         const cb = asRecord(obj.content_block);
         if (asString(cb?.type) === 'tool_use') {
@@ -471,7 +494,10 @@ export const anthropicAdapter: ProviderAdapter = {
         }
       } else if (type === 'message_stop') {
         yield { type: 'stop', stopReason };
-        yield { type: 'usage', usage: { inputTokens, outputTokens } };
+        yield {
+          type: 'usage',
+          usage: vectorToChatUsage({ input_tokens: inputTokens, output_tokens: outputTokens, ...breakdown }),
+        };
         yield { type: 'done' };
         return;
       }
@@ -480,7 +506,10 @@ export const anthropicAdapter: ProviderAdapter = {
 
     // Defensive: emit terminal events if the stream ended without message_stop.
     yield { type: 'stop', stopReason };
-    yield { type: 'usage', usage: { inputTokens, outputTokens } };
+    yield {
+      type: 'usage',
+      usage: vectorToChatUsage({ input_tokens: inputTokens, output_tokens: outputTokens, ...breakdown }),
+    };
     yield { type: 'done' };
   },
 

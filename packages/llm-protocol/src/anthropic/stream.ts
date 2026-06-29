@@ -35,6 +35,10 @@ export async function* renderAnthropicMessagesStream(
 ): AsyncIterable<string> {
   const id = `msg_${randomUUID()}`;
   let outputTokens = 0;
+  // Cache breakdown captured from the IR usage event (surfaced on message_delta
+  // only when the provider reported it).
+  let cachedInputTokens: number | undefined;
+  let cacheCreationTokens: number | undefined;
   let nextIndex = 0;
   // The Anthropic block index currently open as a text block (undefined once it
   // has been closed, e.g. when a tool block opened after it).
@@ -128,16 +132,25 @@ export async function* renderAnthropicMessagesStream(
       }
       case 'usage':
         outputTokens = event.usage.outputTokens;
+        cachedInputTokens = event.usage.cachedInputTokens;
+        cacheCreationTokens = event.usage.cacheCreationTokens;
         break;
-      case 'stop':
+      case 'stop': {
         yield* closeOpenBlock();
+        // Surface the cache breakdown alongside output_tokens, only when reported.
+        const usage: Record<string, number> = { output_tokens: outputTokens };
+        if (cachedInputTokens !== undefined) usage.cache_read_input_tokens = cachedInputTokens;
+        if (cacheCreationTokens !== undefined) {
+          usage.cache_creation_input_tokens = cacheCreationTokens;
+        }
         yield sseEvent('message_delta', {
           type: 'message_delta',
           delta: { stop_reason: mapStop(event.stopReason), stop_sequence: null },
-          usage: { output_tokens: outputTokens },
+          usage,
         });
         yield sseEvent('message_stop', { type: 'message_stop' });
         return;
+      }
       case 'error':
         yield* closeOpenBlock();
         yield sseEvent('error', {

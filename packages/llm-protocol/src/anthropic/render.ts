@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import type { ChatResponse, StopReason, ToolCall } from '@actionow/contracts';
+import type { ChatResponse, ChatUsage, StopReason, ToolCall } from '@actionow/contracts';
 
 /**
  * Render an IR {@link ChatResponse} into a non-streaming Anthropic Messages
@@ -21,8 +21,6 @@ export function renderAnthropicChat(res: ChatResponse, model: string): Record<st
     content.push(renderToolCall(call));
   }
 
-  const { inputTokens, outputTokens } = res.usage;
-
   return {
     id: `msg_${randomUUID()}`,
     type: 'message',
@@ -31,8 +29,28 @@ export function renderAnthropicChat(res: ChatResponse, model: string): Record<st
     content,
     stop_reason: mapStop(res.stopReason),
     stop_sequence: null,
-    usage: { input_tokens: inputTokens, output_tokens: outputTokens },
+    usage: anthropicUsage(res.usage),
   };
+}
+
+/**
+ * Build the Anthropic wire `usage` from the IR {@link ChatUsage}: the two totals
+ * (always), plus `cache_read_input_tokens`/`cache_creation_input_tokens` surfaced
+ * ONLY when the IR carries the corresponding breakdown field — so a provider that
+ * did not report cache usage yields the plain back-compat usage shape.
+ */
+export function anthropicUsage(usage: ChatUsage): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    input_tokens: usage.inputTokens,
+    output_tokens: usage.outputTokens,
+  };
+  if (usage.cachedInputTokens !== undefined) {
+    out.cache_read_input_tokens = usage.cachedInputTokens;
+  }
+  if (usage.cacheCreationTokens !== undefined) {
+    out.cache_creation_input_tokens = usage.cacheCreationTokens;
+  }
+  return out;
 }
 
 /** Map an IR {@link ToolCall} → an Anthropic `tool_use` content block. */
