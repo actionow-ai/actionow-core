@@ -22,6 +22,8 @@ export interface CreateModelInput {
   readonly inputPrice?: bigint | undefined;
   /** µUSD per 1M output tokens integer. Defaults to 0. */
   readonly outputPrice?: bigint | undefined;
+  /** Optional µUSD per 1M cached-input tokens (用拆分计费); null/omitted → no cached rate. */
+  readonly cachedInputPrice?: bigint | null | undefined;
   /** Per-model rate limit (requests/min); null/omitted → no model-specific cap. */
   readonly rateLimit?: number | null | undefined;
   /** Ordered model-degradation chain (模型降级链); null/omitted → no fallback. */
@@ -52,6 +54,9 @@ export async function createModel(db: DbOrTx, input: CreateModelInput): Promise<
       ...(input.visibility !== undefined ? { visibility: input.visibility } : {}),
       ...(input.inputPrice !== undefined ? { inputPrice: input.inputPrice } : {}),
       ...(input.outputPrice !== undefined ? { outputPrice: input.outputPrice } : {}),
+      ...(input.cachedInputPrice !== undefined
+        ? { cachedInputPrice: input.cachedInputPrice }
+        : {}),
       ...(input.rateLimit !== undefined ? { rateLimit: input.rateLimit } : {}),
       ...(input.fallbackModels !== undefined ? { fallbackModels: input.fallbackModels } : {}),
       ...(input.tags !== undefined ? { tags: input.tags } : {}),
@@ -186,12 +191,18 @@ export async function upsertModelsFromSync(
     const official = await matchOfficialPrice(db, input.provider, m.name);
     let inputPrice: bigint;
     let outputPrice: bigint;
+    // 用拆分计费: carry the matched official cached-input rate (µUSD/1M) onto the
+    // model so `priceModelToken` bills prompt-cached input cheaper. Null when the
+    // official row has no cached price OR the model is priced from a default /
+    // needs_pricing (no cached basis to inherit).
+    let cachedInputPrice: bigint | null = null;
     let status: string;
     let needsPricing: boolean;
     let priced: SyncPricedKind;
     if (official !== undefined) {
       inputPrice = official.inputPricePer1m;
       outputPrice = official.outputPricePer1m;
+      cachedInputPrice = official.cachedInputPricePer1m ?? null;
       status = 'active';
       needsPricing = false;
       priced = 'official';
@@ -221,6 +232,7 @@ export async function upsertModelsFromSync(
       needsPricing,
       inputPrice,
       outputPrice,
+      cachedInputPrice,
     });
     created.push(m.name);
     summary.push({ name: m.name, priced });
@@ -234,6 +246,8 @@ export interface ResolvedModel {
   readonly resourceId: string;
   readonly inputPrice: bigint;
   readonly outputPrice: bigint;
+  /** Optional µUSD per 1M cached-input tokens (用拆分计费); null → no cached rate. */
+  readonly cachedInputPrice: bigint | null;
   readonly capabilities: Record<string, boolean>;
 }
 
@@ -255,6 +269,7 @@ export async function resolveModelForTenant(
       resourceId: model.resourceId,
       inputPrice: model.inputPrice,
       outputPrice: model.outputPrice,
+      cachedInputPrice: model.cachedInputPrice,
       capabilities: model.capabilities,
       visibility: model.visibility,
       grantTenant: modelGrant.tenantId,
@@ -273,6 +288,7 @@ export async function resolveModelForTenant(
     resourceId: row.resourceId,
     inputPrice: row.inputPrice,
     outputPrice: row.outputPrice,
+    cachedInputPrice: row.cachedInputPrice,
     capabilities: row.capabilities,
   };
 }
@@ -407,6 +423,7 @@ export async function listChannelModels(db: DbOrTx, channelId: string): Promise<
       resourceId: model.resourceId,
       inputPrice: model.inputPrice,
       outputPrice: model.outputPrice,
+      cachedInputPrice: model.cachedInputPrice,
       needsPricing: model.needsPricing,
       rateLimit: model.rateLimit,
       fallbackModels: model.fallbackModels,
@@ -522,6 +539,8 @@ export interface UpdateModelInput {
   readonly inputPrice?: bigint | undefined;
   /** µUSD per 1M output tokens integer. */
   readonly outputPrice?: bigint | undefined;
+  /** µUSD per 1M cached-input tokens (用拆分计费); `null` clears the cached rate. */
+  readonly cachedInputPrice?: bigint | null | undefined;
   /** `public` | `tenant`. */
   readonly visibility?: string | undefined;
   /** Per-model rate limit (requests/min); `null` clears it. */
@@ -559,6 +578,7 @@ export async function updateModel(
   if (patch.capabilities !== undefined) set.capabilities = patch.capabilities;
   if (patch.inputPrice !== undefined) set.inputPrice = patch.inputPrice;
   if (patch.outputPrice !== undefined) set.outputPrice = patch.outputPrice;
+  if (patch.cachedInputPrice !== undefined) set.cachedInputPrice = patch.cachedInputPrice;
   if (patch.visibility !== undefined) set.visibility = patch.visibility;
   if (patch.rateLimit !== undefined) set.rateLimit = patch.rateLimit;
   if (patch.fallbackModels !== undefined) set.fallbackModels = patch.fallbackModels;

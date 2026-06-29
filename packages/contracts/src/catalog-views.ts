@@ -80,6 +80,8 @@ export const modelViewSchema = z.object({
   resource_id: z.string(),
   input_price: z.string(),
   output_price: z.string(),
+  /** µUSD per 1M cached-input tokens (用拆分计费); null when no cached rate. */
+  cached_input_price: z.string().nullable(),
   /** Per-model rate limit (requests/min); null when no model-specific cap. */
   rate_limit: z.number().nullable(),
   /** Ordered model-degradation chain (模型降级链); null when none. */

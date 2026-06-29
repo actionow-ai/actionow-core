@@ -421,6 +421,13 @@
       "when": 1782752604700,
       "tag": "0059_slow_shape",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1782755169988,
+      "tag": "0060_gorgeous_hercules",
+      "breakpoints": true
     }
   ]
 }

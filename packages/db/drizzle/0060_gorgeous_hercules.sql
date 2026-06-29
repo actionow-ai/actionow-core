@@ -1,0 +1,1 @@
+ALTER TABLE "model" ADD COLUMN "cached_input_price" bigint;

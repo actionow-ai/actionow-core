@@ -82,6 +82,7 @@ describe('resolveModelForTenant', () => {
       resourceId,
       inputPrice: 30n,
       outputPrice: 60n,
+      cachedInputPrice: null, // no cached rate set → null (用拆分计费 inactive)
       capabilities: { tools: true },
     });
   });
@@ -145,12 +146,13 @@ describe('upsertModelsFromSync (Track 2 auto-pricing)', () => {
     const owner = await makeTenant('owner');
     const resourceId = await makeChatResource(owner, 'r-sync');
 
-    // The official catalog has gpt-4o (the matched slug).
+    // The official catalog has gpt-4o (the matched slug), incl. a cached-input rate.
     await createOfficialPrice(db, {
       provider: 'openai',
       modelSlug: 'gpt-4o',
       inputPricePer1m: 2_500_000n,
       outputPricePer1m: 10_000_000n,
+      cachedInputPricePer1m: 1_250_000n,
     });
 
     const first = await upsertModelsFromSync(db, {
@@ -171,13 +173,20 @@ describe('upsertModelsFromSync (Track 2 auto-pricing)', () => {
     const matched = await getModelByName(db, 'GPT-4o-2024-05-13');
     expect(matched?.inputPrice).toBe(2_500_000n);
     expect(matched?.outputPrice).toBe(10_000_000n);
+    // 用拆分计费: the matched official cached-input rate is carried onto the model.
+    expect(matched?.cachedInputPrice).toBe(1_250_000n);
     expect(matched?.status).toBe('active');
     expect(matched?.needsPricing).toBe(false);
 
-    // unmatched → disabled + needs_pricing, prices 0 (NEVER active-with-0).
+    // resolveModelForTenant surfaces the cached rate to the relay (→ pricebook spec).
+    const resolved = await resolveModelForTenant(db, 'GPT-4o-2024-05-13', owner);
+    expect(resolved?.cachedInputPrice).toBe(1_250_000n);
+
+    // unmatched → disabled + needs_pricing, prices 0 (NEVER active-with-0), no cached rate.
     const unmatched = await getModelByName(db, 'gpt-unknown');
     expect(unmatched?.inputPrice).toBe(0n);
     expect(unmatched?.outputPrice).toBe(0n);
+    expect(unmatched?.cachedInputPrice).toBeNull();
     expect(unmatched?.status).toBe('disabled');
     expect(unmatched?.needsPricing).toBe(true);
 
@@ -202,6 +211,27 @@ describe('upsertModelsFromSync (Track 2 auto-pricing)', () => {
     expect(preserved?.outputPrice).toBe(99n);
     expect(preserved?.display).toBe('GPT-4o v2'); // refreshed
     expect(preserved?.capabilities).toEqual({ vision: false });
+  });
+
+  it('leaves cached_input_price null when the matched official row has no cached rate (non-breaking)', async () => {
+    const owner = await makeTenant('owner');
+    const resourceId = await makeChatResource(owner, 'r-nocache');
+
+    // A matched official row WITHOUT cachedInputPricePer1m → model gets no cached rate.
+    await createOfficialPrice(db, {
+      provider: 'openai',
+      modelSlug: 'gpt-nocache',
+      inputPricePer1m: 2_000_000n,
+      outputPricePer1m: 8_000_000n,
+    });
+    await upsertModelsFromSync(db, {
+      resourceId,
+      provider: 'openai',
+      models: [{ name: 'gpt-nocache' }],
+    });
+    const m = await getModelByName(db, 'gpt-nocache');
+    expect(m?.inputPrice).toBe(2_000_000n);
+    expect(m?.cachedInputPrice).toBeNull();
   });
 
   it('uses explicit default prices for an unmatched slug and keeps it active (operator override)', async () => {
@@ -319,5 +349,39 @@ describe('catalog facets (tags/maker/context_length/reasoning)', () => {
     expect(v?.maker).toBeNull();
     expect(v?.tags).toEqual(['便宜']);
     expect(v?.contextLength).toBe(1_000_000);
+  });
+});
+
+describe('用拆分计费: model.cached_input_price round-trip (create / update / resolve)', () => {
+  it('persists cachedInputPrice on create, clears it via null on update, defaults null', async () => {
+    const t = await makeTenant();
+    const r = await makeChatResource(t, 'cache-res');
+
+    // create WITH a cached rate.
+    await createModel(db, {
+      name: 'gpt-cached',
+      resourceId: r,
+      visibility: 'public',
+      inputPrice: 3_000_000n,
+      outputPrice: 15_000_000n,
+      cachedInputPrice: 300_000n,
+    });
+    const created = await getModelByName(db, 'gpt-cached');
+    expect(created?.cachedInputPrice).toBe(300_000n);
+    // resolveModelForTenant surfaces it to the relay.
+    expect((await resolveModelForTenant(db, 'gpt-cached', t))?.cachedInputPrice).toBe(300_000n);
+
+    // update to a different cached rate.
+    await updateModel(db, 'gpt-cached', { cachedInputPrice: 150_000n });
+    expect((await getModelByName(db, 'gpt-cached'))?.cachedInputPrice).toBe(150_000n);
+
+    // null clears the cached rate (back to all-input-at-input billing).
+    await updateModel(db, 'gpt-cached', { cachedInputPrice: null });
+    expect((await getModelByName(db, 'gpt-cached'))?.cachedInputPrice).toBeNull();
+    expect((await resolveModelForTenant(db, 'gpt-cached', t))?.cachedInputPrice).toBeNull();
+
+    // a model created WITHOUT a cached rate defaults to null (non-breaking).
+    await createModel(db, { name: 'gpt-bare-cache', resourceId: r });
+    expect((await getModelByName(db, 'gpt-bare-cache'))?.cachedInputPrice).toBeNull();
   });
 });

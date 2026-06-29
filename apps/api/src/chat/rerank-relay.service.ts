@@ -240,6 +240,10 @@ export class RerankRelayService {
         method: 'model_token',
         inputPrice: Number(resolved.inputPrice),
         outputPrice: Number(resolved.outputPrice),
+        // 用拆分计费: freeze the cached-input rate (null → omit; all input at inputPrice).
+        ...(resolved.cachedInputPrice !== null
+          ? { cachedInputPrice: Number(resolved.cachedInputPrice) }
+          : {}),
         groupRatioBps,
       },
     };

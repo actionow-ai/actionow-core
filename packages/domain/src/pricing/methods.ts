@@ -138,9 +138,35 @@ export function priceFormula(spec: FormulaSpec, vars: Record<string, number>): M
  * adapter emits on its `UsageVector` (missing = 0), serving both `settle`
  * (observed usage) and `quote`/hold (estimated usage) — so the hold sees the
  * SAME ratio as the settle and stays ≥ it. All-integer bigint math.
+ *
+ * 用拆分计费: when `spec.cachedInputPrice` is set AND the usage carries
+ * `cached_input_tokens` (captured by #70), the cached portion of input is billed
+ * at the cheaper cached rate. `cached = clamp(cached_input_tokens, 0, input_tokens)`
+ * (a provider can never report more cached than total input), so
+ *   `input_cost = (input − cached)×inputPrice + cached×cachedInputPrice`.
+ * Output (which already includes any `reasoning_tokens` as a SUBSET) is billed
+ * once at `outputPrice` — reasoning is NOT added again. When `cachedInputPrice`
+ * is undefined OR there are no cached tokens, this reduces to the original
+ * `input×inputPrice` (the regression invariant). The cached/non-cached split is
+ * folded into the SAME product → the single round-half-up + `groupRatioBps`
+ * semantics are unchanged.
  */
 export function priceModelToken(spec: ModelTokenSpec, usage: Record<string, number>): MicroCredits {
-  const input = BigInt(usage.input_tokens ?? 0) * BigInt(spec.inputPrice);
+  const inputTokens = BigInt(usage.input_tokens ?? 0);
+  // Clamp cached to [0, inputTokens]: cached is a subset of input, and a bad
+  // upstream report (negative / over-total) must never push the charge below the
+  // all-input baseline or below zero.
+  const rawCached = BigInt(usage.cached_input_tokens ?? 0);
+  const cached =
+    spec.cachedInputPrice === undefined
+      ? 0n
+      : rawCached < 0n
+        ? 0n
+        : rawCached > inputTokens
+          ? inputTokens
+          : rawCached;
+  const cachedRate = BigInt(spec.cachedInputPrice ?? spec.inputPrice);
+  const input = (inputTokens - cached) * BigInt(spec.inputPrice) + cached * cachedRate;
   const output = BigInt(usage.output_tokens ?? 0) * BigInt(spec.outputPrice);
   const product = input + output;
   // Default 10000 bps (×1.0) → the Track-1 expression verbatim; any other ratio
