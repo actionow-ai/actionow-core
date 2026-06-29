@@ -52,6 +52,13 @@ export class CurlTransportError extends Error {
 function bodyAndHeaders(req: HttpRequest): { body?: string; headers: Record<string, string> } {
   const headers: Record<string, string> = { ...req.headers };
   if (req.body === undefined) return { headers };
+  // The curl egress pipes a STRING body over stdin and cannot stream a multipart
+  // FormData (which carries a binary boundary). JSON.stringify-ing it would emit
+  // `"{}"` and silently corrupt the request, so reject it explicitly: multipart
+  // relays (the STT /v1/audio/transcriptions upload) require the fetch egress.
+  if (req.body instanceof FormData) {
+    throw new CurlTransportError('curl egress cannot send a multipart FormData body', 0);
+  }
   const body = JSON.stringify(req.body);
   if (!('content-type' in headers) && !('Content-Type' in headers)) {
     headers['content-type'] = 'application/json';

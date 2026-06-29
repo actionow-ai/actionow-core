@@ -68,6 +68,18 @@ const EnvSchema = z
       .optional(),
     // Ceiling on a presigned upload's declared size (bytes). Defaults to 100 MiB.
     STORAGE_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(DEFAULT_MAX_UPLOAD_BYTES),
+    // Max accepted audio upload for the STT relay (`POST /v1/audio/transcriptions`),
+    // in bytes. Enforced by the controller's multer `limits.fileSize`; an oversize
+    // upload is rejected with `invalid_input` (400). Optional — left un-defaulted so
+    // adding it does not turn the inferred `AppEnv` field required (the controller
+    // applies the 25 MiB default via `?? …`, matching OpenAI's Whisper limit).
+    STT_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().optional(),
+    // Conservative bytes-per-second divisor used to ESTIMATE an audio file's
+    // duration from its size, sizing the STT credit hold. Deliberately LOW (~4000)
+    // so a typical 128 kbps file (≈16 KB/s) OVER-holds rather than under-holds —
+    // the settle then re-prices on the upstream's ACTUAL duration (capped at the
+    // hold, refunding the rest). Optional; the relay applies the 4000 default.
+    STT_HOLD_BYTES_PER_SECOND: z.coerce.number().int().positive().optional(),
     // Optional per-tenant TOTAL object-storage cap (bytes); unset → no cap. A
     // per-tenant override lives in `account.config.storage_quota_bytes`. Enforced
     // at presign-upload against current usage (Σ live `file_object.size`).

@@ -487,6 +487,149 @@ describe('ExecutionService.runChat — idempotency', () => {
   });
 });
 
+/** A post (unit) pricebook for STT: 100 µcredits per AUDIO SECOND. */
+const STT_PRICEBOOK: PricebookEntry = {
+  resourceId: 'openai',
+  resourceVersion: 1,
+  version: 1,
+  method: 'unit',
+  timing: 'post',
+  spec: { method: 'unit', dimensions: { audio_seconds: { rate: 100 } } },
+};
+
+/** The neutral IR an STT run carries at `inputs.__ir`. */
+const STT_IR = {
+  model: 'whisper-1',
+  file: new Uint8Array([1, 2, 3, 4]),
+  filename: 'clip.mp3',
+  contentType: 'audio/mpeg',
+};
+
+/**
+ * A fake STT adapter whose `transcribe` reports a FIXED `audioSeconds` (so a test
+ * can assert the settle bills on the actual duration, not the hold estimate).
+ */
+function fakeTranscribeAdapter(audioSeconds: number): ProviderAdapter {
+  return {
+    providerType: 'fake-stt',
+    submit: () => Promise.resolve({ kind: 'sync', output: {}, usage: {} }),
+    transcribe: () =>
+      Promise.resolve({
+        text: 'hello world',
+        language: 'en',
+        duration: audioSeconds,
+        usage: { audioSeconds },
+      }),
+    extractUsage: () => ({}),
+    mapError: () => ({ code: 'upstream_error', message: 'fake', retryable: false }),
+  };
+}
+
+/** A `runTranscribe` RunRequest: empty io_schema (IR rides out-of-band), audio-seconds hold. */
+function transcribeRequest(s: Seed, overrides: Partial<RunRequest> = {}): RunRequest {
+  return {
+    resource: {
+      id: s.resourceId,
+      version: 1,
+      modality: 'audio',
+      ioSchema: { inputs: [], outputs: [] },
+      execModes: ['blocking'],
+      providerType: 'fake-stt',
+    },
+    pricebookEntry: STT_PRICEBOOK,
+    modifiers: [],
+    channels: [{ id: 'c1', weight: 1, credentialRef: 'ref-1', model: 'whisper-1' }],
+    inputs: { __ir: STT_IR },
+    execMode: 'blocking',
+    tenantId: s.tenantId,
+    accountId: s.accountId,
+    usageLogModel: 'whisper-1',
+    // Conservative byte-based over-estimate: 10 audio_seconds → hold = 10 × 100 = 1000µ.
+    estimatedUsage: { audio_seconds: 10 },
+    ...overrides,
+  };
+}
+
+describe('ExecutionService.runTranscribe — speech-to-text', () => {
+  it('holds on the estimated audio_seconds and settles on the ACTUAL duration', async () => {
+    const s = await seed(1_000_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(fakeTranscribeAdapter(4)); // actual 4s < 10s estimate
+    const svc = buildService(adapters);
+
+    const outcome = await svc.runTranscribe(transcribeRequest(s));
+
+    expect(outcome.result.text).toBe('hello world');
+    expect(outcome.result.usage.audioSeconds).toBe(4);
+    // Settle on the ACTUAL 4 seconds × 100µ = 400µ (NOT the 1000µ hold).
+    expect(outcome.cost.credits).toBe(400n);
+    expect(await readAccount(s.accountId)).toEqual({ balance: 999_600n, held: 0n });
+
+    const settleRows = (
+      await db.select().from(ledgerTxn).where(eq(ledgerTxn.jobId, outcome.jobId))
+    ).filter((l) => l.type === 'settle');
+    expect(settleRows).toHaveLength(1);
+    expect(settleRows[0]?.creditsDelta).toBe(-400n);
+    // (The best-effort usage_log mirror is asserted in the API e2e, which seeds the
+    // real tenant/channel/key fixtures the mirror + governance accrual need.)
+  });
+
+  it('caps the settle at the hold when the actual duration EXCEEDS the estimate', async () => {
+    const s = await seed(1_000_000n);
+    const adapters = new AdapterRegistry();
+    // Actual 50s × 100µ = 5000µ would exceed the 10s × 100µ = 1000µ hold; capped.
+    adapters.register(fakeTranscribeAdapter(50));
+    const svc = buildService(adapters);
+
+    const outcome = await svc.runTranscribe(transcribeRequest(s));
+
+    expect(outcome.result.usage.audioSeconds).toBe(50);
+    // Settle CAPPED at the 1000µ hold (the operator absorbs the bounded overage).
+    expect(outcome.cost.credits).toBe(1000n);
+    expect(await readAccount(s.accountId)).toEqual({ balance: 999_000n, held: 0n });
+  });
+
+  it('rejects with insufficient_credits BEFORE the upstream call when balance is too low', async () => {
+    const s = await seed(100n); // below the 1000µ audio-seconds hold
+    const adapters = new AdapterRegistry();
+    let called = false;
+    adapters.register({
+      ...fakeTranscribeAdapter(4),
+      transcribe: () => {
+        called = true;
+        return Promise.resolve({ text: 'x', usage: { audioSeconds: 4 } });
+      },
+    });
+    const svc = buildService(adapters);
+
+    await expect(svc.runTranscribe(transcribeRequest(s))).rejects.toMatchObject({
+      unified: { code: 'insufficient_credits' },
+    });
+
+    // The hold failed before any upstream call, and no job was created.
+    expect(called).toBe(false);
+    const jobs = await db.select().from(schema.job);
+    expect(jobs).toHaveLength(0);
+    expect(await readAccount(s.accountId)).toEqual({ balance: 100n, held: 0n });
+  });
+
+  it('replays the same job for a repeated idempotency key (no double charge)', async () => {
+    const s = await seed(1_000_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(fakeTranscribeAdapter(4));
+    const svc = buildService(adapters);
+
+    const first = await svc.runTranscribe(transcribeRequest(s, { idempotencyKey: 'stt-key-1' }));
+    const second = await svc.runTranscribe(transcribeRequest(s, { idempotencyKey: 'stt-key-1' }));
+
+    expect(second.jobId).toBe(first.jobId);
+    expect(second.cost.credits).toBe(first.cost.credits);
+    const settleRows = (await db.select().from(ledgerTxn)).filter((l) => l.type === 'settle');
+    expect(settleRows).toHaveLength(1);
+    expect(await readAccount(s.accountId)).toEqual({ balance: 999_600n, held: 0n });
+  });
+});
+
 describe('ExecutionService.runChatStream — idempotency', () => {
   it('rejects a reused idempotency key with invalid_input (cannot replay a live stream)', async () => {
     const s = await seed(1_000_000n);

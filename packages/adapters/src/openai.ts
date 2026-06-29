@@ -17,6 +17,9 @@ import type {
   SubmitInput,
   SubmitResult,
   ToolCall,
+  TranscriptionInput,
+  TranscriptionResult,
+  TranscriptionSegment,
   UnifiedError,
   UsageVector,
 } from '@actionow/contracts';
@@ -247,6 +250,27 @@ function parseEmbedding(raw: unknown): number[] {
   const arr = asArray(raw);
   if (arr === undefined) return [];
   return arr.map((v) => asNumber(v)).filter((n): n is number => n !== undefined);
+}
+
+/** Parse an OpenAI `verbose_json` transcription `segments[]` array into IR segments. */
+function parseSegments(raw: unknown): TranscriptionSegment[] {
+  const arr = asArray(raw);
+  if (arr === undefined) return [];
+  const out: TranscriptionSegment[] = [];
+  for (const entry of arr) {
+    const rec = asRecord(entry);
+    const text = asString(rec?.text);
+    if (text === undefined) continue;
+    const seg: TranscriptionSegment = { text };
+    const id = asNumber(rec?.id);
+    if (id !== undefined) seg.id = id;
+    const start = asNumber(rec?.start);
+    if (start !== undefined) seg.start = start;
+    const end = asNumber(rec?.end);
+    if (end !== undefined) seg.end = end;
+    out.push(seg);
+  }
+  return out;
 }
 
 /** Narrow an unknown to a `boolean`, defaulting to `false`. */
@@ -591,6 +615,68 @@ export const openaiAdapter: ProviderAdapter = {
     // deterministic local input-token estimate (~4 bytes/token) — input only.
     const inputs = Array.isArray(req.input) ? req.input : [req.input];
     return { results: verdicts, usage: { inputTokens: countInputTokens('', inputs) } };
+  },
+
+  async transcribe(req: TranscriptionInput, ctx: AdapterContext): Promise<TranscriptionResult> {
+    const endpoint = ctx.endpoint ?? DEFAULT_ENDPOINT;
+
+    // Build the multipart upstream request from the uploaded bytes. ALWAYS request
+    // `verbose_json` upstream (regardless of the CLIENT's requested format) so the
+    // response carries the `duration` the settle bills on; the relay re-shapes the
+    // client response itself. The Blob wraps the bytes with the upload's
+    // content-type so the upstream sniffs the codec correctly.
+    const form = new FormData();
+    // Copy the bytes into a fresh ArrayBuffer-backed view so the Blob constructor
+    // accepts it (a `Uint8Array<ArrayBufferLike>` — which may be SharedArrayBuffer-
+    // backed — is not a valid `BlobPart`). This also detaches the upload buffer.
+    const bytes = new Uint8Array(req.file.byteLength);
+    bytes.set(req.file);
+    const blob = new Blob([bytes], {
+      type: req.contentType ?? 'application/octet-stream',
+    });
+    form.append('file', blob, req.filename);
+    form.append('model', ctx.model ?? req.model);
+    form.append('response_format', 'verbose_json');
+    if (req.language !== undefined) form.append('language', req.language);
+    if (req.prompt !== undefined) form.append('prompt', req.prompt);
+    if (req.temperature !== undefined) form.append('temperature', String(req.temperature));
+
+    const res = await ctx.http.request({
+      method: 'POST',
+      url: `${endpoint}/audio/transcriptions`,
+      // No content-type header: the fetch egress sets the multipart boundary itself.
+      headers: { Authorization: `Bearer ${ctx.apiKey ?? ''}` },
+      body: form,
+      ...withProxy(ctx),
+    });
+
+    if (!res.ok) {
+      throw new AdapterError(mapErrorBody(res.status, res.body));
+    }
+
+    const body = asRecord(res.body);
+    const text = asString(body?.text);
+    if (text === undefined) {
+      throw new AdapterError({
+        code: 'upstream_error',
+        message: 'openai transcription response did not contain a text field',
+        upstream: { provider: PROVIDER },
+        retryable: false,
+      });
+    }
+    const result: TranscriptionResult = {
+      text,
+      // `duration` is the BILLED dimension; when the upstream omits it the relay
+      // falls back to the hold estimate (so STT can never settle free).
+      usage: { audioSeconds: asNumber(body?.duration) ?? 0 },
+    };
+    const duration = asNumber(body?.duration);
+    if (duration !== undefined) result.duration = duration;
+    const language = asString(body?.language);
+    if (language !== undefined) result.language = language;
+    const segments = parseSegments(body?.segments);
+    if (segments.length > 0) result.segments = segments;
+    return result;
   },
 
   async *streamChat(ir: ChatRequest, ctx: AdapterContext): AsyncIterable<ChatStreamEvent> {

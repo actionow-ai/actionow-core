@@ -83,6 +83,7 @@ import {
   pricebookViewSchema,
   resourceViewSchema,
 } from './catalog-views.js';
+import { transcriptionRequestSchema, transcriptionResponseSchema } from './chat.js';
 import {
   consoleChangePasswordSchema,
   consoleCreateApiKeySchema,
@@ -366,6 +367,11 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   // data-plane request bodies (data-plane)
   const RunReq = registry.register('RunBody', runBodySchema);
   const PresignReq = registry.register('PresignUploadBody', presignUploadSchema);
+  // Speech-to-text relay (multipart) contracts. `TranscriptionReq` carries the
+  // non-file fields; the path's multipart requestBody extends it with the binary
+  // `file` part. `TranscriptionResp` is the richest (verbose_json) response shape.
+  const TranscriptionReq = transcriptionRequestSchema;
+  const TranscriptionResp = registry.register('TranscriptionResponse', transcriptionResponseSchema);
 
   // platform-auth session contracts (auth-sessions slice)
   const TokenPair = registry.register('TokenPair', tokenPairSchema);
@@ -1326,6 +1332,36 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     },
   });
   getOne('/v1/files/{id}/url', 'Get a presigned download URL', FileUrl, 'data-plane');
+
+  // OpenAI-compatible speech-to-text relay (`POST /v1/audio/transcriptions`),
+  // billed per audio second. multipart/form-data: a binary `file` part + the
+  // non-file fields (model/language/prompt/response_format/temperature). The
+  // request is registered directly (not via `write`, which assumes JSON) so the
+  // SDK types the multipart body + the verbose_json response.
+  registry.registerPath({
+    method: 'post',
+    path: '/v1/audio/transcriptions',
+    summary: 'OpenAI-compatible speech-to-text (multipart upload; billed per audio second)',
+    tags: ['data-plane'],
+    request: {
+      body: {
+        required: true,
+        content: {
+          'multipart/form-data': {
+            schema: TranscriptionReq.extend({
+              file: z.string().openapi({ type: 'string', format: 'binary' }),
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+      200: {
+        description: 'Transcription (shape per response_format)',
+        content: { 'application/json': { schema: TranscriptionResp } },
+      },
+    },
+  });
 
   // --- platform-auth session paths (auth-sessions slice) --------------------
   // `/auth/refresh` + `/auth/logout` are credential-exchange endpoints (no Bearer
