@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { bigint, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 /**
  * The global, admin-curated **official model price catalog** (Track 2; spec D7).
@@ -28,6 +28,20 @@ export const officialModelPrice = pgTable(
     outputPricePer1m: bigint('output_price_per_1m', { mode: 'bigint' }).notNull(),
     /** Optional µUSD per 1M cached-input tokens (providers that price a cached read). */
     cachedInputPricePer1m: bigint('cached_input_price_per_1m', { mode: 'bigint' }),
+    /** The source currency the official figure was quoted in (governance metadata). Defaults `USD`. */
+    currency: text('currency').notNull().default('USD'),
+    /**
+     * Sourcing confidence of this cost basis. Defaults `firstparty` — the
+     * matcher only ever auto-prices firstparty rows (see `billing_eligible`).
+     */
+    confidence: text('confidence').notNull().default('firstparty'),
+    /**
+     * Billing gate (defense-in-depth): `matchOfficialPrice` filters
+     * `billing_eligible = true`, so a needs-review row can NEVER auto-price even
+     * if it lives in the catalog. Defaults `true` (the existing admin-curated
+     * rows are billable).
+     */
+    billingEligible: boolean('billing_eligible').notNull().default(true),
     /** Where the price was read (the provider's official pricing page). */
     sourceUrl: text('source_url'),
     /** The provider's stated effective date for this price. */

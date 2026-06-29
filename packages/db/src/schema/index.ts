@@ -9,6 +9,7 @@ export * from './icon.js';
 export * from './identity.js';
 export * from './limit.js';
 export * from './model.js';
+export * from './model-spec.js';
 export * from './oauth.js';
 export * from './official-price.js';
 export * from './payment.js';

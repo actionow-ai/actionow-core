@@ -291,6 +291,14 @@ export {
   type ModelHealthRow,
 } from './model-health.js';
 export {
+  getModelSpec,
+  listModelSpecs,
+  type ListModelSpecsFilter,
+  type ModelSpecRow,
+  upsertModelSpec,
+  type UpsertModelSpecInput,
+} from './model-spec.js';
+export {
   claimRefreshLock,
   createOAuthSession,
   type CreateOAuthSessionInput,

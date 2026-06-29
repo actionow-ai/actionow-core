@@ -45,6 +45,12 @@ export interface CreateOfficialPriceInput {
   readonly outputPricePer1m: bigint;
   /** Optional µUSD per 1M cached-input tokens. */
   readonly cachedInputPricePer1m?: bigint | null | undefined;
+  /** Source currency of the official figure (governance metadata); defaults `USD`. */
+  readonly currency?: string | undefined;
+  /** Sourcing confidence (`firstparty` | `secondary` | `reconstructed`); defaults `firstparty`. */
+  readonly confidence?: string | undefined;
+  /** Billing gate; defaults `true`. A `false` row is catalog-only and never auto-prices. */
+  readonly billingEligible?: boolean | undefined;
   readonly sourceUrl?: string | null | undefined;
   readonly effectiveAt?: Date | null | undefined;
   readonly notes?: string | null | undefined;
@@ -67,6 +73,9 @@ export async function createOfficialPrice(
       ...(input.cachedInputPricePer1m !== undefined
         ? { cachedInputPricePer1m: input.cachedInputPricePer1m }
         : {}),
+      ...(input.currency !== undefined ? { currency: input.currency } : {}),
+      ...(input.confidence !== undefined ? { confidence: input.confidence } : {}),
+      ...(input.billingEligible !== undefined ? { billingEligible: input.billingEligible } : {}),
       ...(input.sourceUrl !== undefined ? { sourceUrl: input.sourceUrl } : {}),
       ...(input.effectiveAt !== undefined ? { effectiveAt: input.effectiveAt } : {}),
       ...(input.notes !== undefined ? { notes: input.notes } : {}),
@@ -118,9 +127,12 @@ export async function getOfficialPriceById(
 }
 
 /**
- * Matcher lookup: fetch the LIVE official price for `(provider, normalizedSlug)`.
- * Filters `deleted_at IS NULL`. The caller passes the ALREADY-normalized slug
- * (see {@link matchOfficialPrice}, which normalizes for you).
+ * Matcher lookup: fetch the LIVE, BILLABLE official price for
+ * `(provider, normalizedSlug)`. Filters `deleted_at IS NULL` AND
+ * `billing_eligible = true` — defense-in-depth so a needs-review (catalog-only)
+ * row can NEVER auto-price even if it exists in the catalog. The caller passes
+ * the ALREADY-normalized slug (see {@link matchOfficialPrice}, which normalizes
+ * for you).
  */
 export async function getOfficialPrice(
   db: DbOrTx,
@@ -134,6 +146,7 @@ export async function getOfficialPrice(
       and(
         eq(officialModelPrice.provider, provider),
         eq(officialModelPrice.modelSlug, normalizedSlug),
+        eq(officialModelPrice.billingEligible, true),
         isNull(officialModelPrice.deletedAt),
       ),
     )
