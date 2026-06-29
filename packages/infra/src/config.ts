@@ -143,6 +143,14 @@ const EnvSchema = z
     // → NO pruning (today's behavior). relay_trace is NOT system-of-record, so a
     // short window (e.g. 7–30) keeps full request/response bodies from filling PG.
     RELAY_TRACE_RETENTION_DAYS: z.coerce.number().int().positive().optional(),
+    // Opt-in platform-wide default for the per-tenant file lifecycle / TTL sweep:
+    // the worker's file-lifecycle-reaper soft-deletes (+ best-effort bucket-deletes)
+    // file_object rows older than this many days for any tenant WITHOUT its own
+    // account.config.file_ttl_days override. Unset → NO platform-wide auto-delete
+    // (files retained forever unless a tenant opts in). Apps own their data and hold
+    // file_ids as references, so this MUST stay unset by default. Mirrors
+    // RELAY_TRACE_RETENTION_DAYS' shape (a strictly-positive day count).
+    FILE_RETENTION_DAYS: z.coerce.number().int().positive().optional(),
     // SSRF opt-in for webhook `callback_url` delivery. Default falsy: a tenant-
     // supplied callback can NEVER reach a private/loopback/link-local/reserved
     // address (notably the cloud metadata IP 169.254.169.254) — the dispatcher

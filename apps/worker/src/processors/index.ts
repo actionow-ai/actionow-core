@@ -1,3 +1,4 @@
+export { createFileLifecycleReaperProcessor } from './file-lifecycle-reaper.processor.js';
 export { createHoldReaperProcessor } from './hold-reaper.processor.js';
 export {
   createJobExecProcessor,

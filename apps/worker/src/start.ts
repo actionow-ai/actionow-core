@@ -3,6 +3,7 @@ import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 
 import {
+  createFileLifecycleReaperProcessor,
   createHoldReaperProcessor,
   createJobExecProcessor,
   createRelayTraceReaperProcessor,
@@ -21,6 +22,8 @@ export const REAPER_SWEEP_MS = 30_000;
 export const TOKEN_REFRESH_SWEEP_MS = 60_000;
 /** Default cadence for the repeatable relay-trace retention sweep (ms; hourly). */
 export const RELAY_TRACE_SWEEP_MS = 3_600_000;
+/** Default cadence for the repeatable file-lifecycle (TTL) sweep (ms; hourly). */
+export const FILE_LIFECYCLE_SWEEP_MS = 3_600_000;
 
 /** Tuning for {@link startWorkers}. */
 export interface StartWorkersOptions {
@@ -32,6 +35,8 @@ export interface StartWorkersOptions {
   tokenRefreshSweepMs?: number;
   /** Repeatable relay-trace retention sweep cadence in ms (default {@link RELAY_TRACE_SWEEP_MS}). */
   relayTraceSweepMs?: number;
+  /** Repeatable file-lifecycle (TTL) sweep cadence in ms (default {@link FILE_LIFECYCLE_SWEEP_MS}). */
+  fileLifecycleSweepMs?: number;
   /**
    * BullMQ connection. When omitted a fresh ioredis client is created from
    * `runtime.env.REDIS_URL` and owned by the returned handle (closed on
@@ -69,12 +74,14 @@ export function startWorkers(
   const reaperSweepMs = opts.reaperSweepMs ?? REAPER_SWEEP_MS;
   const tokenRefreshSweepMs = opts.tokenRefreshSweepMs ?? TOKEN_REFRESH_SWEEP_MS;
   const relayTraceSweepMs = opts.relayTraceSweepMs ?? RELAY_TRACE_SWEEP_MS;
+  const fileLifecycleSweepMs = opts.fileLifecycleSweepMs ?? FILE_LIFECYCLE_SWEEP_MS;
 
   const jobExec = createJobExecProcessor(runtime);
   const processWebhookOutbox = createWebhookOutboxProcessor(runtime);
   const processHoldReaper = createHoldReaperProcessor(runtime);
   const processTokenRefresh = createTokenRefreshProcessor(runtime);
   const processRelayTraceReaper = createRelayTraceReaperProcessor(runtime);
+  const processFileLifecycleReaper = createFileLifecycleReaperProcessor(runtime);
 
   // job-exec: one job per async run, payload { jobId }.
   const jobExecWorker = new Worker(
@@ -111,6 +118,14 @@ export function startWorkers(
     connection,
   });
 
+  // file-lifecycle-reaper: a repeatable sweep that soft-deletes/bucket-deletes
+  // file_object rows past each opt-in tenant's TTL window (no-op when none opt in).
+  const fileLifecycleWorker = new Worker(
+    'file-lifecycle-reaper',
+    () => processFileLifecycleReaper(),
+    { connection },
+  );
+
   jobExecWorker.on('ready', () => {
     console.log(`worker ready: ${QUEUE_NAMES.join(', ')}`);
   });
@@ -121,6 +136,7 @@ export function startWorkers(
     reaperWorker,
     tokenRefreshWorker,
     relayTraceWorker,
+    fileLifecycleWorker,
   ];
   for (const worker of workers) {
     worker.on('failed', (job, err) => {
@@ -135,7 +151,14 @@ export function startWorkers(
   const reaperQueue = new Queue('hold-reaper', { connection });
   const tokenRefreshQueue = new Queue('token-refresh', { connection });
   const relayTraceQueue = new Queue('relay-trace-reaper', { connection });
-  const queues = [webhookQueue, reaperQueue, tokenRefreshQueue, relayTraceQueue];
+  const fileLifecycleQueue = new Queue('file-lifecycle-reaper', { connection });
+  const queues = [
+    webhookQueue,
+    reaperQueue,
+    tokenRefreshQueue,
+    relayTraceQueue,
+    fileLifecycleQueue,
+  ];
   const scheduled = Promise.all([
     webhookQueue.add(
       'sweep',
@@ -152,6 +175,11 @@ export function startWorkers(
       'sweep',
       {},
       { repeat: { every: relayTraceSweepMs }, jobId: 'relay-trace-reaper-sweep' },
+    ),
+    fileLifecycleQueue.add(
+      'sweep',
+      {},
+      { repeat: { every: fileLifecycleSweepMs }, jobId: 'file-lifecycle-reaper-sweep' },
     ),
   ]);
   // Surface a scheduling failure rather than leaving it floating; a real boot

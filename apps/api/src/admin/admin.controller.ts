@@ -237,6 +237,8 @@ import {
   refundJobSchema,
   type RelayTraceQueryDto,
   relayTraceQuerySchema,
+  type SetFileTtlDto,
+  setFileTtlSchema,
   type SetLimitPlanDto,
   setLimitPlanRequestSchema,
   type SyncChannelModelsDto,
@@ -635,6 +637,28 @@ export class AdminController {
   ): Promise<{ account_id: string; balance: string }> {
     const { balanceMicro } = await this.admin.topup(id, dto);
     return { account_id: id, balance: balanceMicro };
+  }
+
+  @Post('accounts/:id/file-ttl')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      "Set/clear a tenant's opt-in file lifecycle TTL (days>0 → auto-delete older files; null → retain forever)",
+  })
+  @Audit({
+    action: 'account.file_ttl.set',
+    target: 'account',
+    resolve: ({ params, body }) => ({
+      targetId: params.id ?? null,
+      meta: { ...(body as Record<string, unknown>) },
+    }),
+  })
+  async setFileTtl(
+    @Param('id') id: string,
+    @Body(new ZodBody(setFileTtlSchema)) dto: SetFileTtlDto,
+  ): Promise<{ account_id: string; file_ttl_days: number | null }> {
+    await this.admin.setFileTtl(id, dto.days);
+    return { account_id: id, file_ttl_days: dto.days };
   }
 
   @Post('jobs/:id/refund')

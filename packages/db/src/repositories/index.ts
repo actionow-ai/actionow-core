@@ -1,4 +1,4 @@
-export { holdCredits, releaseHold, topUp } from './account.js';
+export { holdCredits, releaseHold, setFileTtlDays, topUp } from './account.js';
 export {
   type AccountRow,
   type ApiKeyRow,
@@ -167,11 +167,16 @@ export {
   type FileReadyInput,
   getFileObject,
   getStorageUsage,
+  getTenantFileTtlDays,
   getTenantStorageQuota,
   listFilesByTenant,
   type ListFilesFilter,
+  listLiveFilesOlderThanForTenant,
+  listTenantsWithFileTtl,
+  markFileObjectsDeleted,
   markFileReady,
   softDeleteFile,
+  type TenantFileTtl,
 } from './files.js';
 export { type IconAssetRow, listIconAssets, upsertIconAsset } from './icon.js';
 export { claimIdempotency, type ClaimResult } from './idempotency.js';
