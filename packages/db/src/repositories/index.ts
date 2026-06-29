@@ -326,6 +326,7 @@ export {
   matchOfficialPrice,
   normalizeModelSlug,
   type OfficialModelPriceRow,
+  officialPriceToSpec,
   softDeleteOfficialPrice,
   updateOfficialPrice,
   type UpdateOfficialPriceInput,

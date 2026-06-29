@@ -1,5 +1,15 @@
+import type { PriceSpec } from '@actionow/contracts';
 import { sql } from 'drizzle-orm';
-import { bigint, boolean, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  boolean,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 /**
  * The global, admin-curated **official model price catalog** (Track 2; spec D7).
@@ -28,6 +38,15 @@ export const officialModelPrice = pgTable(
     outputPricePer1m: bigint('output_price_per_1m', { mode: 'bigint' }).notNull(),
     /** Optional µUSD per 1M cached-input tokens (providers that price a cached read). */
     cachedInputPricePer1m: bigint('cached_input_price_per_1m', { mode: 'bigint' }),
+    /**
+     * When non-null, this row's price is the full `PriceSpec` (media/credits/
+     * matrix); the per-1M columns are the denormalized fast-path for the common
+     * per-token case. Nullable — a plain per-token catalog row leaves this null
+     * and prices off the columns (see `officialPriceToSpec`). Rich (non-per-token)
+     * models — Vidu/Kling credits, video matrix, image fixed — live in the
+     * catalog as billable by storing their evaluator spec here.
+     */
+    scheme: jsonb('scheme').$type<PriceSpec>(),
     /** The source currency the official figure was quoted in (governance metadata). Defaults `USD`. */
     currency: text('currency').notNull().default('USD'),
     /**

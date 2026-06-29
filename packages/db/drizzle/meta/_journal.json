@@ -428,6 +428,13 @@
       "when": 1782755169988,
       "tag": "0060_gorgeous_hercules",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1782757446027,
+      "tag": "0061_calm_shatterstar",
+      "breakpoints": true
     }
   ]
 }

@@ -2134,6 +2134,239 @@
           "last_transition_at"
         ]
       },
+      "PriceSpec": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": [
+                  "unit"
+                ]
+              },
+              "dimensions": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "rate": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "rate"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "method",
+              "dimensions"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": [
+                  "matrix"
+                ]
+              },
+              "key": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1
+              },
+              "table": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "multiplier": {
+                "type": "string"
+              },
+              "perItem": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "method",
+              "key",
+              "table"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": [
+                  "fixed"
+                ]
+              },
+              "amount": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "method",
+              "amount"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": [
+                  "formula"
+                ]
+              },
+              "expr": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "method",
+              "expr"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": [
+                  "passthrough"
+                ]
+              },
+              "markup": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "percent",
+                      "flat"
+                    ]
+                  },
+                  "value": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "type",
+                  "value"
+                ]
+              }
+            },
+            "required": [
+              "method"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": [
+                  "model_token"
+                ]
+              },
+              "inputPrice": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "outputPrice": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cachedInputPrice": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "groupRatioBps": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              }
+            },
+            "required": [
+              "method",
+              "inputPrice",
+              "outputPrice"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": [
+                  "credits"
+                ]
+              },
+              "creditValueMicroUsd": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "baseCredits": {
+                "type": "integer",
+                "minimum": 0,
+                "default": 0
+              },
+              "dimensions": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "credits": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "credits"
+                  ]
+                },
+                "default": {}
+              },
+              "addOns": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "flag": {
+                      "type": "string"
+                    },
+                    "credits": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "flag",
+                    "credits"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "method",
+              "creditValueMicroUsd"
+            ]
+          }
+        ]
+      },
       "RouteGroupView": {
         "type": "object",
         "properties": {
@@ -2228,6 +2461,14 @@
             "type": "string",
             "nullable": true
           },
+          "scheme": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PriceSpec"
+              }
+            ],
+            "nullable": true
+          },
           "source_url": {
             "type": "string",
             "nullable": true
@@ -2259,6 +2500,7 @@
           "input_price_per_1m",
           "output_price_per_1m",
           "cached_input_price_per_1m",
+          "scheme",
           "source_url",
           "effective_at",
           "notes",
@@ -5051,6 +5293,14 @@
             "minimum": 0,
             "exclusiveMinimum": true
           },
+          "scheme": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PriceSpec"
+              }
+            ],
+            "nullable": true
+          },
           "sourceUrl": {
             "type": "string",
             "format": "uri"
@@ -5093,6 +5343,14 @@
             "nullable": true,
             "minimum": 0,
             "exclusiveMinimum": true
+          },
+          "scheme": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PriceSpec"
+              }
+            ],
+            "nullable": true
           },
           "sourceUrl": {
             "type": "string",

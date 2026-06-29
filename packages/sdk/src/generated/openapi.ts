@@ -12271,6 +12271,63 @@ export interface components {
             failure_rate: number | null;
             last_transition_at: string | null;
         };
+        PriceSpec: {
+            /** @enum {string} */
+            method: "unit";
+            dimensions: {
+                [key: string]: {
+                    rate: number;
+                };
+            };
+        } | {
+            /** @enum {string} */
+            method: "matrix";
+            key: string[];
+            table: {
+                [key: string]: number;
+            };
+            multiplier?: string;
+            perItem?: string;
+        } | {
+            /** @enum {string} */
+            method: "fixed";
+            amount: number;
+        } | {
+            /** @enum {string} */
+            method: "formula";
+            expr: string;
+        } | {
+            /** @enum {string} */
+            method: "passthrough";
+            markup?: {
+                /** @enum {string} */
+                type: "percent" | "flat";
+                value: number;
+            };
+        } | {
+            /** @enum {string} */
+            method: "model_token";
+            inputPrice: number;
+            outputPrice: number;
+            cachedInputPrice?: number;
+            groupRatioBps?: number;
+        } | {
+            /** @enum {string} */
+            method: "credits";
+            creditValueMicroUsd: number;
+            /** @default 0 */
+            baseCredits: number;
+            /** @default {} */
+            dimensions: {
+                [key: string]: {
+                    credits: number;
+                };
+            };
+            addOns?: {
+                flag: string;
+                credits: number;
+            }[];
+        };
         RouteGroupView: {
             id: string;
             name: string;
@@ -12296,6 +12353,7 @@ export interface components {
             input_price_per_1m: string;
             output_price_per_1m: string;
             cached_input_price_per_1m: string | null;
+            scheme: components["schemas"]["PriceSpec"] | null;
             source_url: string | null;
             effective_at: string | null;
             notes: string | null;
@@ -13006,6 +13064,7 @@ export interface components {
             inputUsdPer1m: number;
             outputUsdPer1m: number;
             cachedInputUsdPer1m?: number;
+            scheme?: components["schemas"]["PriceSpec"] | null;
             /** Format: uri */
             sourceUrl?: string;
             /** Format: date-time */
@@ -13017,6 +13076,7 @@ export interface components {
             inputUsdPer1m?: number;
             outputUsdPer1m?: number;
             cachedInputUsdPer1m?: number | null;
+            scheme?: components["schemas"]["PriceSpec"] | null;
             /** Format: uri */
             sourceUrl?: string | null;
             /** Format: date-time */

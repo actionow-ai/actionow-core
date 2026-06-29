@@ -1,3 +1,4 @@
+import type { PriceSpec } from '@actionow/contracts';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
@@ -11,6 +12,7 @@ import {
   listOfficialPrices,
   matchOfficialPrice,
   normalizeModelSlug,
+  officialPriceToSpec,
   softDeleteOfficialPrice,
   updateOfficialPrice,
 } from '../src/repositories/index.js';
@@ -193,5 +195,117 @@ describe('matchOfficialPrice', () => {
     expect(row.currency).toBe('USD');
     expect(row.confidence).toBe('firstparty');
     expect(row.billingEligible).toBe(true);
+  });
+});
+
+describe('official_model_price.scheme (rich-media pricing storage)', () => {
+  const creditsScheme: PriceSpec = {
+    method: 'credits',
+    creditValueMicroUsd: 10_000,
+    baseCredits: 2,
+    dimensions: { duration_seconds: { credits: 1 } },
+    addOns: [{ flag: 'audio', credits: 5 }],
+  };
+
+  it('defaults to null (a plain per-token row stores no scheme)', async () => {
+    const row = await createOfficialPrice(db, {
+      provider: 'openai',
+      modelSlug: 'gpt-4o',
+      inputPricePer1m: 2_500_000n,
+      outputPricePer1m: 10_000_000n,
+    });
+    expect(row.scheme).toBeNull();
+  });
+
+  it('persists a full PriceSpec scheme (round-trips through the jsonb column)', async () => {
+    const row = await createOfficialPrice(db, {
+      provider: 'vidu',
+      modelSlug: 'vidu-q1',
+      inputPricePer1m: 0n,
+      outputPricePer1m: 0n,
+      scheme: creditsScheme,
+    });
+    expect(row.scheme).toEqual(creditsScheme);
+
+    const refetched = await getOfficialPriceById(db, row.id);
+    expect(refetched?.scheme).toEqual(creditsScheme);
+  });
+
+  it('update sets the scheme, and null clears it back to per-token', async () => {
+    const row = await createOfficialPrice(db, {
+      provider: 'kling',
+      modelSlug: 'kling-pro',
+      inputPricePer1m: 0n,
+      outputPricePer1m: 0n,
+    });
+    expect(row.scheme).toBeNull();
+
+    const set = await updateOfficialPrice(db, row.id, { scheme: creditsScheme });
+    expect(set?.scheme).toEqual(creditsScheme);
+
+    const cleared = await updateOfficialPrice(db, row.id, { scheme: null });
+    expect(cleared?.scheme).toBeNull();
+  });
+});
+
+describe('officialPriceToSpec (effective spec resolver)', () => {
+  it('returns the stored scheme verbatim when present', () => {
+    const scheme: PriceSpec = {
+      method: 'credits',
+      creditValueMicroUsd: 10_000,
+      baseCredits: 0,
+      dimensions: { frames: { credits: 3 } },
+    };
+    const spec = officialPriceToSpec({
+      scheme,
+      inputPricePer1m: 2_500_000n,
+      outputPricePer1m: 10_000_000n,
+      cachedInputPricePer1m: 1_250_000n,
+    });
+    expect(spec).toBe(scheme); // the stored scheme wins outright (ignores the columns)
+  });
+
+  it('synthesizes a model_token spec from the per-1M columns when scheme is null', () => {
+    const spec = officialPriceToSpec({
+      scheme: null,
+      inputPricePer1m: 2_500_000n,
+      outputPricePer1m: 10_000_000n,
+      cachedInputPricePer1m: null,
+    });
+    expect(spec).toEqual({
+      method: 'model_token',
+      inputPrice: 2_500_000,
+      outputPrice: 10_000_000,
+    });
+  });
+
+  it('includes cachedInputPrice + groupRatioBps when present (null scheme)', () => {
+    const spec = officialPriceToSpec(
+      {
+        scheme: null,
+        inputPricePer1m: 2_500_000n,
+        outputPricePer1m: 10_000_000n,
+        cachedInputPricePer1m: 1_250_000n,
+      },
+      { groupRatioBps: 12_000 },
+    );
+    expect(spec).toEqual({
+      method: 'model_token',
+      inputPrice: 2_500_000,
+      outputPrice: 10_000_000,
+      cachedInputPrice: 1_250_000,
+      groupRatioBps: 12_000,
+    });
+  });
+
+  it('omits cachedInputPrice / groupRatioBps when absent (regression invariant: byte-identical model_token)', () => {
+    // No cached column, no opts → exactly the pre-`scheme` model_token shape.
+    const spec = officialPriceToSpec({
+      scheme: null,
+      inputPricePer1m: 150_000n,
+      outputPricePer1m: 600_000n,
+      cachedInputPricePer1m: null,
+    });
+    expect(Object.keys(spec).sort()).toEqual(['inputPrice', 'method', 'outputPrice']);
   });
 });

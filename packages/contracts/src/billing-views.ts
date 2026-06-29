@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { priceSpecSchema } from './pricing.js';
+
 /**
  * Single source of truth for the **billing & routing** control-plane wire views
  * (route groups, group channel memberships, official model prices — Track 2/3).
@@ -56,6 +58,8 @@ export const officialPriceViewSchema = z.object({
   input_price_per_1m: z.string(),
   output_price_per_1m: z.string(),
   cached_input_price_per_1m: z.string().nullable(),
+  /** The full `PriceSpec` (media/credits/matrix) when this row prices off a spec; null = plain per-token. */
+  scheme: priceSpecSchema.nullable(),
   source_url: z.string().nullable(),
   effective_at: z.string().nullable(),
   notes: z.string().nullable(),

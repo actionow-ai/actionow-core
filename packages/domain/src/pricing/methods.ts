@@ -1,4 +1,5 @@
 import type {
+  CreditsSpec,
   FixedSpec,
   FormulaSpec,
   MatrixSpec,
@@ -19,6 +20,46 @@ export function priceUnit(spec: UnitSpec, usage: Record<string, number>): MicroC
     total += BigInt(usage[dim] ?? 0) * BigInt(rate);
   }
   return total;
+}
+
+/**
+ * Is `v` truthy as a billing flag? Mirrors a permissive "is this on?" check
+ * without the JS coercion footguns: a non-zero finite number, the boolean
+ * `true`, or a non-empty string that is NOT `"0"`/`"false"` (case-insensitive,
+ * trimmed). Everything else — absent, `0`, `false`, `""`, `"0"`, `"false"`,
+ * `null`/`undefined`, objects — is falsy. Explicit so an add-on is charged only
+ * on a real signal, never on a stray `"false"` string the adapter forwarded.
+ */
+function isFlagTruthy(v: unknown): boolean {
+  if (typeof v === 'number') return Number.isFinite(v) && v !== 0;
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase();
+    return s !== '' && s !== '0' && s !== 'false';
+  }
+  return false;
+}
+
+/**
+ * Credit-billed cost in µUSD (Vidu/Kling): credits = baseCredits + Σ dimensions[d].credits×v[d]
+ * + Σ addOns where v[flag] is truthy; cost = credits × creditValueMicroUsd. All-integer bigint.
+ * Reads the same snake_case usage/param vector as `priceUnit` (missing = 0/false).
+ */
+export function priceCredits(spec: CreditsSpec, v: Record<string, unknown>): MicroCredits {
+  let credits = BigInt(spec.baseCredits);
+  for (const [dim, { credits: perUnit }] of Object.entries(spec.dimensions)) {
+    // Coerce the (possibly string/float) usage count to a non-negative integer
+    // count: `trunc` keeps the integer-only money invariant (a fractional or
+    // non-numeric dimension never throws a BigInt RangeError), clamped at 0 so a
+    // negative count can't credit the caller.
+    const raw = Math.trunc(Number(v[dim] ?? 0));
+    const count = Number.isFinite(raw) && raw > 0 ? raw : 0;
+    credits += BigInt(count) * BigInt(perUnit);
+  }
+  for (const { flag, credits: bonus } of spec.addOns ?? []) {
+    if (isFlagTruthy(v[flag])) credits += BigInt(bonus);
+  }
+  return credits * BigInt(spec.creditValueMicroUsd);
 }
 
 /**
