@@ -37,15 +37,18 @@ export function ChatComposer({
   };
 
   return (
-    <div style={{ padding: 'var(--s-3)', borderTop: '1px solid var(--hairline)' }}>
+    <div style={{ padding: 'var(--s-3) var(--s-4) var(--s-4)' }}>
       <div
         className="panel"
         style={{
+          maxWidth: 768,
+          margin: '0 auto',
           display: 'flex',
           alignItems: 'flex-end',
           gap: 'var(--s-2)',
           borderRadius: 'var(--r-lg)',
           padding: 'var(--s-2)',
+          boxShadow: 'var(--shadow-lift)',
         }}
       >
         <textarea

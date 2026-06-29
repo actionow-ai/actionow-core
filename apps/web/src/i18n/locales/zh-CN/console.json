@@ -330,6 +330,18 @@
     "reasoning": "推理过程",
     "comingSoon": "即将上线",
     "comingSoonBody": "该 playground 即将上线。",
+    "welcome": {
+      "title": "和 {{model}} 开始对话",
+      "body": "在下方输入，或从这些开始。",
+      "noModelsTitle": "暂无可用模型",
+      "browseModels": "去添加模型"
+    },
+    "examples": {
+      "0": "用三句话解释 Transformer 的注意力机制。",
+      "1": "把这段 Python 函数改写成异步版本。",
+      "2": "比较 Postgres 和 MySQL 的事务隔离级别。",
+      "3": "帮我写一封简短得体的请假邮件。"
+    },
     "keyProvisioning": "正在准备 playground key…",
     "keyError": "无法准备 playground API key。",
     "loadFailed": "无法加载该对话。",

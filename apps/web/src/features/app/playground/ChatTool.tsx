@@ -10,6 +10,7 @@ import type { ConversationView } from '../../../lib/api/types';
 import { useConsoleApi } from '../../../lib/api/useConsoleApi';
 import { ChatComposer } from './ChatComposer';
 import { ChatMessage } from './ChatMessage';
+import { ChatWelcome } from './ChatWelcome';
 import { ConversationPanel } from './ConversationPanel';
 import type { ChatRow } from './types';
 import { type ChatTurn, useChatStream } from './useChatStream';
@@ -164,9 +165,9 @@ export function ChatTool() {
     }
   };
 
-  /** Send the composer input as a new user turn. */
-  const send = async () => {
-    const text = input.trim();
+  /** Send a user turn — the composer input, or an explicit prompt (welcome chip). */
+  const send = async (prompt?: string) => {
+    const text = (prompt ?? input).trim();
     if (text === '' || streaming || !keyReady || key === null || model === '') return;
     setInput('');
 
@@ -286,23 +287,13 @@ export function ChatTool() {
         {/* Transcript. */}
         <div ref={scrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {rows.length === 0 && !streaming ? (
-            <div
-              style={{
-                height: '100%',
-                display: 'grid',
-                placeItems: 'center',
-                color: 'var(--faint)',
-                fontSize: 'var(--fs-sm)',
-                padding: 'var(--s-4)',
-                textAlign: 'center',
-              }}
-            >
-              {modelsQuery.isLoading
-                ? t('common.loading')
-                : textModels.length === 0
-                  ? t('playground.noModels')
-                  : t('playground.empty')}
-            </div>
+            <ChatWelcome
+              state={
+                modelsQuery.isLoading ? 'loading' : textModels.length === 0 ? 'noModels' : 'ready'
+              }
+              modelLabel={modelOptions.find((o) => o.value === model)?.label ?? model}
+              onPick={(p) => void send(p)}
+            />
           ) : (
             <div
               style={{

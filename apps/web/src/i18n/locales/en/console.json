@@ -330,6 +330,18 @@
     "reasoning": "Reasoning",
     "comingSoon": "coming soon",
     "comingSoonBody": "This playground is coming soon.",
+    "welcome": {
+      "title": "Chat with {{model}}",
+      "body": "Type below, or start from one of these.",
+      "noModelsTitle": "No models yet",
+      "browseModels": "Browse models"
+    },
+    "examples": {
+      "0": "Explain the Transformer attention mechanism in three sentences.",
+      "1": "Rewrite this Python function to be async.",
+      "2": "Compare transaction isolation levels in Postgres and MySQL.",
+      "3": "Draft a short, polite out-of-office email."
+    },
     "keyProvisioning": "Provisioning a playground key…",
     "keyError": "Couldn't provision a playground API key.",
     "loadFailed": "Couldn't load this conversation.",
