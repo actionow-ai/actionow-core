@@ -162,6 +162,7 @@ import {
   type SecretRefView,
   setApiKeyGroup,
   setApiKeyLimitPlan,
+  setFileTtlDays,
   setTenantLimitPlan,
   softDeleteApiKey,
   softDeleteChannel,
@@ -659,6 +660,26 @@ export class AdminService {
     }
     const balance = await topUp(this.db, accountId, acct.tenantId, creditsToMicro(dto.credits));
     return { balanceMicro: balance.toString() };
+  }
+
+  /**
+   * Set or clear an account's opt-in file lifecycle / TTL (`config.file_ttl_days`).
+   * `days` must be a STRICTLY POSITIVE integer (opt in) or `null` (disable →
+   * retain forever). Zero/negative is rejected as `invalid_input` — 0 would mean
+   * delete-everything-now (a data-loss footgun); require `null` to disable. 404
+   * when the account id matches no row. The contract schema (`setFileTtlSchema`)
+   * already enforces `int().positive().nullable()`, but this guards the service
+   * boundary directly too.
+   */
+  async setFileTtl(accountId: string, days: number | null): Promise<{ id: string }> {
+    if (days !== null && (!Number.isInteger(days) || days <= 0)) {
+      throw engineInvalidInput('days must be a positive integer, or null to disable');
+    }
+    const row = await setFileTtlDays(this.db, accountId, days);
+    if (row === undefined) {
+      throw engineNotFound(`account ${accountId} not found`);
+    }
+    return { id: row.id };
   }
 
   /**

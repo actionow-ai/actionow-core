@@ -7,11 +7,11 @@ import type { WorkerRuntime } from '../src/runtime.js';
 
 /**
  * Light unit test for {@link startWorkers}: `bullmq` is mocked so no Redis is
- * required. We assert that booting binds exactly the four queue names
- * (`job-exec`, `webhook-outbox`, `hold-reaper`, `token-refresh`), registers the
- * three repeatable sweeps at the requested cadence, and that `close()` drains
- * every Worker + Queue. The real BullMQ/Redis path is covered by the api
- * full-stack e2e.
+ * required. We assert that booting binds exactly the six queue names (`job-exec`,
+ * `webhook-outbox`, `hold-reaper`, `token-refresh`, `relay-trace-reaper`,
+ * `file-lifecycle-reaper`), registers the repeatable sweeps at the requested
+ * cadence, and that `close()` drains every Worker + Queue. The real BullMQ/Redis
+ * path is covered by the api full-stack e2e.
  */
 
 const workerNames: string[] = [];
@@ -60,19 +60,28 @@ afterEach(() => {
 });
 
 describe('startWorkers', () => {
-  it('binds the four queue names and registers all sweeps, then closes cleanly', async () => {
+  it('binds the six queue names and registers all sweeps, then closes cleanly', async () => {
     const { startWorkers } = await import('../src/start.js');
 
     const handle = startWorkers(runtime, {
       webhookSweepMs: 250,
       reaperSweepMs: 500,
       tokenRefreshSweepMs: 750,
+      relayTraceSweepMs: 900,
+      fileLifecycleSweepMs: 1100,
     });
 
-    // Exactly the four processing queues are bound as Workers.
-    expect(workerNames).toEqual(['job-exec', 'webhook-outbox', 'hold-reaper', 'token-refresh']);
+    // Exactly the six processing queues are bound as Workers.
+    expect(workerNames).toEqual([
+      'job-exec',
+      'webhook-outbox',
+      'hold-reaper',
+      'token-refresh',
+      'relay-trace-reaper',
+      'file-lifecycle-reaper',
+    ]);
 
-    // All three repeatable sweeps were scheduled with the requested cadences.
+    // All repeatable sweeps were scheduled with the requested cadences.
     await Promise.resolve();
     expect(queueAddSpy).toHaveBeenCalledWith(
       'sweep',
@@ -89,10 +98,20 @@ describe('startWorkers', () => {
       {},
       { repeat: { every: 750 }, jobId: 'token-refresh-sweep' },
     );
+    expect(queueAddSpy).toHaveBeenCalledWith(
+      'sweep',
+      {},
+      { repeat: { every: 900 }, jobId: 'relay-trace-reaper-sweep' },
+    );
+    expect(queueAddSpy).toHaveBeenCalledWith(
+      'sweep',
+      {},
+      { repeat: { every: 1100 }, jobId: 'file-lifecycle-reaper-sweep' },
+    );
 
-    // close() drains all four Workers and all three sweep Queues.
+    // close() drains all six Workers and all five sweep Queues.
     await handle.close();
-    expect(workerCloseSpy).toHaveBeenCalledTimes(4);
-    expect(queueCloseSpy).toHaveBeenCalledTimes(3);
+    expect(workerCloseSpy).toHaveBeenCalledTimes(6);
+    expect(queueCloseSpy).toHaveBeenCalledTimes(5);
   });
 });

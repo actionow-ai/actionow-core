@@ -1,5 +1,5 @@
 import type { InferInsertModel, InferSelectModel, SQL } from 'drizzle-orm';
-import { and, eq, isNull, like, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, like, lt, or, sql } from 'drizzle-orm';
 
 import { account, fileObject } from '../schema/index.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
@@ -202,4 +202,111 @@ export async function getTenantStorageQuota(
     .limit(1);
   const q = row?.config.storage_quota_bytes;
   return typeof q === 'number' && Number.isFinite(q) && q > 0 ? q : undefined;
+}
+
+/**
+ * A tenant eligible for the opt-in file lifecycle / TTL sweep, with the effective
+ * retention window in days. STRICTLY POSITIVE by construction (see
+ * {@link listTenantsWithFileTtl}).
+ */
+export interface TenantFileTtl {
+  tenantId: string;
+  ttlDays: number;
+}
+
+/**
+ * The opt-in eligibility list for the worker's file-lifecycle sweep. Reads every
+ * LIVE account (one per tenant) and computes each tenant's effective TTL:
+ * `account.config.file_ttl_days` when it is a strictly-positive finite number,
+ * else the `platformDefaultDays` fallback. Only tenants whose effective TTL is
+ * STRICTLY POSITIVE are returned — so a tenant with no per-tenant override AND no
+ * platform default is OMITTED (files retained forever, the safe default).
+ *
+ * DATA-LOSS CRITICAL: a 0 / absent / null / non-finite `file_ttl_days` must NEVER
+ * be treated as eligible (that would mass-delete app-referenced files). The
+ * predicate below is the single guard for that invariant.
+ */
+export async function listTenantsWithFileTtl(
+  db: DbOrTx,
+  platformDefaultDays?: number,
+): Promise<TenantFileTtl[]> {
+  const rows = await db
+    .select({ tenantId: account.tenantId, config: account.config })
+    .from(account)
+    .where(isNull(account.deletedAt));
+  const out: TenantFileTtl[] = [];
+  for (const row of rows) {
+    const override = row.config.file_ttl_days;
+    const perTenant =
+      typeof override === 'number' && Number.isFinite(override) && override > 0
+        ? override
+        : undefined;
+    const effective = perTenant ?? platformDefaultDays;
+    if (effective !== undefined && effective > 0) {
+      out.push({ tenantId: row.tenantId, ttlDays: effective });
+    }
+  }
+  return out;
+}
+
+/**
+ * One bounded batch of a tenant's LIVE files created before `cutoff`, returning
+ * `{id, key}` so the sweep can best-effort remove the bucket object then
+ * soft-delete the row. Excludes already-tombstoned rows (`deleted_at IS NULL`) so
+ * repeated sweeps converge; scoped to the single `tenantId`.
+ */
+export function listLiveFilesOlderThanForTenant(
+  db: DbOrTx,
+  tenantId: string,
+  cutoff: Date,
+  limit: number,
+): Promise<{ id: string; key: string }[]> {
+  return db
+    .select({ id: fileObject.id, key: fileObject.key })
+    .from(fileObject)
+    .where(
+      and(
+        eq(fileObject.tenantId, tenantId),
+        lt(fileObject.createdAt, cutoff),
+        isNull(fileObject.deletedAt),
+      ),
+    )
+    .limit(limit);
+}
+
+/**
+ * Batched soft-delete: stamp `deleted_at`/`updated_at` on every still-LIVE row in
+ * `ids` (idempotent — an already-tombstoned row is skipped by the
+ * `deleted_at IS NULL` guard, so a re-sweep is a no-op). Returns the number of
+ * rows tombstoned. An empty `ids` is a 0-row no-op (no SQL). The per-row
+ * {@link softDeleteFile} stays the API delete path; this is the bulk sweep path.
+ *
+ * `file_object` is NOT in the append-only trigger set (mig 0052), so the
+ * `deleted_at` UPDATE is permitted.
+ */
+export async function markFileObjectsDeleted(db: DbOrTx, ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const now = new Date();
+  const rows = await db
+    .update(fileObject)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(and(inArray(fileObject.id, ids), isNull(fileObject.deletedAt)))
+    .returning({ id: fileObject.id });
+  return rows.length;
+}
+
+/**
+ * Per-tenant file TTL override (days) from `account.config.file_ttl_days`, or
+ * `null` when unset/invalid (mirrors {@link getTenantStorageQuota}). Only a
+ * strictly-positive finite number is returned; the caller falls back to the
+ * `FILE_RETENTION_DAYS` env default (and ultimately `null` → retain forever).
+ */
+export async function getTenantFileTtlDays(db: DbOrTx, tenantId: string): Promise<number | null> {
+  const [row] = await db
+    .select({ config: account.config })
+    .from(account)
+    .where(eq(account.tenantId, tenantId))
+    .limit(1);
+  const d = row?.config.file_ttl_days;
+  return typeof d === 'number' && Number.isFinite(d) && d > 0 ? d : null;
 }

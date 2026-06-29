@@ -1,3 +1,4 @@
+import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq, sql } from 'drizzle-orm';
 
 import { account } from '../schema/index.js';
@@ -100,4 +101,34 @@ export async function topUp(
 
     return row.balanceAfter;
   });
+}
+
+/**
+ * Set or clear a tenant account's opt-in file lifecycle / TTL (`config.file_ttl_days`).
+ *
+ * - `days` a POSITIVE number → merge `{file_ttl_days: days}` into the `config`
+ *   jsonb (preserving other keys via `||`).
+ * - `days` `null` → remove the `file_ttl_days` key (`config - 'file_ttl_days'`)
+ *   so the tenant reverts to the platform default / retain-forever.
+ *
+ * Returns the updated account row, or `undefined` when no account exists for
+ * `accountId` (caller maps to 404). Scoped by id only — there is exactly one live
+ * account per tenant. (The `account` table has no `updated_at` column — the spec's
+ * "Set updated_at" applies to tables that carry one; this one doesn't.)
+ */
+export async function setFileTtlDays(
+  db: DbOrTx,
+  accountId: string,
+  days: number | null,
+): Promise<InferSelectModel<typeof account> | undefined> {
+  const configExpr =
+    days === null
+      ? sql`${account.config} - 'file_ttl_days'`
+      : sql`${account.config} || ${JSON.stringify({ file_ttl_days: days })}::jsonb`;
+  const rows = await db
+    .update(account)
+    .set({ config: configExpr })
+    .where(eq(account.id, accountId))
+    .returning();
+  return rows[0];
 }

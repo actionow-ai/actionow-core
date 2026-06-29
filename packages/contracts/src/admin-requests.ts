@@ -299,3 +299,17 @@ export const latestAuditRequestSchema = z.object({
   ids: z.array(z.string()),
 });
 export type LatestAuditRequestBody = z.infer<typeof latestAuditRequestSchema>;
+
+/**
+ * `POST /admin/accounts/:id/file-ttl` — set/clear a tenant's opt-in file
+ * lifecycle / TTL retention (per-tenant `account.config.file_ttl_days`). A
+ * STRICTLY POSITIVE integer day count opts the tenant into the worker's
+ * file-lifecycle sweep (files older than N days are soft-deleted + best-effort
+ * removed from the bucket); `null` disables it (retain forever — the default).
+ * Zero/negative is rejected by `.positive()` (0 would mean delete-everything-now,
+ * a data-loss footgun — require `null` to disable instead).
+ */
+export const setFileTtlSchema = z.object({
+  days: z.number().int().positive().nullable(),
+});
+export type SetFileTtlBody = z.infer<typeof setFileTtlSchema>;

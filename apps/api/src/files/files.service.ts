@@ -8,6 +8,7 @@ import {
   type FileObject,
   getFileObject,
   getStorageUsage,
+  getTenantFileTtlDays,
   getTenantStorageQuota,
   listFilesByTenant,
   markFileReady,
@@ -51,6 +52,13 @@ export interface StorageUsageView {
   bytes: number;
   count: number;
   quota_bytes: number | null;
+  /**
+   * Effective opt-in file lifecycle / TTL in days: per-tenant
+   * `account.config.file_ttl_days` → `FILE_RETENTION_DAYS` env → `null` (retain
+   * forever — the default). When non-null, files older than this are swept by the
+   * worker's file-lifecycle-reaper.
+   */
+  effective_ttl_days: number | null;
 }
 
 /**
@@ -181,11 +189,17 @@ export class FilesService {
    * no cap). A pure DB read — works even when storage is unconfigured.
    */
   async usage(ctx: TenantContext): Promise<StorageUsageView> {
-    const [usage, quota] = await Promise.all([
+    const [usage, quota, ttlOverride] = await Promise.all([
       getStorageUsage(this.db, ctx.tenantId),
       this.resolveQuota(ctx.tenantId),
+      getTenantFileTtlDays(this.db, ctx.tenantId),
     ]);
-    return { bytes: usage.bytes, count: usage.count, quota_bytes: quota ?? null };
+    return {
+      bytes: usage.bytes,
+      count: usage.count,
+      quota_bytes: quota ?? null,
+      effective_ttl_days: ttlOverride ?? this.env.FILE_RETENTION_DAYS ?? null,
+    };
   }
 
   /** Effective per-tenant storage cap (bytes): per-tenant override → global env → none. */
