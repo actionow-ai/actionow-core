@@ -194,9 +194,15 @@ describe('admin breaker status surface (弹性2.0)', () => {
     const after = await auth(request(app.getHttpServer()).get('/admin/breakers')).expect(200);
     expect(after.body).toHaveLength(0);
 
-    // 记录系统: a `breaker.reset` audit row was appended for the channel.
-    const audit =
+    // 记录系统: a `breaker.reset` audit row was appended for the channel. The
+    // @Audit write is fire-and-forget (after the response), so poll for it.
+    let audit =
       await client`SELECT action, target_type, target_id, meta FROM audit_log WHERE action = 'breaker.reset'`;
+    for (let attempt = 0; attempt < 40 && audit.length < 1; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      audit =
+        await client`SELECT action, target_type, target_id, meta FROM audit_log WHERE action = 'breaker.reset'`;
+    }
     expect(audit).toHaveLength(1);
     const row = audit[0];
     expect(row).toBeDefined();
