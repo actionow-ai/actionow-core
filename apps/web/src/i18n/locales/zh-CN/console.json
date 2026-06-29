@@ -317,6 +317,44 @@
       }
     }
   },
+  "playground": {
+    "newChat": "新对话",
+    "noConversations": "暂无对话",
+    "empty": "选择模型并发送消息即可开始。",
+    "selectModel": "选择模型",
+    "noModels": "你的租户暂无可用的文本模型。",
+    "rename": "重命名",
+    "send": "发送",
+    "stop": "停止",
+    "regenerate": "重新生成",
+    "reasoning": "推理过程",
+    "comingSoon": "即将上线",
+    "tools": "Playground 工具",
+    "keyProvisioning": "正在准备 playground key…",
+    "keyError": "无法准备 playground API key。",
+    "loadFailed": "无法加载该对话。",
+    "saveFailed": "保存失败——对话仍可用，但本轮未持久化。",
+    "runFailed": "模型请求失败。",
+    "deleteFailed": "无法删除该对话。",
+    "confirmDeleteTitle": "删除该对话？",
+    "confirmDeleteMsg": "将删除“{{title}}”及其消息。",
+    "tool": {
+      "chat": "对话",
+      "image": "图片",
+      "video": "视频",
+      "audio": "音频"
+    },
+    "metrics": {
+      "latency": "延迟",
+      "total": "总计",
+      "input": "输入",
+      "output": "输出"
+    },
+    "composer": {
+      "placeholder": "发送消息…",
+      "disabled": "尚未就绪…"
+    }
+  },
   "nav": {
     "groups": {
       "ops": "运营",
@@ -337,6 +375,7 @@
     "auditLog": "审计日志",
     "platformSettings": "系统设置",
     "overview": "概览",
+    "tplayground": "Playground",
     "tusage": "用量",
     "tkeys": "API Keys",
     "tmodels": "模型",

@@ -12,6 +12,7 @@ import { AppSubjects } from './features/app/AppSubjects';
 import { AppUsage } from './features/app/AppUsage';
 import { MemberPortal } from './features/app/MemberPortal';
 import { MembersPage } from './features/app/MembersPage';
+import { PlaygroundShell } from './features/app/playground/PlaygroundShell';
 import { TenantConsole } from './features/app/TenantConsole';
 import { AuthPage } from './features/auth/AuthPage';
 import { MemberAuthPage } from './features/auth/MemberAuthPage';
@@ -64,6 +65,7 @@ export function AppRoutes() {
         <Route path="/app" element={<TenantConsole />}>
           <Route index element={<Navigate to="/app/overview" replace />} />
           <Route path="overview" element={<AppOverview />} />
+          <Route path="playground" element={<PlaygroundShell />} />
           <Route path="usage" element={<AppUsage />} />
           <Route path="media" element={<AppMedia />} />
           <Route path="keys" element={<AppKeys />} />

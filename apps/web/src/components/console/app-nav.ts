@@ -15,6 +15,7 @@ export const TENANT_NAV_CONFIG: NavConfig = {
       icon: SquaresFourIcon,
       items: [
         { to: '/app/overview', labelKey: 'overview' },
+        { to: '/app/playground', labelKey: 'tplayground' },
         { to: '/app/usage', labelKey: 'tusage' },
         { to: '/app/media', labelKey: 'tmedia' },
         { to: '/app/models', labelKey: 'tmodels' },

@@ -317,6 +317,44 @@
       }
     }
   },
+  "playground": {
+    "newChat": "New chat",
+    "noConversations": "No conversations yet",
+    "empty": "Pick a model and send a message to start.",
+    "selectModel": "Select a model",
+    "noModels": "No text models are available to your tenant yet.",
+    "rename": "Rename",
+    "send": "Send",
+    "stop": "Stop",
+    "regenerate": "Regenerate",
+    "reasoning": "Reasoning",
+    "comingSoon": "coming soon",
+    "tools": "Playground tools",
+    "keyProvisioning": "Provisioning a playground key…",
+    "keyError": "Couldn't provision a playground API key.",
+    "loadFailed": "Couldn't load this conversation.",
+    "saveFailed": "Couldn't save — the chat still works, but this turn wasn't persisted.",
+    "runFailed": "The model request failed.",
+    "deleteFailed": "Couldn't delete this conversation.",
+    "confirmDeleteTitle": "Delete this conversation?",
+    "confirmDeleteMsg": "\"{{title}}\" and its messages will be removed.",
+    "tool": {
+      "chat": "Chat",
+      "image": "Image",
+      "video": "Video",
+      "audio": "Audio"
+    },
+    "metrics": {
+      "latency": "Latency",
+      "total": "Total",
+      "input": "In",
+      "output": "Out"
+    },
+    "composer": {
+      "placeholder": "Send a message…",
+      "disabled": "Not ready yet…"
+    }
+  },
   "nav": {
     "groups": {
       "ops": "Operations",
@@ -337,6 +375,7 @@
     "auditLog": "Audit log",
     "platformSettings": "Platform settings",
     "overview": "Overview",
+    "tplayground": "Playground",
     "tusage": "Usage",
     "tkeys": "API Keys",
     "tmodels": "Models",
