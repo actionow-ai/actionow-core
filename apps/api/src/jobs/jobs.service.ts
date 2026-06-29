@@ -39,6 +39,18 @@ export class JobsService {
     return toJobView(job);
   }
 
+  /**
+   * Like {@link get} but returns `undefined` (instead of throwing 404) when the
+   * job is absent or not the caller's. Used by the SSE stream service for the
+   * snapshot + DB-poll backstop reads, where a missing/foreign job is handled
+   * inline rather than as an exception (the connect-time auth check still goes
+   * through `get`, which throws before any byte is written).
+   */
+  async getOrNull(jobId: string, ctx: TenantContext): Promise<JobView | undefined> {
+    const job = await getJobForTenant(this.db, jobId, ctx.tenantId, ctx.subjectId ?? null);
+    return job === undefined ? undefined : toJobView(job);
+  }
+
   async list(ctx: TenantContext, page: PageParams): Promise<PageEnvelope<JobView>> {
     const result = await listJobs(this.db, ctx.tenantId, page, ctx.subjectId ?? null);
     return mapPageEnvelope(result, (r) => r.id, toJobView);

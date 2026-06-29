@@ -19,6 +19,15 @@ export const CONCURRENCY_LIMITER = Symbol('CONCURRENCY_LIMITER');
  */
 export const BREAKER = Symbol('BREAKER');
 /**
+ * The {@link RedisJobProgressBus}: a single dedicated ioredis SUBSCRIBER client
+ * (subscriber mode is exclusive — never the breaker/rate-limiter client) with a
+ * ref-counted channel→handlers map. Consumed by the `GET /v1/jobs/:id/stream`
+ * SSE service to receive a job's progress events. Fail-open: a Redis error tears
+ * down the subscription but the service's DB-poll backstop keeps the stream
+ * correct. Overridable with a fake in tests.
+ */
+export const JOB_PROGRESS = Symbol('JOB_PROGRESS');
+/**
  * The default S3-compatible {@link StorageProvider} built from `STORAGE_*` env.
  * `null` when storage is unconfigured (the API still boots); the `/v1/files`
  * service guards usage and fails with `invalid_input` in that case.

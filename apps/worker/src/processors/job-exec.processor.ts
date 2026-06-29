@@ -55,6 +55,11 @@ export function createJobExecProcessor(runtime: WorkerRuntime): JobExecProcessor
       traceMaxBytes,
       insertUsageLog: insertUsageLogFn,
       breaker: runtime.breaker,
+      // Fire-and-forget SSE progress (`GET /v1/jobs/:id/stream`). A fake runtime
+      // without a publisher → the runner's milestones no-op.
+      ...(runtime.publishProgress !== undefined
+        ? { publishProgress: runtime.publishProgress }
+        : {}),
       ...(persistMediaResultFn !== undefined ? { persistMediaResult: persistMediaResultFn } : {}),
     });
   };

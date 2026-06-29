@@ -20,9 +20,11 @@ import {
   CONCURRENCY_LIMITER,
   DB,
   ENV,
+  JOB_PROGRESS,
   JOB_QUEUE,
   RATE_LIMITER,
 } from '../common/tokens.js';
+import { RedisJobProgressBus } from '../jobs/job-progress.bus.js';
 
 const envProvider: Provider = {
   provide: ENV,
@@ -82,6 +84,19 @@ const breakerProvider: Provider = {
     }),
 };
 
+// The job-progress SSE bus (`GET /v1/jobs/:id/stream`), over a DEDICATED ioredis
+// SUBSCRIBER client (subscriber mode is exclusive — must not reuse the breaker /
+// rate-limiter client). Ref-counts channel subscriptions across connections and
+// quits the client on module destroy (it owns its lifecycle). Fail-open, so a
+// Redis outage only degrades latency — the SSE service's DB-poll backstop keeps
+// the stream correct. Overridable with a fake in tests.
+const jobProgressProvider: Provider = {
+  provide: JOB_PROGRESS,
+  inject: [ENV],
+  useFactory: (env: AppEnv): RedisJobProgressBus =>
+    new RedisJobProgressBus(createRedis(env.REDIS_URL)),
+};
+
 /**
  * Global infrastructure module: one shared drizzle `Database`, the parsed env,
  * the engine's default adapter registry, the stub secret resolver, and the
@@ -100,6 +115,7 @@ const breakerProvider: Provider = {
     rateLimiterProvider,
     concurrencyLimiterProvider,
     breakerProvider,
+    jobProgressProvider,
     SecretResolver,
   ],
   exports: [
@@ -111,6 +127,7 @@ const breakerProvider: Provider = {
     RATE_LIMITER,
     CONCURRENCY_LIMITER,
     BREAKER,
+    JOB_PROGRESS,
     SecretResolver,
   ],
 })

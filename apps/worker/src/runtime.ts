@@ -1,8 +1,13 @@
 import { type AdapterRegistry, createDefaultRegistry } from '@actionow/adapters';
 import type { HttpClient, StorageProvider } from '@actionow/contracts';
 import { appendAuditLog, createDb, type Database, resolveSecretRef } from '@actionow/db';
-import type { BreakerStore, FetchBytes, PutBytes } from '@actionow/engine';
-import { buildBreakerStore, registerEngineAdapters, SettingsResolver } from '@actionow/engine';
+import type { BreakerStore, FetchBytes, JobProgressEvent, PutBytes } from '@actionow/engine';
+import {
+  buildBreakerStore,
+  jobProgressChannel,
+  registerEngineAdapters,
+  SettingsResolver,
+} from '@actionow/engine';
 import {
   type AppEnv,
   createHttpClient,
@@ -11,6 +16,7 @@ import {
   fetchBytesWithTimeout,
   loadEnv,
   putBytesWithTimeout,
+  type Redis,
   storageConfigFromEnv,
 } from '@actionow/infra';
 
@@ -53,6 +59,20 @@ export interface WorkerRuntime {
    * can omit it (falls back to env, today's behavior).
    */
   settings?: SettingsResolver;
+  /**
+   * Fire-and-forget job-progress publisher for the SSE endpoint (`GET
+   * /v1/jobs/:id/stream`). Threaded into the {@link JobRunner}, which calls it at
+   * lifecycle milestones (running/polling/succeeded/failed). Built over a
+   * DEDICATED Redis publisher client (separate from the breaker client). Optional
+   * so a fake test runtime omits it → the runner's milestones no-op. Correctness
+   * never depends on it — the api's DB-poll backstop is the terminal guarantee.
+   */
+  publishProgress?: (jobId: string, event: JobProgressEvent) => void;
+  /**
+   * The dedicated ioredis client backing {@link publishProgress}; the worker owns
+   * its lifecycle and quits it on shutdown. Undefined when no publisher is built.
+   */
+  progressPublisher?: Redis;
 }
 
 /** Build the production worker runtime from the environment. */
@@ -70,6 +90,16 @@ export function createWorkerRuntime(): WorkerRuntime {
       // Best-effort: a breaker audit-write failure must never affect a job.
     });
   });
+  // A DEDICATED Redis PUBLISHER client for job-progress SSE (separate from the
+  // breaker client above). The api side subscribes per job; this publishes the
+  // runner's lifecycle milestones. Best-effort — a publish failure is swallowed
+  // by the JobRunner (the api's DB-poll backstop is the terminal guarantee).
+  const progressPublisher = createRedis(env.REDIS_URL);
+  const publishProgress = (jobId: string, event: JobProgressEvent): void => {
+    void progressPublisher.publish(jobProgressChannel(jobId), JSON.stringify(event)).catch(() => {
+      // best-effort: progress is an optimization, never the source of truth.
+    });
+  };
   return {
     env,
     db,
@@ -87,5 +117,7 @@ export function createWorkerRuntime(): WorkerRuntime {
     putBytes: putBytesWithTimeout,
     breaker,
     settings: new SettingsResolver({ db, env }),
+    publishProgress,
+    progressPublisher,
   };
 }
