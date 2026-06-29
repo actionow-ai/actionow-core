@@ -167,6 +167,16 @@ const EnvSchema = z
     // slow/unreachable (a limiter outage must not lock everyone out of login).
     // Optional; absent → a built-in default (see LoginThrottleGuard).
     AUTH_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().optional(),
+    // Tuning for the job-progress SSE endpoint (`GET /v1/jobs/:id/stream`). All
+    // optional — the JobStreamService applies safe CODE defaults so zero-config
+    // works. JOB_STREAM_HEARTBEAT_MS: keep-alive comment cadence (default 15000).
+    // JOB_STREAM_POLL_MS: DB-poll backstop cadence that GUARANTEES terminal
+    // delivery even if pub/sub drops (default 2500). JOB_STREAM_MAX_MS: hard cap
+    // on a single stream's lifetime, bounding stuck/auth-revoked connections
+    // since the api-key guard only runs at connect (default 600000).
+    JOB_STREAM_HEARTBEAT_MS: z.coerce.number().int().positive().optional(),
+    JOB_STREAM_POLL_MS: z.coerce.number().int().positive().optional(),
+    JOB_STREAM_MAX_MS: z.coerce.number().int().positive().optional(),
   })
   .transform((env) => ({
     ...env,

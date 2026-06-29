@@ -100,7 +100,7 @@ pnpm --filter @actionow/web build
 
 Health check: `GET /health` → `{"status":"ok"}`.
 
-**Reverse-proxy note (SSE):** the streaming relay (`/v1/chat/completions` with `stream:true`) emits SSE; the API already sets `X-Accel-Buffering: no`, but ensure your proxy (nginx/Cloudflare) does **not** buffer responses for the API origin, or streamed tokens will be held back.
+**Reverse-proxy note (SSE):** the streaming relay (`/v1/chat/completions` with `stream:true`) and the async-job progress stream (`GET /v1/jobs/:id/stream`) both emit SSE; the API already sets `X-Accel-Buffering: no`, but ensure your proxy (nginx/Cloudflare) does **not** buffer responses for the API origin, or streamed tokens/progress will be held back. For the jobs stream also raise the proxy's read/idle timeout above `JOB_STREAM_HEARTBEAT_MS` (default 15s) — the endpoint sends a `:` keep-alive comment at that cadence and is bounded by `JOB_STREAM_MAX_MS` (default 10 min).
 
 ## 7. Plug in your provider keys
 

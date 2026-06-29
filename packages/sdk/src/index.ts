@@ -9,6 +9,12 @@ export type { components, paths };
  * wrap the few flows where a raw `openapi-fetch` call is awkward: the async-job
  * submit→poll loop, SSE streaming, and inbound-webhook signature verification.
  */
+export {
+  consumeJobStream,
+  type ConsumeJobStreamOptions,
+  type JobProgressEvent,
+  type JobStreamFrame,
+} from './job-stream.js';
 export { consumeSse, SSE_DONE, type SseFrame } from './sse.js';
 export {
   ActionowApiError,

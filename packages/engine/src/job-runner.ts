@@ -29,6 +29,7 @@ import type { BreakerStore } from './breaker.js';
 import { isFailoverRetryable } from './channel-routing.js';
 import { EngineError } from './errors.js';
 import type { RunChannel } from './execution-service.js';
+import type { JobProgressEvent } from './job-progress.js';
 import { meterMedia, type PersistedMediaObject } from './media-result.js';
 import { serializeAppliedModifiers, settledCost } from './pricing.js';
 import { type TraceContext, TracingHttpClient } from './relay-trace.js';
@@ -114,10 +115,21 @@ export interface JobRunnerDeps {
   traceUpstream?: boolean | undefined;
   /** Per-body byte cap for the trace (RELAY_TRACE_MAX_BYTES). Default 1MB. */
   traceMaxBytes?: number | undefined;
+  /**
+   * Fire-and-forget progress sink for the SSE endpoint (`GET /v1/jobs/:id/stream`).
+   * Called at lifecycle milestones (running/polling/succeeded/failed). BEST-EFFORT
+   * by contract: every call is wrapped in a try/catch swallow and never awaited,
+   * so a throwing/slow publisher (e.g. a Redis blip) CANNOT fail or stall a job.
+   * The SSE service's DB-poll backstop guarantees terminal delivery regardless.
+   * Absent (e.g. a fake test runtime) → no-op.
+   */
+  publishProgress?: ((jobId: string, event: JobProgressEvent) => void) | undefined;
 }
 
 const DEFAULT_MAX_POLLS = 30;
 const DEFAULT_POLL_INTERVAL_MS = 1000;
+/** Min gap between throttled `polling` progress publishes (~1 every 2s). */
+const PROGRESS_POLL_THROTTLE_MS = 2000;
 
 function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -156,6 +168,23 @@ export class JobRunner {
     this.deps = deps;
   }
 
+  /**
+   * Publish a progress milestone — FIRE-AND-FORGET. Never awaited, and any throw
+   * (a synchronous one from the injected publisher) is swallowed: a progress
+   * publish must NEVER fail or slow the job. The SSE service's DB-poll backstop
+   * makes correctness independent of whether this delivers. No-op when no
+   * publisher is injected.
+   */
+  private emitProgress(jobId: string, event: JobProgressEvent): void {
+    const publish = this.deps.publishProgress;
+    if (publish === undefined) return;
+    try {
+      publish(jobId, event);
+    } catch {
+      // Best-effort: progress is an optimization, never the source of truth.
+    }
+  }
+
   /** Execute a queued job to terminal state. Idempotent if already terminal. */
   async process(jobId: string): Promise<void> {
     const { db } = this.deps;
@@ -172,6 +201,10 @@ export class JobRunner {
     // replay) finds it non-queued and no-ops.
     const started = await transitionJob(db, jobId, ['queued'], 'running');
     if (!started) return;
+
+    // Milestone: the job is now running (submitted to the upstream next). Best-
+    // effort SSE progress; never blocks the run.
+    this.emitProgress(jobId, { status: 'running', phase: 'submitted' });
 
     const ctx = await this.deps.loadContext(job);
     const handle = await this.submit(job, ctx);
@@ -279,15 +312,28 @@ export class JobRunner {
     const sleep = this.deps.sleep ?? defaultSleep;
     const adapterCtx = await this.buildContext(ctx.providerType, ctx.channels[0], job);
 
+    // Throttle `polling` progress to ~1 every 2s so a tight poll loop (interval 0
+    // in tests, or a sub-second media poll) does not flood the pub/sub channel.
+    let lastProgressAt = 0;
     for (let i = 0; i < maxPolls; i += 1) {
       const result = await adapter.poll(handle.upstreamJobId, adapterCtx);
       if (result.status === 'succeeded') {
         await this.settle(job, ctx, result);
+        // Milestone: terminal success (after the settle persist).
+        this.emitProgress(job.id, { status: 'succeeded' });
         return;
       }
       if (result.status === 'failed') {
         await this.fail(job, ctx, result.error);
+        // Milestone: terminal failure.
+        this.emitProgress(job.id, { status: 'failed' });
         return;
+      }
+      // Still running: a throttled `polling` heartbeat.
+      const now = Date.now();
+      if (now - lastProgressAt >= PROGRESS_POLL_THROTTLE_MS) {
+        lastProgressAt = now;
+        this.emitProgress(job.id, { status: 'running', phase: 'polling', poll: i });
       }
       await sleep(intervalMs);
     }
@@ -298,6 +344,8 @@ export class JobRunner {
       message: 'poll budget exhausted',
       retryable: true,
     });
+    // Milestone: terminal failure (timeout).
+    this.emitProgress(job.id, { status: 'failed' });
   }
 
   /**

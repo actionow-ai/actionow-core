@@ -198,6 +198,11 @@ export function startWorkers(
       if (ownsConnection && connection instanceof Redis) {
         await connection.quit();
       }
+      // Quit the dedicated job-progress SSE publisher client the runtime owns
+      // (createWorkerRuntime built it); a fake test runtime omits it → no-op.
+      if (runtime.progressPublisher !== undefined) {
+        await runtime.progressPublisher.quit();
+      }
     },
   };
 }

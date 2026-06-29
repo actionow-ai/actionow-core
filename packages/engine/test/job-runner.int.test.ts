@@ -1,5 +1,5 @@
 import { AdapterRegistry, createAsyncMediaMock } from '@actionow/adapters';
-import type { Modifier, PollResult, PricebookEntry } from '@actionow/contracts';
+import type { JobStatus, Modifier, PollResult, PricebookEntry } from '@actionow/contracts';
 import {
   createJob,
   getJob,
@@ -17,6 +17,7 @@ import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import type { BreakerStore, RoutableChannelRef } from '../src/breaker.js';
+import type { JobProgressEvent } from '../src/job-progress.js';
 import { type JobExecutionContext, JobRunner } from '../src/job-runner.js';
 
 /**
@@ -464,6 +465,101 @@ describe('JobRunner.settle — applied-modifier serialization (async path)', () 
     expect(applied[0]).toMatchObject({ before: '100', after: '90' });
     expect(typeof applied[0]?.before).toBe('string');
     expect(typeof applied[0]?.after).toBe('string');
+  });
+});
+
+describe('JobRunner.process — fire-and-forget progress publishing (SSE)', () => {
+  /**
+   * A poll adapter whose upstream FAILS after `runningPolls` "running" ticks.
+   * Built by overriding the async-media mock's `poll` so the adapter keeps its
+   * other required members (extractUsage/mapError/etc.) and proper type.
+   */
+  function failingAfter(runningPolls: number): ReturnType<typeof createAsyncMediaMock> {
+    const base = createAsyncMediaMock();
+    let polls = 0;
+    return {
+      ...base,
+      poll: (): Promise<PollResult> => {
+        polls += 1;
+        if (polls > runningPolls) {
+          return Promise.resolve({
+            status: 'failed',
+            error: { code: 'upstream_error', message: 'boom', retryable: false },
+          });
+        }
+        return Promise.resolve({ status: 'running' });
+      },
+    };
+  }
+
+  function buildWithPublisher(
+    s: Seed,
+    adapters: AdapterRegistry,
+    publishProgress: (jobId: string, event: JobProgressEvent) => void,
+  ): JobRunner {
+    return new JobRunner({
+      db,
+      adapters,
+      loadContext: () => Promise.resolve(contextFor(s)),
+      resolveSecret: () => Promise.resolve(undefined),
+      http: { request: () => Promise.reject(new Error('no http')) },
+      maxPolls: 5,
+      pollIntervalMs: 0,
+      sleep: () => Promise.resolve(),
+      publishProgress,
+    });
+  }
+
+  it('publishes {running} after the queued→running transition and {succeeded} after settle', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 1 }));
+    const events: JobProgressEvent[] = [];
+    const runner = buildWithPublisher(s, adapters, (_id, e) => events.push(e));
+
+    await runner.process(job.id);
+
+    const statuses = events.map((e): JobStatus => e.status);
+    expect(statuses[0]).toBe('running'); // first milestone after the transition
+    expect(events[0]?.phase).toBe('submitted');
+    expect(statuses).toContain('succeeded'); // terminal success milestone
+    // The terminal event is the last one published.
+    expect(statuses[statuses.length - 1]).toBe('succeeded');
+  });
+
+  it('publishes {failed} when the upstream poll fails', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(failingAfter(0));
+    const events: JobProgressEvent[] = [];
+    const runner = buildWithPublisher(s, adapters, (_id, e) => events.push(e));
+
+    await runner.process(job.id);
+
+    expect((await getJob(db, job.id))?.status).toBe('failed');
+    expect(events.map((e) => e.status)).toContain('failed');
+    expect(events[events.length - 1]?.status).toBe('failed');
+  });
+
+  it('a THROWING publishProgress never fails the job (it still settles)', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 1 }));
+    const runner = buildWithPublisher(s, adapters, () => {
+      throw new Error('publisher down');
+    });
+
+    // The throw is swallowed by the runner's fire-and-forget guard.
+    await expect(runner.process(job.id)).resolves.toBeUndefined();
+    expect((await getJob(db, job.id))?.status).toBe('succeeded');
+    // Ledger settled exactly once despite the publisher throwing on every call.
+    const settleRows = (
+      await db.select().from(ledgerTxn).where(eq(ledgerTxn.jobId, job.id))
+    ).filter((l) => l.type === 'settle');
+    expect(settleRows).toHaveLength(1);
   });
 });
 
