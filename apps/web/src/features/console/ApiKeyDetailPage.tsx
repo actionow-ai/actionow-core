@@ -11,6 +11,7 @@ import { LimitUsageBars } from '../../components/data/LimitUsageBars';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Panel } from '../../components/ui/Panel';
 import { SelectField } from '../../components/ui/SelectField';
 import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
@@ -187,17 +188,7 @@ function ApiKeyDetailBody({ apiKey, tenantId }: { apiKey: ApiKeyView; tenantId: 
       )}
 
       {/* Routing + governance binding (the former inline card selects). */}
-      <div
-        className="panel"
-        style={{
-          borderRadius: 'var(--r-md)',
-          padding: 'var(--s-4)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--s-4)',
-          maxWidth: 360,
-        }}
-      >
+      <Panel maxWidth={360} gap="var(--s-4)">
         <SelectField
           label={t('apiKeys.group.label')}
           tooltip={t('apiKeys.group.tip')}
@@ -214,7 +205,7 @@ function ApiKeyDetailBody({ apiKey, tenantId }: { apiKey: ApiKeyView; tenantId: 
           options={planOptions}
           placeholder={t('apiKeys.plan.none')}
         />
-      </div>
+      </Panel>
 
       {apiKey.limit_plan_id !== null && (
         <KeyLimitUsage keyId={apiKey.id} planId={apiKey.limit_plan_id} />

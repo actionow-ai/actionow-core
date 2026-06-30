@@ -2,13 +2,39 @@ import { InfoIcon } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 
 /**
- * A brief inline note shown on the `/app` surfaces whose WRITES are gated to
- * tenant admins (RBAC v1). Rendered for a `tenant_role='member'` seat so the
- * read-only view explains why the mint/topup/upload controls are absent — the
- * member never sees a control they'd be 403'd on by the backend TenantAdminGuard.
+ * The tenant-admin-only gate note (RBAC v1). Two shapes:
+ * - `banner` (default): a brief inline note shown OVER a still-visible read-only view
+ *   on `/app` surfaces whose WRITES are admin-gated (e.g. AppKeys), so a member seat
+ *   sees why the mint/topup/upload controls are absent (never a control they'd 403 on).
+ * - `page`: a centered full-page note that REPLACES the content for a member who lacks
+ *   access to the whole surface (subjects / limit-plans / members).
  */
-export function AdminOnlyNote() {
+export function AdminOnlyNote({
+  variant = 'banner',
+  message,
+}: {
+  variant?: 'banner' | 'page';
+  message?: string;
+}) {
   const { t } = useTranslation('console');
+  const text = message ?? t('app.adminOnly');
+
+  if (variant === 'page') {
+    return (
+      <div
+        role="note"
+        style={{
+          padding: 'var(--s-5)',
+          textAlign: 'center',
+          color: 'var(--muted)',
+          fontSize: 'var(--fs-sm)',
+        }}
+      >
+        {text}
+      </div>
+    );
+  }
+
   return (
     <div
       role="note"
@@ -25,7 +51,7 @@ export function AdminOnlyNote() {
       }}
     >
       <InfoIcon size={15} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--faint)' }} />
-      {t('app.adminOnly')}
+      {text}
     </div>
   );
 }

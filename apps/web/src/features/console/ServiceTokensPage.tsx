@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
-import { CopyField } from '../../components/data/CopyField';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
@@ -14,6 +13,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { FIELD_INPUT_BASE } from '../../components/ui/fieldStyles';
 import { Modal } from '../../components/ui/Modal';
 import { RowAction } from '../../components/ui/RowAction';
+import { SecretRevealModal } from '../../components/ui/SecretRevealModal';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
@@ -160,30 +160,17 @@ export function ServiceTokensPage() {
       </Modal>
 
       {/* One-time reveal of the minted token (never shown again). */}
-      <Modal
+      <SecretRevealModal
         open={plaintext !== null}
         title={t('tokens.reveal.title')}
         onClose={() => setPlaintext(null)}
-        footer={
-          <Button variant="cta" onClick={() => setPlaintext(null)}>
-            {t('common.confirm')}
-          </Button>
-        }
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-          <span style={{ color: 'var(--fail)', fontSize: 'var(--fs-sm)' }}>
-            {t('tokens.reveal.warn')}
-          </span>
-          {plaintext !== null && (
-            <CopyField
-              value={plaintext}
-              copyLabel={t('common.copy')}
-              copiedLabel={t('common.copied')}
-              failedLabel={t('common.copyFailed')}
-            />
-          )}
-        </div>
-      </Modal>
+        value={plaintext ?? ''}
+        warn={t('tokens.reveal.warn')}
+        copyLabel={t('common.copy')}
+        copiedLabel={t('common.copied')}
+        failedLabel={t('common.copyFailed')}
+        doneLabel={t('common.confirm')}
+      />
 
       <ConfirmDialog
         open={revokeTarget !== undefined}

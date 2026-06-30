@@ -1,6 +1,8 @@
 import type { Icon } from '@phosphor-icons/react';
 import type { KeyboardEvent, ReactNode } from 'react';
 
+import { MetaCell } from './MetaCell';
+
 export interface CardMeta {
   label: string;
   value: ReactNode;
@@ -107,29 +109,7 @@ export function EntityCard({
           style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s-6)', marginTop: 'var(--s-4)' }}
         >
           {meta.map((m, i) => (
-            <div key={i} style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: 'var(--fs-caption)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '.06em',
-                  color: 'var(--faint)',
-                }}
-              >
-                {m.label}
-              </div>
-              <div
-                className="tabular"
-                style={{
-                  fontSize: 'var(--fs-sm)',
-                  color: 'var(--text)',
-                  marginTop: 'var(--s-0)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {m.value}
-              </div>
-            </div>
+            <MetaCell key={i} label={m.label} value={m.value} />
           ))}
         </div>
       )}
