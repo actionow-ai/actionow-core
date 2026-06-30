@@ -14,6 +14,7 @@ describe('catalog view contracts', () => {
       resource_id: 'r1',
       input_price: '5000000',
       output_price: '15000000',
+      cached_input_price: null,
       rate_limit: null,
       fallback_models: null,
       served_channel_ids: [],
