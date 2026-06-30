@@ -1594,6 +1594,7 @@
       "metered": "Metered"
     },
     "report": "Compatibility report",
+    "imported": "Import complete",
     "deleted": "Binding deleted",
     "updated": "Binding updated",
     "editTitle": "Edit dify binding",

@@ -1,6 +1,6 @@
 import { PencilSimpleIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
@@ -8,6 +8,7 @@ import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { LoadMore } from '../../components/data/LoadMore';
 import { SecretSelect } from '../../components/data/SecretSelect';
+import { StatusBadge } from '../../components/data/StatusBadge';
 import { TenantSelect } from '../../components/data/TenantSelect';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -38,6 +39,10 @@ export function DifyImportPage() {
   const [serviceKeyRef, setServiceKeyRef] = useState('');
   const [allowBlockers, setAllowBlockers] = useState(false);
   const [report, setReport] = useState<DifyImportView | null>(null);
+  const reportRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (report) reportRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [report]);
   // Set true on a submit attempt so required-field errors appear only after a
   // try, not on first paint of an empty form.
   const [attempted, setAttempted] = useState(false);
@@ -190,9 +195,15 @@ export function DifyImportPage() {
         title={t('dify.title')}
         onClose={() => setOpen(false)}
         footer={
-          <Button variant="cta" onClick={onSubmit} loading={submit.isPending}>
-            {t('dify.submit')}
-          </Button>
+          report ? (
+            <Button variant="cta" onClick={() => setOpen(false)}>
+              {t('common.done')}
+            </Button>
+          ) : (
+            <Button variant="cta" onClick={onSubmit} loading={submit.isPending}>
+              {t('dify.submit')}
+            </Button>
+          )
         }
       >
         <TenantSelect
@@ -238,9 +249,23 @@ export function DifyImportPage() {
           onChange={setAllowBlockers}
         />
         {report && (
-          <div className="panel" style={{ borderRadius: 'var(--r-md)', padding: 'var(--s-4)' }}>
-            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', marginBottom: 6 }}>
-              {t('dify.report')}
+          <div
+            ref={reportRef}
+            className="panel"
+            style={{ borderRadius: 'var(--r-md)', padding: 'var(--s-4)' }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--s-2)',
+                marginBottom: 'var(--s-2)',
+              }}
+            >
+              <StatusBadge tone="ok" label={t('dify.imported')} />
+              <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>
+                {t('dify.report')}
+              </span>
             </div>
             <pre
               className="mono"

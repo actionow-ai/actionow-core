@@ -1594,6 +1594,7 @@
       "metered": "按量计费"
     },
     "report": "兼容性报告",
+    "imported": "导入完成",
     "deleted": "绑定已删除",
     "updated": "绑定已更新",
     "editTitle": "编辑 Dify 绑定",
