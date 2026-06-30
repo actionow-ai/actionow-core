@@ -135,10 +135,7 @@ export async function getModelSpec(
 }
 
 /** Fetch a live model spec by id (admin get-by-id); soft-deleted / unknown → `undefined`. */
-export async function getModelSpecById(
-  db: DbOrTx,
-  id: string,
-): Promise<ModelSpecRow | undefined> {
+export async function getModelSpecById(db: DbOrTx, id: string): Promise<ModelSpecRow | undefined> {
   const rows = await db
     .select()
     .from(modelSpec)

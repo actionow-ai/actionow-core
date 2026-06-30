@@ -2253,9 +2253,7 @@ export class AdminService {
       });
     } catch (err) {
       if (isUniqueViolation(err)) {
-        throw engineInvalidInput(
-          `model spec for '${dto.vendor}/${dto.modelId}' already exists`,
-        );
+        throw engineInvalidInput(`model spec for '${dto.vendor}/${dto.modelId}' already exists`);
       }
       throw err;
     }

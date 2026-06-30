@@ -64,7 +64,12 @@ describe('openai render usage breakdown', () => {
           { type: 'content_delta', text: 'x' },
           {
             type: 'usage',
-            usage: { inputTokens: 100, outputTokens: 40, cachedInputTokens: 30, reasoningTokens: 25 },
+            usage: {
+              inputTokens: 100,
+              outputTokens: 40,
+              cachedInputTokens: 30,
+              reasoningTokens: 25,
+            },
           },
           { type: 'stop', stopReason: 'stop' },
           { type: 'done' },
@@ -133,7 +138,12 @@ describe('anthropic render usage breakdown', () => {
           { type: 'content_delta', text: 'x' },
           {
             type: 'usage',
-            usage: { inputTokens: 80, outputTokens: 20, cachedInputTokens: 50, cacheCreationTokens: 12 },
+            usage: {
+              inputTokens: 80,
+              outputTokens: 20,
+              cachedInputTokens: 50,
+              cacheCreationTokens: 12,
+            },
           },
           { type: 'stop', stopReason: 'stop' },
         ]),
@@ -169,7 +179,12 @@ describe('anthropic render usage breakdown', () => {
 describe('gemini render usage breakdown', () => {
   it('emits thoughts/cachedContent when the IR carries them', () => {
     const res = renderGeminiChat(
-      baseResponse({ inputTokens: 60, outputTokens: 18, reasoningTokens: 9, cachedInputTokens: 22 }),
+      baseResponse({
+        inputTokens: 60,
+        outputTokens: 18,
+        reasoningTokens: 9,
+        cachedInputTokens: 22,
+      }),
     );
     expect(res.usageMetadata).toEqual({
       promptTokenCount: 60,

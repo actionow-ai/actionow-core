@@ -1776,10 +1776,10 @@ export class AdminController {
   }
 
   @Get('model-specs')
-  @ApiOperation({ summary: 'List the model spec catalog (规格库; optional ?vendor=&type=, paginated)' })
-  async listModelSpecs(
-    @Query() raw: Record<string, string>,
-  ): Promise<PageEnvelope<ModelSpecView>> {
+  @ApiOperation({
+    summary: 'List the model spec catalog (规格库; optional ?vendor=&type=, paginated)',
+  })
+  async listModelSpecs(@Query() raw: Record<string, string>): Promise<PageEnvelope<ModelSpecView>> {
     const q = parseModelSpecsQuery(raw);
     const filter = {
       ...(q.vendor !== undefined ? { vendor: q.vendor } : {}),

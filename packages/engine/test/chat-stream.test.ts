@@ -111,7 +111,8 @@ vi.mock('@actionow/db', () => ({
   usageBreakdownFields: (vector: Record<string, number>) => {
     const out: Record<string, number> = {};
     if (vector.reasoning_tokens !== undefined) out.reasoningTokens = vector.reasoning_tokens;
-    if (vector.cached_input_tokens !== undefined) out.cachedInputTokens = vector.cached_input_tokens;
+    if (vector.cached_input_tokens !== undefined)
+      out.cachedInputTokens = vector.cached_input_tokens;
     if (vector.cache_creation_tokens !== undefined) {
       out.cacheCreationTokens = vector.cache_creation_tokens;
     }

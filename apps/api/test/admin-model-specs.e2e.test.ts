@@ -129,7 +129,9 @@ describe('admin model-specs catalog (规格库)', () => {
       .expect(201);
 
     // GET by id.
-    const got = await auth(request(app.getHttpServer()).get(`/admin/model-specs/${id}`)).expect(200);
+    const got = await auth(request(app.getHttpServer()).get(`/admin/model-specs/${id}`)).expect(
+      200,
+    );
     expect(got.body.intro).toBe('Frontier reasoning model.');
 
     // LIST — paginated Track-B envelope.

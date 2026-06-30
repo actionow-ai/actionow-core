@@ -57,7 +57,8 @@ export function openAiUsage(usage: ChatUsage): Record<string, unknown> {
   if (usage.audioInputTokens !== undefined) promptDetails.audio_tokens = usage.audioInputTokens;
   if (Object.keys(promptDetails).length > 0) out.prompt_tokens_details = promptDetails;
   const completionDetails: Record<string, number> = {};
-  if (usage.reasoningTokens !== undefined) completionDetails.reasoning_tokens = usage.reasoningTokens;
+  if (usage.reasoningTokens !== undefined)
+    completionDetails.reasoning_tokens = usage.reasoningTokens;
   if (usage.audioOutputTokens !== undefined) {
     completionDetails.audio_tokens = usage.audioOutputTokens;
   }

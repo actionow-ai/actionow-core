@@ -12,13 +12,8 @@
           "type": "text",
           "status": "GA",
           "intro": "A new class of intelligence for coding and professional work; current flagship reasoning model.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "Not explicitly stated on pricing page (GPT-5 family is 400k total context)",
           "maxOutput": "Not stated on pricing page",
           "keyParams": [
@@ -52,20 +47,11 @@
           "type": "text",
           "status": "GA",
           "intro": "Highest-capability extended-reasoning variant of GPT-5.5 for the hardest tasks.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "Not stated on pricing page",
           "maxOutput": "Not stated on pricing page",
-          "keyParams": [
-            "reasoning_effort",
-            "tools/function-calling",
-            "structured outputs"
-          ],
+          "keyParams": ["reasoning_effort", "tools/function-calling", "structured outputs"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -77,9 +63,7 @@
             "notes": "No cached-input rate shown for the Pro tier on the pricing page."
           },
           "source": "https://developers.openai.com/api/docs/pricing",
-          "sources": [
-            "https://developers.openai.com/api/docs/pricing"
-          ]
+          "sources": ["https://developers.openai.com/api/docs/pricing"]
         },
         {
           "id": "gpt-5.4",
@@ -87,13 +71,8 @@
           "type": "text",
           "status": "GA",
           "intro": "More affordable previous-flagship option for coding and professional tasks.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "Not stated on pricing page",
           "maxOutput": "Not stated on pricing page",
           "keyParams": [
@@ -125,13 +104,8 @@
           "type": "text",
           "status": "GA",
           "intro": "Strongest mini model for coding, computer use, and subagents.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "Not stated on pricing page",
           "maxOutput": "Not stated on pricing page",
           "keyParams": [
@@ -162,13 +136,8 @@
           "type": "text",
           "status": "GA",
           "intro": "Lower-cost, lower-latency variant for efficiency-focused workloads.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "Not stated on pricing page",
           "maxOutput": "Not stated on pricing page",
           "keyParams": [
@@ -199,20 +168,11 @@
           "type": "text",
           "status": "GA",
           "intro": "Extended-reasoning Pro variant of GPT-5.4.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "Not stated on pricing page",
           "maxOutput": "Not stated on pricing page",
-          "keyParams": [
-            "reasoning_effort",
-            "tools/function-calling",
-            "structured outputs"
-          ],
+          "keyParams": ["reasoning_effort", "tools/function-calling", "structured outputs"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -224,9 +184,7 @@
             "notes": "No cached-input rate shown for the Pro tier."
           },
           "source": "https://developers.openai.com/api/docs/pricing",
-          "sources": [
-            "https://developers.openai.com/api/docs/pricing"
-          ]
+          "sources": ["https://developers.openai.com/api/docs/pricing"]
         },
         {
           "id": "chat-latest",
@@ -234,20 +192,11 @@
           "type": "text",
           "status": "GA",
           "intro": "Non-reasoning model snapshot used in ChatGPT; pinned to whatever powers the ChatGPT product.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "Not stated on pricing page",
           "maxOutput": "Not stated on pricing page",
-          "keyParams": [
-            "temperature",
-            "tools/function-calling",
-            "structured outputs"
-          ],
+          "keyParams": ["temperature", "tools/function-calling", "structured outputs"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -258,9 +207,7 @@
             "notes": "Listed on pricing page as 'chat-latest'; mirrors GPT-5.5 rates."
           },
           "source": "https://developers.openai.com/api/docs/pricing",
-          "sources": [
-            "https://developers.openai.com/api/docs/pricing"
-          ]
+          "sources": ["https://developers.openai.com/api/docs/pricing"]
         },
         {
           "id": "gpt-5.3-codex",
@@ -268,20 +215,11 @@
           "type": "text",
           "status": "GA",
           "intro": "Agentic coding model optimized for the Codex CLI / IDE and long-horizon software tasks.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "Not stated on pricing page",
           "maxOutput": "Not stated on pricing page",
-          "keyParams": [
-            "reasoning_effort",
-            "tools/function-calling",
-            "prompt caching"
-          ],
+          "keyParams": ["reasoning_effort", "tools/function-calling", "prompt caching"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -293,9 +231,7 @@
             "notes": "Pricing page Batch column was reported as Input $3.50 / Cached $0.35 / Output $28.00, which is ABOVE standard and is therefore likely a swapped/standard-vs-batch mislabel in the fetch; treat Batch figures as unconfirmed."
           },
           "source": "https://developers.openai.com/api/docs/pricing",
-          "sources": [
-            "https://developers.openai.com/api/docs/pricing"
-          ]
+          "sources": ["https://developers.openai.com/api/docs/pricing"]
         },
         {
           "id": "gpt-5.4-cyber",
@@ -303,18 +239,11 @@
           "type": "text",
           "status": "GA",
           "intro": "Specialized GPT-5.4 variant for cybersecurity workloads.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "Not stated on pricing page",
           "maxOutput": "Not stated on pricing page",
-          "keyParams": [
-            "reasoning_effort",
-            "tools/function-calling"
-          ],
+          "keyParams": ["reasoning_effort", "tools/function-calling"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -323,9 +252,7 @@
             "notes": "Appears in the pricing page model list but specific per-token prices were NOT captured/confirmed. Treat as unconfirmed pricing."
           },
           "source": "https://developers.openai.com/api/docs/pricing",
-          "sources": [
-            "https://developers.openai.com/api/docs/pricing"
-          ]
+          "sources": ["https://developers.openai.com/api/docs/pricing"]
         },
         {
           "id": "o3-deep-research",
@@ -333,19 +260,11 @@
           "type": "text",
           "status": "GA",
           "intro": "Deep-research reasoning model for multi-step web research and synthesis.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "Not stated on pricing page",
           "maxOutput": "Not stated on pricing page",
-          "keyParams": [
-            "reasoning_effort",
-            "web search tool",
-            "tools"
-          ],
+          "keyParams": ["reasoning_effort", "web search tool", "tools"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -356,9 +275,7 @@
             "notes": "Only Batch-column figures were captured ($5/$20); standard (non-batch) rates not confirmed in this pass. Deep-research uses the web-search tool which is billed separately."
           },
           "source": "https://developers.openai.com/api/docs/pricing",
-          "sources": [
-            "https://developers.openai.com/api/docs/pricing"
-          ]
+          "sources": ["https://developers.openai.com/api/docs/pricing"]
         },
         {
           "id": "o4-mini-deep-research",
@@ -366,19 +283,11 @@
           "type": "text",
           "status": "GA",
           "intro": "Cost-efficient deep-research reasoning model.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "Not stated on pricing page",
           "maxOutput": "Not stated on pricing page",
-          "keyParams": [
-            "reasoning_effort",
-            "web search tool",
-            "tools"
-          ],
+          "keyParams": ["reasoning_effort", "web search tool", "tools"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -389,9 +298,7 @@
             "notes": "Only Batch-column figures captured; standard rates not confirmed this pass."
           },
           "source": "https://developers.openai.com/api/docs/pricing",
-          "sources": [
-            "https://developers.openai.com/api/docs/pricing"
-          ]
+          "sources": ["https://developers.openai.com/api/docs/pricing"]
         },
         {
           "id": "computer-use-preview",
@@ -399,20 +306,11 @@
           "type": "text",
           "status": "preview",
           "intro": "Model that operates a virtual computer (mouse/keyboard) to complete GUI tasks.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "Not stated on pricing page",
           "maxOutput": "Not stated on pricing page",
-          "keyParams": [
-            "computer-use tool",
-            "screenshots",
-            "tools"
-          ],
+          "keyParams": ["computer-use tool", "screenshots", "tools"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -423,9 +321,7 @@
             "notes": "Only Batch-column figures captured; standard rates not confirmed this pass."
           },
           "source": "https://developers.openai.com/api/docs/pricing",
-          "sources": [
-            "https://developers.openai.com/api/docs/pricing"
-          ]
+          "sources": ["https://developers.openai.com/api/docs/pricing"]
         },
         {
           "id": "gpt-image-2",
@@ -433,13 +329,8 @@
           "type": "image",
           "status": "GA",
           "intro": "State-of-the-art image generation and editing model (ChatGPT Images 2.0); released 2026-04-21.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image"],
           "mediaOptions": "Sizes: 1024x1024, 1024x1536, 1536x1024, 2048x2048, up to 3840x2160 (4K); any size with max edge <=3840px, edges multiples of 16px, ratio <=3:1, total pixels 655,360-8,294,400. Quality: low/medium/high/auto. Does NOT support transparent background or input_fidelity adjustment. Endpoints: v1/images/generations, v1/images/edits.",
           "keyParams": [
             "size",
@@ -512,22 +403,10 @@
           "type": "image",
           "status": "GA",
           "intro": "Previous-generation high-quality image generation and editing model.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image"],
           "mediaOptions": "Sizes: 1024x1024, 1024x1536, 1536x1024 (and larger). Quality: low/medium/high/auto.",
-          "keyParams": [
-            "size",
-            "quality",
-            "n",
-            "background",
-            "output_format",
-            "moderation"
-          ],
+          "keyParams": ["size", "quality", "n", "background", "output_format", "moderation"],
           "pricing": {
             "scheme": "matrix",
             "currency": "USD",
@@ -589,22 +468,10 @@
           "type": "image",
           "status": "GA",
           "intro": "Lowest-cost image generation/editing model in the GPT Image family.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image"],
           "mediaOptions": "Sizes: 1024x1024, 1024x1536, 1536x1024. Quality: low/medium/high/auto.",
-          "keyParams": [
-            "size",
-            "quality",
-            "n",
-            "background",
-            "output_format",
-            "moderation"
-          ],
+          "keyParams": ["size", "quality", "n", "background", "output_format", "moderation"],
           "pricing": {
             "scheme": "matrix",
             "currency": "USD",
@@ -665,20 +532,10 @@
           "type": "video",
           "status": "GA",
           "intro": "Text/image-to-video generation model billed per second of output.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Standard tier priced per second of generated video (720p baseline). See sora-2-pro for higher-resolution per-second tiers.",
-          "keyParams": [
-            "duration (seconds)",
-            "resolution",
-            "prompt",
-            "reference image"
-          ],
+          "keyParams": ["duration (seconds)", "resolution", "prompt", "reference image"],
           "pricing": {
             "scheme": "per-second",
             "currency": "USD",
@@ -689,9 +546,7 @@
             "notes": "Single per-second rate captured for sora-2 (720p baseline)."
           },
           "source": "https://developers.openai.com/api/docs/pricing",
-          "sources": [
-            "https://developers.openai.com/api/docs/pricing"
-          ]
+          "sources": ["https://developers.openai.com/api/docs/pricing"]
         },
         {
           "id": "sora-2-pro",
@@ -699,13 +554,8 @@
           "type": "video",
           "status": "GA",
           "intro": "Higher-fidelity Sora video model with resolution-tiered per-second pricing.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Resolutions: 720p, 1024p, 1080p. Billed per second of generated video.",
           "keyParams": [
             "duration (seconds)",
@@ -747,9 +597,7 @@
             ]
           },
           "source": "https://developers.openai.com/api/docs/pricing",
-          "sources": [
-            "https://developers.openai.com/api/docs/pricing"
-          ]
+          "sources": ["https://developers.openai.com/api/docs/pricing"]
         },
         {
           "id": "gpt-realtime-2",
@@ -757,14 +605,8 @@
           "type": "audio",
           "status": "GA",
           "intro": "Reasoning model for realtime speech-to-speech voice interactions (audio in, audio out).",
-          "inputModalities": [
-            "audio",
-            "text"
-          ],
-          "outputModalities": [
-            "audio",
-            "text"
-          ],
+          "inputModalities": ["audio", "text"],
+          "outputModalities": ["audio", "text"],
           "mediaOptions": "Realtime speech-to-speech over WebRTC/WebSocket. Audio tokens are duration-encoded (~user audio 1 token/100ms, assistant audio 1 token/50ms). Multiple built-in voices.",
           "keyParams": [
             "voice",
@@ -796,21 +638,10 @@
           "type": "audio",
           "status": "GA",
           "intro": "Best voice model for audio in, audio out (previous realtime generation).",
-          "inputModalities": [
-            "audio",
-            "text"
-          ],
-          "outputModalities": [
-            "audio",
-            "text"
-          ],
+          "inputModalities": ["audio", "text"],
+          "outputModalities": ["audio", "text"],
           "mediaOptions": "Realtime speech-to-speech; multiple voices.",
-          "keyParams": [
-            "voice",
-            "turn_detection/VAD",
-            "modalities",
-            "tools/function-calling"
-          ],
+          "keyParams": ["voice", "turn_detection/VAD", "modalities", "tools/function-calling"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -819,9 +650,7 @@
             "notes": "Listed on the official models page but specific per-token prices were NOT confirmed on the captured pricing-page table. Third-party calculators put text input near $4.00/1M; UNCONFIRMED on first-party source."
           },
           "source": "https://developers.openai.com/api/docs/models",
-          "sources": [
-            "https://developers.openai.com/api/docs/models"
-          ]
+          "sources": ["https://developers.openai.com/api/docs/models"]
         },
         {
           "id": "gpt-realtime-mini",
@@ -829,21 +658,10 @@
           "type": "audio",
           "status": "GA",
           "intro": "Cost-efficient realtime audio model for lower-tier voice products.",
-          "inputModalities": [
-            "audio",
-            "text"
-          ],
-          "outputModalities": [
-            "audio",
-            "text"
-          ],
+          "inputModalities": ["audio", "text"],
+          "outputModalities": ["audio", "text"],
           "mediaOptions": "Realtime speech-to-speech; multiple voices.",
-          "keyParams": [
-            "voice",
-            "turn_detection/VAD",
-            "modalities",
-            "tools"
-          ],
+          "keyParams": ["voice", "turn_detection/VAD", "modalities", "tools"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -852,9 +670,7 @@
             "notes": "Listed on official models page; exact per-token prices NOT confirmed on captured pricing table. Third-party sources estimate roughly 60% cheaper than gpt-realtime; UNCONFIRMED on first-party source."
           },
           "source": "https://developers.openai.com/api/docs/models",
-          "sources": [
-            "https://developers.openai.com/api/docs/models"
-          ]
+          "sources": ["https://developers.openai.com/api/docs/models"]
         },
         {
           "id": "gpt-realtime-translate",
@@ -862,18 +678,10 @@
           "type": "audio",
           "status": "GA",
           "intro": "Streaming speech-to-speech translation model.",
-          "inputModalities": [
-            "audio"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["audio"],
+          "outputModalities": ["audio"],
           "mediaOptions": "Streaming real-time speech translation.",
-          "keyParams": [
-            "source/target language",
-            "voice",
-            "streaming"
-          ],
+          "keyParams": ["source/target language", "voice", "streaming"],
           "pricing": {
             "scheme": "per-minute",
             "currency": "USD",
@@ -894,18 +702,10 @@
           "type": "audio",
           "status": "GA",
           "intro": "Streaming speech-to-text for realtime transcription.",
-          "inputModalities": [
-            "audio"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["audio"],
+          "outputModalities": ["text"],
           "mediaOptions": "Streaming real-time transcription.",
-          "keyParams": [
-            "language",
-            "streaming",
-            "prompt"
-          ],
+          "keyParams": ["language", "streaming", "prompt"],
           "pricing": {
             "scheme": "per-minute",
             "currency": "USD",
@@ -926,19 +726,10 @@
           "type": "audio",
           "status": "GA",
           "intro": "High-accuracy speech-to-text transcription powered by GPT-4o.",
-          "inputModalities": [
-            "audio"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["audio"],
+          "outputModalities": ["text"],
           "mediaOptions": "Batch/file transcription via v1/audio/transcriptions; token-based billing with a per-minute estimate.",
-          "keyParams": [
-            "language",
-            "prompt",
-            "response_format",
-            "timestamp_granularities"
-          ],
+          "keyParams": ["language", "prompt", "response_format", "timestamp_granularities"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -966,19 +757,10 @@
           "type": "audio",
           "status": "GA",
           "intro": "Lower-cost speech-to-text transcription from the GPT-4o mini variant.",
-          "inputModalities": [
-            "audio"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["audio"],
+          "outputModalities": ["text"],
           "mediaOptions": "File transcription via v1/audio/transcriptions; token-based billing with a per-minute estimate.",
-          "keyParams": [
-            "language",
-            "prompt",
-            "response_format",
-            "timestamp_granularities"
-          ],
+          "keyParams": ["language", "prompt", "response_format", "timestamp_granularities"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -1006,19 +788,10 @@
           "type": "audio",
           "status": "GA",
           "intro": "Token-based text-to-speech model with steerable voice/style instructions.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "mediaOptions": "Text-to-speech via v1/audio/speech; multiple built-in voices (alloy, echo, fable, onyx, nova, shimmer, etc.); steerable via 'instructions'.",
-          "keyParams": [
-            "voice",
-            "instructions (style steering)",
-            "response_format",
-            "speed"
-          ],
+          "keyParams": ["voice", "instructions (style steering)", "response_format", "speed"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -1040,18 +813,10 @@
           "type": "audio",
           "status": "legacy",
           "intro": "Standard legacy text-to-speech model, priced per character.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "mediaOptions": "v1/audio/speech; voices alloy/echo/fable/onyx/nova/shimmer; formats mp3/opus/aac/flac/wav/pcm.",
-          "keyParams": [
-            "voice",
-            "response_format",
-            "speed"
-          ],
+          "keyParams": ["voice", "response_format", "speed"],
           "pricing": {
             "scheme": "per-character",
             "currency": "USD",
@@ -1061,9 +826,7 @@
             "notes": "Priced per character (not tokens). NOT on the captured 2026 first-party pricing table; superseded by gpt-4o-mini-tts. UNCONFIRMED on first-party page; likely legacy."
           },
           "source": "https://developers.openai.com/api/docs/models",
-          "sources": [
-            "https://www.finout.io/blog/openai-pricing-in-2026"
-          ]
+          "sources": ["https://www.finout.io/blog/openai-pricing-in-2026"]
         },
         {
           "id": "tts-1-hd",
@@ -1071,18 +834,10 @@
           "type": "audio",
           "status": "legacy",
           "intro": "Higher-fidelity legacy text-to-speech model, priced per character.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "mediaOptions": "v1/audio/speech; same voices/formats as TTS-1, higher audio quality.",
-          "keyParams": [
-            "voice",
-            "response_format",
-            "speed"
-          ],
+          "keyParams": ["voice", "response_format", "speed"],
           "pricing": {
             "scheme": "per-character",
             "currency": "USD",
@@ -1092,9 +847,7 @@
             "notes": "Priced per character. NOT on the captured 2026 first-party pricing table; UNCONFIRMED on first-party page; likely legacy."
           },
           "source": "https://developers.openai.com/api/docs/models",
-          "sources": [
-            "https://www.finout.io/blog/openai-pricing-in-2026"
-          ]
+          "sources": ["https://www.finout.io/blog/openai-pricing-in-2026"]
         },
         {
           "id": "text-embedding-3-small",
@@ -1102,18 +855,11 @@
           "type": "text",
           "status": "GA",
           "intro": "Small, highly efficient text embedding model (1536 default dims, dimensions-reducible).",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "8191 tokens input",
           "maxOutput": "Embedding vector (default 1536 dims; reducible via 'dimensions')",
-          "keyParams": [
-            "dimensions",
-            "encoding_format"
-          ],
+          "keyParams": ["dimensions", "encoding_format"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -1134,18 +880,11 @@
           "type": "text",
           "status": "GA",
           "intro": "Larger, most-capable text embedding model (3072 default dims, dimensions-reducible).",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "8191 tokens input",
           "maxOutput": "Embedding vector (default 3072 dims; reducible via 'dimensions')",
-          "keyParams": [
-            "dimensions",
-            "encoding_format"
-          ],
+          "keyParams": ["dimensions", "encoding_format"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -1166,17 +905,11 @@
           "type": "text",
           "status": "legacy",
           "intro": "Previous-generation embedding model, retained for backward compatibility.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "8191 tokens input",
           "maxOutput": "Embedding vector (1536 dims)",
-          "keyParams": [
-            "encoding_format"
-          ],
+          "keyParams": ["encoding_format"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -1186,9 +919,7 @@
             "notes": "Legacy model; price from secondary sources at launch rate. UNCONFIRMED on first-party 2026 pricing page."
           },
           "source": "https://developers.openai.com/api/docs/models",
-          "sources": [
-            "https://www.cloudzero.com/blog/openai-pricing/"
-          ]
+          "sources": ["https://www.cloudzero.com/blog/openai-pricing/"]
         },
         {
           "id": "omni-moderation-latest",
@@ -1196,18 +927,11 @@
           "type": "multimodal",
           "status": "GA",
           "intro": "Free multimodal (text + image) content moderation model based on GPT-4o.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "N/A (classification)",
           "maxOutput": "Category scores/flags",
-          "keyParams": [
-            "input (text and/or image)"
-          ],
+          "keyParams": ["input (text and/or image)"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -1234,13 +958,8 @@
           "type": "text",
           "status": "GA",
           "intro": "Anthropic's most capable widely released model, for the most demanding reasoning and long-horizon agentic work.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "1M tokens (uses the Opus 4.7 tokenizer; same text produces ~30% more tokens vs pre-4.7 models)",
           "maxOutput": "128k tokens (up to 300k on Message Batches API via output-300k-2026-03-24 beta header)",
           "keyParams": [
@@ -1294,13 +1013,8 @@
           "type": "text",
           "status": "preview",
           "intro": "Limited-availability frontier model offered to approved customers in Project Glasswing; successor to Claude Mythos Preview.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "1M tokens (Opus 4.7 tokenizer; ~30% more tokens for same text vs pre-4.7)",
           "maxOutput": "128k tokens",
           "keyParams": [
@@ -1348,13 +1062,8 @@
           "type": "text",
           "status": "GA",
           "intro": "Anthropic's most capable Opus-tier model for complex reasoning, long-horizon agentic coding, and high-autonomy work; resolves to the 'opus' alias.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "1M tokens (~555k words / ~2.5M unicode chars; 200k on Microsoft Foundry; Opus 4.7 tokenizer uses up to 35% more tokens for same text)",
           "maxOutput": "128k tokens (up to 300k on Batches API via output-300k-2026-03-24 beta header)",
           "keyParams": [
@@ -1414,13 +1123,8 @@
           "type": "text",
           "status": "legacy",
           "intro": "Prior Opus-tier model; introduced the new tokenizer (up to 35% more tokens for same text).",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "1M tokens (~555k words / ~2.5M unicode chars; new tokenizer)",
           "maxOutput": "128k tokens (up to 300k on Batches API via output-300k-2026-03-24 beta header)",
           "keyParams": [
@@ -1474,13 +1178,8 @@
           "type": "text",
           "status": "legacy",
           "intro": "Earlier Opus-tier model; supports extended thinking and the 1M context window.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "1M tokens (~750k words / ~3.4M unicode chars)",
           "maxOutput": "128k tokens (up to 300k on Batches API via output-300k-2026-03-24 beta header)",
           "keyParams": [
@@ -1534,13 +1233,8 @@
           "type": "text",
           "status": "legacy",
           "intro": "Opus-tier model with a more accessible price point than prior Opus models; alias claude-opus-4-5.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "200k tokens (~150k words / ~680k unicode chars)",
           "maxOutput": "64k tokens",
           "keyParams": [
@@ -1588,13 +1282,8 @@
           "type": "text",
           "status": "deprecated",
           "intro": "Deprecated Opus model scheduled for retirement on August 5, 2026; migrate to Opus 4.8.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "200k tokens (~150k words / ~680k unicode chars)",
           "maxOutput": "32k tokens",
           "keyParams": [
@@ -1642,13 +1331,8 @@
           "type": "text",
           "status": "deprecated",
           "intro": "Retired Opus model (still available on Google Cloud only); original Claude 4 Opus.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "200k tokens",
           "maxOutput": "32k tokens",
           "keyParams": [
@@ -1695,13 +1379,8 @@
           "type": "text",
           "status": "GA",
           "intro": "The best combination of speed and intelligence; resolves to the 'sonnet' alias.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "1M tokens (~750k words / ~3.4M unicode chars)",
           "maxOutput": "128k tokens (up to 300k on Batches API via output-300k-2026-03-24 beta header)",
           "keyParams": [
@@ -1755,13 +1434,8 @@
           "type": "text",
           "status": "legacy",
           "intro": "Prior Sonnet model strong at complex agents and coding; alias claude-sonnet-4-5.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "200k tokens (1M beta available; ~150k words / ~680k unicode chars at 200k)",
           "maxOutput": "64k tokens",
           "keyParams": [
@@ -1820,13 +1494,8 @@
           "type": "text",
           "status": "deprecated",
           "intro": "Retired Sonnet model (still available on Bedrock and Google Cloud); original Claude 4 Sonnet.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "200k tokens (1M beta)",
           "maxOutput": "64k tokens",
           "keyParams": [
@@ -1884,13 +1553,8 @@
           "type": "text",
           "status": "GA",
           "intro": "The fastest model with near-frontier intelligence; alias claude-haiku-4-5 (current Haiku-tier).",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "200k tokens (~150k words / ~680k unicode chars)",
           "maxOutput": "64k tokens",
           "keyParams": [
@@ -1938,20 +1602,11 @@
           "type": "text",
           "status": "deprecated",
           "intro": "Retired prior-generation Haiku model (still available on Bedrock and Google Cloud).",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "200k tokens",
           "maxOutput": "8k tokens (Claude 3.5 generation default; not in latest overview — approximate)",
-          "keyParams": [
-            "tool use",
-            "prompt caching",
-            "vision/image input"
-          ],
+          "keyParams": ["tool use", "prompt caching", "vision/image input"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -2003,16 +1658,8 @@
           "type": "multimodal",
           "status": "preview",
           "intro": "Strongest reasoning/problem-solving model in the Gemini 3 family; refined thinking, token efficiency and tool reliability for agentic + software-engineering workflows.",
-          "inputModalities": [
-            "text",
-            "image",
-            "audio",
-            "video",
-            "pdf"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image", "audio", "video", "pdf"],
+          "outputModalities": ["text"],
           "contextWindow": "1,048,576 tokens (1M) input",
           "maxOutput": "64k tokens",
           "keyParams": [
@@ -2078,16 +1725,8 @@
           "type": "multimodal",
           "status": "GA",
           "intro": "Current default/recommended GA model (gemini-flash-latest); most intelligent model for sustained frontier performance on agentic and coding tasks at high speed/low cost.",
-          "inputModalities": [
-            "text",
-            "image",
-            "audio",
-            "video",
-            "pdf"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image", "audio", "video", "pdf"],
+          "outputModalities": ["text"],
           "contextWindow": "1,048,576 tokens (1M) input",
           "maxOutput": "65,536 tokens (65k)",
           "keyParams": [
@@ -2150,16 +1789,8 @@
           "type": "multimodal",
           "status": "preview",
           "intro": "Frontier-class Flash performance at reduced cost; native multimodal with thinking and the full Gemini 3 tool suite incl. Computer Use (Preview).",
-          "inputModalities": [
-            "text",
-            "image",
-            "audio",
-            "video",
-            "pdf"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image", "audio", "video", "pdf"],
+          "outputModalities": ["text"],
           "contextWindow": "1,048,576 tokens (1M) input",
           "maxOutput": "64k tokens",
           "keyParams": [
@@ -2214,15 +1845,8 @@
           "type": "multimodal",
           "status": "GA",
           "intro": "GA cost-efficient multimodal model optimized for speed, scale and cost efficiency (supersedes shut-down gemini-3.1-flash-lite-preview).",
-          "inputModalities": [
-            "text",
-            "image",
-            "audio",
-            "video"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image", "audio", "video"],
+          "outputModalities": ["text"],
           "contextWindow": "1M tokens input (Gemini 3 family)",
           "maxOutput": "64k tokens",
           "keyParams": [
@@ -2285,16 +1909,8 @@
           "type": "multimodal",
           "status": "GA",
           "intro": "State-of-the-art thinking model for complex reasoning/coding/STEM and long-context analysis; adaptive thinking, 1M context.",
-          "inputModalities": [
-            "text",
-            "image",
-            "audio",
-            "video",
-            "pdf"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image", "audio", "video", "pdf"],
+          "outputModalities": ["text"],
           "contextWindow": "1,048,576 tokens (1M) input",
           "maxOutput": "65,536 tokens (65k)",
           "keyParams": [
@@ -2352,16 +1968,8 @@
           "type": "multimodal",
           "status": "GA",
           "intro": "Best price-performance hybrid-reasoning model for low-latency, high-volume tasks; controllable thinking budget. (Earliest possible shutdown Oct 16, 2026.)",
-          "inputModalities": [
-            "text",
-            "image",
-            "audio",
-            "video",
-            "pdf"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image", "audio", "video", "pdf"],
+          "outputModalities": ["text"],
           "contextWindow": "1,048,576 tokens (1M) input",
           "maxOutput": "65,536 tokens (65k)",
           "keyParams": [
@@ -2425,15 +2033,8 @@
           "type": "multimodal",
           "status": "GA",
           "intro": "Fastest and most budget-friendly multimodal model, built for massive-scale, high-throughput tasks without sacrificing multimodal understanding.",
-          "inputModalities": [
-            "text",
-            "image",
-            "audio",
-            "video"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image", "audio", "video"],
+          "outputModalities": ["text"],
           "contextWindow": "1,048,576 tokens (1M) input",
           "maxOutput": "65,536 tokens (65k)",
           "keyParams": [
@@ -2495,14 +2096,8 @@
           "type": "image",
           "status": "GA",
           "intro": "Highest-quality Gemini image generation model with best-in-class text rendering; up to 4K, mandatory SynthID watermark.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image",
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image", "text"],
           "contextWindow": "n/a (image generation)",
           "maxOutput": "n/a",
           "mediaOptions": "Resolutions: 1K, 2K, 4K (4096x4096). 2-5s generation; SynthID watermark (non-optional).",
@@ -2551,14 +2146,8 @@
           "type": "image",
           "status": "GA",
           "intro": "Fast, cost-efficient Gemini image generation; supports up to 4K with per-resolution token-based pricing.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image",
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image", "text"],
           "contextWindow": "n/a (image generation)",
           "maxOutput": "n/a",
           "mediaOptions": "Resolutions: 0.5K (512px), 1K (1024px), 2K, 4K. SynthID watermark.",
@@ -2607,21 +2196,12 @@
           "type": "image",
           "status": "GA",
           "intro": "Original Nano Banana image generation/editing model; flat per-image pricing.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image",
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image", "text"],
           "contextWindow": "n/a (image generation)",
           "maxOutput": "n/a",
           "mediaOptions": "Image generation and editing; SynthID watermark.",
-          "keyParams": [
-            "prompt-based generation",
-            "image input (editing)"
-          ],
+          "keyParams": ["prompt-based generation", "image input (editing)"],
           "pricing": {
             "scheme": "per-image",
             "currency": "USD",
@@ -2653,12 +2233,8 @@
           "type": "image",
           "status": "deprecated",
           "intro": "Imagen 4 text-to-image (Fast/Standard/Ultra). Deprecated; earliest shutdown August 17, 2026.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["image"],
           "contextWindow": "n/a (image generation)",
           "maxOutput": "n/a",
           "mediaOptions": "Variants: Fast, Standard, Ultra. SynthID watermark.",
@@ -2699,14 +2275,8 @@
           "type": "video",
           "status": "preview",
           "intro": "Flagship Veo 3.1 text/image-to-video with native audio; per-second pricing tiered by resolution and audio.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video",
-            "audio"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video", "audio"],
           "contextWindow": "n/a (video generation)",
           "maxOutput": "Up to ~8 seconds per generation",
           "mediaOptions": "Resolutions: 720p, 1080p, 4K. Optional native audio. Clips up to ~8s.",
@@ -2763,22 +2333,12 @@
           "type": "video",
           "status": "preview",
           "intro": "Lowest-cost Veo 3.1 tier for fast, cheap video at 720p/1080p.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video",
-            "audio"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video", "audio"],
           "contextWindow": "n/a (video generation)",
           "maxOutput": "Up to ~8 seconds per generation",
           "mediaOptions": "Resolutions: 720p, 1080p. Clips up to ~8s.",
-          "keyParams": [
-            "text/image conditioning",
-            "resolution (720p/1080p)",
-            "duration"
-          ],
+          "keyParams": ["text/image conditioning", "resolution (720p/1080p)", "duration"],
           "pricing": {
             "scheme": "per-second",
             "currency": "USD",
@@ -2806,19 +2366,12 @@
           "type": "audio",
           "status": "preview",
           "intro": "Powerful, low-latency controllable text-to-speech.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "contextWindow": "n/a",
           "maxOutput": "n/a",
           "mediaOptions": "Controllable multi-speaker voices; audio output billed per token.",
-          "keyParams": [
-            "voice/style control",
-            "multi-speaker"
-          ],
+          "keyParams": ["voice/style control", "multi-speaker"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -2837,19 +2390,12 @@
           "type": "audio",
           "status": "preview",
           "intro": "Controllable text-to-speech on the 2.5 Flash backbone.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "contextWindow": "n/a",
           "maxOutput": "n/a",
           "mediaOptions": "Controllable single/multi-speaker voices.",
-          "keyParams": [
-            "voice/style control",
-            "multi-speaker"
-          ],
+          "keyParams": ["voice/style control", "multi-speaker"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -2868,20 +2414,12 @@
           "type": "audio",
           "status": "preview",
           "intro": "High-fidelity speech synthesis on the 2.5 Pro backbone.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "contextWindow": "n/a",
           "maxOutput": "n/a",
           "mediaOptions": "High-fidelity, controllable multi-speaker voices.",
-          "keyParams": [
-            "voice/style control",
-            "multi-speaker",
-            "high-fidelity"
-          ],
+          "keyParams": ["voice/style control", "multi-speaker", "high-fidelity"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -2900,23 +2438,12 @@
           "type": "audio",
           "status": "preview",
           "intro": "Real-time bidirectional dialogue / voice-first AI (Live API), audio-to-audio with native voice.",
-          "inputModalities": [
-            "text",
-            "audio",
-            "video"
-          ],
-          "outputModalities": [
-            "text",
-            "audio"
-          ],
+          "inputModalities": ["text", "audio", "video"],
+          "outputModalities": ["text", "audio"],
           "contextWindow": "Live session",
           "maxOutput": "Streaming",
           "mediaOptions": "Real-time audio-to-audio; per-minute or per-token billing.",
-          "keyParams": [
-            "Live API (streaming/WS)",
-            "voice selection",
-            "real-time interruption"
-          ],
+          "keyParams": ["Live API (streaming/WS)", "voice selection", "real-time interruption"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -2946,23 +2473,12 @@
           "type": "audio",
           "status": "preview",
           "intro": "Real-time conversational agents via the Live API with native audio.",
-          "inputModalities": [
-            "text",
-            "audio",
-            "video"
-          ],
-          "outputModalities": [
-            "text",
-            "audio"
-          ],
+          "inputModalities": ["text", "audio", "video"],
+          "outputModalities": ["text", "audio"],
           "contextWindow": "Live session",
           "maxOutput": "Streaming",
           "mediaOptions": "Real-time audio/video in, audio out.",
-          "keyParams": [
-            "Live API",
-            "native audio",
-            "voice selection"
-          ],
+          "keyParams": ["Live API", "native audio", "voice selection"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -2992,19 +2508,12 @@
           "type": "audio",
           "status": "preview",
           "intro": "Full-length AI song/music generation.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "contextWindow": "n/a",
           "maxOutput": "Full-length song",
           "mediaOptions": "Full-length song generation (Pro); also Lyria 3 Clip (30s clips) and Lyria RealTime (experimental).",
-          "keyParams": [
-            "prompt-based music generation",
-            "style/genre control"
-          ],
+          "keyParams": ["prompt-based music generation", "style/genre control"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -3032,22 +2541,11 @@
           "type": "multimodal",
           "status": "GA",
           "intro": "Multimodal embedding model (text, image, audio, video) with per-modality pricing.",
-          "inputModalities": [
-            "text",
-            "image",
-            "audio",
-            "video"
-          ],
-          "outputModalities": [
-            "embedding"
-          ],
+          "inputModalities": ["text", "image", "audio", "video"],
+          "outputModalities": ["embedding"],
           "contextWindow": "n/a",
           "maxOutput": "Embedding vectors",
-          "keyParams": [
-            "task type",
-            "output dimensionality (MRL truncation)",
-            "multimodal input"
-          ],
+          "keyParams": ["task type", "output dimensionality (MRL truncation)", "multimodal input"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -3087,18 +2585,11 @@
           "type": "text",
           "status": "GA",
           "intro": "Text embedding model (predecessor to Gemini Embedding 2).",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "embedding"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["embedding"],
           "contextWindow": "n/a",
           "maxOutput": "Embedding vectors",
-          "keyParams": [
-            "task type",
-            "output dimensionality (MRL)"
-          ],
+          "keyParams": ["task type", "output dimensionality (MRL)"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -3117,13 +2608,8 @@
           "type": "multimodal",
           "status": "preview",
           "intro": "Agentic model that 'sees' a digital screen and performs UI actions (clicks, typing, navigation).",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "Gemini 2.5 family context",
           "maxOutput": "n/a",
           "keyParams": [
@@ -3154,13 +2640,8 @@
           "type": "text",
           "intro": "xAI's flagship model (since Apr 30, 2026): most intelligent and fastest, tops agentic tool-calling and instruction-following leaderboards.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "1,000,000 tokens",
           "maxOutput": "not published",
           "keyParams": [
@@ -3188,13 +2669,8 @@
           "type": "text",
           "intro": "Grok 4.20 reasoning variant with extended thinking; 1M context, available in us-east-1 / eu-west-1 / us-west-2.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "1,000,000 tokens",
           "maxOutput": "not published",
           "keyParams": [
@@ -3222,20 +2698,11 @@
           "type": "text",
           "intro": "Grok 4.20 non-reasoning variant for lower-latency responses without extended thinking.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "1,000,000 tokens",
           "maxOutput": "not published",
-          "keyParams": [
-            "reasoning: off (non-reasoning)",
-            "function calling",
-            "structured outputs"
-          ],
+          "keyParams": ["reasoning: off (non-reasoning)", "function calling", "structured outputs"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -3255,13 +2722,8 @@
           "type": "text",
           "intro": "Grok 4.20 multi-agent configuration for orchestrated multi-agent workflows; 1M context.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "1,000,000 tokens",
           "maxOutput": "not published",
           "keyParams": [
@@ -3289,13 +2751,8 @@
           "type": "text",
           "intro": "xAI's coding model for agentic software engineering and web-dev workflows (launched May 29, 2026; replaces grok-code-fast-1).",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "256,000 tokens",
           "maxOutput": "not published",
           "keyParams": [
@@ -3323,17 +2780,10 @@
           "type": "image",
           "intro": "Standard text/image-to-image generation from the Grok Imagine family.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image"],
           "mediaOptions": "Resolutions / aspect ratios not published on the docs models page; flat per-image price. Rate limit ~5 req/s. Available in us-east-1, eu-west-1, us-west-2. Model-dated alias grok-imagine-image-2026-03-02.",
-          "keyParams": [
-            "text-to-image and image-to-image (text, image -> image)"
-          ],
+          "keyParams": ["text-to-image and image-to-image (text, image -> image)"],
           "pricing": {
             "scheme": "per-image",
             "currency": "USD",
@@ -3350,17 +2800,10 @@
           "type": "image",
           "intro": "Higher-quality tier of Grok Imagine image generation (the retired grok-imagine-image-pro slug now routes here).",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image"],
           "mediaOptions": "Resolutions / aspect ratios not published; flat per-image price. Receives redirected grok-imagine-image-pro traffic since May 15, 2026.",
-          "keyParams": [
-            "text-to-image / image-to-image, quality tier"
-          ],
+          "keyParams": ["text-to-image / image-to-image, quality tier"],
           "pricing": {
             "scheme": "per-image",
             "currency": "USD",
@@ -3377,17 +2820,10 @@
           "type": "video",
           "intro": "Grok Imagine video generation, priced per second of output.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Durations / resolutions / fps not published on the docs models page; flat per-second price.",
-          "keyParams": [
-            "text-to-video / image-to-video"
-          ],
+          "keyParams": ["text-to-video / image-to-video"],
           "pricing": {
             "scheme": "per-second",
             "currency": "USD",
@@ -3404,17 +2840,10 @@
           "type": "video",
           "intro": "Newer/higher-fidelity Grok Imagine video model, priced per second.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Durations / resolutions / fps not published; flat per-second price.",
-          "keyParams": [
-            "text-to-video / image-to-video, v1.5 quality"
-          ],
+          "keyParams": ["text-to-video / image-to-video, v1.5 quality"],
           "pricing": {
             "scheme": "per-second",
             "currency": "USD",
@@ -3431,18 +2860,10 @@
           "type": "audio",
           "intro": "Realtime speech-to-speech voice mode (priced as a service; the docs models page does not expose a distinct API model id, only the priced 'Realtime' service).",
           "status": "GA",
-          "inputModalities": [
-            "audio",
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["audio", "text"],
+          "outputModalities": ["audio"],
           "mediaOptions": "Specific voice names and audio formats not published on the docs models page. 'Realtime Text Input' (text injected into a realtime session) billed separately per message.",
-          "keyParams": [
-            "realtime audio in/out",
-            "realtime text input"
-          ],
+          "keyParams": ["realtime audio in/out", "realtime text input"],
           "pricing": {
             "scheme": "per-minute",
             "currency": "USD",
@@ -3469,16 +2890,10 @@
           "type": "audio",
           "intro": "Text-to-speech synthesis (priced as a service; no distinct model slug published on the docs models page).",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "mediaOptions": "Available voice names and output audio formats not published on the docs models page.",
-          "keyParams": [
-            "text-to-speech synthesis"
-          ],
+          "keyParams": ["text-to-speech synthesis"],
           "pricing": {
             "scheme": "per-character",
             "currency": "USD",
@@ -3495,17 +2910,10 @@
           "type": "audio",
           "intro": "Speech-to-text transcription, priced per hour of audio with separate REST and streaming rates (no distinct model slug published).",
           "status": "GA",
-          "inputModalities": [
-            "audio"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["audio"],
+          "outputModalities": ["text"],
           "mediaOptions": "Supported audio formats / languages not published on the docs models page. Two delivery modes: REST and Streaming.",
-          "keyParams": [
-            "speech-to-text transcription",
-            "REST and streaming modes"
-          ],
+          "keyParams": ["speech-to-text transcription", "REST and streaming modes"],
           "pricing": {
             "scheme": "matrix",
             "currency": "USD",
@@ -3547,12 +2955,8 @@
           "type": "text",
           "intro": "Flagship V4 reasoning/chat model (1.6T total / 49B active params) with 1M context and dual Thinking/Non-Thinking modes.",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "1M tokens",
           "maxOutput": "384K tokens",
           "keyParams": [
@@ -3608,12 +3012,8 @@
           "type": "text",
           "intro": "Cost-efficient fast V4 model (284B total / 13B active params) with 1M context and dual Thinking/Non-Thinking modes; backs the legacy deepseek-chat/deepseek-reasoner names.",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "1M tokens",
           "maxOutput": "384K tokens",
           "keyParams": [
@@ -3668,12 +3068,8 @@
           "type": "text",
           "intro": "Legacy model name now routing to deepseek-v4-flash NON-THINKING mode; to be retired 2026-07-24.",
           "status": "deprecated",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "1M tokens (now backed by V4-Flash; prior standalone spec was 64K context / 8K max output)",
           "maxOutput": "384K tokens (V4-Flash-backed; prior standalone was 8K)",
           "keyParams": [
@@ -3725,12 +3121,8 @@
           "type": "text",
           "intro": "Legacy model name now routing to deepseek-v4-flash THINKING (CoT) mode; to be retired 2026-07-24.",
           "status": "deprecated",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "1M tokens (now backed by V4-Flash; prior standalone spec was 64K context / 8K max output)",
           "maxOutput": "384K tokens (V4-Flash-backed; prior standalone was 8K output, 32K max CoT)",
           "keyParams": [
@@ -3798,12 +3190,8 @@
           "type": "text",
           "status": "GA",
           "intro": "Flagship long-horizon agentic-coding model; first GLM with a true 1M-token usable context.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "1M tokens",
           "maxOutput": "128K tokens",
           "keyParams": [
@@ -3831,12 +3219,8 @@
           "type": "text",
           "status": "GA",
           "intro": "Coding-focused flagship aligned near Claude Opus 4.6; supports ~8-hour autonomous task runs.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "200K tokens",
           "maxOutput": "128K tokens",
           "keyParams": [
@@ -3875,12 +3259,8 @@
           "type": "text",
           "status": "GA",
           "intro": "GLM-5-series flagship with coding capability matching Claude Opus 4.5; strong agentic planning.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "200K tokens",
           "maxOutput": "128K tokens",
           "keyParams": [
@@ -3907,20 +3287,11 @@
           "type": "text",
           "status": "GA",
           "intro": "Turbo variant optimized for complex extended-task execution with improved continuity.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "200K tokens",
           "maxOutput": "128K tokens",
-          "keyParams": [
-            "thinking mode",
-            "tool calling",
-            "streaming",
-            "low-latency tuned"
-          ],
+          "keyParams": ["thinking mode", "tool calling", "streaming", "low-latency tuned"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -3938,12 +3309,8 @@
           "type": "text",
           "status": "GA",
           "intro": "Previous-gen cost-effective general model; upgraded conversation, reasoning and agent abilities.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "200K tokens",
           "maxOutput": "128K tokens",
           "keyParams": [
@@ -3970,12 +3337,8 @@
           "type": "text",
           "status": "GA",
           "intro": "Lightweight high-speed model for writing, translation and role-play scenarios.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "200K tokens",
           "maxOutput": "128K tokens",
           "keyParams": [
@@ -4001,12 +3364,8 @@
           "type": "text",
           "status": "GA",
           "intro": "Strong coding, complex reasoning and tool-invocation model; 200K context (up from 128K in 4.5).",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "200K tokens",
           "maxOutput": "128K tokens",
           "keyParams": [
@@ -4034,12 +3393,8 @@
           "type": "text",
           "status": "GA",
           "intro": "Agent-foundation model (355B total / 32B active MoE) integrating reasoning, coding and agent abilities.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "128K tokens",
           "maxOutput": "96K tokens",
           "keyParams": [
@@ -4066,19 +3421,11 @@
           "type": "text",
           "status": "GA",
           "intro": "Premium high-performance GLM-4.5 variant (~4x base price) for demanding workloads.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "128K tokens",
           "maxOutput": "96K tokens",
-          "keyParams": [
-            "thinking mode",
-            "tool calling",
-            "streaming"
-          ],
+          "keyParams": ["thinking mode", "tool calling", "streaming"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -4096,20 +3443,11 @@
           "type": "text",
           "status": "GA",
           "intro": "High value-for-money lightweight model with stable inference and coding performance.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "128K tokens",
           "maxOutput": "96K tokens",
-          "keyParams": [
-            "thinking mode",
-            "tool calling",
-            "streaming",
-            "low-cost tuned"
-          ],
+          "keyParams": ["thinking mode", "tool calling", "streaming", "low-cost tuned"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -4127,12 +3465,8 @@
           "type": "text",
           "status": "GA",
           "intro": "Ultra-fast cost-effective Air variant for low-latency, time-sensitive applications.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "128K tokens",
           "maxOutput": "96K tokens",
           "keyParams": [
@@ -4158,19 +3492,11 @@
           "type": "text",
           "status": "legacy",
           "intro": "Open 32B GLM-4 model with 128K context; very low flat per-token price.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "128K tokens",
           "maxOutput": "16K tokens",
-          "keyParams": [
-            "tool calling",
-            "streaming",
-            "temperature/top_p"
-          ],
+          "keyParams": ["tool calling", "streaming", "temperature/top_p"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -4187,19 +3513,11 @@
           "type": "text",
           "status": "GA",
           "intro": "Free general-purpose Flash model extending GLM-4.7 capabilities (rate-limited).",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "200K tokens",
           "maxOutput": "128K tokens",
-          "keyParams": [
-            "thinking mode toggle",
-            "tool calling",
-            "streaming"
-          ],
+          "keyParams": ["thinking mode toggle", "tool calling", "streaming"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -4217,19 +3535,11 @@
           "type": "text",
           "status": "deprecated",
           "intro": "Free lightweight model with deep-thinking mode and 128K context (being deprecated).",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "128K tokens",
           "maxOutput": "96K tokens",
-          "keyParams": [
-            "deep-thinking mode",
-            "tool calling",
-            "streaming"
-          ],
+          "keyParams": ["deep-thinking mode", "tool calling", "streaming"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -4247,18 +3557,11 @@
           "type": "text",
           "status": "legacy",
           "intro": "Free GLM-4 Flash supporting long context for multilingual and tool scenarios.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "128K tokens",
           "maxOutput": "16K tokens",
-          "keyParams": [
-            "tool calling",
-            "streaming"
-          ],
+          "keyParams": ["tool calling", "streaming"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "CNY",
@@ -4275,18 +3578,11 @@
           "type": "text",
           "status": "legacy",
           "intro": "Ultra-long-context GLM-4 (1M tokens) for memory-intensive and long-document tasks.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "1M tokens",
           "maxOutput": "4K tokens",
-          "keyParams": [
-            "tool calling",
-            "streaming"
-          ],
+          "keyParams": ["tool calling", "streaming"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "CNY",
@@ -4301,21 +3597,11 @@
           "type": "multimodal",
           "status": "GA",
           "intro": "Multimodal (vision) coding foundation balancing vision, reasoning and code generation.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "200K tokens",
           "maxOutput": "128K tokens",
-          "keyParams": [
-            "vision input",
-            "thinking mode",
-            "tool calling",
-            "streaming"
-          ],
+          "keyParams": ["vision input", "thinking mode", "tool calling", "streaming"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -4333,21 +3619,11 @@
           "type": "multimodal",
           "status": "GA",
           "intro": "Enhanced visual-reasoning VLM with native tool calling and long-context support; ~50% cheaper than 4.5V.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "128K tokens",
           "maxOutput": "32K tokens",
-          "keyParams": [
-            "vision input",
-            "thinking mode toggle",
-            "native tool calling",
-            "streaming"
-          ],
+          "keyParams": ["vision input", "thinking mode toggle", "native tool calling", "streaming"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -4365,13 +3641,8 @@
           "type": "multimodal",
           "status": "GA",
           "intro": "Fast lightweight VLM variant for high-throughput visual tasks.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "128K tokens",
           "maxOutput": "32K tokens",
           "keyParams": [
@@ -4397,21 +3668,11 @@
           "type": "multimodal",
           "status": "GA",
           "intro": "Previous-gen visual-reasoning VLM for multimodal understanding.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "128K tokens",
           "maxOutput": "32K tokens",
-          "keyParams": [
-            "vision input",
-            "thinking mode",
-            "tool calling",
-            "streaming"
-          ],
+          "keyParams": ["vision input", "thinking mode", "tool calling", "streaming"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -4429,19 +3690,11 @@
           "type": "multimodal",
           "status": "GA",
           "intro": "Lightweight document/image OCR parsing model supporting complex layouts.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "Variable (document-dependent)",
           "maxOutput": "Not specified",
-          "keyParams": [
-            "image/document input",
-            "layout-aware parsing"
-          ],
+          "keyParams": ["image/document input", "layout-aware parsing"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -4458,20 +3711,11 @@
           "type": "multimodal",
           "status": "GA",
           "intro": "Free VLM supporting visual reasoning with a flexible thinking-mode toggle (rate-limited).",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "128K tokens",
           "maxOutput": "32K tokens",
-          "keyParams": [
-            "vision input",
-            "thinking mode toggle",
-            "streaming"
-          ],
+          "keyParams": ["vision input", "thinking mode toggle", "streaming"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -4489,20 +3733,11 @@
           "type": "multimodal",
           "status": "legacy",
           "intro": "Lightweight visual-reasoning model excelling at complex scene understanding.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "64K tokens",
           "maxOutput": "16K tokens",
-          "keyParams": [
-            "vision input",
-            "thinking mode",
-            "streaming"
-          ],
+          "keyParams": ["vision input", "thinking mode", "streaming"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "CNY",
@@ -4517,20 +3752,11 @@
           "type": "multimodal",
           "status": "legacy",
           "intro": "Free model for complex multimodal understanding and analysis tasks.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "64K tokens",
           "maxOutput": "16K tokens",
-          "keyParams": [
-            "vision input",
-            "thinking mode",
-            "streaming"
-          ],
+          "keyParams": ["vision input", "thinking mode", "streaming"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "CNY",
@@ -4547,19 +3773,11 @@
           "type": "multimodal",
           "status": "legacy",
           "intro": "Free model providing basic multimodal question-answering.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "16K tokens",
           "maxOutput": "1K tokens",
-          "keyParams": [
-            "vision input",
-            "streaming"
-          ],
+          "keyParams": ["vision input", "streaming"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "CNY",
@@ -4576,20 +3794,11 @@
           "type": "multimodal",
           "status": "preview",
           "intro": "Mobile-agent framework enabling natural-language control of phone apps.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "20K tokens",
           "maxOutput": "2048 tokens",
-          "keyParams": [
-            "GUI/agent actions",
-            "vision input",
-            "tool calling"
-          ],
+          "keyParams": ["GUI/agent actions", "vision input", "tool calling"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "CNY",
@@ -4604,19 +3813,10 @@
           "type": "image",
           "status": "GA",
           "intro": "Flagship text-to-image model with superior Chinese-character rendering and knowledge-dense generation.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image"],
           "mediaOptions": "Multi-resolution supported; specific resolution list not published on pricing page.",
-          "keyParams": [
-            "prompt",
-            "multi-resolution / size",
-            "image-reference input"
-          ],
+          "keyParams": ["prompt", "multi-resolution / size", "image-reference input"],
           "pricing": {
             "scheme": "per-image",
             "currency": "USD",
@@ -4637,17 +3837,10 @@
           "type": "image",
           "status": "GA",
           "intro": "High-quality general-purpose text-to-image model with rich stylistic range.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["image"],
           "mediaOptions": "Multi-resolution supported.",
-          "keyParams": [
-            "prompt",
-            "multi-resolution / size"
-          ],
+          "keyParams": ["prompt", "multi-resolution / size"],
           "pricing": {
             "scheme": "per-image",
             "currency": "USD",
@@ -4668,17 +3861,10 @@
           "type": "image",
           "status": "GA",
           "intro": "Free fast text-to-image model balancing quality and creative expression.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["image"],
           "mediaOptions": "Multi-resolution supported.",
-          "keyParams": [
-            "prompt",
-            "multi-resolution / size"
-          ],
+          "keyParams": ["prompt", "multi-resolution / size"],
           "pricing": {
             "scheme": "per-image",
             "currency": "CNY",
@@ -4693,21 +3879,10 @@
           "type": "video",
           "status": "GA",
           "intro": "Flagship video-generation model with enhanced clarity and physics simulation; image/text/keyframe input.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Multi-resolution; image/text/keyframe-driven. Specific resolution/duration matrix not published on pricing page.",
-          "keyParams": [
-            "text prompt",
-            "image input",
-            "keyframes",
-            "resolution",
-            "duration"
-          ],
+          "keyParams": ["text prompt", "image input", "keyframes", "resolution", "duration"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -4728,13 +3903,8 @@
           "type": "video",
           "status": "GA",
           "intro": "Free video model supporting AI sound effects, up to 4K / 60fps and up to 10s clips.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Up to 4K resolution, up to 60fps, up to 10 seconds; AI sound effects.",
           "keyParams": [
             "text prompt",
@@ -4758,17 +3928,10 @@
           "type": "video",
           "status": "GA",
           "intro": "High-quality Vidu Q1 text-to-video with smooth transitions and diverse styling (3rd-party Vidu, served via Zhipu/z.ai).",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["video"],
           "mediaOptions": "Fixed resolution (single-resolution); text-driven.",
-          "keyParams": [
-            "text prompt",
-            "style"
-          ],
+          "keyParams": ["text prompt", "style"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -4789,18 +3952,10 @@
           "type": "video",
           "status": "GA",
           "intro": "Vidu Q1 image-to-video variant served via Zhipu/z.ai.",
-          "inputModalities": [
-            "image",
-            "text"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["image", "text"],
+          "outputModalities": ["video"],
           "mediaOptions": "Fixed resolution; image-driven.",
-          "keyParams": [
-            "image input",
-            "text prompt"
-          ],
+          "keyParams": ["image input", "text prompt"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -4821,19 +3976,10 @@
           "type": "video",
           "status": "GA",
           "intro": "Vidu Q1 start/end-frame keyframe-to-video variant served via Zhipu/z.ai.",
-          "inputModalities": [
-            "image",
-            "text"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["image", "text"],
+          "outputModalities": ["video"],
           "mediaOptions": "Fixed resolution; start/end keyframe-driven.",
-          "keyParams": [
-            "start frame",
-            "end frame",
-            "text prompt"
-          ],
+          "keyParams": ["start frame", "end frame", "text prompt"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -4854,18 +4000,10 @@
           "type": "video",
           "status": "GA",
           "intro": "Fast cost-effective Vidu 2 image-to-video with natural keyframe transitions.",
-          "inputModalities": [
-            "image",
-            "text"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["image", "text"],
+          "outputModalities": ["video"],
           "mediaOptions": "Fixed resolution; image-driven.",
-          "keyParams": [
-            "image input",
-            "text prompt"
-          ],
+          "keyParams": ["image input", "text prompt"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -4886,19 +4024,10 @@
           "type": "video",
           "status": "GA",
           "intro": "Vidu 2 start/end-keyframe-to-video variant.",
-          "inputModalities": [
-            "image",
-            "text"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["image", "text"],
+          "outputModalities": ["video"],
           "mediaOptions": "Fixed resolution; start/end keyframe-driven.",
-          "keyParams": [
-            "start frame",
-            "end frame",
-            "text prompt"
-          ],
+          "keyParams": ["start frame", "end frame", "text prompt"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -4919,18 +4048,10 @@
           "type": "video",
           "status": "GA",
           "intro": "Vidu 2 reference-image-driven video generation variant.",
-          "inputModalities": [
-            "image",
-            "text"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["image", "text"],
+          "outputModalities": ["video"],
           "mediaOptions": "Fixed resolution; reference-image-driven.",
-          "keyParams": [
-            "reference image",
-            "text prompt"
-          ],
+          "keyParams": ["reference image", "text prompt"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -4951,18 +4072,10 @@
           "type": "audio",
           "status": "GA",
           "intro": "High-precision speech-recognition (ASR/STT) with custom vocabulary across languages.",
-          "inputModalities": [
-            "audio"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["audio"],
+          "outputModalities": ["text"],
           "mediaOptions": "Speech-to-text; custom-vocabulary support; multilingual.",
-          "keyParams": [
-            "audio input",
-            "custom vocabulary / hotwords",
-            "language"
-          ],
+          "keyParams": ["audio input", "custom vocabulary / hotwords", "language"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -4979,18 +4092,10 @@
           "type": "audio",
           "status": "GA",
           "intro": "Speech-synthesis (TTS) model with humanlike, emotionally expressive output.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "mediaOptions": "Text-to-speech; multiple voices and emotional expression.",
-          "keyParams": [
-            "text input",
-            "voice selection",
-            "emotion / style"
-          ],
+          "keyParams": ["text input", "voice selection", "emotion / style"],
           "pricing": {
             "scheme": "per-character",
             "currency": "CNY",
@@ -5005,19 +4110,10 @@
           "type": "audio",
           "status": "GA",
           "intro": "Voice-cloning TTS needing only a ~3-second audio sample for rapid tone generation.",
-          "inputModalities": [
-            "text",
-            "audio"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text", "audio"],
+          "outputModalities": ["audio"],
           "mediaOptions": "Voice cloning from ~3s reference audio; text-to-speech output.",
-          "keyParams": [
-            "text input",
-            "reference audio (≈3s)",
-            "cloned voice"
-          ],
+          "keyParams": ["text input", "reference audio (≈3s)", "cloned voice"],
           "pricing": {
             "scheme": "per-character",
             "currency": "CNY",
@@ -5032,21 +4128,10 @@
           "type": "multimodal",
           "status": "GA",
           "intro": "Real-time audio/video model supporting video calls with cross-modal inference.",
-          "inputModalities": [
-            "text",
-            "audio",
-            "video"
-          ],
-          "outputModalities": [
-            "text",
-            "audio"
-          ],
+          "inputModalities": ["text", "audio", "video"],
+          "outputModalities": ["text", "audio"],
           "mediaOptions": "Realtime streaming voice/video; cross-modal.",
-          "keyParams": [
-            "realtime streaming",
-            "audio input/output",
-            "video input"
-          ],
+          "keyParams": ["realtime streaming", "audio input/output", "video input"],
           "pricing": {
             "scheme": "per-minute",
             "currency": "CNY",
@@ -5061,20 +4146,10 @@
           "type": "audio",
           "status": "legacy",
           "intro": "Real-time voice-dialogue model supporting emotion and accent adjustment.",
-          "inputModalities": [
-            "text",
-            "audio"
-          ],
-          "outputModalities": [
-            "text",
-            "audio"
-          ],
+          "inputModalities": ["text", "audio"],
+          "outputModalities": ["text", "audio"],
           "mediaOptions": "End-to-end speech-to-speech dialogue; emotion/accent control.",
-          "keyParams": [
-            "audio input/output",
-            "emotion control",
-            "accent control"
-          ],
+          "keyParams": ["audio input/output", "emotion control", "accent control"],
           "pricing": {
             "scheme": "per-minute",
             "currency": "CNY",
@@ -5089,18 +4164,11 @@
           "type": "text",
           "status": "GA",
           "intro": "Text-embedding model (8K context) for retrieval/RAG and semantic search.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "8K tokens",
           "maxOutput": "embedding vector",
-          "keyParams": [
-            "dimensions (configurable on Embedding-3)",
-            "batch input"
-          ],
+          "keyParams": ["dimensions (configurable on Embedding-3)", "batch input"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "CNY",
@@ -5115,17 +4183,11 @@
           "type": "text",
           "status": "legacy",
           "intro": "Previous-gen text-embedding model (8K context).",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "8K tokens",
           "maxOutput": "embedding vector",
-          "keyParams": [
-            "batch input"
-          ],
+          "keyParams": ["batch input"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "CNY",
@@ -5145,14 +4207,8 @@
           "displayName": "Kimi K2.7 Code",
           "type": "multimodal",
           "intro": "Kimi's strongest coding model with native multimodal input and long-thinking, built for autonomous agentic code execution.",
-          "inputModalities": [
-            "text",
-            "image",
-            "video"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image", "video"],
+          "outputModalities": ["text"],
           "status": "GA",
           "contextWindow": "262,144 tokens (256K)",
           "maxOutput": "Not specified on official page",
@@ -5198,14 +4254,8 @@
           "displayName": "Kimi K2.7 Code Highspeed",
           "type": "multimodal",
           "intro": "High-throughput variant of K2.7 Code delivering ~180 tok/s (up to ~260 tok/s short-context) at 2x the token price.",
-          "inputModalities": [
-            "text",
-            "image",
-            "video"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image", "video"],
+          "outputModalities": ["text"],
           "status": "GA",
           "contextWindow": "262,144 tokens (256K)",
           "maxOutput": "Not specified on official page",
@@ -5251,14 +4301,8 @@
           "displayName": "Kimi K2.6",
           "type": "multimodal",
           "intro": "Moonshot's flagship general model: native multimodal (text/image/video input), thinking and non-thinking modes for dialogue and agent tasks.",
-          "inputModalities": [
-            "text",
-            "image",
-            "video"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image", "video"],
+          "outputModalities": ["text"],
           "status": "GA",
           "contextWindow": "262,144 tokens (256K)",
           "maxOutput": "Not specified on official page",
@@ -5304,14 +4348,8 @@
           "displayName": "Kimi K2.5",
           "type": "multimodal",
           "intro": "Cheapest current-generation model: text/image/video input, thinking and non-thinking modes, dialogue and agent tasks.",
-          "inputModalities": [
-            "text",
-            "image",
-            "video"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image", "video"],
+          "outputModalities": ["text"],
           "status": "GA",
           "contextWindow": "262,144 tokens (256K)",
           "maxOutput": "Not specified on official page",
@@ -5357,12 +4395,8 @@
           "displayName": "Moonshot V1 8K",
           "type": "text",
           "intro": "Classic V1 generation model with an 8K context window (V1 variants differ only by max context length, not quality).",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "status": "GA",
           "contextWindow": "8,192 tokens",
           "maxOutput": "Within 8K total context (input+output)",
@@ -5389,12 +4423,8 @@
           "displayName": "Moonshot V1 32K",
           "type": "text",
           "intro": "Classic V1 generation model with a 32K context window.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "status": "GA",
           "contextWindow": "32,768 tokens",
           "maxOutput": "Within 32K total context (input+output)",
@@ -5421,12 +4451,8 @@
           "displayName": "Moonshot V1 128K",
           "type": "text",
           "intro": "Classic V1 generation model with a 128K context window (the default V1 variant).",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "status": "GA",
           "contextWindow": "131,072 tokens",
           "maxOutput": "Within 128K total context (input+output)",
@@ -5453,22 +4479,12 @@
           "displayName": "Moonshot V1 8K Vision (preview)",
           "type": "multimodal",
           "intro": "Vision-capable preview of Moonshot V1 8K — accepts text and image input.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "status": "preview",
           "contextWindow": "8,192 tokens",
           "maxOutput": "Within 8K total context",
-          "keyParams": [
-            "image input",
-            "tool_calls",
-            "JSON Mode",
-            "context caching"
-          ],
+          "keyParams": ["image input", "tool_calls", "JSON Mode", "context caching"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -5485,22 +4501,12 @@
           "displayName": "Moonshot V1 32K Vision (preview)",
           "type": "multimodal",
           "intro": "Vision-capable preview of Moonshot V1 32K — accepts text and image input.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "status": "preview",
           "contextWindow": "32,768 tokens",
           "maxOutput": "Within 32K total context",
-          "keyParams": [
-            "image input",
-            "tool_calls",
-            "JSON Mode",
-            "context caching"
-          ],
+          "keyParams": ["image input", "tool_calls", "JSON Mode", "context caching"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -5517,22 +4523,12 @@
           "displayName": "Moonshot V1 128K Vision (preview)",
           "type": "multimodal",
           "intro": "Vision-capable preview of Moonshot V1 128K — accepts text and image input.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "status": "preview",
           "contextWindow": "131,072 tokens",
           "maxOutput": "Within 128K total context",
-          "keyParams": [
-            "image input",
-            "tool_calls",
-            "JSON Mode",
-            "context caching"
-          ],
+          "keyParams": ["image input", "tool_calls", "JSON Mode", "context caching"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -5549,12 +4545,8 @@
           "displayName": "Moonshot V1 Auto",
           "type": "text",
           "intro": "Router alias that automatically selects the smallest-fitting V1 context tier (8k/32k/128k) for the request.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "status": "GA",
           "contextWindow": "Auto-selects 8K / 32K / 128K",
           "maxOutput": "Depends on selected tier",
@@ -5596,20 +4588,12 @@
           "displayName": "Kimi K2 (0905) [DEPRECATED]",
           "type": "text",
           "intro": "Legacy Kimi K2 0905 preview model — retired; replaced by kimi-k2.6.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "status": "deprecated",
           "contextWindow": "262,144 tokens (256K)",
           "maxOutput": "Not specified",
-          "keyParams": [
-            "tool_calls",
-            "JSON Mode",
-            "context caching"
-          ],
+          "keyParams": ["tool_calls", "JSON Mode", "context caching"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -5623,20 +4607,12 @@
           "displayName": "Kimi K2 (0711) [DEPRECATED]",
           "type": "text",
           "intro": "Original Kimi K2 0711 model — retired; replaced by kimi-k2.6.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "status": "deprecated",
           "contextWindow": "131,072 tokens (128K)",
           "maxOutput": "Not specified",
-          "keyParams": [
-            "tool_calls",
-            "JSON Mode",
-            "context caching"
-          ],
+          "keyParams": ["tool_calls", "JSON Mode", "context caching"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -5650,21 +4626,12 @@
           "displayName": "Kimi K2 Turbo [DEPRECATED]",
           "type": "text",
           "intro": "Legacy high-throughput Kimi K2 Turbo — retired.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "status": "deprecated",
           "contextWindow": "262,144 tokens (256K)",
           "maxOutput": "Not specified",
-          "keyParams": [
-            "tool_calls",
-            "JSON Mode",
-            "context caching",
-            "high throughput"
-          ],
+          "keyParams": ["tool_calls", "JSON Mode", "context caching", "high throughput"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -5678,20 +4645,12 @@
           "displayName": "Kimi K2 Thinking [DEPRECATED]",
           "type": "text",
           "intro": "Legacy reasoning variant of Kimi K2 — retired.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "status": "deprecated",
           "contextWindow": "262,144 tokens (256K)",
           "maxOutput": "Not specified",
-          "keyParams": [
-            "thinking/reasoning mode",
-            "tool_calls",
-            "JSON Mode"
-          ],
+          "keyParams": ["thinking/reasoning mode", "tool_calls", "JSON Mode"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -5705,20 +4664,12 @@
           "displayName": "Kimi K2 Thinking Turbo [DEPRECATED]",
           "type": "text",
           "intro": "Legacy high-throughput reasoning variant of Kimi K2 — retired.",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "status": "deprecated",
           "contextWindow": "262,144 tokens (256K)",
           "maxOutput": "Not specified",
-          "keyParams": [
-            "thinking/reasoning mode",
-            "high throughput",
-            "tool_calls"
-          ],
+          "keyParams": ["thinking/reasoning mode", "high throughput", "tool_calls"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -5732,21 +4683,12 @@
           "displayName": "Kimi Latest [DEPRECATED]",
           "type": "multimodal",
           "intro": "Former rolling 'latest' alias — closed to new users and retired.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "status": "deprecated",
           "contextWindow": "Up to 131,072 tokens (128K)",
           "maxOutput": "Not specified",
-          "keyParams": [
-            "auto context",
-            "vision input",
-            "context caching"
-          ],
+          "keyParams": ["auto context", "vision input", "context caching"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -5760,20 +4702,12 @@
           "displayName": "Kimi Thinking Preview [DEPRECATED]",
           "type": "multimodal",
           "intro": "Former multimodal reasoning preview — retired.",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "status": "deprecated",
           "contextWindow": "131,072 tokens (128K)",
           "maxOutput": "Not specified",
-          "keyParams": [
-            "thinking/reasoning mode",
-            "vision input"
-          ],
+          "keyParams": ["thinking/reasoning mode", "vision input"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "USD",
@@ -5794,14 +4728,8 @@
           "type": "multimodal",
           "intro": "Flagship M-series model for agentic reasoning, tool use, coding, and long-context tasks; multimodal (text/image/video input).",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image",
-            "video"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image", "video"],
+          "outputModalities": ["text"],
           "contextWindow": "1,048,576 tokens (1M); 512K guaranteed minimum at standard tier",
           "maxOutput": "Not separately published (within 1M context)",
           "keyParams": [
@@ -5856,12 +4784,8 @@
           "type": "text",
           "intro": "M2.7 language model focused on recursive self-improvement; agentic reasoning, coding, tool use (~60 tps output).",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "204,800 tokens",
           "maxOutput": "196,608 tokens",
           "keyParams": [
@@ -5888,12 +4812,8 @@
           "type": "text",
           "intro": "Same weights/quality as M2.7 but faster routing (~100 tps output) at 2x the standard rate.",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "204,800 tokens",
           "maxOutput": "196,608 tokens",
           "keyParams": [
@@ -5920,12 +4840,8 @@
           "type": "text",
           "intro": "M2.5 SOTA model extending coding expertise into general office work (~60 tps output).",
           "status": "legacy",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "204,800 tokens",
           "maxOutput": "196,608 tokens",
           "keyParams": [
@@ -5951,12 +4867,8 @@
           "type": "text",
           "intro": "Faster routing variant of M2.5 (~100 tps output) at 2x base rate.",
           "status": "legacy",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "204,800 tokens",
           "maxOutput": "196,608 tokens",
           "keyParams": [
@@ -5982,12 +4894,8 @@
           "type": "text",
           "intro": "M2.1 with powerful multi-language programming capabilities (~60 tps output).",
           "status": "legacy",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "204,800 tokens",
           "maxOutput": "196,608 tokens",
           "keyParams": [
@@ -6013,12 +4921,8 @@
           "type": "text",
           "intro": "Faster routing variant of M2.1 (~100 tps output) at 2x base rate.",
           "status": "legacy",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "204,800 tokens",
           "maxOutput": "196,608 tokens",
           "keyParams": [
@@ -6044,12 +4948,8 @@
           "type": "text",
           "intro": "Original M2 model with agentic capabilities and advanced reasoning.",
           "status": "legacy",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "204,800 tokens (~197K)",
           "maxOutput": "196,608 tokens",
           "keyParams": [
@@ -6075,12 +4975,8 @@
           "type": "audio",
           "intro": "Ultra-realistic high-fidelity text-to-speech (T2A) with sound tags; broadcast-grade quality across 40 languages.",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "contextWindow": "Up to 10,000 characters per synchronous request; up to 1,000,000 characters per async task",
           "maxOutput": "Audio (mp3, pcm, flac, wav)",
           "mediaOptions": "40 languages; 300+ system voices + custom cloned/designed voices; volume/pitch/speed controls; output formats mp3/pcm/flac/wav",
@@ -6107,12 +5003,8 @@
           "type": "audio",
           "intro": "Faster, lower-cost T2A variant balancing speed and natural flow across 40 languages.",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "contextWindow": "Up to 10,000 characters per synchronous request; up to 1,000,000 characters per async task",
           "maxOutput": "Audio (mp3, pcm, flac, wav)",
           "mediaOptions": "40 languages; 300+ system voices + cloned/designed voices; volume/pitch/speed controls",
@@ -6138,12 +5030,8 @@
           "type": "audio",
           "intro": "Prior-gen HD T2A with outstanding prosody and excellent voice-cloning similarity.",
           "status": "legacy",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "contextWindow": "Up to 10,000 chars sync / 1,000,000 chars async",
           "maxOutput": "Audio (mp3, pcm, flac, wav)",
           "mediaOptions": "Multilingual; 300+ system voices + cloned/designed voices; volume/pitch/speed controls",
@@ -6167,12 +5055,8 @@
           "type": "audio",
           "intro": "Prior-gen multilingual turbo T2A variant.",
           "status": "legacy",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "contextWindow": "Up to 10,000 chars sync / 1,000,000 chars async",
           "maxOutput": "Audio (mp3, pcm, flac, wav)",
           "mediaOptions": "40 languages; system + cloned/designed voices; volume/pitch/speed controls",
@@ -6196,12 +5080,8 @@
           "type": "audio",
           "intro": "Earlier-gen HD T2A with superior rhythm/stability and outstanding voice replication.",
           "status": "legacy",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "contextWindow": "Up to 10,000 chars sync / 1,000,000 chars async",
           "maxOutput": "Audio (mp3, pcm, flac, wav)",
           "mediaOptions": "Multilingual; system + cloned/designed voices; volume/pitch/speed controls",
@@ -6225,12 +5105,8 @@
           "type": "audio",
           "intro": "Earlier-gen turbo T2A with enhanced multilingual performance.",
           "status": "legacy",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "contextWindow": "Up to 10,000 chars sync / 1,000,000 chars async",
           "maxOutput": "Audio (mp3, pcm, flac, wav)",
           "mediaOptions": "Multilingual; system + cloned/designed voices; volume/pitch/speed controls",
@@ -6254,13 +5130,8 @@
           "type": "video",
           "intro": "Flagship video model with breakthroughs in body movement, facial expression, physical realism and prompt adherence; text-to-video and image-to-video.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "contextWindow": "N/A (per-clip generation)",
           "maxOutput": "Up to 1080P; up to 10s (1080P capped at 6s); 24 fps",
           "mediaOptions": "Resolutions 768P / 1080P; durations 6s / 10s; 24 fps; text-to-video, image-to-video (first frame / last frame / reference); async (create/query task)",
@@ -6299,13 +5170,8 @@
           "type": "video",
           "intro": "Faster, lower-cost image-to-video variant of Hailuo 2.3 for value and batch efficiency (up to ~50% cheaper).",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "contextWindow": "N/A (per-clip generation)",
           "maxOutput": "Up to 1080P; up to 10s (1080P capped at 6s); 24 fps",
           "mediaOptions": "Resolutions 768P / 1080P; durations 6s / 10s; image-to-video; async task create + query",
@@ -6344,13 +5210,8 @@
           "type": "video",
           "intro": "Prior-gen video model: higher resolution (1080P), longer duration (10s), strong prompt adherence; record cost-efficiency.",
           "status": "legacy",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "contextWindow": "N/A (per-clip generation)",
           "maxOutput": "Up to 1080P; up to 10s; 24 fps",
           "mediaOptions": "Resolutions 512P / 768P / 1080P; durations 6s / 10s; text-to-video and image-to-video; async task create + query",
@@ -6397,13 +5258,8 @@
           "type": "image",
           "intro": "High-quality image generation with fine-grained detail; text-to-image and image-to-image with subject reference for people.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image"],
           "contextWindow": "N/A (per-image generation)",
           "maxOutput": "Image",
           "mediaOptions": "Text-to-image and image-to-image; subject reference (people); aspect-ratio / n controls",
@@ -6428,20 +5284,12 @@
           "type": "audio",
           "intro": "Latest music-generation model; creates AI music from user-provided musical inspiration and lyrics.",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "contextWindow": "N/A (per-track generation)",
           "maxOutput": "Audio track up to ~5 minutes",
           "mediaOptions": "Track up to 5 minutes; lyrics + musical-inspiration prompts",
-          "keyParams": [
-            "lyrics",
-            "musical inspiration / style prompt",
-            "track up to 5 min"
-          ],
+          "keyParams": ["lyrics", "musical inspiration / style prompt", "track up to 5 min"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -6457,17 +5305,11 @@
           "type": "text",
           "intro": "Lyrics-generation companion endpoint to Music 2.6.",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "N/A",
           "maxOutput": "Lyrics text",
-          "keyParams": [
-            "theme / style prompt"
-          ],
+          "keyParams": ["theme / style prompt"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -6499,13 +5341,8 @@
           "type": "text",
           "intro": "Flagship deep-thinking model for the Coding/Agent era (launched 2026-06-23); strong complex coding, long-horizon agent execution, multimodal vision.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "256K tokens",
           "maxOutput": "16K tokens (default 4K)",
           "keyParams": [
@@ -6541,13 +5378,8 @@
           "type": "text",
           "intro": "Low-cost, low-latency deep-thinking sibling of 2.1-Pro for scaled production / high-frequency batch calling; ~half Pro price, near-Pro quality.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "256K tokens",
           "maxOutput": "16K tokens (default 4K)",
           "keyParams": [
@@ -6583,13 +5415,8 @@
           "type": "text",
           "intro": "Continuously-evolving endpoint — at least one version update per week under a single stable model id, always serving the latest Seed model.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "256K tokens",
           "maxOutput": "16K tokens",
           "keyParams": [
@@ -6611,13 +5438,8 @@
           "type": "text",
           "intro": "Prior-gen flagship all-round multimodal model (launched 2026-02-14) for complex reasoning and long-horizon agent tasks.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "256K tokens",
           "maxOutput": "16K tokens (default 4K)",
           "keyParams": [
@@ -6677,13 +5499,8 @@
           "type": "text",
           "intro": "Balanced multimodal model (launched 2026-02-14) trading quality and speed; exceeds Seed-1.8 overall.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "256K tokens",
           "maxOutput": "16K tokens (default 4K)",
           "keyParams": [
@@ -6743,13 +5560,8 @@
           "type": "text",
           "intro": "Low-latency, high-concurrency multimodal model (launched 2026-02-14); 256K context, 4 thinking-length presets.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "256K tokens",
           "maxOutput": "16K tokens (default 4K)",
           "keyParams": [
@@ -6809,13 +5621,8 @@
           "type": "text",
           "intro": "Coding-optimized variant of Seed-2.0 (launched 2026-02-14); same price as Pro, tuned for programming/agent coding tasks.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "256K tokens",
           "maxOutput": "16K tokens",
           "keyParams": [
@@ -6859,13 +5666,8 @@
           "type": "text",
           "intro": "Seed 1.8 generation multimodal model with 256K context; superseded by 2.0/2.1 but still listed and priced.",
           "status": "legacy",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "256K tokens",
           "maxOutput": "16K tokens",
           "keyParams": [
@@ -6923,13 +5725,8 @@
           "type": "text",
           "intro": "All-in-One multimodal model — China's first 256K-context thinking model; supports on/off/adaptive deep thinking, GUI operation.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "256K tokens",
           "maxOutput": "16K tokens (default 4K); max CoT 32K; max input 224K",
           "keyParams": [
@@ -6979,13 +5776,8 @@
           "type": "text",
           "intro": "Reasoning-reinforced variant of Seed-1.6 — stronger code/math/logic; 256K context.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "256K tokens",
           "maxOutput": "16K tokens (default 4K); max CoT 32K",
           "keyParams": [
@@ -7030,13 +5822,8 @@
           "type": "text",
           "intro": "Ultra-fast Seed-1.6 variant — TPOT ~10ms, supports deep thinking + multimodal, vision rivals flagship rivals; 256K context.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "256K tokens",
           "maxOutput": "16K tokens (default 4K); max CoT 32K",
           "keyParams": [
@@ -7081,21 +5868,11 @@
           "type": "text",
           "intro": "Dedicated coding model surfaced in the Ark Coding Plan and as a standalone preview endpoint; 256K context.",
           "status": "preview",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["text"],
           "contextWindow": "256K tokens",
           "maxOutput": "16K tokens",
-          "keyParams": [
-            "coding-tuned",
-            "deep thinking",
-            "function calling",
-            "structured outputs"
-          ],
+          "keyParams": ["coding-tuned", "deep thinking", "function calling", "structured outputs"],
           "pricing": {
             "scheme": "tiered-tokens",
             "currency": "CNY",
@@ -7110,18 +5887,11 @@
           "type": "text",
           "intro": "Third-party DeepSeek-V3.2 served through Volcengine Ark; 128K context.",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "128K tokens",
           "maxOutput": "unspecified",
-          "keyParams": [
-            "function calling",
-            "available in Ark Coding Plan"
-          ],
+          "keyParams": ["function calling", "available in Ark Coding Plan"],
           "pricing": {
             "scheme": "tiered-tokens",
             "currency": "CNY",
@@ -7136,18 +5906,11 @@
           "type": "text",
           "intro": "Third-party Zhipu GLM-4.7 served through Volcengine Ark; 200K context.",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "200K tokens",
           "maxOutput": "unspecified",
-          "keyParams": [
-            "function calling",
-            "available in Ark Coding Plan"
-          ],
+          "keyParams": ["function calling", "available in Ark Coding Plan"],
           "pricing": {
             "scheme": "tiered-tokens",
             "currency": "CNY",
@@ -7162,12 +5925,8 @@
           "type": "text",
           "intro": "Third-party Moonshot Kimi-K2.5 served through Volcengine Ark; 256K context.",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "256K tokens",
           "maxOutput": "unspecified",
           "keyParams": [
@@ -7188,13 +5947,8 @@
           "type": "image",
           "intro": "Latest Doubao text-to-image generation model; charged per successfully generated image.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image"],
           "mediaOptions": "Output resolution 1K~4K, total pixels in [1280x720, 4096x4096]; JPEG output; multi-reference image-to-image and group/组图 generation.",
           "keyParams": [
             "text-to-image",
@@ -7218,13 +5972,8 @@
           "type": "image",
           "intro": "Lite tier of Seedream 5.0 image generation; per-image billing.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image"],
           "mediaOptions": "Output resolution 1K~4K; JPEG; text-to-image and image-to-image.",
           "keyParams": [
             "text-to-image",
@@ -7247,13 +5996,8 @@
           "type": "image",
           "intro": "Seedream 4.5 image generation model; per-image billing.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image"],
           "mediaOptions": "Output resolution 1K~4K; JPEG; text-to-image and image-to-image.",
           "keyParams": [
             "text-to-image",
@@ -7276,13 +6020,8 @@
           "type": "image",
           "intro": "Seedream 4.0 text-to-image / image-to-image; multi-reference and group generation, up to 4K output.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image"],
           "mediaOptions": "Output 1K~4K, total pixels [1280x720, 4096x4096], JPEG; supports multi-reference image-to-image and 组图 (group) generation.",
           "keyParams": [
             "text-to-image",
@@ -7306,18 +6045,10 @@
           "type": "image",
           "intro": "Earlier Seedream 3.0 text-to-image model; per-image billing.",
           "status": "legacy",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["image"],
           "mediaOptions": "Text-to-image; resolution control per model doc.",
-          "keyParams": [
-            "text-to-image",
-            "resolution control",
-            "failed generations not charged"
-          ],
+          "keyParams": ["text-to-image", "resolution control", "failed generations not charged"],
           "pricing": {
             "scheme": "per-image",
             "currency": "CNY",
@@ -7333,15 +6064,8 @@
           "type": "video",
           "intro": "Latest video-generation model (内测 2026-02): multimodal inputs (text/image/video/audio), text-to-video, image-to-video, video edit/extend, character consistency, multi-shot, 1080p+.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image",
-            "video",
-            "audio"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image", "video", "audio"],
+          "outputModalities": ["video"],
           "mediaOptions": "Output 1080p+; durations vary; tokens = (input_video_duration + output_video_duration) × width × height × framerate / 1024; minimum-token floor when input includes video.",
           "keyParams": [
             "text-to-video",
@@ -7376,15 +6100,8 @@
           "type": "video",
           "intro": "Faster, cheaper Seedance 2.0 variant; same token-based billing, lower rates.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image",
-            "video",
-            "audio"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image", "video", "audio"],
+          "outputModalities": ["video"],
           "mediaOptions": "Output 1080p+; tokens = (input_video_duration + output_video_duration) × width × height × framerate / 1024.",
           "keyParams": [
             "text-to-video",
@@ -7417,14 +6134,8 @@
           "type": "video",
           "intro": "Seedance 1.5 pro video generation (launched 2025-12-18); supports a Draft/样片 low-quality mode for cheaper validation.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video",
-            "audio"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video", "audio"],
           "mediaOptions": "tokens = (width × height × framerate × duration) / 1024; Draft/样片 mode discount coefficient 0.7 (silent) / 0.6 (with audio).",
           "keyParams": [
             "text-to-video",
@@ -7466,19 +6177,10 @@
           "type": "video",
           "intro": "First Seedance pro video model (launched 2025-06); original list rate 0.015 元/千 token.",
           "status": "legacy",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "tokens = (width × height × framerate × duration) / 1024; online and offline (batch) modes.",
-          "keyParams": [
-            "text-to-video",
-            "image-to-video",
-            "online / offline (batch) modes"
-          ],
+          "keyParams": ["text-to-video", "image-to-video", "online / offline (batch) modes"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "CNY",
@@ -7504,13 +6206,8 @@
           "type": "video",
           "intro": "Speed-optimized Seedance 1.0 pro (launched 2025-10-24): ~3x faster, ~72% cheaper than pro; a 5s/1080p clip ≈ 1.03 元.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Durations 2~12s; up to 1080p; tokens = (W×H×fps×duration)/1024; online and offline modes.",
           "keyParams": [
             "text-to-video",
@@ -7544,13 +6241,8 @@
           "type": "video",
           "intro": "Lite Seedance video model; text-to-video and image-to-video same price; multiple specs.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Resolutions 480p / 720p / 1080p (1080p not supported in reference-image scenarios); 24 fps; durations 2~12s; mp4 output; tokens = (W×H×fps×duration)/1024.",
           "keyParams": [
             "text-to-video",
@@ -7585,12 +6277,8 @@
           "type": "text",
           "intro": "ByteDance semantic text-embedding model (large) for vector retrieval; Chinese/English, up to 4K context, up to 4096-dim vectors (large-text variant supports up to 128K input).",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "4K tokens (doubao-embedding-large-text variant up to 128K)",
           "maxOutput": "vector up to 4096-dim",
           "keyParams": [
@@ -7613,12 +6301,8 @@
           "type": "text",
           "intro": "Standard ByteDance text-embedding model for vector retrieval; Chinese/English, 4K context, up to 2560-dim vectors (versions text-240715 / text-240515).",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
           "contextWindow": "4K tokens",
           "maxOutput": "vector up to 2560-dim (240715); 2048-dim (240515)",
           "keyParams": [
@@ -7640,20 +6324,11 @@
           "type": "multimodal",
           "intro": "Omni-modal embedding model — first to fuse text+image+video for mixed-modality retrieval (leads MMEB_v2 Image board).",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image",
-            "video"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["text", "image", "video"],
+          "outputModalities": ["text"],
           "contextWindow": "model-dependent",
           "maxOutput": "embedding vector",
-          "keyParams": [
-            "text+image+video fusion retrieval",
-            "separate per-modality input pricing"
-          ],
+          "keyParams": ["text+image+video fusion retrieval", "separate per-modality input pricing"],
           "pricing": {
             "scheme": "per-1m-tokens",
             "currency": "CNY",
@@ -7668,12 +6343,8 @@
           "type": "audio",
           "intro": "Large-model text-to-speech (launched 2025-10) with emotion-aware, post-comprehension synthesis; many timbres.",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "mediaOptions": "Many built-in 音色 (voices); per-call cap ~1024 bytes / ~300 Chinese chars; super-natural voices free to onboard. End-to-end real-time voice model billed by token (~6.25 tokens per 1s input audio; ~25 tokens per 1s other input/output audio).",
           "keyParams": [
             "emotion control",
@@ -7710,12 +6381,8 @@
           "type": "audio",
           "intro": "Large-model streaming speech-to-text; billed by audio duration or concurrency pack.",
           "status": "GA",
-          "inputModalities": [
-            "audio"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["audio"],
+          "outputModalities": ["text"],
           "mediaOptions": "Streaming recognition; single-sentence (一句话) calls capped at 60s audio per call; duration billed to ms precision and converted to hours.",
           "keyParams": [
             "streaming recognition",
@@ -7766,12 +6433,8 @@
           "type": "audio",
           "intro": "Large-model audio-file (offline recording) speech-to-text; billed by audio duration.",
           "status": "GA",
-          "inputModalities": [
-            "audio"
-          ],
-          "outputModalities": [
-            "text"
-          ],
+          "inputModalities": ["audio"],
+          "outputModalities": ["text"],
           "mediaOptions": "Recording-file recognition; default up to 20 QPS; ≤500h audio submitted per half hour (standard version ≤300h).",
           "keyParams": [
             "batch/offline file recognition",
@@ -7808,13 +6471,8 @@
           "displayName": "Vidu Q3 Pro",
           "intro": "Flagship Q3 video model for highest-fidelity cinematic generation, 1-16s.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "maxOutput": "1-16 seconds",
           "mediaOptions": "Resolutions 1080P/720P/540P; duration 1-16s; modes: img2video, text2video, start-end2video",
           "keyParams": [
@@ -7857,13 +6515,8 @@
           "displayName": "Vidu Q3 Turbo",
           "intro": "Speed-optimized Q3 video model, lower credit cost, 1-16s.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "maxOutput": "1-16 seconds",
           "mediaOptions": "Resolutions 1080P/720P/540P; duration 1-16s; modes: img2video, text2video, start-end2video, reference2video",
           "keyParams": [
@@ -7918,12 +6571,8 @@
           "displayName": "Vidu Q3 Pro Fast",
           "intro": "Accelerated Q3 Pro image-to-video for fast turnaround.",
           "status": "GA",
-          "inputModalities": [
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["image"],
+          "outputModalities": ["video"],
           "maxOutput": "1-16 seconds",
           "mediaOptions": "Resolutions 1080P/720P; img2video only",
           "keyParams": [
@@ -7961,13 +6610,8 @@
           "displayName": "Vidu Q3 Mix",
           "intro": "Q3 reference-to-video with multi-entity consistency, 3-16s.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "maxOutput": "3-16 seconds",
           "mediaOptions": "Resolutions 720P/1080P; reference2video only",
           "keyParams": [
@@ -8004,13 +6648,8 @@
           "displayName": "Vidu Q3 (base)",
           "intro": "Base Q3 reference-to-video model, 3-16s.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "maxOutput": "3-16 seconds",
           "mediaOptions": "Resolutions 540P/720P/1080P; reference2video only",
           "keyParams": [
@@ -8051,13 +6690,8 @@
           "displayName": "Vidu Q2 Turbo",
           "intro": "Q2 speed-tier video model (base + per-second credits).",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "maxOutput": "up to ~10 seconds",
           "mediaOptions": "Resolutions 540P/720P/1080P; modes: img2video, start-end2video, text2video",
           "keyParams": [
@@ -8112,13 +6746,8 @@
           "displayName": "Vidu Q2 Pro",
           "intro": "Q2 high-fidelity video model; supports reference2video.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "maxOutput": "up to ~10 seconds",
           "mediaOptions": "Resolutions 540P/720P/1080P; modes: img2video, start-end2video, text2video, reference2video",
           "keyParams": [
@@ -8173,12 +6802,8 @@
           "displayName": "Vidu Q2 Pro Fast",
           "intro": "Accelerated Q2 Pro image-to-video.",
           "status": "GA",
-          "inputModalities": [
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["image"],
+          "outputModalities": ["video"],
           "maxOutput": "up to ~10 seconds",
           "mediaOptions": "Resolutions 720P/1080P; img2video only",
           "keyParams": [
@@ -8215,13 +6840,8 @@
           "displayName": "Vidu Q2 (base)",
           "intro": "Base Q2 video model for text2video and reference2video.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "maxOutput": "up to ~10 seconds",
           "mediaOptions": "Resolutions 540P/720P/1080P; modes: text2video, reference2video",
           "keyParams": [
@@ -8275,13 +6895,8 @@
           "displayName": "Vidu Q1",
           "intro": "First high-controllability Q-series model; fixed 5s 1080P clips, topped VBench-1.0/2.0.",
           "status": "legacy",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "contextWindow": "prompt max 1500 chars",
           "maxOutput": "5 seconds (24fps)",
           "mediaOptions": "Resolution 1080P only; duration fixed 5s; modes: text2video, img2video, reference2video, start-end2video (incl. anime/text2video style)",
@@ -8320,12 +6935,8 @@
           "displayName": "Vidu Q1 Classic",
           "intro": "Classic variant of Q1 for img2video / start-end2video, 5s 1080P.",
           "status": "legacy",
-          "inputModalities": [
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["image"],
+          "outputModalities": ["video"],
           "maxOutput": "5 seconds",
           "mediaOptions": "Resolution 1080P; duration fixed 5s; modes: img2video, start-end2video",
           "keyParams": [
@@ -8352,13 +6963,8 @@
           "displayName": "Vidu 2.0",
           "intro": "2.0-generation video model; 4s/8s output, 3-7x cheaper per second than Western peers.",
           "status": "legacy",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "contextWindow": "prompt max 1500 chars",
           "maxOutput": "4 or 8 seconds (4s default)",
           "mediaOptions": "4s: 360P/720P/1080P; 8s: 720P only; modes: img2video, reference2video, start-end2video",
@@ -8426,13 +7032,8 @@
           "displayName": "Vidu Q2 Image",
           "intro": "Q2 image model: text-to-image and multi-reference image generation up to 4K.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image"],
           "mediaOptions": "Resolutions 1080p / 2K / 4K; modes: text2image, reference2image (1-3 or 4-7 reference images)",
           "keyParams": [
             "model=viduq2",
@@ -8470,20 +7071,10 @@
           "displayName": "Vidu Q1 Image",
           "intro": "Q1 reference-to-image generation at 1080p.",
           "status": "legacy",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image"],
           "mediaOptions": "Resolution 1080p; mode: reference2image (1-7 reference images)",
-          "keyParams": [
-            "model=viduq1",
-            "prompt",
-            "images[] (1-7 references)",
-            "resolution=1080p"
-          ],
+          "keyParams": ["model=viduq1", "prompt", "images[] (1-7 references)", "resolution=1080p"],
           "pricing": {
             "scheme": "credits",
             "currency": "USD",
@@ -8505,19 +7096,10 @@
           "displayName": "Vidu Audio 1.0",
           "intro": "Sound-effect / audio generation from text or timing cues.",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "mediaOptions": "Durations <5s and <10s; modes: text2audio, timing2audio",
-          "keyParams": [
-            "model=audio1.0",
-            "prompt",
-            "duration",
-            "timing (timing2audio)"
-          ],
+          "keyParams": ["model=audio1.0", "prompt", "duration", "timing (timing2audio)"],
           "pricing": {
             "scheme": "credits",
             "currency": "USD",
@@ -8551,16 +7133,10 @@
           "displayName": "Vidu Voice Clone",
           "intro": "Custom voice cloning (one-time per voice).",
           "status": "GA",
-          "inputModalities": [
-            "audio"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["audio"],
+          "outputModalities": ["audio"],
           "mediaOptions": "Per cloned voice",
-          "keyParams": [
-            "voice reference audio"
-          ],
+          "keyParams": ["voice reference audio"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -8577,17 +7153,10 @@
           "displayName": "Vidu Text to Speech",
           "intro": "TTS billed per character block.",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "mediaOptions": "Per 500 characters",
-          "keyParams": [
-            "text",
-            "voice"
-          ],
+          "keyParams": ["text", "voice"],
           "pricing": {
             "scheme": "per-character",
             "currency": "USD",
@@ -8604,17 +7173,10 @@
           "displayName": "Vidu Upscale Pro",
           "intro": "Video resolution upscaler up to 8K.",
           "status": "GA",
-          "inputModalities": [
-            "video"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["video"],
+          "outputModalities": ["video"],
           "mediaOptions": "Target resolutions 1080p / 2K / 4K / 8K",
-          "keyParams": [
-            "source video",
-            "target resolution"
-          ],
+          "keyParams": ["source video", "target resolution"],
           "pricing": {
             "scheme": "per-second",
             "currency": "USD",
@@ -8648,18 +7210,10 @@
           "displayName": "Vidu Lip Sync",
           "intro": "Lip-sync a video to provided audio.",
           "status": "GA",
-          "inputModalities": [
-            "video",
-            "audio"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["video", "audio"],
+          "outputModalities": ["video"],
           "mediaOptions": "Billed per 5 seconds",
-          "keyParams": [
-            "video",
-            "audio"
-          ],
+          "keyParams": ["video", "audio"],
           "pricing": {
             "scheme": "per-second",
             "currency": "USD",
@@ -8676,18 +7230,10 @@
           "displayName": "Vidu Motion Sync",
           "intro": "Motion transfer/sync, billed per second.",
           "status": "GA",
-          "inputModalities": [
-            "video",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["video", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Billed per 1 second",
-          "keyParams": [
-            "driving motion",
-            "subject image/video"
-          ],
+          "keyParams": ["driving motion", "subject image/video"],
           "pricing": {
             "scheme": "per-second",
             "currency": "USD",
@@ -8704,20 +7250,10 @@
           "displayName": "Vidu Digital Human (Q2)",
           "intro": "Q2 digital-human / talking-avatar generation.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image",
-            "audio"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image", "audio"],
+          "outputModalities": ["video"],
           "mediaOptions": "Base + lip-sync/audio fees",
-          "keyParams": [
-            "avatar image",
-            "script/audio",
-            "resolution"
-          ],
+          "keyParams": ["avatar image", "script/audio", "resolution"],
           "pricing": {
             "scheme": "credits",
             "currency": "USD",
@@ -8734,15 +7270,9 @@
           "displayName": "Vidu Prompt Recommendation",
           "intro": "Prompt-optimization/recommendation helper.",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "text"
-          ],
-          "keyParams": [
-            "base prompt"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["text"],
+          "keyParams": ["base prompt"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -8773,14 +7303,8 @@
           "displayName": "Kling 3.0 (可灵 3.0)",
           "intro": "Flagship Feb-2026 video model with native multilingual audio, multi-shot storyboarding, ultra-HD/4K output, Motion Brush and strong character consistency.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video",
-            "audio"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video", "audio"],
           "mediaOptions": "Modes: std / pro / 4k. Durations 5s, 10s. Resolutions 720p, 1080p, native 4K (set mode=4k). Text-to-video and image-to-video. Optional native audio.",
           "keyParams": [
             "mode (std/pro/4k)",
@@ -8842,15 +7366,8 @@
           "displayName": "Kling 3.0 Omni (Kling O3)",
           "intro": "Reasoning/omni variant of Kling 3.0 (upgraded from O1) with high-fidelity native audio integration and advanced multi-shot/motion-control capabilities.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image",
-            "video"
-          ],
-          "outputModalities": [
-            "video",
-            "audio"
-          ],
+          "inputModalities": ["text", "image", "video"],
+          "outputModalities": ["video", "audio"],
           "mediaOptions": "Modes: std / pro. Durations 5s, 10s. 720p/1080p. Text-to-video, image-to-video, and video-input (video-to-video / motion control). Native audio.",
           "keyParams": [
             "mode (std/pro)",
@@ -8899,20 +7416,10 @@
           "displayName": "Kling 3 Turbo",
           "intro": "Faster/cheaper turbo distillation of the Kling 3.0 generation; std and pro variants for text-to-video and image-to-video.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Modes: std / pro. Durations 5s, 10s. 720p/1080p. T2V and I2V.",
-          "keyParams": [
-            "mode (std/pro)",
-            "duration (5/10s)",
-            "aspect_ratio",
-            "image (i2v)"
-          ],
+          "keyParams": ["mode (std/pro)", "duration (5/10s)", "aspect_ratio", "image (i2v)"],
           "pricing": {
             "scheme": "per-second",
             "currency": "USD",
@@ -8929,20 +7436,10 @@
           "displayName": "Kling 2.6 (可灵 2.6)",
           "intro": "Late-2025 generation preceding 3.0; std and pro modes, strong motion and prompt adherence at 720p/1080p.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Modes: std / pro. Durations 5s, 10s. 720p/1080p. T2V and I2V.",
-          "keyParams": [
-            "mode (std/pro)",
-            "duration (5/10s)",
-            "aspect_ratio",
-            "image (i2v)"
-          ],
+          "keyParams": ["mode (std/pro)", "duration (5/10s)", "aspect_ratio", "image (i2v)"],
           "pricing": {
             "scheme": "matrix",
             "currency": "USD",
@@ -8977,20 +7474,10 @@
           "displayName": "Kling 2.5 Turbo",
           "intro": "Cost-efficient turbo mid-range model; std (i2v) and pro (t2v+i2v) variants, popular value tier.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Modes: std / pro (turbo). Durations 5s, 10s. 720p/1080p. Std is i2v; pro is t2v+i2v.",
-          "keyParams": [
-            "mode (std/pro)",
-            "duration (5/10s)",
-            "aspect_ratio",
-            "image (i2v)"
-          ],
+          "keyParams": ["mode (std/pro)", "duration (5/10s)", "aspect_ratio", "image (i2v)"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -9007,20 +7494,10 @@
           "displayName": "Kling 2.1 (可灵 2.1)",
           "intro": "Mid-2025 model; first Kling tier to support 1080p in Pro/Master (up from 1.6's 720p cap).",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Modes: std / pro / master. Durations 5s, 10s. Pro/Master up to 1080p; std 720p. T2V and I2V.",
-          "keyParams": [
-            "mode (std/pro/master)",
-            "duration (5/10s)",
-            "aspect_ratio",
-            "image (i2v)"
-          ],
+          "keyParams": ["mode (std/pro/master)", "duration (5/10s)", "aspect_ratio", "image (i2v)"],
           "pricing": {
             "scheme": "matrix",
             "currency": "USD",
@@ -9055,20 +7532,10 @@
           "displayName": "Kling 2.0 Master (可灵 2.0)",
           "intro": "First v2 generation, Master mode; high-fidelity output, ~3-4x cost of standard tiers.",
           "status": "legacy",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Mode: master. Durations 5s, 10s. 720p/1080p. T2V and I2V.",
-          "keyParams": [
-            "mode (master)",
-            "duration (5/10s)",
-            "aspect_ratio",
-            "image (i2v)"
-          ],
+          "keyParams": ["mode (master)", "duration (5/10s)", "aspect_ratio", "image (i2v)"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -9085,20 +7552,10 @@
           "displayName": "Kling 1.6 (可灵 1.6)",
           "intro": "Late-2024/early-2025 refinement of v1.x; std/pro modes, capped at 720p.",
           "status": "legacy",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Modes: std / pro. Durations 5s, 10s. Up to 720p. T2V and I2V.",
-          "keyParams": [
-            "mode (std/pro)",
-            "duration (5/10s)",
-            "aspect_ratio",
-            "image (i2v)"
-          ],
+          "keyParams": ["mode (std/pro)", "duration (5/10s)", "aspect_ratio", "image (i2v)"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -9115,20 +7572,10 @@
           "displayName": "Kling 1.5 (可灵 1.5)",
           "intro": "v1.5 generation with Pro mode; improved motion vs v1.0.",
           "status": "legacy",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Modes: std / pro. Durations 5s, 10s. Up to 720p (1080p in some modes). T2V and I2V.",
-          "keyParams": [
-            "mode (std/pro)",
-            "duration (5/10s)",
-            "aspect_ratio",
-            "image (i2v)"
-          ],
+          "keyParams": ["mode (std/pro)", "duration (5/10s)", "aspect_ratio", "image (i2v)"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -9145,20 +7592,10 @@
           "displayName": "Kling 1.0 (可灵 1.0)",
           "intro": "Original 2024 launch model; budget tier baseline, 720p, std/pro modes.",
           "status": "legacy",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["video"],
           "mediaOptions": "Modes: std / pro. Durations 5s, 10s. Up to 720p. T2V and I2V.",
-          "keyParams": [
-            "mode (std/pro)",
-            "duration (5/10s)",
-            "aspect_ratio",
-            "image (i2v)"
-          ],
+          "keyParams": ["mode (std/pro)", "duration (5/10s)", "aspect_ratio", "image (i2v)"],
           "pricing": {
             "scheme": "per-request",
             "currency": "USD",
@@ -9175,15 +7612,8 @@
           "displayName": "Kling O1 (Omni 1)",
           "intro": "Reasoning/omni video model (predecessor of O3), with video-input/motion-control support and native audio.",
           "status": "legacy",
-          "inputModalities": [
-            "text",
-            "image",
-            "video"
-          ],
-          "outputModalities": [
-            "video",
-            "audio"
-          ],
+          "inputModalities": ["text", "image", "video"],
+          "outputModalities": ["video", "audio"],
           "mediaOptions": "Modes: std / pro. Durations 5s, 10s. 720p/1080p. T2V, I2V, video-input. Native audio.",
           "keyParams": [
             "mode (std/pro)",
@@ -9226,20 +7656,10 @@
           "displayName": "Kling Image O1 / 可图 Kolors",
           "intro": "Kling's image model family (可图 Kolors) for text-to-image, multi-image reference generation, outpainting/expand, smart subject completion, and virtual try-on. Per-image billing.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image"
-          ],
-          "outputModalities": [
-            "image"
-          ],
+          "inputModalities": ["text", "image"],
+          "outputModalities": ["image"],
           "mediaOptions": "Resolutions 1K / 2K / 4K. Capabilities: text-to-image, multi-image reference, expand/outpaint, subject completion, virtual try-on.",
-          "keyParams": [
-            "resolution (1K/2K/4K)",
-            "reference images",
-            "aspect_ratio",
-            "n (count)"
-          ],
+          "keyParams": ["resolution (1K/2K/4K)", "reference images", "aspect_ratio", "n (count)"],
           "pricing": {
             "scheme": "per-image",
             "currency": "USD",
@@ -9266,21 +7686,10 @@
           "displayName": "Kling Lip-Sync (对口型)",
           "intro": "Lip-sync model that drives a face video to match supplied audio or TTS text.",
           "status": "GA",
-          "inputModalities": [
-            "video",
-            "audio",
-            "text"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["video", "audio", "text"],
+          "outputModalities": ["video"],
           "mediaOptions": "Audio-to-video and text-to-video lip-sync. Per-second video billing.",
-          "keyParams": [
-            "audio input",
-            "text (TTS) input",
-            "source video",
-            "voice selection"
-          ],
+          "keyParams": ["audio input", "text (TTS) input", "source video", "voice selection"],
           "pricing": {
             "scheme": "per-second",
             "currency": "USD",
@@ -9297,19 +7706,10 @@
           "displayName": "Kling Text-to-Speech",
           "intro": "Text-to-speech voice synthesis used with Kling video/avatar workflows.",
           "status": "GA",
-          "inputModalities": [
-            "text"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["text"],
+          "outputModalities": ["audio"],
           "mediaOptions": "Multiple voices; used standalone or to drive lip-sync / avatar / native-audio video.",
-          "keyParams": [
-            "voice",
-            "text",
-            "language",
-            "speed"
-          ],
+          "keyParams": ["voice", "text", "language", "speed"],
           "pricing": {
             "scheme": "other",
             "currency": "USD",
@@ -9324,17 +7724,10 @@
           "displayName": "Kling Video-to-Audio",
           "intro": "Generates a matching soundtrack/audio for an input video.",
           "status": "GA",
-          "inputModalities": [
-            "video"
-          ],
-          "outputModalities": [
-            "audio"
-          ],
+          "inputModalities": ["video"],
+          "outputModalities": ["audio"],
           "mediaOptions": "Audio generation conditioned on input video.",
-          "keyParams": [
-            "source video",
-            "audio prompt"
-          ],
+          "keyParams": ["source video", "audio prompt"],
           "pricing": {
             "scheme": "other",
             "currency": "USD",
@@ -9349,14 +7742,8 @@
           "displayName": "Kling AI Avatar (v1/v2)",
           "intro": "Digital-human/avatar video generation; v1 and v2, std and pro variants.",
           "status": "GA",
-          "inputModalities": [
-            "text",
-            "image",
-            "audio"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["text", "image", "audio"],
+          "outputModalities": ["video"],
           "mediaOptions": "Avatar talking-head video; std/pro; driven by audio or TTS text.",
           "keyParams": [
             "mode (std/pro)",
@@ -9378,18 +7765,10 @@
           "displayName": "Kling Video Extension (视频延长)",
           "intro": "Extends an existing Kling-generated clip by additional seconds.",
           "status": "GA",
-          "inputModalities": [
-            "video"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["video"],
+          "outputModalities": ["video"],
           "mediaOptions": "Adds duration to a prior generation; billed by the added seconds at the source model's per-second/credit rate.",
-          "keyParams": [
-            "source video/task id",
-            "added duration",
-            "mode"
-          ],
+          "keyParams": ["source video/task id", "added duration", "mode"],
           "pricing": {
             "scheme": "per-second",
             "currency": "CNY",
@@ -9406,19 +7785,10 @@
           "displayName": "Kling Video Effects (视频特效)",
           "intro": "Template-based video special-effects generation (e.g. expressions, transformations).",
           "status": "GA",
-          "inputModalities": [
-            "image",
-            "video"
-          ],
-          "outputModalities": [
-            "video"
-          ],
+          "inputModalities": ["image", "video"],
+          "outputModalities": ["video"],
           "mediaOptions": "Effect templates applied to image/video; per-second/credit billing.",
-          "keyParams": [
-            "effect template",
-            "source image/video",
-            "duration"
-          ],
+          "keyParams": ["effect template", "source image/video", "duration"],
           "pricing": {
             "scheme": "per-second",
             "currency": "CNY",

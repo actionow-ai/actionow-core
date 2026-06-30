@@ -8,7 +8,11 @@ import { ProtocolError } from './errors.js';
  * (temperature/top_p) and `stop`. Dropped (not forwarded) when the model has the
  * `reasoning` capability, so we avoid the upstream 400 storm.
  */
-const REASONING_DROPPED_PARAMS = ['temperature', 'topP', 'stop'] as const satisfies readonly (keyof ChatParams)[];
+const REASONING_DROPPED_PARAMS = [
+  'temperature',
+  'topP',
+  'stop',
+] as const satisfies readonly (keyof ChatParams)[];
 
 /**
  * The `extra`-bag (snake_case wire) keys a reasoning model rejects: penalties and
@@ -66,10 +70,7 @@ export function normalizeRequest(req: ChatRequest, caps: ModelCapabilities): Cha
  * copying the kept entries rather than `delete` (which lint forbids on computed
  * keys), and never resurrects keys with an `undefined` value.
  */
-function withoutKeys<T extends Record<string, unknown>>(
-  bag: T,
-  dropKeys: ReadonlySet<string>,
-): T {
+function withoutKeys<T extends Record<string, unknown>>(bag: T, dropKeys: ReadonlySet<string>): T {
   if (!Object.keys(bag).some((k) => dropKeys.has(k))) {
     return bag;
   }
@@ -90,8 +91,10 @@ const REASONING_DROPPED_EXTRA_SET: ReadonlySet<string> = new Set(REASONING_DROPP
  * a clean request is returned (same reference) untouched in shape.
  */
 function downgradeForReasoning(req: ChatRequest): ChatRequest {
-  const params = req.params === undefined ? undefined : withoutKeys(req.params, REASONING_DROPPED_PARAM_SET);
-  const extra = req.extra === undefined ? undefined : withoutKeys(req.extra, REASONING_DROPPED_EXTRA_SET);
+  const params =
+    req.params === undefined ? undefined : withoutKeys(req.params, REASONING_DROPPED_PARAM_SET);
+  const extra =
+    req.extra === undefined ? undefined : withoutKeys(req.extra, REASONING_DROPPED_EXTRA_SET);
 
   if (params === req.params && extra === req.extra) {
     return req;

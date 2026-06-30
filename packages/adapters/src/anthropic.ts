@@ -220,7 +220,10 @@ function buildMessages(inputs: Record<string, unknown>): ChatMessage[] {
  * `usage.cache_creation_input_tokens` → cacheCreation. An absent field leaves
  * the key unset so the vector stays additive.
  */
-function addAnthropicBreakdown(vector: UsageVector, usage: Record<string, unknown> | undefined): void {
+function addAnthropicBreakdown(
+  vector: UsageVector,
+  usage: Record<string, unknown> | undefined,
+): void {
   const cacheRead = asNumber(usage?.cache_read_input_tokens);
   if (cacheRead !== undefined) vector.cached_input_tokens = cacheRead;
   const cacheCreation = asNumber(usage?.cache_creation_input_tokens);
@@ -508,7 +511,11 @@ export const anthropicAdapter: ProviderAdapter = {
         yield { type: 'stop', stopReason };
         yield {
           type: 'usage',
-          usage: vectorToChatUsage({ input_tokens: inputTokens, output_tokens: outputTokens, ...breakdown }),
+          usage: vectorToChatUsage({
+            input_tokens: inputTokens,
+            output_tokens: outputTokens,
+            ...breakdown,
+          }),
         };
         yield { type: 'done' };
         return;
@@ -520,7 +527,11 @@ export const anthropicAdapter: ProviderAdapter = {
     yield { type: 'stop', stopReason };
     yield {
       type: 'usage',
-      usage: vectorToChatUsage({ input_tokens: inputTokens, output_tokens: outputTokens, ...breakdown }),
+      usage: vectorToChatUsage({
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        ...breakdown,
+      }),
     };
     yield { type: 'done' };
   },
