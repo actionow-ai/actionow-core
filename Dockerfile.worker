@@ -1,0 +1,20 @@
+# syntax=docker/dockerfile:1
+#
+# Zeabur `worker` service image: build the whole monorepo, then run the BullMQ
+# job runner. Separate from the default Dockerfile (which yields the API) because
+# the Zeabur CLI can't override a service's start command — so the worker bakes
+# its own CMD. Selected per-service via `ZBPACK_DOCKERFILE_NAME=Dockerfile.worker`.
+
+# ---- build: install + build the whole monorepo ----
+FROM node:22-slim AS build
+WORKDIR /app
+ENV HUSKY=0 CI=true
+RUN corepack enable
+COPY . .
+RUN pnpm install --frozen-lockfile
+RUN pnpm build
+
+# ---- run the worker ----
+FROM build
+ENV NODE_ENV=production
+CMD ["pnpm", "--filter", "@actionow/worker", "start"]
