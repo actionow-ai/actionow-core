@@ -25,6 +25,7 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ConsoleUserView } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
+import { AdminOnlyNote } from './AdminOnlyNote';
 import { useTenantRole } from './useTenantRole';
 
 /** A tenant-org seat (`tenant_role`) → a labelled pill (admin highlighted). */
@@ -151,19 +152,7 @@ export function MembersPage() {
     if (roleLoading) return null;
     // A member who deep-links here: no list, no controls — just the admin-only
     // notice (matching the read-only gate on the other /app surfaces).
-    return (
-      <div
-        role="note"
-        style={{
-          padding: 'var(--s-5)',
-          textAlign: 'center',
-          color: 'var(--muted)',
-          fontSize: 'var(--fs-sm)',
-        }}
-      >
-        {t('app.members.adminOnly')}
-      </div>
-    );
+    return <AdminOnlyNote variant="page" message={t('app.members.adminOnly')} />;
   }
 
   return (

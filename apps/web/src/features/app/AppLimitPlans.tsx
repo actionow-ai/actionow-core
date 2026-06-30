@@ -21,6 +21,7 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { LimitPlanView, LimitRuleInput, LimitRuleView } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
+import { AdminOnlyNote } from './AdminOnlyNote';
 import { useTenantRole } from './useTenantRole';
 
 const DIMENSIONS = ['spend', 'requests', 'tokens', 'rpm', 'concurrency'] as const;
@@ -151,19 +152,7 @@ export function AppLimitPlans() {
     // Still resolving the seat: render nothing rather than flashing the admin-only
     // notice to an admin who hard-refreshes directly on this route.
     if (roleLoading) return null;
-    return (
-      <div
-        role="note"
-        style={{
-          padding: 'var(--s-5)',
-          textAlign: 'center',
-          color: 'var(--muted)',
-          fontSize: 'var(--fs-sm)',
-        }}
-      >
-        {t('app.limitPlans.adminOnly')}
-      </div>
-    );
+    return <AdminOnlyNote variant="page" message={t('app.limitPlans.adminOnly')} />;
   }
 
   return (
