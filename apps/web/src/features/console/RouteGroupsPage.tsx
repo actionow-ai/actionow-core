@@ -388,6 +388,94 @@ function RouteGroupEditor({
   );
 }
 
+/** One editable channel-membership row. Priority/weight are mirrored locally and
+ *  committed via a SINGLE upsert on blur (not per keystroke); the fields disable
+ *  while that row's write is in flight. Re-syncs from the server row on refetch. */
+function ChannelMemberRow({
+  m,
+  label,
+  upsert,
+  remove,
+}: {
+  m: { channel_id: string; priority: number; weight: number };
+  label: string;
+  upsert: {
+    mutate: (v: { channelId: string; priority: number; weight: number }) => void;
+    isPending: boolean;
+    variables?: { channelId: string };
+  };
+  remove: { mutate: (channelId: string) => void };
+}) {
+  const { t } = useTranslation('console');
+  const [priority, setPriority] = useState(m.priority);
+  const [weight, setWeight] = useState(m.weight);
+  useEffect(() => {
+    setPriority(m.priority);
+    setWeight(m.weight);
+  }, [m.priority, m.weight]);
+
+  const pending = upsert.isPending && upsert.variables?.channelId === m.channel_id;
+  const commit = () => {
+    if (priority === m.priority && weight === m.weight) return;
+    upsert.mutate({ channelId: m.channel_id, priority, weight });
+  };
+
+  return (
+    <div
+      className="panel"
+      style={{
+        borderRadius: 'var(--r-md)',
+        padding: 'var(--s-3)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--s-2)',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 'var(--s-2)',
+        }}
+      >
+        <strong style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {label}
+        </strong>
+        <Button variant="ghost" size="sm" onClick={() => remove.mutate(m.channel_id)}>
+          <TrashIcon size={14} weight="bold" /> {t('groups.channels.remove')}
+        </Button>
+      </div>
+      <div style={{ display: 'flex', gap: 'var(--s-3)' }}>
+        <div style={{ flex: 1 }}>
+          <NumberField
+            label={t('groups.channels.cols.priority')}
+            hint={t('groups.channels.priorityHint')}
+            value={priority}
+            onChange={setPriority}
+            onBlur={commit}
+            disabled={pending}
+            min={0}
+            step={10}
+          />
+        </div>
+        <div style={{ flex: 1 }}>
+          <NumberField
+            label={t('groups.channels.cols.weight')}
+            hint={t('groups.channels.weightHint')}
+            value={weight}
+            onChange={setWeight}
+            onBlur={commit}
+            disabled={pending}
+            min={0}
+            step={10}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * The 管理渠道 (manage channels) `Drawer`: the membership editor for a group.
  * Lists the group's channels with editable priority + weight (high priority =
@@ -524,59 +612,13 @@ function GroupChannelsDrawer({
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
           {(members ?? []).map((m) => (
-            <div
+            <ChannelMemberRow
               key={m.channel_id}
-              className="panel"
-              style={{
-                borderRadius: 'var(--r-md)',
-                padding: 'var(--s-3)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 'var(--s-2)',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 'var(--s-2)',
-                }}
-              >
-                <strong style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {rosterLabel(m.channel_id)}
-                </strong>
-                <Button variant="ghost" size="sm" onClick={() => remove.mutate(m.channel_id)}>
-                  <TrashIcon size={14} weight="bold" /> {t('groups.channels.remove')}
-                </Button>
-              </div>
-              <div style={{ display: 'flex', gap: 'var(--s-3)' }}>
-                <div style={{ flex: 1 }}>
-                  <NumberField
-                    label={t('groups.channels.cols.priority')}
-                    hint={t('groups.channels.priorityHint')}
-                    value={m.priority}
-                    onChange={(v) =>
-                      upsert.mutate({ channelId: m.channel_id, priority: v, weight: m.weight })
-                    }
-                    min={0}
-                    step={10}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <NumberField
-                    label={t('groups.channels.cols.weight')}
-                    hint={t('groups.channels.weightHint')}
-                    value={m.weight}
-                    onChange={(v) =>
-                      upsert.mutate({ channelId: m.channel_id, priority: m.priority, weight: v })
-                    }
-                    min={0}
-                    step={10}
-                  />
-                </div>
-              </div>
-            </div>
+              m={m}
+              label={rosterLabel(m.channel_id)}
+              upsert={upsert}
+              remove={remove}
+            />
           ))}
         </div>
       )}
