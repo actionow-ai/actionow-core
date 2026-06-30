@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import { useSetConsoleAction, useSetConsoleFilters } from '../../components/console/ConsoleChrome';
-import { CopyField } from '../../components/data/CopyField';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
@@ -15,6 +14,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Modal } from '../../components/ui/Modal';
 import { NumberField } from '../../components/ui/NumberField';
 import { RowAction } from '../../components/ui/RowAction';
+import { SecretRevealModal } from '../../components/ui/SecretRevealModal';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
@@ -264,27 +264,16 @@ export function ApiKeysPage() {
         />
       </Modal>
 
-      <Modal
+      <SecretRevealModal
         open={plaintext !== null}
         title={t('apiKeys.reveal.title')}
         onClose={() => setPlaintext(null)}
-        footer={
-          <Button variant="cta" onClick={() => setPlaintext(null)}>
-            {t('apiKeys.reveal.done')}
-          </Button>
-        }
-      >
-        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--run)' }}>
-          {t('apiKeys.reveal.warn')}
-        </div>
-        {plaintext !== null && (
-          <CopyField
-            value={plaintext}
-            copyLabel={t('apiKeys.reveal.copy')}
-            copiedLabel={t('apiKeys.reveal.copied')}
-          />
-        )}
-      </Modal>
+        value={plaintext ?? ''}
+        warn={t('apiKeys.reveal.warn')}
+        copyLabel={t('apiKeys.reveal.copy')}
+        copiedLabel={t('apiKeys.reveal.copied')}
+        doneLabel={t('apiKeys.reveal.done')}
+      />
 
       <ConfirmDialog
         open={revokeTarget !== undefined}
