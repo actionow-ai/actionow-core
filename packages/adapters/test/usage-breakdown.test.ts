@@ -7,8 +7,7 @@ import { openaiAdapter } from '../src/openai.js';
 
 /** A fake blocking HttpClient returning the given JSON body. */
 const fakeHttp = (body: unknown): HttpClient => ({
-  request: () =>
-    Promise.resolve({ status: 200, ok: true, body, text: JSON.stringify(body) }),
+  request: () => Promise.resolve({ status: 200, ok: true, body, text: JSON.stringify(body) }),
 });
 
 /** Yield pre-canned SSE frame strings as decoded chunks. */
@@ -124,9 +123,9 @@ describe('anthropic usage breakdown', () => {
   });
 
   it('omits cache keys when the upstream reports none (back-compat)', () => {
-    expect(
-      anthropicAdapter.extractUsage({ usage: { input_tokens: 4, output_tokens: 2 } }),
-    ).toEqual({ input_tokens: 4, output_tokens: 2 });
+    expect(anthropicAdapter.extractUsage({ usage: { input_tokens: 4, output_tokens: 2 } })).toEqual(
+      { input_tokens: 4, output_tokens: 2 },
+    );
   });
 
   it('chat() carries the cache breakdown into the IR usage', async () => {

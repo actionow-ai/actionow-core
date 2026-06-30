@@ -54,9 +54,7 @@ export async function createModel(db: DbOrTx, input: CreateModelInput): Promise<
       ...(input.visibility !== undefined ? { visibility: input.visibility } : {}),
       ...(input.inputPrice !== undefined ? { inputPrice: input.inputPrice } : {}),
       ...(input.outputPrice !== undefined ? { outputPrice: input.outputPrice } : {}),
-      ...(input.cachedInputPrice !== undefined
-        ? { cachedInputPrice: input.cachedInputPrice }
-        : {}),
+      ...(input.cachedInputPrice !== undefined ? { cachedInputPrice: input.cachedInputPrice } : {}),
       ...(input.rateLimit !== undefined ? { rateLimit: input.rateLimit } : {}),
       ...(input.fallbackModels !== undefined ? { fallbackModels: input.fallbackModels } : {}),
       ...(input.tags !== undefined ? { tags: input.tags } : {}),
