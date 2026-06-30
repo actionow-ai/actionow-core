@@ -20,6 +20,7 @@ export function NumberField({
   required,
   disabled,
   id,
+  onBlur,
 }: {
   label?: string;
   value: number;
@@ -33,6 +34,8 @@ export function NumberField({
   required?: boolean;
   disabled?: boolean;
   id?: string;
+  /** Fired when the input loses focus — for commit-on-blur (e.g. one write per edit). */
+  onBlur?: () => void;
 }) {
   const fieldId = useFieldId(id);
   return (
@@ -58,6 +61,7 @@ export function NumberField({
           const n = e.target.valueAsNumber;
           onChange(Number.isNaN(n) ? 0 : n);
         }}
+        onBlur={onBlur}
         className="field tabular"
         style={FIELD_INPUT_BASE}
       />

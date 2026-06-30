@@ -20,6 +20,7 @@ export function SelectField({
   hint,
   tooltip,
   inline,
+  disabled,
 }: {
   label: string;
   value: string;
@@ -31,6 +32,8 @@ export function SelectField({
   tooltip?: string;
   /** Lay the label to the LEFT of the select (compact filter/toolbar layout). */
   inline?: boolean;
+  /** Disable the trigger (e.g. while a commit-on-change mutation is in flight). */
+  disabled?: boolean;
 }) {
   const fieldId = useFieldId();
   const aria = fieldAria(fieldId, error, hint);
@@ -52,6 +55,7 @@ export function SelectField({
         ariaLabel={label}
         ariaInvalid={aria['aria-invalid']}
         ariaDescribedby={aria['aria-describedby']}
+        disabled={disabled}
       />
     </FormField>
   );

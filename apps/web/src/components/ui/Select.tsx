@@ -30,6 +30,7 @@ export function Select({
   ariaInvalid,
   ariaDescribedby,
   id,
+  disabled,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -39,6 +40,7 @@ export function Select({
   ariaInvalid?: boolean;
   ariaDescribedby?: string;
   id?: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<{ left: number; top: number; width: number } | null>(null);
@@ -163,6 +165,7 @@ export function Select({
         ref={btnRef}
         id={id}
         type="button"
+        disabled={disabled}
         aria-label={ariaLabel}
         aria-invalid={ariaInvalid}
         aria-describedby={ariaDescribedby}
@@ -181,7 +184,8 @@ export function Select({
           width: '100%',
           fontSize: 'var(--fs-sm)',
           color: selected !== undefined && selected.value !== '' ? 'var(--text)' : 'var(--muted)',
-          cursor: 'pointer',
+          cursor: disabled === true ? 'not-allowed' : 'pointer',
+          opacity: disabled === true ? 0.55 : undefined,
           textAlign: 'left',
           // surface/border/radius/min-height/focus-ring come from `.field`; keep
           // only the open-state border highlight as an inline override.
