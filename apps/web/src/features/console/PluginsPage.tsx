@@ -380,17 +380,23 @@ export function PluginEditor({
           </Button>
         </div>
         {testOut !== null && (
-          <pre
-            className="mono"
-            style={{
-              margin: 0,
-              fontSize: 'var(--fs-sm)',
-              whiteSpace: 'pre-wrap',
-              color: testOut.ok ? 'var(--text)' : 'var(--fail)',
-            }}
-          >
-            {testOut.ok ? JSON.stringify(testOut.result, null, 2) : testOut.error}
-          </pre>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
+            <StatusBadge
+              tone={testOut.ok ? 'ok' : 'fail'}
+              label={t(testOut.ok ? 'plugins.testOk' : 'plugins.testError')}
+            />
+            <pre
+              className="mono"
+              style={{
+                margin: 0,
+                fontSize: 'var(--fs-sm)',
+                whiteSpace: 'pre-wrap',
+                color: testOut.ok ? 'var(--text)' : 'var(--fail)',
+              }}
+            >
+              {testOut.ok ? JSON.stringify(testOut.result, null, 2) : testOut.error}
+            </pre>
+          </div>
         )}
       </div>
     </Drawer>

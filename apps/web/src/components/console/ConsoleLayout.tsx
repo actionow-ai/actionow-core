@@ -33,7 +33,7 @@ export function ConsoleLayout({
 }: { nav?: NavConfig; status?: ReactNode } = {}) {
   const { pathname } = useLocation();
   const { t } = useTranslation('console');
-  const isDesktop = useMediaQuery(BP.md);
+  const isDesktop = useMediaQuery(BP.lg);
   const [action, setAction] = useState<ReactNode>(null);
   const [filters, setFilters] = useState<ReactNode>(null);
   const [back, setBack] = useState<ConsoleBack | null>(null);

@@ -34,7 +34,7 @@ export function TopBar({
   const qc = useQueryClient();
   const fetching = useIsFetching();
   const reduced = useReducedMotion();
-  const isDesktop = useMediaQuery(BP.md);
+  const isDesktop = useMediaQuery(BP.lg);
 
   const { groups } = useNavConfig();
   const item = activeItem(pathname, groups);

@@ -217,8 +217,7 @@ export function OverviewPage() {
       cell: (r) => {
         if (r.requests === 0) return <span style={{ color: 'var(--faint)' }}>—</span>;
         const rate = ((r.requests - r.errors) / r.requests) * 100;
-        const tone =
-          rate >= 99 ? 'var(--ok)' : rate >= 95 ? 'var(--warn, var(--accent))' : 'var(--fail)';
+        const tone = rate >= 99 ? 'var(--ok)' : rate >= 95 ? 'var(--wait)' : 'var(--fail)';
         return (
           <span className="tabular" style={{ color: tone }}>
             {rate.toFixed(1)}%

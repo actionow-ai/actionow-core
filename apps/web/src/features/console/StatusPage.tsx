@@ -241,13 +241,19 @@ function Sparkline({ history }: { history: ModelHealthView['history'] }) {
   const { t } = useTranslation('console');
   if (history.length === 0) {
     return (
-      <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>
+      <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>
         {t('status.noHistory')}
       </div>
     );
   }
+  const okDays = history.filter((b) => b.total > 0 && b.errors === 0).length;
+  const errDays = history.filter((b) => b.errors > 0).length;
   return (
-    <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 28 }}>
+    <div
+      role="img"
+      aria-label={t('status.sparkAria', { days: history.length, ok: okDays, err: errDays })}
+      style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 28 }}
+    >
       {history.map((b) => {
         const errRate = b.total > 0 ? b.errors / b.total : 0;
         const tone =

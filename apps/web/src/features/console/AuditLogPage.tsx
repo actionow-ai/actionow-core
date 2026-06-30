@@ -220,7 +220,7 @@ export function AuditLogPage() {
               alignItems: 'center',
             }}
           >
-            <Pill tone="run">{t('auditLog.targetIdFilter', { id: SHORT(targetId) })} ✕</Pill>
+            <Pill tone="neutral">{t('auditLog.targetIdFilter', { id: SHORT(targetId) })} ✕</Pill>
           </button>
         )}
         <span

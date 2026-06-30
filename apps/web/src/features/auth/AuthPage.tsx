@@ -117,7 +117,7 @@ function BrandPanel() {
             fontSize: 'var(--fs-micro)',
             textTransform: 'uppercase',
             letterSpacing: '0.06em',
-            color: 'var(--faint)',
+            color: 'var(--muted)',
             marginBottom: 'var(--s-3)',
           }}
         >
@@ -150,7 +150,7 @@ export function AuthPage() {
   const { t } = useTranslation('console');
   const { login, register } = useAuth();
   const navigate = useNavigate();
-  const isDesktop = useMediaQuery(BP.wide);
+  const isDesktop = useMediaQuery(BP.lg);
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
