@@ -1,7 +1,4 @@
-import { CheckIcon, CopyIcon } from '@phosphor-icons/react';
-import { useState } from 'react';
-
-import { IconButton } from '../../../components/ui/IconButton';
+import { CopyButton } from '../../../components/ui/CopyButton';
 
 /**
  * Minimal assistant-content renderer (v1): splits triple-backtick fenced code
@@ -58,7 +55,7 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
         <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>
           {lang || 'code'}
         </span>
-        <CopyButton code={code} />
+        <CopyButton value={code} />
       </div>
       <pre
         className="mono"
@@ -74,25 +71,6 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
         {code}
       </pre>
     </div>
-  );
-}
-
-/** A small copy-to-clipboard button for a code block (icon-only, no value echo). */
-function CopyButton({ code }: { code: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <IconButton
-      icon={copied ? CheckIcon : CopyIcon}
-      label={copied ? 'copied' : 'copy'}
-      bare
-      size={14}
-      onClick={() => {
-        void navigator.clipboard.writeText(code).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1200);
-        });
-      }}
-    />
   );
 }
 

@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { Column } from '../../components/data/DataTable';
@@ -16,25 +16,8 @@ import { qk } from '../../lib/api/queryKeys';
 import type { AuditLogView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_VOLATILE } from '../../lib/query';
+import { useDebounced } from '../../lib/useDebounced';
 import { useUrlState } from '../../lib/useUrlState';
-
-/** A text input whose committed value is debounced (one query per pause, not per keystroke). */
-function useDebounced(
-  value: string,
-  commit: (v: string) => void,
-  delay = 350,
-): [string, (v: string) => void] {
-  const [local, setLocal] = useState(value);
-  useEffect(() => {
-    setLocal(value);
-  }, [value]);
-  useEffect(() => {
-    if (local === value) return;
-    const id = setTimeout(() => commit(local), delay);
-    return () => clearTimeout(id);
-  }, [local, value, commit, delay]);
-  return [local, setLocal];
-}
 
 const ACTOR_TONE: Record<string, PillTone> = {
   operator: 'run',
