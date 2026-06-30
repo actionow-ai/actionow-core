@@ -163,7 +163,9 @@ function SettingRow({ setting }: { setting: PlatformSettingView }) {
         )}
       </div>
 
-      <div style={{ width: 260, display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
+      <div
+        style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}
+      >
         {editor.kind === 'boolean' ? (
           <Toggle
             label={t('settings.value')}

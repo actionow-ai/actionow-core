@@ -78,6 +78,8 @@
   --track-label: 0.06em;
   /* layout + accent fx */
   --content-max: 1200px;
+  /* reading-column cap for route-based detail pages (forms/metadata) */
+  --content-detail: 960px;
   /* CTA shadow: a soft warm glow only — no dark contact layer (it read as a
      dark ring around the pill on the warm background). */
   --shadow-cta: 0 8px 20px rgba(255, 176, 10, 0.3);

@@ -121,7 +121,9 @@ export function DetailPage({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
       <DetailBackLink to={backTo} label={backLabel} />
-      {notFound ? <NotFound message={notFoundMessage} /> : children}
+      <div style={{ maxWidth: 'var(--content-detail)', width: '100%' }}>
+        {notFound ? <NotFound message={notFoundMessage} /> : children}
+      </div>
     </div>
   );
 }
