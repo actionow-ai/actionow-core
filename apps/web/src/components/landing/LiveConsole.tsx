@@ -170,7 +170,7 @@ export function LiveConsole() {
                 style={{
                   width: 34,
                   height: 34,
-                  borderRadius: 10,
+                  borderRadius: 'var(--r-sm)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',

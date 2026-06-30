@@ -15,7 +15,7 @@ function ScenarioTile({ k, GlyphIcon, index }: { k: string; GlyphIcon: Icon; ind
             display: 'inline-flex',
             width: 40,
             height: 40,
-            borderRadius: 11,
+            borderRadius: 'var(--r-sm)',
             alignItems: 'center',
             justifyContent: 'center',
             color: 'var(--ink)',

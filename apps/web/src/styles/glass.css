@@ -42,9 +42,9 @@
   );
   backdrop-filter: var(--lg-backdrop-subtle);
   -webkit-backdrop-filter: var(--lg-backdrop-subtle);
-  box-shadow:
-    inset 0 1px 0 var(--glass-hl),
-    var(--shadow-lift);
+  /* Only the specular edge — no resting drop shadow, so composing onto a card
+     (e.g. .entity-card) leaves the card's own hover-lift shadow free to read. */
+  box-shadow: inset 0 1px 0 var(--glass-hl);
 }
 
 /* Unified form-field surface + warm focus/error rings (no blue). Applies to all
@@ -410,12 +410,14 @@
   cursor: default;
 }
 
-/* Entity card — the console's primary unit (cards over tables). */
+/* Entity card — the console's primary unit (cards over tables). Background +
+   specular edge come from the composed `.liquid-glass--subtle` (subtle glass
+   tier, no backdrop blur — safe across long grids); this rule owns layout,
+   border, and the hover/selected shadow choreography. */
 .entity-card {
   position: relative;
   border-radius: var(--r-md);
   padding: var(--s-5);
-  background: var(--panel-bg);
   border: 1px solid var(--panel-bd);
   transition:
     transform 0.18s ease,
@@ -442,7 +444,7 @@
 .card-glyph {
   width: 38px;
   height: 38px;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -453,13 +455,13 @@
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--s-1h);
   font-size: var(--fs-caption);
   color: var(--muted);
   background: var(--hover-bg);
   border: 1px solid var(--panel-bd);
   border-radius: var(--r-pill);
-  padding: 4px 11px;
+  padding: var(--s-1) var(--s-3);
   white-space: nowrap;
 }
 
@@ -493,13 +495,13 @@
 .icon-pick-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--s-2);
 }
 .icon-pick {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 5px;
+  padding: var(--s-1);
   border-radius: var(--r-sm);
   background: transparent;
   border: 1px solid var(--panel-bd);
