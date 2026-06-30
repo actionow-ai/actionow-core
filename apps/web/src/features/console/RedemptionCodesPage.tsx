@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSetConsoleAction, useSetConsoleFilters } from '../../components/console/ConsoleChrome';
-import { CopyField } from '../../components/data/CopyField';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { LoadMore } from '../../components/data/LoadMore';
@@ -13,6 +12,7 @@ import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { NumberField } from '../../components/ui/NumberField';
+import { SecretRevealModal } from '../../components/ui/SecretRevealModal';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { mutationError } from '../../lib/api/mutationError';
@@ -192,27 +192,16 @@ export function RedemptionCodesPage() {
         />
       </Modal>
 
-      <Modal
+      <SecretRevealModal
         open={minted !== null}
         title={t('redemptionCodes.minted.title')}
         onClose={() => setMinted(null)}
-        footer={
-          <Button variant="cta" onClick={() => setMinted(null)}>
-            {t('redemptionCodes.minted.done')}
-          </Button>
-        }
-      >
-        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--run)' }}>
-          {t('redemptionCodes.minted.warn')}
-        </div>
-        {minted !== null && (
-          <CopyField
-            value={minted.join('\n')}
-            copyLabel={t('redemptionCodes.minted.copy')}
-            copiedLabel={t('redemptionCodes.minted.copied')}
-          />
-        )}
-      </Modal>
+        value={minted ?? []}
+        warn={t('redemptionCodes.minted.warn')}
+        copyLabel={t('redemptionCodes.minted.copy')}
+        copiedLabel={t('redemptionCodes.minted.copied')}
+        doneLabel={t('redemptionCodes.minted.done')}
+      />
     </div>
   );
 }
