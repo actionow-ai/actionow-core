@@ -1170,6 +1170,7 @@
   },
   "limitPlans": {
     "title": "Limit plans",
+    "section": { "basic": "Basics" },
     "new": "New plan",
     "editTitle": "Edit limit plan",
     "save": "Save plan",
@@ -1225,6 +1226,14 @@
   },
   "faultPolicies": {
     "title": "Fault tolerance",
+    "section": {
+      "basic": "Basics",
+      "retry": "Retry",
+      "timeouts": "Timeouts",
+      "triggers": "Triggers",
+      "breaker": "Circuit breaker",
+      "meta": "Metadata"
+    },
     "new": "New policy",
     "editTitle": "Edit fault policy",
     "save": "Save policy",

@@ -14,6 +14,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Drawer } from '../../components/ui/Drawer';
 import { NumberField } from '../../components/ui/NumberField';
 import { RowAction } from '../../components/ui/RowAction';
+import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
@@ -411,6 +412,7 @@ function FaultPolicyEditor({
         </Button>
       }
     >
+      <SectionHeader title={t('faultPolicies.section.basic')} />
       <TextField
         label={t('faultPolicies.form.name')}
         value={name}
@@ -432,6 +434,7 @@ function FaultPolicyEditor({
 
       {mode === 'retry' && (
         <>
+          <SectionHeader title={t('faultPolicies.section.retry')} />
           <NumberField
             label={t('faultPolicies.form.retryCount')}
             value={retryCount}
@@ -460,6 +463,7 @@ function FaultPolicyEditor({
         </>
       )}
 
+      <SectionHeader title={t('faultPolicies.section.timeouts')} />
       <NumberField
         label={t('faultPolicies.form.connectMs')}
         hint={t('faultPolicies.tip.timeoutZero')}
@@ -493,6 +497,7 @@ function FaultPolicyEditor({
         step={1000}
       />
 
+      <SectionHeader title={t('faultPolicies.section.triggers')} />
       <ChipsField
         label={t('faultPolicies.form.retryCodes')}
         tooltip={t('faultPolicies.tip.retryCodes')}
@@ -509,6 +514,7 @@ function FaultPolicyEditor({
         placeholder={t('faultPolicies.form.retryMessagesPlaceholder')}
       />
 
+      <SectionHeader title={t('faultPolicies.section.breaker')} />
       <Button variant="ghost" onClick={() => setShowBreaker((v) => !v)}>
         {showBreaker ? t('faultPolicies.breakerHide') : t('faultPolicies.breakerShow')}
       </Button>
@@ -593,6 +599,7 @@ function FaultPolicyEditor({
         </>
       )}
 
+      <SectionHeader title={t('faultPolicies.section.meta')} />
       <SelectField
         label={t('faultPolicies.form.status')}
         value={status}

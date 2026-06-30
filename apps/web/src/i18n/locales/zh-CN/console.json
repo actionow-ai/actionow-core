@@ -1170,6 +1170,7 @@
   },
   "limitPlans": {
     "title": "额度套餐",
+    "section": { "basic": "基本" },
     "new": "新建套餐",
     "editTitle": "编辑额度套餐",
     "save": "保存套餐",
@@ -1225,6 +1226,14 @@
   },
   "faultPolicies": {
     "title": "调用容错",
+    "section": {
+      "basic": "基本",
+      "retry": "重试",
+      "timeouts": "超时",
+      "triggers": "触发条件",
+      "breaker": "熔断",
+      "meta": "元数据"
+    },
     "new": "新建策略",
     "editTitle": "编辑容错策略",
     "save": "保存策略",
