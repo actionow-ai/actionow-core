@@ -12,6 +12,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Drawer } from '../../components/ui/Drawer';
 import { IconButton } from '../../components/ui/IconButton';
 import { NumberField } from '../../components/ui/NumberField';
+import { Panel } from '../../components/ui/Panel';
 import { Pill } from '../../components/ui/Pill';
 import { RowAction } from '../../components/ui/RowAction';
 import { SelectField } from '../../components/ui/SelectField';
@@ -411,17 +412,7 @@ function LimitPlanEditor({
         {rules.map((r) => {
           const accum = r.dimension !== 'rpm' && r.dimension !== 'concurrency';
           return (
-            <div
-              key={r.key}
-              className="panel"
-              style={{
-                borderRadius: 'var(--r-md)',
-                padding: 'var(--s-3)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 'var(--s-2)',
-              }}
-            >
+            <Panel key={r.key} padding="var(--s-3)" gap="var(--s-2)">
               <div style={{ display: 'flex', gap: 'var(--s-2)', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}>
                   <SelectField
@@ -487,7 +478,7 @@ function LimitPlanEditor({
                 value={r.modelScope}
                 onChange={(v) => patchRule(r.key, { modelScope: v })}
               />
-            </div>
+            </Panel>
           );
         })}
       </div>
