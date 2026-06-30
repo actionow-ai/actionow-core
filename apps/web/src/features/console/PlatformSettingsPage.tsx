@@ -146,7 +146,7 @@ function SettingRow({ setting }: { setting: PlatformSettingView }) {
           <code style={{ fontSize: 'var(--fs-sm)', fontWeight: 'var(--fw-medium)' }}>
             {setting.key}
           </code>
-          <Pill tone={isOverride ? 'run' : 'idle'}>
+          <Pill tone={isOverride ? 'neutral' : 'idle'}>
             {isOverride ? t('settings.source.db') : t('settings.source.env')}
           </Pill>
         </span>

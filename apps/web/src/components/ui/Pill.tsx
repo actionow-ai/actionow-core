@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-export type PillTone = 'ok' | 'run' | 'wait' | 'fail' | 'idle';
+export type PillTone = 'ok' | 'run' | 'wait' | 'fail' | 'idle' | 'neutral';
 
 const TONE_COLOR: Record<PillTone, string> = {
   ok: 'var(--ok)',
@@ -8,6 +8,8 @@ const TONE_COLOR: Record<PillTone, string> = {
   wait: 'var(--wait)',
   fail: 'var(--fail)',
   idle: 'var(--idle)',
+  // For non-status labels (route tags, filter chips) — a warm neutral, never the amber `run`.
+  neutral: 'var(--muted)',
 };
 
 /**

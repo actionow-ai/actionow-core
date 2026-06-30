@@ -143,7 +143,7 @@ export function RelayTracesPage() {
       // 染色: the canary tag the call was pinned to; a chip when set, a faint dash when not.
       cell: (r) =>
         r.route_tag !== null && r.route_tag !== '' ? (
-          <Pill tone="run">{r.route_tag}</Pill>
+          <Pill tone="neutral">{r.route_tag}</Pill>
         ) : (
           <span style={{ color: 'var(--faint)' }}>—</span>
         ),
