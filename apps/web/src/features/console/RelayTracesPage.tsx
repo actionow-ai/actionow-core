@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { httpTone, TraceViewer } from '../../components/console/TraceViewer';
@@ -19,6 +19,7 @@ import { qk } from '../../lib/api/queryKeys';
 import type { RelayTraceQuery, RelayTraceView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_VOLATILE } from '../../lib/query';
+import { useDebounced } from '../../lib/useDebounced';
 import { useUrlState } from '../../lib/useUrlState';
 
 /** Inline "起/止 + control" wrapper for the date-range filters (single label, no dup). */
@@ -42,28 +43,6 @@ function InlineField({ id, label, children }: { id: string; label: string; child
       <div style={{ width: 150 }}>{children}</div>
     </span>
   );
-}
-
-/**
- * A text input whose committed value is debounced: typing updates local state and
- * only settles to the URL/query after `delay`, so a 36-char UUID fires one query,
- * not one per keystroke. External changes (deep links / clear) sync back in.
- */
-function useDebounced(
-  value: string,
-  commit: (v: string) => void,
-  delay = 350,
-): [string, (v: string) => void] {
-  const [local, setLocal] = useState(value);
-  useEffect(() => {
-    setLocal(value);
-  }, [value]);
-  useEffect(() => {
-    if (local === value) return;
-    const id = setTimeout(() => commit(local), delay);
-    return () => clearTimeout(id);
-  }, [local, value, commit, delay]);
-  return [local, setLocal];
 }
 
 export function RelayTracesPage() {

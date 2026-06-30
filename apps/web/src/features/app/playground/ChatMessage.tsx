@@ -3,14 +3,13 @@ import {
   BrainIcon,
   CaretDownIcon,
   CaretRightIcon,
-  CheckIcon,
-  CopyIcon,
   SparkleIcon,
   WarningCircleIcon,
 } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { CopyButton } from '../../../components/ui/CopyButton';
 import { IconButton } from '../../../components/ui/IconButton';
 import { ChatContent } from './ChatContent';
 import type { ChatRow } from './types';
@@ -111,7 +110,7 @@ export function ChatMessage({ row, onRegenerate }: { row: ChatRow; onRegenerate?
               </>
             )}
             <span style={{ display: 'inline-flex', gap: 'var(--s-1)', marginLeft: 'auto' }}>
-              <CopyBtn text={row.content} />
+              <CopyButton value={row.content} />
               {onRegenerate !== undefined && (
                 <IconButton
                   icon={ArrowsClockwiseIcon}
@@ -213,24 +212,5 @@ function Reasoning({ text }: { text: string }) {
         </div>
       )}
     </div>
-  );
-}
-
-function CopyBtn({ text }: { text: string }) {
-  const { t } = useTranslation('console');
-  const [copied, setCopied] = useState(false);
-  return (
-    <IconButton
-      icon={copied ? CheckIcon : CopyIcon}
-      label={copied ? t('common.copied') : t('common.copy')}
-      bare
-      size={14}
-      onClick={() => {
-        void navigator.clipboard.writeText(text).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1200);
-        });
-      }}
-    />
   );
 }
