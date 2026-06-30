@@ -512,6 +512,7 @@ export function ResourceDetailPane({ id }: { id: string }) {
               label={t('resources.actions.setStatus')}
               value={resource.status === 'active' ? 'active' : 'disabled'}
               onChange={(v) => setResourceStatus.mutate(v as ChannelStatus)}
+              disabled={setResourceStatus.isPending}
               options={toOptions(CHANNEL_STATUSES, t)}
             />
           </div>

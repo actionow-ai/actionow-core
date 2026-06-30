@@ -174,6 +174,7 @@ export function SubjectDetailPanel({
           tooltip={t('tenants.detail.users.detail.planTip')}
           value={subject.limit_plan_id ?? ''}
           onChange={(v) => bindPlan.mutate(v === '' ? null : v)}
+          disabled={bindPlan.isPending}
           options={planOptions}
           placeholder={t('tenants.detail.plan.none')}
         />

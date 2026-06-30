@@ -551,6 +551,7 @@ function TenantDetailBody({
           tooltip={t('tenants.detail.plan.tip')}
           value={planId ?? ''}
           onChange={(v) => bindPlan.mutate(v === '' ? null : v)}
+          disabled={bindPlan.isPending}
           options={planOptions}
           placeholder={t('tenants.detail.plan.none')}
         />

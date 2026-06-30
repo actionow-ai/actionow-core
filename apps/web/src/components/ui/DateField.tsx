@@ -22,6 +22,7 @@ export function DateField({
   max,
   ariaLabel,
   placeholder,
+  id,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -29,6 +30,8 @@ export function DateField({
   max?: string;
   ariaLabel?: string;
   placeholder?: string;
+  /** Trigger id — lets a `FormField` label's `htmlFor` point at this control. */
+  id?: string;
 }) {
   const { i18n } = useTranslation();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -105,6 +108,7 @@ export function DateField({
     <>
       <button
         ref={triggerRef}
+        id={id}
         type="button"
         aria-label={ariaLabel}
         aria-haspopup="dialog"
