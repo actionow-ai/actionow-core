@@ -12,6 +12,7 @@ import {
   createFaultPolicySchema,
   createLimitPlanRequestSchema,
   createModelSchema,
+  createModelSpecSchema,
   createModifierSchema,
   createOAuthSessionSchema,
   createOfficialPriceSchema,
@@ -47,6 +48,7 @@ import {
   updateFaultPolicySchema,
   updateLimitPlanRequestSchema,
   updateModelSchema,
+  updateModelSpecSchema,
   updateModifierSchema,
   updateOfficialPriceSchema,
   updatePluginRequestSchema,
@@ -94,6 +96,7 @@ export {
   createFaultPolicySchema,
   createLimitPlanRequestSchema,
   createModelSchema,
+  createModelSpecSchema,
   createModifierSchema,
   createOAuthSessionSchema,
   createOfficialPriceSchema,
@@ -129,6 +132,7 @@ export {
   updateFaultPolicySchema,
   updateLimitPlanRequestSchema,
   updateModelSchema,
+  updateModelSpecSchema,
   updateModifierSchema,
   updateOfficialPriceSchema,
   updatePluginRequestSchema,
@@ -180,6 +184,8 @@ export type DifyImportDto = z.infer<typeof difyImportSchema>;
 export type UpdateDifyDto = z.infer<typeof updateDifySchema>;
 export type CreateModelDto = z.infer<typeof createModelSchema>;
 export type UpdateModelDto = z.infer<typeof updateModelSchema>;
+export type CreateModelSpecDto = z.infer<typeof createModelSpecSchema>;
+export type UpdateModelSpecDto = z.infer<typeof updateModelSpecSchema>;
 export type GrantModelDto = z.infer<typeof grantModelSchema>;
 export type ModelTestDto = z.infer<typeof modelTestRequestSchema>;
 export type CreateFaultPolicyDto = z.infer<typeof createFaultPolicySchema>;
@@ -271,3 +277,15 @@ export const officialPricesQuerySchema = z.object({
   cursor: z.string().optional(),
 });
 export type OfficialPricesQueryDto = z.infer<typeof officialPricesQuerySchema>;
+
+/**
+ * `GET /admin/model-specs` — list the model spec catalog (规格库). Optional
+ * `vendor` / `type` filters; `limit`/`cursor` are the keyset paging params.
+ */
+export const modelSpecsQuerySchema = z.object({
+  vendor: z.string().min(1).optional(),
+  type: z.string().min(1).optional(),
+  limit: z.coerce.number().int().positive().optional(),
+  cursor: z.string().optional(),
+});
+export type ModelSpecsQueryDto = z.infer<typeof modelSpecsQuerySchema>;

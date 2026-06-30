@@ -39,6 +39,7 @@ import {
   createLimitPlan,
   createModel,
   type CreateModelInput,
+  createModelSpec,
   createModifier,
   createOAuthSession,
   type CreateOAuthSessionInput,
@@ -68,6 +69,7 @@ import {
   getLimitPlanById,
   getModelById,
   getModelByName,
+  getModelSpecById,
   getModifierById,
   getOfficialPriceById,
   getPluginById,
@@ -114,6 +116,8 @@ import {
   listModelHealth,
   listModelHealthHistory,
   listModels,
+  listModelSpecs,
+  type ListModelSpecsFilter,
   listModifiers,
   listOAuthSessions,
   listOfficialPrices,
@@ -135,6 +139,7 @@ import {
   type ModelHealthBucket,
   type ModelHealthRow,
   type ModelRow,
+  type ModelSpecRow,
   type ModifierRow,
   normalizeModelSlug,
   type OAuthSessionListRow,
@@ -170,6 +175,7 @@ import {
   softDeleteFaultPolicy,
   softDeleteLimitPlan,
   softDeleteModel,
+  softDeleteModelSpec,
   softDeleteModifier,
   softDeleteOAuthSession,
   softDeleteOfficialPrice,
@@ -192,6 +198,8 @@ import {
   type UpdateFaultPolicyInput,
   updateLimitPlan,
   updateModel,
+  updateModelSpec,
+  type UpdateModelSpecInput,
   updateModifier,
   updateOAuthSessionMeta,
   updateOfficialPrice,
@@ -241,6 +249,7 @@ import type {
   CreateFaultPolicyDto,
   CreateLimitPlanDto,
   CreateModelDto,
+  CreateModelSpecDto,
   CreateModifierDto,
   CreateOAuthSessionDto,
   CreateOfficialPriceDto,
@@ -267,6 +276,7 @@ import type {
   UpdateFaultPolicyDto,
   UpdateLimitPlanDto,
   UpdateModelDto,
+  UpdateModelSpecDto,
   UpdateModifierDto,
   UpdateOfficialPriceDto,
   UpdatePricebookDto,
@@ -2211,6 +2221,109 @@ export class AdminService {
     const deleted = await softDeleteOfficialPrice(this.db, id);
     if (deleted === undefined) {
       throw engineNotFound(`official price ${id} not found`);
+    }
+    return { id: deleted };
+  }
+
+  // ----- model spec catalog (规格库) -----
+
+  /** Add a row to the model spec catalog; a duplicate live `(vendor, model_id)` → 400. */
+  async createModelSpec(dto: CreateModelSpecDto): Promise<ModelSpecRow> {
+    try {
+      return await createModelSpec(this.db, {
+        vendor: dto.vendor,
+        modelId: dto.modelId,
+        type: dto.type,
+        ...(dto.displayName !== undefined ? { displayName: dto.displayName } : {}),
+        ...(dto.family !== undefined ? { family: dto.family } : {}),
+        ...(dto.inputModalities !== undefined ? { inputModalities: dto.inputModalities } : {}),
+        ...(dto.outputModalities !== undefined ? { outputModalities: dto.outputModalities } : {}),
+        ...(dto.mediaOptions !== undefined ? { mediaOptions: dto.mediaOptions } : {}),
+        ...(dto.keyParams !== undefined ? { keyParams: dto.keyParams } : {}),
+        ...(dto.sources !== undefined ? { sources: dto.sources } : {}),
+        ...(dto.status !== undefined ? { status: dto.status } : {}),
+        ...(dto.contextWindow !== undefined ? { contextWindow: dto.contextWindow } : {}),
+        ...(dto.maxOutput !== undefined ? { maxOutput: dto.maxOutput } : {}),
+        ...(dto.intro !== undefined ? { intro: dto.intro } : {}),
+        ...(dto.confidence !== undefined ? { confidence: dto.confidence } : {}),
+        ...(dto.billingEligible !== undefined ? { billingEligible: dto.billingEligible } : {}),
+        ...(dto.asOf !== undefined ? { asOf: dto.asOf } : {}),
+        ...(dto.sourceUrl !== undefined ? { sourceUrl: dto.sourceUrl } : {}),
+        ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+      });
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw engineInvalidInput(
+          `model spec for '${dto.vendor}/${dto.modelId}' already exists`,
+        );
+      }
+      throw err;
+    }
+  }
+
+  /** List the model spec catalog (规格库), optionally narrowed by vendor / type. */
+  listModelSpecs(
+    filter: { vendor?: string | undefined; type?: string | undefined },
+    page: PageParams,
+  ): Promise<KeysetResult<ModelSpecRow>> {
+    const f: ListModelSpecsFilter = {
+      ...(filter.vendor !== undefined ? { vendor: filter.vendor } : {}),
+      ...(filter.type !== undefined ? { type: filter.type } : {}),
+    };
+    return listModelSpecs(this.db, f, page);
+  }
+
+  /** Fetch one catalog row by id, or `resource_not_found` (404) when absent/soft-deleted. */
+  async getModelSpec(id: string): Promise<ModelSpecRow> {
+    const row = await getModelSpecById(this.db, id);
+    if (row === undefined) {
+      throw engineNotFound(`model spec ${id} not found`);
+    }
+    return row;
+  }
+
+  /** Patch a catalog row by id; re-keying to a live `(vendor, model_id)` collision → 400. */
+  async updateModelSpec(id: string, dto: UpdateModelSpecDto): Promise<ModelSpecRow> {
+    const patch: UpdateModelSpecInput = {
+      ...(dto.vendor !== undefined ? { vendor: dto.vendor } : {}),
+      ...(dto.modelId !== undefined ? { modelId: dto.modelId } : {}),
+      ...(dto.type !== undefined ? { type: dto.type } : {}),
+      ...(dto.displayName !== undefined ? { displayName: dto.displayName } : {}),
+      ...(dto.family !== undefined ? { family: dto.family } : {}),
+      ...(dto.inputModalities !== undefined ? { inputModalities: dto.inputModalities } : {}),
+      ...(dto.outputModalities !== undefined ? { outputModalities: dto.outputModalities } : {}),
+      ...(dto.mediaOptions !== undefined ? { mediaOptions: dto.mediaOptions } : {}),
+      ...(dto.keyParams !== undefined ? { keyParams: dto.keyParams } : {}),
+      ...(dto.sources !== undefined ? { sources: dto.sources } : {}),
+      ...(dto.status !== undefined ? { status: dto.status } : {}),
+      ...(dto.contextWindow !== undefined ? { contextWindow: dto.contextWindow } : {}),
+      ...(dto.maxOutput !== undefined ? { maxOutput: dto.maxOutput } : {}),
+      ...(dto.intro !== undefined ? { intro: dto.intro } : {}),
+      ...(dto.confidence !== undefined ? { confidence: dto.confidence } : {}),
+      ...(dto.billingEligible !== undefined ? { billingEligible: dto.billingEligible } : {}),
+      ...(dto.asOf !== undefined ? { asOf: dto.asOf } : {}),
+      ...(dto.sourceUrl !== undefined ? { sourceUrl: dto.sourceUrl } : {}),
+      ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+    };
+    try {
+      const row = await updateModelSpec(this.db, id, patch);
+      if (row === undefined) {
+        throw engineNotFound(`model spec ${id} not found`);
+      }
+      return row;
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw engineInvalidInput('another live model spec already uses that (vendor, model_id)');
+      }
+      throw err;
+    }
+  }
+
+  /** Soft-delete a catalog row by id (idempotent); unknown/already-deleted → 404. */
+  async deleteModelSpec(id: string): Promise<{ id: string }> {
+    const deleted = await softDeleteModelSpec(this.db, id);
+    if (deleted === undefined) {
+      throw engineNotFound(`model spec ${id} not found`);
     }
     return { id: deleted };
   }

@@ -42,6 +42,8 @@ import {
   modelGrantViewSchema,
   type ModelHealthView,
   modelHealthViewSchema,
+  type ModelSpecView,
+  modelSpecViewSchema,
   type ModelTestResult,
   type ModelView,
   modelViewSchema,
@@ -109,6 +111,7 @@ import type {
   ModelHealthBucket,
   ModelHealthRow,
   ModelRow,
+  ModelSpecRow,
   ModifierRow,
   OAuthSessionListRow,
   OfficialModelPriceRow,
@@ -195,6 +198,8 @@ import {
   createLimitPlanRequestSchema,
   type CreateModelDto,
   createModelSchema,
+  type CreateModelSpecDto,
+  createModelSpecSchema,
   type CreateModifierDto,
   createModifierSchema,
   type CreateOAuthSessionDto,
@@ -227,6 +232,8 @@ import {
   grantModelSchema,
   type LatestAuditRequestDto,
   latestAuditRequestSchema,
+  type ModelSpecsQueryDto,
+  modelSpecsQuerySchema,
   type ModelTestDto,
   modelTestRequestSchema,
   type OfficialPricesQueryDto,
@@ -267,6 +274,8 @@ import {
   updateLimitPlanRequestSchema,
   type UpdateModelDto,
   updateModelSchema,
+  type UpdateModelSpecDto,
+  updateModelSpecSchema,
   type UpdateModifierDto,
   updateModifierSchema,
   type UpdateOfficialPriceDto,
@@ -1746,6 +1755,76 @@ export class AdminController {
     await this.admin.deleteOfficialPrice(id);
   }
 
+  // ----- model spec catalog (规格库) -----
+
+  @Post('model-specs')
+  @HttpCode(201)
+  @Idempotent()
+  @ApiOperation({ summary: 'Add a model spec to the catalog (规格库); (vendor,model_id) unique' })
+  @Audit({
+    action: 'model_spec.create',
+    target: 'model_spec',
+    resolve: ({ result }) => {
+      const r = result as { id?: string };
+      return { targetId: r.id ?? null };
+    },
+  })
+  async createModelSpec(
+    @Body(new ZodBody(createModelSpecSchema)) dto: CreateModelSpecDto,
+  ): Promise<ModelSpecView> {
+    return toModelSpecView(await this.admin.createModelSpec(dto));
+  }
+
+  @Get('model-specs')
+  @ApiOperation({ summary: 'List the model spec catalog (规格库; optional ?vendor=&type=, paginated)' })
+  async listModelSpecs(
+    @Query() raw: Record<string, string>,
+  ): Promise<PageEnvelope<ModelSpecView>> {
+    const q = parseModelSpecsQuery(raw);
+    const filter = {
+      ...(q.vendor !== undefined ? { vendor: q.vendor } : {}),
+      ...(q.type !== undefined ? { type: q.type } : {}),
+    };
+    const page = toPageParams({
+      ...(q.limit !== undefined ? { limit: String(q.limit) } : {}),
+      ...(q.cursor !== undefined ? { cursor: q.cursor } : {}),
+    });
+    const result = await this.admin.listModelSpecs(filter, page);
+    return mapPageEnvelope(result, (r) => r.id, toModelSpecView);
+  }
+
+  @Get('model-specs/:id')
+  @ApiOperation({ summary: 'Get one model spec by id or 404' })
+  async getModelSpec(@Param('id') id: string): Promise<ModelSpecView> {
+    return toModelSpecView(await this.admin.getModelSpec(id));
+  }
+
+  @Patch('model-specs/:id')
+  @ApiOperation({ summary: 'Update a model spec (metadata; can re-key vendor/model_id/type)' })
+  @Audit({
+    action: 'model_spec.update',
+    target: 'model_spec',
+    resolve: ({ params }) => ({ targetId: params.id ?? null }),
+  })
+  async updateModelSpec(
+    @Param('id') id: string,
+    @Body(new ZodBody(updateModelSpecSchema)) dto: UpdateModelSpecDto,
+  ): Promise<ModelSpecView> {
+    return toModelSpecView(await this.admin.updateModelSpec(id, dto));
+  }
+
+  @Delete('model-specs/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Soft-delete a model spec (frees the (vendor,model_id) pair)' })
+  @Audit({
+    action: 'model_spec.delete',
+    target: 'model_spec',
+    resolve: ({ params }) => ({ targetId: params.id ?? null }),
+  })
+  async deleteModelSpec(@Param('id') id: string): Promise<void> {
+    await this.admin.deleteModelSpec(id);
+  }
+
   // ----- proxies (代理) -----
 
   @Post('proxies')
@@ -2133,6 +2212,18 @@ function parseRedemptionCodesQuery(raw: Record<string, string>): RedemptionCodes
  */
 function parseOfficialPricesQuery(raw: Record<string, string>): OfficialPricesQueryDto {
   const result = officialPricesQuerySchema.safeParse(raw);
+  if (!result.success) {
+    const first = result.error.issues[0];
+    const path = first?.path.join('.') ?? '';
+    const detail = first === undefined ? 'invalid query' : `${path}: ${first.message}`;
+    throw engineInvalidInput(detail);
+  }
+  return result.data;
+}
+
+/** Validate the model-specs query (same 400-on-failure contract as the official-prices one). */
+function parseModelSpecsQuery(raw: Record<string, string>): ModelSpecsQueryDto {
+  const result = modelSpecsQuerySchema.safeParse(raw);
   if (!result.success) {
     const first = result.error.issues[0];
     const path = first?.path.join('.') ?? '';
@@ -2613,6 +2704,33 @@ function toOfficialPriceView(row: OfficialModelPriceRow): OfficialPriceView {
     effective_at: row.effectiveAt === null ? null : row.effectiveAt.toISOString(),
     notes: row.notes,
     updated_by: row.updatedBy,
+    created_at: row.createdAt.toISOString(),
+    updated_at: row.updatedAt.toISOString(),
+  });
+}
+
+function toModelSpecView(row: ModelSpecRow): ModelSpecView {
+  return modelSpecViewSchema.parse({
+    id: row.id,
+    vendor: row.vendor,
+    model_id: row.modelId,
+    display_name: row.displayName,
+    family: row.family,
+    type: row.type,
+    input_modalities: row.inputModalities,
+    output_modalities: row.outputModalities,
+    media_options: row.mediaOptions ?? null,
+    key_params: row.keyParams,
+    sources: row.sources,
+    status: row.status,
+    context_window: row.contextWindow,
+    max_output: row.maxOutput,
+    intro: row.intro,
+    confidence: row.confidence,
+    billing_eligible: row.billingEligible,
+    as_of: row.asOf,
+    source_url: row.sourceUrl,
+    notes: row.notes,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
   });

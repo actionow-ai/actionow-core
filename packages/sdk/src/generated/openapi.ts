@@ -4289,6 +4289,165 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/model-specs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the official model spec catalog (规格库) */
+        get: {
+            parameters: {
+                query?: {
+                    cursor?: string;
+                    limit?: number | null;
+                    vendor?: string;
+                    type?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List the official model spec catalog (规格库) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["ModelSpecView"][];
+                            next_cursor: string | null;
+                            has_more: boolean;
+                        };
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Add a model spec to the catalog */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateModelSpecBody"];
+                };
+            };
+            responses: {
+                /** @description Add a model spec to the catalog */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ModelSpecView"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/models/{name}/grants": {
         parameters: {
             query?: never;
@@ -5593,6 +5752,225 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ModelView"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/admin/model-specs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one model spec */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Get one model spec */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ModelSpecView"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Soft-delete a model spec */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Soft-delete a model spec */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Update a model spec */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateModelSpecBody"];
+                };
+            };
+            responses: {
+                /** @description Update a model spec */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ModelSpecView"];
                     };
                 };
                 /** @description Invalid input */
@@ -11893,6 +12271,30 @@ export interface components {
             status: string;
             created_at: string;
         };
+        ModelSpecView: {
+            id: string;
+            vendor: string;
+            model_id: string;
+            display_name: string | null;
+            family: string | null;
+            type: string;
+            input_modalities: string[] | null;
+            output_modalities: string[] | null;
+            media_options?: unknown;
+            key_params: string[] | null;
+            sources: string[] | null;
+            status: string | null;
+            context_window: string | null;
+            max_output: string | null;
+            intro: string | null;
+            confidence: string;
+            billing_eligible: boolean;
+            as_of: string | null;
+            source_url: string | null;
+            notes: string | null;
+            created_at: string;
+            updated_at: string;
+        };
         ModelGrantView: {
             id: string;
             model_id: string;
@@ -12896,6 +13298,54 @@ export interface components {
             icon?: string | null;
             /** @enum {string} */
             status?: "active" | "disabled";
+        };
+        CreateModelSpecBody: {
+            vendor: string;
+            modelId: string;
+            /** @enum {string} */
+            type: "text" | "image" | "video" | "audio" | "multimodal";
+            displayName?: string;
+            family?: string;
+            inputModalities?: string[];
+            outputModalities?: string[];
+            mediaOptions?: unknown;
+            keyParams?: string[];
+            sources?: string[];
+            status?: string;
+            contextWindow?: string;
+            maxOutput?: string;
+            intro?: string;
+            /** @enum {string} */
+            confidence?: "firstparty" | "secondary" | "reconstructed";
+            billingEligible?: boolean;
+            asOf?: string;
+            /** Format: uri */
+            sourceUrl?: string;
+            notes?: string;
+        };
+        UpdateModelSpecBody: {
+            vendor?: string;
+            modelId?: string;
+            /** @enum {string} */
+            type?: "text" | "image" | "video" | "audio" | "multimodal";
+            displayName?: string | null;
+            family?: string | null;
+            inputModalities?: string[] | null;
+            outputModalities?: string[] | null;
+            mediaOptions?: unknown;
+            keyParams?: string[] | null;
+            sources?: string[] | null;
+            status?: string | null;
+            contextWindow?: string | null;
+            maxOutput?: string | null;
+            intro?: string | null;
+            /** @enum {string} */
+            confidence?: "firstparty" | "secondary" | "reconstructed";
+            billingEligible?: boolean;
+            asOf?: string | null;
+            /** Format: uri */
+            sourceUrl?: string | null;
+            notes?: string | null;
         };
         GrantModelBody: {
             /** Format: uuid */

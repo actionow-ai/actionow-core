@@ -157,3 +157,38 @@ export const difyBindingViewSchema = z.object({
   created_at: z.string(),
 });
 export type DifyBindingView = z.infer<typeof difyBindingViewSchema>;
+
+/**
+ * One row of the official **model spec catalog** (规格库; `GET /admin/model-specs`),
+ * the admin-maintained reference description of an upstream model — what it IS
+ * (modalities/context/key params/intro/sources), independent of channel wiring.
+ * `confidence` (firstparty|secondary|reconstructed) + `billing_eligible` gate
+ * which rows become a billable cost basis (mirrored into `official_model_price`).
+ * Pure catalog metadata — carries NO prices, so no money fields here.
+ */
+export const modelSpecViewSchema = z.object({
+  id: z.string(),
+  vendor: z.string(),
+  model_id: z.string(),
+  display_name: z.string().nullable(),
+  family: z.string().nullable(),
+  type: z.string(),
+  input_modalities: z.array(z.string()).nullable(),
+  output_modalities: z.array(z.string()).nullable(),
+  /** Free-form media option descriptors (resolutions/durations/modes); shape varies by vendor. */
+  media_options: z.unknown().nullable(),
+  key_params: z.array(z.string()).nullable(),
+  sources: z.array(z.string()).nullable(),
+  status: z.string().nullable(),
+  context_window: z.string().nullable(),
+  max_output: z.string().nullable(),
+  intro: z.string().nullable(),
+  confidence: z.string(),
+  billing_eligible: z.boolean(),
+  as_of: z.string().nullable(),
+  source_url: z.string().nullable(),
+  notes: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+export type ModelSpecView = z.infer<typeof modelSpecViewSchema>;
