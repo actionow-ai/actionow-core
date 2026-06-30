@@ -196,7 +196,9 @@
     "media": {
       "kindLabel": "类型",
       "allKinds": "全部素材",
+      "clearFilter": "全部",
       "empty": "暂无素材——生成的图片和视频会显示在这里。",
+      "emptyKind": "暂无{{kind}}素材。",
       "noPreview": "无预览",
       "copyUrl": "复制链接",
       "copied": "已复制",

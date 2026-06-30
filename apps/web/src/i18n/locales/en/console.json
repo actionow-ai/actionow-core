@@ -196,7 +196,9 @@
     "media": {
       "kindLabel": "Kind",
       "allKinds": "All media",
+      "clearFilter": "All",
       "empty": "No media yet — generated images and videos will appear here.",
+      "emptyKind": "No {{kind}} media yet.",
       "noPreview": "No preview",
       "copyUrl": "Copy URL",
       "copied": "Copied",
