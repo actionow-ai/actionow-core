@@ -196,7 +196,9 @@
     "media": {
       "kindLabel": "类型",
       "allKinds": "全部素材",
+      "clearFilter": "全部",
       "empty": "暂无素材——生成的图片和视频会显示在这里。",
+      "emptyKind": "暂无{{kind}}素材。",
       "noPreview": "无预览",
       "copyUrl": "复制链接",
       "copied": "已复制",
@@ -1168,6 +1170,7 @@
   },
   "limitPlans": {
     "title": "额度套餐",
+    "section": { "basic": "基本" },
     "new": "新建套餐",
     "editTitle": "编辑额度套餐",
     "save": "保存套餐",
@@ -1223,6 +1226,14 @@
   },
   "faultPolicies": {
     "title": "调用容错",
+    "section": {
+      "basic": "基本",
+      "retry": "重试",
+      "timeouts": "超时",
+      "triggers": "触发条件",
+      "breaker": "熔断",
+      "meta": "元数据"
+    },
     "new": "新建策略",
     "editTitle": "编辑容错策略",
     "save": "保存策略",
@@ -1592,6 +1603,7 @@
       "metered": "按量计费"
     },
     "report": "兼容性报告",
+    "imported": "导入完成",
     "deleted": "绑定已删除",
     "updated": "绑定已更新",
     "editTitle": "编辑 Dify 绑定",

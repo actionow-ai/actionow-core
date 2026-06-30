@@ -15,6 +15,7 @@ import { IconButton } from '../../components/ui/IconButton';
 import { NumberField } from '../../components/ui/NumberField';
 import { Pill } from '../../components/ui/Pill';
 import { RowAction } from '../../components/ui/RowAction';
+import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
@@ -359,6 +360,7 @@ function LimitPlanEditor({
         </Button>
       }
     >
+      <SectionHeader title={t('limitPlans.section.basic')} />
       <TextField
         label={t('limitPlans.form.name')}
         value={name}
@@ -382,14 +384,14 @@ function LimitPlanEditor({
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 'var(--fw-medium)' }}>
-            {t('limitPlans.form.rules')}
-          </span>
-          <Button variant="ghost" size="sm" onClick={() => setRules((rs) => [...rs, newRule()])}>
-            <PlusIcon size={14} weight="bold" /> {t('limitPlans.form.addRule')}
-          </Button>
-        </div>
+        <SectionHeader
+          title={t('limitPlans.form.rules')}
+          action={
+            <Button variant="ghost" size="sm" onClick={() => setRules((rs) => [...rs, newRule()])}>
+              <PlusIcon size={14} weight="bold" /> {t('limitPlans.form.addRule')}
+            </Button>
+          }
+        />
 
         {rules.length === 0 && (
           <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--faint)' }}>

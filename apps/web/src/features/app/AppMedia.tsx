@@ -137,18 +137,25 @@ export function AppMedia() {
 
   useSetConsoleFilters(
     () => (
-      <div style={{ width: 160 }}>
-        <SelectField
-          label={t('app.media.kindLabel')}
-          value={kind}
-          onChange={setKind}
-          options={[
-            { value: 'image', label: t('app.media.kind.image') },
-            { value: 'video', label: t('app.media.kind.video') },
-            { value: 'audio', label: t('app.media.kind.audio') },
-          ]}
-          placeholder={t('app.media.allKinds')}
-        />
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--s-2)' }}>
+        <div style={{ width: 160 }}>
+          <SelectField
+            label={t('app.media.kindLabel')}
+            value={kind}
+            onChange={setKind}
+            options={[
+              { value: 'image', label: t('app.media.kind.image') },
+              { value: 'video', label: t('app.media.kind.video') },
+              { value: 'audio', label: t('app.media.kind.audio') },
+            ]}
+            placeholder={t('app.media.allKinds')}
+          />
+        </div>
+        {filter && (
+          <Button variant="ghost" size="sm" onClick={() => setKind('')}>
+            {t('app.media.clearFilter')}
+          </Button>
+        )}
       </div>
     ),
     [t, kind, setKind],
@@ -167,7 +174,11 @@ export function AppMedia() {
         loading={files.isLoading}
         error={files.isError}
         onRetry={() => void files.refetch()}
-        empty={t('app.media.empty')}
+        empty={
+          filter
+            ? t('app.media.emptyKind', { kind: t(`app.media.kind.${filter}`) })
+            : t('app.media.empty')
+        }
         renderCard={(f) => {
           const ct = f.content_type;
           const isVideo = ct?.startsWith('video/') ?? false;
@@ -201,18 +212,19 @@ export function AppMedia() {
                 playsInline
                 preload="metadata"
                 aria-label={kindLabel}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               />
             ) : isAudio ? (
               <div
                 style={{
+                  width: '100%',
+                  height: '100%',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: 'var(--s-3)',
-                  width: '100%',
-                  padding: 'var(--s-4)',
+                  gap: 'var(--s-2)',
+                  padding: 'var(--s-3)',
                 }}
               >
                 <MusicNotesIcon
@@ -226,7 +238,7 @@ export function AppMedia() {
                   controls
                   preload="none"
                   aria-label={kindLabel}
-                  style={{ width: '100%' }}
+                  style={{ width: '100%', marginTop: 'auto' }}
                 />
               </div>
             ) : (
@@ -234,7 +246,7 @@ export function AppMedia() {
                 src={f.url}
                 alt={kindLabel}
                 loading="lazy"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               />
             );
 

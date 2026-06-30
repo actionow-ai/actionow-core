@@ -196,7 +196,9 @@
     "media": {
       "kindLabel": "Kind",
       "allKinds": "All media",
+      "clearFilter": "All",
       "empty": "No media yet — generated images and videos will appear here.",
+      "emptyKind": "No {{kind}} media yet.",
       "noPreview": "No preview",
       "copyUrl": "Copy URL",
       "copied": "Copied",
@@ -1168,6 +1170,7 @@
   },
   "limitPlans": {
     "title": "Limit plans",
+    "section": { "basic": "Basics" },
     "new": "New plan",
     "editTitle": "Edit limit plan",
     "save": "Save plan",
@@ -1223,6 +1226,14 @@
   },
   "faultPolicies": {
     "title": "Fault tolerance",
+    "section": {
+      "basic": "Basics",
+      "retry": "Retry",
+      "timeouts": "Timeouts",
+      "triggers": "Triggers",
+      "breaker": "Circuit breaker",
+      "meta": "Metadata"
+    },
     "new": "New policy",
     "editTitle": "Edit fault policy",
     "save": "Save policy",
@@ -1592,6 +1603,7 @@
       "metered": "Metered"
     },
     "report": "Compatibility report",
+    "imported": "Import complete",
     "deleted": "Binding deleted",
     "updated": "Binding updated",
     "editTitle": "Edit dify binding",

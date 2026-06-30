@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { RoseLoader } from '../../../components/ui/RoseLoader';
+import { Badge, Center } from './welcome-chrome';
 
 /** Four concrete starter prompts (i18n) shown as click-to-send chips. */
 const EXAMPLE_KEYS = ['examples.0', 'examples.1', 'examples.2', 'examples.3'] as const;
@@ -99,47 +100,6 @@ export function ChatWelcome({
         })}
       </div>
     </Center>
-  );
-}
-
-function Center({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ height: '100%', display: 'grid', placeItems: 'center', padding: 'var(--s-5)' }}>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 'var(--s-3)',
-          textAlign: 'center',
-          maxWidth: 560,
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-/** The circular icon badge — a soft glass disc, optionally accent-tinted. */
-function Badge({ icon, accent }: { icon: React.ReactNode; accent?: boolean }) {
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        width: 56,
-        height: 56,
-        borderRadius: 'var(--r-lg)',
-        display: 'grid',
-        placeItems: 'center',
-        background: accent === true ? 'var(--grad-accent)' : 'var(--glass-bg)',
-        border: accent === true ? 'none' : '1px solid var(--panel-bd)',
-        color: accent === true ? 'var(--bg)' : 'var(--muted)',
-        boxShadow: accent === true ? 'var(--shadow-lift)' : 'none',
-      }}
-    >
-      {icon}
-    </span>
   );
 }
 
