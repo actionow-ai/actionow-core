@@ -19,6 +19,7 @@ import { qk } from '../../lib/api/queryKeys';
 import type { CreateSubjectBody, SubjectView } from '../../lib/api/types';
 import { useConsoleApi } from '../../lib/api/useConsoleApi';
 import { STALE_REFERENCE } from '../../lib/query';
+import { AdminOnlyNote } from './AdminOnlyNote';
 import { AppSubjectDetailPanel } from './AppSubjectDetailPanel';
 import { useTenantRole } from './useTenantRole';
 
@@ -143,19 +144,7 @@ export function AppSubjects() {
     // Still resolving the seat: render nothing rather than flashing the admin-only
     // notice to an admin who hard-refreshes directly on this route.
     if (roleLoading) return null;
-    return (
-      <div
-        role="note"
-        style={{
-          padding: 'var(--s-5)',
-          textAlign: 'center',
-          color: 'var(--muted)',
-          fontSize: 'var(--fs-sm)',
-        }}
-      >
-        {t('app.subjects.adminOnly')}
-      </div>
-    );
+    return <AdminOnlyNote variant="page" message={t('app.subjects.adminOnly')} />;
   }
 
   return (
