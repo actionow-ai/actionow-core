@@ -12,7 +12,7 @@ export function HowItWorks() {
         <h2
           style={{
             fontSize: 'var(--fs-h2)',
-            fontWeight: 780,
+            fontWeight: 'var(--fw-heading)',
             letterSpacing: 'var(--track-tight)',
             margin: 0,
           }}
@@ -74,7 +74,7 @@ export function HowItWorks() {
                 <div
                   style={{
                     fontSize: 'var(--fs-lg)',
-                    fontWeight: 680,
+                    fontWeight: 'var(--fw-semibold)',
                     letterSpacing: '-0.01em',
                     marginTop: 'var(--s-4)',
                   }}

@@ -14,6 +14,39 @@
   border: 1px solid var(--panel-bd);
 }
 
+/* Liquid glass — richer opt-in tier for chrome / floating / showcase surfaces.
+   The sheen lives in the background gradient (not a ::before) so the class stays
+   composable. Surfaces that need legibility (Modal/Drawer) override `background`
+   inline and still get the specular edges + ambient shadow below. */
+.liquid-glass {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--glass-hl) 28%, var(--glass-bg)),
+    var(--glass-bg) 42%
+  );
+  backdrop-filter: var(--lg-backdrop);
+  -webkit-backdrop-filter: var(--lg-backdrop);
+  border: 1px solid var(--glass-bd);
+  box-shadow:
+    inset 0 1px 0 var(--glass-hl),
+    inset 0 -1px 0 color-mix(in srgb, var(--glass-hl) 30%, transparent),
+    var(--glass-shadow);
+}
+/* Subtle tier — high-count surfaces (entity-card grids): gradient sheen + specular
+   edge + saturate, but NO backdrop blur (avoids dozens of stacked GPU blur layers). */
+.liquid-glass--subtle {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--glass-hl) 18%, var(--panel-bg)),
+    var(--panel-bg) 50%
+  );
+  backdrop-filter: var(--lg-backdrop-subtle);
+  -webkit-backdrop-filter: var(--lg-backdrop-subtle);
+  /* Only the specular edge — no resting drop shadow, so composing onto a card
+     (e.g. .entity-card) leaves the card's own hover-lift shadow free to read. */
+  box-shadow: inset 0 1px 0 var(--glass-hl);
+}
+
 /* Unified form-field surface + warm focus/error rings (no blue). Applies to all
    field controls (input/textarea and the Select trigger button); components add
    className="field" (+ "field--err" or aria-invalid on error). width/font/color
@@ -23,8 +56,8 @@
   background: var(--glass-bg);
   border: 1px solid var(--panel-bd);
   border-radius: var(--r-sm);
-  min-height: 42px;
-  padding: 10px 12px;
+  min-height: var(--control-h);
+  padding: 10px var(--s-3);
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
@@ -96,7 +129,7 @@
   font-weight: var(--fw-medium);
   border-radius: var(--r-pill);
   padding: 10px 16px;
-  min-height: 40px;
+  min-height: var(--control-h);
   cursor: pointer;
   border: 1px solid transparent;
   white-space: nowrap;
@@ -228,8 +261,8 @@
 .ico-btn {
   position: relative;
   z-index: 1;
-  width: 40px;
-  height: 40px;
+  width: var(--control-h);
+  height: var(--control-h);
   border-radius: var(--r-sm);
   border: 1px solid transparent;
   background: var(--glass-bg);
@@ -377,12 +410,14 @@
   cursor: default;
 }
 
-/* Entity card — the console's primary unit (cards over tables). */
+/* Entity card — the console's primary unit (cards over tables). Background +
+   specular edge come from the composed `.liquid-glass--subtle` (subtle glass
+   tier, no backdrop blur — safe across long grids); this rule owns layout,
+   border, and the hover/selected shadow choreography. */
 .entity-card {
   position: relative;
   border-radius: var(--r-md);
   padding: var(--s-5);
-  background: var(--panel-bg);
   border: 1px solid var(--panel-bd);
   transition:
     transform 0.18s ease,
@@ -409,7 +444,7 @@
 .card-glyph {
   width: 38px;
   height: 38px;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -420,13 +455,13 @@
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--s-1h);
   font-size: var(--fs-caption);
   color: var(--muted);
   background: var(--hover-bg);
   border: 1px solid var(--panel-bd);
   border-radius: var(--r-pill);
-  padding: 4px 11px;
+  padding: var(--s-1) var(--s-3);
   white-space: nowrap;
 }
 
@@ -460,13 +495,13 @@
 .icon-pick-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--s-2);
 }
 .icon-pick {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 5px;
+  padding: var(--s-1);
   border-radius: var(--r-sm);
   background: transparent;
   border: 1px solid var(--panel-bd);
@@ -595,6 +630,12 @@
   .panel {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+  .liquid-glass,
+  .liquid-glass--subtle {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--panel-bg);
   }
 }
 

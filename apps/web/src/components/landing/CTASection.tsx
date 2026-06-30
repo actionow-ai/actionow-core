@@ -12,7 +12,7 @@ export function CTASection() {
     >
       <Reveal>
         <div
-          className="glass"
+          className="liquid-glass"
           style={{
             position: 'relative',
             overflow: 'hidden',
@@ -35,7 +35,7 @@ export function CTASection() {
             <h2
               style={{
                 fontSize: 'var(--fs-h2)',
-                fontWeight: 780,
+                fontWeight: 'var(--fw-heading)',
                 letterSpacing: 'var(--track-tight)',
                 margin: 0,
               }}

@@ -121,7 +121,7 @@ export function LiveConsole() {
           <h2
             style={{
               fontSize: 'var(--fs-h2)',
-              fontWeight: 780,
+              fontWeight: 'var(--fw-heading)',
               letterSpacing: 'var(--track-tight)',
               margin: 'var(--s-3) 0 0',
             }}
@@ -170,7 +170,7 @@ export function LiveConsole() {
                 style={{
                   width: 34,
                   height: 34,
-                  borderRadius: 10,
+                  borderRadius: 'var(--r-sm)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -208,7 +208,11 @@ export function LiveConsole() {
                     data-num={s.to}
                     data-suffix={s.suffix}
                     className="tabular"
-                    style={{ fontSize: 'clamp(20px, 3vw, 26px)', fontWeight: 700, marginTop: 6 }}
+                    style={{
+                      fontSize: 'clamp(20px, 3vw, 26px)',
+                      fontWeight: 'var(--fw-semibold)',
+                      marginTop: 'var(--s-1h)',
+                    }}
                   >
                     0
                   </div>

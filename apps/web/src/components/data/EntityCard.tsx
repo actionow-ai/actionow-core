@@ -39,7 +39,7 @@ export function EntityCard({
   // its own `actions` stays a plain clickable card (onClick + pointer affordance)
   // — never role=button/tabIndex/keydown. Mirrors DataTable's row-as-button rule.
   const asButton = clickable && actions === undefined;
-  const cls = `entity-card${clickable ? ' is-clickable' : ''}${selected === true ? ' is-selected' : ''}`;
+  const cls = `entity-card liquid-glass--subtle${clickable ? ' is-clickable' : ''}${selected === true ? ' is-selected' : ''}`;
   const onKeyDown = asButton
     ? (e: KeyboardEvent<HTMLDivElement>) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -83,7 +83,14 @@ export function EntityCard({
             {title}
           </div>
           {chips !== undefined && chips.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 7 }}>
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 'var(--s-1h)',
+                marginTop: 'var(--s-2)',
+              }}
+            >
               {chips.map((c, i) => (
                 <span key={i} className="chip">
                   {c}
@@ -116,7 +123,7 @@ export function EntityCard({
                 style={{
                   fontSize: 'var(--fs-sm)',
                   color: 'var(--text)',
-                  marginTop: 3,
+                  marginTop: 'var(--s-0)',
                   whiteSpace: 'nowrap',
                 }}
               >

@@ -35,10 +35,10 @@ export function Pill({
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 5,
+        gap: 'var(--s-1)',
         fontSize: 'var(--fs-caption)',
         fontWeight: 'var(--fw-medium)',
-        padding: '3px 9px',
+        padding: 'var(--s-0) var(--s-2)',
         borderRadius: 'var(--r-pill)',
         whiteSpace: 'nowrap',
         color,

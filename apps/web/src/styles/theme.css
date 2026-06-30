@@ -5,7 +5,9 @@
   --ink: #1c1500;
 
   /* spacing (8px grid) */
+  --s-0: 2px;
   --s-1: 4px;
+  --s-1h: 6px;
   --s-2: 8px;
   --s-3: 12px;
   --s-4: 16px;
@@ -17,6 +19,8 @@
   --s-12: 48px;
   --s-14: 56px;
   --s-16: 64px;
+  /* canonical interactive control height (Select/field/button/icon-button). */
+  --control-h: 40px;
   /* radii */
   --r-xs: 8px;
   --r-sm: 11px;
@@ -41,6 +45,8 @@
   --fs-2xl: 30px;
   --fw-medium: 600;
   --fw-semibold: 700;
+  /* editorial section-heading weight — tokenizes landing's raw 780/760. */
+  --fw-heading: 780;
   --fw-bold: 800;
   /* heaviest editorial weight — landing display headings / big stat numerals. */
   --fw-display: 850;
@@ -96,6 +102,9 @@
   --glass-bd: rgba(255, 255, 255, 0.12);
   --glass-hl: rgba(255, 255, 255, 0.22);
   --glass-shadow: 0 1px 1px rgba(0, 0, 0, 0.25), 0 12px 28px rgba(0, 0, 0, 0.4);
+  /* liquid-glass backdrop recipes (full = blurred; subtle = no blur, for high-count grids). */
+  --lg-backdrop: blur(28px) saturate(190%) brightness(1.06);
+  --lg-backdrop-subtle: saturate(150%) brightness(1.03);
   /* Tight lift for list cards — small enough that scroll containers don't clip it. */
   --shadow-lift: 0 5px 14px rgba(0, 0, 0, 0.34);
   --panel-bg: rgba(18, 16, 12, 0.82);
@@ -141,6 +150,9 @@
   --glass-bd: rgba(0, 0, 0, 0.06);
   --glass-hl: rgba(255, 255, 255, 0.7);
   --glass-shadow: 0 1px 2px rgba(60, 45, 5, 0.05), 0 10px 24px rgba(120, 90, 20, 0.1);
+  /* light --glass-bg is far more opaque, so less saturate/brightness avoids a washed-out look. */
+  --lg-backdrop: blur(28px) saturate(150%) brightness(1.02);
+  --lg-backdrop-subtle: saturate(135%) brightness(1.01);
   --shadow-lift: 0 5px 14px rgba(120, 90, 20, 0.16);
   --panel-bg: rgba(255, 255, 255, 0.72);
   --nav-bg: rgba(245, 242, 233, 0.93);

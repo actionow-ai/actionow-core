@@ -16,7 +16,7 @@ const inputStyle = {
   fontFamily: 'ui-monospace, Menlo, monospace',
   color: 'var(--text)',
   padding: '9px 11px',
-  minHeight: 40,
+  minHeight: 'var(--control-h)',
 } as const;
 
 const BLANK_ROW: KvRow = blankRow();
