@@ -1,6 +1,8 @@
 import { ImageIcon, MusicNotesIcon, VideoCameraIcon } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 
+import { Badge, Center } from './welcome-chrome';
+
 const ICONS = { image: ImageIcon, video: VideoCameraIcon, audio: MusicNotesIcon } as const;
 
 /**
@@ -12,31 +14,29 @@ export function PlaygroundComingSoon({ modality }: { modality: 'image' | 'video'
   const { t } = useTranslation('console');
   const Icon = ICONS[modality];
   return (
-    <div
-      style={{
-        height: '100%',
-        display: 'grid',
-        placeItems: 'center',
-        background: 'var(--bg)',
-      }}
-    >
-      <div
+    <Center>
+      <Badge icon={<Icon size={26} weight="fill" />} accent />
+      <h2
         style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 'var(--s-3)',
-          color: 'var(--faint)',
-          textAlign: 'center',
-          padding: 'var(--s-4)',
+          margin: 0,
+          fontSize: 'var(--fs-lg)',
+          fontWeight: 'var(--fw-semibold)',
+          color: 'var(--text)',
         }}
       >
-        <Icon size={48} weight="duotone" aria-hidden="true" />
-        <div style={{ fontSize: 'var(--fs-md)', color: 'var(--muted)' }}>
-          {t(`playground.tool.${modality}`)}
-        </div>
-        <div style={{ fontSize: 'var(--fs-sm)' }}>{t('playground.comingSoonBody')}</div>
-      </div>
-    </div>
+        {t(`playground.tool.${modality}`)}
+      </h2>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 'var(--fs-sm)',
+          color: 'var(--faint)',
+          maxWidth: '42ch',
+          lineHeight: 1.6,
+        }}
+      >
+        {t('playground.comingSoonBody')}
+      </p>
+    </Center>
   );
 }
