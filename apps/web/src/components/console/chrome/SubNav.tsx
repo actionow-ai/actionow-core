@@ -21,7 +21,7 @@ export function SubNav({ pathname }: { pathname: string }) {
   return (
     <nav
       aria-label={t('a11y.sectionNav')}
-      className="glass"
+      className="liquid-glass"
       style={{ width: 200, borderRadius: 'var(--r-lg)', padding: 'var(--s-4) var(--s-3)' }}
     >
       <div

@@ -28,7 +28,7 @@ export function Rail({ pathname }: { pathname: string }) {
 
   return (
     <div
-      className="glass"
+      className="liquid-glass"
       style={{
         width: 64,
         borderRadius: 'var(--r-lg)',

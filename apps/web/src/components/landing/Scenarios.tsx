@@ -25,7 +25,13 @@ function ScenarioTile({ k, GlyphIcon, index }: { k: string; GlyphIcon: Icon; ind
         >
           <GlyphIcon size={21} weight="duotone" />
         </span>
-        <div style={{ fontSize: 'var(--fs-lg)', fontWeight: 700, letterSpacing: '-0.01em' }}>
+        <div
+          style={{
+            fontSize: 'var(--fs-lg)',
+            fontWeight: 'var(--fw-semibold)',
+            letterSpacing: '-0.01em',
+          }}
+        >
           {t(`scenarios.${k}.t`)}
         </div>
         <p
@@ -54,7 +60,7 @@ export function Scenarios() {
         <h2
           style={{
             fontSize: 'var(--fs-h2)',
-            fontWeight: 780,
+            fontWeight: 'var(--fw-heading)',
             letterSpacing: 'var(--track-tight)',
             margin: 0,
           }}

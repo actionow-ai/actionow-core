@@ -71,7 +71,7 @@ function Panel({
       <div
         style={{
           fontSize: 'clamp(22px, 2.6vw, 30px)',
-          fontWeight: 760,
+          fontWeight: 'var(--fw-heading)',
           letterSpacing: 'var(--track-tight)',
           marginTop: 'var(--s-5)',
         }}
@@ -125,7 +125,7 @@ export function FeaturePan() {
     <h2
       style={{
         fontSize: 'var(--fs-h2)',
-        fontWeight: 780,
+        fontWeight: 'var(--fw-heading)',
         letterSpacing: 'var(--track-tight)',
         margin: 0,
         maxWidth: 560,

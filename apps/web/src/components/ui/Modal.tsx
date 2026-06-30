@@ -129,7 +129,7 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className="glass"
+        className="liquid-glass"
         style={{
           width: 'min(440px, 94vw)',
           maxHeight: 'min(86dvh, 720px)',

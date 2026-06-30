@@ -119,6 +119,7 @@ export function AppOverview() {
           heldLabel={t('app.overview.held')}
           cta={t('app.billing.submit')}
           topupTo="/app/billing"
+          material="liquid-glass"
         />
       </QueryBoundary>
 
