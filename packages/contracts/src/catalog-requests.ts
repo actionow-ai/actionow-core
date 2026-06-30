@@ -327,3 +327,65 @@ export const grantModelSchema = z.object({
   tenantId: z.string().uuid(),
 });
 export type GrantModelBody = z.infer<typeof grantModelSchema>;
+
+/** Coarse model type, CHECKed in mig 0059 (`model_spec_type_allowed`). */
+const MODEL_SPEC_TYPES = ['text', 'image', 'video', 'audio', 'multimodal'] as const;
+/** Sourcing confidence, CHECKed in mig 0059 (`model_spec_confidence_allowed`). */
+const MODEL_SPEC_CONFIDENCES = ['firstparty', 'secondary', 'reconstructed'] as const;
+
+/**
+ * `POST /admin/model-specs` — add a row to the official model spec catalog (规格库).
+ * `vendor`/`model_id`/`type` identify the model; the rest is descriptive metadata.
+ * A duplicate LIVE `(vendor, model_id)` is rejected (409) by the partial-unique.
+ * Carries NO prices (the cost basis lives in `official_model_price`).
+ */
+export const createModelSpecSchema = z.object({
+  vendor: z.string().min(1),
+  modelId: z.string().min(1),
+  type: z.enum(MODEL_SPEC_TYPES),
+  displayName: z.string().min(1).optional(),
+  family: z.string().min(1).optional(),
+  inputModalities: z.array(z.string().min(1)).optional(),
+  outputModalities: z.array(z.string().min(1)).optional(),
+  mediaOptions: z.unknown().optional(),
+  keyParams: z.array(z.string().min(1)).optional(),
+  sources: z.array(z.string().min(1)).optional(),
+  status: z.string().min(1).optional(),
+  contextWindow: z.string().min(1).optional(),
+  maxOutput: z.string().min(1).optional(),
+  intro: z.string().optional(),
+  confidence: z.enum(MODEL_SPEC_CONFIDENCES).optional(),
+  billingEligible: z.boolean().optional(),
+  asOf: z.string().min(1).optional(),
+  sourceUrl: z.string().url().optional(),
+  notes: z.string().optional(),
+});
+export type CreateModelSpecBody = z.infer<typeof createModelSpecSchema>;
+
+/**
+ * `PATCH /admin/model-specs/:id` — update catalog metadata. Every field optional;
+ * a nullable field set to `null` clears that column. `vendor`/`model_id`/`type`
+ * can be re-keyed (the partial-unique still guards a live collision).
+ */
+export const updateModelSpecSchema = z.object({
+  vendor: z.string().min(1).optional(),
+  modelId: z.string().min(1).optional(),
+  type: z.enum(MODEL_SPEC_TYPES).optional(),
+  displayName: z.string().min(1).nullable().optional(),
+  family: z.string().min(1).nullable().optional(),
+  inputModalities: z.array(z.string().min(1)).nullable().optional(),
+  outputModalities: z.array(z.string().min(1)).nullable().optional(),
+  mediaOptions: z.unknown().optional(),
+  keyParams: z.array(z.string().min(1)).nullable().optional(),
+  sources: z.array(z.string().min(1)).nullable().optional(),
+  status: z.string().min(1).nullable().optional(),
+  contextWindow: z.string().min(1).nullable().optional(),
+  maxOutput: z.string().min(1).nullable().optional(),
+  intro: z.string().nullable().optional(),
+  confidence: z.enum(MODEL_SPEC_CONFIDENCES).optional(),
+  billingEligible: z.boolean().optional(),
+  asOf: z.string().min(1).nullable().optional(),
+  sourceUrl: z.string().url().nullable().optional(),
+  notes: z.string().nullable().optional(),
+});
+export type UpdateModelSpecBody = z.infer<typeof updateModelSpecSchema>;

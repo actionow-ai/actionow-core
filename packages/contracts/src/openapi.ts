@@ -61,6 +61,7 @@ import {
 import {
   createChannelSchema,
   createModelSchema,
+  createModelSpecSchema,
   createModifierSchema,
   createPricebookSchema,
   createResourceSchema,
@@ -70,6 +71,7 @@ import {
   updateChannelSchema,
   updateDifySchema,
   updateModelSchema,
+  updateModelSpecSchema,
   updateModifierSchema,
   updatePricebookSchema,
   updateResourceSchema,
@@ -78,6 +80,7 @@ import {
   channelViewSchema,
   difyBindingViewSchema,
   modelGrantViewSchema,
+  modelSpecViewSchema,
   modelViewSchema,
   modifierViewSchema,
   pricebookViewSchema,
@@ -217,6 +220,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const Resource = registry.register('ResourceView', resourceViewSchema);
   const Channel = registry.register('ChannelView', channelViewSchema);
   const Model = registry.register('ModelView', modelViewSchema);
+  const ModelSpec = registry.register('ModelSpecView', modelSpecViewSchema);
   const ModelGrant = registry.register('ModelGrantView', modelGrantViewSchema);
   const Pricebook = registry.register('PricebookView', pricebookViewSchema);
   const Modifier = registry.register('ModifierView', modifierViewSchema);
@@ -372,6 +376,8 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const DifyImport = registry.register('DifyImportBody', difyImportSchema);
   const CreateModel = registry.register('CreateModelBody', createModelSchema);
   const UpdateModel = registry.register('UpdateModelBody', updateModelSchema);
+  const CreateModelSpec = registry.register('CreateModelSpecBody', createModelSpecSchema);
+  const UpdateModelSpec = registry.register('UpdateModelSpecBody', updateModelSpecSchema);
   const GrantModel = registry.register('GrantModelBody', grantModelSchema);
   const ModelTest = registry.register('ModelTestBody', modelTestRequestSchema);
   const ModelTestResult = registry.register('ModelTestResult', modelTestResultSchema);
@@ -724,6 +730,18 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     'billing',
     keyset,
   );
+  // 规格库: the official model spec catalog, filterable by vendor / type.
+  const modelSpecsQuery = keyset.extend({
+    vendor: z.string().optional(),
+    type: z.string().optional(),
+  });
+  list(
+    '/admin/model-specs',
+    'List the official model spec catalog (规格库)',
+    ModelSpec,
+    'catalog',
+    modelSpecsQuery,
+  );
   list('/admin/models/{name}/grants', 'List a model’s tenant grants', ModelGrant, 'catalog');
   list('/console/api-keys', 'List your tenant API keys', ConsoleApiKey, 'console', keyset);
   list('/console/models', 'Models visible to your tenant', ConsoleModel, 'console');
@@ -762,6 +780,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
 
   // --- GET-one (read a single resource) -------------------------------------
   getOne('/admin/models/{name}', 'Get one relay model', Model, 'catalog');
+  getOne('/admin/model-specs/{id}', 'Get one model spec', ModelSpec, 'catalog');
   getOne('/admin/route-groups/{id}', 'Get one route group', RouteGroup, 'billing');
 
   // --- analytics rollups (bare arrays, query-filtered) ----------------------
@@ -811,6 +830,24 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     tag: 'catalog',
     body: UpdatePlugin,
     response: ProviderPlugin,
+  });
+  // 规格库 CRUD: maintain the official model spec catalog.
+  write({
+    method: 'post',
+    path: '/admin/model-specs',
+    summary: 'Add a model spec to the catalog',
+    tag: 'catalog',
+    body: CreateModelSpec,
+    response: ModelSpec,
+    created: true,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/model-specs/{id}',
+    summary: 'Update a model spec',
+    tag: 'catalog',
+    body: UpdateModelSpec,
+    response: ModelSpec,
   });
   getArray(
     '/console/analytics/usage',
@@ -904,6 +941,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   del('/admin/route-groups/{id}', 'Delete a route group', 'billing');
   del('/admin/route-groups/{id}/channels/{channelId}', 'Remove a group channel', 'billing');
   del('/admin/official-prices/{id}', 'Delete an official price row', 'billing');
+  del('/admin/model-specs/{id}', 'Soft-delete a model spec', 'catalog');
   del('/admin/pricebook/{id}', 'Delete a pricebook entry', 'pricing');
   del('/admin/modifiers/{id}', 'Delete a pricing modifier', 'pricing');
   del('/admin/plugins/{id}', 'Soft-delete a custom provider plugin', 'catalog');

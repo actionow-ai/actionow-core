@@ -291,10 +291,15 @@ export {
   type ModelHealthRow,
 } from './model-health.js';
 export {
+  createModelSpec,
   getModelSpec,
+  getModelSpecById,
   listModelSpecs,
   type ListModelSpecsFilter,
   type ModelSpecRow,
+  softDeleteModelSpec,
+  updateModelSpec,
+  type UpdateModelSpecInput,
   upsertModelSpec,
   type UpsertModelSpecInput,
 } from './model-spec.js';
