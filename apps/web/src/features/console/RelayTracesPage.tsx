@@ -11,6 +11,7 @@ import { TenantSelect } from '../../components/data/TenantSelect';
 import { ComboboxField } from '../../components/ui/ComboboxField';
 import { DateField } from '../../components/ui/DateField';
 import { Drawer } from '../../components/ui/Drawer';
+import type { PillTone } from '../../components/ui/Pill';
 import { Pill } from '../../components/ui/Pill';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TextField } from '../../components/ui/TextField';
@@ -45,6 +46,109 @@ function InlineField({ id, label, children }: { id: string; label: string; child
   );
 }
 
+/**
+ * One async TASK aggregated from the `relay_trace` rows that share a `job_id`:
+ * an image/video/audio job is 1 submit + N polls, so collapsing them by job into
+ * a single entry (call-count, time span, parsed task status, summed latency,
+ * result hint) tames the per-poll noise. {@link TaskGroup.calls} is kept so the
+ * drawer can show the raw audit calls oldest-first. A trace with no `job_id`
+ * (e.g. a sync chat completion) is its own single-call task.
+ */
+interface TaskGroup {
+  key: string;
+  jobId: string | null;
+  /** The task's audit calls, oldest-first (submit → polls). */
+  calls: RelayTraceView[];
+  /** The newest call (chronologically last) — carries the final status/result. */
+  final: RelayTraceView;
+  provider: string | null;
+  callCount: number;
+  totalLatency: number;
+  /** Parsed media task status (`completed`/`processing`/`failed`/…) when present. */
+  taskStatus: string | null;
+  hasError: boolean;
+  summary: string;
+}
+
+/** Map an async-media task status to a pill tone (falls back to neutral). */
+function taskStatusTone(status: string): PillTone {
+  if (status === 'completed') return 'ok';
+  if (status === 'failed' || status === 'error') return 'fail';
+  if (status === 'processing') return 'run';
+  if (status === 'pending' || status === 'queued') return 'wait';
+  return 'neutral';
+}
+
+/** Pull the final media status / model / first result URL out of a poll body (best-effort). */
+function parseFinal(body: string | null): { status?: string; model?: string; result?: string } {
+  if (body === null || body === '') return {};
+  try {
+    const o = JSON.parse(body) as Record<string, unknown>;
+    const status = typeof o.status === 'string' ? o.status : undefined;
+    const model =
+      typeof o.model_display_name === 'string'
+        ? o.model_display_name
+        : typeof o.model === 'string'
+          ? o.model
+          : undefined;
+    const r = (o.result ?? {}) as Record<string, unknown>;
+    const imgs = r.image_urls;
+    const url =
+      (typeof r.video_url === 'string' ? r.video_url : undefined) ??
+      (typeof r.image_url === 'string' ? r.image_url : undefined) ??
+      (typeof r.audio_url === 'string' ? r.audio_url : undefined) ??
+      (Array.isArray(imgs) && typeof imgs[0] === 'string' ? imgs[0] : undefined);
+    return {
+      ...(status !== undefined ? { status } : {}),
+      ...(model !== undefined ? { model } : {}),
+      ...(url !== undefined ? { result: url } : {}),
+    };
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Bucket the loaded (newest-first) trace rows by `job_id` into {@link TaskGroup}s,
+ * preserving first-seen order so the task list stays newest-first. A media task's
+ * calls are temporally clustered, so grouping the loaded page captures whole tasks
+ * reliably; “Load more” extends both the rows and the derived tasks.
+ */
+function buildTasks(rows: RelayTraceView[]): TaskGroup[] {
+  const map = new Map<string, RelayTraceView[]>();
+  for (const r of rows) {
+    const key = r.job_id ?? `solo:${r.id}`;
+    const arr = map.get(key);
+    if (arr) arr.push(r);
+    else map.set(key, [r]);
+  }
+  const tasks: TaskGroup[] = [];
+  for (const [key, list] of map) {
+    const final = list[0]; // newest (rows are newest-first)
+    if (final === undefined) continue;
+    const parsed = parseFinal(final.response_body);
+    const summaryParts: string[] = [];
+    if (parsed.model !== undefined) summaryParts.push(parsed.model);
+    if (parsed.result !== undefined) {
+      const u = parsed.result;
+      summaryParts.push(`→ ${u.length > 48 ? `${u.slice(0, 48)}…` : u}`);
+    }
+    tasks.push({
+      key,
+      jobId: final.job_id,
+      calls: [...list].reverse(), // oldest-first for the drawer
+      final,
+      provider: final.provider_type,
+      callCount: list.length,
+      totalLatency: list.reduce((s, r) => s + (r.latency_ms ?? 0), 0),
+      taskStatus: parsed.status ?? null,
+      hasError: list.some((r) => r.error !== null || (r.response_status ?? 0) >= 400),
+      summary: summaryParts.join(' '),
+    });
+  }
+  return tasks;
+}
+
 export function RelayTracesPage() {
   const { t } = useTranslation('console');
   const api = useAdminApi();
@@ -57,7 +161,10 @@ export function RelayTracesPage() {
   const [to, setTo] = useUrlState('to');
   const [errors, setErrors] = useUrlState('errors');
   const [routeTag, setRouteTag] = useUrlState('routeTag');
+  // '' = flat call list (default); 'tasks' = aggregate by job_id.
+  const [view, setView] = useUrlState('view');
   const [selected, setSelected] = useState<RelayTraceView | undefined>(undefined);
+  const [selectedTask, setSelectedTask] = useState<TaskGroup | undefined>(undefined);
 
   const [providerLocal, setProviderLocal] = useDebounced(provider, setProvider);
   const [jobLocal, setJobLocal] = useDebounced(jobId, setJobId);
@@ -85,6 +192,8 @@ export function RelayTracesPage() {
     staleTime: STALE_VOLATILE,
   });
   const rows = q.data?.pages.flatMap((p) => p.rows) ?? [];
+  const grouped = view === 'tasks';
+  const tasks = useMemo(() => (grouped ? buildTasks(rows) : []), [grouped, rows]);
 
   // Provider suggestions = the known providers ∪ those seen in the loaded rows
   // (so subscription/relay providers like codex-oauth/seedream are offered too).
@@ -208,6 +317,74 @@ export function RelayTracesPage() {
     },
   ];
 
+  /** Task-aggregated columns: one row per job_id (submit + N polls collapsed). */
+  const taskCols: Column<TaskGroup>[] = [
+    {
+      key: 'span',
+      header: t('relayTraces.task.cols.span'),
+      cell: (tk) => new Date(tk.final.created_at).toLocaleString(),
+      width: '170px',
+    },
+    {
+      key: 'provider',
+      header: t('relayTraces.task.cols.provider'),
+      cell: (tk) => tk.provider ?? '—',
+      width: '120px',
+    },
+    {
+      key: 'job',
+      header: t('relayTraces.task.cols.job'),
+      cell: (tk) =>
+        tk.jobId === null ? (
+          <span style={{ color: 'var(--faint)' }}>—</span>
+        ) : (
+          <span className="mono" title={tk.jobId} style={{ color: 'var(--muted)' }}>
+            {tk.jobId.slice(0, 8)}
+          </span>
+        ),
+      width: '96px',
+    },
+    {
+      key: 'calls',
+      header: t('relayTraces.task.cols.calls'),
+      align: 'right',
+      cell: (tk) => <span className="tabular">{tk.callCount}</span>,
+      width: '72px',
+    },
+    {
+      key: 'status',
+      header: t('relayTraces.task.cols.status'),
+      align: 'right',
+      cell: (tk) =>
+        tk.taskStatus !== null ? (
+          <Pill tone={taskStatusTone(tk.taskStatus)}>{tk.taskStatus}</Pill>
+        ) : tk.final.response_status !== null ? (
+          <Pill tone={httpTone(tk.final.response_status)}>{tk.final.response_status}</Pill>
+        ) : tk.hasError ? (
+          <Pill tone="fail">{t('relayTraces.viewer.err')}</Pill>
+        ) : (
+          <Pill tone="idle">—</Pill>
+        ),
+      width: '116px',
+    },
+    {
+      key: 'latency',
+      header: t('relayTraces.task.cols.latency'),
+      align: 'right',
+      cell: (tk) => <span className="tabular">{tk.totalLatency} ms</span>,
+      width: '100px',
+    },
+    {
+      key: 'summary',
+      header: t('relayTraces.task.cols.summary'),
+      cell: (tk) => (
+        <span className="mono" style={{ color: 'var(--muted)' }}>
+          {tk.summary === '' ? tk.final.url : tk.summary}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
       {/* Sticky single-lens filter bar */}
@@ -227,6 +404,15 @@ export function RelayTracesPage() {
           boxShadow: 'var(--shadow-lift)',
         }}
       >
+        <SegmentedControl
+          ariaLabel={t('relayTraces.viewLabel')}
+          value={view}
+          onChange={setView}
+          options={[
+            { value: '', label: t('relayTraces.view.calls') },
+            { value: 'tasks', label: t('relayTraces.view.tasks') },
+          ]}
+        />
         <div style={{ minWidth: 180 }}>
           <TenantSelect
             value={tenantId}
@@ -296,17 +482,31 @@ export function RelayTracesPage() {
         </span>
       </div>
 
-      <DataTable
-        columns={cols}
-        rows={rows}
-        rowKey={(r) => r.id}
-        loading={q.isLoading}
-        error={q.isError}
-        onRetry={() => void q.refetch()}
-        empty={t('relayTraces.empty')}
-        onRowClick={(r) => setSelected(r)}
-        selectedKey={selected?.id}
-      />
+      {grouped ? (
+        <DataTable
+          columns={taskCols}
+          rows={tasks}
+          rowKey={(tk) => tk.key}
+          loading={q.isLoading}
+          error={q.isError}
+          onRetry={() => void q.refetch()}
+          empty={t('relayTraces.task.empty')}
+          onRowClick={(tk) => setSelectedTask(tk)}
+          selectedKey={selectedTask?.key}
+        />
+      ) : (
+        <DataTable
+          columns={cols}
+          rows={rows}
+          rowKey={(r) => r.id}
+          loading={q.isLoading}
+          error={q.isError}
+          onRetry={() => void q.refetch()}
+          empty={t('relayTraces.empty')}
+          onRowClick={(r) => setSelected(r)}
+          selectedKey={selected?.id}
+        />
+      )}
 
       <LoadMore
         hasNextPage={q.hasNextPage}
@@ -314,6 +514,7 @@ export function RelayTracesPage() {
         onLoadMore={() => void q.fetchNextPage()}
       />
 
+      {/* Flat-view: one call. */}
       <Drawer
         open={selected !== undefined}
         title={t('relayTraces.viewer.title')}
@@ -321,6 +522,52 @@ export function RelayTracesPage() {
         width="min(680px, 96vw)"
       >
         {selected !== undefined && <TraceViewer trace={selected} />}
+      </Drawer>
+
+      {/* Task-view: the job's audit calls oldest-first, each call collapsible. */}
+      <Drawer
+        open={selectedTask !== undefined}
+        title={t('relayTraces.task.drawerTitle')}
+        onClose={() => setSelectedTask(undefined)}
+        width="min(680px, 96vw)"
+      >
+        {selectedTask !== undefined && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', flexWrap: 'wrap' }}
+            >
+              {selectedTask.taskStatus !== null && (
+                <Pill tone={taskStatusTone(selectedTask.taskStatus)}>
+                  {selectedTask.taskStatus}
+                </Pill>
+              )}
+              <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>
+                {t('relayTraces.task.callsN', { n: selectedTask.callCount })} ·{' '}
+                {selectedTask.provider ?? '—'} ·{' '}
+                <span className="tabular">{selectedTask.totalLatency} ms</span>
+              </span>
+            </div>
+            {selectedTask.calls.map((c, i) => (
+              <details key={c.id} open={i === 0 || i === selectedTask.calls.length - 1}>
+                <summary
+                  className="mono"
+                  style={{
+                    cursor: 'pointer',
+                    fontSize: 'var(--fs-caption)',
+                    color: 'var(--muted)',
+                    padding: 'var(--s-1) 0',
+                  }}
+                >
+                  {c.method} {c.response_status ?? c.error ?? '—'} ·{' '}
+                  {c.latency_ms !== null ? `${String(c.latency_ms)} ms` : '—'}
+                </summary>
+                <div style={{ paddingTop: 'var(--s-2)' }}>
+                  <TraceViewer trace={c} />
+                </div>
+              </details>
+            ))}
+          </div>
+        )}
       </Drawer>
     </div>
   );

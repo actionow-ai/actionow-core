@@ -625,7 +625,26 @@
       "resBody": "响应体"
     },
     "jobIdPlaceholder": "任务 ID",
-    "channelIdPlaceholder": "渠道 ID"
+    "channelIdPlaceholder": "渠道 ID",
+    "viewLabel": "视图",
+    "view": {
+      "calls": "明细",
+      "tasks": "按任务"
+    },
+    "task": {
+      "drawerTitle": "任务调用轨迹",
+      "callsN": "{{n}} 次调用",
+      "empty": "该范围内暂无任务",
+      "cols": {
+        "span": "时间",
+        "job": "任务",
+        "provider": "供应商",
+        "calls": "调用",
+        "status": "状态",
+        "latency": "总延迟",
+        "summary": "摘要"
+      }
+    }
   },
   "tenants": {
     "title": "租户",
@@ -1170,7 +1189,9 @@
   },
   "limitPlans": {
     "title": "额度套餐",
-    "section": { "basic": "基本" },
+    "section": {
+      "basic": "基本"
+    },
     "new": "新建套餐",
     "editTitle": "编辑额度套餐",
     "save": "保存套餐",
@@ -1583,7 +1604,7 @@
     "title": "Dify 导入",
     "new": "新建导入",
     "submit": "导入",
-    "imported": "导入成功",
+    "imported": "导入完成",
     "form": {
       "tenant": "租户",
       "resourceId": "资源 ID",
@@ -1603,7 +1624,6 @@
       "metered": "按量计费"
     },
     "report": "兼容性报告",
-    "imported": "导入完成",
     "deleted": "绑定已删除",
     "updated": "绑定已更新",
     "editTitle": "编辑 Dify 绑定",

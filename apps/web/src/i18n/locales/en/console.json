@@ -625,7 +625,26 @@
       "resBody": "Response body"
     },
     "jobIdPlaceholder": "Job ID",
-    "channelIdPlaceholder": "Channel ID"
+    "channelIdPlaceholder": "Channel ID",
+    "viewLabel": "View",
+    "view": {
+      "calls": "Calls",
+      "tasks": "By task"
+    },
+    "task": {
+      "drawerTitle": "Task call trace",
+      "callsN": "{{n}} calls",
+      "empty": "No tasks in this range",
+      "cols": {
+        "span": "Time",
+        "job": "Job",
+        "provider": "Provider",
+        "calls": "Calls",
+        "status": "Status",
+        "latency": "Total",
+        "summary": "Summary"
+      }
+    }
   },
   "tenants": {
     "title": "Tenants",
@@ -1170,7 +1189,9 @@
   },
   "limitPlans": {
     "title": "Limit plans",
-    "section": { "basic": "Basics" },
+    "section": {
+      "basic": "Basics"
+    },
     "new": "New plan",
     "editTitle": "Edit limit plan",
     "save": "Save plan",
@@ -1583,7 +1604,7 @@
     "title": "Dify import",
     "new": "New import",
     "submit": "Import",
-    "imported": "Imported",
+    "imported": "Import complete",
     "form": {
       "tenant": "Tenant",
       "resourceId": "Resource ID",
@@ -1603,7 +1624,6 @@
       "metered": "Metered"
     },
     "report": "Compatibility report",
-    "imported": "Import complete",
     "deleted": "Binding deleted",
     "updated": "Binding updated",
     "editTitle": "Edit dify binding",
