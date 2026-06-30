@@ -18,5 +18,6 @@ RUN pnpm build
 # ---- serve the SPA via nginx ----
 FROM nginx:1.27-alpine
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+# Zeabur variant of the nginx config: API upstream = the `api-gw` service name.
+COPY docker/nginx.zeabur.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
