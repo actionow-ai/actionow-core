@@ -16,6 +16,7 @@ export function BalanceCard({
   topupTo,
   held,
   heldLabel,
+  material = 'panel',
 }: {
   micro: string;
   label: string;
@@ -24,12 +25,15 @@ export function BalanceCard({
   /** Optional held-credits µ-string; renders a muted secondary line when > 0. */
   held?: string;
   heldLabel?: string;
+  /** Surface tier. `/app` hero opts into the richer `liquid-glass` so the tenant
+   *  product surface reads above the ops console; default stays the quieter panel. */
+  material?: 'panel' | 'liquid-glass';
 }) {
   const { i18n } = useTranslation();
   const showHeld = held !== undefined && heldLabel !== undefined && BigInt(held) > 0n;
   return (
     <div
-      className="panel"
+      className={material === 'liquid-glass' ? 'liquid-glass' : 'panel'}
       style={{
         borderRadius: 'var(--r-md)',
         padding: 'var(--s-5)',

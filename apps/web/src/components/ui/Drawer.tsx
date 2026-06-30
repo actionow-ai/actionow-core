@@ -125,7 +125,7 @@ export function Drawer({
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className="glass"
+        className="liquid-glass"
         style={{
           width,
           height: '100dvh',

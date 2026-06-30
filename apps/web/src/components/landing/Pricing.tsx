@@ -18,7 +18,7 @@ export function Pricing() {
         <h2
           style={{
             fontSize: 'var(--fs-h2)',
-            fontWeight: 780,
+            fontWeight: 'var(--fw-heading)',
             letterSpacing: 'var(--track-tight)',
             margin: 0,
           }}
@@ -47,7 +47,7 @@ export function Pricing() {
         {cards.map((c, i) => (
           <Reveal key={c.key} delay={i * 0.08}>
             <div
-              className="glass"
+              className={c.featured ? 'liquid-glass' : 'glass'}
               style={{
                 borderRadius: 'var(--r-lg)',
                 padding: 'var(--s-6)',
@@ -56,7 +56,13 @@ export function Pricing() {
                 boxShadow: c.featured ? 'var(--shadow-accent-card)' : undefined,
               }}
             >
-              <div style={{ fontSize: 'var(--fs-base)', fontWeight: 600, color: 'var(--muted)' }}>
+              <div
+                style={{
+                  fontSize: 'var(--fs-base)',
+                  fontWeight: 'var(--fw-medium)',
+                  color: 'var(--muted)',
+                }}
+              >
                 {t(`pricing.cards.${c.key}.t`)}
               </div>
               <div

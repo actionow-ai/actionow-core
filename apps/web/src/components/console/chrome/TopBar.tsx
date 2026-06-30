@@ -156,7 +156,7 @@ export function TopBar({
   if (isDesktop) {
     return (
       <div
-        className="glass"
+        className="liquid-glass"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -177,7 +177,7 @@ export function TopBar({
 
   return (
     <div
-      className="glass"
+      className="liquid-glass"
       style={{
         display: 'flex',
         flexDirection: 'column',
