@@ -68,7 +68,7 @@ export function ChipsField({
             gap: 'var(--s-2)',
             padding: 'var(--s-2)',
             borderRadius: 'var(--r-sm)',
-            minHeight: 40,
+            minHeight: 'var(--control-h)',
           }}
         >
           {value.map((chip) => (
