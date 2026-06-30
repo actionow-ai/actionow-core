@@ -6,6 +6,12 @@
 # to consume the workspace TS packages, so the full node_modules + source are
 # kept in the runtime image — simple and correct over minimal). The `web` target
 # serves the pre-built Vite SPA via nginx.
+#
+# `api` is the LAST stage, so a plain `docker build .` (or a Zeabur build with no
+# explicit target) yields the API node image — which the `worker` service also
+# runs from, overriding only its start command. `docker-compose.app.yml` selects
+# each stage explicitly via `target:`, and the Zeabur `web` service builds from
+# `Dockerfile.web` (nginx). Stage order therefore does not affect those callers.
 
 # ---- build: install + build the whole monorepo ----
 FROM node:22-slim AS build
@@ -19,19 +25,19 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
 
-# ---- api (NestJS; listens on API_PORT, default 3000) ----
-FROM build AS api
-ENV NODE_ENV=production
-EXPOSE 3000
-CMD ["pnpm", "--filter", "@actionow/api", "start"]
+# ---- web (static SPA served + proxied by nginx) ----
+FROM nginx:1.27-alpine AS web
+COPY --from=build /app/apps/web/dist /usr/share/nginx/html
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
 
 # ---- worker (BullMQ job runner) ----
 FROM build AS worker
 ENV NODE_ENV=production
 CMD ["pnpm", "--filter", "@actionow/worker", "start"]
 
-# ---- web (static SPA served + proxied by nginx) ----
-FROM nginx:1.27-alpine AS web
-COPY --from=build /app/apps/web/dist /usr/share/nginx/html
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+# ---- api (NestJS; listens on API_PORT, default 3000) — DEFAULT (last) stage ----
+FROM build AS api
+ENV NODE_ENV=production
+EXPOSE 3000
+CMD ["pnpm", "--filter", "@actionow/api", "start"]
