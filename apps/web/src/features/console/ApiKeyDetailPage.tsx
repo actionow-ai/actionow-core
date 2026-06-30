@@ -194,6 +194,7 @@ function ApiKeyDetailBody({ apiKey, tenantId }: { apiKey: ApiKeyView; tenantId: 
           tooltip={t('apiKeys.group.tip')}
           value={apiKey.route_group_id ?? ''}
           onChange={(v) => bindGroup.mutate(v === '' ? null : v)}
+          disabled={bindGroup.isPending}
           options={groupOptions}
           placeholder={t('apiKeys.group.default')}
         />
@@ -202,6 +203,7 @@ function ApiKeyDetailBody({ apiKey, tenantId }: { apiKey: ApiKeyView; tenantId: 
           tooltip={t('apiKeys.plan.tip')}
           value={apiKey.limit_plan_id ?? ''}
           onChange={(v) => bindPlan.mutate(v === '' ? null : v)}
+          disabled={bindPlan.isPending}
           options={planOptions}
           placeholder={t('apiKeys.plan.none')}
         />

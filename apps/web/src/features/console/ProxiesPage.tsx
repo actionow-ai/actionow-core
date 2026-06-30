@@ -146,6 +146,7 @@ export function ProxiesPage() {
             <RowAction
               icon={GlobeIcon}
               label={t('proxies.probe')}
+              loading={probe.isPending && probe.variables.id === r.id}
               onClick={() => probe.mutate(r)}
             />
             <RowAction
