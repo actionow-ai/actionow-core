@@ -71,7 +71,7 @@ export function TopBar({
             style={{
               fontSize: 'var(--fs-sm)',
               color: 'var(--muted)',
-              marginTop: 2,
+              marginTop: 'var(--s-0)',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',

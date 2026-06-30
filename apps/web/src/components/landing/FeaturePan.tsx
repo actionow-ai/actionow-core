@@ -54,7 +54,7 @@ function Panel({
             display: 'inline-flex',
             width: 44,
             height: 44,
-            borderRadius: 12,
+            borderRadius: 'var(--r-sm)',
             alignItems: 'center',
             justifyContent: 'center',
             color: 'var(--ink)',

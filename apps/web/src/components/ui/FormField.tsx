@@ -100,7 +100,7 @@ export function FormField({
 
   if (inline) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-1h)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
           {labelNode}
           <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
@@ -111,7 +111,7 @@ export function FormField({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-1h)' }}>
       {labelNode}
       {children}
       {tail}

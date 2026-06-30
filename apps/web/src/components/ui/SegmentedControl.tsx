@@ -84,7 +84,7 @@ export function SegmentedControl({
       style={{
         position: 'relative',
         display: 'inline-flex',
-        gap: 2,
+        gap: 'var(--s-0)',
         padding: 3,
         background: 'var(--glass-bg)',
         border: '1px solid var(--panel-bd)',
