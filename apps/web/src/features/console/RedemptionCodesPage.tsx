@@ -10,21 +10,18 @@ import { LoadMore } from '../../components/data/LoadMore';
 import { Money } from '../../components/data/Money';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
+import { DateField } from '../../components/ui/DateField';
+import { FormField, useFieldId } from '../../components/ui/FormField';
 import { Modal } from '../../components/ui/Modal';
 import { NumberField } from '../../components/ui/NumberField';
 import { SecretRevealModal } from '../../components/ui/SecretRevealModal';
 import { SelectField } from '../../components/ui/SelectField';
-import { TextField } from '../../components/ui/TextField';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { GenerateCodesBody, RedemptionCodeView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { isoMidnight } from '../../lib/date';
 import { useUrlState } from '../../lib/useUrlState';
-
-/** A YYYY-MM-DD date → an ISO-8601 instant (midnight UTC); pass other values through. */
-function toIso(value: string): string {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00.000Z` : value;
-}
 
 export function RedemptionCodesPage() {
   const { t } = useTranslation('console');
@@ -46,12 +43,13 @@ export function RedemptionCodesPage() {
   const [count, setCount] = useState(10);
   const [creditsPerCode, setCreditsPerCode] = useState(0);
   const [expiresAt, setExpiresAt] = useState('');
+  const expiryId = useFieldId();
   const [minted, setMinted] = useState<string[] | null>(null);
 
   const generate = useMutation({
     mutationFn: () => {
       const body: GenerateCodesBody = { count, creditsPerCode };
-      if (expiresAt.trim() !== '') body.expiresAt = toIso(expiresAt.trim());
+      if (expiresAt.trim() !== '') body.expiresAt = isoMidnight(expiresAt.trim());
       return api.generateCodes(body);
     },
     onSuccess: async (r) => {
@@ -184,12 +182,19 @@ export function RedemptionCodesPage() {
           min={1}
           step={1}
         />
-        <TextField
+        <FormField
+          id={expiryId}
           label={t('redemptionCodes.form.expiresAt')}
           hint={t('redemptionCodes.form.expiresHint')}
-          value={expiresAt}
-          onChange={setExpiresAt}
-        />
+        >
+          <DateField
+            id={expiryId}
+            value={expiresAt}
+            onChange={setExpiresAt}
+            ariaLabel={t('redemptionCodes.form.expiresAt')}
+            placeholder={t('redemptionCodes.form.expiresAt')}
+          />
+        </FormField>
       </Modal>
 
       <SecretRevealModal

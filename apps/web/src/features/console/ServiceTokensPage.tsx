@@ -10,7 +10,8 @@ import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { FIELD_INPUT_BASE } from '../../components/ui/fieldStyles';
+import { DateField } from '../../components/ui/DateField';
+import { FormField, useFieldId } from '../../components/ui/FormField';
 import { Modal } from '../../components/ui/Modal';
 import { RowAction } from '../../components/ui/RowAction';
 import { SecretRevealModal } from '../../components/ui/SecretRevealModal';
@@ -20,6 +21,7 @@ import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { AdminTokenView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
+import { isoMidnight } from '../../lib/date';
 
 /**
  * Admin SERVICE TOKENS (M2M credentials for the `/admin` API): mint (plaintext
@@ -40,7 +42,8 @@ export function ServiceTokensPage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [name, setName] = useState('');
-  const [expiresAt, setExpiresAt] = useState(''); // datetime-local string; '' = never
+  const [expiresAt, setExpiresAt] = useState(''); // YYYY-MM-DD (DateField); '' = never
+  const expiryId = useFieldId();
   const [plaintext, setPlaintext] = useState<string | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<AdminTokenView | undefined>(undefined);
 
@@ -48,8 +51,8 @@ export function ServiceTokensPage() {
     mutationFn: () =>
       api.createAdminToken({
         name: name.trim(),
-        // datetime-local → full ISO-8601 (the schema requires `.datetime()`).
-        expiresAt: expiresAt.trim() === '' ? undefined : new Date(expiresAt).toISOString(),
+        // date-only (YYYY-MM-DD) → ISO-8601 at UTC midnight (the schema requires `.datetime()`).
+        expiresAt: expiresAt.trim() === '' ? undefined : isoMidnight(expiresAt.trim()),
       }),
     onSuccess: async (r) => {
       await qc.invalidateQueries({ queryKey: qk.adminTokens() });
@@ -146,17 +149,15 @@ export function ServiceTokensPage() {
         }
       >
         <TextField label={t('tokens.form.name')} value={name} onChange={setName} />
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-1)' }}>
-          <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>
-            {t('tokens.form.expiresAt')}
-          </span>
-          <input
-            type="datetime-local"
+        <FormField id={expiryId} label={t('tokens.form.expiresAt')}>
+          <DateField
+            id={expiryId}
             value={expiresAt}
-            onChange={(e) => setExpiresAt(e.target.value)}
-            style={FIELD_INPUT_BASE}
+            onChange={setExpiresAt}
+            ariaLabel={t('tokens.form.expiresAt')}
+            placeholder={t('tokens.never')}
           />
-        </label>
+        </FormField>
       </Modal>
 
       {/* One-time reveal of the minted token (never shown again). */}
