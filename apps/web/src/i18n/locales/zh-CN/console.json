@@ -1618,6 +1618,8 @@
     "created": "插件已创建",
     "updated": "插件已更新",
     "deleted": "插件已删除",
+    "testOk": "测试通过",
+    "testError": "测试失败",
     "builtin": "内置",
     "custom": "自定义",
     "cols": {
@@ -1683,6 +1685,7 @@
     "avgLatency": "平均延迟",
     "requests": "{{total}} 次调用 · {{errors}} 次失败",
     "noHistory": "暂无历史",
+    "sparkAria": "近 {{days}} 天：{{ok}} 天正常，{{err}} 天有错误",
     "idle": "无流量",
     "last": {
       "succeeded": "正常",

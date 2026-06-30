@@ -117,7 +117,7 @@ function BrandPanel() {
             fontSize: 'var(--fs-micro)',
             textTransform: 'uppercase',
             letterSpacing: '0.06em',
-            color: 'var(--faint)',
+            color: 'var(--muted)',
             marginBottom: 'var(--s-3)',
           }}
         >

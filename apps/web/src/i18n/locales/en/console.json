@@ -1618,6 +1618,8 @@
     "created": "Plugin created",
     "updated": "Plugin updated",
     "deleted": "Plugin deleted",
+    "testOk": "Test passed",
+    "testError": "Test failed",
     "builtin": "Built-in",
     "custom": "Custom",
     "cols": {
@@ -1683,6 +1685,7 @@
     "avgLatency": "avg latency",
     "requests": "{{total}} calls · {{errors}} failed",
     "noHistory": "No history",
+    "sparkAria": "Last {{days}} days: {{ok}} ok, {{err}} with errors",
     "idle": "Idle",
     "last": {
       "succeeded": "OK",
