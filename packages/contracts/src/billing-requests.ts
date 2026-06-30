@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { priceSpecSchema } from './pricing.js';
+
 /**
  * Single source of truth for the **billing & routing** control-plane **request
  * bodies** (route groups, group channel memberships, official model prices —
@@ -83,6 +85,12 @@ export const createOfficialPriceSchema = z.object({
   outputUsdPer1m: z.number().positive(),
   /** Optional HUMAN USD per 1M cached-input tokens. */
   cachedInputUsdPer1m: z.number().positive().optional(),
+  /**
+   * Optional full `PriceSpec` (media/credits/matrix). When set, the row prices
+   * off this spec (in µUSD, NOT human USD — it's already a wire money spec); the
+   * per-1M fields stay the per-token fast-path. Null/omitted → a plain per-token row.
+   */
+  scheme: priceSpecSchema.nullable().optional(),
   sourceUrl: z.string().url().optional(),
   effectiveAt: z.string().datetime().optional(), // ISO 8601
   notes: z.string().optional(),
@@ -101,6 +109,8 @@ export const updateOfficialPriceSchema = z.object({
   inputUsdPer1m: z.number().positive().optional(),
   outputUsdPer1m: z.number().positive().optional(),
   cachedInputUsdPer1m: z.number().positive().nullable().optional(),
+  /** Set the full `PriceSpec` (media/credits/matrix), or `null` to clear it back to per-token. */
+  scheme: priceSpecSchema.nullable().optional(),
   sourceUrl: z.string().url().nullable().optional(),
   effectiveAt: z.string().datetime().nullable().optional(),
   notes: z.string().nullable().optional(),

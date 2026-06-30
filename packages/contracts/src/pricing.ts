@@ -7,6 +7,7 @@ export const PRICE_METHODS = [
   'formula',
   'passthrough',
   'model_token',
+  'credits',
 ] as const;
 export type PriceMethod = (typeof PRICE_METHODS)[number];
 export const PRICE_TIMINGS = ['pre', 'post'] as const;
@@ -78,6 +79,32 @@ export const modelTokenSpecSchema = z.object({
 });
 export type ModelTokenSpec = z.infer<typeof modelTokenSpecSchema>;
 
+/**
+ * Credit-billed cost (Vidu/Kling — the 富媒体 credit primitive). The provider
+ * meters in opaque "credits"; this spec converts that to integer µUSD:
+ *   `credits = baseCredits + Σ dimensions[d].credits×v[d] + Σ addOns(flag truthy)`
+ *   `cost   = credits × creditValueMicroUsd`.
+ * The usage/param vector `v` is read in the SAME snake_case shape as `unit`
+ * (missing dimension = 0, missing flag = false), so it serves both `quote`/hold
+ * (request params) and `settle` (observed usage). All-integer bigint math.
+ */
+export const creditsSpecSchema = z.object({
+  method: z.literal('credits'),
+  /** µUSD per 1 credit (the credit→money conversion). */
+  creditValueMicroUsd: z.number().int().nonnegative(),
+  /** Flat credits charged per request regardless of usage. Default 0. */
+  baseCredits: z.number().int().nonnegative().default(0),
+  /** Credits per unit of each usage/param dimension (mirrors `unit`, but in CREDITS). */
+  dimensions: z
+    .record(z.string(), z.object({ credits: z.number().int().nonnegative() }))
+    .default({}),
+  /** Conditional credit add-ons: +credits when the named param/usage flag is truthy (e.g. audio, fast-mode). */
+  addOns: z
+    .array(z.object({ flag: z.string(), credits: z.number().int().nonnegative() }))
+    .optional(),
+});
+export type CreditsSpec = z.infer<typeof creditsSpecSchema>;
+
 export const priceSpecSchema = z.discriminatedUnion('method', [
   unitSpecSchema,
   matrixSpecSchema,
@@ -85,6 +112,7 @@ export const priceSpecSchema = z.discriminatedUnion('method', [
   formulaSpecSchema,
   passthroughSpecSchema,
   modelTokenSpecSchema,
+  creditsSpecSchema,
 ]);
 export type PriceSpec = z.infer<typeof priceSpecSchema>;
 

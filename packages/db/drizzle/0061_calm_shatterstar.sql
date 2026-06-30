@@ -1,0 +1,1 @@
+ALTER TABLE "official_model_price" ADD COLUMN "scheme" jsonb;

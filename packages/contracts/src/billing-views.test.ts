@@ -60,6 +60,7 @@ describe('billing & routing view contracts', () => {
       input_price_per_1m: '2500000',
       output_price_per_1m: '10000000',
       cached_input_price_per_1m: null,
+      scheme: null,
       source_url: null,
       effective_at: null,
       notes: null,

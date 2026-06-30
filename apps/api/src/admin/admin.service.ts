@@ -5,6 +5,7 @@ import {
   type AdapterContext,
   type CreatePluginRequest,
   type HttpClient,
+  type PriceSpec,
   type RelayTraceView,
   relayTraceViewSchema,
   type TestPluginRequest,
@@ -2133,6 +2134,7 @@ export class AdminService {
       ...(dto.cachedInputUsdPer1m !== undefined
         ? { cachedInputPricePer1m: usdPer1mToMicro(dto.cachedInputUsdPer1m) }
         : {}),
+      ...(dto.scheme !== undefined ? { scheme: dto.scheme } : {}),
       ...(dto.sourceUrl !== undefined ? { sourceUrl: dto.sourceUrl } : {}),
       ...(dto.effectiveAt !== undefined ? { effectiveAt: new Date(dto.effectiveAt) } : {}),
       ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
@@ -2180,6 +2182,7 @@ export class AdminService {
       inputPricePer1m?: bigint;
       outputPricePer1m?: bigint;
       cachedInputPricePer1m?: bigint | null;
+      scheme?: PriceSpec | null;
       sourceUrl?: string | null;
       effectiveAt?: Date | null;
       notes?: string | null;
@@ -2191,6 +2194,7 @@ export class AdminService {
     if (dto.cachedInputUsdPer1m !== undefined)
       patch.cachedInputPricePer1m =
         dto.cachedInputUsdPer1m === null ? null : usdPer1mToMicro(dto.cachedInputUsdPer1m);
+    if (dto.scheme !== undefined) patch.scheme = dto.scheme; // null clears it
     if (dto.sourceUrl !== undefined) patch.sourceUrl = dto.sourceUrl;
     if (dto.effectiveAt !== undefined)
       patch.effectiveAt = dto.effectiveAt === null ? null : new Date(dto.effectiveAt);

@@ -2608,6 +2608,7 @@ function toOfficialPriceView(row: OfficialModelPriceRow): OfficialPriceView {
     output_price_per_1m: row.outputPricePer1m.toString(),
     cached_input_price_per_1m:
       row.cachedInputPricePer1m === null ? null : row.cachedInputPricePer1m.toString(),
+    scheme: row.scheme,
     source_url: row.sourceUrl,
     effective_at: row.effectiveAt === null ? null : row.effectiveAt.toISOString(),
     notes: row.notes,

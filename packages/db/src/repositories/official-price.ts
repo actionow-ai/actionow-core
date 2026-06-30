@@ -1,3 +1,4 @@
+import type { PriceSpec } from '@actionow/contracts';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { and, eq, isNull } from 'drizzle-orm';
 
@@ -45,6 +46,12 @@ export interface CreateOfficialPriceInput {
   readonly outputPricePer1m: bigint;
   /** Optional µUSD per 1M cached-input tokens. */
   readonly cachedInputPricePer1m?: bigint | null | undefined;
+  /**
+   * Optional full `PriceSpec` (media/credits/matrix). When present, this row
+   * prices off the spec; the per-1M columns are the per-token fast-path. Null/
+   * undefined → a plain per-token row (see {@link officialPriceToSpec}).
+   */
+  readonly scheme?: PriceSpec | null | undefined;
   /** Source currency of the official figure (governance metadata); defaults `USD`. */
   readonly currency?: string | undefined;
   /** Sourcing confidence (`firstparty` | `secondary` | `reconstructed`); defaults `firstparty`. */
@@ -73,6 +80,7 @@ export async function createOfficialPrice(
       ...(input.cachedInputPricePer1m !== undefined
         ? { cachedInputPricePer1m: input.cachedInputPricePer1m }
         : {}),
+      ...(input.scheme !== undefined ? { scheme: input.scheme } : {}),
       ...(input.currency !== undefined ? { currency: input.currency } : {}),
       ...(input.confidence !== undefined ? { confidence: input.confidence } : {}),
       ...(input.billingEligible !== undefined ? { billingEligible: input.billingEligible } : {}),
@@ -168,12 +176,46 @@ export function matchOfficialPrice(
   return getOfficialPrice(db, provider, normalizeModelSlug(rawSlug));
 }
 
+/**
+ * The effective pricing spec for an official row: the stored `scheme` if present
+ * (a rich media/credits/matrix `PriceSpec`), else a `model_token` spec built from
+ * the denormalized per-1M columns (the per-token fast-path). The optional
+ * `cachedInputPrice` / `groupRatioBps` are folded into the synthesized
+ * `model_token` spec only when present, so a plain per-token row prices
+ * byte-identically to the pre-`scheme` path (the regression invariant). Pure —
+ * no db. The bigint columns are widened to `number` for the `model_token` spec
+ * (the spec's contract is integer µUSD/1M as JS numbers, like the model's frozen
+ * price); the per-1M values stay int53-safe.
+ */
+export function officialPriceToSpec(
+  row: {
+    scheme: PriceSpec | null;
+    inputPricePer1m: bigint;
+    outputPricePer1m: bigint;
+    cachedInputPricePer1m: bigint | null;
+  },
+  opts?: { groupRatioBps?: number },
+): PriceSpec {
+  if (row.scheme !== null) return row.scheme;
+  return {
+    method: 'model_token',
+    inputPrice: Number(row.inputPricePer1m),
+    outputPrice: Number(row.outputPricePer1m),
+    ...(row.cachedInputPricePer1m != null
+      ? { cachedInputPrice: Number(row.cachedInputPricePer1m) }
+      : {}),
+    ...(opts?.groupRatioBps != null ? { groupRatioBps: opts.groupRatioBps } : {}),
+  };
+}
+
 /** Mutable fields of an {@link officialModelPrice} (admin PATCH); omitted keys are unchanged. */
 export interface UpdateOfficialPriceInput {
   readonly displayName?: string | null | undefined;
   readonly inputPricePer1m?: bigint | undefined;
   readonly outputPricePer1m?: bigint | undefined;
   readonly cachedInputPricePer1m?: bigint | null | undefined;
+  /** Set the full `PriceSpec`, or `null` to clear it (back to the per-token columns). */
+  readonly scheme?: PriceSpec | null | undefined;
   readonly sourceUrl?: string | null | undefined;
   readonly effectiveAt?: Date | null | undefined;
   readonly notes?: string | null | undefined;
@@ -196,6 +238,7 @@ export async function updateOfficialPrice(
   if (patch.outputPricePer1m !== undefined) set.outputPricePer1m = patch.outputPricePer1m;
   if (patch.cachedInputPricePer1m !== undefined)
     set.cachedInputPricePer1m = patch.cachedInputPricePer1m;
+  if (patch.scheme !== undefined) set.scheme = patch.scheme; // null clears it
   if (patch.sourceUrl !== undefined) set.sourceUrl = patch.sourceUrl;
   if (patch.effectiveAt !== undefined) set.effectiveAt = patch.effectiveAt;
   if (patch.notes !== undefined) set.notes = patch.notes;

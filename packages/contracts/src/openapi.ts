@@ -148,6 +148,7 @@ import {
   usageLogViewSchema,
   usageRollupViewSchema,
 } from './ops-views.js';
+import { priceSpecSchema } from './pricing.js';
 import {
   createPluginRequestSchema,
   providerPluginViewSchema,
@@ -251,10 +252,34 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   // per-(channel, model) circuit-breaker status surface (弹性2.0)
   const Breaker = registry.register('BreakerView', breakerViewSchema);
 
+  // The full pricing-method union (`PriceSpec`) registered as ONE named
+  // component so the official-price `scheme` (media/credits/matrix) renders as a
+  // referenced union in the SDK instead of an opaque `unknown`. The runtime
+  // view/body schemas embed `priceSpecSchema.nullable()` (a `z.discriminatedUnion`
+  // wrapper that `@asteasolutions/zod-to-openapi` re-inlines as `union | {nullable}`
+  // → openapi-typescript collapses to `unknown`). For the OpenAPI doc ONLY we
+  // override the `scheme` field to a clean `$ref` to this component made nullable
+  // via metadata (`{ allOf: [{$ref}, {nullable}] }`), so the SDK type is the real
+  // `PriceSpec | null`. The runtime contract (ZodBody validation) is unaffected —
+  // it validates against the original `.nullable()` schemas.
+  const PriceSpecRef = registry.register('PriceSpec', priceSpecSchema);
+  // `.openapi({ nullable })` is honored at runtime (it lands in the schema
+  // metadata) but the v7 `ZodOpenAPIMetadata` typings narrow a discriminated
+  // union's single-arg overload to a `string` refId, so the metadata-bag form
+  // does not type-check — pass it through an `unknown` cast (runtime-correct; the
+  // probe proves it serializes). NOTE: this is the no-refId metadata overload, so
+  // it ADDS nullability to the existing `PriceSpec` ref (it does NOT mint a new
+  // component). Emits `{ allOf: [{ $ref }, { nullable: true }] }`, which
+  // `normalizeNullableRefs` hoists to `{ allOf: [{ $ref }], nullable: true }`.
+  const nullablePriceSpec = PriceSpecRef.openapi({ nullable: true } as unknown as string);
+
   // billing & routing views (billing-views)
   const RouteGroup = registry.register('RouteGroupView', routeGroupViewSchema);
   const RouteGroupChannel = registry.register('RouteGroupChannelView', routeGroupChannelViewSchema);
-  const OfficialPrice = registry.register('OfficialPriceView', officialPriceViewSchema);
+  const OfficialPrice = registry.register(
+    'OfficialPriceView',
+    officialPriceViewSchema.extend({ scheme: nullablePriceSpec }),
+  );
 
   // tenant console views (console-views)
   const ConsoleApiKey = registry.register('ConsoleApiKeyView', consoleApiKeyViewSchema);
@@ -361,13 +386,16 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const UpdateProxy = registry.register('UpdateProxyBody', updateProxySchema);
   const ProxyProbe = registry.register('ProxyProbeBody', proxyProbeRequestSchema);
   const AddGroupChannel = registry.register('AddGroupChannelBody', addGroupChannelSchema);
+  // Same `scheme` `$ref` override as the view (optional on the bodies): the
+  // runtime schemas keep `priceSpecSchema.nullable().optional()`; the OpenAPI doc
+  // points the field at the `PriceSpec` component made nullable via metadata.
   const CreateOfficialPrice = registry.register(
     'CreateOfficialPriceBody',
-    createOfficialPriceSchema,
+    createOfficialPriceSchema.extend({ scheme: nullablePriceSpec.optional() }),
   );
   const UpdateOfficialPrice = registry.register(
     'UpdateOfficialPriceBody',
-    updateOfficialPriceSchema,
+    updateOfficialPriceSchema.extend({ scheme: nullablePriceSpec.optional() }),
   );
   // tenant console (console-requests)
   const ConsoleCreateApiKey = registry.register(
@@ -1480,7 +1508,55 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     security: [{ bearerAuth: [] }],
   });
   attachErrors(doc);
+  normalizeNullableRefs(doc);
   return doc;
+}
+
+/**
+ * Normalize zod-to-openapi's nullable-`$ref` shape for openapi-typescript.
+ *
+ * `register('X', s).openapi({ nullable: true })` emits
+ * `{ allOf: [{ $ref }, { nullable: true }] }` (the nullable lives as a sibling
+ * member INSIDE the `allOf`). openapi-typescript renders that intersection as
+ * `X & unknown` (≈ `X`, and crucially NOT nullable). Hoisting the flag to the
+ * top — `{ allOf: [{ $ref }], nullable: true }` — makes openapi-typescript emit
+ * the intended `X | null`. We do this as a post-pass (mirrors `attachErrors`) so
+ * the registration stays declarative; it touches ONLY the exact `allOf:[ref] +
+ * sibling {nullable:true}` shape and leaves every other schema untouched. Used by
+ * the official-price `scheme` field (a nullable `PriceSpec` $ref).
+ */
+function normalizeNullableRefs(doc: ReturnType<OpenApiGeneratorV3['generateDocument']>): void {
+  const visit = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      for (const child of node) visit(child);
+      return;
+    }
+    if (node === null || typeof node !== 'object') return;
+    const obj = node as Record<string, unknown>;
+    const allOf = obj.allOf;
+    if (Array.isArray(allOf)) {
+      const refs = allOf.filter(
+        (m): m is Record<string, unknown> =>
+          typeof m === 'object' && m !== null && '$ref' in (m as object),
+      );
+      const nullableSiblings = allOf.filter(
+        (m): m is Record<string, unknown> =>
+          typeof m === 'object' &&
+          m !== null &&
+          Object.keys(m as object).length === 1 &&
+          (m as Record<string, unknown>).nullable === true,
+      );
+      // The exact nullable-`$ref` shape: one+ `$ref` member(s) plus a lone
+      // `{ nullable: true }` sibling and nothing else. Hoist `nullable` to top
+      // and drop the empty sibling.
+      if (nullableSiblings.length > 0 && refs.length + nullableSiblings.length === allOf.length) {
+        obj.allOf = refs;
+        obj.nullable = true;
+      }
+    }
+    for (const value of Object.values(obj)) visit(value);
+  };
+  visit(doc);
 }
 
 /** The common 4xx codes every endpoint may return (the uniform §4.7 envelope). */
