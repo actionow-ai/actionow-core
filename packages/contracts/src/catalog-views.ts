@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { paramOverrideSchema } from './param-profile.js';
+
 /**
  * Single source of truth for the catalog/pricing control-plane **wire views**
  * (resources, channels, models, model grants, pricebook, modifiers). Same
@@ -66,8 +68,22 @@ export type IconAssetView = z.infer<typeof iconAssetViewSchema>;
 /** `POST /admin/resources/:id/channels/:channelId/models` body: link an existing model. */
 export const channelModelLinkInputSchema = z.object({
   model_id: z.string(),
+  /** Optional per-(model×channel) param override to attach at link time (mig 0062). */
+  param_override: paramOverrideSchema.optional(),
 });
 export type ChannelModelLinkInput = z.infer<typeof channelModelLinkInputSchema>;
+
+/**
+ * One `channel_model` link row (`GET .../channels/:channelId/models` per-link
+ * override view). `param_override` is the per-(model×channel) override bag (mig
+ * 0062); null → no override (== today's behavior).
+ */
+export const channelModelViewSchema = z.object({
+  channel_id: z.string(),
+  model_id: z.string(),
+  param_override: paramOverrideSchema.nullable(),
+});
+export type ChannelModelView = z.infer<typeof channelModelViewSchema>;
 
 /** A relay model as served by `GET /admin/models[/:name]`. Prices are µcredit strings. */
 export const modelViewSchema = z.object({
@@ -88,6 +104,13 @@ export const modelViewSchema = z.object({
   fallback_models: z.array(z.string()).nullable(),
   /** Channel ids that serve this model (inverse channel_model links; popup 服务通道). */
   served_channel_ids: z.array(z.string()),
+  /**
+   * The per-(model×channel) param override for the link this row was fetched
+   * THROUGH (mig 0062). Only populated by `GET .../channels/:channelId/models`
+   * (where a channel context exists); null when unset or when the model was
+   * fetched channel-free (flat `/admin/models`). Drives the col-3 「已覆盖」 chip.
+   */
+  param_override: paramOverrideSchema.nullable(),
   /** Free-form catalog tags for faceting (catalog-tags-ia). */
   tags: z.array(z.string()),
   /** Developer/maker (开发者 facet); null when unset. */

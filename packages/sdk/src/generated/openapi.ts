@@ -10021,6 +10021,95 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/resources/{id}/channels/{channelId}/models/{modelId}/param-override": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Set/clear a per-(model×channel) parameter override */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    channelId: string;
+                    modelId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateChannelModelParamOverrideBody"];
+                };
+            };
+            responses: {
+                /** @description Set/clear a per-(model×channel) parameter override */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ChannelModelView"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/admin/dify/import": {
         parameters: {
             query?: never;
@@ -12215,6 +12304,20 @@ export interface components {
                 retry_after_ms?: number;
             };
         };
+        ParamOverride: {
+            /** @default [] */
+            ops: {
+                /** @enum {string} */
+                op: "set" | "clamp" | "delete";
+                name: string;
+                value?: unknown;
+                min?: number;
+                max?: number;
+                when?: {
+                    modelMatches?: string;
+                };
+            }[];
+        };
         ResourceView: {
             id: string;
             tenant_id: string | null;
@@ -12263,6 +12366,20 @@ export interface components {
             rate_limit: number | null;
             fallback_models: string[] | null;
             served_channel_ids: string[];
+            param_override: {
+                /** @default [] */
+                ops: {
+                    /** @enum {string} */
+                    op: "set" | "clamp" | "delete";
+                    name: string;
+                    value?: unknown;
+                    min?: number;
+                    max?: number;
+                    when?: {
+                        modelMatches?: string;
+                    };
+                }[];
+            } | null;
             tags: string[];
             maker: string | null;
             context_length: number | null;
@@ -12270,6 +12387,40 @@ export interface components {
             icon: string | null;
             status: string;
             created_at: string;
+        };
+        ChannelModelView: {
+            channel_id: string;
+            model_id: string;
+            param_override: {
+                /** @default [] */
+                ops: {
+                    /** @enum {string} */
+                    op: "set" | "clamp" | "delete";
+                    name: string;
+                    value?: unknown;
+                    min?: number;
+                    max?: number;
+                    when?: {
+                        modelMatches?: string;
+                    };
+                }[];
+            } | null;
+        };
+        UpdateChannelModelParamOverrideBody: {
+            paramOverride: {
+                /** @default [] */
+                ops: {
+                    /** @enum {string} */
+                    op: "set" | "clamp" | "delete";
+                    name: string;
+                    value?: unknown;
+                    min?: number;
+                    max?: number;
+                    when?: {
+                        modelMatches?: string;
+                    };
+                }[];
+            } | null;
         };
         ModelSpecView: {
             id: string;

@@ -1,3 +1,4 @@
+import type { ParamOverride } from '@actionow/contracts';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
@@ -408,8 +409,76 @@ export async function unlinkAllForChannel(db: DbOrTx, channelId: string): Promis
   await db.delete(channelModel).where(eq(channelModel.channelId, channelId));
 }
 
+/**
+ * Set (or clear with `null`) the per-(channel,model) param override (mig 0062).
+ * Idempotent; UPSERTS the link if missing so an operator can attach an override
+ * before a model is explicitly linked. The `channel_model` PK is
+ * `(channelId, modelId)` (no soft-delete), so the composite PK is the conflict
+ * target — no partial-unique `targetWhere` needed.
+ */
+export async function setChannelModelOverride(
+  db: DbOrTx,
+  channelId: string,
+  modelId: string,
+  override: ParamOverride | null,
+): Promise<void> {
+  await db
+    .insert(channelModel)
+    .values({ channelId, modelId, paramOverride: override })
+    .onConflictDoUpdate({
+      target: [channelModel.channelId, channelModel.modelId],
+      set: { paramOverride: override },
+    });
+}
+
+/** The param override for one (channel, model), or `null` when unset / unlinked. */
+export async function getChannelModelOverride(
+  db: DbOrTx,
+  channelId: string,
+  modelId: string,
+): Promise<ParamOverride | null> {
+  const rows = await db
+    .select({ paramOverride: channelModel.paramOverride })
+    .from(channelModel)
+    .where(and(eq(channelModel.channelId, channelId), eq(channelModel.modelId, modelId)))
+    .limit(1);
+  return rows[0]?.paramOverride ?? null;
+}
+
+/**
+ * Batch-load channelId → param_override for one model across a candidate channel
+ * set (stage ② data source in `candidatesFor`). Only rows WITH an override are
+ * returned, so an empty map == every candidate is byte-for-byte today. One query,
+ * no N+1.
+ */
+export async function getChannelModelOverrides(
+  db: DbOrTx,
+  modelId: string,
+  channelIds: string[],
+): Promise<Map<string, ParamOverride>> {
+  if (channelIds.length === 0) return new Map();
+  const rows = await db
+    .select({ channelId: channelModel.channelId, paramOverride: channelModel.paramOverride })
+    .from(channelModel)
+    .where(
+      and(
+        eq(channelModel.modelId, modelId),
+        inArray(channelModel.channelId, channelIds),
+        sql`${channelModel.paramOverride} IS NOT NULL`,
+      ),
+    );
+  const out = new Map<string, ParamOverride>();
+  for (const r of rows) {
+    if (r.paramOverride !== null) out.set(r.channelId, r.paramOverride);
+  }
+  return out;
+}
+
+/** A model served by a channel, carrying that link's per-(model×channel) override (mig 0062). */
+export type ChannelModelRow = ModelRow & { readonly paramOverride: ParamOverride | null };
+
 /** The LIVE models a channel serves (right-panel grid), newest link first. */
-export async function listChannelModels(db: DbOrTx, channelId: string): Promise<ModelRow[]> {
+export async function listChannelModels(db: DbOrTx, channelId: string): Promise<ChannelModelRow[]> {
   return db
     .select({
       id: model.id,
@@ -433,6 +502,7 @@ export async function listChannelModels(db: DbOrTx, channelId: string): Promise<
       status: model.status,
       createdAt: model.createdAt,
       deletedAt: model.deletedAt,
+      paramOverride: channelModel.paramOverride,
     })
     .from(model)
     .innerJoin(channelModel, eq(channelModel.modelId, model.id))

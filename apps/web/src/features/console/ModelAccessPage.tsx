@@ -4,6 +4,7 @@ import {
   CaretRightIcon,
   PencilSimpleIcon,
   PlusIcon,
+  SlidersHorizontalIcon,
 } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
@@ -32,6 +33,7 @@ import { useMediaQuery } from '../../lib/useMediaQuery';
 import { ChannelCard } from './ChannelCard';
 import { ChannelEditor } from './ChannelEditor';
 import { ModelEditor } from './ModelEditor';
+import { ParamOverrideEditor } from './ParamOverrideEditor';
 import { PluginEditor } from './PluginsPage';
 import { type FacetDef, useFacets } from './useFacets';
 
@@ -135,6 +137,8 @@ export function ModelAccessPage() {
   const [channelEdit, setChannelEdit] = useState<ChannelView | 'new' | null>(null);
   const [chDelTarget, setChDelTarget] = useState<ChannelView | undefined>(undefined);
   const [modelEdit, setModelEdit] = useState<{ name?: string; resourceId: string } | null>(null);
+  // Per-(model×channel) param override editor target (模型参数绑定 Phase 0).
+  const [overrideEdit, setOverrideEdit] = useState<ModelView | null>(null);
 
   const invalidateChannels = async (): Promise<void> => {
     if (selectedPlugin !== undefined)
@@ -432,13 +436,24 @@ export function ModelAccessPage() {
                   setModelEdit({ name: m.name, resourceId: selectedChannel.resource_id })
                 }
                 rowActions={(m) => (
-                  <RowAction
-                    icon={PencilSimpleIcon}
-                    label={t('common.edit')}
-                    onClick={() =>
-                      setModelEdit({ name: m.name, resourceId: selectedChannel.resource_id })
-                    }
-                  />
+                  <>
+                    <RowAction
+                      icon={SlidersHorizontalIcon}
+                      label={
+                        m.param_override !== null && m.param_override.ops.length > 0
+                          ? t('override.active')
+                          : t('override.edit')
+                      }
+                      onClick={() => setOverrideEdit(m)}
+                    />
+                    <RowAction
+                      icon={PencilSimpleIcon}
+                      label={t('common.edit')}
+                      onClick={() =>
+                        setModelEdit({ name: m.name, resourceId: selectedChannel.resource_id })
+                      }
+                    />
+                  </>
                 )}
                 pageSize={30}
                 fill
@@ -481,6 +496,17 @@ export function ModelAccessPage() {
             if (selectedChannel !== undefined)
               void qc.invalidateQueries({ queryKey: qk.channelModels(selectedChannel.id) });
           }}
+        />
+      )}
+
+      {overrideEdit !== null && selectedChannel !== undefined && (
+        <ParamOverrideEditor
+          key={overrideEdit.id}
+          resourceId={selectedChannel.resource_id}
+          channelId={selectedChannel.id}
+          modelId={overrideEdit.id}
+          modelName={overrideEdit.name}
+          onClose={() => setOverrideEdit(null)}
         />
       )}
 

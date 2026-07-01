@@ -19,6 +19,7 @@ export type {
   // --- bulk admin actions (前端打磨) ---
   BulkResultView,
   ChannelHealthView,
+  ChannelModelView,
   ChannelView,
   CodexLoginCompleteBody,
   CodexLoginStartBody,
@@ -113,6 +114,9 @@ export type {
   OfficialPriceView,
   OpsHealthView,
   OpsSummaryView,
+  // --- per-(model×channel) param override (模型参数绑定 Phase 0) ---
+  ParamOpDef,
+  ParamOverride,
   PaymentIntentView,
   // --- dynamic platform config (动态配置, #50) ---
   PlatformSettingKey,
@@ -151,6 +155,7 @@ export type {
   TransferCreditsBody,
   UpdateApiKeyGroupBody,
   UpdateChannelBody,
+  UpdateChannelModelParamOverrideBody,
   UpdateConversationBody,
   UpdateCredentialMetaBody,
   UpdateDifyBody,

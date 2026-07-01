@@ -8,6 +8,7 @@ export * from './job-progress.js';
 export * from './job-runner.js';
 export * from './media-result.js';
 export * from './oauth/codex.js';
+export * from './param/apply-override.js';
 export * from './payment-service.js';
 export * from './plugin-adapter.js';
 export * from './plugin-runner.js';

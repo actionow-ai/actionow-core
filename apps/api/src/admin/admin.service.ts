@@ -5,6 +5,7 @@ import {
   type AdapterContext,
   type CreatePluginRequest,
   type HttpClient,
+  type ParamOverride,
   type PriceSpec,
   type RelayTraceView,
   relayTraceViewSchema,
@@ -22,6 +23,7 @@ import {
   type BreakerStatusRow,
   type ChannelHealthRow,
   channelIdsByModelIds,
+  type ChannelModelRow,
   checkFallbackChain,
   countAccounts,
   countByPlugin,
@@ -65,6 +67,7 @@ import {
   findResourceByProviderModality,
   getAccount,
   getChannelById,
+  getChannelModelOverride,
   getFaultPolicyById,
   getLimitPlanById,
   getModelById,
@@ -168,6 +171,7 @@ import {
   type SecretRefView,
   setApiKeyGroup,
   setApiKeyLimitPlan,
+  setChannelModelOverride,
   setFileTtlDays,
   setTenantLimitPlan,
   softDeleteApiKey,
@@ -1494,26 +1498,64 @@ export class AdminService {
     return channelIdsByModelIds(this.db, modelIds);
   }
 
-  /** The models a channel serves (right-panel grid); 404s if the channel ∉ resource. */
-  async listChannelModels(resourceId: string, channelId: string): Promise<ModelRow[]> {
+  /**
+   * The models a channel serves (right-panel grid), each carrying its per-link
+   * `param_override` (mig 0062); 404s if the channel ∉ resource.
+   */
+  async listChannelModels(resourceId: string, channelId: string): Promise<ChannelModelRow[]> {
     await this.getChannel(resourceId, channelId);
     return listChannelModels(this.db, channelId);
   }
 
-  /** Link an existing platform model to a channel; validates the channel + same-platform model. */
-  async linkChannelModel(resourceId: string, channelId: string, modelId: string): Promise<void> {
+  /**
+   * Link an existing platform model to a channel; validates the channel +
+   * same-platform model. When `paramOverride` is supplied, attaches it at link
+   * time (mig 0062) so a link can be created WITH a per-(model×channel) override
+   * in one call; omitted → a plain link (no override, == today).
+   */
+  async linkChannelModel(
+    resourceId: string,
+    channelId: string,
+    modelId: string,
+    paramOverride?: ParamOverride,
+  ): Promise<void> {
     await this.getChannel(resourceId, channelId);
     const m = await getModelById(this.db, modelId);
     if (m?.resourceId !== resourceId) {
       throw engineInvalidInput('model must belong to the same platform as the channel');
     }
-    await linkChannelModel(this.db, channelId, modelId);
+    if (paramOverride !== undefined) {
+      await setChannelModelOverride(this.db, channelId, modelId, paramOverride);
+    } else {
+      await linkChannelModel(this.db, channelId, modelId);
+    }
   }
 
   /** Remove a channel↔model link; 404s if the channel ∉ resource. */
   async unlinkChannelModel(resourceId: string, channelId: string, modelId: string): Promise<void> {
     await this.getChannel(resourceId, channelId);
     await unlinkChannelModel(this.db, channelId, modelId);
+  }
+
+  /**
+   * Set (or clear with `null`) the per-(model×channel) parameter override (mig
+   * 0062). Validates the channel ∈ resource + the model ∈ platform, then upserts
+   * the `channel_model` link's `param_override`. Returns the resulting link view.
+   */
+  async setChannelModelParamOverride(
+    resourceId: string,
+    channelId: string,
+    modelId: string,
+    paramOverride: ParamOverride | null,
+  ): Promise<{ channelId: string; modelId: string; paramOverride: ParamOverride | null }> {
+    await this.getChannel(resourceId, channelId);
+    const m = await getModelById(this.db, modelId);
+    if (m?.resourceId !== resourceId) {
+      throw engineInvalidInput('model must belong to the same platform as the channel');
+    }
+    await setChannelModelOverride(this.db, channelId, modelId, paramOverride);
+    const stored = await getChannelModelOverride(this.db, channelId, modelId);
+    return { channelId, modelId, paramOverride: stored };
   }
 
   /**

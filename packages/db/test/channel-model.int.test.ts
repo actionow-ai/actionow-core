@@ -1,14 +1,19 @@
+import type { ParamOverride } from '@actionow/contracts';
+import { paramOverrideSchema } from '@actionow/contracts';
 import {
   channelIdsByModelIds,
   countModelsByChannelIds,
   createModel,
   createResource,
   createUpstreamChannel,
+  getChannelModelOverride,
+  getChannelModelOverrides,
   linkChannelModel,
   linkChannelModelsByNames,
   listChannelModels,
   listModelChannels,
   schema,
+  setChannelModelOverride,
   unlinkAllForChannel,
   unlinkChannelModel,
 } from '@actionow/db';
@@ -93,5 +98,60 @@ describe('channel_model links', () => {
     await linkChannelModel(db, channelId, modelId);
     await unlinkAllForChannel(db, channelId);
     expect(await listChannelModels(db, channelId)).toHaveLength(0);
+  });
+});
+
+describe('channel_model.param_override (mig 0062)', () => {
+  const override: ParamOverride = {
+    ops: [
+      { op: 'set', name: 'temperature', value: 0 },
+      { op: 'clamp', name: 'top_p', min: 0, max: 0.9 },
+    ],
+  };
+
+  it('I0-2 existing plain links read back with param_override === null', async () => {
+    const { channelId, modelId } = await seed();
+    await linkChannelModel(db, channelId, modelId);
+
+    expect(await getChannelModelOverride(db, channelId, modelId)).toBeNull();
+    const rows = await listChannelModels(db, channelId);
+    expect(rows[0]?.paramOverride ?? null).toBeNull();
+  });
+
+  it('I0-3 round-trip: setChannelModelOverride writes, getChannelModelOverride reads exact jsonb', async () => {
+    const { channelId, modelId } = await seed();
+    await linkChannelModel(db, channelId, modelId);
+
+    await setChannelModelOverride(db, channelId, modelId, override);
+    expect(await getChannelModelOverride(db, channelId, modelId)).toEqual(override);
+
+    // surfaced on the listChannelModels row (drives the col-3 chip)
+    const rows = await listChannelModels(db, channelId);
+    expect(rows[0]?.paramOverride).toEqual(override);
+
+    // batch loader returns the same override keyed by channel
+    const map = await getChannelModelOverrides(db, modelId, [channelId]);
+    expect(map.get(channelId)).toEqual(override);
+  });
+
+  it('I0-3b upserts the link when absent, and clears with null', async () => {
+    const { channelId, modelId } = await seed();
+    // no explicit linkChannelModel — the override upsert creates the link
+    await setChannelModelOverride(db, channelId, modelId, override);
+    expect(await listModelChannels(db, modelId)).toEqual([channelId]);
+
+    // clearing sets it back to null (== today); append-only trigger does NOT
+    // block this UPDATE (channel_model is a free link table, mig 0052 clearance)
+    await setChannelModelOverride(db, channelId, modelId, null);
+    expect(await getChannelModelOverride(db, channelId, modelId)).toBeNull();
+
+    // only channels WITH an override appear in the batch map → empty here
+    expect((await getChannelModelOverrides(db, modelId, [channelId])).size).toBe(0);
+  });
+
+  it('I0-4 zod rejects a malformed op (move) at the repo boundary', () => {
+    expect(() =>
+      paramOverrideSchema.parse({ ops: [{ op: 'move', name: 'temperature' }] }),
+    ).toThrow();
   });
 });

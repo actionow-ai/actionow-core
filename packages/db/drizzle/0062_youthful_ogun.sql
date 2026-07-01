@@ -1,0 +1,1 @@
+ALTER TABLE "channel_model" ADD COLUMN "param_override" jsonb;

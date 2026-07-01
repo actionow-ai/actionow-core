@@ -304,6 +304,54 @@
           "error"
         ]
       },
+      "ParamOverride": {
+        "type": "object",
+        "properties": {
+          "ops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "enum": [
+                    "set",
+                    "clamp",
+                    "delete"
+                  ]
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "value": {
+                  "nullable": true
+                },
+                "min": {
+                  "type": "number"
+                },
+                "max": {
+                  "type": "number"
+                },
+                "when": {
+                  "type": "object",
+                  "properties": {
+                    "modelMatches": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              },
+              "required": [
+                "op",
+                "name"
+              ]
+            },
+            "default": []
+          }
+        }
+      },
       "ResourceView": {
         "type": "object",
         "properties": {
@@ -497,6 +545,55 @@
               "type": "string"
             }
           },
+          "param_override": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "ops": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "set",
+                        "clamp",
+                        "delete"
+                      ]
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "value": {
+                      "nullable": true
+                    },
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    },
+                    "when": {
+                      "type": "object",
+                      "properties": {
+                        "modelMatches": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "name"
+                  ]
+                },
+                "default": []
+              }
+            }
+          },
           "tags": {
             "type": "array",
             "items": {
@@ -540,6 +637,7 @@
           "rate_limit",
           "fallback_models",
           "served_channel_ids",
+          "param_override",
           "tags",
           "maker",
           "context_length",
@@ -547,6 +645,128 @@
           "icon",
           "status",
           "created_at"
+        ]
+      },
+      "ChannelModelView": {
+        "type": "object",
+        "properties": {
+          "channel_id": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "param_override": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "ops": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "set",
+                        "clamp",
+                        "delete"
+                      ]
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "value": {
+                      "nullable": true
+                    },
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    },
+                    "when": {
+                      "type": "object",
+                      "properties": {
+                        "modelMatches": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "name"
+                  ]
+                },
+                "default": []
+              }
+            }
+          }
+        },
+        "required": [
+          "channel_id",
+          "model_id",
+          "param_override"
+        ]
+      },
+      "UpdateChannelModelParamOverrideBody": {
+        "type": "object",
+        "properties": {
+          "paramOverride": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "ops": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "set",
+                        "clamp",
+                        "delete"
+                      ]
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "value": {
+                      "nullable": true
+                    },
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    },
+                    "when": {
+                      "type": "object",
+                      "properties": {
+                        "modelMatches": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "name"
+                  ]
+                },
+                "default": []
+              }
+            }
+          }
+        },
+        "required": [
+          "paramOverride"
         ]
       },
       "ModelSpecView": {
@@ -17034,6 +17254,112 @@
         "responses": {
           "204": {
             "description": "Sync a channel’s upstream models"
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/resources/{id}/channels/{channelId}/models/{modelId}/param-override": {
+      "patch": {
+        "summary": "Set/clear a per-(model×channel) parameter override",
+        "tags": [
+          "catalog"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "channelId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "modelId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateChannelModelParamOverrideBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Set/clear a per-(model×channel) parameter override",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelModelView"
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid input",
