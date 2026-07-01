@@ -1,0 +1,41 @@
+# 01 · 选哪种姿势(复用矩阵 + 决策树)
+
+本文件是**复用事实的权威源**;其他 playbook 引用它。端点「怎么调」的细节链到 [actionow-integration](../../actionow-integration/SKILL.md),这里不重复。
+
+## 复用矩阵
+
+| core 的系统                                       | 直接复用?   | 边界 / 关键事实                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **用户系统**                                      | ✅(Model-A) | `subject` = 计费/归属身份 + 自助。`POST /auth/register-member`·`login-member`(**body 必带 `tenantId`**,否则 400)→ member JWT → `/member/*`:读 `{me,usage,balance,api-keys,limits}` + 写 `PATCH /member/me`(改资料)·`POST /member/me/password`(改密码)·`POST /member/api-keys`(**自建 `ak_`**,plaintext 一次)·`DELETE /member/api-keys/:id`(吊销)。**不含**业务档案与你的权限模型 —— 要完整用户体系走 Model-B(见场景二)。                                                                                                                                                                                                        |
+| **积分系统**                                      | ✅          | 信用账本:租户池 `account` + 每用户子钱包 `sub_account`;hold→settle;`1 credit = 1e6 µcredit`,响应里是 µcredit 字符串(BigInt 解析)。治理额度 `limit_plan`(spend/requests/tokens/rpm/concurrency)。                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **充值系统**                                      | ✅          | 控制面:`POST /console/payments/intents { provider, amount_minor, currency }`(**无 `purpose`**,→ `{ intent_id, redirect_url?, qr? }`)· `POST /console/redeem { code }` → `{ credited, balance }`。数据面自助:`POST /v1/payments/intents`(**有 `purpose`**,**需 `ak_`** —— member JWT 打不到)。子钱包(TenantAdmin,`:id`=subject id):`POST /console/subjects/:id/sub-account/open` · `/sub-account/topup`(直接分配,**非守恒**)· `/sub-account/transfer { credits, direction:"to_subject"\|"to_tenant" }`(**守恒**,不够则原子失败)· 读余额 `GET /console/subjects/:id/sub-account`(`credit_balance`/`credit_held` µcredit 字符串)。 |
+| **模型系统**                                      | ✅ 核心     | OpenAI 兼容 `POST /v1/chat/completions`(+ Anthropic `/v1/messages`、Gemini `/v1beta/...`);`GET /v1/models` 列可用模型;路由/容错/降级/计费全在 core。                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **文件/存储**                                     | ✅          | `POST /v1/files/presign-upload` → PUT 到存储 → `POST /v1/files/:id/confirm`;`GET /v1/files/:id/url` 下载;`GET /v1/files/usage` 配额。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 业务用户档案·权限、产品 UX、Prompt/编排、领域数据 | ❌ 自建     | core 不存业务数据、不做产品逻辑。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+
+## 关键约束
+
+端用户 **member JWT 不能直连 `/v1`**(member-token 直连已下线)。AI 调用必须经持 `ak_` 的服务端:后端用 `ak_` 代理,或给端用户发 subject-scoped `ak_`。三种姿势都因此需要一个服务端。
+
+## 三场景对比
+
+|                       | 场景一 · 托管快启        | 场景二 · 能力基座(主线)                                                                                                                                         | 场景三 · 混合                |
+| --------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| 端用户身份            | **core**(Model-A)        | **你**(Model-B,`external_id` 联邦)                                                                                                                              | 你(Model-B)                  |
+| 端用户自助(余额/用量) | core `/member/*`         | 你自建:余额 `GET /console/subjects/:id/sub-account`(无子钱包→`/console/balance`);用量用你自己的代理调用记录(`/console/usage-log` 是租户级、不能按 subject 过滤) | **core `/member/*`**         |
+| 充值 UI               | core 托管                | 你自建 or 复用 core                                                                                                                                             | **复用 core**                |
+| 你要建的              | 前端 + 极薄 `ak_` 代理   | 用户/权限/业务库 + 联邦层 + 薄后端                                                                                                                              | 用户库 + 复用 core 自助/充值 |
+| 适合                  | 内部工具 / DEMO / 轻产品 | 长期演进的正式产品                                                                                                                                              | 想少写计费界面的正式产品     |
+
+## 决策树
+
+1. **你要不要自己管用户体系(档案/权限/业务数据)?**
+   - **否** → **场景一 · 托管快启**:让 core 认证端用户(Model-A),你只做前端 + 极薄 `ak_` 代理。→ [02-scenario-managed.md](02-scenario-managed.md)
+   - **是** → 下一问。
+2. **你想复用 core 的余额/充值自助界面吗?**
+   - **是** → **场景三 · 混合**:自持用户,但把余额/用量/充值自助托管给 core。→ [04-scenario-hybrid.md](04-scenario-hybrid.md)
+   - **否** → **场景二 · 能力基座(推荐)**:自持用户,`external_id` 联邦 subject,复用积分/充值/模型/文件。→ [03-scenario-capability-base.md](03-scenario-capability-base.md)
+
+## 升级路径 一 → 二
+
+Model-A 的 subject 只有 email+password、**没有 `external_id`**,且 `external_id` **不可变**(建后不能补)。所以升级不是「回填 external*id」,而是:在你侧建用户表存 core 的 **`subject_id`(UUID)**、给每个 subject 铸 subject-scoped `ak*`、你接管认证;**core 侧的 subject / 钱包 / 用量不动**。完整 playbook:[05-migration-A-to-B.md](05-migration-A-to-B.md)。

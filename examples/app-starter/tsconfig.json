@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@actionow/sdk": ["../../packages/sdk/src/index.ts"],
+      "@actionow/sdk/webhook": ["../../packages/sdk/src/webhook.ts"]
+    }
+  },
+  "include": ["src", "test"]
+}
