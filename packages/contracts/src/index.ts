@@ -22,6 +22,7 @@ export * from './member-views.js';
 export * from './model-test.js';
 export * from './modifier.js';
 export * from './ops-views.js';
+export * from './param-profile.js';
 export * from './payment.js';
 export * from './platform-setting.js';
 export * from './pricing.js';

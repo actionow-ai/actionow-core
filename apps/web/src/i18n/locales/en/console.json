@@ -1951,6 +1951,26 @@
     "confirmRevokeMsg": "Revoke {{account}}? Channels using it stop resolving.",
     "title": "OAuth sessions"
   },
+  "override": {
+    "editTitle": "Parameter override · {{model}}",
+    "edit": "Parameter override",
+    "active": "Overridden",
+    "none": "Default",
+    "saved": "Override saved",
+    "hint": "Force, clamp, or delete request parameters for this model on this channel only. An empty list clears the override (same as no override).",
+    "addOp": "Add operation",
+    "op": "Operation",
+    "op_set": "Set",
+    "op_clamp": "Clamp",
+    "op_delete": "Delete",
+    "opName": "Parameter",
+    "opValue": "Value",
+    "opValueHint": "number / true / false / null / JSON, else text.",
+    "opMin": "Min",
+    "opMax": "Max",
+    "when": "When model matches",
+    "whenHint": "Optional substring; applies only to matching upstream models on this channel."
+  },
   "tokens": {
     "new": "New token",
     "empty": "No service tokens yet",

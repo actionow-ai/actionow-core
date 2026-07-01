@@ -1951,6 +1951,26 @@
     "confirmRevokeMsg": "确定撤销 {{account}}?使用它的渠道将无法解析。",
     "title": "OAuth 会话"
   },
+  "override": {
+    "editTitle": "参数覆盖 · {{model}}",
+    "edit": "参数覆盖",
+    "active": "已覆盖",
+    "none": "默认",
+    "saved": "参数覆盖已保存",
+    "hint": "仅对本通道上的该模型强制/裁剪/删除请求参数。列表为空即清除覆盖（等同无覆盖）。",
+    "addOp": "添加操作",
+    "op": "操作",
+    "op_set": "强制设置",
+    "op_clamp": "裁剪",
+    "op_delete": "删除",
+    "opName": "参数",
+    "opValue": "值",
+    "opValueHint": "数字 / true / false / null / JSON，否则按文本处理。",
+    "opMin": "最小值",
+    "opMax": "最大值",
+    "when": "当模型匹配",
+    "whenHint": "可选子串；仅对本通道上匹配的上游模型生效。"
+  },
   "tokens": {
     "new": "新建令牌",
     "empty": "暂无服务令牌",

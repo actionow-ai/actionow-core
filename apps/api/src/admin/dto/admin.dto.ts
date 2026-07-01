@@ -42,6 +42,7 @@ import {
   topupSubAccountSchema,
   transferCreditsSchema,
   updateApiKeyGroupSchema,
+  updateChannelModelParamOverrideSchema,
   updateChannelSchema,
   updateCredentialMetaSchema,
   updateDifySchema,
@@ -126,6 +127,7 @@ export {
   topupSubAccountSchema,
   transferCreditsSchema,
   updateApiKeyGroupSchema,
+  updateChannelModelParamOverrideSchema,
   updateChannelSchema,
   updateCredentialMetaSchema,
   updateDifySchema,
@@ -175,6 +177,9 @@ export type UpdateLimitPlanDto = z.infer<typeof updateLimitPlanRequestSchema>;
 export type SetLimitPlanDto = z.infer<typeof setLimitPlanRequestSchema>;
 export type CreateChannelDto = z.infer<typeof createChannelSchema>;
 export type UpdateChannelDto = z.infer<typeof updateChannelSchema>;
+export type UpdateChannelModelParamOverrideDto = z.infer<
+  typeof updateChannelModelParamOverrideSchema
+>;
 export type SyncChannelModelsDto = z.infer<typeof syncChannelModelsSchema>;
 export type CreatePricebookDto = z.infer<typeof createPricebookSchema>;
 export type UpdatePricebookDto = z.infer<typeof updatePricebookSchema>;

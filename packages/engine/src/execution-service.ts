@@ -13,6 +13,7 @@ import type {
   IoSchema,
   ModerationRequest,
   ModerationResult,
+  ParamOverride,
   PluginManifest,
   PricebookEntry,
   RerankRequest,
@@ -55,6 +56,7 @@ import type { BreakerStore } from './breaker.js';
 import { routeBlocking } from './channel-routing.js';
 import { EngineError, engineError } from './errors.js';
 import { type FaultPolicy, runWithFaultPolicy, wrapHttpWithTimeouts } from './fault-policy.js';
+import { applyChannelOverride } from './param/apply-override.js';
 import { serializeAppliedModifiers, settledCost } from './pricing.js';
 import { type TraceContext, TracingHttpClient } from './relay-trace.js';
 import {
@@ -112,6 +114,13 @@ export interface RunChannel {
    * it from `upstream_channel.fault_policy_id`; absent → engine defaults.
    */
   faultPolicy?: FaultPolicy | undefined;
+  /**
+   * Per-(model,channel) parameter override (② set/clamp/delete, mig 0062). Loaded
+   * from `channel_model.param_override` for the RESOLVED model in `candidatesFor`.
+   * Applied to a per-attempt IR copy in `executeChat` BEFORE `adapter.chat`.
+   * Absent/empty → the run is byte-for-byte identical to today.
+   */
+  paramOverride?: ParamOverride | undefined;
 }
 
 /** The frozen resource snapshot the caller passes for this run. */
@@ -600,9 +609,16 @@ export class ExecutionService {
           // the bound fn is then safe to call inside the retry closure.
           const boundChat = adapter.chat.bind(adapter);
           const ctx = await this.buildContext(req, channel, jobId);
+          // Stage ②: per-(model,channel) override on a per-attempt IR copy. A no-op
+          // returning the SAME ref when `channel.paramOverride` is absent/empty →
+          // byte-for-byte identical to today. `when.modelMatches` sees the served
+          // upstream model id (channel.model overrides, else the public model name).
+          const attemptIr = applyChannelOverride(ir, channel.paramOverride, {
+            modelName: channel.model ?? req.usageLogModel ?? ir.model,
+          });
           // Same-channel retry + backoff per the channel's fault policy; the
           // cross-channel failover (routeBlocking) handles its final throw.
-          const r = await runWithFaultPolicy(channel.faultPolicy, () => boundChat(ir, ctx));
+          const r = await runWithFaultPolicy(channel.faultPolicy, () => boundChat(attemptIr, ctx));
           served = channel;
           return r;
         },

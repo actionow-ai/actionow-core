@@ -1,3 +1,4 @@
+import type { ParamOverride } from '@actionow/contracts';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -148,6 +149,14 @@ export const channelModel = pgTable(
     modelId: uuid('model_id')
       .notNull()
       .references(() => model.id),
+    /**
+     * Per-(model,channel) parameter override (`ParamOverride` = { ops: ParamOp[] }):
+     * ops of set/clamp/delete applied to the IR before the adapter renders the wire
+     * body (engine pipeline step ②, precedence request > ② this > dialect default).
+     * Null → no override == today's behavior (the regression invariant). This is
+     * the home of "same model, different params per channel (direct vs relay)".
+     */
+    paramOverride: jsonb('param_override').$type<ParamOverride>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

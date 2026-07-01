@@ -251,10 +251,13 @@ export {
 } from './limit.js';
 export {
   channelIdsByModelIds,
+  type ChannelModelRow,
   countModelsByChannelIds,
   createModel,
   type CreateModelInput,
   deleteModelGrant,
+  getChannelModelOverride,
+  getChannelModelOverrides,
   getModelById,
   getModelByName,
   getModelFallbacks,
@@ -272,6 +275,7 @@ export {
   type ModelView,
   type ResolvedModel,
   resolveModelForTenant,
+  setChannelModelOverride,
   softDeleteModel,
   type SyncModelInput,
   type SyncModelSummary,

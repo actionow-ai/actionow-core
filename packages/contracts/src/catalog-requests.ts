@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { paramOverrideSchema } from './param-profile.js';
+
 /**
  * Single source of truth for the catalog/pricing control-plane **request bodies**
  * (resources, channels, models, model grants, pricebook, modifiers, dify, channel
@@ -327,6 +329,19 @@ export const grantModelSchema = z.object({
   tenantId: z.string().uuid(),
 });
 export type GrantModelBody = z.infer<typeof grantModelSchema>;
+
+/**
+ * `PATCH /admin/resources/:id/channels/:channelId/models/:modelId` — set/clear the
+ * per-(model×channel) param override (channel_model.param_override, mig 0062).
+ * `null` clears it (== no override). This is the home of "same model, different
+ * params per channel (direct vs relay)".
+ */
+export const updateChannelModelParamOverrideSchema = z.object({
+  paramOverride: paramOverrideSchema.nullable(),
+});
+export type UpdateChannelModelParamOverrideBody = z.infer<
+  typeof updateChannelModelParamOverrideSchema
+>;
 
 /** Coarse model type, CHECKed in mig 0059 (`model_spec_type_allowed`). */
 const MODEL_SPEC_TYPES = ['text', 'image', 'video', 'audio', 'multimodal'] as const;

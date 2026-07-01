@@ -1,6 +1,7 @@
 import {
   type Database,
   type FaultPolicyRow,
+  getChannelModelOverrides,
   getFaultPoliciesByIds,
   getRouteGroupById,
   getRouteGroupByName,
@@ -126,6 +127,25 @@ export class ChannelRoutingService {
       const all = await listChannels(this.db, resourceId);
       const rows = filterByRouteTag(all, routeTag);
       base = await this.attachFaultPolicies(rows.map(toRunChannelFromChannel), rows);
+    }
+
+    // Stage ② data source: batch-load per-(model,channel) param overrides for the
+    // resolved model across the candidate set and stamp them onto each RunChannel
+    // (mig 0062). One query (same cost tier as listModelChannels), no N+1; an
+    // empty result → no channel carries an override → byte-for-byte identical to
+    // today. The engine applies them per-attempt in executeChat.
+    if (modelId !== undefined && base.length > 0) {
+      const overrides = await getChannelModelOverrides(
+        this.db,
+        modelId,
+        base.map((c) => c.id),
+      );
+      if (overrides.size > 0) {
+        for (const c of base) {
+          const ov = overrides.get(c.id);
+          if (ov !== undefined) c.paramOverride = ov;
+        }
+      }
     }
 
     return this.preferLinkedChannels(base, modelId);

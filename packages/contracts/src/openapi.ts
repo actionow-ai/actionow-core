@@ -68,6 +68,7 @@ import {
   difyImportSchema,
   grantModelSchema,
   syncChannelModelsSchema,
+  updateChannelModelParamOverrideSchema,
   updateChannelSchema,
   updateDifySchema,
   updateModelSchema,
@@ -77,6 +78,7 @@ import {
   updateResourceSchema,
 } from './catalog-requests.js';
 import {
+  channelModelViewSchema,
   channelViewSchema,
   difyBindingViewSchema,
   modelGrantViewSchema,
@@ -151,6 +153,7 @@ import {
   usageLogViewSchema,
   usageRollupViewSchema,
 } from './ops-views.js';
+import { paramOverrideSchema } from './param-profile.js';
 import { priceSpecSchema } from './pricing.js';
 import {
   createPluginRequestSchema,
@@ -217,9 +220,17 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   // common 4xx responses to every operation in a post-pass (see `attachErrors`
   // below), so the SDK's `error` branch is typed (ErrorView) on every path.
   registry.register('ErrorView', errorViewSchema);
+  // Register the shared ParamOverride FIRST so the schemas that embed it
+  // (ModelView, ChannelModelView, the PATCH body) render as `$ref`s (mig 0062).
+  registry.register('ParamOverride', paramOverrideSchema);
   const Resource = registry.register('ResourceView', resourceViewSchema);
   const Channel = registry.register('ChannelView', channelViewSchema);
   const Model = registry.register('ModelView', modelViewSchema);
+  const ChannelModel = registry.register('ChannelModelView', channelModelViewSchema);
+  const UpdateChannelModelOverride = registry.register(
+    'UpdateChannelModelParamOverrideBody',
+    updateChannelModelParamOverrideSchema,
+  );
   const ModelSpec = registry.register('ModelSpecView', modelSpecViewSchema);
   const ModelGrant = registry.register('ModelGrantView', modelGrantViewSchema);
   const Pricebook = registry.register('PricebookView', pricebookViewSchema);
@@ -1134,6 +1145,15 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     summary: 'Sync a channel’s upstream models',
     tag: 'catalog',
     body: SyncChannelModels,
+  });
+  // per-(model×channel) param override edit (channel_model.param_override, mig 0062)
+  write({
+    method: 'patch',
+    path: '/admin/resources/{id}/channels/{channelId}/models/{modelId}/param-override',
+    summary: 'Set/clear a per-(model×channel) parameter override',
+    tag: 'catalog',
+    body: UpdateChannelModelOverride,
+    response: ChannelModel,
   });
   write({
     method: 'post',

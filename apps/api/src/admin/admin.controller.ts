@@ -14,6 +14,8 @@ import {
   channelHealthViewSchema,
   type ChannelModelLinkInput,
   channelModelLinkInputSchema,
+  type ChannelModelView,
+  channelModelViewSchema,
   type ChannelView,
   channelViewSchema,
   type CodexLoginStartView,
@@ -59,6 +61,7 @@ import {
   opsHealthViewSchema,
   type OpsSummaryView,
   opsSummaryViewSchema,
+  type ParamOverride,
   type PricebookView,
   pricebookViewSchema,
   type ProviderPluginView,
@@ -265,6 +268,8 @@ import {
   type UpdateApiKeyGroupDto,
   updateApiKeyGroupSchema,
   type UpdateChannelDto,
+  type UpdateChannelModelParamOverrideDto,
+  updateChannelModelParamOverrideSchema,
   updateChannelSchema,
   type UpdateCredentialMetaDto,
   updateCredentialMetaSchema,
@@ -1049,7 +1054,7 @@ export class AdminController {
   ): Promise<ModelView[]> {
     const rows = await this.admin.listChannelModels(id, channelId);
     const served = await this.admin.servedChannelsByModels(rows.map((r) => r.id));
-    return rows.map((r) => toModelView(r, served.get(r.id) ?? []));
+    return rows.map((r) => toModelView(r, served.get(r.id) ?? [], r.paramOverride));
   }
 
   @Post('resources/:id/channels/:channelId/models')
@@ -1060,8 +1065,38 @@ export class AdminController {
     @Param('channelId') channelId: string,
     @Body(new ZodBody(channelModelLinkInputSchema)) dto: ChannelModelLinkInput,
   ): Promise<{ ok: true }> {
-    await this.admin.linkChannelModel(id, channelId, dto.model_id);
+    await this.admin.linkChannelModel(id, channelId, dto.model_id, dto.param_override);
     return { ok: true };
+  }
+
+  @Patch('resources/:id/channels/:channelId/models/:modelId/param-override')
+  @ApiOperation({ summary: 'Set/clear a per-(model×channel) parameter override (channel_model)' })
+  @Audit({
+    action: 'channel_model.param_override',
+    target: 'channel',
+    resolve: ({ params }) => ({
+      targetId: params.channelId ?? null,
+      meta: { modelId: params.modelId ?? null },
+    }),
+  })
+  async setChannelModelParamOverride(
+    @Param('id') id: string,
+    @Param('channelId') channelId: string,
+    @Param('modelId') modelId: string,
+    @Body(new ZodBody(updateChannelModelParamOverrideSchema))
+    dto: UpdateChannelModelParamOverrideDto,
+  ): Promise<ChannelModelView> {
+    const link = await this.admin.setChannelModelParamOverride(
+      id,
+      channelId,
+      modelId,
+      dto.paramOverride,
+    );
+    return channelModelViewSchema.parse({
+      channel_id: link.channelId,
+      model_id: link.modelId,
+      param_override: link.paramOverride,
+    });
   }
 
   @Delete('resources/:id/channels/:channelId/models/:modelId')
@@ -2655,7 +2690,11 @@ function toJobView(row: Job): JobView {
   });
 }
 
-function toModelView(row: ModelRow, servedChannelIds: string[] = []): ModelView {
+function toModelView(
+  row: ModelRow,
+  servedChannelIds: string[] = [],
+  paramOverride: ParamOverride | null = null,
+): ModelView {
   return modelViewSchema.parse({
     id: row.id,
     name: row.name,
@@ -2670,6 +2709,9 @@ function toModelView(row: ModelRow, servedChannelIds: string[] = []): ModelView 
     rate_limit: row.rateLimit,
     fallback_models: row.fallbackModels,
     served_channel_ids: servedChannelIds,
+    // Only populated when the model was fetched THROUGH a channel link (col-3);
+    // null for the flat catalog + create/update responses (no channel context).
+    param_override: paramOverride,
     tags: row.tags,
     maker: row.maker,
     context_length: row.contextLength,

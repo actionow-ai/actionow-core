@@ -11,6 +11,7 @@ import type {
   AuditLogView,
   BreakerView,
   BulkResultView,
+  ChannelModelView,
   ChannelView,
   CodexLoginCompleteBody,
   CodexLoginStartBody,
@@ -89,6 +90,7 @@ import type {
   TransferCreditsBody,
   UpdateApiKeyGroupBody,
   UpdateChannelBody,
+  UpdateChannelModelParamOverrideBody,
   UpdateCredentialMetaBody,
   UpdateDifyBody,
   UpdateFaultPolicyBody,
@@ -305,6 +307,19 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
         `/admin/resources/${resourceId}/channels/${channelId}/models/${encodeURIComponent(modelId)}`,
       );
     },
+    // Per-(model×channel) param override (模型参数绑定 Phase 0). RAW: this admin
+    // route isn't in the generated SDK path set, but its body/view are contract
+    // types. `paramOverride: null` clears the override (== today's behavior).
+    setChannelModelOverride: (
+      resourceId: string,
+      channelId: string,
+      modelId: string,
+      body: UpdateChannelModelParamOverrideBody,
+    ) =>
+      rawClient.patch<ChannelModelView>(
+        `/admin/resources/${resourceId}/channels/${channelId}/models/${encodeURIComponent(modelId)}/param-override`,
+        body,
+      ),
 
     listPricebook: async (resourceId: string) =>
       page<PricebookView>(
