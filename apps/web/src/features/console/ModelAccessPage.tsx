@@ -1,4 +1,10 @@
-import { ArrowsClockwiseIcon, PencilSimpleIcon, PlusIcon } from '@phosphor-icons/react';
+import {
+  ArrowsClockwiseIcon,
+  CaretDownIcon,
+  CaretRightIcon,
+  PencilSimpleIcon,
+  PlusIcon,
+} from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
 import type { CSSProperties, ReactNode } from 'react';
@@ -7,7 +13,10 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
 import { BrandIcon } from '../../components/data/BrandIcon';
+import type { Column } from '../../components/data/DataTable';
+import { DataTable } from '../../components/data/DataTable';
 import { QueryBoundary } from '../../components/data/QueryBoundary';
+import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { FilterMenu } from '../../components/ui/FilterMenu';
@@ -19,24 +28,33 @@ import { qk } from '../../lib/api/queryKeys';
 import type { ChannelView, ModelView, ProviderPluginView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
+import { useMediaQuery } from '../../lib/useMediaQuery';
 import { ChannelCard } from './ChannelCard';
 import { ChannelEditor } from './ChannelEditor';
 import { ModelEditor } from './ModelEditor';
-import { ModelGrid } from './ModelGrid';
 import { PluginEditor } from './PluginsPage';
 import { type FacetDef, useFacets } from './useFacets';
 
+/** Format an integer µUSD-per-1M string as a compact `$X` price (mirrors ModelGrid). */
+function usd(micro: string): string {
+  const n = Number(micro) / 1_000_000;
+  if (n === 0) return '$0';
+  return n < 0.01 ? `$${n.toFixed(4)}` : `$${n.toFixed(2)}`;
+}
+
 /**
- * 模型接入 — the single 3-pane management surface. Three EQUAL columns, each with
- * its own header (title · search · filter · add): 插件 → 通道 (bound to the selected
- * plugin, across resources) → 模型 (the selected channel's served models, as a
- * list). Platform stays in the DB for routing but is hidden; pricing is per-model
- * (model editor), so there is no platform/pricing entry here.
+ * 模型接入 — a MASTER-DETAIL management surface (方案 A). LEFT: a narrow SUPPLY
+ * TREE that folds 插件 + 通道 into one accordion (a plugin row expands to its
+ * channels), freeing horizontal space. RIGHT: the selected channel's models as a
+ * dense, paginated DataTable (was a low-density card list). Platform stays in the
+ * DB for routing but is hidden; pricing is per-model (model editor). No global
+ * styles change — the split is a local grid; rows reuse `.entity-card`/`.chip`.
  */
 export function ModelAccessPage() {
   const { t } = useTranslation('console');
   const api = useAdminApi();
   const qc = useQueryClient();
+  const narrow = useMediaQuery('(max-width: 900px)');
   // `plugin` + `cid` live in one URL so a plugin switch sets the plugin AND clears
   // the channel in a single navigate (two setters would clobber each other).
   const [params, setParams] = useSearchParams();
@@ -63,9 +81,7 @@ export function ModelAccessPage() {
       { replace: true },
     );
 
-  // Per-column free-text search (the multi-dimension filters are FilterMenu/useFacets).
   const [pluginQ, setPluginQ] = useState('');
-  const [channelQ, setChannelQ] = useState('');
   const [modelQ, setModelQ] = useState('');
 
   const plugins = useQuery({
@@ -88,7 +104,6 @@ export function ModelAccessPage() {
         b.channel_count - a.channel_count ||
         a.label.localeCompare(b.label),
     );
-  // Default selection follows the sorted view (the top card), not slug order.
   const selectedPlugin =
     pluginRows.find((p) => p.id === pluginId) ?? (pluginId === '' ? filteredPlugins[0] : undefined);
 
@@ -98,22 +113,12 @@ export function ModelAccessPage() {
     enabled: selectedPlugin !== undefined,
   });
   const channelRows = channels.data ?? [];
-  const channelFacets = useFacets(channelRows, channelFacetDefs(t));
-  const cq = channelQ.trim().toLowerCase();
-  // Default order: most models first.
-  const filteredChannels = channelRows
-    .filter(
-      (c) =>
-        (cq === '' || `${c.provider_type} ${c.endpoint ?? ''}`.toLowerCase().includes(cq)) &&
-        channelFacets.match(c),
-    )
-    .sort((a, b) => b.model_count - a.model_count);
+  // The expanded plugin's channels, most-models first (channels are few → no filter/facet UI).
+  const treeChannels = channelRows.slice().sort((a, b) => b.model_count - a.model_count);
   const selectedChannel =
-    channelRows.find((c) => c.id === cid) ?? (cid === '' ? filteredChannels[0] : undefined);
+    channelRows.find((c) => c.id === cid) ?? (cid === '' ? treeChannels[0] : undefined);
 
-  // The selected channel's models — fetched here (deduped with ModelGrid's same
-  // query key) so the column header can build model facets; the list filters by
-  // the resulting `match` + the model search box.
+  // The selected channel's models — drives the right-pane table + its facets.
   const channelModels = useQuery({
     queryKey: qk.channelModels(selectedChannel?.id ?? ''),
     queryFn: () =>
@@ -121,6 +126,10 @@ export function ModelAccessPage() {
     enabled: selectedChannel !== undefined,
   });
   const modelFacets = useFacets(channelModels.data ?? [], modelFacetDefs(t));
+  const mq = modelQ.trim().toLowerCase();
+  const modelRows = (channelModels.data ?? []).filter(
+    (m) => (mq === '' || m.name.toLowerCase().includes(mq)) && modelFacets.match(m),
+  );
 
   const [pluginEdit, setPluginEdit] = useState<ProviderPluginView | 'new' | null>(null);
   const [channelEdit, setChannelEdit] = useState<ChannelView | 'new' | null>(null);
@@ -160,12 +169,78 @@ export function ModelAccessPage() {
     onError: mutationError(t),
   });
 
+  const modelCols: Column<ModelView>[] = [
+    {
+      key: 'name',
+      header: t('modelAccess.cols.model'),
+      grow: true,
+      cell: (m) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', minWidth: 0 }}>
+          <BrandIcon
+            icon={m.icon}
+            fallbacks={[selectedChannel?.icon, selectedChannel?.provider_type, m.maker, m.modality]}
+            size={16}
+          />
+          <span
+            style={{
+              fontWeight: 'var(--fw-medium)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {m.name}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: 'modality',
+      header: t('facets.modality'),
+      width: '96px',
+      cell: (m) => (
+        <span style={{ color: 'var(--muted)' }}>{enumLabel(t, MODALITIES, m.modality)}</span>
+      ),
+    },
+    {
+      key: 'caps',
+      header: t('modelAccess.cols.caps'),
+      width: '176px',
+      cell: (m) => <CapChips caps={m.capabilities} />,
+    },
+    {
+      key: 'price',
+      header: t('modelAccess.cols.price'),
+      align: 'right',
+      width: '132px',
+      cell: (m) => {
+        const priced = m.input_price !== '0' || m.output_price !== '0';
+        return priced ? (
+          <span className="tabular">
+            {usd(m.input_price)} / {usd(m.output_price)}
+          </span>
+        ) : (
+          <span style={{ color: 'var(--faint)' }}>—</span>
+        );
+      },
+    },
+    {
+      key: 'status',
+      header: t('channels.form.status'),
+      align: 'right',
+      width: '92px',
+      cell: (m) => (
+        <StatusBadge tone={statusTone(m.status)} label={t('status.' + m.status, m.status)} />
+      ),
+    },
+  ];
+
   return (
-    <div className="tri-pane">
-      {/* ── Column 1: plugin library ─────────────────────────────────────── */}
-      <div style={COL}>
+    <div style={narrow ? SPLIT_NARROW : SPLIT_WIDE}>
+      {/* ── Left: supply tree (插件 ▸ 通道) ──────────────────────────────── */}
+      <div style={narrow ? COL_NARROW : COL}>
         <ColumnHead
-          title={t('modelAccess.plugins')}
+          title={t('modelAccess.supply')}
           count={pluginRows.length}
           search={pluginQ}
           onSearch={setPluginQ}
@@ -192,65 +267,107 @@ export function ModelAccessPage() {
               return (
                 <div
                   key={p.id}
-                  className={`entity-card is-clickable${active ? ' is-selected' : ''}`}
-                  role="button"
-                  tabIndex={0}
-                  aria-pressed={active}
-                  onClick={() => selectPlugin(p.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      selectPlugin(p.id);
-                    }
-                  }}
-                  style={{ padding: 'var(--s-3) var(--s-4)' }}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}
                 >
                   <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 'var(--s-2)',
-                      minWidth: 0,
+                    className={`entity-card is-clickable${active ? ' is-selected' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={active}
+                    aria-expanded={active}
+                    onClick={() => selectPlugin(p.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        selectPlugin(p.id);
+                      }
                     }}
+                    style={{ padding: 'var(--s-2) var(--s-3)' }}
                   >
-                    <BrandIcon icon={p.icon} fallbacks={[p.slug]} size={18} />
-                    <span
+                    <div
                       style={{
-                        fontWeight: 'var(--fw-medium)',
-                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 'var(--s-2)',
                         minWidth: 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
                       }}
                     >
-                      {p.label}
-                    </span>
-                    <span
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      role="presentation"
+                      {active ? (
+                        <CaretDownIcon size={12} weight="bold" aria-hidden="true" />
+                      ) : (
+                        <CaretRightIcon size={12} weight="bold" aria-hidden="true" />
+                      )}
+                      <BrandIcon icon={p.icon} fallbacks={[p.slug]} size={18} />
+                      <span
+                        style={{
+                          fontWeight: 'var(--fw-medium)',
+                          flex: 1,
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {p.label}
+                      </span>
+                      <span
+                        className="chip"
+                        title={`${t('modelAccess.channelsN', { n: p.channel_count })} · ${t('resources.cards.modelsN', { n: p.model_count })}`}
+                      >
+                        {p.channel_count} · {p.model_count}
+                      </span>
+                      <span
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        role="presentation"
+                      >
+                        <RowAction
+                          icon={PencilSimpleIcon}
+                          label={t('common.edit')}
+                          onClick={() => setPluginEdit(p)}
+                        />
+                      </span>
+                    </div>
+                  </div>
+                  {active && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 'var(--s-2)',
+                        paddingLeft: 'var(--s-4)',
+                      }}
                     >
-                      <RowAction
-                        icon={PencilSimpleIcon}
-                        label={t('common.edit')}
-                        onClick={() => setPluginEdit(p)}
-                      />
-                    </span>
-                  </div>
-                  <div
-                    style={{ display: 'flex', gap: 'var(--s-1)', marginTop: 6, flexWrap: 'wrap' }}
-                  >
-                    <span className="chip">
-                      {t('modelAccess.channelsN', { n: p.channel_count })}
-                    </span>
-                    <span className="chip">
-                      {t('resources.cards.modelsN', { n: p.model_count })}
-                    </span>
-                    <span className="chip">
-                      {p.builtin ? t('plugins.builtin') : t('plugins.custom')}
-                    </span>
-                  </div>
+                      <QueryBoundary query={channels}>
+                        {treeChannels.length === 0 ? (
+                          <Placeholder text={t('modelAccess.noChannels')} inset />
+                        ) : (
+                          treeChannels.map((c) => (
+                            <ChannelCard
+                              key={c.id}
+                              channel={c}
+                              selected={c.id === selectedChannel?.id}
+                              onSelect={() => setCid(c.id)}
+                              onEdit={() => setChannelEdit(c)}
+                              onToggle={() => toggleChannel.mutate(c)}
+                              onSync={() => syncChannel.mutate(c)}
+                              onDelete={() => setChDelTarget(c)}
+                              toggling={
+                                toggleChannel.isPending && toggleChannel.variables.id === c.id
+                              }
+                              syncing={syncChannel.isPending && syncChannel.variables.id === c.id}
+                            />
+                          ))
+                        )}
+                      </QueryBoundary>
+                      <div style={{ alignSelf: 'flex-start' }}>
+                        <Button variant="ghost" size="sm" onClick={() => setChannelEdit('new')}>
+                          <PlusIcon size={14} weight="bold" aria-hidden="true" />{' '}
+                          {t('modelAccess.addChannel')}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -258,68 +375,15 @@ export function ModelAccessPage() {
         </div>
       </div>
 
-      {/* ── Column 2: channels of the selected plugin ────────────────────── */}
-      <div style={COL}>
-        {selectedPlugin === undefined ? (
-          <Placeholder text={t('modelAccess.pickPlugin')} />
-        ) : (
-          <>
-            <ColumnHead
-              title={`${t('modelAccess.channels')} · ${selectedPlugin.label}`}
-              count={channelRows.length}
-              search={channelQ}
-              onSearch={setChannelQ}
-              searchPlaceholder={t('modelAccess.searchChannels')}
-              filter={
-                <FilterMenu
-                  groups={channelFacets.groups}
-                  selected={channelFacets.selected}
-                  onToggle={channelFacets.toggle}
-                  onClear={channelFacets.clear}
-                  activeCount={channelFacets.activeCount}
-                />
-              }
-              action={
-                <Button variant="ghost" size="sm" onClick={() => setChannelEdit('new')}>
-                  <PlusIcon size={14} weight="bold" aria-hidden="true" />{' '}
-                  {t('modelAccess.addChannel')}
-                </Button>
-              }
-            />
-            <div style={LIST}>
-              <QueryBoundary query={channels}>
-                {filteredChannels.length === 0 ? (
-                  <Placeholder text={t('modelAccess.noChannels')} inset />
-                ) : (
-                  filteredChannels.map((c) => (
-                    <ChannelCard
-                      key={c.id}
-                      channel={c}
-                      selected={c.id === selectedChannel?.id}
-                      onSelect={() => setCid(c.id)}
-                      onEdit={() => setChannelEdit(c)}
-                      onToggle={() => toggleChannel.mutate(c)}
-                      onSync={() => syncChannel.mutate(c)}
-                      onDelete={() => setChDelTarget(c)}
-                      toggling={toggleChannel.isPending && toggleChannel.variables.id === c.id}
-                      syncing={syncChannel.isPending && syncChannel.variables.id === c.id}
-                    />
-                  ))
-                )}
-              </QueryBoundary>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* ── Column 3: the selected channel's models (list) ───────────────── */}
-      <div style={COL}>
+      {/* ── Right: the selected channel's models (dense table) ───────────── */}
+      <div style={narrow ? COL_NARROW : COL}>
         {selectedChannel === undefined ? (
           <Placeholder text={t('modelAccess.pickChannel')} />
         ) : (
           <>
             <ColumnHead
               title={`${t('modelAccess.models')} · ${selectedChannel.provider_type}`}
+              count={modelRows.length}
               search={modelQ}
               onSearch={setModelQ}
               searchPlaceholder={t('modelAccess.searchModels')}
@@ -355,19 +419,29 @@ export function ModelAccessPage() {
                 </>
               }
             />
-            <div style={LIST}>
-              <ModelGrid
-                resourceId={selectedChannel.resource_id}
-                channel={selectedChannel}
-                variant="list"
-                showHeader={false}
-                search={modelQ}
-                match={modelFacets.match}
-                onSync={() => syncChannel.mutate(selectedChannel)}
-                onAddModel={() => setModelEdit({ resourceId: selectedChannel.resource_id })}
-                onSelectModel={(m: ModelView) =>
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', padding: '0 var(--s-2)' }}>
+              <DataTable
+                columns={modelCols}
+                rows={modelRows}
+                rowKey={(m) => m.id}
+                loading={channelModels.isLoading}
+                error={channelModels.isError}
+                onRetry={() => void channelModels.refetch()}
+                empty={t('modelAccess.noModels')}
+                onRowClick={(m) =>
                   setModelEdit({ name: m.name, resourceId: selectedChannel.resource_id })
                 }
+                rowActions={(m) => (
+                  <RowAction
+                    icon={PencilSimpleIcon}
+                    label={t('common.edit')}
+                    onClick={() =>
+                      setModelEdit({ name: m.name, resourceId: selectedChannel.resource_id })
+                    }
+                  />
+                )}
+                pageSize={30}
+                fill
               />
             </div>
           </>
@@ -427,7 +501,30 @@ export function ModelAccessPage() {
   );
 }
 
-/** A column's header: title · count · add-action, then a search box + a filter popover. */
+/** Enabled capability keys as compact chips (bounded; the rest folded into `+N`). */
+function CapChips({ caps }: { caps: Record<string, boolean> }) {
+  const on = Object.entries(caps)
+    .filter(([, v]) => v)
+    .map(([k]) => k);
+  if (on.length === 0) return <span style={{ color: 'var(--faint)' }}>—</span>;
+  const shown = on.slice(0, 3);
+  return (
+    <div style={{ display: 'flex', gap: 'var(--s-1)', flexWrap: 'nowrap', overflow: 'hidden' }}>
+      {shown.map((k) => (
+        <span key={k} className="chip" style={{ fontSize: 'var(--fs-caption)' }}>
+          {k}
+        </span>
+      ))}
+      {on.length > shown.length && (
+        <span className="chip" style={{ fontSize: 'var(--fs-caption)' }}>
+          +{on.length - shown.length}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** A pane's header: title · count · action, then a search box + a filter popover. */
 function ColumnHead({
   title,
   count,
@@ -442,7 +539,6 @@ function ColumnHead({
   search: string;
   onSearch: (v: string) => void;
   searchPlaceholder: string;
-  /** A custom filter control (FilterMenu) — never a native <select>. */
   filter: ReactNode;
   action: ReactNode;
 }) {
@@ -531,17 +627,6 @@ function pluginFacetDefs(t: TFunction): FacetDef<ProviderPluginView>[] {
     },
   ];
 }
-function channelFacetDefs(t: TFunction): FacetDef<ChannelView>[] {
-  return [
-    {
-      key: 'status',
-      title: t('channels.form.status'),
-      values: (c) => [c.status],
-      label: (v) => t('status.' + v, v),
-    },
-    { key: 'platform', title: t('channels.form.platform'), values: (c) => [c.resource_id] },
-  ];
-}
 function modelFacetDefs(t: TFunction): FacetDef<ModelView>[] {
   return [
     {
@@ -561,8 +646,21 @@ function modelFacetDefs(t: TFunction): FacetDef<ModelView>[] {
   ];
 }
 
-// Three EQUAL columns (插件 │ 通道 │ 模型) — `.tri-pane` stacks them on a phone.
-// A column = a fixed header + a scrolling card list beneath it.
+// Master-detail split (供给树 │ 模型表). A LOCAL grid — no global `.tri-pane`. On a
+// narrow viewport the two panes stack (each capped so both stay reachable).
+const SPLIT_WIDE: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 360px) minmax(0, 1fr)',
+  gap: 'var(--s-3)',
+  height: '100%',
+  minHeight: 0,
+};
+const SPLIT_NARROW: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 'var(--s-3)',
+  minHeight: 0,
+};
 const COL: CSSProperties = {
   height: '100%',
   minHeight: 0,
@@ -570,8 +668,15 @@ const COL: CSSProperties = {
   flexDirection: 'column',
   gap: 'var(--s-2)',
 };
+const COL_NARROW: CSSProperties = {
+  maxHeight: '60vh',
+  minHeight: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 'var(--s-2)',
+};
 // The scrolling list: horizontal breathing room so a card's hover-lift shadow +
-// `is-selected` ring (a 1px box-shadow) are never clipped at the column edges.
+// `is-selected` ring (a 1px box-shadow) are never clipped at the pane edges.
 const LIST: CSSProperties = {
   flex: 1,
   minHeight: 0,

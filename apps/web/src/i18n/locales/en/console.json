@@ -462,7 +462,7 @@
     "accounts": "Account balance & top-up",
     "apiKeys": "Issue and manage API keys",
     "serviceTokens": "M2M credentials for the admin API",
-    "modelAccess": "Plugin → channel → model: the 3-pane onboarding surface",
+    "modelAccess": "Supply → model: the master-detail onboarding surface",
     "platforms": "Platforms & pricing: resources, upstreams and the pricebook"
   },
   "dashboard": {
@@ -1047,7 +1047,14 @@
     "searchChannels": "Search channels",
     "searchModels": "Search models",
     "filterAll": "All",
-    "channelsN": "{{n}} channels"
+    "channelsN": "{{n}} channels",
+    "supply": "Supply",
+    "noModels": "No models on this channel",
+    "cols": {
+      "model": "Model",
+      "caps": "Capabilities",
+      "price": "In / out"
+    }
   },
   "channels": {
     "addTitle": "Add channel",
@@ -1090,7 +1097,7 @@
     "tip": {
       "platform": "The platform (resource/upstream) this channel belongs to. Routing aggregates channels per platform.",
       "platformAuto": "Auto by default: leave empty to reuse/create a platform for this provider+modality on save, or pick an existing one.",
-      "plugin": "The plugin this channel groups under (模型接入 3-pane grouping). Native vendor channels still route by provider_type — they don't run the sandbox.",
+      "plugin": "The plugin this channel groups under (模型接入 supply-tree grouping). Native vendor channels still route by provider_type — they don't run the sandbox.",
       "modality": "The modality used when creating a new platform (carried from the chosen plugin).",
       "provider": "Free-text upstream provider for this channel (e.g. openai, anthropic). The logo resolves from this value.",
       "providerAuto": "Auto-filled from the chosen plugin (editable); the dropdown lists the provider types the backend actually supports.",
