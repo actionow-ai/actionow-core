@@ -1,4 +1,5 @@
 import type { ModelParamProfile, ParameterRule, ParamOverride } from '@actionow/contracts';
+import { featuresToCapabilities } from '@actionow/contracts';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
@@ -183,6 +184,19 @@ export async function upsertModelsFromSync(
   const defInput = input.defaultInputPrice;
   const defOutput = input.defaultOutputPrice;
   for (const m of input.models) {
+    // The matched 规格库 spec drives BOTH the frozen param profile (D1) AND — when
+    // the adapter's `listModels` declared no `capabilities` (openai/anthropic/
+    // gemini return only ids) — the coarse capability GATE, derived from the spec's
+    // `features` (Option C). Without this every openai/anthropic/gemini-synced
+    // model would land with `capabilities = {}` → the `—` display AND a wrongful
+    // 400 on any tools/json/vision request. Adapter-declared caps still win.
+    const spec = await getModelSpec(db, input.provider, m.name);
+    const derivedCaps =
+      m.capabilities ??
+      (spec?.features && spec.features.length > 0
+        ? featuresToCapabilities(spec.features)
+        : undefined);
+
     // deletedAt-agnostic probe: a soft-deleted model still occupies the unique name,
     // so re-syncing it must UPDATE (not INSERT a duplicate-name row).
     const existingRows = await db
@@ -193,12 +207,13 @@ export async function upsertModelsFromSync(
     const existing = existingRows[0];
     if (existing !== undefined) {
       // Refresh discovery fields only; price/status/needs_pricing/visibility preserved.
+      // Re-running sync BACKFILLS capabilities on already-synced rows (derivedCaps).
       await db
         .update(model)
         .set({
           resourceId: input.resourceId,
           ...(m.display !== undefined ? { display: m.display } : {}),
-          ...(m.capabilities !== undefined ? { capabilities: m.capabilities } : {}),
+          ...(derivedCaps !== undefined ? { capabilities: derivedCaps } : {}),
         })
         .where(eq(model.id, existing.id));
       updated.push(m.name);
@@ -241,18 +256,16 @@ export async function upsertModelsFromSync(
       needsPricing = true;
       priced = 'needs_pricing';
     }
-    // Freeze the param profile from the matched 规格库 spec (D1), the same way
-    // input_price freezes from official_model_price above. The `model_spec` vendor
-    // namespace == the provider key used for pricing; absent/empty spec → null
-    // (passthrough == today's behavior). Only on the NEW-model insert branch —
-    // the existing-model UPDATE preserves an operator-tuned profile (below).
-    const spec = await getModelSpec(db, input.provider, m.name);
+    // Freeze the param profile from the matched 规格库 spec (D1, hoisted above), the
+    // same way input_price freezes from official_model_price above. Absent/empty
+    // spec → null (passthrough == today's behavior). Only on the NEW-model insert
+    // branch — the existing-model UPDATE preserves an operator-tuned profile above.
     const paramProfile = freezeParamProfile(spec);
     await db.insert(model).values({
       name: m.name,
       resourceId: input.resourceId,
       ...(m.display !== undefined ? { display: m.display } : {}),
-      ...(m.capabilities !== undefined ? { capabilities: m.capabilities } : {}),
+      ...(derivedCaps !== undefined ? { capabilities: derivedCaps } : {}),
       visibility: 'public',
       status,
       needsPricing,

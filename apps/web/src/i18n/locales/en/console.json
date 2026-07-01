@@ -976,6 +976,7 @@
       "modality": "The data type this model handles. Immutable after creation.",
       "modalityFixed": "Modality is fixed after creation.",
       "capabilities": "Features this model supports — toggle the ones that apply.",
+      "capabilitiesDerived": "Read-only — derived from the Features below (the single source). This is exactly what the relay's request gate enforces.",
       "visibility": "Public = available to all tenants; Tenant = only granted tenants can use it.",
       "visibilityTenant": "Tenant-only: grant access per tenant from the grants drawer.",
       "price": "Price in µcredits per token. 1 credit = 1,000,000 µcredits.",
@@ -989,7 +990,7 @@
       "contextLength": "Max context window (tokens); 0 = unknown",
       "reasoning": "Reasoning mode: none / optional / always-on",
       "icon": "Pick a brand icon for this model; leave empty to inherit its channel/plugin icon",
-      "features": "Fine-grained capabilities used to gate/downgrade requests.",
+      "features": "The single editable capability source (Dify features). The coarse Capabilities shown above are derived from these to gate/downgrade requests.",
       "rules": "Per-model parameter contract: default / clamp / gate / declare model-specific params.",
       "dropPolicy": "How to handle known params this model does not support."
     },

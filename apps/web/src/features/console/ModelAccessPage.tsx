@@ -1,3 +1,4 @@
+import { featuresToCapabilities } from '@actionow/contracts';
 import {
   ArrowsClockwiseIcon,
   CaretDownIcon,
@@ -62,11 +63,16 @@ export function ModelAccessPage() {
   const [params, setParams] = useSearchParams();
   const pluginId = params.get('plugin') ?? '';
   const cid = params.get('cid') ?? '';
-  const selectPlugin = (id: string): void =>
+  // A plugin row toggles: selecting a different plugin expands it (and clears the
+  // channel); re-selecting the already-expanded plugin (`collapse`) folds the tree
+  // shut via the NO_PLUGIN sentinel, so the accordion can actually close — not just
+  // switch. Callers pass `active` so we compare against the *expanded* plugin
+  // (which, on first paint, is the auto-selected first row whose id ≠ '').
+  const selectPlugin = (id: string, collapse: boolean): void =>
     setParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        next.set('plugin', id);
+        next.set('plugin', collapse ? NO_PLUGIN : id);
         next.delete('cid');
         return next;
       },
@@ -107,7 +113,10 @@ export function ModelAccessPage() {
         a.label.localeCompare(b.label),
     );
   const selectedPlugin =
-    pluginRows.find((p) => p.id === pluginId) ?? (pluginId === '' ? filteredPlugins[0] : undefined);
+    pluginId === NO_PLUGIN
+      ? undefined
+      : (pluginRows.find((p) => p.id === pluginId) ??
+        (pluginId === '' ? filteredPlugins[0] : undefined));
 
   const channels = useQuery({
     queryKey: qk.pluginChannels(selectedPlugin?.id ?? ''),
@@ -211,7 +220,7 @@ export function ModelAccessPage() {
       key: 'caps',
       header: t('modelAccess.cols.caps'),
       width: '176px',
-      cell: (m) => <CapChips caps={m.capabilities} />,
+      cell: (m) => <CapChips caps={capsForDisplay(m)} />,
     },
     {
       key: 'price',
@@ -280,11 +289,11 @@ export function ModelAccessPage() {
                     tabIndex={0}
                     aria-pressed={active}
                     aria-expanded={active}
-                    onClick={() => selectPlugin(p.id)}
+                    onClick={() => selectPlugin(p.id, active)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        selectPlugin(p.id);
+                        selectPlugin(p.id, active);
                       }
                     }}
                     style={{ padding: 'var(--s-2) var(--s-3)' }}
@@ -529,10 +538,27 @@ function hasOverride(m: ModelView): boolean {
   return m.param_override !== null && m.param_override.ops.length > 0;
 }
 
-/** True when the model carries a non-empty frozen param profile (mig 0064). */
+/**
+ * The capabilities to DISPLAY: the gate projection of the model's `features`
+ * (Option C — what `normalizeRequest` actually enforces) when the profile carries
+ * any, else the stored coarse `capabilities` map (a legacy row not yet re-synced).
+ * Keeps the list's caps column consistent with the model editor + the gate.
+ */
+function capsForDisplay(m: ModelView): Record<string, boolean> {
+  return m.param_profile.features.length > 0
+    ? featuresToCapabilities(m.param_profile.features)
+    : m.capabilities;
+}
+
+/**
+ * True when the model carries CURATED parameter rules (min/max/default). Features
+ * now flow from the catalog onto almost every model (Option C), so the 「档案」
+ * badge keys on `parameterRules` — the genuinely operator-/spec-tuned part — to
+ * stay a meaningful "this model is customized" signal rather than lighting up
+ * everywhere.
+ */
 function hasProfile(m: ModelView): boolean {
-  const p = m.param_profile;
-  return p.features.length > 0 || p.parameterRules.length > 0;
+  return m.param_profile.parameterRules.length > 0;
 }
 
 /**
@@ -715,6 +741,11 @@ function modelFacetDefs(t: TFunction): FacetDef<ModelView>[] {
     { key: 'tag', title: t('facets.tag'), values: (m) => m.tags },
   ];
 }
+
+// Sentinel `plugin` URL value meaning "explicitly collapsed" (no plugin expanded)
+// — distinct from an empty param, which auto-selects the first plugin. A real
+// plugin id is a UUID, so '-' can never collide with one.
+const NO_PLUGIN = '-';
 
 // Master-detail split (供给树 │ 模型表). A LOCAL grid — no global `.tri-pane`. On a
 // narrow viewport the two panes stack (each capped so both stay reachable).

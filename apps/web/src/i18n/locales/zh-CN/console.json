@@ -976,6 +976,7 @@
       "modality": "该模型处理的数据类型。创建后不可更改。",
       "modalityFixed": "模态创建后不可更改。",
       "capabilities": "该模型支持的能力——勾选适用项。",
+      "capabilitiesDerived": "只读——由下方「能力特性」自动派生，正是转发请求门控实际强制执行的能力。",
       "visibility": "Public = 对所有租户开放;Tenant = 仅获授权的租户可用。",
       "visibilityTenant": "仅租户可见:在授权抽屉中按租户授予访问权。",
       "price": "价格,单位为每 token 的 µcredits。1 credit = 1,000,000 µcredits。",
@@ -989,7 +990,7 @@
       "contextLength": "最大上下文窗口(token 数);0 表示未知",
       "reasoning": "推理模式:无 / 可切换 / 始终开启",
       "icon": "为该模型选择品牌图标;留空则继承其渠道 / 插件图标",
-      "features": "用于请求门控/降级的细粒度能力。",
+      "features": "模型能力的唯一可编辑来源（Dify features）；上方「能力」由此自动派生，用于请求门控/降级。",
       "rules": "模型级参数契约：默认/裁剪/门控/声明模型专属参数。",
       "dropPolicy": "如何处理该模型不支持的已知参数。"
     },

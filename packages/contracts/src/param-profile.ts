@@ -144,6 +144,67 @@ export function resolveRule(rule: ParameterRule): ParameterRule {
   return merged;
 }
 
+// --- capability ⇄ feature bridge (Option C: features 唯一来源, capabilities 派生) ---
+//
+// The relay's enforce GATE (`normalizeRequest`) consumes a COARSE boolean
+// `capabilities` map (tools/vision/audio/json/file/reasoning); the model editor,
+// channel-sync, and catalog seed all speak the FINER `features` vocabulary
+// (Dify). To stop the two from drifting (the "对不上" bug), `features` is the one
+// edited/synced source and `capabilities` is a pure PROJECTION of it via this
+// single canonical function — shared by the browser bundle, the DB sync path,
+// and the seed so the gate can never disagree with the declared features.
+
+/** The coarse capability keys the relay's normalize gate enforces (+ `stream`, display-only). */
+export const GATE_CAPABILITY_KEYS = [
+  'tools',
+  'vision',
+  'audio',
+  'json',
+  'file',
+  'reasoning',
+] as const;
+
+/**
+ * Project fine-grained `features` → the coarse `capabilities` boolean map the
+ * gate enforces. `tool-call`/`parallel-tool-call` → `tools`; `json-object`/
+ * `json-schema` → `json`; `stream` is carried (display) but is NOT a gate key.
+ * Every gate key is emitted EXPLICITLY (true/false) so the stored map is
+ * self-documenting and `readCapabilities` reads a deterministic value.
+ */
+export function featuresToCapabilities(features: readonly string[]): Record<string, boolean> {
+  const has = (f: string): boolean => features.includes(f);
+  const caps: Record<string, boolean> = {
+    tools: has('tool-call') || has('parallel-tool-call'),
+    vision: has('vision'),
+    audio: has('audio'),
+    json: has('json-object') || has('json-schema'),
+    file: has('file'),
+    reasoning: has('reasoning'),
+  };
+  if (has('stream')) caps.stream = true;
+  return caps;
+}
+
+/**
+ * The inverse projection: seed a `features` array from a legacy coarse
+ * `capabilities` map. Used ONLY to PREFILL the editor when a model carries
+ * `capabilities` but no `features` yet (a freshly-synced / pre-Option-C row), so
+ * editing + saving it never silently wipes its gate. `json` → the wider
+ * `json-object`; a 从规格库导入 later refines it to `json-schema`.
+ */
+export function capabilitiesToFeatures(caps: Record<string, boolean>): string[] {
+  const on = (k: string): boolean => caps[k] === true;
+  const out: string[] = [];
+  if (on('tools')) out.push('tool-call');
+  if (on('vision')) out.push('vision');
+  if (on('audio')) out.push('audio');
+  if (on('json')) out.push('json-object');
+  if (on('file')) out.push('file');
+  if (on('reasoning')) out.push('reasoning');
+  if (on('stream')) out.push('stream');
+  return out;
+}
+
 /**
  * The known-standard OpenAI-dialect WIRE (snake_case) sampling/penalty keys that
  * `dropUnsupported` (stage ④) may prune. A NON-standard `extra` key (top_k,
