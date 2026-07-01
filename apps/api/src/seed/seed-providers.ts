@@ -1,3 +1,4 @@
+import { featuresToCapabilities } from '@actionow/contracts';
 import {
   createModel,
   createPricebookEntry,
@@ -5,7 +6,10 @@ import {
   createSecretRef,
   createUpstreamChannel,
   type Database,
+  freezeParamProfile,
+  getModelSpec,
   getResource,
+  matchOfficialPrice,
 } from '@actionow/db';
 
 /**
@@ -173,6 +177,14 @@ interface ProviderSeed {
   readonly endpoint?: string;
   /** Per-channel model id (the vendor model name lives here, as DATA). */
   readonly model: string;
+  /**
+   * The OFFICIAL catalog vendor key (`openai`|`anthropic`|`google`|`deepseek`…)
+   * this `model` belongs to — used to look up its `model_spec` (→ capabilities /
+   * param_profile) and `official_model_price`. Distinct from `providerType`: an
+   * openai-COMPATIBLE host (DeepSeek) uses the `openai` adapter but is a
+   * `deepseek` catalog model. Omit when the model isn't in the catalog (no enrich).
+   */
+  readonly catalogVendor?: string;
   /** env-key REF for the channel credential (locator → `SECRET_<REF>`). */
   readonly credentialLocator: string;
   /** Relay protocol config DATA (submit/poll paths + signature header names). */
@@ -254,6 +266,7 @@ const PROVIDER_SEEDS: readonly ProviderSeed[] = [
     pricebookSpec: TOKENS_PRICEBOOK,
     endpoint: 'https://api.deepseek.com/v1',
     model: 'deepseek-chat',
+    catalogVendor: 'deepseek',
     credentialLocator: 'deepseek',
   },
   // 4. Xiaomi MiMo chat — openai-compatible host.
@@ -280,6 +293,7 @@ const PROVIDER_SEEDS: readonly ProviderSeed[] = [
     pricebookSpec: TOKENS_PRICEBOOK,
     endpoint: 'https://api.huimengi.com/v1',
     model: 'gpt-5.5',
+    catalogVendor: 'openai',
     credentialLocator: 'huimeng',
   },
   // 6a. Direct OpenAI — adapter default host, active + proxy_ref (decision 4).
@@ -292,6 +306,7 @@ const PROVIDER_SEEDS: readonly ProviderSeed[] = [
     ioSchema: TEXT_IO,
     pricebookSpec: TOKENS_PRICEBOOK,
     model: 'gpt-4o-mini',
+    catalogVendor: 'openai',
     credentialLocator: 'openai',
     proxyRef: 'upstream_proxy',
   },
@@ -305,6 +320,7 @@ const PROVIDER_SEEDS: readonly ProviderSeed[] = [
     ioSchema: TEXT_IO,
     pricebookSpec: TOKENS_PRICEBOOK,
     model: 'claude-haiku-4-5-20251001',
+    catalogVendor: 'anthropic',
     credentialLocator: 'anthropic',
     proxyRef: 'upstream_proxy',
   },
@@ -318,6 +334,7 @@ const PROVIDER_SEEDS: readonly ProviderSeed[] = [
     ioSchema: TEXT_IO,
     pricebookSpec: TOKENS_PRICEBOOK,
     model: 'gemini-2.5-flash',
+    catalogVendor: 'google',
     credentialLocator: 'gemini',
     proxyRef: 'upstream_proxy',
   },
@@ -392,14 +409,37 @@ export async function seedProviders(db: Database, opts: SeedProvidersOptions = {
     // chat provider is unroutable. The model name mirrors the channel's vendor
     // model id. (Media resources route by resource, not model name — skipped.)
     if (s.modality === 'text') {
+      // Enrich the model row from the 规格库 spec + official price (SAME source a
+      // channel sync uses) so capabilities/param_profile/price/maker/display are
+      // real per-model data — not the old fake uniform `{tools,vision,json,stream}`.
+      // `catalogVendor` differs from `providerType` for openai-compatible hosts.
+      const vendor = s.catalogVendor;
+      const spec = vendor !== undefined ? await getModelSpec(db, vendor, s.model) : undefined;
+      const official =
+        vendor !== undefined ? await matchOfficialPrice(db, vendor, s.model) : undefined;
+      const features = spec?.features ?? [];
+      // features present → derived gate; else a permissive chat default (avoids a
+      // wrongful 400 on a model with no catalog match, e.g. mimo).
+      const capabilities =
+        features.length > 0
+          ? featuresToCapabilities(features)
+          : { tools: true, json: true, stream: true };
+      const paramProfile = freezeParamProfile(spec);
+      const display = spec?.displayName ?? undefined;
       await createModel(db, {
         name: s.model,
         resourceId: s.id,
         modality: 'chat',
-        capabilities: { tools: true, vision: true, json: true, stream: true },
+        capabilities,
+        ...(paramProfile !== null ? { paramProfile } : {}),
+        ...(display !== undefined ? { display } : {}),
+        ...(vendor !== undefined ? { maker: vendor } : {}),
         visibility: 'public',
-        inputPrice: 1n,
-        outputPrice: 1n,
+        inputPrice: official?.inputPricePer1m ?? 1n,
+        outputPrice: official?.outputPricePer1m ?? 1n,
+        ...(official?.cachedInputPricePer1m != null
+          ? { cachedInputPrice: official.cachedInputPricePer1m }
+          : {}),
         status: 'active',
       });
     }

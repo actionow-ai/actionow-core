@@ -1,8 +1,8 @@
+import { capabilitiesToFeatures, featuresToCapabilities } from '@actionow/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { CapabilitiesField } from '../../components/data/CapabilitiesField';
 import { FeaturesField } from '../../components/data/FeaturesField';
 import { IconPicker } from '../../components/data/IconPicker';
 import type { ParameterRuleDraft } from '../../components/data/ParameterRulesEditor';
@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/Button';
 import { ChipsField } from '../../components/ui/ChipsField';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Drawer } from '../../components/ui/Drawer';
+import { FormField, useFieldId } from '../../components/ui/FormField';
 import { NumberField } from '../../components/ui/NumberField';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
@@ -160,7 +161,6 @@ export function ModelEditor({
   const [resourceId, setResourceId] = useState(fixedResourceId ?? '');
   const [display, setDisplay] = useState('');
   const [modality, setModality] = useState('text');
-  const [capabilities, setCapabilities] = useState<Record<string, boolean>>({});
   const [visibility, setVisibility] = useState<Visibility>('public');
   const [inputPrice, setInputPrice] = useState(0);
   const [outputPrice, setOutputPrice] = useState(0);
@@ -207,8 +207,6 @@ export function ModelEditor({
     setResourceId(m.resource_id);
     setDisplay(m.display ?? '');
     setModality(m.modality);
-    // Defensive copy: never seed the query-cached object into mutable form state.
-    setCapabilities({ ...m.capabilities });
     setVisibility(m.visibility === 'tenant' ? 'tenant' : 'public');
     setInputPrice(Number(m.input_price));
     setOutputPrice(Number(m.output_price));
@@ -221,8 +219,15 @@ export function ModelEditor({
     setIcon(m.icon ?? null);
     setStatus(m.status === 'disabled' ? 'disabled' : 'active');
     // Seed the frozen param profile (view is default-empty, never null; camel ⇄
-    // camel inside param_profile). Defensive copies into form state.
-    setFeatures([...m.param_profile.features]);
+    // camel inside param_profile). Defensive copies into form state. Option C:
+    // `features` is the single editable capability source. When a model carries
+    // `capabilities` but NO features yet (a freshly-synced / pre-Option-C row),
+    // prefill features FROM the caps so editing + saving never wipes its gate.
+    setFeatures([
+      ...(m.param_profile.features.length > 0
+        ? m.param_profile.features
+        : capabilitiesToFeatures(m.capabilities)),
+    ]);
     setParameterRules(m.param_profile.parameterRules.map(toRuleDraft));
     setDropPolicy(m.param_profile.dropPolicy);
   }, [editing, m]);
@@ -231,7 +236,9 @@ export function ModelEditor({
     mutationFn: () =>
       api.updateModel(name!, {
         display: display.trim() === '' ? null : display.trim(),
-        capabilities,
+        // Option C: the gate `capabilities` is a pure projection of the edited
+        // `features` — derived on save so the two can never drift ("对不上").
+        capabilities: featuresToCapabilities(features),
         visibility,
         inputPrice,
         outputPrice,
@@ -264,7 +271,7 @@ export function ModelEditor({
           resourceId,
           display: display.trim() === '' ? undefined : display.trim(),
           modality,
-          capabilities,
+          capabilities: featuresToCapabilities(features),
           visibility,
           inputPrice,
           outputPrice,
@@ -439,12 +446,10 @@ export function ModelEditor({
         />
       )}
 
-      <CapabilitiesField
-        label={t('models.form.capabilities')}
-        tooltip={t('models.tip.capabilities')}
-        value={capabilities}
-        onChange={setCapabilities}
-      />
+      {/* 能力 = a READ-ONLY projection of the editable 能力特性 (features) below
+          (Option C). Shows exactly what the relay's gate enforces; the single
+          editable capability control lives in 参数档案 → 能力特性. */}
+      <DerivedCapabilities features={features} />
 
       {/* 参数档案 (model.param_profile): features + parameter rules + drop policy.
           Empty == today's passthrough behavior (the regression invariant). */}
@@ -610,5 +615,38 @@ export function ModelEditor({
       )}
       {testResult !== null && <ModelTestPanel result={testResult} />}
     </Drawer>
+  );
+}
+
+/**
+ * Read-only projection of the editable `features` onto the coarse capability GATE
+ * (Option C: `features` is the single source, 能力 is derived). Shows the operator
+ * exactly what `normalizeRequest` will enforce — without a second editable control
+ * that could drift from the features ("对不上"). Chips reuse the shared `.chip`
+ * primitive and mirror the raw keys shown in the 模型接入 list's caps column.
+ */
+function DerivedCapabilities({ features }: { features: string[] }) {
+  const { t } = useTranslation('console');
+  const fieldId = useFieldId();
+  const caps = featuresToCapabilities(features);
+  const on = Object.keys(caps).filter((k) => caps[k]);
+  return (
+    <FormField
+      id={fieldId}
+      label={t('models.form.capabilities')}
+      tooltip={t('models.tip.capabilitiesDerived')}
+    >
+      {on.length === 0 ? (
+        <span style={{ color: 'var(--faint)', fontSize: 'var(--fs-sm)' }}>—</span>
+      ) : (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s-2)' }}>
+          {on.map((k) => (
+            <span key={k} className="chip" style={{ fontSize: 'var(--fs-caption)' }}>
+              {k}
+            </span>
+          ))}
+        </div>
+      )}
+    </FormField>
   );
 }

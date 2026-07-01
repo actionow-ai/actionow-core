@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { MODEL_FEATURES } from '@actionow/contracts';
 import {
   createOfficialPrice,
   type Database,
@@ -132,6 +133,60 @@ function loadCatalog(): CatalogFile | undefined {
   return undefined;
 }
 
+/**
+ * Derive the model's fine-grained `features[]` (the Option-C single source that
+ * drives BOTH `param_profile.features` AND the derived `capabilities` gate) from
+ * the catalog fields the dataset already carries: `type`, `inputModalities`, and
+ * the free-text `keyParams`. Modality-derived flags (vision/audio/file) are
+ * exact; chat models (`text`/`multimodal`) get the near-universal
+ * tool-call/json-object/stream base — being permissive there AVOIDS wrongly
+ * 400-ing a tool/json request when the free-text keyParams simply didn't list
+ * it; a keyParams substring scan then adds reasoning / structured-output /
+ * parallel-tools / explicit vision. A first-cut derivation (no hand-curation) so
+ * the 236 specs stop being empty; refine per-model later in 规格库 CRUD.
+ */
+export function catalogToFeatures(m: {
+  readonly type?: string | null;
+  readonly inputModalities?: string[] | null;
+  readonly keyParams?: string[] | null;
+}): string[] {
+  const feats = new Set<string>();
+  const type = (m.type ?? '').toLowerCase();
+  const mods = m.inputModalities ?? [];
+  const kp = (m.keyParams ?? []).join(' | ').toLowerCase();
+  const isChat = type === 'text' || type === 'multimodal';
+  if (isChat) {
+    feats.add('tool-call');
+    feats.add('json-object');
+    feats.add('stream');
+  }
+  // Modality-derived (exact).
+  if (mods.includes('image')) feats.add('vision');
+  if (mods.includes('audio')) feats.add('audio');
+  if (mods.includes('pdf')) feats.add('file');
+  // keyParams substring scan.
+  if (/tool|function.?call/.test(kp)) feats.add('tool-call');
+  if (kp.includes('parallel')) feats.add('parallel-tool-call');
+  if (/structured output|json.?schema/.test(kp)) {
+    feats.add('json-schema');
+    feats.add('json-object');
+  }
+  // POSITIVE reasoning signals only — a bare /thinking/ would match "non-thinking
+  // mode only" (deepseek-chat) and wrongly strip temperature from a normal chat
+  // model. `extended thinking (yes)` matches but `adaptive thinking (no)` does not.
+  if (
+    /reasoning_effort|reasoning\b|extended thinking \(yes\)|adaptive thinking \(yes\)|thinkingbudget|thinking budget|effort parameter/.test(
+      kp,
+    )
+  ) {
+    feats.add('reasoning');
+  }
+  if (/vision|image input/.test(kp)) feats.add('vision');
+  if (/\bstream/.test(kp)) feats.add('stream');
+  // Stable, canonical order.
+  return MODEL_FEATURES.filter((f) => feats.has(f));
+}
+
 /** Parse `asOf` (`2026-06`) into a Date for `effective_at`; undefined when absent/unparseable. */
 function effectiveAtFrom(asOf: string | null | undefined): Date | undefined {
   if (asOf === null || asOf === undefined || asOf === '') return undefined;
@@ -176,6 +231,9 @@ export async function importCatalog(db: Database): Promise<ImportCatalogResult> 
       outputModalities: m.outputModalities ?? null,
       mediaOptions: m.mediaOptions ?? null,
       keyParams: m.keyParams ?? null,
+      // Derived fine-grained features (mig 0063) — the single source the sync/seed
+      // path projects into `capabilities` and freezes into `param_profile`.
+      features: catalogToFeatures(m),
       sources: m.sources ?? null,
       status: m.status ?? null,
       contextWindow: m.contextWindow ?? null,
