@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-import { paramOverrideSchema } from './param-profile.js';
+import {
+  modelParamProfileSchema,
+  parameterRuleSchema,
+  paramOverrideSchema,
+} from './param-profile.js';
 
 /**
  * Single source of truth for the catalog/pricing control-plane **request bodies**
@@ -286,6 +290,12 @@ export const createModelSchema = z.object({
   contextLength: z.number().int().positive().optional(),
   /** Reasoning mode (推理): none | optional | always. */
   reasoning: z.enum(['none', 'optional', 'always']).optional(),
+  /**
+   * Frozen model-level parameter profile (D1). Populated by sync-models FROM
+   * model_spec, editable in ModelEditor. Omitted → empty profile (= today's
+   * behavior: gate passes all, no defaults/clamps, passthrough drop policy).
+   */
+  paramProfile: modelParamProfileSchema.optional(),
   /** Selectable icon key (icon_asset.key). */
   icon: z.string().optional(),
   status: z.enum(['active', 'disabled']).optional(),
@@ -318,6 +328,8 @@ export const updateModelSchema = z.object({
   contextLength: z.number().int().positive().nullable().optional(),
   /** Reasoning mode (推理): none | optional | always; `null` clears it. */
   reasoning: z.enum(['none', 'optional', 'always']).nullable().optional(),
+  /** Replace the frozen model-level parameter profile (D1); `null` clears it to empty. */
+  paramProfile: modelParamProfileSchema.nullable().optional(),
   /** Selectable icon key (icon_asset.key); `null` clears it. */
   icon: z.string().nullable().optional(),
   status: z.enum(['active', 'disabled']).optional(),
@@ -364,6 +376,10 @@ export const createModelSpecSchema = z.object({
   outputModalities: z.array(z.string().min(1)).optional(),
   mediaOptions: z.unknown().optional(),
   keyParams: z.array(z.string().min(1)).optional(),
+  /** Fine-grained capability features (upgrades keyParams; drives model.param_profile.features on sync). */
+  features: z.array(z.string().min(1)).optional(),
+  /** Structured parameter rules (Dify parameter_rules); frozen into model.param_profile on sync-models. */
+  parameterRules: z.array(parameterRuleSchema).optional(),
   sources: z.array(z.string().min(1)).optional(),
   status: z.string().min(1).optional(),
   contextWindow: z.string().min(1).optional(),
@@ -392,6 +408,10 @@ export const updateModelSpecSchema = z.object({
   outputModalities: z.array(z.string().min(1)).nullable().optional(),
   mediaOptions: z.unknown().optional(),
   keyParams: z.array(z.string().min(1)).nullable().optional(),
+  /** Fine-grained capability features; `null` clears them. */
+  features: z.array(z.string().min(1)).nullable().optional(),
+  /** Structured parameter rules (Dify parameter_rules); `null` clears them. */
+  parameterRules: z.array(parameterRuleSchema).nullable().optional(),
   sources: z.array(z.string().min(1)).nullable().optional(),
   status: z.string().min(1).nullable().optional(),
   contextWindow: z.string().min(1).nullable().optional(),

@@ -5,6 +5,7 @@ import {
   type AdapterContext,
   type CreatePluginRequest,
   type HttpClient,
+  type ModelParamProfile,
   type ParamOverride,
   type PriceSpec,
   type RelayTraceView,
@@ -1889,6 +1890,7 @@ export class AdminService {
       ...(dto.maker !== undefined ? { maker: dto.maker } : {}),
       ...(dto.contextLength !== undefined ? { contextLength: dto.contextLength } : {}),
       ...(dto.reasoning !== undefined ? { reasoning: dto.reasoning } : {}),
+      ...(dto.paramProfile !== undefined ? { paramProfile: dto.paramProfile } : {}),
       ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
     };
@@ -1949,6 +1951,7 @@ export class AdminService {
       maker?: string | null;
       contextLength?: number | null;
       reasoning?: string | null;
+      paramProfile?: ModelParamProfile | null;
       icon?: string | null;
       status?: string;
     } = {};
@@ -1965,6 +1968,7 @@ export class AdminService {
     if (dto.maker !== undefined) patch.maker = dto.maker;
     if (dto.contextLength !== undefined) patch.contextLength = dto.contextLength;
     if (dto.reasoning !== undefined) patch.reasoning = dto.reasoning;
+    if (dto.paramProfile !== undefined) patch.paramProfile = dto.paramProfile;
     if (dto.icon !== undefined) patch.icon = dto.icon;
     if (dto.status !== undefined) patch.status = dto.status;
     const row = await updateModel(this.db, name, patch);
@@ -2282,6 +2286,8 @@ export class AdminService {
         ...(dto.outputModalities !== undefined ? { outputModalities: dto.outputModalities } : {}),
         ...(dto.mediaOptions !== undefined ? { mediaOptions: dto.mediaOptions } : {}),
         ...(dto.keyParams !== undefined ? { keyParams: dto.keyParams } : {}),
+        ...(dto.features !== undefined ? { features: dto.features } : {}),
+        ...(dto.parameterRules !== undefined ? { parameterRules: dto.parameterRules } : {}),
         ...(dto.sources !== undefined ? { sources: dto.sources } : {}),
         ...(dto.status !== undefined ? { status: dto.status } : {}),
         ...(dto.contextWindow !== undefined ? { contextWindow: dto.contextWindow } : {}),
@@ -2334,6 +2340,8 @@ export class AdminService {
       ...(dto.outputModalities !== undefined ? { outputModalities: dto.outputModalities } : {}),
       ...(dto.mediaOptions !== undefined ? { mediaOptions: dto.mediaOptions } : {}),
       ...(dto.keyParams !== undefined ? { keyParams: dto.keyParams } : {}),
+      ...(dto.features !== undefined ? { features: dto.features } : {}),
+      ...(dto.parameterRules !== undefined ? { parameterRules: dto.parameterRules } : {}),
       ...(dto.sources !== undefined ? { sources: dto.sources } : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
       ...(dto.contextWindow !== undefined ? { contextWindow: dto.contextWindow } : {}),

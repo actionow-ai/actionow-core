@@ -105,6 +105,9 @@ export type {
   MessageView,
   ModelGrantView,
   ModelHealthView,
+  // --- model param profile (模型参数绑定 Phase 1) ---
+  ModelParamProfile,
+  ModelSpecView,
   ModelTestRequest,
   ModelTestResult,
   ModelView,
@@ -114,6 +117,7 @@ export type {
   OfficialPriceView,
   OpsHealthView,
   OpsSummaryView,
+  ParameterRule,
   // --- per-(model×channel) param override (模型参数绑定 Phase 0) ---
   ParamOpDef,
   ParamOverride,

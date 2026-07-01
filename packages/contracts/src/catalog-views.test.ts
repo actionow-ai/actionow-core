@@ -18,6 +18,11 @@ describe('catalog view contracts', () => {
       rate_limit: null,
       fallback_models: null,
       served_channel_ids: [],
+      // Per-(model×channel) override (mig 0062) + frozen model profile (mig 0064);
+      // both present so `.parse()` output round-trips deep-equal. The profile is
+      // spelled out fully (its inner defaults) so it survives `.toEqual`.
+      param_override: null,
+      param_profile: { features: [], parameterRules: [], dropPolicy: 'passthrough' },
       tags: ['推荐'],
       maker: 'z-ai',
       context_length: 1000000,

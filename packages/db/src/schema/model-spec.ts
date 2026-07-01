@@ -1,3 +1,4 @@
+import type { ParameterRule } from '@actionow/contracts';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -53,8 +54,22 @@ export const modelSpec = pgTable(
     outputModalities: jsonb('output_modalities').$type<string[]>(),
     /** Free-form media option descriptors (resolutions/durations/modes); shape varies by vendor. */
     mediaOptions: jsonb('media_options').$type<unknown>(),
-    /** Notable request parameters (`reasoning_effort`, `temperature`, …). */
+    /** Notable request parameters (`reasoning_effort`, `temperature`, …). @deprecated superseded by `parameterRules` (mig 0063); kept one release for compat. */
     keyParams: jsonb('key_params').$type<string[]>(),
+    /**
+     * Fine-grained capability features (Dify `features`): `tool-call`, `vision`,
+     * `json-schema`, `reasoning`, `parallel-tool-call`, … The catalog
+     * source-of-truth that `sync-models` freezes into
+     * `model.param_profile.features` (mig 0064).
+     */
+    features: jsonb('features').$type<string[]>(),
+    /**
+     * Declarative per-model parameter contract (Dify `parameter_rules` shape:
+     * name/type/default/min/max/required/options/help/useTemplate). Typed as the
+     * contracts `ParameterRule[]`; the 规格库 authoritative copy frozen into
+     * `model.param_profile.parameterRules` at sync (mig 0064).
+     */
+    parameterRules: jsonb('parameter_rules').$type<ParameterRule[]>(),
     /** Cited source URLs the spec was assembled from. */
     sources: jsonb('sources').$type<string[]>(),
     /** Lifecycle status string as the provider states it (`GA`, `preview`, …). */

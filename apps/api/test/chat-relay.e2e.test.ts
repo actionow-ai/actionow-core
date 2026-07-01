@@ -44,6 +44,8 @@ const CHAT_RESOURCE = 'chat-mock-resource';
 const MODEL_NAME = 'mock-model';
 /** A capability-restricted public model (no tools/vision/audio/json). */
 const NO_CAPS_MODEL = 'mock-model-no-caps';
+/** A model carrying a frozen param_profile (error drop policy + clamped temperature). */
+const PROFILE_MODEL = 'mock-model-profile';
 /** µUSD per 1M input tokens (resale price; $1.25/1M) seeded on the model. */
 const INPUT_PRICE = 1_250_000n;
 /** µUSD per 1M output tokens (resale price; $10/1M) seeded on the model. */
@@ -250,6 +252,27 @@ beforeAll(async () => {
     inputPrice: INPUT_PRICE,
     outputPrice: OUTPUT_PRICE,
     status: 'active',
+  });
+
+  // 模型参数绑定 Phase 1: a model carrying a FROZEN param_profile with an `error`
+  // drop policy + a clamped temperature rule. Sending an out-of-range temperature
+  // makes the engine `clampToRules` throw `invalid_input` (400) — proving the
+  // resolveModelForTenant → chat-relay → engine profile pipeline is wired.
+  await createModel(db, {
+    name: PROFILE_MODEL,
+    resourceId: CHAT_RESOURCE,
+    display: 'Mock Model (profile)',
+    modality: 'chat',
+    capabilities: { tools: true, vision: true, audio: true, json: true, stream: true },
+    visibility: 'public',
+    inputPrice: INPUT_PRICE,
+    outputPrice: OUTPUT_PRICE,
+    status: 'active',
+    paramProfile: {
+      features: [],
+      parameterRules: [{ name: 'temperature', min: 0, max: 1 }],
+      dropPolicy: 'error',
+    },
   });
 }, 120_000);
 
@@ -563,6 +586,51 @@ describe('errors + disconnect', () => {
       (await db.select().from(schema.account).where(eq(schema.account.tenantId, tenantId)))[0]
         ?.creditHeld,
     ).toBe(0n);
+  });
+});
+
+describe('model param profile (模型参数绑定 Phase 1)', () => {
+  it('empty-profile model (default) serves 200 — regression invariant', async () => {
+    const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: MODEL_NAME,
+        messages: [{ role: 'user', content: 'hi' }],
+        temperature: 5,
+      }),
+    });
+    // No profile → today's behavior: the out-of-range temperature is forwarded
+    // untouched and the mock serves 200 (no clamp/error).
+    expect(res.status).toBe(200);
+  });
+
+  it('profile model, in-range param → 200 (pipeline runs cleanly)', async () => {
+    const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: PROFILE_MODEL,
+        messages: [{ role: 'user', content: 'hi' }],
+        temperature: 0.5,
+      }),
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('profile model, out-of-range param under error policy → 400 invalid_input', async () => {
+    const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: PROFILE_MODEL,
+        messages: [{ role: 'user', content: 'hi' }],
+        temperature: 5,
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = asRecord(await res.json());
+    expect(asRecord(body.error).code).toBe('invalid_input');
   });
 });
 

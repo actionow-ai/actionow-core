@@ -988,7 +988,10 @@
       "maker": "模型的制造方(anthropic/alibaba/z-ai…),用于按厂商筛选",
       "contextLength": "最大上下文窗口(token 数);0 表示未知",
       "reasoning": "推理模式:无 / 可切换 / 始终开启",
-      "icon": "为该模型选择品牌图标;留空则继承其渠道 / 插件图标"
+      "icon": "为该模型选择品牌图标;留空则继承其渠道 / 插件图标",
+      "features": "用于请求门控/降级的细粒度能力。",
+      "rules": "模型级参数契约：默认/裁剪/门控/声明模型专属参数。",
+      "dropPolicy": "如何处理该模型不支持的已知参数。"
     },
     "actions": {
       "grants": "授权",
@@ -1032,6 +1035,30 @@
       "none": "无推理",
       "optional": "可切换推理",
       "always": "始终开启推理"
+    },
+    "param": {
+      "title": "参数档案",
+      "features": "能力特性",
+      "rules": "参数规则",
+      "dropPolicy": "不支持参数处理",
+      "dropPolicy_passthrough": "透传",
+      "dropPolicy_drop": "丢弃",
+      "dropPolicy_error": "拒绝 (400)",
+      "template": "模板",
+      "templateNone": "无模板",
+      "importFromSpec": "从规格库导入",
+      "importConfirm": "此操作将用规格库中的值覆盖当前的能力特性与参数规则，是否继续？",
+      "imported": "已从规格库导入",
+      "noSpec": "规格库无匹配条目",
+      "dupName": "参数名重复",
+      "addRule": "添加参数",
+      "ruleType": "类型",
+      "ruleDefault": "默认值",
+      "ruleMin": "最小值",
+      "ruleMax": "最大值",
+      "ruleRequired": "必填",
+      "ruleOptions": "选项",
+      "ruleHelp": "说明"
     }
   },
   "modelAccess": {
@@ -1789,6 +1816,17 @@
       "stream": "流式",
       "multilingual": "多语言",
       "moderation": "内容审核"
+    },
+    "feature": {
+      "toolCall": "工具调用",
+      "parallelTool": "并行工具",
+      "vision": "视觉",
+      "audio": "音频",
+      "file": "文件",
+      "jsonObject": "JSON 对象",
+      "jsonSchema": "JSON 结构化",
+      "reasoning": "推理",
+      "stream": "流式"
     }
   },
   "forms": {

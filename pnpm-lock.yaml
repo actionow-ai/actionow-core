@@ -442,6 +442,9 @@ importers:
       '@actionow/infra':
         specifier: workspace:*
         version: link:../infra
+      '@actionow/llm-protocol':
+        specifier: workspace:*
+        version: link:../llm-protocol
       '@actionow/payments':
         specifier: workspace:*
         version: link:../payments

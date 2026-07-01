@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-import { paramOverrideSchema } from './param-profile.js';
+import {
+  modelParamProfileSchema,
+  parameterRuleSchema,
+  paramOverrideSchema,
+} from './param-profile.js';
 
 /**
  * Single source of truth for the catalog/pricing control-plane **wire views**
@@ -119,6 +123,12 @@ export const modelViewSchema = z.object({
   context_length: z.number().nullable(),
   /** Reasoning mode (推理): none | optional | always; null when unset. */
   reasoning: z.string().nullable(),
+  /**
+   * Frozen model-level parameter profile (D1, mig 0064); default-empty, never
+   * null (the `toView` mapper `.parse({})`s an absent column into the empty
+   * profile). Drives the 参数档案 editor + engine defaults/clamp/gate/drop.
+   */
+  param_profile: modelParamProfileSchema,
   /** Selectable icon key (icon_asset.key); null → inherit channel/plugin icon. */
   icon: z.string().nullable(),
   status: z.string(),
@@ -201,6 +211,10 @@ export const modelSpecViewSchema = z.object({
   /** Free-form media option descriptors (resolutions/durations/modes); shape varies by vendor. */
   media_options: z.unknown().nullable(),
   key_params: z.array(z.string()).nullable(),
+  /** Fine-grained capability features (规格库 → model.param_profile.features on sync). */
+  features: z.array(z.string()).nullable(),
+  /** Structured parameter rules (Dify parameter_rules); frozen into model.param_profile on sync. */
+  parameter_rules: z.array(parameterRuleSchema).nullable(),
   sources: z.array(z.string()).nullable(),
   status: z.string().nullable(),
   context_window: z.string().nullable(),

@@ -988,7 +988,10 @@
       "maker": "The model's maker (anthropic/alibaba/z-ai…) — filter by developer",
       "contextLength": "Max context window (tokens); 0 = unknown",
       "reasoning": "Reasoning mode: none / optional / always-on",
-      "icon": "Pick a brand icon for this model; leave empty to inherit its channel/plugin icon"
+      "icon": "Pick a brand icon for this model; leave empty to inherit its channel/plugin icon",
+      "features": "Fine-grained capabilities used to gate/downgrade requests.",
+      "rules": "Per-model parameter contract: default / clamp / gate / declare model-specific params.",
+      "dropPolicy": "How to handle known params this model does not support."
     },
     "actions": {
       "grants": "Grants",
@@ -1032,6 +1035,30 @@
       "none": "No reasoning",
       "optional": "Switchable reasoning",
       "always": "Always-on reasoning"
+    },
+    "param": {
+      "title": "Parameter profile",
+      "features": "Features",
+      "rules": "Parameter rules",
+      "dropPolicy": "Unsupported params",
+      "dropPolicy_passthrough": "Pass through",
+      "dropPolicy_drop": "Drop",
+      "dropPolicy_error": "Reject (400)",
+      "template": "Template",
+      "templateNone": "None",
+      "importFromSpec": "Import from spec catalog",
+      "importConfirm": "This overwrites the current features and parameter rules with the spec catalog values. Continue?",
+      "imported": "Imported from spec",
+      "noSpec": "No matching spec row",
+      "dupName": "Duplicate parameter name",
+      "addRule": "Add parameter",
+      "ruleType": "Type",
+      "ruleDefault": "Default",
+      "ruleMin": "Min",
+      "ruleMax": "Max",
+      "ruleRequired": "Required",
+      "ruleOptions": "Options",
+      "ruleHelp": "Help"
     }
   },
   "modelAccess": {
@@ -1789,6 +1816,17 @@
       "stream": "Streaming",
       "multilingual": "Multilingual",
       "moderation": "Moderation"
+    },
+    "feature": {
+      "toolCall": "Tool calling",
+      "parallelTool": "Parallel tools",
+      "vision": "Vision",
+      "audio": "Audio",
+      "file": "File",
+      "jsonObject": "JSON object",
+      "jsonSchema": "JSON schema",
+      "reasoning": "Reasoning",
+      "stream": "Streaming"
     }
   },
   "forms": {

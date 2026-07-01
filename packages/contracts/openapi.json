@@ -352,6 +352,127 @@
           }
         }
       },
+      "ParameterRule": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "useTemplate": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "float",
+              "int",
+              "boolean",
+              "string",
+              "enum",
+              "json"
+            ]
+          },
+          "default": {
+            "nullable": true
+          },
+          "min": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "help": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ModelParamProfile": {
+        "type": "object",
+        "properties": {
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "parameterRules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "useTemplate": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "float",
+                    "int",
+                    "boolean",
+                    "string",
+                    "enum",
+                    "json"
+                  ]
+                },
+                "default": {
+                  "nullable": true
+                },
+                "min": {
+                  "type": "number"
+                },
+                "max": {
+                  "type": "number"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "help": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ]
+            },
+            "default": []
+          },
+          "dropPolicy": {
+            "type": "string",
+            "enum": [
+              "error",
+              "drop",
+              "passthrough"
+            ],
+            "default": "passthrough"
+          }
+        }
+      },
       "ResourceView": {
         "type": "object",
         "properties": {
@@ -612,6 +733,79 @@
             "type": "string",
             "nullable": true
           },
+          "param_profile": {
+            "type": "object",
+            "properties": {
+              "features": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              },
+              "parameterRules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "useTemplate": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "float",
+                        "int",
+                        "boolean",
+                        "string",
+                        "enum",
+                        "json"
+                      ]
+                    },
+                    "default": {
+                      "nullable": true
+                    },
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "options": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "help": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name"
+                  ]
+                },
+                "default": []
+              },
+              "dropPolicy": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "drop",
+                  "passthrough"
+                ],
+                "default": "passthrough"
+              }
+            }
+          },
           "icon": {
             "type": "string",
             "nullable": true
@@ -642,6 +836,7 @@
           "maker",
           "context_length",
           "reasoning",
+          "param_profile",
           "icon",
           "status",
           "created_at"
@@ -816,6 +1011,65 @@
               "type": "string"
             }
           },
+          "features": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "parameter_rules": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "useTemplate": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "float",
+                    "int",
+                    "boolean",
+                    "string",
+                    "enum",
+                    "json"
+                  ]
+                },
+                "default": {
+                  "nullable": true
+                },
+                "min": {
+                  "type": "number"
+                },
+                "max": {
+                  "type": "number"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "help": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ]
+            }
+          },
           "sources": {
             "type": "array",
             "nullable": true,
@@ -874,6 +1128,8 @@
           "input_modalities",
           "output_modalities",
           "key_params",
+          "features",
+          "parameter_rules",
           "sources",
           "status",
           "context_window",
@@ -4834,6 +5090,79 @@
               "always"
             ]
           },
+          "paramProfile": {
+            "type": "object",
+            "properties": {
+              "features": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              },
+              "parameterRules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "useTemplate": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "float",
+                        "int",
+                        "boolean",
+                        "string",
+                        "enum",
+                        "json"
+                      ]
+                    },
+                    "default": {
+                      "nullable": true
+                    },
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "options": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "help": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name"
+                  ]
+                },
+                "default": []
+              },
+              "dropPolicy": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "drop",
+                  "passthrough"
+                ],
+                "default": "passthrough"
+              }
+            }
+          },
           "icon": {
             "type": "string"
           },
@@ -4926,6 +5255,80 @@
               "always"
             ]
           },
+          "paramProfile": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "features": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              },
+              "parameterRules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "useTemplate": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "float",
+                        "int",
+                        "boolean",
+                        "string",
+                        "enum",
+                        "json"
+                      ]
+                    },
+                    "default": {
+                      "nullable": true
+                    },
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "options": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "help": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name"
+                  ]
+                },
+                "default": []
+              },
+              "dropPolicy": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "drop",
+                  "passthrough"
+                ],
+                "default": "passthrough"
+              }
+            }
+          },
           "icon": {
             "type": "string",
             "nullable": true
@@ -4990,6 +5393,64 @@
             "items": {
               "type": "string",
               "minLength": 1
+            }
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "parameterRules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "useTemplate": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "float",
+                    "int",
+                    "boolean",
+                    "string",
+                    "enum",
+                    "json"
+                  ]
+                },
+                "default": {
+                  "nullable": true
+                },
+                "min": {
+                  "type": "number"
+                },
+                "max": {
+                  "type": "number"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "help": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ]
             }
           },
           "sources": {
@@ -5099,6 +5560,66 @@
             "items": {
               "type": "string",
               "minLength": 1
+            }
+          },
+          "features": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "parameterRules": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "useTemplate": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "float",
+                    "int",
+                    "boolean",
+                    "string",
+                    "enum",
+                    "json"
+                  ]
+                },
+                "default": {
+                  "nullable": true
+                },
+                "min": {
+                  "type": "number"
+                },
+                "max": {
+                  "type": "number"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "help": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ]
             }
           },
           "sources": {

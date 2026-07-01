@@ -1,3 +1,4 @@
+import type { ParameterRule } from '@actionow/contracts';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq, isNull } from 'drizzle-orm';
 
@@ -21,6 +22,8 @@ export interface UpsertModelSpecInput {
   readonly outputModalities?: string[] | null | undefined;
   readonly mediaOptions?: unknown;
   readonly keyParams?: string[] | null | undefined;
+  readonly features?: string[] | null | undefined;
+  readonly parameterRules?: ParameterRule[] | null | undefined;
   readonly sources?: string[] | null | undefined;
   readonly status?: string | null | undefined;
   readonly contextWindow?: string | null | undefined;
@@ -59,6 +62,8 @@ export async function upsertModelSpec(
     outputModalities: input.outputModalities ?? null,
     mediaOptions: input.mediaOptions ?? null,
     keyParams: input.keyParams ?? null,
+    features: input.features ?? null,
+    parameterRules: input.parameterRules ?? null,
     sources: input.sources ?? null,
     status: input.status ?? null,
     contextWindow: input.contextWindow ?? null,
@@ -168,6 +173,8 @@ export async function createModelSpec(
       outputModalities: input.outputModalities ?? null,
       mediaOptions: input.mediaOptions ?? null,
       keyParams: input.keyParams ?? null,
+      features: input.features ?? null,
+      parameterRules: input.parameterRules ?? null,
       sources: input.sources ?? null,
       status: input.status ?? null,
       contextWindow: input.contextWindow ?? null,
@@ -196,6 +203,8 @@ export interface UpdateModelSpecInput {
   readonly outputModalities?: string[] | null | undefined;
   readonly mediaOptions?: unknown;
   readonly keyParams?: string[] | null | undefined;
+  readonly features?: string[] | null | undefined;
+  readonly parameterRules?: ParameterRule[] | null | undefined;
   readonly sources?: string[] | null | undefined;
   readonly status?: string | null | undefined;
   readonly contextWindow?: string | null | undefined;
@@ -228,6 +237,8 @@ export async function updateModelSpec(
   if (patch.outputModalities !== undefined) set.outputModalities = patch.outputModalities;
   if (patch.mediaOptions !== undefined) set.mediaOptions = patch.mediaOptions;
   if (patch.keyParams !== undefined) set.keyParams = patch.keyParams;
+  if (patch.features !== undefined) set.features = patch.features;
+  if (patch.parameterRules !== undefined) set.parameterRules = patch.parameterRules;
   if (patch.sources !== undefined) set.sources = patch.sources;
   if (patch.status !== undefined) set.status = patch.status;
   if (patch.contextWindow !== undefined) set.contextWindow = patch.contextWindow;

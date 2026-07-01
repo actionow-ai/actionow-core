@@ -2712,6 +2712,9 @@ function toModelView(
     // Only populated when the model was fetched THROUGH a channel link (col-3);
     // null for the flat catalog + create/update responses (no channel context).
     param_override: paramOverride,
+    // Frozen model profile (mig 0064); a null column parses to the empty profile
+    // (never null on the view — the schema's inner defaults fill it).
+    param_profile: row.paramProfile ?? {},
     tags: row.tags,
     maker: row.maker,
     context_length: row.contextLength,
@@ -2763,6 +2766,8 @@ function toModelSpecView(row: ModelSpecRow): ModelSpecView {
     output_modalities: row.outputModalities,
     media_options: row.mediaOptions ?? null,
     key_params: row.keyParams,
+    features: row.features,
+    parameter_rules: row.parameterRules,
     sources: row.sources,
     status: row.status,
     context_window: row.contextWindow,

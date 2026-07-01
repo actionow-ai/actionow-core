@@ -22,7 +22,13 @@ import type {
   JobQueuePort,
   RunRequest,
 } from '@actionow/engine';
-import { EngineError, ExecutionService } from '@actionow/engine';
+import {
+  applyProfileDefaults,
+  clampToRules,
+  EngineError,
+  ExecutionService,
+  isEmptyProfile,
+} from '@actionow/engine';
 import { type AppEnv, createHttpClient } from '@actionow/infra';
 import { normalizeRequest, readCapabilities } from '@actionow/llm-protocol';
 import { Inject, Injectable, Optional } from '@nestjs/common';
@@ -223,11 +229,23 @@ export class ChatRelayService {
     routeTag?: string,
   ): Promise<RunRequest> {
     const resolved = await this.resolver.resolve(modelName, ctx.tenantId);
-    // `normalizeRequest` both GATES (400 on capability misuse) and, for reasoning
-    // models, DOWNGRADES the rejected sampling params — returning a cleaned copy.
-    // Use that copy from here on (the `inputs.__ir` + stream estimate downstream
-    // must see the downgraded request, not the raw one).
-    const normalizedIr = normalizeRequest(ir, readCapabilities(resolved.capabilities));
+    // The frozen model-level profile (mig 0064; may be null/empty). Drives ①
+    // defaults + clamp and ③ the profile-aware gate. Loaded ON the resolved model
+    // row → ZERO extra query (D1).
+    const profile = resolved.paramProfile ?? undefined;
+    const caps = readCapabilities(resolved.capabilities);
+    // Pipeline stages ①(defaults)+①(clamp) run only when the profile is non-empty
+    // (a no-op returning the SAME ref otherwise), then ③ `normalizeRequest` GATES
+    // (400 on capability misuse) and, for reasoning models, DOWNGRADES the rejected
+    // sampling params — profile-driven with fallback to today's hardcoded lists.
+    // An empty/absent profile makes ①③ byte-for-byte identical to before Phase 1.
+    // The downgraded/defaulted copy flows into `inputs.__ir` + the stream estimate.
+    let normalizedIr = ir;
+    if (profile !== undefined && !isEmptyProfile(profile)) {
+      normalizedIr = applyProfileDefaults(normalizedIr, profile);
+      normalizedIr = clampToRules(normalizedIr, profile);
+    }
+    normalizedIr = normalizeRequest(normalizedIr, caps, profile);
 
     const { resourceId } = resolved;
     const resource = await getResource(this.db, resourceId);
@@ -288,6 +306,10 @@ export class ChatRelayService {
       // Mirror a usage_log row on settle (§C.4) keyed to the resolved model.
       usageLogModel: modelName,
     };
+    // Stage ④ input: carry the frozen profile onto the RunRequest so the engine
+    // threads it to the adapter's dropUnsupported. Only when non-empty, so an
+    // absent/empty profile leaves the engine + adapter a byte-for-byte no-op.
+    if (profile !== undefined && !isEmptyProfile(profile)) req.paramProfile = profile;
     // Attribute the mirrored usage_log row to the calling api key when present
     // (absent on the dev `x-tenant-id` fallback) — exactOptionalPropertyTypes.
     if (ctx.apiKeyId !== undefined) req.usageLogApiKeyId = ctx.apiKeyId;
