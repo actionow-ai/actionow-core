@@ -462,7 +462,7 @@
     "accounts": "账户余额与充值",
     "apiKeys": "签发与管理 API Key",
     "serviceTokens": "管理 API 的机器对机器（M2M）凭据",
-    "modelAccess": "插件 → 通道 → 模型：三栏式接入管理",
+    "modelAccess": "供给 → 模型：主从式接入管理",
     "platforms": "平台与定价：资源、上游与定价手册"
   },
   "dashboard": {
@@ -1047,7 +1047,14 @@
     "searchChannels": "搜索通道",
     "searchModels": "搜索模型",
     "filterAll": "全部",
-    "channelsN": "{{n}} 通道"
+    "channelsN": "{{n}} 通道",
+    "supply": "供给",
+    "noModels": "该通道暂无模型",
+    "cols": {
+      "model": "模型",
+      "caps": "能力",
+      "price": "入/出价"
+    }
   },
   "channels": {
     "addTitle": "添加通道",
@@ -1090,7 +1097,7 @@
     "tip": {
       "platform": "该通道所属的平台(资源/上游)。路由按平台聚合通道。",
       "platformAuto": "默认自动:留空则保存时按 Provider+模态 复用或新建平台;也可手动指定一个已有平台。",
-      "plugin": "该通道归属的插件(模型接入三栏分组)。原生厂商通道仍按 Provider 类型路由,不走沙箱。",
+      "plugin": "该通道归属的插件(模型接入供给树分组)。原生厂商通道仍按 Provider 类型路由,不走沙箱。",
       "modality": "新建平台时使用的模态(由所选插件带出)。",
       "provider": "该通道的上游 Provider(自由文本,如 openai、anthropic)。Logo 据此解析。",
       "providerAuto": "已按所选插件自动填好,可改;下拉为后端实际支持的 Provider 类型。",
