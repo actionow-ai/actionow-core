@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
+  boolean,
   check,
   index,
   integer,
@@ -38,6 +39,14 @@ export const routeGroup = pgTable(
     groupRatioBps: integer('group_ratio_bps').notNull().default(10000),
     /** Cross-group failover (弹性2.0): when this group's channels are exhausted, cascade to this group. Self-ref; resolver walks the chain with cycle+depth guards. */
     fallbackGroupId: uuid('fallback_group_id').references((): AnyPgColumn => routeGroup.id),
+    /**
+     * `require_params` routing (模型参数绑定 Phase 2, D3). When TRUE, the router
+     * SKIPS a candidate channel whose effective (model,channel) profile/override
+     * would drop a param the request carries (falling to a supporting channel or
+     * 404), instead of the default drop-and-forward. Default FALSE == today's
+     * behavior byte-for-byte (candidates unchanged, OpenRouter-default drop).
+     */
+    requireParams: boolean('require_params').notNull().default(false),
     // status allowed values: active | disabled (create default + admin DTO)
     status: text('status').notNull().default('active'),
     description: text('description'),

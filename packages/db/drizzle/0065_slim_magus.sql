@@ -1,0 +1,1 @@
+ALTER TABLE "route_group" ADD COLUMN "require_params" boolean DEFAULT false NOT NULL;

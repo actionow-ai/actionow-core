@@ -12955,6 +12955,7 @@ export interface components {
             name: string;
             group_ratio_bps: number;
             fallback_group_id: string | null;
+            require_params: boolean;
             status: string;
             description: string | null;
             created_at: string;
@@ -13671,6 +13672,7 @@ export interface components {
             groupRatioBps?: number;
             /** Format: uuid */
             fallbackGroupId?: string | null;
+            requireParams?: boolean;
             description?: string;
             /** @enum {string} */
             status?: "active" | "disabled";
@@ -13680,6 +13682,7 @@ export interface components {
             groupRatioBps?: number;
             /** Format: uuid */
             fallbackGroupId?: string | null;
+            requireParams?: boolean;
             /** @enum {string} */
             status?: "active" | "disabled";
             description?: string | null;

@@ -2630,6 +2630,7 @@ export class AdminService {
       name: dto.name,
       ...(dto.groupRatioBps !== undefined ? { groupRatioBps: dto.groupRatioBps } : {}),
       ...(dto.fallbackGroupId !== undefined ? { fallbackGroupId: dto.fallbackGroupId } : {}),
+      ...(dto.requireParams !== undefined ? { requireParams: dto.requireParams } : {}),
       ...(dto.description !== undefined ? { description: dto.description } : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
     };
@@ -2662,6 +2663,7 @@ export class AdminService {
       name?: string;
       groupRatioBps?: number;
       fallbackGroupId?: string | null;
+      requireParams?: boolean;
       status?: string;
       description?: string | null;
     } = {};
@@ -2673,6 +2675,7 @@ export class AdminService {
       await this.validateFallbackGroup(id, dto.fallbackGroupId);
       patch.fallbackGroupId = dto.fallbackGroupId;
     }
+    if (dto.requireParams !== undefined) patch.requireParams = dto.requireParams;
     if (dto.status !== undefined) patch.status = dto.status;
     if (dto.description !== undefined) patch.description = dto.description;
     let row: RouteGroupRow | undefined;

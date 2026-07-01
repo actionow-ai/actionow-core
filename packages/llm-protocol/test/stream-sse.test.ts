@@ -122,6 +122,25 @@ describe('renderOpenAIChatStream', () => {
     expect(out).toContain('"finish_reason":"stop"');
     expect(dataFrames.at(-1)).toBe('data: [DONE]');
   });
+
+  // P2-5 (stream) — the terminal chunk surfaces native_finish_reason when the IR
+  // stop event carried it; omitted otherwise (non-native streams unchanged).
+  it('surfaces native_finish_reason on the terminal chunk when present', async () => {
+    const path: ChatStreamEvent[] = [
+      { type: 'message_start' },
+      { type: 'content_delta', text: 'hi' },
+      { type: 'stop', stopReason: 'content_filter', nativeFinishReason: 'content_filter' },
+      { type: 'done' },
+    ];
+    const out = await collect(renderOpenAIChatStream(events(path), 'gpt-4o'));
+    expect(out).toContain('"finish_reason":"content_filter"');
+    expect(out).toContain('"native_finish_reason":"content_filter"');
+  });
+
+  it('omits native_finish_reason on the terminal chunk when absent (non-breaking)', async () => {
+    const out = await collect(renderOpenAIChatStream(events(happyPath), 'gpt-4o'));
+    expect(out).not.toContain('native_finish_reason');
+  });
 });
 
 describe('renderAnthropicMessagesStream', () => {

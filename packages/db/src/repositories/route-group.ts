@@ -31,6 +31,8 @@ export interface CreateRouteGroupInput {
   readonly groupRatioBps?: number | undefined;
   /** Cross-group failover target (弹性2.0); another group's id, or null for none. */
   readonly fallbackGroupId?: string | null | undefined;
+  /** `require_params` routing (模型参数绑定 Phase 2, D3); defaults FALSE (drop-and-forward). */
+  readonly requireParams?: boolean | undefined;
   /** `active` (default) | `disabled`. */
   readonly status?: string | undefined;
   readonly description?: string | null | undefined;
@@ -47,6 +49,7 @@ export async function createRouteGroup(
       name: input.name,
       ...(input.groupRatioBps !== undefined ? { groupRatioBps: input.groupRatioBps } : {}),
       ...(input.fallbackGroupId !== undefined ? { fallbackGroupId: input.fallbackGroupId } : {}),
+      ...(input.requireParams !== undefined ? { requireParams: input.requireParams } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
     })
@@ -102,6 +105,8 @@ export interface UpdateRouteGroupInput {
   readonly groupRatioBps?: number | undefined;
   /** Set / clear (null) the cross-group failover target (弹性2.0). */
   readonly fallbackGroupId?: string | null | undefined;
+  /** Toggle `require_params` routing (模型参数绑定 Phase 2, D3). */
+  readonly requireParams?: boolean | undefined;
   readonly status?: string | undefined;
   readonly description?: string | null | undefined;
 }
@@ -120,6 +125,7 @@ export async function updateRouteGroup(
   if (patch.name !== undefined) set.name = patch.name;
   if (patch.groupRatioBps !== undefined) set.groupRatioBps = patch.groupRatioBps;
   if (patch.fallbackGroupId !== undefined) set.fallbackGroupId = patch.fallbackGroupId;
+  if (patch.requireParams !== undefined) set.requireParams = patch.requireParams;
   if (patch.status !== undefined) set.status = patch.status;
   if (patch.description !== undefined) set.description = patch.description;
   if (Object.keys(set).length === 0) {

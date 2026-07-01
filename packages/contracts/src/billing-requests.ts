@@ -29,6 +29,13 @@ export const createRouteGroupSchema = z.object({
   groupRatioBps: z.number().int().positive().optional(),
   /** Cross-group failover target (弹性2.0); another group's id, or null for none. Server validates cycle/depth. */
   fallbackGroupId: z.string().uuid().nullable().optional(),
+  /**
+   * `require_params` routing (模型参数绑定 Phase 2, D3). When true, the router SKIPS
+   * a candidate channel whose (model,channel) effective profile/override would drop
+   * a param the request carries (falling to a supporting channel or 404), instead
+   * of the default drop-and-forward. Defaults FALSE (today's behavior).
+   */
+  requireParams: z.boolean().optional(),
   description: z.string().optional(),
   status: z.enum(['active', 'disabled']).optional(),
 });
@@ -44,6 +51,8 @@ export const updateRouteGroupSchema = z.object({
   groupRatioBps: z.number().int().positive().optional(),
   /** Set / clear (null) the cross-group failover target (弹性2.0). Server validates cycle/depth. */
   fallbackGroupId: z.string().uuid().nullable().optional(),
+  /** Toggle `require_params` routing (模型参数绑定 Phase 2, D3). */
+  requireParams: z.boolean().optional(),
   status: z.enum(['active', 'disabled']).optional(),
   description: z.string().nullable().optional(),
 });

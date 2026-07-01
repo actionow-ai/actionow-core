@@ -1,3 +1,4 @@
+import type { ModelParamProfile } from '@actionow/contracts';
 import {
   type Database,
   type FaultPolicyRow,
@@ -11,11 +12,27 @@ import {
   listModelChannels,
   type UpstreamChannelRow,
 } from '@actionow/db';
-import type { FaultPolicy, RunChannel } from '@actionow/engine';
+import { channelSupportsParams, type FaultPolicy, type RunChannel } from '@actionow/engine';
 import { Inject, Injectable } from '@nestjs/common';
 
-import { engineInvalidInput } from './errors.js';
+import { engineInvalidInput, engineNotFound } from './errors.js';
 import { DB } from './tokens.js';
+
+/**
+ * `require_params` routing gate (模型参数绑定 Phase 2, D3) threaded from the relay.
+ * Present + `enabled` → `candidatesFor` SKIPS a candidate whose effective
+ * (model,channel) profile/override would drop one of `requestedParams`. Absent /
+ * `enabled:false` → today's drop-and-forward (candidate set unchanged).
+ */
+export interface ParamGate {
+  readonly enabled: boolean;
+  /** Wire param names the request carries (from `requestParamNames(ir)`). */
+  readonly requestedParams: ReadonlySet<string>;
+  /** The resolved model's frozen param profile (uniform across channels). */
+  readonly profile?: ModelParamProfile | undefined;
+  /** The resolved upstream model id (for override `when.modelMatches`). */
+  readonly modelName: string;
+}
 
 /** The well-known fallback group an unbound key resolves to (Track 3/4 seed). */
 export const DEFAULT_ROUTE_GROUP_NAME = 'default';
@@ -107,6 +124,7 @@ export class ChannelRoutingService {
     routeGroupId: string | null | undefined,
     modelId?: string,
     routeTag?: string,
+    paramGate?: ParamGate,
   ): Promise<RunChannel[]> {
     // `routeGroupId` (string|null|undefined) ?? default (string|null) → string|null.
     const groupId = routeGroupId ?? (await this.resolveDefaultGroupId());
@@ -148,7 +166,45 @@ export class ChannelRoutingService {
       }
     }
 
-    return this.preferLinkedChannels(base, modelId);
+    // require_params 路由 (模型参数绑定 Phase 2, D3): when the key's group opts in
+    // AND the request carries params, drop any candidate whose effective
+    // (model,channel) profile/override would strip one of those params — the caller
+    // then serves on a SUPPORTING channel (or 404s if none). DEFAULT OFF: with the
+    // gate disabled/absent this whole block is skipped, so the candidate set is
+    // byte-for-byte identical to today. Runs AFTER overrides are stamped (each
+    // channel's `paramOverride` is now populated) so the per-channel `delete` op
+    // differentiator is visible.
+    const gated = this.applyRequireParams(base, paramGate);
+
+    return this.preferLinkedChannels(gated, modelId);
+  }
+
+  /**
+   * require_params filter (模型参数绑定 Phase 2, D3). Keeps only candidates that
+   * SUPPORT every request-carried param under their effective (model,channel)
+   * config; a zero-support result throws the same 404 the empty-candidate path
+   * uses. A no-op (returns the SAME array) when the gate is off/absent or the
+   * request carries no params — the regression invariant.
+   */
+  private applyRequireParams(channels: RunChannel[], gate?: ParamGate): RunChannel[] {
+    if (gate === undefined || !gate.enabled || gate.requestedParams.size === 0) return channels;
+    const supported = channels.filter((c) =>
+      // A channel's own upstream `model` drives the override `when.modelMatches`
+      // (each channel may pin a different upstream id); fall back to the requested
+      // model name when the channel does not override it.
+      channelSupportsParams(
+        gate.requestedParams,
+        c.paramOverride,
+        gate.profile,
+        c.model ?? gate.modelName,
+      ),
+    );
+    if (supported.length === 0) {
+      throw engineNotFound(
+        `no channel supports the requested params under require_params: ${[...gate.requestedParams].join(', ')}`,
+      );
+    }
+    return supported;
   }
 
   /**
@@ -218,6 +274,30 @@ export class ChannelRoutingService {
       // A stale binding to a deleted/unknown group → fall back to the default.
     }
     return this.resolveDefaultGroupRatioBps();
+  }
+
+  /**
+   * Resolve whether `require_params` routing (模型参数绑定 Phase 2, D3) is ENABLED for
+   * the authenticating key's bound group.
+   *
+   * 1. `routeGroupId` set + live → that group's `require_params` (a soft-deleted /
+   *    unknown group → fall through to the default so a stale binding never throws).
+   * 2. unbound / no such group → the well-known `default` group's `require_params`;
+   *    no `default` group → FALSE.
+   *
+   * DEFAULT OFF: the seed `default` group ships `require_params = false`, so an
+   * un-grouped / pre-Phase-2 setup keeps today's drop-and-forward byte-for-byte.
+   */
+  async requireParamsFor(routeGroupId: string | null | undefined): Promise<boolean> {
+    if (routeGroupId !== null && routeGroupId !== undefined) {
+      const group = await getRouteGroupById(this.db, routeGroupId);
+      if (group !== undefined) return group.requireParams;
+      // A stale binding to a deleted/unknown group → fall back to the default.
+    }
+    const defaultId = await this.resolveDefaultGroupId();
+    if (defaultId === null) return false;
+    const group = await getRouteGroupById(this.db, defaultId);
+    return group?.requireParams ?? false;
   }
 
   /** Resolve + cache the well-known `default` group id (`null` when absent). */
