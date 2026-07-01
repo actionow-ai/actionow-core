@@ -37,13 +37,25 @@ core 不是你的整个后端,而是一层**能力基座**:AI 中继(chat/image/
 
 Model-A 的 subject 只有 email+password、**没有 `external_id`**,且 `external_id` **不可变**。所以升级不是「回填 external*id」,而是:在你侧建用户表存 core 的 **`subject_id`(UUID)**、给每个 subject 铸 subject-scoped `ak*`、你接管认证。core 侧数据不动。详见 [reference/05-migration-A-to-B.md](../skills/building-on-actionow/reference/05-migration-A-to-B.md)。
 
-## 4. 技术栈推荐(TS 优先)
+## 4. 技术栈选型(与 core 一致)
 
-- **薄后端**:持控制面 JWT + 每用户 `ak_`;首选 `@actionow/sdk`(端到端类型),关系型库自管、**只存 core 的 ID**(`subject_id`/`file_id`/`job_id`)。
-- **异步**:队列 worker 收 webhook(或轮询)。
-- **密钥**:控制面 JWT + `ak_` 进 KMS/Vault,绝不进浏览器。
-- **其他语言**:用 OpenAI 兼容客户端打中继 + 裸 HTTP 打 `/console`;`@actionow/sdk` 仅作类型参考。
-- 起点:`examples/app-starter/`(框架无关 `core-kit` + Express 薄后端;换 Hono/Nest 只改 `routes/`)。
+建在 core 上的 app **推荐照抄 core 自身实测的栈** —— 端到端 TS、与 `@actionow/sdk` 对齐、复用团队已有工具链与门禁。
+
+| 层          | 首选(与 core 一致)                                                                                              | 备选                                   |
+| ----------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 语言        | TypeScript(strict)                                                                                              | Python / Go(OpenAI 兼容 SDK + 裸 HTTP) |
+| 前端        | React + Vite · TanStack Query · React Router · Tailwind v4 + 设计 token · Phosphor · GSAP · i18next             | Next.js(SSR / 全栈)                    |
+| 薄后端      | NestJS(Express 平台)· jose(JWT)· Swagger;`core-kit` 封装两 client                                               | Fastify · Hono · Next route handlers   |
+| 契约 / 校验 | Zod(contract-first)                                                                                             | —                                      |
+| 数据库      | PostgreSQL + Drizzle ORM + postgres.js(`drizzle-kit` 迁移)                                                      | Prisma                                 |
+| 队列 / 异步 | BullMQ + Redis(ioredis)—— 收 webhook、跑异步任务                                                                | 云厂商队列                             |
+| 缓存 / 限流 | Redis(ioredis)                                                                                                  | —                                      |
+| 对象存储    | 直接用 core 的文件能力(presign)                                                                                 | 自建 S3 / R2 + `@aws-sdk/client-s3`    |
+| 密钥        | 环境加密 / KMS / Vault(JWT + `ak_` 绝不进浏览器)                                                                | —                                      |
+| 日志        | pino                                                                                                            | OpenTelemetry                          |
+| 工具链      | pnpm + turbo · typescript-eslint(strict)· Prettier · husky / lint-staged / commitlint · Vitest + testcontainers | —                                      |
+
+只存 core 的 ID(`subject_id`/`file_id`/`job_id`)+ 你的业务数据,别镜像 core。起点:`examples/app-starter/`(框架无关 `core-kit` + Express;换 NestJS / Hono 只改 `routes/`,要真库把内存 store 换成 Drizzle+PG)。完整选型与依据:[reference/06-tech-stack.md](../skills/building-on-actionow/reference/06-tech-stack.md)。
 
 ## 5. 编码约定(铁律)
 

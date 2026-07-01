@@ -70,13 +70,14 @@ digraph choose {
 
 ## 子技能
 
-| 文件                                                                                 | 何时读                                          |
-| ------------------------------------------------------------------------------------ | ----------------------------------------------- |
-| [reference/01-choose-your-scenario.md](reference/01-choose-your-scenario.md)         | 决定复用什么、选哪种姿势(完整复用矩阵 + 决策树) |
-| [reference/03-scenario-capability-base.md](reference/03-scenario-capability-base.md) | **主线**:自持用户,把 core 当能力基座(Model-B)   |
-| [reference/02-scenario-managed.md](reference/02-scenario-managed.md)                 | 托管快启:最少自建,尽快上线(Model-A)             |
-| [reference/04-scenario-hybrid.md](reference/04-scenario-hybrid.md)                   | 混合:自持用户 + 复用 core 的余额/充值自助       |
-| [reference/05-migration-A-to-B.md](reference/05-migration-A-to-B.md)                 | 升级路径:托管快启 → 能力基座                    |
+| 文件                                                                                 | 何时读                                             |
+| ------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| [reference/01-choose-your-scenario.md](reference/01-choose-your-scenario.md)         | 决定复用什么、选哪种姿势(完整复用矩阵 + 决策树)    |
+| [reference/03-scenario-capability-base.md](reference/03-scenario-capability-base.md) | **主线**:自持用户,把 core 当能力基座(Model-B)      |
+| [reference/02-scenario-managed.md](reference/02-scenario-managed.md)                 | 托管快启:最少自建,尽快上线(Model-A)                |
+| [reference/04-scenario-hybrid.md](reference/04-scenario-hybrid.md)                   | 混合:自持用户 + 复用 core 的余额/充值自助          |
+| [reference/05-migration-A-to-B.md](reference/05-migration-A-to-B.md)                 | 升级路径:托管快启 → 能力基座                       |
+| [reference/06-tech-stack.md](reference/06-tech-stack.md)                             | 技术栈选型:前端 / 后端 / DB / 中间件(与 core 一致) |
 
 人读版工程指南(定位 + 技术栈 + 编码/自身 API 规范):[docs/ENGINEERING-GUIDE.md](../../docs/ENGINEERING-GUIDE.md)。
 
