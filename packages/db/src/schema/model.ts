@@ -1,4 +1,4 @@
-import type { ParamOverride } from '@actionow/contracts';
+import type { ModelParamProfile, ParamOverride } from '@actionow/contracts';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -59,6 +59,15 @@ export const model = pgTable(
      * `input_price` exactly as before.
      */
     cachedInputPrice: bigint('cached_input_price', { mode: 'bigint' }),
+    /**
+     * Frozen runtime snapshot of the model's parameter profile
+     * (`ModelParamProfile` = { features, parameterRules, dropPolicy }), populated
+     * by `sync-models` / admin create+update FROM the matched `model_spec` (D1) —
+     * mirrors how `input_price` is frozen from `official_model_price`. Null →
+     * empty profile == today's passthrough behavior. Loaded on the SAME row already
+     * fetched in `resolveModelForTenant`, so ZERO extra query on the hot path.
+     */
+    paramProfile: jsonb('param_profile').$type<ModelParamProfile>(),
     // Set `true` by `sync-models` when no official price matched the discovered
     // slug (Track 2; spec D7). Such a model is created `disabled` and is NEVER
     // billable at 0 — it stays out of routing until an admin prices it.

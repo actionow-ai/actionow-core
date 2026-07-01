@@ -133,7 +133,15 @@ export default tseslint.config(
                 ['pkg', { package: 'infra' }],
               ],
             },
-            // engine: orchestration over contracts, domain, db, adapters, infra, dify, payments.
+            // llm-protocol: the IR normalize/dialect layer — contracts only.
+            {
+              from: [['pkg', { package: 'llm-protocol' }]],
+              allow: [
+                ['pkg', { package: 'llm-protocol' }],
+                ['pkg', { package: 'contracts' }],
+              ],
+            },
+            // engine: orchestration over contracts, domain, db, adapters, infra, dify, payments, llm-protocol.
             {
               from: [['pkg', { package: 'engine' }]],
               allow: [
@@ -146,6 +154,8 @@ export default tseslint.config(
                 ['pkg', { package: 'dify' }],
                 // PaymentService (engine) orchestrates the provider registry types.
                 ['pkg', { package: 'payments' }],
+                // apply-profile reuses llm-protocol's normalizeRequest gate (模型参数绑定 Phase 1).
+                ['pkg', { package: 'llm-protocol' }],
               ],
             },
             // apps (api, worker): any package + any app.

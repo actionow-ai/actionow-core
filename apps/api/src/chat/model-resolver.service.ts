@@ -1,3 +1,4 @@
+import type { ModelParamProfile } from '@actionow/contracts';
 import type { Database, ModelView } from '@actionow/db';
 import { listVisibleModels, resolveModelForTenant } from '@actionow/db';
 import { Inject, Injectable } from '@nestjs/common';
@@ -18,6 +19,8 @@ export interface ResolvedModel {
   /** Optional µUSD per 1M cached-input tokens (用拆分计费); null → no cached rate. */
   readonly cachedInputPrice: bigint | null;
   readonly capabilities: Record<string, unknown>;
+  /** Frozen model-level param profile (mig 0064); null → passthrough (today's behavior). */
+  readonly paramProfile: ModelParamProfile | null;
 }
 
 /** DI token for the (Track-C-backed) {@link ModelResolverPort} provider. */

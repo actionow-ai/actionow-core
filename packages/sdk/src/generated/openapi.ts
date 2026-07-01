@@ -12318,6 +12318,40 @@ export interface components {
                 };
             }[];
         };
+        ParameterRule: {
+            name: string;
+            useTemplate?: string;
+            /** @enum {string} */
+            type?: "float" | "int" | "boolean" | "string" | "enum" | "json";
+            default?: unknown;
+            min?: number;
+            max?: number;
+            required?: boolean;
+            options?: string[];
+            help?: string;
+        };
+        ModelParamProfile: {
+            /** @default [] */
+            features: string[];
+            /** @default [] */
+            parameterRules: {
+                name: string;
+                useTemplate?: string;
+                /** @enum {string} */
+                type?: "float" | "int" | "boolean" | "string" | "enum" | "json";
+                default?: unknown;
+                min?: number;
+                max?: number;
+                required?: boolean;
+                options?: string[];
+                help?: string;
+            }[];
+            /**
+             * @default passthrough
+             * @enum {string}
+             */
+            dropPolicy: "error" | "drop" | "passthrough";
+        };
         ResourceView: {
             id: string;
             tenant_id: string | null;
@@ -12384,6 +12418,28 @@ export interface components {
             maker: string | null;
             context_length: number | null;
             reasoning: string | null;
+            param_profile: {
+                /** @default [] */
+                features: string[];
+                /** @default [] */
+                parameterRules: {
+                    name: string;
+                    useTemplate?: string;
+                    /** @enum {string} */
+                    type?: "float" | "int" | "boolean" | "string" | "enum" | "json";
+                    default?: unknown;
+                    min?: number;
+                    max?: number;
+                    required?: boolean;
+                    options?: string[];
+                    help?: string;
+                }[];
+                /**
+                 * @default passthrough
+                 * @enum {string}
+                 */
+                dropPolicy: "error" | "drop" | "passthrough";
+            };
             icon: string | null;
             status: string;
             created_at: string;
@@ -12433,6 +12489,19 @@ export interface components {
             output_modalities: string[] | null;
             media_options?: unknown;
             key_params: string[] | null;
+            features: string[] | null;
+            parameter_rules: {
+                name: string;
+                useTemplate?: string;
+                /** @enum {string} */
+                type?: "float" | "int" | "boolean" | "string" | "enum" | "json";
+                default?: unknown;
+                min?: number;
+                max?: number;
+                required?: boolean;
+                options?: string[];
+                help?: string;
+            }[] | null;
             sources: string[] | null;
             status: string | null;
             context_window: string | null;
@@ -13425,6 +13494,28 @@ export interface components {
             contextLength?: number;
             /** @enum {string} */
             reasoning?: "none" | "optional" | "always";
+            paramProfile?: {
+                /** @default [] */
+                features: string[];
+                /** @default [] */
+                parameterRules: {
+                    name: string;
+                    useTemplate?: string;
+                    /** @enum {string} */
+                    type?: "float" | "int" | "boolean" | "string" | "enum" | "json";
+                    default?: unknown;
+                    min?: number;
+                    max?: number;
+                    required?: boolean;
+                    options?: string[];
+                    help?: string;
+                }[];
+                /**
+                 * @default passthrough
+                 * @enum {string}
+                 */
+                dropPolicy: "error" | "drop" | "passthrough";
+            };
             icon?: string;
             /** @enum {string} */
             status?: "active" | "disabled";
@@ -13446,6 +13537,28 @@ export interface components {
             contextLength?: number | null;
             /** @enum {string|null} */
             reasoning?: "none" | "optional" | "always" | null;
+            paramProfile?: {
+                /** @default [] */
+                features: string[];
+                /** @default [] */
+                parameterRules: {
+                    name: string;
+                    useTemplate?: string;
+                    /** @enum {string} */
+                    type?: "float" | "int" | "boolean" | "string" | "enum" | "json";
+                    default?: unknown;
+                    min?: number;
+                    max?: number;
+                    required?: boolean;
+                    options?: string[];
+                    help?: string;
+                }[];
+                /**
+                 * @default passthrough
+                 * @enum {string}
+                 */
+                dropPolicy: "error" | "drop" | "passthrough";
+            } | null;
             icon?: string | null;
             /** @enum {string} */
             status?: "active" | "disabled";
@@ -13461,6 +13574,19 @@ export interface components {
             outputModalities?: string[];
             mediaOptions?: unknown;
             keyParams?: string[];
+            features?: string[];
+            parameterRules?: {
+                name: string;
+                useTemplate?: string;
+                /** @enum {string} */
+                type?: "float" | "int" | "boolean" | "string" | "enum" | "json";
+                default?: unknown;
+                min?: number;
+                max?: number;
+                required?: boolean;
+                options?: string[];
+                help?: string;
+            }[];
             sources?: string[];
             status?: string;
             contextWindow?: string;
@@ -13485,6 +13611,19 @@ export interface components {
             outputModalities?: string[] | null;
             mediaOptions?: unknown;
             keyParams?: string[] | null;
+            features?: string[] | null;
+            parameterRules?: {
+                name: string;
+                useTemplate?: string;
+                /** @enum {string} */
+                type?: "float" | "int" | "boolean" | "string" | "enum" | "json";
+                default?: unknown;
+                min?: number;
+                max?: number;
+                required?: boolean;
+                options?: string[];
+                help?: string;
+            }[] | null;
             sources?: string[] | null;
             status?: string | null;
             contextWindow?: string | null;

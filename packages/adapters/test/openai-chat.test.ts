@@ -242,3 +242,81 @@ describe('openaiAdapter.streamChat', () => {
     ]);
   });
 });
+
+// --- Stage ④ dropUnsupported via ctx.paramProfile (模型参数绑定 Phase 1) --------
+// The openai adapter's buildChatBody calls dropUnsupportedBody(body, ctx.paramProfile)
+// at the end. These are the WIRE-LEVEL oracle for the profile drop policy: with no
+// profile / passthrough the body is byte-for-byte identical to today (E1-1); with a
+// `drop` profile the undeclared known-standard sampling key is pruned (E1-3), while a
+// non-standard extra key (top_k) always rides through.
+describe('openaiAdapter.chat — stage ④ dropUnsupported (param profile)', () => {
+  const richIr: ChatRequest = {
+    model: 'gpt-4o',
+    messages: [{ role: 'user', content: [{ kind: 'text', text: 'hi' }] }],
+    params: { temperature: 0.7, topP: 0.9 },
+    extra: { top_k: 40, prompt_cache_key: 'x' },
+  };
+  const okResp = {
+    status: 200,
+    body: {
+      choices: [{ message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 1, completion_tokens: 1 },
+    },
+  } as const;
+
+  it('E1-1 regression invariant: no profile → wire body carries temperature + top_p + top_k unchanged', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp(okResp, (r) => {
+      seen = r;
+    });
+    await openaiAdapter.chat?.(richIr, {
+      providerType: 'openai',
+      model: 'gpt-4o',
+      apiKey: 'sk',
+      http,
+    });
+    const body = seen?.body as Record<string, unknown>;
+    expect(body.temperature).toBe(0.7);
+    expect(body.top_p).toBe(0.9);
+    expect(body.top_k).toBe(40);
+    expect(body.prompt_cache_key).toBe('x');
+  });
+
+  it('passthrough profile is also byte-for-byte identical', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp(okResp, (r) => {
+      seen = r;
+    });
+    await openaiAdapter.chat?.(richIr, {
+      providerType: 'openai',
+      model: 'gpt-4o',
+      apiKey: 'sk',
+      http,
+      paramProfile: { features: [], parameterRules: [], dropPolicy: 'passthrough' },
+    });
+    const body = seen?.body as Record<string, unknown>;
+    expect(body.top_p).toBe(0.9);
+  });
+
+  it('E1-3 drop policy prunes an undeclared known-standard param (top_p), keeps declared temperature + non-standard top_k', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp(okResp, (r) => {
+      seen = r;
+    });
+    await openaiAdapter.chat?.(richIr, {
+      providerType: 'openai',
+      model: 'gpt-4o',
+      apiKey: 'sk',
+      http,
+      paramProfile: {
+        features: [],
+        parameterRules: [{ name: 'temperature' }],
+        dropPolicy: 'drop',
+      },
+    });
+    const body = seen?.body as Record<string, unknown>;
+    expect(body.temperature).toBe(0.7); // declared → kept
+    expect('top_p' in body).toBe(false); // undeclared known-standard → dropped
+    expect(body.top_k).toBe(40); // non-standard extra → never touched
+  });
+});

@@ -1,5 +1,6 @@
 import type { HttpClient } from './http.js';
 import type { MediaResult } from './media-result.js';
+import type { ModelParamProfile } from './param-profile.js';
 import type { PluginManifest } from './provider-plugin.js';
 
 export const EXEC_MODES = ['blocking', 'stream', 'async-poll', 'async-callback'] as const;
@@ -54,6 +55,14 @@ export interface AdapterContext {
    * never passed into a handler.
    */
   credentials?: Record<string, string>;
+  /**
+   * Frozen model param profile (mig 0064). The adapter applies stage ④
+   * `dropUnsupportedBody(body, paramProfile)` at the end of `buildChatBody`.
+   * Absent/empty (or `dropPolicy:'passthrough'`) → no drop (byte-for-byte identical
+   * to today). Consumed ONLY for the drop policy; the declarative stages ①②③
+   * already ran on the IR before dispatch.
+   */
+  paramProfile?: ModelParamProfile;
   http: HttpClient;
 }
 

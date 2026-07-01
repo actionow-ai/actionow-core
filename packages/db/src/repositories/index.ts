@@ -256,6 +256,7 @@ export {
   createModel,
   type CreateModelInput,
   deleteModelGrant,
+  freezeParamProfile,
   getChannelModelOverride,
   getChannelModelOverrides,
   getModelById,

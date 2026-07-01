@@ -153,7 +153,11 @@ import {
   usageLogViewSchema,
   usageRollupViewSchema,
 } from './ops-views.js';
-import { paramOverrideSchema } from './param-profile.js';
+import {
+  modelParamProfileSchema,
+  parameterRuleSchema,
+  paramOverrideSchema,
+} from './param-profile.js';
 import { priceSpecSchema } from './pricing.js';
 import {
   createPluginRequestSchema,
@@ -223,6 +227,10 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   // Register the shared ParamOverride FIRST so the schemas that embed it
   // (ModelView, ChannelModelView, the PATCH body) render as `$ref`s (mig 0062).
   registry.register('ParamOverride', paramOverrideSchema);
+  // Register the model-profile pair FIRST too (ParameterRule ⊂ ModelParamProfile
+  // ⊂ ModelView) so the embedded schemas render as `$ref`s (Phase 1, mig 0064).
+  registry.register('ParameterRule', parameterRuleSchema);
+  registry.register('ModelParamProfile', modelParamProfileSchema);
   const Resource = registry.register('ResourceView', resourceViewSchema);
   const Channel = registry.register('ChannelView', channelViewSchema);
   const Model = registry.register('ModelView', modelViewSchema);

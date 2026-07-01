@@ -442,6 +442,20 @@
       "when": 1782875274380,
       "tag": "0062_youthful_ogun",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1782877804489,
+      "tag": "0063_bent_alex_power",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1782877818004,
+      "tag": "0064_late_miss_america",
+      "breakpoints": true
     }
   ]
 }

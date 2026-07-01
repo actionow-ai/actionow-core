@@ -1,11 +1,28 @@
-import type { ParamOverride } from '@actionow/contracts';
+import type { ModelParamProfile, ParameterRule, ParamOverride } from '@actionow/contracts';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import { channelModel, model, modelGrant } from '../schema/index.js';
+import { getModelSpec } from './model-spec.js';
 import { matchOfficialPrice } from './official-price.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
+
+/**
+ * Build the frozen `param_profile` snapshot from a matched `model_spec` (D1),
+ * mirroring how `input_price` is frozen from `official_model_price` at sync.
+ * Returns null when the spec is absent or contributes no features/rules, so the
+ * model bills/gates exactly as today (empty profile == passthrough).
+ */
+export function freezeParamProfile(
+  spec: { features: string[] | null; parameterRules: ParameterRule[] | null } | undefined,
+): ModelParamProfile | null {
+  if (spec === undefined) return null;
+  const features = spec.features ?? [];
+  const parameterRules = spec.parameterRules ?? [];
+  if (features.length === 0 && parameterRules.length === 0) return null;
+  return { features, parameterRules, dropPolicy: 'passthrough' };
+}
 
 export type ModelRow = InferSelectModel<typeof model>;
 
@@ -37,6 +54,8 @@ export interface CreateModelInput {
   readonly contextLength?: number | null | undefined;
   /** Reasoning mode: none | optional | always; omitted/null → unset. */
   readonly reasoning?: string | null | undefined;
+  /** Frozen model-level param profile (D1); omitted → unset (null → empty/passthrough). */
+  readonly paramProfile?: ModelParamProfile | null | undefined;
   /** Selectable icon key (icon_asset.key); omitted/null → unset. */
   readonly icon?: string | null | undefined;
   readonly status?: string | undefined;
@@ -62,6 +81,7 @@ export async function createModel(db: DbOrTx, input: CreateModelInput): Promise<
       ...(input.maker !== undefined ? { maker: input.maker } : {}),
       ...(input.contextLength !== undefined ? { contextLength: input.contextLength } : {}),
       ...(input.reasoning !== undefined ? { reasoning: input.reasoning } : {}),
+      ...(input.paramProfile !== undefined ? { paramProfile: input.paramProfile } : {}),
       ...(input.icon !== undefined ? { icon: input.icon } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
     })
@@ -221,6 +241,13 @@ export async function upsertModelsFromSync(
       needsPricing = true;
       priced = 'needs_pricing';
     }
+    // Freeze the param profile from the matched 规格库 spec (D1), the same way
+    // input_price freezes from official_model_price above. The `model_spec` vendor
+    // namespace == the provider key used for pricing; absent/empty spec → null
+    // (passthrough == today's behavior). Only on the NEW-model insert branch —
+    // the existing-model UPDATE preserves an operator-tuned profile (below).
+    const spec = await getModelSpec(db, input.provider, m.name);
+    const paramProfile = freezeParamProfile(spec);
     await db.insert(model).values({
       name: m.name,
       resourceId: input.resourceId,
@@ -232,6 +259,7 @@ export async function upsertModelsFromSync(
       inputPrice,
       outputPrice,
       cachedInputPrice,
+      ...(paramProfile !== null ? { paramProfile } : {}),
     });
     created.push(m.name);
     summary.push({ name: m.name, priced });
@@ -248,6 +276,8 @@ export interface ResolvedModel {
   /** Optional µUSD per 1M cached-input tokens (用拆分计费); null → no cached rate. */
   readonly cachedInputPrice: bigint | null;
   readonly capabilities: Record<string, boolean>;
+  /** Frozen model-level param profile (features/parameterRules/dropPolicy, mig 0064); null → passthrough (today's behavior). */
+  readonly paramProfile: ModelParamProfile | null;
 }
 
 /**
@@ -270,6 +300,7 @@ export async function resolveModelForTenant(
       outputPrice: model.outputPrice,
       cachedInputPrice: model.cachedInputPrice,
       capabilities: model.capabilities,
+      paramProfile: model.paramProfile,
       visibility: model.visibility,
       grantTenant: modelGrant.tenantId,
     })
@@ -289,6 +320,8 @@ export async function resolveModelForTenant(
     outputPrice: row.outputPrice,
     cachedInputPrice: row.cachedInputPrice,
     capabilities: row.capabilities,
+    // Frozen shape trusted, but null-coalesced so a never-set column → passthrough.
+    paramProfile: row.paramProfile ?? null,
   };
 }
 
@@ -498,6 +531,7 @@ export async function listChannelModels(db: DbOrTx, channelId: string): Promise<
       maker: model.maker,
       contextLength: model.contextLength,
       reasoning: model.reasoning,
+      paramProfile: model.paramProfile,
       icon: model.icon,
       status: model.status,
       createdAt: model.createdAt,
@@ -623,6 +657,8 @@ export interface UpdateModelInput {
   readonly contextLength?: number | null | undefined;
   /** Reasoning mode; `null` clears it. */
   readonly reasoning?: string | null | undefined;
+  /** Replace the frozen model-level param profile (D1); `null` clears it to empty/passthrough. */
+  readonly paramProfile?: ModelParamProfile | null | undefined;
   /** Selectable icon key (icon_asset.key); `null` clears it. */
   readonly icon?: string | null | undefined;
   /** `active` | `disabled`. */
@@ -654,6 +690,7 @@ export async function updateModel(
   if (patch.maker !== undefined) set.maker = patch.maker;
   if (patch.contextLength !== undefined) set.contextLength = patch.contextLength;
   if (patch.reasoning !== undefined) set.reasoning = patch.reasoning;
+  if (patch.paramProfile !== undefined) set.paramProfile = patch.paramProfile;
   if (patch.icon !== undefined) set.icon = patch.icon;
   if (patch.status !== undefined) set.status = patch.status;
   if (Object.keys(set).length === 0) {

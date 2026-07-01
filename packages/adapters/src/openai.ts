@@ -23,7 +23,7 @@ import type {
   UnifiedError,
   UsageVector,
 } from '@actionow/contracts';
-import { vectorToChatUsage } from '@actionow/contracts';
+import { dropUnsupportedBody, vectorToChatUsage } from '@actionow/contracts';
 
 import { AdapterError, httpStatusToUnified } from './errors.js';
 import { asArray, asNumber, asRecord, asString, parseJsonRecord } from './internal/json.js';
@@ -182,7 +182,12 @@ function buildChatBody(
       body.reasoning_effort = params.reasoningEffort;
     }
   }
-  return body;
+  // Stage ④ — prune known-standard sampling keys this model does not declare,
+  // per the frozen profile's dropPolicy. A passthrough/empty profile returns the
+  // SAME body reference (byte-for-byte identical to today). Never drops a
+  // non-standard `extra` key (top_k, prompt_cache_key, …). The `error` policy is
+  // enforced by the engine BEFORE dispatch; here we only apply the prune.
+  return dropUnsupportedBody(body, ctx.paramProfile).body;
 }
 
 /** Map an OpenAI `finish_reason` to an IR {@link StopReason}. */

@@ -52,6 +52,7 @@ export const qk = {
   models: () => ['admin', 'models'] as const,
   model: (name: string) => ['admin', 'models', name] as const,
   modelGrants: (name: string) => ['admin', 'models', name, 'grants'] as const,
+  modelSpecByModel: (modelId: string) => ['admin', 'model-specs', 'by-model', modelId] as const,
   usage: (params: Record<string, unknown>) => ['admin', 'usage', params] as const,
   analyticsUsage: (params: object) => ['admin', 'analytics-usage', params] as const,
   relayTraces: (params: object) => ['admin', 'relay-traces', params] as const,

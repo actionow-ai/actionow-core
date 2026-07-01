@@ -111,6 +111,44 @@ export const CAPABILITIES: CapabilityDef[] = [
   { key: 'moderation', labelKey: 'enums.capability.moderation' },
 ];
 
+/**
+ * Fine-grained model `param_profile.features` (Dify `features`; the finer set the
+ * profile edits — an upgrade of the coarse {@link CAPABILITIES}). Open-ended;
+ * unknown feature strings carried on a synced profile are preserved + shown raw.
+ */
+export const PARAM_FEATURES: CapabilityDef[] = [
+  { key: 'tool-call', labelKey: 'enums.feature.toolCall' },
+  { key: 'parallel-tool-call', labelKey: 'enums.feature.parallelTool' },
+  { key: 'vision', labelKey: 'enums.feature.vision' },
+  { key: 'audio', labelKey: 'enums.feature.audio' },
+  { key: 'file', labelKey: 'enums.feature.file' },
+  { key: 'json-object', labelKey: 'enums.feature.jsonObject' },
+  { key: 'json-schema', labelKey: 'enums.feature.jsonSchema' },
+  { key: 'reasoning', labelKey: 'enums.feature.reasoning' },
+  { key: 'stream', labelKey: 'enums.feature.stream' },
+];
+
+/** Param rule value types (contract `parameterRuleSchema.type`). */
+export const PARAM_RULE_TYPES = ['float', 'int', 'boolean', 'string', 'enum', 'json'] as const;
+
+/** Known `useTemplate` names (mirrors packages/contracts/src/param-templates.ts PARAM_TEMPLATES keys). */
+export const PARAM_TEMPLATES = [
+  'temperature',
+  'top_p',
+  'top_k',
+  'max_tokens',
+  'response_format',
+  'reasoning_effort',
+  'stop',
+  'seed',
+  'frequency_penalty',
+  'presence_penalty',
+  'logprobs',
+] as const;
+
+/** dropPolicy enum (contract DROP_POLICIES). */
+export const DROP_POLICIES = ['passthrough', 'drop', 'error'] as const;
+
 /** Common upstream provider identifiers — suggestions for free-text fields (not an enum). */
 export const COMMON_PROVIDERS = [
   'openai',

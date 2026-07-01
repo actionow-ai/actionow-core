@@ -11,6 +11,7 @@ import type {
   ExecMode,
   HttpClient,
   IoSchema,
+  ModelParamProfile,
   ModerationRequest,
   ModerationResult,
   ParamOverride,
@@ -57,6 +58,7 @@ import { routeBlocking } from './channel-routing.js';
 import { EngineError, engineError } from './errors.js';
 import { type FaultPolicy, runWithFaultPolicy, wrapHttpWithTimeouts } from './fault-policy.js';
 import { applyChannelOverride } from './param/apply-override.js';
+import { isEmptyProfile } from './param/apply-profile.js';
 import { serializeAppliedModifiers, settledCost } from './pricing.js';
 import { type TraceContext, TracingHttpClient } from './relay-trace.js';
 import {
@@ -171,6 +173,13 @@ export interface RunRequest {
   estimatedUsage?: UsageVector | undefined;
   /** Fallback hold for a `post` method when no `estimatedUsage` is supplied. */
   holdFloor?: bigint | undefined;
+  /**
+   * Frozen model-level param profile (mig 0064). Threaded onto the AdapterContext
+   * for stage ④ (`dropUnsupported`) — the declarative stages ①③ already ran on the
+   * IR in chat-relay before this request was built. Absent/empty → no drop
+   * (byte-for-byte identical to today). Chat path only (D4: media is Phase 2).
+   */
+  paramProfile?: ModelParamProfile | undefined;
 }
 
 export interface RunCost {
@@ -1498,6 +1507,11 @@ export class ExecutionService {
     const proxyUrl = await this.resolveProxy(channel);
     if (proxyUrl !== undefined) ctx.proxyUrl = proxyUrl;
     if (channel.config !== undefined) ctx.config = channel.config;
+    // Stage ④ input: the frozen profile, threaded only when non-empty so an
+    // absent/empty profile leaves the adapter's dropUnsupported a same-ref no-op.
+    if (req.paramProfile !== undefined && !isEmptyProfile(req.paramProfile)) {
+      ctx.paramProfile = req.paramProfile;
+    }
     return ctx;
   }
 

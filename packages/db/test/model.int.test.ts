@@ -84,6 +84,7 @@ describe('resolveModelForTenant', () => {
       outputPrice: 60n,
       cachedInputPrice: null, // no cached rate set → null (用拆分计费 inactive)
       capabilities: { tools: true },
+      paramProfile: null, // no frozen profile → null (passthrough == today; 模型参数绑定 Phase 1)
     });
   });
 

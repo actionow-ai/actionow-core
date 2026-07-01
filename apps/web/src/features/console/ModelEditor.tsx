@@ -3,24 +3,115 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { CapabilitiesField } from '../../components/data/CapabilitiesField';
+import { FeaturesField } from '../../components/data/FeaturesField';
 import { IconPicker } from '../../components/data/IconPicker';
+import type { ParameterRuleDraft } from '../../components/data/ParameterRulesEditor';
+import { ParameterRulesEditor } from '../../components/data/ParameterRulesEditor';
 import { Button } from '../../components/ui/Button';
 import { ChipsField } from '../../components/ui/ChipsField';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Drawer } from '../../components/ui/Drawer';
 import { NumberField } from '../../components/ui/NumberField';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
-import { MODALITIES, MODEL_STATUSES, toOptions, VISIBILITIES } from '../../lib/api/enums';
+import {
+  DROP_POLICIES,
+  MODALITIES,
+  MODEL_STATUSES,
+  toOptions,
+  VISIBILITIES,
+} from '../../lib/api/enums';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
-import type { ModelTestResult } from '../../lib/api/types';
+import type { ModelSpecView, ModelTestResult, ParameterRule } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
 import { ModelTestPanel } from './ModelTestPanel';
 
 type Visibility = 'public' | 'tenant';
 type ModelStatus = 'active' | 'disabled';
+
+/**
+ * Map a contract `ParameterRule` (view/response shape) → the editor's mutable
+ * draft. The two shapes already share camelCase field names, so this only strips
+ * `undefined`s into optional keys and copies arrays defensively.
+ */
+function toRuleDraft(rule: ParameterRule): ParameterRuleDraft {
+  const d: ParameterRuleDraft = { name: rule.name };
+  if (rule.useTemplate !== undefined) d.useTemplate = rule.useTemplate;
+  if (rule.type !== undefined) d.type = rule.type;
+  if (rule.default !== undefined) d.default = rule.default;
+  if (rule.min !== undefined) d.min = rule.min;
+  if (rule.max !== undefined) d.max = rule.max;
+  if (rule.required !== undefined) d.required = rule.required;
+  if (rule.options !== undefined) d.options = [...rule.options];
+  if (rule.help !== undefined) d.help = rule.help;
+  return d;
+}
+
+/** Map an editor draft → the request `ParameterRule` (drops empty optionals). */
+function fromRuleDraft(draft: ParameterRuleDraft): ParameterRule {
+  const r: ParameterRule = { name: draft.name.trim() };
+  if (draft.useTemplate !== undefined && draft.useTemplate !== '')
+    r.useTemplate = draft.useTemplate;
+  if (draft.type !== undefined) r.type = draft.type;
+  if (draft.default !== undefined) r.default = draft.default;
+  if (draft.min !== undefined) r.min = draft.min;
+  if (draft.max !== undefined) r.max = draft.max;
+  if (draft.required !== undefined) r.required = draft.required;
+  if (draft.options !== undefined && draft.options.length > 0) r.options = draft.options;
+  if (draft.help !== undefined && draft.help !== '') r.help = draft.help;
+  return r;
+}
+
+/** Build the `paramProfile` request body from the editor state (rules with a name only). */
+function buildParamProfile(
+  features: string[],
+  parameterRules: ParameterRuleDraft[],
+  dropPolicy: 'passthrough' | 'drop' | 'error',
+): {
+  features: string[];
+  parameterRules: ParameterRule[];
+  dropPolicy: 'passthrough' | 'drop' | 'error';
+} {
+  return {
+    features,
+    parameterRules: parameterRules.filter((r) => r.name.trim() !== '').map(fromRuleDraft),
+    dropPolicy,
+  };
+}
+
+/**
+ * Derive editor state from a matched `model_spec` catalog row (从规格库导入, D1).
+ * Prefers the structured `features`/`parameter_rules` (mig 0063); falls back to
+ * the legacy `key_params: string[]` (each → a name-only rule, seeded with a
+ * matching `useTemplate` when the name is a known template).
+ */
+const KNOWN_TEMPLATES = new Set([
+  'temperature',
+  'top_p',
+  'top_k',
+  'max_tokens',
+  'response_format',
+  'reasoning_effort',
+  'stop',
+  'seed',
+  'frequency_penalty',
+  'presence_penalty',
+  'logprobs',
+]);
+function specToFeatures(spec: ModelSpecView): string[] {
+  return spec.features ?? [];
+}
+function specToRules(spec: ModelSpecView): ParameterRuleDraft[] {
+  if (spec.parameter_rules !== null && spec.parameter_rules.length > 0) {
+    return spec.parameter_rules.map(toRuleDraft);
+  }
+  return (spec.key_params ?? []).map((name) =>
+    KNOWN_TEMPLATES.has(name) ? { name, useTemplate: name } : { name },
+  );
+}
 
 /**
  * Model create/edit `Drawer`. `name === undefined` → create (empty form, fresh
@@ -86,6 +177,12 @@ export function ModelEditor({
   // Selectable brand icon (icon_asset.key); null → inherit channel/plugin icon.
   const [icon, setIcon] = useState<string | null>(null);
   const [status, setStatus] = useState<ModelStatus>('active');
+  // --- param profile state (model.param_profile, 模型参数绑定 Phase 1) ---
+  const [features, setFeatures] = useState<string[]>([]);
+  const [parameterRules, setParameterRules] = useState<ParameterRuleDraft[]>([]);
+  const [dropPolicy, setDropPolicy] = useState<'passthrough' | 'drop' | 'error'>('passthrough');
+  // Confirm-before-clobber for 从规格库导入 when rules already exist.
+  const [confirmImport, setConfirmImport] = useState(false);
   // Idempotency key for a create: a double-submit replays (dedupes) instead of
   // duplicating. The create mount key is the constant 'new', so React does NOT
   // remount between successive creates — a plain initializer would reuse the same
@@ -123,6 +220,11 @@ export function ModelEditor({
     setReasoning(m.reasoning ?? '');
     setIcon(m.icon ?? null);
     setStatus(m.status === 'disabled' ? 'disabled' : 'active');
+    // Seed the frozen param profile (view is default-empty, never null; camel ⇄
+    // camel inside param_profile). Defensive copies into form state.
+    setFeatures([...m.param_profile.features]);
+    setParameterRules(m.param_profile.parameterRules.map(toRuleDraft));
+    setDropPolicy(m.param_profile.dropPolicy);
   }, [editing, m]);
 
   const update = useMutation({
@@ -139,6 +241,7 @@ export function ModelEditor({
         maker: maker.trim() === '' ? null : maker.trim(),
         contextLength: contextLength > 0 ? contextLength : null,
         reasoning: reasoning === '' ? null : (reasoning as 'none' | 'optional' | 'always'),
+        paramProfile: buildParamProfile(features, parameterRules, dropPolicy),
         icon,
         status,
       }),
@@ -171,6 +274,9 @@ export function ModelEditor({
           ...(maker.trim() !== '' ? { maker: maker.trim() } : {}),
           ...(contextLength > 0 ? { contextLength } : {}),
           ...(reasoning !== '' ? { reasoning: reasoning as 'none' | 'optional' | 'always' } : {}),
+          ...(features.length > 0 || parameterRules.some((r) => r.name.trim() !== '')
+            ? { paramProfile: buildParamProfile(features, parameterRules, dropPolicy) }
+            : {}),
           ...(icon !== null ? { icon } : {}),
           status: statusOverride,
         },
@@ -195,6 +301,30 @@ export function ModelEditor({
     },
     onError: mutationError(t),
   });
+
+  // 从规格库导入 (D1): pull the matching model_spec catalog row and seed the
+  // profile's features + parameterRules. OVERWRITES both fields — gated behind a
+  // ConfirmDialog when rules already exist so a populated profile isn't clobbered.
+  const importSpec = useMutation({
+    mutationFn: () => api.getModelSpecByModel(nameField.trim()),
+    onSuccess: (spec) => {
+      if (spec === null) {
+        toast(t('models.param.noSpec'));
+        return;
+      }
+      setFeatures(specToFeatures(spec));
+      setParameterRules(specToRules(spec));
+      toast(t('models.param.imported'));
+    },
+    onError: mutationError(t),
+  });
+  const runImport = () => {
+    if (parameterRules.some((r) => r.name.trim() !== '')) {
+      setConfirmImport(true);
+    } else {
+      importSpec.mutate();
+    }
+  };
 
   const resourceOptions = (resources.data ?? []).map((r) => ({ value: r.id, label: r.id }));
 
@@ -314,6 +444,70 @@ export function ModelEditor({
         tooltip={t('models.tip.capabilities')}
         value={capabilities}
         onChange={setCapabilities}
+      />
+
+      {/* 参数档案 (model.param_profile): features + parameter rules + drop policy.
+          Empty == today's passthrough behavior (the regression invariant). */}
+      <div
+        className="panel"
+        style={{
+          padding: 'var(--s-3)',
+          borderRadius: 'var(--r-md)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--s-3)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+          <span style={{ fontWeight: 'var(--fw-semibold)' }}>{t('models.param.title')}</span>
+          <span style={{ flex: 1 }} />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={runImport}
+            loading={importSpec.isPending}
+            disabled={nameField.trim() === ''}
+          >
+            {t('models.param.importFromSpec')}
+          </Button>
+        </div>
+        <FeaturesField
+          label={t('models.param.features')}
+          tooltip={t('models.tip.features')}
+          value={features}
+          onChange={setFeatures}
+        />
+        <ParameterRulesEditor
+          label={t('models.param.rules')}
+          tooltip={t('models.tip.rules')}
+          value={parameterRules}
+          onChange={setParameterRules}
+        />
+        <SelectField
+          inline
+          label={t('models.param.dropPolicy')}
+          tooltip={t('models.tip.dropPolicy')}
+          value={dropPolicy}
+          onChange={(v) => setDropPolicy(v as 'passthrough' | 'drop' | 'error')}
+          options={DROP_POLICIES.map((p) => ({
+            value: p,
+            label: t('models.param.dropPolicy_' + p),
+          }))}
+        />
+      </div>
+
+      <ConfirmDialog
+        open={confirmImport}
+        title={t('models.param.importFromSpec')}
+        message={t('models.param.importConfirm')}
+        confirmLabel={t('models.param.importFromSpec')}
+        cancelLabel={t('forms.close')}
+        loading={importSpec.isPending}
+        onConfirm={() => {
+          setConfirmImport(false);
+          importSpec.mutate();
+        }}
+        onClose={() => setConfirmImport(false)}
       />
 
       <SelectField

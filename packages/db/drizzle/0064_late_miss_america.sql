@@ -1,0 +1,1 @@
+ALTER TABLE "model" ADD COLUMN "param_profile" jsonb;

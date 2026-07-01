@@ -50,6 +50,7 @@ import type {
   LimitUsageView,
   ModelGrantView,
   ModelHealthView,
+  ModelSpecView,
   ModelTestRequest,
   ModelTestResult,
   ModelView,
@@ -623,6 +624,18 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
         }),
         u,
       );
+    },
+    // 规格库 read for the 「从规格库导入」 action (模型参数绑定 D1): find the first
+    // model_spec row whose model_id matches this model's name. RAW — the FE has no
+    // model-spec surface today; the list route returns a page envelope, so we pull
+    // the first page and match client-side (the catalog is small). Returns null
+    // when no spec matches.
+    getModelSpecByModel: async (modelId: string): Promise<ModelSpecView | null> => {
+      const env = await rawClient.get<{ data: ModelSpecView[]; next_cursor: string | null }>(
+        '/admin/model-specs',
+        { limit: '200' },
+      );
+      return env.data.find((s) => s.model_id === modelId) ?? null;
     },
 
     // Mint redemption codes — returns the plaintext codes + per-code grant ONCE.

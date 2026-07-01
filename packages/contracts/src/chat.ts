@@ -113,6 +113,12 @@ export const chatRequestSchema = z.object({
    * (and `model`/`messages`/`stream`/`tools`) always win and `extra` can never
    * override them. Forwards penalties, top_k, n, logprobs, logit_bias,
    * parallel_tool_calls, prompt_cache_key, service_tier, etc. generically.
+   *
+   * Params NAMED in the resolved model's `param_profile.parameterRules` are
+   * validated/defaulted/clamped by the engine `applyProfile` pass BEFORE this bag
+   * reaches the adapter (so declared model-specific params are first-class, not
+   * raw); un-named known params follow `param_profile.dropPolicy` (default
+   * `passthrough` = forwarded verbatim, byte-identical to today).
    */
   extra: z.record(z.string(), z.unknown()).optional(),
 });
@@ -215,6 +221,16 @@ export interface ChatResponse {
   message: Message;
   stopReason: StopReason;
   usage: ChatUsage;
+  /**
+   * The upstream's RAW finish/stop reason verbatim (OpenAI `finish_reason`,
+   * Anthropic `stop_reason`, Gemini `finishReason`), preserved alongside the
+   * normalized {@link StopReason} so the client can see provider-specific reasons
+   * the enum flattens (`content_filter`, `max_tokens`, `MALFORMED_FUNCTION_CALL`).
+   * Set by each adapter's `chat()` from the same field it maps to `stopReason`;
+   * absent when the provider reported none. Wire-surfacing (as OpenRouter-style
+   * `native_finish_reason`) is Phase 2 — this only lands the IR field.
+   */
+  nativeFinishReason?: string;
 }
 
 /**
@@ -232,7 +248,7 @@ export type ChatStreamEvent =
       argumentsDelta?: string;
     }
   | { type: 'usage'; usage: ChatUsage }
-  | { type: 'stop'; stopReason: StopReason }
+  | { type: 'stop'; stopReason: StopReason; nativeFinishReason?: string }
   | { type: 'done' }
   | { type: 'error'; error: UnifiedError };
 
