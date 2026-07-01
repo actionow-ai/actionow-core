@@ -195,6 +195,7 @@ export function ModelAccessPage() {
           >
             {m.name}
           </span>
+          <CustomizationBadges model={m} t={t} />
         </div>
       ),
     },
@@ -439,11 +440,7 @@ export function ModelAccessPage() {
                   <>
                     <RowAction
                       icon={SlidersHorizontalIcon}
-                      label={
-                        m.param_override !== null && m.param_override.ops.length > 0
-                          ? t('override.active')
-                          : t('override.edit')
-                      }
+                      label={hasOverride(m) ? t('override.active') : t('override.edit')}
                       onClick={() => setOverrideEdit(m)}
                     />
                     <RowAction
@@ -523,6 +520,53 @@ export function ModelAccessPage() {
         }}
         onClose={() => setChDelTarget(undefined)}
       />
+    </div>
+  );
+}
+
+/** True when a (model,channel) link carries a non-empty param override (mig 0062). */
+function hasOverride(m: ModelView): boolean {
+  return m.param_override !== null && m.param_override.ops.length > 0;
+}
+
+/** True when the model carries a non-empty frozen param profile (mig 0064). */
+function hasProfile(m: ModelView): boolean {
+  const p = m.param_profile;
+  return p.features.length > 0 || p.parameterRules.length > 0;
+}
+
+/**
+ * At-a-glance customization markers (模型参数绑定 Phase 2): a compact 「覆盖」 chip
+ * when this (model, selected-channel) has a `param_override`, and a 「档案」 chip
+ * when the model carries a non-empty `param_profile` — so an operator sees which
+ * models are customized on the channel without opening the editor. Both absent →
+ * nothing renders (the common case). Reuses the shared `.chip` primitive; no new
+ * styles.
+ */
+function CustomizationBadges({ model, t }: { model: ModelView; t: TFunction }) {
+  const override = hasOverride(model);
+  const profile = hasProfile(model);
+  if (!override && !profile) return null;
+  return (
+    <div style={{ display: 'flex', gap: 'var(--s-1)', flexShrink: 0 }}>
+      {override && (
+        <span
+          className="chip"
+          style={{ fontSize: 'var(--fs-caption)', color: 'var(--accent)' }}
+          title={t('modelAccess.badge.overrideTip')}
+        >
+          {t('modelAccess.badge.override')}
+        </span>
+      )}
+      {profile && (
+        <span
+          className="chip"
+          style={{ fontSize: 'var(--fs-caption)' }}
+          title={t('modelAccess.badge.profileTip')}
+        >
+          {t('modelAccess.badge.profile')}
+        </span>
+      )}
     </div>
   );
 }

@@ -2978,6 +2978,9 @@
             "type": "string",
             "nullable": true
           },
+          "require_params": {
+            "type": "boolean"
+          },
           "status": {
             "type": "string"
           },
@@ -2997,6 +3000,7 @@
           "name",
           "group_ratio_bps",
           "fallback_group_id",
+          "require_params",
           "status",
           "description",
           "created_at",
@@ -5798,6 +5802,9 @@
             "nullable": true,
             "format": "uuid"
           },
+          "requireParams": {
+            "type": "boolean"
+          },
           "description": {
             "type": "string"
           },
@@ -5829,6 +5836,9 @@
             "type": "string",
             "nullable": true,
             "format": "uuid"
+          },
+          "requireParams": {
+            "type": "boolean"
           },
           "status": {
             "type": "string",

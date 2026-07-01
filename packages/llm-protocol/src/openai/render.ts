@@ -23,18 +23,25 @@ export function renderOpenAIChat(res: ChatResponse, model: string): Record<strin
     message.tool_calls = toolCalls.map(renderToolCall);
   }
 
+  // The provider's RAW finish reason (OpenRouter `native_finish_reason`): surfaced
+  // verbatim alongside the normalized `finish_reason` ONLY when the IR carries it,
+  // so a provider that reported a standard reason yields the today-identical shape
+  // (regression invariant). When set, `native == finish_reason` for standard reasons.
+  const choice: Record<string, unknown> = {
+    index: 0,
+    message,
+    finish_reason: mapStop(res.stopReason),
+  };
+  if (res.nativeFinishReason !== undefined) {
+    choice.native_finish_reason = res.nativeFinishReason;
+  }
+
   return {
     id: `chatcmpl-${randomUUID()}`,
     object: 'chat.completion',
     created: Math.floor(Date.now() / 1000),
     model,
-    choices: [
-      {
-        index: 0,
-        message,
-        finish_reason: mapStop(res.stopReason),
-      },
-    ],
+    choices: [choice],
     usage: openAiUsage(res.usage),
   };
 }

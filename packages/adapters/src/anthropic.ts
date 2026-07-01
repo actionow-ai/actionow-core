@@ -416,9 +416,14 @@ export const anthropicAdapter: ProviderAdapter = {
       irMessage.toolCalls = toolCalls;
     }
 
+    // Raw Anthropic `stop_reason` verbatim (OpenRouter `native_finish_reason`
+    // semantics): preserved alongside the normalized StopReason so `max_tokens`,
+    // `refusal`, etc. survive the enum flattening. Absent → response unchanged.
+    const nativeFinish = asString(asRecord(res.body)?.stop_reason);
     return {
       message: irMessage,
-      stopReason: mapStopReason(asString(asRecord(res.body)?.stop_reason)),
+      stopReason: mapStopReason(nativeFinish),
+      ...(nativeFinish !== undefined ? { nativeFinishReason: nativeFinish } : {}),
       // camelCase IR usage from the snake_case vector (totals + cache breakdown).
       usage: vectorToChatUsage(extractUsage(res.body)),
     };
@@ -447,6 +452,9 @@ export const anthropicAdapter: ProviderAdapter = {
     let inputTokens = 0;
     let outputTokens = 0;
     let stopReason: StopReason = 'stop';
+    // The raw Anthropic `stop_reason` verbatim (OpenRouter native semantics),
+    // preserved on the terminal `stop` event alongside the normalized reason.
+    let nativeFinishReason: string | undefined;
     // Cache breakdown (set only when message_start reports it).
     const breakdown: UsageVector = {};
 
@@ -502,13 +510,18 @@ export const anthropicAdapter: ProviderAdapter = {
         const reason = asString(asRecord(obj.delta)?.stop_reason);
         if (reason !== undefined) {
           stopReason = mapStopReason(reason);
+          nativeFinishReason = reason;
         }
         const out = asNumber(asRecord(obj.usage)?.output_tokens);
         if (out !== undefined) {
           outputTokens = out;
         }
       } else if (type === 'message_stop') {
-        yield { type: 'stop', stopReason };
+        yield {
+          type: 'stop',
+          stopReason,
+          ...(nativeFinishReason !== undefined ? { nativeFinishReason } : {}),
+        };
         yield {
           type: 'usage',
           usage: vectorToChatUsage({
@@ -524,7 +537,11 @@ export const anthropicAdapter: ProviderAdapter = {
     }
 
     // Defensive: emit terminal events if the stream ended without message_stop.
-    yield { type: 'stop', stopReason };
+    yield {
+      type: 'stop',
+      stopReason,
+      ...(nativeFinishReason !== undefined ? { nativeFinishReason } : {}),
+    };
     yield {
       type: 'usage',
       usage: vectorToChatUsage({

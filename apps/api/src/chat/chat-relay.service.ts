@@ -28,6 +28,7 @@ import {
   EngineError,
   ExecutionService,
   isEmptyProfile,
+  requestParamNames,
 } from '@actionow/engine';
 import { type AppEnv, createHttpClient } from '@actionow/infra';
 import { normalizeRequest, readCapabilities } from '@actionow/llm-protocol';
@@ -266,11 +267,27 @@ export class ChatRelayService {
     // 染色/标签路由: `routeTag` (the `X-Actionow-Route-Tag` canary header) narrows
     // the resolved candidates to tag-carrying channels only — never widening, and
     // a zero-match throws a hard 400 inside `candidatesFor` (no silent leak).
+    // require_params 路由 (模型参数绑定 Phase 2, D3): when the key's group opts in,
+    // skip a candidate channel whose (model,channel) profile/override would drop a
+    // param the request declared (falling to a supporting channel or 404). The
+    // requested-param set is read from the ORIGINAL `ir` (BEFORE profile defaults),
+    // so a profile default never manufactures a param the caller did not ask for.
+    // DEFAULT OFF: `requireParams` is false for un-opted/un-grouped keys, so the
+    // gate is disabled and the candidate set is byte-for-byte identical to today.
+    const requireParams = await this.routing.requireParamsFor(ctx.routeGroupId);
     const channels = await this.routing.candidatesFor(
       resourceId,
       ctx.routeGroupId,
       resolved.modelId,
       routeTag,
+      requireParams
+        ? {
+            enabled: true,
+            requestedParams: requestParamNames(ir),
+            profile,
+            modelName,
+          }
+        : undefined,
     );
     if (channels.length === 0) {
       throw engineNotFound(`no active upstream channel for chat resource ${resourceId}`);

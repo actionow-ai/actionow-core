@@ -11,11 +11,13 @@ import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Drawer } from '../../components/ui/Drawer';
+import { FormField, useFieldId } from '../../components/ui/FormField';
 import { NumberField } from '../../components/ui/NumberField';
 import { RowAction } from '../../components/ui/RowAction';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
+import { Toggle } from '../../components/ui/Toggle';
 import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ChannelView, RouteGroupView } from '../../lib/api/types';
@@ -269,6 +271,10 @@ function RouteGroupEditor({
   // Cross-group failover target (弹性2.0); '' = no fallback. Server validates the
   // chain (cycle / max depth), so we only restrict the dropdown to other groups.
   const [fallbackId, setFallbackId] = useState(row?.fallback_group_id ?? '');
+  // require_params 路由 (模型参数绑定 Phase 2): skip a channel that would drop a
+  // request param. Default OFF preserves drop-and-forward.
+  const [requireParams, setRequireParams] = useState(row?.require_params ?? false);
+  const requireParamsId = useFieldId();
 
   // Fresh idempotency key per create-intent — regenerated each open-for-create,
   // stable while open so a double-submit replays (dedupes). The editor stays
@@ -286,6 +292,7 @@ function RouteGroupEditor({
     setStatus((row.status as 'active' | 'disabled' | undefined) ?? 'active');
     setDescription(row.description ?? '');
     setFallbackId(row.fallback_group_id ?? '');
+    setRequireParams(row.require_params);
   }, [row]);
 
   const bps = Math.round(ratioPct * 100);
@@ -309,6 +316,7 @@ function RouteGroupEditor({
           groupRatioBps: bps,
           status,
           fallbackGroupId,
+          requireParams,
           description: desc === '' ? null : desc, // null clears
         });
       }
@@ -318,6 +326,7 @@ function RouteGroupEditor({
           groupRatioBps: bps,
           status,
           fallbackGroupId,
+          requireParams,
           description: desc === '' ? undefined : desc,
         },
         idemKey,
@@ -378,6 +387,18 @@ function RouteGroupEditor({
         placeholder={t('groups.form.fallbackNone')}
         options={fallbackOptions}
       />
+      <FormField
+        id={requireParamsId}
+        label={t('groups.form.requireParams')}
+        tooltip={t('groups.tip.requireParams')}
+        inline
+      >
+        <Toggle
+          checked={requireParams}
+          onChange={setRequireParams}
+          label={t('groups.form.requireParams')}
+        />
+      </FormField>
       <TextField
         label={t('groups.form.description')}
         tooltip={t('groups.tip.description')}

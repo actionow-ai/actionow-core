@@ -131,6 +131,8 @@ describe('admin route-groups CRUD', () => {
       .expect(201);
     expect(created.body.group_ratio_bps).toBe(10000); // default
     expect(created.body.status).toBe('active');
+    // require_params defaults false on the view (模型参数绑定 Phase 2).
+    expect(created.body.require_params).toBe(false);
     const id = created.body.id as string;
 
     const got = await auth(request(server()).get(`/admin/route-groups/${id}`)).expect(200);
@@ -144,12 +146,13 @@ describe('admin route-groups CRUD', () => {
     expect(listed.body).toHaveProperty('has_more');
     expect((listed.body.data as { name: string }[]).map((r) => r.name)).toEqual(['premium']);
 
-    // PATCH the ratio (basis points).
+    // PATCH the ratio (basis points) + toggle require_params on.
     const patched = await auth(request(server()).patch(`/admin/route-groups/${id}`))
-      .send({ groupRatioBps: 12500, status: 'disabled' })
+      .send({ groupRatioBps: 12500, status: 'disabled', requireParams: true })
       .expect(200);
     expect(patched.body.group_ratio_bps).toBe(12500);
     expect(patched.body.status).toBe('disabled');
+    expect(patched.body.require_params).toBe(true);
 
     // DELETE (soft) → 204, then GET → 404.
     await auth(request(server()).delete(`/admin/route-groups/${id}`)).expect(204);

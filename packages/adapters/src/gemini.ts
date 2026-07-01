@@ -367,9 +367,15 @@ export const geminiAdapter: ProviderAdapter = {
       irMessage.toolCalls = toolCalls;
     }
 
+    // Raw Gemini `finishReason` verbatim (OpenRouter `native_finish_reason`
+    // semantics): preserved alongside the normalized StopReason so provider-only
+    // reasons (`SAFETY`, `RECITATION`, `MALFORMED_FUNCTION_CALL`) survive the enum
+    // flattening. Absent → response unchanged.
+    const nativeFinish = asString(candidate?.finishReason);
     return {
       message: irMessage,
-      stopReason: mapFinishReason(asString(candidate?.finishReason)),
+      stopReason: mapFinishReason(nativeFinish),
+      ...(nativeFinish !== undefined ? { nativeFinishReason: nativeFinish } : {}),
       // camelCase IR usage from the snake_case vector (totals + thoughts/cache breakdown).
       usage: vectorToChatUsage(extractUsage(res.body)),
     };
@@ -397,6 +403,9 @@ export const geminiAdapter: ProviderAdapter = {
     // The latest full usage vector seen (totals + breakdown); mapped to IR usage below.
     let usage: UsageVector | undefined;
     let stopReason: StopReason = 'stop';
+    // The raw Gemini `finishReason` verbatim (OpenRouter native semantics),
+    // preserved on the terminal `stop` event alongside the normalized reason.
+    let nativeFinishReason: string | undefined;
     // Stream-global tool-call counter: Gemini streams each functionCall in its
     // own SSE frame, so a per-frame index would reset to 0 and collide parallel
     // calls. Hoisted here so every functionCall across the whole stream gets a
@@ -440,6 +449,7 @@ export const geminiAdapter: ProviderAdapter = {
       const finish = asString(candidate?.finishReason);
       if (finish !== undefined) {
         stopReason = mapFinishReason(finish);
+        nativeFinishReason = finish;
       }
 
       const meta = asRecord(obj.usageMetadata);
@@ -452,7 +462,11 @@ export const geminiAdapter: ProviderAdapter = {
     if (usage !== undefined) {
       yield { type: 'usage', usage: vectorToChatUsage(usage) };
     }
-    yield { type: 'stop', stopReason };
+    yield {
+      type: 'stop',
+      stopReason,
+      ...(nativeFinishReason !== undefined ? { nativeFinishReason } : {}),
+    };
     yield { type: 'done' };
   },
 

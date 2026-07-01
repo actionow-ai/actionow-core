@@ -506,9 +506,15 @@ export const openaiAdapter: ProviderAdapter = {
       irMessage.toolCalls = toolCalls;
     }
 
+    // The raw provider `finish_reason` verbatim (OpenRouter `native_finish_reason`
+    // semantics): preserved alongside the normalized StopReason so a non-standard
+    // reason (e.g. `content_filter`, a relay-specific string) survives the enum
+    // flattening. Absent when the provider reported none → response unchanged.
+    const nativeFinish = asString(choice?.finish_reason);
     return {
       message: irMessage,
-      stopReason: mapFinishReason(asString(choice?.finish_reason)),
+      stopReason: mapFinishReason(nativeFinish),
+      ...(nativeFinish !== undefined ? { nativeFinishReason: nativeFinish } : {}),
       // Build the camelCase IR usage from the snake_case vector (totals +
       // breakdown) so reasoning/cached/audio counts surface on the response.
       usage: vectorToChatUsage(extractUsage(res.body)),
@@ -788,7 +794,7 @@ export const openaiAdapter: ProviderAdapter = {
 
       const finish = asString(choice?.finish_reason);
       if (finish !== undefined) {
-        yield { type: 'stop', stopReason: mapFinishReason(finish) };
+        yield { type: 'stop', stopReason: mapFinishReason(finish), nativeFinishReason: finish };
       }
 
       // A trailing chunk carries usage with an empty `choices` array. Route it

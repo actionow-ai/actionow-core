@@ -106,6 +106,24 @@ describe('route_group CRUD', () => {
     expect(updated?.updatedAt.getTime()).toBeGreaterThanOrEqual(row.updatedAt.getTime());
   });
 
+  // 模型参数绑定 Phase 2 (mig 0065): require_params column round-trips + defaults false.
+  it('require_params defaults false on create and round-trips through create + update', async () => {
+    const def = await createRouteGroup(db, { name: 'rp-default' });
+    expect(def.requireParams).toBe(false); // default OFF (regression invariant)
+
+    const on = await createRouteGroup(db, { name: 'rp-on', requireParams: true });
+    expect(on.requireParams).toBe(true);
+
+    const toggledOff = await updateRouteGroup(db, on.id, { requireParams: false });
+    expect(toggledOff?.requireParams).toBe(false);
+
+    const toggledOn = await updateRouteGroup(db, def.id, { requireParams: true });
+    expect(toggledOn?.requireParams).toBe(true);
+    // An unrelated patch leaves require_params untouched.
+    const patchedElsewhere = await updateRouteGroup(db, def.id, { description: 'x' });
+    expect(patchedElsewhere?.requireParams).toBe(true);
+  });
+
   it('soft-deletes (drops from get/list) and frees the name for re-create (partial unique)', async () => {
     const row = await createRouteGroup(db, { name: 'dup' });
     const deletedId = await softDeleteRouteGroup(db, row.id);

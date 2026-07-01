@@ -35,13 +35,20 @@ export async function* renderOpenAIChatStream(
   const chunk = (
     delta: Record<string, unknown>,
     finishReason: string | null,
-  ): Record<string, unknown> => ({
-    id,
-    object: 'chat.completion.chunk',
-    created,
-    model,
-    choices: [{ index: 0, delta, finish_reason: finishReason }],
-  });
+    nativeFinishReason?: string,
+  ): Record<string, unknown> => {
+    const choice: Record<string, unknown> = { index: 0, delta, finish_reason: finishReason };
+    // OpenRouter `native_finish_reason`: surfaced on the terminal chunk verbatim
+    // ONLY when the IR carried it → non-native streams are byte-for-byte unchanged.
+    if (nativeFinishReason !== undefined) choice.native_finish_reason = nativeFinishReason;
+    return {
+      id,
+      object: 'chat.completion.chunk',
+      created,
+      model,
+      choices: [choice],
+    };
+  };
 
   function* openRole(): Generator<string> {
     if (!roleSent) {
@@ -86,7 +93,7 @@ export async function* renderOpenAIChatStream(
         break;
       case 'stop':
         stopped = true;
-        yield sseData(chunk({}, mapStop(event.stopReason)));
+        yield sseData(chunk({}, mapStop(event.stopReason), event.nativeFinishReason));
         break;
       case 'error':
         // No OpenAI error frame: degrade to a clean stop chunk.

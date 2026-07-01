@@ -24,6 +24,8 @@ export const routeGroupViewSchema = z.object({
   group_ratio_bps: z.number(),
   /** Cross-group failover target (弹性2.0): cascade here when this group's channels are exhausted; null → no fallback. */
   fallback_group_id: z.string().nullable(),
+  /** `require_params` routing (模型参数绑定 Phase 2, D3): skip a channel that would drop a request param. Defaults false. */
+  require_params: z.boolean(),
   status: z.string(),
   description: z.string().nullable(),
   created_at: z.string(),

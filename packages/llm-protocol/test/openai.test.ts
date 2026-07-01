@@ -208,4 +208,34 @@ describe('renderOpenAIChat', () => {
       { id: 'c1', type: 'function', function: { name: 'f', arguments: '{"a":1}' } },
     ]);
   });
+
+  // P2-5 — the wire response surfaces `native_finish_reason` snake_case in the View
+  // alongside the normalized `finish_reason`, ONLY when the IR carries it.
+  it('surfaces native_finish_reason on the choice when the IR carries it', () => {
+    const wire = renderOpenAIChat(
+      {
+        message: { role: 'assistant', content: [{ kind: 'text', text: 'x' }] },
+        stopReason: 'content_filter',
+        nativeFinishReason: 'content_filter',
+        usage: { inputTokens: 1, outputTokens: 1 },
+      },
+      'gpt-4o',
+    );
+    const choice = (wire as { choices: Record<string, unknown>[] }).choices[0];
+    expect(choice?.finish_reason).toBe('content_filter');
+    expect(choice?.native_finish_reason).toBe('content_filter');
+  });
+
+  it('omits native_finish_reason when the IR did not carry one (non-breaking)', () => {
+    const wire = renderOpenAIChat(
+      {
+        message: { role: 'assistant', content: [{ kind: 'text', text: 'x' }] },
+        stopReason: 'stop',
+        usage: { inputTokens: 1, outputTokens: 1 },
+      },
+      'gpt-4o',
+    );
+    const choice = (wire as { choices: Record<string, unknown>[] }).choices[0];
+    expect(choice).not.toHaveProperty('native_finish_reason');
+  });
 });

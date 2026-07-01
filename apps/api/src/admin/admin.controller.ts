@@ -2342,6 +2342,7 @@ function toRouteGroupView(row: RouteGroupRow): RouteGroupView {
     name: row.name,
     group_ratio_bps: row.groupRatioBps,
     fallback_group_id: row.fallbackGroupId,
+    require_params: row.requireParams,
     status: row.status,
     description: row.description,
     created_at: row.createdAt.toISOString(),

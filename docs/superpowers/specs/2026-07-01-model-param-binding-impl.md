@@ -1772,6 +1772,14 @@ Signature target: `applyChannelOverride(ir: ChatRequest, override: ParamOverride
 | 2.4 sync auto-fill profile                     | `admin.service.ts` `syncModels` populates profile from `model_spec` on sync                                  | —                                   | freeze auto-runs      |
 | 2.5 media profile (D4)                         | separate async-media params object track                                                                     | —                                   | deferred; scoped only |
 
+> **Phase 2 implementation status (2026-07-01):** 2.1–2.4 SHIPPED (branch `feat/param-binding-p2`).
+> **2.1** `native_finish_reason` — each adapter (`openai`/`anthropic`/`gemini`) now populates the Phase-1 `ChatResponse.nativeFinishReason` IR field + the `stop` stream event from the raw provider reason; the OpenAI-dialect wire renderers (`packages/llm-protocol/src/openai/render.ts` + `stream.ts`) surface it snake_case as `native_finish_reason` on `choices[]` ONLY when present (standard reason ⇒ native == normalized; absent ⇒ omitted, byte-for-byte unchanged). No zod View change — the chat-completions endpoint returns the passthrough OpenAI shape, not a registered View.
+> **2.2** `require_params` — a boolean `route_group.require_params` (**mig 0065**, default FALSE ⇒ today byte-for-byte) toggles the router (`ChannelRoutingService.candidatesFor` → `applyRequireParams`) to SKIP a candidate whose effective `(model,channel)` override `delete` op or profile `dropPolicy:drop/error` would strip a request-carried param (pure predicate `channelSupportsParams` in `packages/engine/src/param/require-params.ts`), falling to a supporting channel or the existing no-candidate 404. Admin toggle on `RouteGroupsPage`.
+> **2.3** override-status badges — `ModelAccessPage` right-pane model table shows a compact `覆盖`/`档案` chip when a row has a non-empty `param_override` (on the selected channel) and/or `param_profile`.
+> **2.4** sync auto-fill — VERIFIED already covered by `upsertModelsFromSync` (`freezeParamProfile`) + int test `migration-0063-0064.int.test.ts` (I1-4); no new code.
+>
+> **2.5 media profile — SCOPED / DEFERRED (D4).** async-media params are a provider-specific params object (not the OpenAI sampling surface the Phase-0/1 pipeline models), so a media `ModelParamProfile` track is intentionally NOT implemented in this phase. It requires its own profile shape (media params ≠ temperature/top_p/reasoning), its own engine apply pass on the async-media request builder, and its own catalog/UI — a self-contained follow-up. No media param code ships here; the chat pipeline (Phase 0–2) is unaffected.
+
 ---
 
 ## 3. Backward-Compat / Rollout Notes

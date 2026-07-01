@@ -1081,6 +1081,12 @@
       "model": "Model",
       "caps": "Capabilities",
       "price": "In / out"
+    },
+    "badge": {
+      "override": "Override",
+      "overrideTip": "This model has a parameter override on this channel.",
+      "profile": "Profile",
+      "profileTip": "This model carries a parameter profile (defaults / clamps / gates)."
     }
   },
   "channels": {
@@ -1529,6 +1535,7 @@
       "status": "Status",
       "fallbackGroup": "Fallback group",
       "fallbackNone": "No fallback",
+      "requireParams": "Require params",
       "description": "Description"
     },
     "tip": {
@@ -1537,6 +1544,7 @@
       "ratioLive": "Group price ratio — 100 = ×1.00 (official price), 150 = ×1.50. This multiplies REAL customer billing for keys bound to this group. Stored as basis points.",
       "status": "Disabled groups are skipped by routing.",
       "fallbackGroup": "When every channel in this group is exhausted (or tripped open by the circuit breaker), failover cascades to this group's channels. Leave empty for no cross-group failover. The server rejects a target that would form a loop or chain too deep.",
+      "requireParams": "When on, routing SKIPS a channel whose model/channel parameter config would drop a param the request carries — falling to a supporting channel (or failing with no candidate) instead of silently forwarding without it. Off (default) forwards after dropping.",
       "description": "Optional note describing what this group is for."
     },
     "ratioEquiv": "= ×{{mult}} ({{sign}}{{pct}}%) · {{bps}} bps",

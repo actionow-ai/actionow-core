@@ -13,6 +13,7 @@ describe('billing & routing view contracts', () => {
       name: 'premium',
       group_ratio_bps: 12000,
       fallback_group_id: null,
+      require_params: false,
       status: 'active',
       description: null,
       created_at: '2026-01-01T00:00:00Z',
@@ -29,6 +30,7 @@ describe('billing & routing view contracts', () => {
       name: 'premium',
       group_ratio_bps: 10000,
       fallback_group_id: 'g2',
+      require_params: false,
       status: 'active',
       description: null,
       created_at: '2026-01-01T00:00:00Z',
@@ -37,6 +39,9 @@ describe('billing & routing view contracts', () => {
     expect(routeGroupViewSchema.parse(g)).toEqual(g);
     // a non-string fallback id must be rejected.
     expect(() => routeGroupViewSchema.parse({ ...g, fallback_group_id: 123 })).toThrow();
+    // require_params is a required boolean (模型参数绑定 Phase 2).
+    expect(routeGroupViewSchema.parse({ ...g, require_params: true }).require_params).toBe(true);
+    expect(() => routeGroupViewSchema.parse({ ...g, require_params: 'yes' })).toThrow();
   });
 
   it('routeGroupChannelViewSchema accepts a valid membership and rejects a missing knob', () => {
