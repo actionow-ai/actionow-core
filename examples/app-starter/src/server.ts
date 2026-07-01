@@ -10,11 +10,19 @@ import { onboardRoute } from './routes/onboard.js';
 import { topupRoute } from './routes/topup.js';
 import { webhookRoute } from './routes/webhook.js';
 
-const session = new ConsoleSession(config.baseUrl(), config.consoleEmail(), config.consolePassword());
+const session = new ConsoleSession(
+  config.baseUrl(),
+  config.consoleEmail(),
+  config.consolePassword(),
+);
 const app = express();
 
 // The webhook needs RAW bytes for signature verification — mount BEFORE express.json().
-app.post('/webhooks/actionow', express.raw({ type: 'application/json' }), asyncHandler(webhookRoute()));
+app.post(
+  '/webhooks/actionow',
+  express.raw({ type: 'application/json' }),
+  asyncHandler(webhookRoute()),
+);
 
 app.use(express.json());
 app.post('/api/users', asyncHandler(onboardRoute(session)));

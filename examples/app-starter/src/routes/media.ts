@@ -23,7 +23,11 @@ export function mediaRoute() {
     if (webhook && publicUrl) {
       const { data, error } = await client.POST('/v1/run/{resourceId}', {
         params: { path: { resourceId: String(resourceId) } },
-        body: { inputs, exec_mode: 'async-callback', callback_url: `${publicUrl}/webhooks/actionow` },
+        body: {
+          inputs,
+          exec_mode: 'async-callback',
+          callback_url: `${publicUrl}/webhooks/actionow`,
+        },
       });
       if (error) {
         res.status(502).json({ error });
@@ -32,7 +36,12 @@ export function mediaRoute() {
       res.json(data); // { job_id, status:'queued' } — the webhook fires on completion
       return;
     }
-    const job = await submitAndWait(client, String(resourceId), { inputs }, { pollMs: 1500, timeoutMs: 180_000 });
+    const job = await submitAndWait(
+      client,
+      String(resourceId),
+      { inputs },
+      { pollMs: 1500, timeoutMs: 180_000 },
+    );
     res.json(job); // resolve any output file_id via /v1/files/:id/url
   };
 }

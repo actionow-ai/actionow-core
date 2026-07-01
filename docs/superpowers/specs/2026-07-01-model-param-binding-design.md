@@ -258,7 +258,7 @@ export type ParamOverride = z.infer<typeof paramOverrideSchema>;
 
 ## 11. 参考
 
-- Dify parameter_rules: `langgenius/dify-official-plugins` models/_/models/llm/_.yaml；`use_template` / `features` / `model_properties`。
+- Dify parameter*rules: `langgenius/dify-official-plugins` models/*/models/llm/\_.yaml；`use_template` / `features` / `model_properties`。
 - LiteLLM: `get_supported_openai_params(model)`, `drop_params`/`additional_drop_params`/`allowed_openai_params`, `model_prices_and_context_window.json`。
 - new-api: `relay/common/override.go` ApplyParamOverride（JSON operations + conditions），`model/channel.go` ParamOverride/HeaderOverride（渠道级/tag级）。
 - OpenRouter: `/models` 的 `supported_parameters`、`/models/{id}/endpoints` per-endpoint supported_parameters、`require_parameters`、`native_finish_reason`。

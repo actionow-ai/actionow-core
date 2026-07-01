@@ -34,7 +34,8 @@ export function chatRoute() {
       return;
     }
     res.setHeader('content-type', 'text/event-stream');
-    for await (const chunk of upstream.body as unknown as AsyncIterable<Uint8Array>) res.write(chunk);
+    for await (const chunk of upstream.body as unknown as AsyncIterable<Uint8Array>)
+      res.write(chunk);
     res.end();
   };
 }

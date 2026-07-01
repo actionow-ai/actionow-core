@@ -5,7 +5,9 @@ import type { ErrorRequestHandler, NextFunction, Request, RequestHandler, Respon
  * Express 4 does NOT await handlers, so without this a thrown 402/404/timeout
  * hangs the request and crashes the process (unhandledRejection).
  */
-export function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>): RequestHandler {
+export function asyncHandler(
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>,
+): RequestHandler {
   return (req, res, next) => {
     void fn(req, res, next).catch(next);
   };
@@ -21,5 +23,7 @@ export const errorMiddleware: ErrorRequestHandler = (err, _req, res, _next) => {
   if (res.headersSent) return; // e.g. mid-stream failure — nothing to render
   const e = err as { status?: number; error?: unknown; code?: string; message?: string };
   const status = typeof e.status === 'number' ? e.status : 502;
-  res.status(status).json({ error: e.error ?? { code: e.code ?? 'upstream_error', message: e.message ?? 'error' } });
+  res.status(status).json({
+    error: e.error ?? { code: e.code ?? 'upstream_error', message: e.message ?? 'error' },
+  });
 };

@@ -18,16 +18,24 @@ describe('callWithRetry', () => {
   it('does NOT retry a non-retryable 402', async () => {
     const fn = vi.fn(
       async () =>
-        new Response(JSON.stringify({ error: { code: 'insufficient_credits', retryable: false } }), { status: 402 }),
+        new Response(
+          JSON.stringify({ error: { code: 'insufficient_credits', retryable: false } }),
+          { status: 402 },
+        ),
     );
-    await expect(callWithRetry(fn, { max: 3, baseMs: 1 })).rejects.toMatchObject({ code: 'insufficient_credits' });
+    await expect(callWithRetry(fn, { max: 3, baseMs: 1 })).rejects.toMatchObject({
+      code: 'insufficient_credits',
+    });
     expect(fn).toHaveBeenCalledTimes(1);
   });
   it('retries a retryable 429 then succeeds', async () => {
     let n = 0;
     const fn = vi.fn(async () =>
       ++n < 2
-        ? new Response(JSON.stringify({ error: { code: 'rate_limited', retryable: true, retry_after_ms: 1 } }), { status: 429 })
+        ? new Response(
+            JSON.stringify({ error: { code: 'rate_limited', retryable: true, retry_after_ms: 1 } }),
+            { status: 429 },
+          )
         : new Response('{}', { status: 200 }),
     );
     const res = await callWithRetry(fn, { max: 3, baseMs: 1 });

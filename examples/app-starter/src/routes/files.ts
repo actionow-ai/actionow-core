@@ -13,9 +13,12 @@ export function filesRoute() {
       res.status(404).json({ error: 'unknown user' });
       return;
     }
-    const { data, error } = await dataClient(config.baseUrl(), row.apiKey).POST('/v1/files/presign-upload', {
-      body: { filename, content_type, size },
-    });
+    const { data, error } = await dataClient(config.baseUrl(), row.apiKey).POST(
+      '/v1/files/presign-upload',
+      {
+        body: { filename, content_type, size },
+      },
+    );
     if (error) {
       res.status(502).json({ error });
       return;

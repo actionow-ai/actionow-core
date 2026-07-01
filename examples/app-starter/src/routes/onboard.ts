@@ -21,9 +21,16 @@ export function onboardRoute(session: ConsoleSession) {
     const base = config.baseUrl();
     const jwt = await session.token();
     // /console/subjects is UNTYPED → rawPost. externalId = your user id.
-    const subject = await rawPost<{ id: string }>(base, '/console/subjects', { externalId: userId, displayName: userId }, jwt);
+    const subject = await rawPost<{ id: string }>(
+      base,
+      '/console/subjects',
+      { externalId: userId, displayName: userId },
+      jwt,
+    );
     // /console/api-keys IS typed → SDK client.
-    const { data, error } = await consoleClient(base, jwt).POST('/console/api-keys', { body: { subjectId: subject.id } });
+    const { data, error } = await consoleClient(base, jwt).POST('/console/api-keys', {
+      body: { subjectId: subject.id },
+    });
     if (error) {
       res.status(502).json({ error });
       return;

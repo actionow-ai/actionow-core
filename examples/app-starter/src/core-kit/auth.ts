@@ -18,7 +18,9 @@ export function refreshTokens(baseUrl: string, refreshToken: string): Promise<To
 function jwtExpMs(jwt: string): number {
   try {
     const payload = jwt.split('.')[1] ?? '';
-    const { exp } = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { exp?: number };
+    const { exp } = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+      exp?: number;
+    };
     return exp ? exp * 1000 : 0;
   } catch {
     return 0;

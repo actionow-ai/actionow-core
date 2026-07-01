@@ -33,23 +33,24 @@ pnpm start                # → app-starter on :8787
 ```
 
 Two credentials, both server-side:
+
 - `ACTIONOW_CONSOLE_EMAIL/PASSWORD` — a **tenant admin** (create-subject / mint-key / redeem need `tenant_role=admin`, else 403).
 - `ACTIONOW_PROXY_API_KEY` — a **tenant-level** `ak_` (no `subjectId`) so per-call `end_user=<your user id>` attributes spend; a subject-scoped key can only serve its one bound user.
 
 ## API surface (what your frontend calls)
 
-| Route | Does | Credential used |
-| --- | --- | --- |
-| `POST /api/users {userId}` | onboard: create subject + mint `ak_`, store both | console JWT (`/console/subjects` raw + `/console/api-keys` typed) |
-| `POST /api/chat {userId,messages,stream?}` | proxy `/v1/chat/completions` (blocking + SSE) | that user's `ak_` (raw fetch — relay is untyped) |
-| `POST /api/topup {code}` or `{provider,amount_minor,currency}` | redeem 卡密 / payment intent | console JWT |
-| `POST /api/media {userId,resourceId,inputs}` | submit `/v1/run` + poll | that user's `ak_` (typed) |
-| `POST /api/files {userId,filename,content_type,size}` | presign upload | that user's `ak_` (typed) |
-| `POST /webhooks/actionow` | verify raw signature → fetch job | proxy `ak_` |
+| Route                                                          | Does                                             | Credential used                                                   |
+| -------------------------------------------------------------- | ------------------------------------------------ | ----------------------------------------------------------------- |
+| `POST /api/users {userId}`                                     | onboard: create subject + mint `ak_`, store both | console JWT (`/console/subjects` raw + `/console/api-keys` typed) |
+| `POST /api/chat {userId,messages,stream?}`                     | proxy `/v1/chat/completions` (blocking + SSE)    | that user's `ak_` (raw fetch — relay is untyped)                  |
+| `POST /api/topup {code}` or `{provider,amount_minor,currency}` | redeem 卡密 / payment intent                     | console JWT                                                       |
+| `POST /api/media {userId,resourceId,inputs}`                   | submit `/v1/run` + poll                          | that user's `ak_` (typed)                                         |
+| `POST /api/files {userId,filename,content_type,size}`          | presign upload                                   | that user's `ak_` (typed)                                         |
+| `POST /webhooks/actionow`                                      | verify raw signature → fetch job                 | proxy `ak_`                                                       |
 
 ## Attribution, errors & webhooks
 
-- **Attribution** is via each user's **subject-scoped `ak_`** (minted in `onboard`). That's why `chat`/`media`/`files` don't send `end_user` — the key already fixes the subject. (`end_user` is only honored on `/v1/run`, and only matters with a *tenant-level* key; the chat relay ignores it entirely.) The **tenant-level** `ACTIONOW_PROXY_API_KEY` is used only by the webhook route to read *any* user's job.
+- **Attribution** is via each user's **subject-scoped `ak_`** (minted in `onboard`). That's why `chat`/`media`/`files` don't send `end_user` — the key already fixes the subject. (`end_user` is only honored on `/v1/run`, and only matters with a _tenant-level_ key; the chat relay ignores it entirely.) The **tenant-level** `ACTIONOW_PROXY_API_KEY` is used only by the webhook route to read _any_ user's job.
 - **Errors:** every route is wrapped in `asyncHandler`, and `errorMiddleware` renders a thrown gateway error (`402`/`404`/`429`/timeout) as a clean `{ error }` with the right status — Express 4 would otherwise hang the request and crash the process. `callWithRetry` retries only on `error.retryable` (never `402`/`400`).
 - **Webhooks (optional):** by default `media` **polls**. For push, set `PUBLIC_BASE_URL` (an https origin core can reach — a tunnel in dev) and call `POST /api/media { …, webhook: true }`; the run is submitted `async-callback` and core POSTs a signed `{ job_id }` ping to `/webhooks/actionow`, which verifies it and fetches the job. The `ACTIONOW_WEBHOOK_SECRET` must match the secret configured for your callback URL on the core side.
 - **onboard is idempotent** on `userId` (a repeat returns the existing subject, never mints a duplicate). If `onboard`/`topup` returns `403`, your console account isn't a **tenant admin**.

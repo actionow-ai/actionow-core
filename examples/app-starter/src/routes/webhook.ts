@@ -11,7 +11,11 @@ import { dataClient, verifyWebhookSignature } from '../core-kit/index.js';
 export function webhookRoute() {
   return async (req: Request, res: Response): Promise<void> => {
     const raw = req.body as Buffer;
-    const result = verifyWebhookSignature(raw, req.header('X-Actionow-Signature'), config.webhookSecret());
+    const result = verifyWebhookSignature(
+      raw,
+      req.header('X-Actionow-Signature'),
+      config.webhookSecret(),
+    );
     if (!result.valid) {
       res.status(401).json({ error: result.reason });
       return;
@@ -26,7 +30,9 @@ export function webhookRoute() {
       params: { path: { id: ping.job_id } },
     });
     if (!data) {
-      console.error(`job ${ping.job_id} not readable — is ACTIONOW_PROXY_API_KEY a tenant-level key?`);
+      console.error(
+        `job ${ping.job_id} not readable — is ACTIONOW_PROXY_API_KEY a tenant-level key?`,
+      );
       return;
     }
     void data; // resolve output file_ids, notify the user, etc.
