@@ -1,7 +1,6 @@
 import type { ModelParamProfile } from '@actionow/contracts';
 import {
   type Database,
-  type FaultPolicyRow,
   getChannelModelOverrides,
   getFaultPoliciesByIds,
   getRouteGroupById,
@@ -12,7 +11,7 @@ import {
   listModelChannels,
   type UpstreamChannelRow,
 } from '@actionow/db';
-import { channelSupportsParams, type FaultPolicy, type RunChannel } from '@actionow/engine';
+import { channelSupportsParams, type RunChannel, toFaultPolicy } from '@actionow/engine';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { engineInvalidInput, engineNotFound } from './errors.js';
@@ -223,7 +222,11 @@ export class ChannelRoutingService {
     const linked = new Set(await listModelChannels(this.db, modelId));
     if (linked.size === 0 || !channels.some((c) => linked.has(c.id))) return channels;
     for (const c of channels) {
-      if (!linked.has(c.id)) c.priority = (c.priority ?? 0) + UNLINKED_PRIORITY_OFFSET;
+      // Demote (SUBTRACT) — `orderForFailover` sorts HIGHEST priority first, so a
+      // lower priority is tried later. Adding would PROMOTE the unlinked channels
+      // ahead of the model's own, inverting the intent. Mirrors the fallback-tier
+      // scheme (route-group.ts), which likewise demotes downward from 0.
+      if (!linked.has(c.id)) c.priority = (c.priority ?? 0) - UNLINKED_PRIORITY_OFFSET;
     }
     return channels;
   }
@@ -386,21 +389,4 @@ function toRunChannelFromChannel(row: UpstreamChannelRow): RunChannel {
     inputCostPer1m: row.inputCostPer1m,
     outputCostPer1m: row.outputCostPer1m,
   };
-}
-
-/** Map a `fault_policy` row → the engine-facing {@link FaultPolicy} (nulls → omitted). */
-function toFaultPolicy(row: FaultPolicyRow): FaultPolicy {
-  const policy: FaultPolicy = {
-    fastFail: row.fastFail,
-    retryCount: row.retryCount,
-    backoffType: row.backoffType === 'exponential' ? 'exponential' : 'fixed',
-    backoffMs: row.backoffMs,
-  };
-  if (row.connectTimeoutMs !== null) policy.connectTimeoutMs = row.connectTimeoutMs;
-  if (row.ttftTimeoutMs !== null) policy.ttftTimeoutMs = row.ttftTimeoutMs;
-  if (row.totalTimeoutMs !== null) policy.totalTimeoutMs = row.totalTimeoutMs;
-  if (row.idleTimeoutMs !== null) policy.idleTimeoutMs = row.idleTimeoutMs;
-  if (row.retryCodes !== null) policy.retryCodes = row.retryCodes;
-  if (row.retryMessages !== null) policy.retryMessages = row.retryMessages;
-  return policy;
 }

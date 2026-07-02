@@ -1,5 +1,6 @@
 import { AdapterError } from '@actionow/adapters';
 import type { HttpClient, HttpRequest, UnifiedErrorCode } from '@actionow/contracts';
+import type { FaultPolicyRow } from '@actionow/db';
 
 /**
  * The engine-facing fault-tolerance policy resolved from a `fault_policy` row
@@ -25,6 +26,28 @@ export interface FaultPolicy {
   retryCodes?: number[] | undefined;
   /** Error-message substrings that trigger a same-channel retry; empty → adapter default. */
   retryMessages?: string[] | undefined;
+}
+
+/**
+ * Map a `fault_policy` DB row → the engine-facing {@link FaultPolicy} (null columns
+ * omitted). Shared by BOTH the api router (`ChannelRoutingService`) and the worker
+ * job loader so async/media jobs bind the SAME retry/backoff/timeout policy as the
+ * blocking/streaming paths — the two must not drift.
+ */
+export function toFaultPolicy(row: FaultPolicyRow): FaultPolicy {
+  const policy: FaultPolicy = {
+    fastFail: row.fastFail,
+    retryCount: row.retryCount,
+    backoffType: row.backoffType === 'exponential' ? 'exponential' : 'fixed',
+    backoffMs: row.backoffMs,
+  };
+  if (row.connectTimeoutMs !== null) policy.connectTimeoutMs = row.connectTimeoutMs;
+  if (row.ttftTimeoutMs !== null) policy.ttftTimeoutMs = row.ttftTimeoutMs;
+  if (row.totalTimeoutMs !== null) policy.totalTimeoutMs = row.totalTimeoutMs;
+  if (row.idleTimeoutMs !== null) policy.idleTimeoutMs = row.idleTimeoutMs;
+  if (row.retryCodes !== null) policy.retryCodes = row.retryCodes;
+  if (row.retryMessages !== null) policy.retryMessages = row.retryMessages;
+  return policy;
 }
 
 /** Injectable clock for the retry backoff (real `setTimeout` in prod; fake in tests). */

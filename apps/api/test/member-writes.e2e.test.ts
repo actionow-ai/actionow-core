@@ -115,6 +115,16 @@ function firstRow<T>(rows: readonly T[]): T {
   return row;
 }
 
+/** Poll for a value (the `@Audit` interceptor writes fire-and-forget, after the response). */
+async function pollFor<T>(fn: () => Promise<T | undefined>, tries = 40): Promise<T | undefined> {
+  for (let i = 0; i < tries; i++) {
+    const v = await fn();
+    if (v !== undefined) return v;
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  return undefined;
+}
+
 /** Self-register a tenant admin; returns its operator JWT + the resolved tenant id. */
 async function registerAdmin(
   email: string,
@@ -309,6 +319,21 @@ describe('/member/* write self-service (subject-scoped)', () => {
       .set('authorization', `Bearer ${token}`)
       .expect(200);
     expect(keys.body.some((k: { id: string }) => k.id === (mint.body.id as string))).toBe(true);
+
+    // 记录系统: the self-mint emitted a MEMBER-attributed audit_log row (the /member
+    // plane was previously unaudited). Fire-and-forget → poll for it.
+    const auditRow = await pollFor(async () => {
+      const rows = await db
+        .select()
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.action, 'member.api_key.create'));
+      return rows[0];
+    });
+    expect(auditRow?.actorType).toBe('member');
+    expect(auditRow?.actorId).toBe(subjectId);
+    expect(auditRow?.subjectId).toBe(subjectId);
+    expect(auditRow?.tenantId).toBe(tenantId);
+    expect(auditRow?.targetId).toBe(mint.body.id as string);
   });
 
   it('DELETE /member/api-keys/:id revokes OWN key (it stops authing); a sibling key → 404', async () => {

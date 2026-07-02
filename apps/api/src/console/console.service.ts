@@ -59,6 +59,7 @@ import {
   type PageParams,
   type PaymentIntentRow,
   replacePlanRules,
+  revokeSessionsForPrincipal,
   rollupUsage,
   rotateApiKeyForTenant,
   softDeleteConversation,
@@ -331,6 +332,8 @@ export class ConsoleService {
       throw engineInvalidInput('current password is incorrect');
     }
     await updateUserPassword(this.db, userId, hashPassword(dto.newPassword));
+    // Log out everywhere on password change (invalidate live refresh sessions).
+    await revokeSessionsForPrincipal(this.db, { userId });
   }
 
   // ----- governance limits (额度套餐) -----
@@ -554,6 +557,12 @@ export class ConsoleService {
       row = await updateUserStatus(this.db, tenantId, id, patch.status);
     }
     if (row === undefined) throw engineNotFound(`user ${id} not found`);
+    // Disabling a sub-user: revoke their live sessions so a refresh can't re-mint
+    // access. (ConsoleGuard already rejects a disabled user per-request; this also
+    // closes the refresh window and any future JWT-trusting surface.)
+    if (patch.status === 'disabled') {
+      await revokeSessionsForPrincipal(this.db, { userId: id });
+    }
     return row;
   }
 
@@ -610,6 +619,13 @@ export class ConsoleService {
       status: dto.status,
     });
     if (row === undefined) throw engineNotFound(`subject ${id} not found`);
+    // Disabling a subject via PATCH must also revoke its live member sessions —
+    // MemberGuard blocks the access token per-request, but the refresh flow
+    // re-mints without a status re-check, so a lingering session would keep
+    // minting access. (The soft-delete path already does this in its cascade.)
+    if (dto.status === 'disabled') {
+      await revokeSessionsForPrincipal(this.db, { subjectId: id });
+    }
     return row;
   }
 

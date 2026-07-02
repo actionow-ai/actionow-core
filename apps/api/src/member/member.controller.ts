@@ -28,9 +28,12 @@ import {
   Query,
   Req,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { Audit } from '../audit/audit.decorator.js';
+import { AuditInterceptor } from '../audit/audit.interceptor.js';
 import { engineUnauthorized } from '../common/errors.js';
 import { encodeCursor, toPageParams } from '../common/pagination.js';
 import { ZodBody } from '../common/zod.pipe.js';
@@ -131,6 +134,9 @@ function toLimitsView(l: MemberLimits): MemberLimitsView {
 @ApiTags('member')
 @ApiBearerAuth('jwt')
 @UseGuards(MemberGuard)
+// 记录系统: `@Audit(...)` member mutations emit an audit_log row (actor = the
+// end-user subject, `actor_type='member'`). Best-effort; never fails the write.
+@UseInterceptors(AuditInterceptor)
 @Controller('member')
 export class MemberController {
   constructor(private readonly member: MemberService) {}
@@ -184,6 +190,7 @@ export class MemberController {
 
   @Patch('me')
   @ApiOperation({ summary: 'Update your own profile (display name only)' })
+  @Audit({ action: 'member.profile.update', target: 'subject' })
   async updateMe(
     @Req() req: MemberRequest,
     @Body(new ZodBody(memberUpdateMeSchema)) body: MemberUpdateMeBody,
@@ -198,6 +205,7 @@ export class MemberController {
   @Post('me/password')
   @HttpCode(200)
   @ApiOperation({ summary: 'Change your own password (verifies current; Model-A only)' })
+  @Audit({ action: 'member.password.change', target: 'subject' })
   async changePassword(
     @Req() req: MemberRequest,
     @Body(new ZodBody(memberChangePasswordSchema)) body: MemberChangePasswordDto,
@@ -210,6 +218,12 @@ export class MemberController {
   @Post('api-keys')
   @HttpCode(201)
   @ApiOperation({ summary: 'Self-mint a subject-scoped API key (plaintext returned once)' })
+  // NEVER record the plaintext — only the created key id.
+  @Audit({
+    action: 'member.api_key.create',
+    target: 'api_key',
+    resolve: ({ result }) => ({ targetId: (result as { id?: string }).id ?? null }),
+  })
   async createApiKey(
     @Req() req: MemberRequest,
     @Body(new ZodBody(memberCreateApiKeySchema)) body: MemberCreateApiKeyDto,
@@ -222,6 +236,11 @@ export class MemberController {
   @Delete('api-keys/:id')
   @HttpCode(200)
   @ApiOperation({ summary: 'Revoke one of YOUR OWN API keys (cross-subject id → 404)' })
+  @Audit({
+    action: 'member.api_key.revoke',
+    target: 'api_key',
+    resolve: ({ params }) => ({ targetId: params.id ?? null }),
+  })
   async revokeApiKey(
     @Req() req: MemberRequest,
     @Param('id') id: string,

@@ -165,6 +165,7 @@ import {
   replacePlanRules,
   resetBreaker,
   type Resource,
+  revokeSessionsForPrincipal,
   rollupUsage,
   type RouteGroupChannelRow,
   type RouteGroupRow,
@@ -579,6 +580,11 @@ export class AdminService {
       status: dto.status,
     });
     if (row === undefined) throw engineNotFound(`subject ${id} not found`);
+    // Disabling a subject via PATCH revokes its live member sessions (parity with
+    // the soft-delete cascade + the console path) so a refresh can't re-mint.
+    if (dto.status === 'disabled') {
+      await revokeSessionsForPrincipal(this.db, { subjectId: id });
+    }
     return row;
   }
 

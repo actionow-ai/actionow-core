@@ -7,17 +7,21 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   createAccount,
+  createSession,
   createSubAccount,
   createSubject,
   createSubjectIdentity,
   createUser,
   createUserIdentity,
+  findLiveSessionByHash,
   findSubjectByEmail,
   findSubjectByExternalId,
   findSubjectsByIdentity,
+  generateRefreshToken,
   getAccount,
   getSubAccount,
   getSubjectById,
+  hashRefreshToken,
   listSubjectsByTenant,
   resolveIdentityLink,
   resolveOrCreateSubject,
@@ -139,10 +143,23 @@ describe('softDeleteSubject', () => {
     await db
       .insert(schema.apiKey)
       .values({ tenantId, subjectId: s.id, hash: 'dead-hash', deletedAt: new Date() });
+    // a live member login session — must be revoked so a refresh can't re-mint
+    const sessPlain = generateRefreshToken();
+    await createSession(db, {
+      principalKind: 'subject',
+      subjectId: s.id,
+      tenantId,
+      refreshHash: hashRefreshToken(sessPlain),
+      familyId: crypto.randomUUID(),
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    });
 
     const res = await softDeleteSubject(db, tenantId, s.id);
     expect(res?.sweptMicro).toBe(1_000_000n);
     expect(res?.disabledKeys).toBe(1);
+    expect(res?.revokedSessions).toBe(1);
+    // the member session no longer resolves as live
+    expect(await findLiveSessionByHash(db, hashRefreshToken(sessPlain))).toBeUndefined();
 
     // the swept credits landed in the tenant pool; the sub-wallet is drained
     expect((await getAccount(db, pool.id))?.creditBalance).toBe(1_000_000n);
