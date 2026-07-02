@@ -1,0 +1,44 @@
+name: release-please
+
+# Conventional-Commits → release automation. On every push to main, maintains a
+# single "Release PR" that bumps the root version + writes CHANGELOG.md. Merging
+# that PR tags `vX.Y.Z` + creates a GitHub Release, then (same run) calls deploy.
+#
+# Why call deploy here instead of a `on: release: published` workflow: a Release
+# created with the default GITHUB_TOKEN does NOT emit events that trigger other
+# workflows (loop-prevention), so a separate release-triggered deploy would
+# silently never run without a PAT. Calling deploy.yml as a reusable workflow on
+# the `release_created` output is PAT-free and reliable.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: maintain release PR / cut release
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  deploy:
+    name: deploy released version
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    # Build-gate the three images, then advance `production` → Zeabur deploys.
+    # No secrets needed (native git-push deploy); contents:write is granted at the
+    # workflow level above and inherited by the reusable workflow's push step.
+    permissions:
+      contents: write
+    uses: ./.github/workflows/deploy.yml

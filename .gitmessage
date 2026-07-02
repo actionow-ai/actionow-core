@@ -1,0 +1,13 @@
+# <type>(<scope>): <subject>        ← ≤72 chars, imperative mood, no trailing period
+#
+# <body>                            ← what & why (not how); wrap at ~72. Blank line above.
+#
+# <footer>                          ← BREAKING CHANGE: <desc>   |   Refs #123 / Closes #123
+#
+# ── Conventional Commits (enforced by commitlint via the commit-msg hook) ──
+# type   feat  fix  docs  style  refactor  perf  test  build  ci  chore  revert
+# bump   feat → minor (0.x: patch)   fix/perf → patch   feat! / BREAKING CHANGE: → major (0.x: minor)
+# scope  api worker web  engine db contracts domain infra adapters llm-protocol payments dify sdk  (optional)
+#
+# NOTE: on squash-merge the PR TITLE becomes the commit on main and the CHANGELOG
+# entry — make the PR title a valid Conventional Commit too (CI checks it).
