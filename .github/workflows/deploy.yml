@@ -16,11 +16,9 @@ name: deploy
 # branch. See docs/RELEASING.md.
 
 on:
-  # `ref` is declared under BOTH triggers: a reusable workflow validates its
-  # `inputs.*` references against `workflow_call.inputs`, so referencing
-  # `inputs.ref` (below) with no workflow_call input makes the CALLER
-  # (release-please.yml) fail at startup ("workflow file issue"). The caller
-  # passes no `with:`, so it falls back to `github.sha`.
+  # `ref` is declared under BOTH triggers so `inputs.ref` (referenced in the
+  # jobs) resolves under workflow_call too; the caller passes no `with:`, so it
+  # falls back to `github.sha`.
   workflow_call:
     inputs:
       ref:
@@ -46,9 +44,13 @@ jobs:
   build-images:
     name: build ${{ matrix.name }} image (gate)
     runs-on: ubuntu-latest
+    # Only `contents: read` — a reusable workflow's job permissions must be a
+    # SUBSET of what the caller grants (release-please.yml grants `contents:
+    # write`). Requesting `actions: write` (for a gha build cache) exceeded that
+    # and made the whole workflow `startup_failure` on every push to main, so the
+    # cache is dropped; a release-gate build is infrequent enough to run uncached.
     permissions:
       contents: read
-      actions: write # gha build cache
     strategy:
       fail-fast: true
       matrix:
@@ -68,8 +70,6 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: false
           tags: actionow-${{ matrix.name }}:ci
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
   deploy:
     name: advance production branch (Zeabur deploys)
