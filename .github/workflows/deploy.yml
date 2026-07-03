@@ -16,7 +16,17 @@ name: deploy
 # branch. See docs/RELEASING.md.
 
 on:
+  # `ref` is declared under BOTH triggers: a reusable workflow validates its
+  # `inputs.*` references against `workflow_call.inputs`, so referencing
+  # `inputs.ref` (below) with no workflow_call input makes the CALLER
+  # (release-please.yml) fail at startup ("workflow file issue"). The caller
+  # passes no `with:`, so it falls back to `github.sha`.
   workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref / tag to deploy (default: the triggering commit).'
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       ref:
