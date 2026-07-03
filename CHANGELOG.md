@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.5](https://github.com/actionow-ai/actionow-core/compare/v0.0.4...v0.0.5) (2026-07-03)
+
+
+### Features
+
+* media model passthrough + HuiMeng media models; fix credentials list legibility; enable CORS ([#104](https://github.com/actionow-ai/actionow-core/issues/104)) ([e4286d1](https://github.com/actionow-ai/actionow-core/commit/e4286d1b28af9b1a61deda3401d6760bbc5eaa26))
+
 ## [0.0.4](https://github.com/actionow-ai/actionow-core/compare/v0.0.3...v0.0.4) (2026-07-03)
 
 
