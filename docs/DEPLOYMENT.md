@@ -2,6 +2,8 @@
 
 How to self-deploy Actionow and plug in your own LLM / image / video / audio provider keys, then run multiple externally-operated AIGC apps on one instance (each app = one tenant).
 
+> **Cutting a release / the automated deploy pipeline** (Conventional Commits → release-please → tag + CHANGELOG → Zeabur deploy) lives in **[RELEASING.md](RELEASING.md)**. This document covers the manual/first-time deploy and the environment contract.
+
 ## 1. Architecture
 
 Three runnable processes + three backing services:

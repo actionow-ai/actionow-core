@@ -1,0 +1,90 @@
+name: deploy
+
+# Production deploy to Zeabur (trunk-based: main == production). Invoked by
+# release-please after a release is cut (workflow_call), or manually
+# (workflow_dispatch) to re-deploy / roll back a ref.
+#
+# Zeabur has no per-service deploy-hook URL; it deploys via its native GitHub
+# integration — it auto-builds + rolls out whatever lands on the branch each
+# service watches. So "deploy" here = (1) build all three service images as a
+# GATE (a broken Dockerfile fails HERE, not mid-deploy on Zeabur), then
+# (2) fast-forward the `production` branch to the released commit. Zeabur sees
+# that push and deploys. No tokens/secrets needed — Zeabur listens to GitHub's
+# push webhook, which fires regardless of who pushed (incl. GITHUB_TOKEN).
+#
+# One-time setup: point each Zeabur service (api/worker/web) at the `production`
+# branch. See docs/RELEASING.md.
+
+on:
+  workflow_call:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref / tag to deploy (default: the triggering commit). Set an older tag to roll back.'
+        required: false
+        type: string
+
+concurrency:
+  # Serialize production deploys; never cancel one in flight.
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  DEPLOY_BRANCH: production
+
+jobs:
+  build-images:
+    name: build ${{ matrix.name }} image (gate)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write # gha build cache
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { name: api, dockerfile: Dockerfile }
+          - { name: worker, dockerfile: Dockerfile.worker }
+          - { name: web, dockerfile: Dockerfile.web }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: docker/setup-buildx-action@v3
+      - name: Build (no push — validation only)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          tags: actionow-${{ matrix.name }}:ci
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  deploy:
+    name: advance production branch (Zeabur deploys)
+    needs: build-images
+    runs-on: ubuntu-latest
+    # The `production` GitHub Environment lets you optionally require a manual
+    # approver before a deploy. It holds no secrets (this path needs none).
+    environment: production
+    permissions:
+      contents: write # push the production branch
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          fetch-depth: 0
+      - name: Fast-forward `production` to this commit → Zeabur picks it up
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          echo "Deploying $sha to '$DEPLOY_BRANCH'"
+          # `production` is a managed deploy pointer advanced ONLY by this
+          # workflow. --force supports rollback (workflow_dispatch with an older
+          # ref); the concurrency group guarantees no racing pushes.
+          git push --force origin "HEAD:refs/heads/$DEPLOY_BRANCH"
+          {
+            echo "### Deployed to \`$DEPLOY_BRANCH\` :rocket:"
+            echo "Commit \`$sha\` pushed — Zeabur will build + roll out api/worker/web."
+          } >> "$GITHUB_STEP_SUMMARY"

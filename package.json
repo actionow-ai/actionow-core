@@ -1,6 +1,6 @@
 {
   "name": "actionow-core",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "packageManager": "pnpm@10.25.0",
   "engines": {
@@ -21,7 +21,7 @@
     "dev:worker": "pnpm --filter @actionow/worker start:dev",
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down",
-    "prepare": "husky"
+    "prepare": "husky && (git config --local commit.template .gitmessage || true)"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
