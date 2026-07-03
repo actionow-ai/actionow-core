@@ -330,6 +330,63 @@ describe('JobRunner.process — async poll', () => {
   });
 });
 
+describe('JobRunner.process — submit cross-channel failover', () => {
+  /**
+   * A mock whose `submit` throws a RAW transport error (not an AdapterError) when
+   * routed to the channel whose endpoint is `failEndpoint`, and succeeds
+   * otherwise. Mirrors an unreachable channel (ECONNRESET/DNS).
+   */
+  function submitFailsOnEndpoint(failEndpoint: string): ReturnType<typeof createAsyncMediaMock> {
+    const base = createAsyncMediaMock({ readyAfterPolls: 1 });
+    return {
+      ...base,
+      submit: (args) => {
+        if (args.ctx.endpoint === failEndpoint) {
+          return Promise.reject(new Error('ECONNRESET')); // raw throw, no AdapterError
+        }
+        return base.submit(args);
+      },
+    };
+  }
+
+  it('fails over from a raw-throwing channel to the next and succeeds', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n);
+    const adapters = new AdapterRegistry();
+    adapters.register(submitFailsOnEndpoint('https://c1'));
+    const breaker = recordingBreaker();
+    const ctx: JobExecutionContext = {
+      ...contextFor(s),
+      channels: [
+        { id: 'c1', weight: 1, model: 'mock-image', endpoint: 'https://c1' },
+        { id: 'c2', weight: 1, model: 'mock-image', endpoint: 'https://c2' },
+      ],
+    };
+    const runner = new JobRunner({
+      db,
+      adapters,
+      loadContext: () => Promise.resolve(ctx),
+      resolveSecret: () => Promise.resolve(undefined),
+      http: { request: () => Promise.reject(new Error('no http')) },
+      maxPolls: 5,
+      pollIntervalMs: 0,
+      sleep: () => Promise.resolve(),
+      breaker,
+      rng: () => 0, // deterministic: c1 (first in list) is tried first, then c2
+    });
+
+    await runner.process(job.id);
+
+    // The job SUCCEEDED via the second channel — a raw transport throw on c1 must
+    // cascade, not hard-fail the whole job (regression: isRetryableAdapterError
+    // returned false for raw throws, so the router refused to fail over).
+    expect((await getJob(db, job.id))?.status).toBe('succeeded');
+    // The breaker cooled the dead channel and recorded the winner.
+    expect(breaker.failures).toEqual([{ channelId: 'c1', model: 'mock-image' }]);
+    expect(breaker.successes).toEqual([{ channelId: 'c2', model: 'mock-image' }]);
+  });
+});
+
 describe('JobRunner.failExhausted — terminal-fail on exhausted queue retries', () => {
   it('releases the hold and marks a stranded job failed', async () => {
     const s = await seed(1_000_000n);

@@ -2,6 +2,7 @@ import type { AppEnv } from '@actionow/infra';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 
+import { AuditModule } from '../audit/audit.module.js';
 import { ENV } from '../common/tokens.js';
 import { MemberController } from './member.controller.js';
 import { defaultMemberRepo, MEMBER_REPO, MemberGuard } from './member.guard.js';
@@ -18,6 +19,7 @@ import { MemberService } from './member.service.js';
  */
 @Module({
   imports: [
+    AuditModule,
     JwtModule.registerAsync({
       inject: [ENV],
       useFactory: (env: AppEnv) => ({ secret: env.ADMIN_JWT_SECRET }),

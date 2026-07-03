@@ -1,5 +1,5 @@
 import type { AdapterRegistry } from '@actionow/adapters';
-import { isRetryableAdapterError, routeWithFailover } from '@actionow/adapters';
+import { routeWithFailover } from '@actionow/adapters';
 import type {
   AdapterContext,
   CallbackResult,
@@ -275,7 +275,13 @@ export class JobRunner {
           throw err;
         }
       },
-      isRetryableAdapterError,
+      // Use the SAME failover verdict as the breaker line above (and as the
+      // blocking/stream paths): a raw transport throw (ECONNRESET/DNS/AbortError,
+      // never an AdapterError) or a retryable EngineError must cascade to the next
+      // channel — not hard-fail the whole job on one dead channel. The old
+      // `isRetryableAdapterError` returned false for both, so the breaker cooled
+      // the channel while the router refused to fail over.
+      isFailoverRetryable,
     );
     if (result.kind !== 'async') {
       throw new EngineError({

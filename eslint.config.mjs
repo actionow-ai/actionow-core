@@ -141,6 +141,16 @@ export default tseslint.config(
                 ['pkg', { package: 'contracts' }],
               ],
             },
+            // payments: provider registry (stripe/alipay/wechat) — contracts, domain, infra.
+            {
+              from: [['pkg', { package: 'payments' }]],
+              allow: [
+                ['pkg', { package: 'payments' }],
+                ['pkg', { package: 'contracts' }],
+                ['pkg', { package: 'domain' }],
+                ['pkg', { package: 'infra' }],
+              ],
+            },
             // engine: orchestration over contracts, domain, db, adapters, infra, dify, payments, llm-protocol.
             {
               from: [['pkg', { package: 'engine' }]],
@@ -171,13 +181,22 @@ export default tseslint.config(
       ],
     },
   },
-  // Deterministic enforcement of the §14.5 import boundary table.
+  // Deterministic enforcement of the §14.5 import boundary table — the
+  // CI-EFFECTIVE guard.
   //
-  // `boundaries/element-types` (above) can only classify *resolved* targets,
-  // so a type-only or otherwise unresolved import of an undeclared workspace
-  // package can slip through. `no-restricted-imports` matches the import
-  // *specifier string* regardless of resolution, so it deterministically
-  // rejects forbidden cross-package edges — including `import type`.
+  // `boundaries/element-types` (above) classifies files by a `packages/*/**`
+  // path pattern matched relative to eslint's cwd. CI lints each package from
+  // inside its own dir (`turbo run lint` → `eslint src` with cwd=the package),
+  // where files are seen as `src/...` and never match `packages/*/**` — so the
+  // boundaries rule classifies nothing and silently passes. It only fires when
+  // linting from the repo root. Therefore `no-restricted-imports` below is what
+  // actually enforces layering in CI, and MUST list every forbidden
+  // `@actionow/*` edge for every package (engine + apps/** are unrestricted).
+  //
+  // It also catches what boundaries structurally cannot: `no-restricted-imports`
+  // matches the import *specifier string* regardless of resolution, so it
+  // rejects a type-only or otherwise unresolved import of an undeclared
+  // workspace package — including `import type`.
   //
   // For each source package below, `patterns` forbids every `@actionow/*`
   // package that package may NOT import per §14.5 (both the bare specifier and
@@ -203,6 +222,10 @@ export default tseslint.config(
             '@actionow/dify/*',
             '@actionow/infra',
             '@actionow/infra/*',
+            '@actionow/payments',
+            '@actionow/payments/*',
+            '@actionow/llm-protocol',
+            '@actionow/llm-protocol/*',
             '@actionow/engine',
             '@actionow/engine/*',
           ],
@@ -225,6 +248,10 @@ export default tseslint.config(
             '@actionow/adapters/*',
             '@actionow/dify',
             '@actionow/dify/*',
+            '@actionow/payments',
+            '@actionow/payments/*',
+            '@actionow/llm-protocol',
+            '@actionow/llm-protocol/*',
             '@actionow/engine',
             '@actionow/engine/*',
           ],
@@ -245,6 +272,10 @@ export default tseslint.config(
             '@actionow/dify/*',
             '@actionow/infra',
             '@actionow/infra/*',
+            '@actionow/payments',
+            '@actionow/payments/*',
+            '@actionow/llm-protocol',
+            '@actionow/llm-protocol/*',
             '@actionow/engine',
             '@actionow/engine/*',
           ],
@@ -263,6 +294,10 @@ export default tseslint.config(
             '@actionow/db/*',
             '@actionow/dify',
             '@actionow/dify/*',
+            '@actionow/payments',
+            '@actionow/payments/*',
+            '@actionow/llm-protocol',
+            '@actionow/llm-protocol/*',
             '@actionow/engine',
             '@actionow/engine/*',
           ],
@@ -281,6 +316,10 @@ export default tseslint.config(
             '@actionow/db/*',
             '@actionow/adapters',
             '@actionow/adapters/*',
+            '@actionow/payments',
+            '@actionow/payments/*',
+            '@actionow/llm-protocol',
+            '@actionow/llm-protocol/*',
             '@actionow/engine',
             '@actionow/engine/*',
           ],
@@ -307,6 +346,60 @@ export default tseslint.config(
             '@actionow/adapters/*',
             '@actionow/dify',
             '@actionow/dify/*',
+            '@actionow/payments',
+            '@actionow/payments/*',
+            '@actionow/llm-protocol',
+            '@actionow/llm-protocol/*',
+            '@actionow/engine',
+            '@actionow/engine/*',
+          ],
+        },
+      ],
+    },
+  },
+  // payments: provider registry — contracts, domain, infra only.
+  {
+    files: ['packages/payments/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            '@actionow/db',
+            '@actionow/db/*',
+            '@actionow/adapters',
+            '@actionow/adapters/*',
+            '@actionow/dify',
+            '@actionow/dify/*',
+            '@actionow/llm-protocol',
+            '@actionow/llm-protocol/*',
+            '@actionow/engine',
+            '@actionow/engine/*',
+          ],
+        },
+      ],
+    },
+  },
+  // llm-protocol: the IR normalize/dialect layer — contracts only.
+  {
+    files: ['packages/llm-protocol/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            '@actionow/domain',
+            '@actionow/domain/*',
+            '@actionow/db',
+            '@actionow/db/*',
+            '@actionow/infra',
+            '@actionow/infra/*',
+            '@actionow/adapters',
+            '@actionow/adapters/*',
+            '@actionow/dify',
+            '@actionow/dify/*',
+            '@actionow/payments',
+            '@actionow/payments/*',
             '@actionow/engine',
             '@actionow/engine/*',
           ],

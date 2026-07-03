@@ -1,3 +1,4 @@
+import { orderForFailover } from '@actionow/adapters';
 import {
   createDb,
   createModel,
@@ -63,10 +64,24 @@ describe('ChannelRoutingService — model-aware hybrid routing', () => {
   it('prefers a model linked channel; demotes the unlinked one a full tier', async () => {
     const { channelA, channelB, modelId } = await seed();
     const cands = await routing.candidatesFor('p', null, modelId);
-    const a = cands.find((c) => c.id === channelA);
-    const b = cands.find((c) => c.id === channelB);
+    const a = cands.find((c) => c.id === channelA); // linked
+    const b = cands.find((c) => c.id === channelB); // unlinked
     if (a === undefined || b === undefined) throw new Error('expected both channels as candidates');
-    expect((b.priority ?? 0) - (a.priority ?? 0)).toBe(UNLINKED_PRIORITY_OFFSET);
+
+    // The LINKED channel must sort a full tier ABOVE the unlinked one (higher
+    // priority = tried first under `orderForFailover`'s HIGHEST-first ordering).
+    expect(a.priority ?? 0).toBeGreaterThan(b.priority ?? 0);
+    expect((a.priority ?? 0) - (b.priority ?? 0)).toBe(UNLINKED_PRIORITY_OFFSET);
+
+    // Behavioural guarantee: the failover engine tries the linked channel FIRST.
+    // (Guards against a future re-inversion of the offset sign — the previous
+    // test only checked magnitude and passed while the order was backwards.)
+    const ordered = orderForFailover(
+      cands.map((c) => ({ id: c.id, weight: c.weight, priority: c.priority, value: c.id })),
+      () => 0,
+    );
+    expect(ordered[0]?.id).toBe(channelA);
+    expect(ordered[ordered.length - 1]?.id).toBe(channelB);
   });
 
   it('falls back to a single tier when no modelId is given (unchanged behaviour)', async () => {

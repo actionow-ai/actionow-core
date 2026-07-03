@@ -3,6 +3,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 
 import { apiKey, subject, subjectIdentity, tenant, userIdentity } from '../schema/index.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
+import { revokeSessionsForPrincipal } from './session.js';
 import { getSubAccount, transferCredits } from './sub-account.js';
 import type { DbOrTx } from './types.js';
 
@@ -159,6 +160,8 @@ export interface SubjectDeleteResult {
   readonly sweptMicro: bigint;
   /** Subject-scoped api keys disabled by the cascade. */
   readonly disabledKeys: number;
+  /** Live member login sessions revoked (so a refresh can't re-mint access). */
+  readonly revokedSessions: number;
 }
 
 /**
@@ -208,7 +211,13 @@ export async function softDeleteSubject(
       .where(and(eq(apiKey.subjectId, id), isNull(apiKey.deletedAt)))
       .returning({ id: apiKey.id });
 
-    return { id: row.id, sweptMicro, disabledKeys: disabled.length };
+    // Revoke the subject's live member sessions: MemberGuard already rejects a
+    // disabled subject per-request, but the refresh flow re-mints from a live
+    // session without re-checking status, so a lingering session would let the
+    // deleted subject keep extending access for the whole refresh window.
+    const revokedSessions = await revokeSessionsForPrincipal(tx, { subjectId: id });
+
+    return { id: row.id, sweptMicro, disabledKeys: disabled.length, revokedSessions };
   };
   return 'transaction' in db ? db.transaction((tx) => run(tx)) : run(db);
 }

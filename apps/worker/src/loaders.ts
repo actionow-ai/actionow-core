@@ -4,6 +4,7 @@ import {
   type Database,
   getAccountByTenant,
   getActivePricebookEntry,
+  getFaultPoliciesByIds,
   getPluginById,
   getPluginVersion,
   getResource,
@@ -14,7 +15,7 @@ import {
   type PricebookEntryRow,
 } from '@actionow/db';
 import type { JobExecutionContext, RunChannel } from '@actionow/engine';
-import { PLUGIN_PROVIDER_TYPE } from '@actionow/engine';
+import { PLUGIN_PROVIDER_TYPE, toFaultPolicy } from '@actionow/engine';
 
 /**
  * Build the {@link JobExecutionContext} the engine's `JobRunner` needs from a
@@ -45,14 +46,45 @@ export async function loadJobContext(db: Database, job: Job): Promise<JobExecuti
     resourceId: job.resourceId,
   });
 
+  const channels = await Promise.all(channelRows.map((c) => toRunChannel(db, c)));
+  // Bind each channel's fault_policy (调用容错) so an async/media job gets the SAME
+  // per-channel retry/backoff/timeout resilience as the blocking/streaming paths
+  // (the api `ChannelRoutingService.attachFaultPolicies`). Without this the worker
+  // ran media jobs with engine defaults (single attempt, no per-attempt timeouts).
+  await attachFaultPolicies(db, channels, channelRows);
+
   return {
     accountId: account.id,
     providerType: resource.providerType,
     modality: resource.modality,
     pricebookEntry: toPricebookEntry(pricebook),
     modifiers: modifierRows.map(toModifier),
-    channels: await Promise.all(channelRows.map((c) => toRunChannel(db, c))),
+    channels,
   };
+}
+
+/**
+ * Resolve each channel's bound `fault_policy` and attach it to the {@link RunChannel}
+ * the engine consumes. Batch-loaded by id (no N+1); a soft-deleted OR disabled
+ * policy is treated as ABSENT → the engine applies its defaults. Mirrors the api
+ * router so both paths bind policies identically.
+ */
+async function attachFaultPolicies(
+  db: Database,
+  channels: RunChannel[],
+  rows: readonly { id: string; faultPolicyId: string | null }[],
+): Promise<void> {
+  const ids = rows.map((r) => r.faultPolicyId).filter((x): x is string => x !== null);
+  if (ids.length === 0) return;
+  const policies = await getFaultPoliciesByIds(db, ids);
+  const byChannel = new Map(rows.map((r) => [r.id, r.faultPolicyId]));
+  for (const ch of channels) {
+    const pid = byChannel.get(ch.id);
+    if (pid === undefined || pid === null) continue;
+    const row = policies.get(pid);
+    if (row?.status !== 'active') continue;
+    ch.faultPolicy = toFaultPolicy(row);
+  }
 }
 
 /**

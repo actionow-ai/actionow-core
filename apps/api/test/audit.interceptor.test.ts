@@ -52,7 +52,7 @@ describe('AuditInterceptor', () => {
     );
   });
 
-  it('attributes a console request to the member actor + falls back to the console tenant', async () => {
+  it('attributes a console request to the OPERATOR actor + falls back to the console tenant', async () => {
     const record = vi.fn().mockResolvedValue(undefined);
     const audit = { record } as unknown as AuditService;
     const i = new AuditInterceptor(
@@ -62,8 +62,30 @@ describe('AuditInterceptor', () => {
     const req = { console: { userId: 'user-9', tenantId: 't1' }, params: {}, body: {} };
 
     await lastValueFrom(i.intercept(ctxOf(req), handlerOf({ id: 'k1' })));
+    // A tenant-console user is an OPERATOR (not a member); `member` is reserved
+    // for the end-user /member plane. The tenant scope still falls back correctly.
     expect(record).toHaveBeenCalledWith(
-      expect.objectContaining({ actorType: 'member', actorId: 'user-9', tenantId: 't1' }),
+      expect.objectContaining({ actorType: 'operator', actorId: 'user-9', tenantId: 't1' }),
+    );
+  });
+
+  it('attributes a /member request to the MEMBER actor, self-scoped to its subject', async () => {
+    const record = vi.fn().mockResolvedValue(undefined);
+    const audit = { record } as unknown as AuditService;
+    const i = new AuditInterceptor(
+      reflectorWith({ action: 'member.api_key.create', target: 'api_key' }),
+      audit,
+    );
+    const req = { member: { subjectId: 'subj-7', tenantId: 't2' }, params: {}, body: {} };
+
+    await lastValueFrom(i.intercept(ctxOf(req), handlerOf({ id: 'k9' })));
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorType: 'member',
+        actorId: 'subj-7',
+        tenantId: 't2',
+        subjectId: 'subj-7',
+      }),
     );
   });
 
@@ -80,7 +102,7 @@ describe('AuditInterceptor', () => {
     await lastValueFrom(i.intercept(ctxOf(req), handlerOf({ account_id: 'acc-1' })));
     expect(record).toHaveBeenCalledWith(
       expect.objectContaining({
-        actorType: 'member',
+        actorType: 'operator',
         actorId: 'user-9',
         tenantId: 't1',
         meta: expect.objectContaining({ actor_tenant_role: 'admin', credits: 5 }),

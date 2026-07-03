@@ -12,6 +12,7 @@ import {
   listApiKeysBySubject,
   listUsageLogsBySubject,
   type PageParams,
+  revokeSessionsForPrincipal,
   softDeleteApiKeyForSubject,
   type SubAccountRow,
   type SubjectRow,
@@ -152,6 +153,9 @@ export class MemberService {
     await updateSubject(this.db, tenantId, subjectId, {
       passwordHash: hashPassword(dto.new_password),
     });
+    // Log out everywhere: a password change must invalidate live refresh sessions
+    // so a stolen/older session can't keep minting access tokens.
+    await revokeSessionsForPrincipal(this.db, { subjectId });
   }
 
   /**

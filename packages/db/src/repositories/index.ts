@@ -458,6 +458,7 @@ export {
   hashRefreshToken,
   revokeFamily,
   revokeSession,
+  revokeSessionsForPrincipal,
   rotateSession,
   type RotateSessionInput,
   type SessionPrincipalKind,

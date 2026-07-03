@@ -14,17 +14,23 @@ import { AuditService } from './audit.service.js';
 interface OperatorReq {
   admin?: { adminId?: string };
   console?: { userId?: string; tenantId?: string; tenantRole?: string };
+  member?: { subjectId?: string; tenantId?: string };
   params?: Record<string, string>;
   body?: unknown;
 }
 
 /**
  * Emits an audit_log row AFTER a `@Audit`-decorated handler returns successfully.
- * Resolves the actor from the guard-populated request (`req.admin` → operator,
- * `req.console` → member, else system), then runs the spec's `resolve` to extract
- * tenant/subject/target/meta. Best-effort via {@link AuditService} — a handler
- * error skips emission (the `tap` next-callback only runs on success), and an
- * audit write failure never disturbs the response.
+ * Resolves the actor from the guard-populated request against the
+ * `audit_log.actor_type` vocabulary (`operator | member | system`):
+ *   - `req.admin` (platform op) OR `req.console` (tenant op) → `operator`
+ *   - `req.member` (an end-user subject on the /member plane) → `member`, with
+ *     the subject as both actor and scope
+ *   - neither → `system`
+ * then runs the spec's `resolve` to extract tenant/subject/target/meta.
+ * Best-effort via {@link AuditService} — a handler error skips emission (the
+ * `tap` next-callback only runs on success), and an audit write failure never
+ * disturbs the response.
  */
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
@@ -38,13 +44,18 @@ export class AuditInterceptor implements NestInterceptor {
     if (spec === undefined) return next.handle();
 
     const req = context.switchToHttp().getRequest<OperatorReq>();
-    const operatorId = req.admin?.adminId;
-    const memberId = req.console?.userId;
+    // Both platform admins and tenant-console users are OPERATORS; an end-user on
+    // the /member plane is a MEMBER (the tenant/role meta below still separates a
+    // tenant op from a platform op).
+    const operatorId = req.admin?.adminId ?? req.console?.userId;
+    const memberSubjectId = req.member?.subjectId;
     const actorType =
-      operatorId !== undefined ? 'operator' : memberId !== undefined ? 'member' : 'system';
-    const actorId = operatorId ?? memberId ?? null;
-    // A member request is implicitly tenant-scoped by its console context.
-    const fallbackTenantId = req.console?.tenantId ?? null;
+      operatorId !== undefined ? 'operator' : memberSubjectId !== undefined ? 'member' : 'system';
+    const actorId = operatorId ?? memberSubjectId ?? null;
+    // The tenant scope: a console op carries its tenant; a member carries its own.
+    const fallbackTenantId = req.console?.tenantId ?? req.member?.tenantId ?? null;
+    // A member action is self-scoped to its own subject.
+    const fallbackSubjectId = req.member?.subjectId ?? null;
 
     return next.handle().pipe(
       tap((result: unknown) => {
@@ -64,7 +75,7 @@ export class AuditInterceptor implements NestInterceptor {
           actorType,
           actorId,
           tenantId: r.tenantId ?? fallbackTenantId,
-          subjectId: r.subjectId ?? null,
+          subjectId: r.subjectId ?? fallbackSubjectId,
           action: spec.action,
           targetType: spec.target,
           targetId: r.targetId ?? null,

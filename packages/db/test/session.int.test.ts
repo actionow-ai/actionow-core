@@ -16,6 +16,7 @@ import {
   hashRefreshToken,
   revokeFamily,
   revokeSession,
+  revokeSessionsForPrincipal,
   rotateSession,
   sweepExpiredSessions,
 } from '../src/repositories/index.js';
@@ -186,6 +187,45 @@ describe('revokeFamily', () => {
     expect(await revokeFamily(db, familyId)).toBe(0);
     // the other family is still live
     expect(await findLiveSessionByHash(db, hashRefreshToken(otherPlain))).toBeDefined();
+  });
+});
+
+describe('revokeSessionsForPrincipal', () => {
+  it('revokes every live session of a user across families; leaves other users', async () => {
+    const userId = await makeUser('a@x.com');
+    const otherUserId = await makeUser('b@x.com');
+
+    // The target user has two sessions in DIFFERENT families (e.g. two devices).
+    const p1 = generateRefreshToken();
+    const p2 = generateRefreshToken();
+    for (const p of [p1, p2]) {
+      await createSession(db, {
+        principalKind: 'user',
+        userId,
+        refreshHash: hashRefreshToken(p),
+        familyId: crypto.randomUUID(),
+        expiresAt: FUTURE(),
+      });
+    }
+    // A different user's session must NOT be touched.
+    const otherPlain = generateRefreshToken();
+    await createSession(db, {
+      principalKind: 'user',
+      userId: otherUserId,
+      refreshHash: hashRefreshToken(otherPlain),
+      familyId: crypto.randomUUID(),
+      expiresAt: FUTURE(),
+    });
+
+    const revoked = await revokeSessionsForPrincipal(db, { userId });
+    expect(revoked).toBe(2);
+    // both of the target user's sessions are dead across families…
+    expect(await findLiveSessionByHash(db, hashRefreshToken(p1))).toBeUndefined();
+    expect(await findLiveSessionByHash(db, hashRefreshToken(p2))).toBeUndefined();
+    // …the other user is untouched…
+    expect(await findLiveSessionByHash(db, hashRefreshToken(otherPlain))).toBeDefined();
+    // …and a re-run is an idempotent no-op.
+    expect(await revokeSessionsForPrincipal(db, { userId })).toBe(0);
   });
 });
 

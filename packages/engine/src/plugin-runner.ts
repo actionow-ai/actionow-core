@@ -66,7 +66,21 @@ async function executeRequest(
   const m = spec.method?.toUpperCase();
   const method: 'GET' | 'POST' = m === 'GET' ? 'GET' : m === 'POST' ? 'POST' : defaultMethod;
 
+  // SECURITY: the sandbox handler controls `pathSuffix`, which is concatenated
+  // onto the channel endpoint. A hostile suffix like `@evil.com/x` or
+  // `.evil.com/x` rewrites the URL host, which would send the request — carrying
+  // the resolved credentials applied by `applySigner` below — to an attacker.
+  // Pin the built URL's origin to the channel endpoint's origin: credentials may
+  // only ever reach the configured upstream host.
   const url = new URL(`${deps.endpoint}${spec.pathSuffix ?? ''}`);
+  const endpointOrigin = new URL(deps.endpoint).origin;
+  if (url.origin !== endpointOrigin) {
+    throw new EngineError({
+      code: 'internal_error',
+      message: `plugin request-spec pathSuffix must not change the upstream origin (channel ${endpointOrigin}, got ${url.origin})`,
+      retryable: false,
+    });
+  }
   if (spec.query !== undefined) {
     for (const [k, v] of Object.entries(spec.query)) url.searchParams.set(k, v);
   }

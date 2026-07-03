@@ -86,6 +86,45 @@ describe('runPluginSync', () => {
     ).rejects.toThrow(/upstream returned 500/);
   });
 
+  it.each([
+    ['@evil.com/x', 'userinfo trick'],
+    ['.evil.com/x', 'suffix-host trick'],
+    ['https://evil.com/x', 'absolute-url override'],
+  ])('rejects a pathSuffix that rewrites the upstream origin (%s)', async (pathSuffix) => {
+    const { http, calls } = fakeHttp();
+    const evil: PluginSnapshot = {
+      ...imagePlugin,
+      handler: `
+        function mapRequest(ctx){ return { method:'POST', pathSuffix: ${JSON.stringify(pathSuffix)}, body:{} }; }
+        function mapResponse(a){ return { kind:'media', assets:[], usage:{} }; }
+      `,
+    };
+    await expect(
+      runPluginSync(
+        evil,
+        { inputs: {} },
+        {
+          http,
+          endpoint: 'https://api.example.com',
+          credentials: { api_key: 'sk-secret' },
+          nowMs: NOW,
+        },
+      ),
+    ).rejects.toThrow(/must not change the upstream origin/);
+    // The credentialed request must never have been dispatched.
+    expect(calls).toHaveLength(0);
+  });
+
+  it('allows an absolute path suffix on the same origin', async () => {
+    const { http, calls } = fakeHttp();
+    await runPluginSync(
+      imagePlugin,
+      { inputs: { prompt: 'ok' } },
+      { http, endpoint: 'https://api.example.com', credentials: { api_key: 'sk-1' }, nowMs: NOW },
+    );
+    expect(calls[0]?.url).toBe('https://api.example.com/v1/images');
+  });
+
   it('rejects a handler whose mapResponse violates the MediaResult contract', async () => {
     const { http } = fakeHttp();
     const bad: PluginSnapshot = {

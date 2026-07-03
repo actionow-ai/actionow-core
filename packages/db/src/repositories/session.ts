@@ -218,6 +218,31 @@ export async function revokeFamily(db: DbOrTx, familyId: string): Promise<number
 }
 
 /**
+ * Revoke EVERY live session belonging to a principal (a `user` operator or a
+ * `subject` end-user). Called when the principal's authority changes — disable,
+ * password change, or subject soft-delete — so a refresh (which re-mints an
+ * access token from a live session WITHOUT re-checking the principal's current
+ * status) can no longer extend access for a revoked/rotated principal. Idempotent
+ * (only live rows match); returns the count revoked.
+ */
+export async function revokeSessionsForPrincipal(
+  db: DbOrTx,
+  principal: { userId: string } | { subjectId: string },
+): Promise<number> {
+  const now = new Date();
+  const match =
+    'userId' in principal
+      ? eq(session.userId, principal.userId)
+      : eq(session.subjectId, principal.subjectId);
+  const rows = await db
+    .update(session)
+    .set({ revokedAt: now, updatedAt: now })
+    .where(and(match, isNull(session.revokedAt)))
+    .returning({ id: session.id });
+  return rows.length;
+}
+
+/**
  * Hard-delete sessions whose `expires_at` is older than `cutoff` (a future
  * periodic sweep — not wired to a worker job in this slice). Returns the count
  * deleted. The table is NOT append-only, so a plain DELETE is permitted.
