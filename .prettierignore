@@ -6,3 +6,8 @@ pnpm-lock.yaml
 # generated contract-first artifacts (reproduced by `pnpm --filter @actionow/contracts gen`)
 **/src/generated/
 packages/contracts/openapi.json
+
+# release-please owns CHANGELOG.md's format; its generated markdown is not
+# prettier-conformant, so checking it makes `format:check` (and thus every PR)
+# fail on main after each release. Let release-please be that file's sole source.
+CHANGELOG.md
