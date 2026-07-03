@@ -269,7 +269,11 @@ const PROVIDER_SEEDS: readonly ProviderSeed[] = [
     catalogVendor: 'deepseek',
     credentialLocator: 'deepseek',
   },
-  // 4. Xiaomi MiMo chat — openai-compatible host.
+  // 4. Xiaomi MiMo chat — openai-compatible host (api.xiaomimimo.com/v1, verified).
+  // `catalogVendor: 'xiaomi'` binds the web-verified `xiaomi/mimo-v2.5` official
+  // price (seed-official-prices.ts) so the model is priced + active, not disabled
+  // at 0. MiMo has no `model_spec` yet, so capabilities fall back to the permissive
+  // openai-compatible chat default (tools/json/stream) — accurate for MiMo.
   {
     id: 'xiaomi-mimo',
     kind: 'model',
@@ -280,6 +284,7 @@ const PROVIDER_SEEDS: readonly ProviderSeed[] = [
     pricebookSpec: TOKENS_PRICEBOOK,
     endpoint: 'https://api.xiaomimimo.com/v1',
     model: 'mimo-v2.5',
+    catalogVendor: 'xiaomi',
     credentialLocator: 'xiaomi',
   },
   // 5. relay-text — GPT/Gemini fronted by the openai-compatible relay endpoint.
@@ -426,6 +431,15 @@ export async function seedProviders(db: Database, opts: SeedProvidersOptions = {
           : { tools: true, json: true, stream: true };
       const paramProfile = freezeParamProfile(spec);
       const display = spec?.displayName ?? undefined;
+      // NEVER sell at a fake near-free price. Only a model with a real matched
+      // `official_model_price` is created `active` with that resale price; a model
+      // with no verified cost basis is created `disabled` at price 0 — mirroring
+      // the channel-sync `needs_pricing` path — so it exists in the catalog but is
+      // unroutable/unsold until an admin prices it, rather than shipping public +
+      // active at 1 µUSD/1M (near-free = a guaranteed loss).
+      // A matched official row always carries non-null input/output prices
+      // (NOT NULL columns), so its presence IS the "has a verified price" signal.
+      const hasOfficialPrice = official !== undefined;
       await createModel(db, {
         name: s.model,
         resourceId: s.id,
@@ -435,12 +449,12 @@ export async function seedProviders(db: Database, opts: SeedProvidersOptions = {
         ...(display !== undefined ? { display } : {}),
         ...(vendor !== undefined ? { maker: vendor } : {}),
         visibility: 'public',
-        inputPrice: official?.inputPricePer1m ?? 1n,
-        outputPrice: official?.outputPricePer1m ?? 1n,
+        inputPrice: official?.inputPricePer1m ?? 0n,
+        outputPrice: official?.outputPricePer1m ?? 0n,
         ...(official?.cachedInputPricePer1m != null
           ? { cachedInputPrice: official.cachedInputPricePer1m }
           : {}),
-        status: 'active',
+        status: hasOfficialPrice ? 'active' : 'disabled',
       });
     }
   }

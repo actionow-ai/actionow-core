@@ -102,6 +102,18 @@ export interface SeedOptions {
    * it with an operator-supplied `SEED_ADMIN_PASSWORD` in production.
    */
   readonly adminPassword?: string;
+  /**
+   * Whether to provision the DEV-ONLY demo fixtures that are pure sample data:
+   *   - the 100-credit opening top-up (a spendable phantom balance + a `topup`
+   *     ledger row that never corresponds to a real payment), and
+   *   - the two demo end-user subjects (`demo-user-1` / `demo-user-2`), and
+   *   - the seeded `openai-gpt` demo channel is left `active` only when this is on.
+   * Default `true` (dev + tests need a spendable tenant to exercise `/v1/run`).
+   * The CLI sets this `false` in production (unless `SEED_ALLOW_PRODUCTION=true`)
+   * so a prod DB is never seeded with phantom credits, mock users, or a broken
+   * active demo channel — keeping the append-only ledger (the P0 moat) clean.
+   */
+  readonly seedDemoData?: boolean;
 }
 
 /** Everything a caller (a test, or the CLI) needs after seeding. */
@@ -131,6 +143,9 @@ async function findSeedTenant(db: Database): Promise<{ id: string } | undefined>
  */
 export async function seedAll(db: Database, options: SeedOptions = {}): Promise<SeedResult> {
   const providerType = options.providerType ?? SEED_PROVIDER_TYPE;
+  // Dev-only sample fixtures (phantom balance + mock subjects + active demo
+  // channel). ON by default (dev/tests); the CLI turns it OFF for a prod DB.
+  const seedDemoData = options.seedDemoData ?? true;
 
   // 1. tenant
   const existingTenant = await findSeedTenant(db);
@@ -155,11 +170,14 @@ export async function seedAll(db: Database, options: SeedOptions = {}): Promise<
     });
   }
 
-  // 3. account — created with a 0 opening balance, then topped up to 100 credits
-  //    via the ledger-writing `topUp` so a `topup` row exists.
+  // 3. account — created with a 0 opening balance. In dev/tests it is topped up
+  //    to 100 credits via the ledger-writing `topUp` (so a `topup` row exists and
+  //    the tenant can exercise `/v1/run`). In production (`seedDemoData=false`)
+  //    the account stays at 0: a real operator tops up via the admin console, so
+  //    the append-only ledger is never seeded with a phantom, payment-less credit.
   const existingAccount = await getAccountByTenant(db, tenantId);
   const accountId = existingAccount?.id ?? (await createAccount(db, { tenantId })).id;
-  if (existingAccount === undefined) {
+  if (existingAccount === undefined && seedDemoData) {
     await topUp(db, accountId, tenantId, creditsToMicro(SEED_OPENING_CREDITS));
   }
 
@@ -193,7 +211,11 @@ export async function seedAll(db: Database, options: SeedOptions = {}): Promise<
       providerType,
       credentialRef: secret.id,
       weight: 1,
-      status: 'active',
+      // The `openai-gpt` fixture is a DEV demo target (its `openai_api_key`
+      // locator is not in the production env contract, so it cannot serve a real
+      // call). Seed it `active` for dev/tests; leave it `disabled` in production
+      // so a fresh prod DB has no broken, unroutable active channel.
+      status: seedDemoData ? 'active' : 'disabled',
     });
   }
 
@@ -205,13 +227,24 @@ export async function seedAll(db: Database, options: SeedOptions = {}): Promise<
     apiKey = created.plaintext;
   }
 
-  // 6a. Demo subjects (end-users; unified tenancy G-A) — idempotent identity
-  //     rows so the operator end-user hub has seed data. All subject_id columns
-  //     on jobs/usage stay NULL (no data-plane/money behavior change).
-  const { rows: existingSubjects } = await listSubjectsByTenant(db, tenantId, { limit: 1 });
-  if (existingSubjects.length === 0) {
-    await createSubject(db, { tenantId, externalId: 'demo-user-1', displayName: 'Demo User One' });
-    await createSubject(db, { tenantId, externalId: 'demo-user-2', displayName: 'Demo User Two' });
+  // 6a. Demo subjects (end-users; unified tenancy G-A) — DEV-ONLY sample identity
+  //     rows so the operator end-user hub has seed data. Gated behind
+  //     `seedDemoData` so a production DB is never seeded with mock end-users that
+  //     would pollute the real subject roster + governance/attribution views.
+  if (seedDemoData) {
+    const { rows: existingSubjects } = await listSubjectsByTenant(db, tenantId, { limit: 1 });
+    if (existingSubjects.length === 0) {
+      await createSubject(db, {
+        tenantId,
+        externalId: 'demo-user-1',
+        displayName: 'Demo User One',
+      });
+      await createSubject(db, {
+        tenantId,
+        externalId: 'demo-user-2',
+        displayName: 'Demo User Two',
+      });
+    }
   }
 
   // 6. Track 3: the well-known `default` route group (ratio 10000), the seeded
@@ -322,14 +355,21 @@ async function main(): Promise<void> {
     adminPassword = envAdminPassword;
   }
 
-  const result = await seedAll(db, { seedAdmin, adminPassword });
+  // Dev-only sample data (phantom balance + mock subjects + active demo channel)
+  // is provisioned outside production only. In production it seeds ONLY when the
+  // operator explicitly opts in via SEED_ALLOW_PRODUCTION=true — same gate as the
+  // admin — so a real prod DB stays free of phantom credits and mock end-users.
+  const seedDemoData = !isProd || allowProd;
+  const result = await seedAll(db, { seedAdmin, adminPassword, seedDemoData });
+  // Track 2: the official-price catalog (cost basis). Seeded BEFORE the provider
+  // channels so the direct/relay chat channels below can auto-price from a live
+  // `official_model_price` row (a model with no verified price is created
+  // `disabled` at 0 rather than sold at a fake near-free rate). Idempotent.
+  await seedOfficialPrices(db);
   // Register the real-provider catalog (resources + channels + pricebooks) as
   // DATA. Idempotent + network-free; the channels' credentials/proxies resolve
   // from env at run time.
   await seedProviders(db, { tenantId: result.tenantId });
-  // Track 2: a small DRAFT official-price catalog (cost basis; verify before
-  // billing). Idempotent + network-free.
-  await seedOfficialPrices(db);
   // P2: built-in provider plugins (vendor-named media + native chat + Codex CLI) as DATA.
   await seedPlugins(db);
   await seedIcons(db);
