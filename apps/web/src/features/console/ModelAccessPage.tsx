@@ -412,17 +412,20 @@ export function ModelAccessPage() {
               }
               action={
                 <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => syncChannel.mutate(selectedChannel)}
-                    loading={
-                      syncChannel.isPending && syncChannel.variables.id === selectedChannel.id
-                    }
-                  >
-                    <ArrowsClockwiseIcon size={14} weight="bold" aria-hidden="true" />{' '}
-                    {t('channels.actions.syncModels')}
-                  </Button>
+                  {/* async-media (media relay) can't auto-discover models → no sync. */}
+                  {selectedChannel.provider_type !== 'async-media' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => syncChannel.mutate(selectedChannel)}
+                      loading={
+                        syncChannel.isPending && syncChannel.variables.id === selectedChannel.id
+                      }
+                    >
+                      <ArrowsClockwiseIcon size={14} weight="bold" aria-hidden="true" />{' '}
+                      {t('channels.actions.syncModels')}
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"

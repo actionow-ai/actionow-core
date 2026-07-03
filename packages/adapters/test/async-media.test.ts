@@ -73,6 +73,22 @@ describe('async-media adapter', () => {
     }
   });
 
+  it('media model passthrough: inputs.model overrides ctx.model (never leaks into params)', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp({ status: 200, body: { task_id: 'task-pt', status: 'pending' } }, (r) => {
+      seen = r;
+    });
+    // Channel default is seedream-4.5, but the request asks for seedream-5.0-lite.
+    await asyncMediaAdapter.submit(
+      input(http, 'image', { prompt: 'a cat', model: 'seedream-5.0-lite' }, 'seedream-4.5'),
+    );
+    // The requested model wins at the top level; params carries only prompt.
+    expect(seen?.body).toEqual({
+      model: 'seedream-5.0-lite',
+      params: { prompt: 'a cat' },
+    });
+  });
+
   it('submits a video task: params carries prompt, duration, ratio', async () => {
     let seen: HttpRequest | undefined;
     const http = fakeHttp({ status: 200, body: { task_id: 'task-v', status: 'pending' } }, (r) => {

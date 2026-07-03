@@ -275,7 +275,15 @@ export function OAuthSessionsPage() {
   ];
 
   const secretCols: Column<SecretView>[] = [
-    ...metaCols<SecretView>().slice(0, 1),
+    {
+      // A credential's name, falling back to its `locator` (env-key ref like
+      // `huimeng` / `openai`) so an unnamed row still shows WHICH credential it is
+      // — never a nameless "—" next to an opaque UUID.
+      key: 'name',
+      header: t('credentials.name'),
+      width: '200px',
+      cell: (r) => r.name ?? <span className="mono">{r.locator}</span>,
+    },
     {
       key: 'provider',
       header: t('secrets.cols.provider'),
@@ -289,6 +297,15 @@ export function OAuthSessionsPage() {
         </span>
       ),
       width: '160px',
+    },
+    {
+      // The locator — the human-meaningful identifier (was missing; the list only
+      // showed the opaque UUID id, so every row looked the same).
+      key: 'locator',
+      header: t('secrets.cols.locator'),
+      noClip: true,
+      cell: (r) => <span className="chip">{r.locator}</span>,
+      width: '150px',
     },
     // The copy-field id is the elastic column and must never be ellipsis-clipped.
     {

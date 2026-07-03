@@ -230,17 +230,23 @@ export const asyncMediaAdapter: ProviderAdapter = {
   async submit(input: SubmitInput): Promise<SubmitResult> {
     const { ctx, inputs, modality } = input;
     const submitPath = asString(ctx.config?.submitPath);
-    if (ctx.endpoint === undefined || submitPath === undefined || ctx.model === undefined) {
+    // Upstream model: a per-request `inputs.model` (media model passthrough — lets
+    // ONE relay channel serve every model the provider offers, e.g. all of
+    // HuiMeng's seedream/seedance/kling ids) takes precedence over the channel's
+    // configured default `ctx.model`. `buildParams` never copies `model`, so it
+    // is carried ONLY as the task's top-level `model`.
+    const upstreamModel = asString(inputs.model) ?? ctx.model;
+    if (ctx.endpoint === undefined || submitPath === undefined || upstreamModel === undefined) {
       throw new AdapterError({
         code: 'invalid_input',
-        message: 'async-media submit requires endpoint, config.submitPath and model',
+        message: 'async-media submit requires endpoint, config.submitPath and a model',
         upstream: { provider: PROVIDER },
         retryable: false,
       });
     }
     const params = buildParams(modality, inputs);
 
-    const body: Record<string, unknown> = { model: ctx.model, params };
+    const body: Record<string, unknown> = { model: upstreamModel, params };
     const webhookUrl = asString(inputs.webhook_url);
     if (webhookUrl !== undefined) body.webhook_url = webhookUrl;
     const idemKey = asString(inputs.idempotency_key);

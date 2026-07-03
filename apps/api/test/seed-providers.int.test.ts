@@ -126,40 +126,40 @@ describe('seedProviders (real-provider catalog as DATA)', () => {
     });
   });
 
-  it('seeds the audio relay channel: same endpoint/config, audio-tts-1.0 model, per-character + per-second pricing', async () => {
+  it('seeds media models (image seedream + video seedance/kling) linked to the channel; NO audio relay', async () => {
     const { tenantId } = await seedAll(db, { providerType: 'stub' });
     await seedProviders(db, { tenantId });
 
-    const audio = await getResource(db, 'audio-relay');
-    expect(audio?.providerType).toBe('async-media');
-    expect(audio?.modality).toBe('audio');
-    expect(audio?.execModes).toEqual(['async-poll', 'async-callback']);
+    // HuiMeng offers only image/video (+ text), so there is no audio relay.
+    expect(await getResource(db, 'audio-relay')).toBeUndefined();
 
-    const [channel] = await listChannels(db, 'audio-relay');
-    expect(channel?.providerType).toBe('async-media');
-    expect(channel?.endpoint).toBe('https://api.huimengi.com');
-    expect(channel?.model).toBe('audio-tts-1.0');
-    expect(channel?.status).toBe('active');
-    expect(channel?.config).toEqual({
-      submitPath: '/api/v1/tasks',
-      pollPath: '/api/v1/tasks/{id}',
-      signatureHeader: 'X-HuiMeng-Signature',
-      timestampHeader: 'X-HuiMeng-Timestamp',
-    });
-    expect(await credentialLocator(channel)).toBe('huimeng');
+    // image-relay: both seedream models, active, image modality, no token price.
+    const imgModels = await db
+      .select()
+      .from(schema.model)
+      .where(eq(schema.model.resourceId, 'image-relay'));
+    expect(imgModels.map((m) => m.name).sort()).toEqual(['seedream-4.5', 'seedream-5.0-lite']);
+    for (const m of imgModels) {
+      expect(m.status).toBe('active');
+      expect(m.modality).toBe('image');
+      expect(m.inputPrice).toBe(0n);
+    }
+    // …all linked to the channel so it ships non-empty (the "N 模型" grid).
+    const [imgChannel] = await listChannels(db, 'image-relay');
+    const imgLinks = await db
+      .select()
+      .from(schema.channelModel)
+      .where(eq(schema.channelModel.channelId, imgChannel?.id ?? ''));
+    expect(imgLinks).toHaveLength(2);
 
-    // Audio prices per input character (TTS, 500 µcredits/char) OR per second
-    // (generative, 50_000/s); `tasks` (250_000) is the non-zero fallback. The
-    // adapter meters `{ characters }` else `{ audio_seconds }`.
-    const pricebook = await getActivePricebookEntry(db, 'audio-relay', 1);
-    expect(pricebook?.spec).toEqual({
-      method: 'unit',
-      dimensions: {
-        characters: { rate: 500 },
-        audio_seconds: { rate: 50_000 },
-        tasks: { rate: 250_000 },
-      },
-    });
+    // video-relay: the 9 seedance/kling models, linked.
+    const vidModels = await db
+      .select()
+      .from(schema.model)
+      .where(eq(schema.model.resourceId, 'video-relay'));
+    expect(vidModels).toHaveLength(9);
+    expect(vidModels.some((m) => m.name === 'kling-v3')).toBe(true);
+    expect(vidModels.every((m) => m.status === 'active' && m.modality === 'video')).toBe(true);
   });
 
   it('seeds the speech-to-text relay channel: openai dialect, whisper-1, per-second pricing, proxy_ref', async () => {
@@ -255,13 +255,12 @@ describe('seedProviders (real-provider catalog as DATA)', () => {
     }
   });
 
-  it('exports exactly ten provider seed ids', () => {
-    expect(PROVIDER_SEED_IDS).toHaveLength(10);
+  it('exports exactly nine provider seed ids (no audio — HuiMeng has none)', () => {
+    expect(PROVIDER_SEED_IDS).toHaveLength(9);
     expect(new Set(PROVIDER_SEED_IDS)).toEqual(
       new Set([
         'image-relay',
         'video-relay',
-        'audio-relay',
         'stt-relay',
         'deepseek-chat',
         'xiaomi-mimo',

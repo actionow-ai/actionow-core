@@ -940,12 +940,19 @@ export interface CreateSecretRefInput {
   readonly provider: string;
   /** The locator within that provider (e.g. the env var name). */
   readonly locator: string;
+  /** Optional human-readable name (operator metadata; shown in the credentials list). */
+  readonly name?: string | null;
+  /** Optional free-form notes (operator metadata). */
+  readonly notes?: string | null;
+  /** Optional grouping tag (operator metadata). */
+  readonly groupTag?: string | null;
 }
 
 /**
  * Insert a `secret_ref` row (a credential locator, never the secret itself) and
  * return it. The resolver materializes the value at run time from `provider` +
- * `locator`; only the locator is persisted.
+ * `locator`; only the locator is persisted. Optional `name`/`notes`/`groupTag`
+ * are operator-facing metadata (so a seeded credential isn't a blank row).
  */
 export async function createSecretRef(
   db: DbOrTx,
@@ -953,7 +960,13 @@ export async function createSecretRef(
 ): Promise<SecretRefRow> {
   const rows = await db
     .insert(secretRef)
-    .values({ provider: input.provider, locator: input.locator })
+    .values({
+      provider: input.provider,
+      locator: input.locator,
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.notes !== undefined ? { notes: input.notes } : {}),
+      ...(input.groupTag !== undefined ? { groupTag: input.groupTag } : {}),
+    })
     .returning();
   const row = rows[0];
   if (!row) throw new Error('createSecretRef: insert returned no row');

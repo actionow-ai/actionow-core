@@ -202,44 +202,6 @@ describe('OpenAI image dialect (POST /v1/images/generations)', () => {
   });
 });
 
-describe('OpenAI audio dialect (POST /v1/audio/speech)', () => {
-  it('relays audio-relay synchronously → 200 binary audio bytes, settled once', async () => {
-    const res = await fetch(`${baseUrl}/v1/audio/speech`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ model: 'tts-1', input: 'hello', voice: 'alloy' }),
-    });
-    expect(res.status).toBe(200);
-    expect(res.headers.get('content-type')).toContain('audio/mpeg');
-    const buf = new Uint8Array(await res.arrayBuffer());
-    expect(new TextDecoder().decode(buf)).toBe('Hello'); // decoded from the data: url
-
-    const job = await latestJob('audio-relay');
-    expect(job).toBeDefined();
-    const settles = await settleRows(job?.id ?? '');
-    expect(settles).toHaveLength(1);
-    expect(job?.costCredits).toBe(2_500n); // 5 characters × 500 µcredits
-  });
-
-  it('accepts response_format + speed without a 400 (io_schema declares them)', async () => {
-    // Regression: the dialect builds run inputs { prompt, voice, format, speed };
-    // the strict audio-relay io_schema MUST declare `format`/`speed` or
-    // validateInputs rejects the run with 400 invalid_input ("Unrecognized
-    // key(s) in object: 'format'"). A 200 here proves the schema fix took.
-    const res = await fetch(`${baseUrl}/v1/audio/speech`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: 'tts-1',
-        input: 'hello',
-        voice: 'alloy',
-        response_format: 'mp3',
-        speed: 1.25,
-      }),
-    });
-    expect(res.status).toBe(200);
-    expect(res.headers.get('content-type')).toContain('audio/mpeg');
-    const buf = new Uint8Array(await res.arrayBuffer());
-    expect(new TextDecoder().decode(buf)).toBe('Hello');
-  });
-});
+// NOTE: no audio dialect test — HuiMeng offers no audio, so `audio-relay` is no
+// longer seeded. The `/v1/audio/speech` dialect stays in the codebase for a
+// future real audio provider, but there is no seeded resource to relay onto.

@@ -1625,6 +1625,9 @@
           "provider": {
             "type": "string"
           },
+          "locator": {
+            "type": "string"
+          },
           "name": {
             "type": "string",
             "nullable": true
@@ -1644,6 +1647,7 @@
         "required": [
           "id",
           "provider",
+          "locator",
           "name",
           "notes",
           "group",

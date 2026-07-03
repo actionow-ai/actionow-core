@@ -12636,6 +12636,7 @@ export interface components {
         SecretView: {
             id: string;
             provider: string;
+            locator: string;
             name: string | null;
             notes: string | null;
             group: string | null;

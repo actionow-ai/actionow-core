@@ -126,12 +126,17 @@ export function ChannelCard({
             loading={toggling}
             onClick={onToggle}
           />
-          <RowAction
-            icon={ArrowsClockwiseIcon}
-            label={t('channels.actions.syncModels')}
-            loading={syncing}
-            onClick={onSync}
-          />
+          {/* Media relays (async-media) can't auto-discover models — the provider
+              has no `listModels`, so a sync 400s. Hide the button; media models
+              are seeded / added via 「关联模型」. */}
+          {channel.provider_type !== 'async-media' && (
+            <RowAction
+              icon={ArrowsClockwiseIcon}
+              label={t('channels.actions.syncModels')}
+              loading={syncing}
+              onClick={onSync}
+            />
+          )}
           <RowAction
             icon={TrashIcon}
             label={t('channels.actions.delete')}

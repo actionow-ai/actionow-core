@@ -22,6 +22,12 @@ async function bootstrap(): Promise<void> {
   // AppModule (so it applies under the test harness). Registering here keeps
   // it active even if the DI registration is ever removed.
   app.useGlobalFilters(new UnifiedErrorFilter());
+  // CORS: the `/v1` API is Bearer-key authed (no cookies), so browser clients — a
+  // local test/demo page, a web SDK, a third-party app front-end — can call it
+  // cross-origin. `origin: true` reflects the caller's origin; we set NO
+  // credentials mode, so cookies are never sent cross-origin (no CSRF surface on
+  // the cookieless bearer endpoints). Preflight caches for a day.
+  app.enableCors({ origin: true, maxAge: 86400 });
   setupSwagger(app);
   await app.listen(env.API_PORT);
 }
