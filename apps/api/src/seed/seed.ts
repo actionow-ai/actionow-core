@@ -205,7 +205,11 @@ export async function seedAll(db: Database, options: SeedOptions = {}): Promise<
     // The channel credential is an env secret ref: a `secret_ref` row locating
     // the env var that holds the provider key (the resolver materializes it at
     // run time; the secret itself is never stored).
-    const secret = await createSecretRef(db, { provider: 'env', locator: SEED_CREDENTIAL_REF });
+    const secret = await createSecretRef(db, {
+      provider: 'env',
+      locator: SEED_CREDENTIAL_REF,
+      name: 'OpenAI (演示)',
+    });
     await createUpstreamChannel(db, {
       resourceId: SEED_RESOURCE_ID,
       providerType,

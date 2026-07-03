@@ -2056,6 +2056,7 @@
     "revoked": "凭据已吊销",
     "cols": {
       "id": "ID",
+      "locator": "标识",
       "provider": "提供方",
       "created": "创建时间"
     },

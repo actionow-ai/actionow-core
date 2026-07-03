@@ -95,6 +95,10 @@ export class MediaDialectService {
     const n = dto.n ?? 1;
     const inputs: Record<string, unknown> = { prompt: dto.prompt };
     if (dto.size !== undefined) inputs.size = dto.size;
+    // Media model passthrough: forward the requested `model` so the caller can
+    // pick ANY image model the relay offers (seedream-4.5 / 5.0-lite / …) instead
+    // of always getting the channel default. Absent → the channel's default model.
+    if (dto.model !== undefined) inputs.model = dto.model;
     // Per-image hold (the relay meters `{ images: N }` at settle).
     const job = await this.runToTerminal(IMAGE_RESOURCE, inputs, { images: n }, ctx, routeTag);
     const urls = assetsFromJobOutput(job.output)

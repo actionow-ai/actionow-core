@@ -330,6 +330,11 @@ interface SecretMetadataView {
   id: string;
   provider: string;
   locator: string;
+  /** Operator-editable metadata — surfaced so the credentials list is readable
+   * (the repo view already selects these; they were previously dropped here). */
+  name: string | null;
+  notes: string | null;
+  group: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -833,6 +838,7 @@ export class AdminController {
     return secretViewSchema.parse({
       id: row.id,
       provider: row.provider,
+      locator: row.locator,
       name: row.name,
       notes: row.notes,
       group: row.groupTag,
@@ -2365,6 +2371,9 @@ function toSecretMetadataView(row: SecretRefView): SecretMetadataView {
     id: row.id,
     provider: row.provider,
     locator: row.locator,
+    name: row.name,
+    notes: row.notes,
+    group: row.groupTag,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
   };

@@ -121,6 +121,9 @@ export type PaymentIntentView = z.infer<typeof paymentIntentViewSchema>;
 export const secretViewSchema = z.object({
   id: z.string(),
   provider: z.string(),
+  /** The env-key ref / material pointer (e.g. `openai`, `huimeng`) — the field
+   * that actually identifies WHICH credential this is; shown in the list. */
+  locator: z.string(),
   /** Operator-editable credential metadata (catalog redesign). */
   name: z.string().nullable(),
   notes: z.string().nullable(),

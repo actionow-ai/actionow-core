@@ -9,6 +9,7 @@ import {
   freezeParamProfile,
   getModelSpec,
   getResource,
+  linkChannelModelsByNames,
   matchOfficialPrice,
 } from '@actionow/db';
 
@@ -46,39 +47,29 @@ const TEXT_IO = {
   inputs: [],
   outputs: [],
 };
-/** A frozen `io_schema` snapshot for an image resource version. */
+/** A frozen `io_schema` snapshot for an image resource version. `model` is an
+ * optional passthrough input: when present it selects the upstream image model
+ * (media model passthrough — one relay serves seedream-4.5 / 5.0-lite / …); it
+ * survives the STRICT io_schema validation and the async-media adapter lifts it
+ * to the task's top-level `model` (never into `params`). */
 const IMAGE_IO = {
   inputs: [
     { key: 'prompt', type: 'string', required: true },
     { key: 'size', type: 'string', required: false },
+    { key: 'model', type: 'string', required: false },
   ],
   outputs: [{ key: 'image_url', type: 'string' }],
 };
-/** A frozen `io_schema` snapshot for a video resource version. */
+/** A frozen `io_schema` snapshot for a video resource version. `model` is the
+ * optional per-request upstream video model (seedance-* / kling-* …); see IMAGE_IO. */
 const VIDEO_IO = {
   inputs: [
     { key: 'prompt', type: 'string', required: true },
     { key: 'duration', type: 'number', required: false },
     { key: 'ratio', type: 'string', required: false },
+    { key: 'model', type: 'string', required: false },
   ],
   outputs: [{ key: 'video_url', type: 'string' }],
-};
-/**
- * A frozen `io_schema` snapshot for an audio (TTS / generative-audio) resource
- * version. `format` (OpenAI `response_format`) and `speed` (playback rate) are
- * declared so the `/v1/audio/speech` dialect's run inputs `{ prompt, voice,
- * format, speed }` survive the STRICT io_schema validation (unknown keys → 400);
- * the `async-media` adapter passes both through to the upstream task params.
- */
-const AUDIO_IO = {
-  inputs: [
-    { key: 'prompt', type: 'string', required: true },
-    { key: 'voice', type: 'string', required: false },
-    { key: 'language', type: 'string', required: false },
-    { key: 'format', type: 'string', required: false },
-    { key: 'speed', type: 'number', required: false },
-  ],
-  outputs: [{ key: 'audio_url', type: 'string' }],
 };
 /**
  * A frozen `io_schema` snapshot for the speech-to-text resource. EMPTY (like the
@@ -111,20 +102,6 @@ const IMAGE_TASK_PRICEBOOK = {
 const VIDEO_TASK_PRICEBOOK = {
   method: 'unit',
   dimensions: { duration_seconds: { rate: 300_000 }, tasks: { rate: 1_500_000 } },
-} as const;
-/**
- * Audio pricing: unit/post over whichever dimension the relay returns — TTS bills
- * per input `characters` (500 µcredits/char), generative audio per `audio_seconds`
- * (50_000 µcredits/s); `tasks` (250_000) is the fallback when the relay omits both
- * (never settles 0). The adapter emits `{ characters }` else `{ audio_seconds }`.
- */
-const AUDIO_TASK_PRICEBOOK = {
-  method: 'unit',
-  dimensions: {
-    characters: { rate: 500 },
-    audio_seconds: { rate: 50_000 },
-    tasks: { rate: 250_000 },
-  },
 } as const;
 /**
  * Speech-to-text pricing: unit/post per SECOND of transcribed audio. The STT
@@ -191,11 +168,24 @@ interface ProviderSeed {
   readonly config?: Record<string, unknown>;
   /** Egress-proxy locator REF; set for direct hosts (decision 4). */
   readonly proxyRef?: string;
+  /**
+   * For a MEDIA relay (image/video): the upstream model ids to seed as `model`
+   * rows + link to the channel, so the relay ships non-empty and each is
+   * selectable. `model` (above) is the channel's DEFAULT; a request may pick any
+   * of these via media model passthrough (`inputs.model`). Media models bill via
+   * the resource pricebook (per-image/second), so they carry no per-token price.
+   */
+  readonly mediaModels?: readonly string[];
+  /** Human-readable name stamped on the seeded `secret_ref` (so the credentials list is legible). */
+  readonly credentialName?: string;
 }
 
 /** The real-provider catalog entries seeded as DATA (text/image/video/audio + direct hosts). */
 const PROVIDER_SEEDS: readonly ProviderSeed[] = [
-  // 1. Image relay — generic async-media adapter; vendor protocol is DATA.
+  // 1. Image relay — generic async-media adapter; HuiMeng (api.huimengi.com)
+  // vendor protocol is DATA. `model` is the channel default; `mediaModels` are all
+  // the image models HuiMeng offers (verified against its API docs), each seeded +
+  // linked so the relay ships non-empty; a request may pick any via passthrough.
   {
     id: 'image-relay',
     kind: 'model',
@@ -206,10 +196,12 @@ const PROVIDER_SEEDS: readonly ProviderSeed[] = [
     pricebookSpec: IMAGE_TASK_PRICEBOOK,
     endpoint: 'https://api.huimengi.com',
     model: 'seedream-4.5',
+    mediaModels: ['seedream-4.5', 'seedream-5.0-lite'],
     credentialLocator: 'huimeng',
+    credentialName: '惠梦中转 HuiMeng',
     config: RELAY_CONFIG,
   },
-  // 2. Video relay — same relay, video model.
+  // 2. Video relay — same HuiMeng relay, video models (seedance-* + kling-*).
   {
     id: 'video-relay',
     kind: 'model',
@@ -220,24 +212,22 @@ const PROVIDER_SEEDS: readonly ProviderSeed[] = [
     pricebookSpec: VIDEO_TASK_PRICEBOOK,
     endpoint: 'https://api.huimengi.com',
     model: 'seedance-2.0',
+    mediaModels: [
+      'seedance-2.0',
+      'seedance-2.0-fast',
+      'seedance-2.0-value',
+      'seedance-2.0-fast-value',
+      'seedance-1.5-pro',
+      'seedance-1.0-pro',
+      'seedance-1.0-pro-fast',
+      'kling-v3',
+      'kling-v3-omni',
+    ],
     credentialLocator: 'huimeng',
+    credentialName: '惠梦中转 HuiMeng',
     config: RELAY_CONFIG_VIDEO,
   },
-  // 2b. Audio relay — same async-media relay, audio (TTS / generative) model. The
-  // `model` is a placeholder: point the channel at the operator's real audio model.
-  {
-    id: 'audio-relay',
-    kind: 'model',
-    modality: 'audio',
-    providerType: 'async-media',
-    execModes: ['async-poll', 'async-callback'],
-    ioSchema: AUDIO_IO,
-    pricebookSpec: AUDIO_TASK_PRICEBOOK,
-    endpoint: 'https://api.huimengi.com',
-    model: 'audio-tts-1.0',
-    credentialLocator: 'huimeng',
-    config: RELAY_CONFIG,
-  },
+  // NOTE: no audio relay — HuiMeng offers only image/video (+ text), no audio.
   // 2c. Speech-to-text relay — synchronous OpenAI-dialect STT via the openai
   // adapter's `transcribe` (multipart upload → `/v1/audio/transcriptions`). Routes
   // by RESOURCE (no model row); billed per `audio_seconds` via the unit/post
@@ -364,8 +354,22 @@ export interface SeedProvidersOptions {
  * versions + pricebooks + upstream channels) as DATA. Network-free; safe to
  * re-run (find-then-create on the resource id makes a second run a no-op).
  */
+/** Friendly credential names by locator, so the credentials list is legible. */
+const CREDENTIAL_NAMES: Readonly<Record<string, string>> = {
+  huimeng: '惠梦中转 HuiMeng',
+  openai: 'OpenAI',
+  deepseek: 'DeepSeek',
+  xiaomi: '小米 MiMo Xiaomi',
+  anthropic: 'Anthropic',
+  gemini: 'Google Gemini',
+};
+
 export async function seedProviders(db: Database, opts: SeedProvidersOptions = {}): Promise<void> {
   void opts; // legacy `tenantId` no longer owns the (global) provider resources.
+  // Dedup secret_refs by locator across the run: ONE named credential per vendor
+  // key, reused by every channel that shares it — so the credentials list is a
+  // short set of named rows, not a pile of blank, indistinguishable ones.
+  const secretIdByLocator = new Map<string, string>();
   for (const s of PROVIDER_SEEDS) {
     if ((await getResource(db, s.id)) !== undefined) continue;
 
@@ -392,14 +396,25 @@ export async function seedProviders(db: Database, opts: SeedProvidersOptions = {
       active: true,
     });
 
-    // A `secret_ref` row locating the env var that holds the provider key; only
-    // the locator is persisted (the resolver materializes the value at run time).
-    const secret = await createSecretRef(db, { provider: 'env', locator: s.credentialLocator });
+    // A named `secret_ref` locating the env var that holds the provider key (only
+    // the locator is persisted; the resolver materializes the value at run time).
+    // Reused across channels that share a locator (dedup).
+    let credentialRef = secretIdByLocator.get(s.credentialLocator);
+    if (credentialRef === undefined) {
+      const name = s.credentialName ?? CREDENTIAL_NAMES[s.credentialLocator] ?? s.credentialLocator;
+      const secret = await createSecretRef(db, {
+        provider: 'env',
+        locator: s.credentialLocator,
+        name,
+      });
+      credentialRef = secret.id;
+      secretIdByLocator.set(s.credentialLocator, credentialRef);
+    }
 
-    await createUpstreamChannel(db, {
+    const channel = await createUpstreamChannel(db, {
       resourceId: s.id,
       providerType: s.providerType,
-      credentialRef: secret.id,
+      credentialRef,
       ...(s.endpoint !== undefined ? { endpoint: s.endpoint } : {}),
       model: s.model,
       ...(s.config !== undefined ? { config: s.config } : {}),
@@ -410,9 +425,7 @@ export async function seedProviders(db: Database, opts: SeedProvidersOptions = {
 
     // Chat/text resources need a `model` row so the dialect relays
     // (`/v1/chat/completions` etc.) can resolve the requested model NAME →
-    // this resource → its channel. Without it a freshly-seeded direct/relay
-    // chat provider is unroutable. The model name mirrors the channel's vendor
-    // model id. (Media resources route by resource, not model name — skipped.)
+    // this resource → its channel. The model name mirrors the channel's vendor id.
     if (s.modality === 'text') {
       // Enrich the model row from the 规格库 spec + official price (SAME source a
       // channel sync uses) so capabilities/param_profile/price/maker/display are
@@ -434,11 +447,8 @@ export async function seedProviders(db: Database, opts: SeedProvidersOptions = {
       // NEVER sell at a fake near-free price. Only a model with a real matched
       // `official_model_price` is created `active` with that resale price; a model
       // with no verified cost basis is created `disabled` at price 0 — mirroring
-      // the channel-sync `needs_pricing` path — so it exists in the catalog but is
-      // unroutable/unsold until an admin prices it, rather than shipping public +
-      // active at 1 µUSD/1M (near-free = a guaranteed loss).
-      // A matched official row always carries non-null input/output prices
-      // (NOT NULL columns), so its presence IS the "has a verified price" signal.
+      // the channel-sync `needs_pricing` path. A matched official row always
+      // carries non-null prices, so its presence IS the "has a verified price" signal.
       const hasOfficialPrice = official !== undefined;
       await createModel(db, {
         name: s.model,
@@ -456,6 +466,29 @@ export async function seedProviders(db: Database, opts: SeedProvidersOptions = {
           : {}),
         status: hasOfficialPrice ? 'active' : 'disabled',
       });
+      // Link the model to its channel so it shows in the channel's model grid.
+      await linkChannelModelsByNames(db, channel.id, [s.model]);
+    } else if ((s.modality === 'image' || s.modality === 'video') && s.mediaModels !== undefined) {
+      // Media models: one `model` row per upstream id the relay serves, all linked
+      // to the channel so it ships non-empty + each is selectable. Active with NO
+      // per-token price — media bills via the resource pricebook (per-image/second),
+      // and a request picks the model via passthrough (`inputs.model`), so a 0 token
+      // price is correct (never billed by it). maker/icon inferred from the id.
+      for (const name of s.mediaModels) {
+        const isKling = name.startsWith('kling');
+        await createModel(db, {
+          name,
+          resourceId: s.id,
+          modality: s.modality,
+          visibility: 'public',
+          inputPrice: 0n,
+          outputPrice: 0n,
+          maker: isKling ? 'kling' : 'doubao',
+          icon: isKling ? 'kling' : 'doubao',
+          status: 'active',
+        });
+      }
+      await linkChannelModelsByNames(db, channel.id, [...s.mediaModels]);
     }
   }
 }

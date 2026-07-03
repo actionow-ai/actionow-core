@@ -2056,6 +2056,7 @@
     "revoked": "Credential revoked",
     "cols": {
       "id": "ID",
+      "locator": "Locator",
       "provider": "Provider",
       "created": "Created"
     },
