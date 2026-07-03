@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.3](https://github.com/actionow-ai/actionow-core/compare/v0.0.2...v0.0.3) (2026-07-03)
+
+
+### Bug Fixes
+
+* **seed:** gate demo/mock data out of prod, verify prices online, enrich model_spec ([#100](https://github.com/actionow-ai/actionow-core/issues/100)) ([7836ce4](https://github.com/actionow-ai/actionow-core/commit/7836ce4f763e54aedacf1b9a9cbf7c4e245c73a1))
+
 ## [0.0.2](https://github.com/actionow-ai/actionow-core/compare/v0.0.1...v0.0.2) (2026-07-03)
 
 
