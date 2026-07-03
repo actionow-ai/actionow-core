@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.4](https://github.com/actionow-ai/actionow-core/compare/v0.0.3...v0.0.4) (2026-07-03)
+
+
+### Bug Fixes
+
+* decouple prod demo-data seed gate from admin + render generic modality icons ([#102](https://github.com/actionow-ai/actionow-core/issues/102)) ([92b0013](https://github.com/actionow-ai/actionow-core/commit/92b0013b46cf9b05adcd4ae457ed76115853bacd))
+
 ## [0.0.3](https://github.com/actionow-ai/actionow-core/compare/v0.0.2...v0.0.3) (2026-07-03)
 
 
