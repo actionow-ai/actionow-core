@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
 
 import anthropicUrl from '../../assets/providers/anthropic.svg';
 import cloudflareUrl from '../../assets/providers/cloudflare.svg';
@@ -70,6 +70,43 @@ function resolve(provider: string): Brand | null {
   return null;
 }
 
+/**
+ * Modality-glyph fallbacks for the seeded `generic-{text,image,video,audio}`
+ * catalog icon keys — these have no vendor brand mark, so without this they'd
+ * render as a bare "G" monogram. Line-icon glyphs drawn in the accent colour.
+ */
+const GENERIC_GLYPHS: Record<string, { label: string; paths: string[] }> = {
+  'generic-text': { label: '文本', paths: ['M5 6h14M5 12h14M5 18h9'] },
+  'generic-image': {
+    label: '图像',
+    paths: ['M4 5h16v14H4z', 'M8.5 10a1.5 1.5 0 1 0 0-.01', 'M5 18l5-5 3 3 3-3 3 3'],
+  },
+  'generic-video': { label: '视频', paths: ['M4 6h16v12H4z', 'M10 9l6 3-6 3z'] },
+  'generic-audio': { label: '音频', paths: ['M5 10v4M9 7v10M13 9v6M17 8v8'] },
+};
+
+function genericGlyph(provider: string, size: number): ReactElement | null {
+  const g = GENERIC_GLYPHS[provider.toLowerCase()];
+  if (!g) return null;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--accent-2)"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {g.paths.map((d, i) => (
+        <path key={i} d={d} />
+      ))}
+    </svg>
+  );
+}
+
 export function ProviderIcon({
   provider,
   size = 22,
@@ -87,17 +124,20 @@ export function ProviderIcon({
   style?: CSSProperties;
 }) {
   const brand = resolve(provider);
-  const label = brand?.label ?? provider;
+  const generic = brand ? null : genericGlyph(provider, size);
+  const label = brand?.label ?? GENERIC_GLYPHS[provider.toLowerCase()]?.label ?? provider;
 
   const mark = brand ? (
     <img src={brand.src} width={size} height={size} alt="" aria-hidden="true" draggable={false} />
   ) : (
-    <span
-      aria-hidden="true"
-      style={{ fontSize: size * 0.52, fontWeight: 'var(--fw-bold)', color: 'var(--accent-2)' }}
-    >
-      {(provider.charAt(0) || '?').toUpperCase()}
-    </span>
+    (generic ?? (
+      <span
+        aria-hidden="true"
+        style={{ fontSize: size * 0.52, fontWeight: 'var(--fw-bold)', color: 'var(--accent-2)' }}
+      >
+        {(provider.charAt(0) || '?').toUpperCase()}
+      </span>
+    ))
   );
 
   const glyph = tile ? (
