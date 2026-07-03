@@ -356,10 +356,12 @@ async function main(): Promise<void> {
   }
 
   // Dev-only sample data (phantom balance + mock subjects + active demo channel)
-  // is provisioned outside production only. In production it seeds ONLY when the
-  // operator explicitly opts in via SEED_ALLOW_PRODUCTION=true — same gate as the
-  // admin — so a real prod DB stays free of phantom credits and mock end-users.
-  const seedDemoData = !isProd || allowProd;
+  // is provisioned outside production by default. In production it seeds ONLY when
+  // the operator EXPLICITLY opts in via SEED_DEMO_DATA=true — a gate INDEPENDENT of
+  // the admin one (SEED_ALLOW_PRODUCTION), so an operator can provision a real prod
+  // admin WITHOUT also injecting phantom credits + mock end-users into the
+  // append-only ledger (the P0 moat) and the subject roster.
+  const seedDemoData = !isProd || process.env.SEED_DEMO_DATA === 'true';
   const result = await seedAll(db, { seedAdmin, adminPassword, seedDemoData });
   // Track 2: the official-price catalog (cost basis). Seeded BEFORE the provider
   // channels so the direct/relay chat channels below can auto-price from a live
