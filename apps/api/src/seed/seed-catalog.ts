@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { MODEL_FEATURES } from '@actionow/contracts';
+import { MODEL_FEATURES, type ParameterRule } from '@actionow/contracts';
 import {
   createOfficialPrice,
   type Database,
@@ -187,6 +187,129 @@ export function catalogToFeatures(m: {
   return MODEL_FEATURES.filter((f) => feats.has(f));
 }
 
+/**
+ * Null-out a catalog free-text value that is a data-quality PLACEHOLDER rather
+ * than real content, so a string like "Not stated on pricing page" never lands
+ * verbatim in a `model_spec` TEXT column (where a UI shows it as fact and a
+ * numeric parser gets NaN). A value that merely CONTAINS a number after a
+ * placeholder lead-in is still dropped — an operator fills the real value in
+ * 规格库 CRUD. Real content (anything not matching a placeholder phrase) passes
+ * through unchanged.
+ */
+export function cleanCatalogText(s: string | null | undefined): string | null {
+  if (s === null || s === undefined) return null;
+  const t = s.trim();
+  if (t === '') return null;
+  // Leading placeholder phrases ("Not stated…", "Not explicitly stated…",
+  // "N/A", "Unknown", "TBD", "Not specified/listed/published/disclosed").
+  if (
+    /^(not\s+(explicitly\s+)?(stated|specified|listed|published|disclosed|available)|n\/?a|unknown|tbd|none|not\s+applicable)\b/i.test(
+      t,
+    )
+  ) {
+    return null;
+  }
+  return s;
+}
+
+/**
+ * Derive a coarse model `family` / series (`gpt-4o`, `claude-haiku-4-5`,
+ * `gemini-2.5`) for catalog grouping + faceting by stripping a model id's
+ * size/variant suffix (`-mini`/`-nano`/`-pro`/`-flash`/`-lite`/`-chat`/`-codex`/
+ * `-preview`/`-latest`) and any trailing `-YYYYMMDD` date stamp. A first-cut
+ * heuristic (no hand-curation) so the grouping stops being empty; refine in
+ * 规格库 CRUD. Returns null only for an empty id.
+ */
+export function familyFrom(modelId: string): string | null {
+  const id = modelId.trim();
+  if (id === '') return null;
+  const family = id
+    // trailing date stamp (claude-haiku-4-5-20251001 → claude-haiku-4-5)
+    .replace(/-\d{6,8}$/, '')
+    // trailing size/variant suffixes (repeatable: gemini-2.5-flash-lite → gemini-2.5)
+    .replace(/-(mini|nano|pro|flash|lite|chat|codex|preview|latest|thinking|instruct|base)$/gi, '')
+    .replace(/-(mini|nano|pro|flash|lite|chat|codex|preview|latest|thinking|instruct|base)$/gi, '');
+  return family === '' ? id : family;
+}
+
+/**
+ * Derive a conservative, VALIDATION-ONLY `parameter_rules` contract for a CHAT
+ * model from the fields the dataset already carries (`type` + free-text
+ * `keyParams` + derived `features`). Every rule declares only its type + bounds /
+ * enum options — NEVER a `default` — so the engine's stage-① default injection
+ * (which fires only for rules carrying a `default`) stays a no-op: no value is
+ * ever injected when a caller omits a param.
+ *
+ * REASONING GUARD (the regression invariant): `parameter_rules` doubles as the
+ * allow-list for `llm-protocol/normalize.downgradeByProfile`, which strips the
+ * sampling knobs a reasoning model rejects (`temperature`/`top_p`/`stop` +
+ * `frequency_penalty`/`presence_penalty`). Declaring one of those for a reasoning
+ * model would ADD it to the allow-list and STOP the strip — changing today's
+ * behavior. So those knobs are declared ONLY for NON-reasoning models; a reasoning
+ * model keeps its blanket sampling-strip byte-for-byte. The always-safe knobs
+ * (`top_k`/`max_tokens`/`reasoning_effort`/`response_format` — none in the strip
+ * set) are declared for every chat model.
+ *
+ * Rules add clamp/validation governance + a real "允许参数" list to the 规格库 UI,
+ * driven strictly by what each model self-declares. Non-chat models (image/video/
+ * audio) get no rules. First-cut; refine in 规格库 CRUD.
+ */
+export function catalogToParameterRules(m: {
+  readonly type?: string | null;
+  readonly inputModalities?: string[] | null;
+  readonly keyParams?: string[] | null;
+}): ParameterRule[] {
+  const type = (m.type ?? '').toLowerCase();
+  if (type !== 'text' && type !== 'multimodal') return [];
+  const kp = (m.keyParams ?? []).join(' | ').toLowerCase();
+  const feats = new Set(catalogToFeatures(m));
+  const isReasoning = feats.has('reasoning');
+  const has = (re: RegExp): boolean => re.test(kp);
+  const rules: ParameterRule[] = [];
+  // Reasoning-strip-set knobs — declared for NON-reasoning models only (see the
+  // REASONING GUARD above), so a reasoning model's downgrade is unchanged.
+  if (!isReasoning) {
+    if (has(/temperature/)) rules.push({ name: 'temperature', type: 'float', min: 0, max: 2 });
+    if (has(/top[-_ ]?p|nucleus/)) rules.push({ name: 'top_p', type: 'float', min: 0, max: 1 });
+    if (has(/frequency[-_ ]?penalty/)) {
+      rules.push({ name: 'frequency_penalty', type: 'float', min: -2, max: 2 });
+    }
+    if (has(/presence[-_ ]?penalty/)) {
+      rules.push({ name: 'presence_penalty', type: 'float', min: -2, max: 2 });
+    }
+  }
+  // Always-safe knobs (not in the reasoning strip-set) — validation only.
+  if (has(/top[-_ ]?k/)) rules.push({ name: 'top_k', type: 'int', min: 1 });
+  if (has(/max[-_ ]?(tokens|output|completion)|output[-_ ]?tokens/)) {
+    rules.push({ name: 'max_tokens', type: 'int', min: 1 });
+  }
+  if (isReasoning || has(/reasoning[-_ ]?effort/)) {
+    // Parse explicit options from a keyParams entry like
+    // "reasoning_effort (minimal/low/medium/high)"; else the canonical set.
+    const rawOpts = /reasoning[-_ ]?effort\s*\(([^)]+)\)/i.exec(kp)?.[1];
+    const parsed = rawOpts
+      ? rawOpts
+          .split(/[/,|]/)
+          .map((o) => o.trim())
+          .filter((o) => o.length > 0)
+      : [];
+    const options = parsed.length > 0 ? parsed : ['minimal', 'low', 'medium', 'high'];
+    rules.push({ name: 'reasoning_effort', type: 'enum', options });
+  }
+  if (
+    feats.has('json-schema') ||
+    feats.has('json-object') ||
+    has(/structured output|json[-_ ]?schema|response[-_ ]?format|json mode/)
+  ) {
+    rules.push({
+      name: 'response_format',
+      type: 'enum',
+      options: ['text', 'json_object', 'json_schema'],
+    });
+  }
+  return rules;
+}
+
 /** Parse `asOf` (`2026-06`) into a Date for `effective_at`; undefined when absent/unparseable. */
 function effectiveAtFrom(asOf: string | null | undefined): Date | undefined {
   if (asOf === null || asOf === undefined || asOf === '') return undefined;
@@ -226,6 +349,8 @@ export async function importCatalog(db: Database): Promise<ImportCatalogResult> 
       vendor: vendorKey,
       modelId: m.modelId,
       displayName: m.displayName ?? null,
+      // Derived series/family grouping (was NULL for every row → empty facets).
+      family: familyFrom(m.modelId),
       type: m.type,
       inputModalities: m.inputModalities ?? null,
       outputModalities: m.outputModalities ?? null,
@@ -234,11 +359,19 @@ export async function importCatalog(db: Database): Promise<ImportCatalogResult> 
       // Derived fine-grained features (mig 0063) — the single source the sync/seed
       // path projects into `capabilities` and freezes into `param_profile`.
       features: catalogToFeatures(m),
+      // Derived VALIDATION-ONLY param contract (mig 0063/0064; was NULL for every
+      // row → param governance silently off). No rule carries a `default`, so no
+      // value is injected on omission; an in-range request is unchanged and the
+      // reasoning sampling-strip is preserved (see catalogToParameterRules). The
+      // only new effect is defensive clamping of an OUT-of-range value.
+      parameterRules: catalogToParameterRules(m),
       sources: m.sources ?? null,
       status: m.status ?? null,
-      contextWindow: m.contextWindow ?? null,
-      maxOutput: m.maxOutput ?? null,
-      intro: m.intro ?? null,
+      // Null-out placeholder strings ("Not stated on pricing page") so they never
+      // land verbatim in a TEXT column shown as fact / parsed as a number.
+      contextWindow: cleanCatalogText(m.contextWindow),
+      maxOutput: cleanCatalogText(m.maxOutput),
+      intro: cleanCatalogText(m.intro),
       confidence: m.confidence,
       billingEligible: m.billingEligible,
       asOf: m.pricing.asOf ?? null,

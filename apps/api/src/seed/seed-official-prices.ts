@@ -4,22 +4,34 @@ import { createOfficialPrice, type Database, getOfficialPrice } from '@actionow/
  * Track 2 — the official model price catalog seed: the operator's COST BASIS
  * (µUSD per 1M tokens), matched by `sync-models` to auto-price discovered models.
  *
- * Prices below were read from each provider's OFFICIAL pricing page on 2026-06-18
- * (see `SOURCES`); they are a STARTING POINT — prices drift, so the operator owns
- * the catalog and updates it via `POST/PATCH /admin/official-prices`. Stored in
- * µUSD/1M = USD × 1e6. Slugs are canonical (lowercase, dateless); the matcher
- * normalizes a discovered slug to the same form. Network-free + idempotent
- * (find-then-create on `(provider, slug)`), so re-running never clobbers an
- * admin's edits.
+ * Every price below was RE-VERIFIED against the provider's OFFICIAL pricing page
+ * on 2026-07-03 (a multi-agent web-research + adversarial-verification pass; each
+ * row confirmed input/output/cached against the cited `SOURCES` URL). They remain
+ * a STARTING POINT — prices drift — so the operator owns the catalog and updates
+ * it via `POST/PATCH /admin/official-prices`. Stored in µUSD/1M = USD × 1e6.
+ * Slugs are canonical (lowercase, dateless); the matcher normalizes a discovered
+ * slug to the same form. Network-free + idempotent (find-then-create on
+ * `(provider, slug)`), so re-running never clobbers an admin's edits.
+ *
+ * NOTE most OpenAI/Anthropic/Google rows here DUPLICATE a firstparty row the
+ * catalog import (`seed-catalog.ts`) already inserts; kept as a fallback for a
+ * slim image that ships without `docs/…catalog.json`. The rows that are ONLY here
+ * (no catalog entry) are the legacy `gpt-4o`/`gpt-4.1` family, `claude-haiku-4-5`,
+ * and `xiaomi/mimo-v2.5` — all web-verified below.
  */
 
 const SOURCES = {
   openai: 'https://developers.openai.com/api/docs/pricing',
   anthropic: 'https://platform.claude.com/docs/en/about-claude/pricing',
   google: 'https://ai.google.dev/gemini-api/docs/pricing',
+  // Xiaomi MiMo open platform — overseas (USD) pricing column.
+  xiaomi: 'https://mimo.mi.com/docs/en-US/price/pay-as-you-go',
 } as const;
 
-const AS_OF = 'official 2026-06-18';
+/** Human-readable provenance stamped on every row's `notes`. */
+const AS_OF = 'official prices web-verified 2026-07-03';
+/** Machine `effective_at` for every seeded row (the verification date). */
+const EFFECTIVE_AT = new Date('2026-07-03T00:00:00Z');
 
 /** One seeded catalog row (µUSD per 1M tokens). */
 interface CatalogPrice {
@@ -186,6 +198,17 @@ const CATALOG: readonly CatalogPrice[] = [
     outputPricePer1m: 9_000_000n,
     cachedInputPricePer1m: 150_000n,
   },
+  // Xiaomi MiMo — mimo.mi.com overseas (USD) column, web-verified 2026-07-03.
+  // ($0.14 in / $0.28 out / $0.0028 cached). Prices the seeded `xiaomi-mimo`
+  // channel (previously created disabled at 0 because MiMo has no catalog entry).
+  {
+    provider: 'xiaomi',
+    modelSlug: 'mimo-v2.5',
+    displayName: 'MiMo V2.5',
+    inputPricePer1m: 140_000n,
+    outputPricePer1m: 280_000n,
+    cachedInputPricePer1m: 2_800n,
+  },
 ];
 
 /** The `(provider, slug)` pairs this seed inserts (a stable list for tooling/tests). */
@@ -210,6 +233,12 @@ export async function seedOfficialPrices(db: Database): Promise<void> {
       ...(p.cachedInputPricePer1m !== undefined
         ? { cachedInputPricePer1m: p.cachedInputPricePer1m }
         : {}),
+      // Explicit provenance: these rows are web-verified firstparty prices and ARE
+      // a billable cost basis (defaults would give the same, but state it so the
+      // row is self-documenting and never mistaken for an unreviewed guess).
+      confidence: 'firstparty',
+      billingEligible: true,
+      effectiveAt: EFFECTIVE_AT,
       sourceUrl: SOURCES[p.provider],
       notes: AS_OF,
     });
