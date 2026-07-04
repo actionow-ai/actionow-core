@@ -73,13 +73,17 @@ function buildParams(modality: string, inputs: Record<string, unknown>): Record<
     const size = asString(inputs.size);
     if (size !== undefined) params.size = size;
   }
-  // img2img / reference-image: the run path resolves a `file` input (a file_id)
-  // to a fetchable URL before the adapter sees it; forward a known reference key
-  // VERBATIM so the relay receives it under the io_schema input name unchanged.
-  for (const key of ['image', 'init_image', 'reference_image'] as const) {
-    const url = asString(inputs[key]);
-    if (url !== undefined) params[key] = url;
-  }
+  // img2img / reference-image (参考生图): the reference image can arrive as a
+  // direct public URL (`image_url`) OR an uploaded file — the run path resolves a
+  // `file` input (a file_id) to a presigned GET URL under `image` before the
+  // adapter sees it. Normalize whichever key is present to the relay's `image_url`
+  // task param (HuiMeng's reference param; verified against its API).
+  const refImage =
+    asString(inputs.image_url) ??
+    asString(inputs.image) ??
+    asString(inputs.init_image) ??
+    asString(inputs.reference_image);
+  if (refImage !== undefined) params.image_url = refImage;
   return params;
 }
 

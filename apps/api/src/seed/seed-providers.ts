@@ -47,27 +47,33 @@ const TEXT_IO = {
   inputs: [],
   outputs: [],
 };
-/** A frozen `io_schema` snapshot for an image resource version. `model` is an
- * optional passthrough input: when present it selects the upstream image model
- * (media model passthrough — one relay serves seedream-4.5 / 5.0-lite / …); it
- * survives the STRICT io_schema validation and the async-media adapter lifts it
- * to the task's top-level `model` (never into `params`). */
+/** A frozen `io_schema` snapshot for an image resource version. `model` selects
+ * the upstream model (passthrough). REFERENCE / 图生图 (img2img): `image` is an
+ * UPLOADED reference (a `file_id` the run path resolves to a presigned URL), and
+ * `image_url` is a DIRECT public URL — either is normalized by the async-media
+ * adapter to HuiMeng's `image_url` task param. Both optional (text-to-image when
+ * absent). All survive the STRICT io_schema validation. */
 const IMAGE_IO = {
   inputs: [
     { key: 'prompt', type: 'string', required: true },
     { key: 'size', type: 'string', required: false },
     { key: 'model', type: 'string', required: false },
+    { key: 'image', type: 'file', required: false },
+    { key: 'image_url', type: 'string', required: false },
   ],
   outputs: [{ key: 'image_url', type: 'string' }],
 };
-/** A frozen `io_schema` snapshot for a video resource version. `model` is the
- * optional per-request upstream video model (seedance-* / kling-* …); see IMAGE_IO. */
+/** A frozen `io_schema` snapshot for a video resource version. `model` = upstream
+ * video model (passthrough). `image`/`image_url` = an optional reference image
+ * (image-to-video), same shape as IMAGE_IO. */
 const VIDEO_IO = {
   inputs: [
     { key: 'prompt', type: 'string', required: true },
     { key: 'duration', type: 'number', required: false },
     { key: 'ratio', type: 'string', required: false },
     { key: 'model', type: 'string', required: false },
+    { key: 'image', type: 'file', required: false },
+    { key: 'image_url', type: 'string', required: false },
   ],
   outputs: [{ key: 'video_url', type: 'string' }],
 };
