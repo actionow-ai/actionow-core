@@ -70,12 +70,15 @@ describe('seedProviders (real-provider catalog as DATA)', () => {
     expect(channel?.endpoint).toBe('https://api.huimengi.com');
     expect(channel?.model).toBe('seedream-4.5');
     expect(channel?.status).toBe('active');
-    // The vendor protocol (task paths + signature header names) is DATA.
+    // The vendor protocol (task paths + signature header names) is DATA; the image
+    // relay carries a 3-min poll budget for HuiMeng's slower image models.
     expect(channel?.config).toEqual({
       submitPath: '/api/v1/tasks',
       pollPath: '/api/v1/tasks/{id}',
       signatureHeader: 'X-HuiMeng-Signature',
       timestampHeader: 'X-HuiMeng-Timestamp',
+      maxPolls: 60,
+      pollIntervalMs: 3000,
     });
     // credential_ref → secret_ref locator `huimeng` → SecretResolver reads SECRET_HUIMENG.
     expect(await credentialLocator(channel)).toBe('huimeng');
@@ -133,24 +136,39 @@ describe('seedProviders (real-provider catalog as DATA)', () => {
     // HuiMeng offers only image/video (+ text), so there is no audio relay.
     expect(await getResource(db, 'audio-relay')).toBeUndefined();
 
-    // image-relay: both seedream models, active, image modality, no token price.
+    // image-relay: all HuiMeng image models (seedream/nb/image-2/z-image), active,
+    // image modality, no token price; the vendor `maker` is inferred from the id.
     const imgModels = await db
       .select()
       .from(schema.model)
       .where(eq(schema.model.resourceId, 'image-relay'));
-    expect(imgModels.map((m) => m.name).sort()).toEqual(['seedream-4.5', 'seedream-5.0-lite']);
+    expect(imgModels.map((m) => m.name).sort()).toEqual(
+      [
+        'image-2',
+        'image-2-official',
+        'nb-2',
+        'nb-2-official',
+        'nb-pro',
+        'nb-pro-official',
+        'seedream-4.5',
+        'seedream-5.0-lite',
+        'z-image-turbo',
+      ].sort(),
+    );
     for (const m of imgModels) {
       expect(m.status).toBe('active');
       expect(m.modality).toBe('image');
       expect(m.inputPrice).toBe(0n);
     }
+    expect(imgModels.find((m) => m.name === 'nb-2')?.maker).toBe('google');
+    expect(imgModels.find((m) => m.name === 'image-2')?.maker).toBe('openai');
     // …all linked to the channel so it ships non-empty (the "N 模型" grid).
     const [imgChannel] = await listChannels(db, 'image-relay');
     const imgLinks = await db
       .select()
       .from(schema.channelModel)
       .where(eq(schema.channelModel.channelId, imgChannel?.id ?? ''));
-    expect(imgLinks).toHaveLength(2);
+    expect(imgLinks).toHaveLength(9);
 
     // video-relay: the 9 seedance/kling models, linked.
     const vidModels = await db

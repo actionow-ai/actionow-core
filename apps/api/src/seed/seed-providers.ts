@@ -128,6 +128,11 @@ const RELAY_CONFIG = {
   pollPath: '/api/v1/tasks/{id}',
   signatureHeader: 'X-HuiMeng-Signature',
   timestampHeader: 'X-HuiMeng-Timestamp',
+  // Poll budget for IMAGE generation: the default (~30s) is too short for the
+  // slower image models HuiMeng offers (Nano-Banana / Image 2 can take 30-90s and
+  // otherwise fail with `upstream_timeout: poll budget exhausted`). 60 × 3s ≈ 3min.
+  maxPolls: 60,
+  pollIntervalMs: 3000,
 };
 
 /**
@@ -196,7 +201,21 @@ const PROVIDER_SEEDS: readonly ProviderSeed[] = [
     pricebookSpec: IMAGE_TASK_PRICEBOOK,
     endpoint: 'https://api.huimengi.com',
     model: 'seedream-4.5',
-    mediaModels: ['seedream-4.5', 'seedream-5.0-lite'],
+    // All image models HuiMeng offers (verified against its model square + API doc):
+    // Seedream (Doubao), NB / Nano-Banana (Google Gemini image), Image 2 (OpenAI
+    // gpt-image), Z Image Turbo (Zhipu). `-official` = the direct/official upstream
+    // route; the bare id is the cheaper relay route.
+    mediaModels: [
+      'seedream-4.5',
+      'seedream-5.0-lite',
+      'nb-2',
+      'nb-2-official',
+      'nb-pro',
+      'nb-pro-official',
+      'image-2',
+      'image-2-official',
+      'z-image-turbo',
+    ],
     credentialLocator: 'huimeng',
     credentialName: '惠梦中转 HuiMeng',
     config: RELAY_CONFIG,
@@ -364,6 +383,20 @@ const CREDENTIAL_NAMES: Readonly<Record<string, string>> = {
   gemini: 'Google Gemini',
 };
 
+/**
+ * The upstream vendor of a media model id (drives `maker` + the brand `icon`).
+ * HuiMeng relays several vendors' models under one endpoint: Seedream/Seedance
+ * (Doubao/ByteDance), NB / Nano-Banana (Google Gemini image), Image 2 (OpenAI
+ * gpt-image), Z Image (Zhipu), Kling. Defaults to `doubao`.
+ */
+function mediaVendorFor(name: string): string {
+  if (name.startsWith('kling')) return 'kling';
+  if (name.startsWith('nb-') || name.startsWith('nano')) return 'google';
+  if (name.startsWith('image-2') || name.startsWith('gpt-image')) return 'openai';
+  if (name.startsWith('z-image') || name.startsWith('z_image')) return 'zhipu';
+  return 'doubao'; // seedream / seedance
+}
+
 export async function seedProviders(db: Database, opts: SeedProvidersOptions = {}): Promise<void> {
   void opts; // legacy `tenantId` no longer owns the (global) provider resources.
   // Dedup secret_refs by locator across the run: ONE named credential per vendor
@@ -475,7 +508,7 @@ export async function seedProviders(db: Database, opts: SeedProvidersOptions = {
       // and a request picks the model via passthrough (`inputs.model`), so a 0 token
       // price is correct (never billed by it). maker/icon inferred from the id.
       for (const name of s.mediaModels) {
-        const isKling = name.startsWith('kling');
+        const vendor = mediaVendorFor(name);
         await createModel(db, {
           name,
           resourceId: s.id,
@@ -483,8 +516,8 @@ export async function seedProviders(db: Database, opts: SeedProvidersOptions = {
           visibility: 'public',
           inputPrice: 0n,
           outputPrice: 0n,
-          maker: isKling ? 'kling' : 'doubao',
-          icon: isKling ? 'kling' : 'doubao',
+          maker: vendor,
+          icon: vendor,
           status: 'active',
         });
       }
