@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.6](https://github.com/actionow-ai/actionow-core/compare/v0.0.5...v0.0.6) (2026-07-04)
+
+
+### Features
+
+* **media:** all HuiMeng image models + img2img (参考生图) + 3-min image poll budget ([#106](https://github.com/actionow-ai/actionow-core/issues/106)) ([a3f2025](https://github.com/actionow-ai/actionow-core/commit/a3f2025b8e46a2f25557a4e390c51cbfc3b3bcb7))
+
 ## [0.0.5](https://github.com/actionow-ai/actionow-core/compare/v0.0.4...v0.0.5) (2026-07-03)
 
 
