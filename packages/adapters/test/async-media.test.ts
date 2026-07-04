@@ -122,13 +122,14 @@ describe('async-media adapter', () => {
     });
   });
 
-  it('forwards a reference image (img2img) into params under its own key', async () => {
+  it('normalizes a reference image (img2img) to HuiMeng image_url', async () => {
     let seen: HttpRequest | undefined;
     const http = fakeHttp({ status: 200, body: { task_id: 't-i2i', status: 'pending' } }, (r) => {
       seen = r;
     });
     // The run path resolves a `file` input (file_id) to a fetchable URL before the
-    // adapter sees it; the adapter forwards a known reference-image key verbatim.
+    // adapter sees it; the adapter normalizes any known reference-image alias
+    // (image_url / image / init_image / reference_image) to HuiMeng's `image_url`.
     await asyncMediaAdapter.submit(
       input(
         http,
@@ -144,8 +145,27 @@ describe('async-media adapter', () => {
       model: 'img-model',
       params: {
         prompt: 'restyle this product on a marble table',
-        init_image: 'https://asset.actionow.ai/t/in.jpg',
+        image_url: 'https://asset.actionow.ai/t/in.jpg',
       },
+    });
+  });
+
+  it('passes a direct image_url reference through unchanged', async () => {
+    let seen: HttpRequest | undefined;
+    const http = fakeHttp({ status: 200, body: { task_id: 't-url', status: 'pending' } }, (r) => {
+      seen = r;
+    });
+    await asyncMediaAdapter.submit(
+      input(
+        http,
+        'image',
+        { prompt: 'a cat', image_url: 'https://asset.actionow.ai/t/ref.jpg' },
+        'nb-2',
+      ),
+    );
+    expect(seen?.body).toEqual({
+      model: 'nb-2',
+      params: { prompt: 'a cat', image_url: 'https://asset.actionow.ai/t/ref.jpg' },
     });
   });
 
