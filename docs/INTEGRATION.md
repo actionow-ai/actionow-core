@@ -1,6 +1,11 @@
 # Build an app on Actionow core
 
-How an internal team builds a **new app** on top of Actionow core, fast.
+How an internal team builds a **new app** on top of Actionow core, fast. The
+rest of this doc walks **Mode B** (building an app on core — federating your own
+end-users). For **Mode A** (using core as a plain full-modality model relay) you
+only need the `/v1` calls — no subjects, no federation — so point your SDK at
+`baseURL` and jump to the chat + media sections (or the `actionow-integration`
+skill); the app-build steps below don't apply.
 
 Core is a multi-tenant AI-relay middle-platform. It gives you AI relay (chat /
 image / video / audio), a credit ledger, payments, object storage, and a
@@ -12,6 +17,29 @@ credential and calls core. You reference core only by the stable IDs it returns
 A runnable, typed reference backend lives in
 [`examples/quickstart`](../examples/quickstart). This doc is the map; that
 example is the territory.
+
+---
+
+## Two ways to use core
+
+Actionow core can be used **two ways** — pick the lighter one that fits:
+
+- **Mode A · Full-modality model gateway (模型中转站).** Point any
+  OpenAI-compatible SDK at core's `/v1` with a single `ak_` key and call **chat /
+  image / video / audio / embeddings / rerank** across every provider core fronts
+  — routing, fallback, circuit-breaking, and one unified credit bill included.
+  **No subjects, no `/console` federation.** Setup: create a tenant + account,
+  fund the pool, mint one **tenant-level** `ak_` key (no `subjectId`), point your
+  SDK at `baseURL`. This is core as your self-hosted multi-modal LLM gateway
+  (think OpenRouter, in-house).
+- **Mode B · Build an app on core (应用基座).** Everything in A, **plus**
+  federate _your own_ end-users as **subjects** — per-user `ak_` keys,
+  sub-wallets, per-user limits & spend attribution — so you resell core's
+  capabilities to your users behind your own product.
+
+Mode A is a strict subset of Mode B's mechanics — the _same_ `/v1` calls; Mode B
+only adds the per-end-user identity layer. **Start with A; adopt B when you need
+per-user wallets / limits / attribution.**
 
 ---
 

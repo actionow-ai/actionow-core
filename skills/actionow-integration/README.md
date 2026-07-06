@@ -2,6 +2,8 @@
 
 A self-contained **agent skill** that teaches a third-party developer's coding agent (Claude Code, Codex, Cursor, etc.) how to correctly integrate with an **Actionow / actionow-core** AI gateway — auth, OpenAI-compatible `/v1` calls, async jobs, files, billing/errors, and webhooks.
 
+Core can be used two ways — as a **pure full-modality model gateway** (one tenant-level `ak_` key on `/v1`, no subjects, no federation) or as an **app base** (federate your own end-users as subjects) — and this skill covers the `/v1` call mechanics for both.
+
 It is the contract a third party works from **without** access to actionow-core's source. Everything is verified against the gateway's real contracts (`packages/contracts`, the `/v1` + `/console` controllers).
 
 ## What's inside

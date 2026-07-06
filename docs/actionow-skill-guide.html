@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Actionow · 接入指南 — 基于 core 构建 AIGC 应用</title>
+<title>Actionow · 接入指南 — 全模态模型中转 + 应用基座</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -206,8 +206,8 @@ footer .mut{opacity:.7}
 <header class="hero">
   <div class="wrap">
     <div class="reveal in eyebrow">Actionow · 接入指南 / v0.1 · 2026-07-01</div>
-    <h1 class="reveal in" style="transition-delay:.06s">基于 <span class="grad">core</span> 构建 AIGC 应用</h1>
-    <p class="reveal in lead" style="transition-delay:.12s">actionow-core 是一层<b style="color:var(--ink)">能力基座</b>:复用它的用户、积分、充值、模型与文件,你只做产品与业务。两个配套 agent skill + 三场景 playbook + 可 clone 脚手架,逐条对源码审计。</p>
+    <h1 class="reveal in" style="transition-delay:.06s">把 <span class="grad">core</span> 当中转,或在上面建应用</h1>
+    <p class="reveal in lead" style="transition-delay:.12s">actionow-core <b style="color:var(--ink)">两种用法</b>:①<b style="color:var(--ink)">全模态模型中转站</b> —— 一把 key 打 /v1,跨 chat / 图 / 视频 / 音频 / embeddings 全模态,含路由 / fallback / 熔断 / 统一账单,不碰联邦;②<b style="color:var(--ink)">应用基座</b> —— 再联邦你的端用户,复用积分与充值,你只做产品。两个配套 agent skill + 三场景 playbook + 可 clone 脚手架,逐条对源码审计。</p>
     <div class="reveal in cta" style="transition-delay:.18s">
       <div class="pull"><span class="c"># 拉取 skill 到本地 agent</span><br><b>multica skill pull</b> building-on-actionow<br><b>multica skill pull</b> actionow-integration</div>
     </div>
@@ -219,6 +219,21 @@ footer .mut{opacity:.7}
     </div>
   </div>
 </header>
+
+<!-- 0 · 两种用法 -->
+<section id="modes">
+  <div class="wrap">
+    <div class="shead reveal">
+      <div class="snum">00</div>
+      <div><h2>两种用法</h2><p>按需选更轻的那种 —— 纯中转不需要 subjects,也不碰 /console 联邦。</p></div>
+    </div>
+    <div class="grid2 stagger reveal">
+      <div class="card"><div class="ic"><i class="ti ti-arrows-shuffle"></i></div><h3>A · 全模态模型中转站</h3><p>一把<b style="color:var(--ink)">租户级 ak_</b> key 指向 <b style="color:var(--ink)">/v1</b>,任意 OpenAI 兼容 SDK 跨 chat / 图 / 视频 / 音频 / embeddings / rerank 全模态调用 —— 路由 / fallback / 熔断 / 统一账单全含。<b style="color:var(--ink)">不建 subject、不碰联邦</b>。搭建:建租户 → 充值 → 铸 key → SDK 指过来。</p><div class="pill-list"><span class="tag">1 key</span><span class="tag">/v1 全模态</span><span class="tag">零联邦</span></div></div>
+      <div class="card"><div class="ic"><i class="ti ti-stack-2"></i></div><h3>B · 基于 core 建应用</h3><p>在 A 基础上,把<b style="color:var(--ink)">你自己的端用户</b>联邦为 subject —— 每用户 key、子钱包、每用户限额与消费归属 —— 把 core 能力藏在你的产品后转售。</p><div class="pill-list"><span class="tag">subject 联邦</span><span class="tag">子钱包</span><span class="tag">每用户归属</span></div></div>
+    </div>
+    <p class="reveal" style="margin-top:16px;color:var(--dim);font-size:14.5px;line-height:1.7">A 是 B 机制的严格子集 —— 同样的 /v1 调用;B 只多一层每端用户身份。<b style="color:var(--ink)">先用 A,需要每用户钱包 / 限额 / 归属时再上 B。</b></p>
+  </div>
+</section>
 
 <!-- 1 · 使用 -->
 <section id="use">
@@ -374,7 +389,7 @@ multica skill pull building-on-actionow <b>--dir</b> ~/.agents/skills</div>
   <div class="wrap">
     <div class="shead reveal">
       <div class="snum">04</div>
-      <div><h2>三种接入姿势</h2><p>「自建多少」的三档。主线是<b style="color:var(--ink)">场景二 · 能力基座</b>(自持用户,把 core 当基座)。</p></div>
+      <div><h2>三种接入姿势</h2><p>都在<b style="color:var(--ink)">用法 B(建应用)</b>之内 ——「自建多少」的三档。主线是<b style="color:var(--ink)">场景二 · 能力基座</b>(自持用户,把 core 当基座)。纯中转(用法 A)不涉及这些。</p></div>
     </div>
 
     <div class="scn stagger reveal">
@@ -474,7 +489,7 @@ multica skill pull building-on-actionow <b>--dir</b> ~/.agents/skills</div>
       <span class="mono">examples/app-starter/</span>
       <span class="mono">docs/ENGINEERING-GUIDE.md</span>
     </div>
-    <div class="mut">Actionow · 基于 core 构建 AIGC 应用 — 机制层看 actionow-integration,工程层看 building-on-actionow。事实以 gateway 的 /docs 为准。</div>
+    <div class="mut">Actionow · core 两种用法:全模态模型中转站,或在上面建应用 — 机制层看 actionow-integration,工程层看 building-on-actionow。事实以 gateway 的 /docs 为准。</div>
   </div>
 </footer>
 
