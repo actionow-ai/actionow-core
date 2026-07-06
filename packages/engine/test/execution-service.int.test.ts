@@ -477,6 +477,11 @@ describe('ExecutionService.runChat — idempotency', () => {
     expect(second.response).toEqual(first.response);
     expect(second.cost.credits).toBe(first.cost.credits);
 
+    // Both the fresh run and the replay label the served model (= usageLogModel),
+    // so the controller can render the response's `model` field with it.
+    expect(first.servedModel).toBe('gpt-4o');
+    expect(second.servedModel).toBe('gpt-4o');
+
     // Exactly one job and one settle row → no double execution / double charge.
     const jobs = await db.select().from(schema.job);
     expect(jobs).toHaveLength(1);

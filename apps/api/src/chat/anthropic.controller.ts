@@ -57,8 +57,16 @@ export class AnthropicChatController {
       await pipeSse(res, renderAnthropicMessagesStream(events, servedModel ?? ir.model));
       return undefined;
     }
-    const { response, servedBy } = await this.relay.chat(ir.model, ir, ctx, idem, routeTag);
+    const { response, servedBy, servedModel } = await this.relay.chat(
+      ir.model,
+      ir,
+      ctx,
+      idem,
+      routeTag,
+    );
     if (servedBy !== undefined) res.setHeader('x-actionow-channel', servedBy.providerType);
-    return renderAnthropicChat(response, ir.model);
+    // Label the response with the SERVED model — the relay may have degraded
+    // across the model fallback chain (parity with the streaming path).
+    return renderAnthropicChat(response, servedModel ?? ir.model);
   }
 }

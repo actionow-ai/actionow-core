@@ -19,9 +19,11 @@ import { openAiUsage } from './render.js';
  * OpenAI's wire names (`prompt_tokens`/`completion_tokens`/`total_tokens`); the
  * usage chunk is emitted only when a `usage` event is seen.
  *
- * OpenAI streams have no error frame: the engine's pre-stream hold guarantees
- * errors surface before any bytes, so a mid-stream `error` degrades to a clean
- * stop chunk followed by `[DONE]`.
+ * A mid-stream `error` (post-commit upstream failure — pre-commit errors surface
+ * as real HTTP errors via the engine's pre-stream hold) is rendered as an
+ * OpenAI-wire `data: {"error": {...}}` frame and the stream ends WITHOUT the
+ * `[DONE]` sentinel — the official SDKs abort on an error frame, and a truncated
+ * stream must never masquerade as a clean `finish_reason:"stop"` completion.
  */
 export async function* renderOpenAIChatStream(
   events: AsyncIterable<ChatStreamEvent>,
@@ -30,7 +32,6 @@ export async function* renderOpenAIChatStream(
   const id = `chatcmpl-${randomUUID()}`;
   const created = Math.floor(Date.now() / 1000);
   let roleSent = false;
-  let stopped = false;
 
   const chunk = (
     delta: Record<string, unknown>,
@@ -92,21 +93,42 @@ export async function* renderOpenAIChatStream(
         });
         break;
       case 'stop':
-        stopped = true;
         yield sseData(chunk({}, mapStop(event.stopReason), event.nativeFinishReason));
         break;
       case 'error':
-        // No OpenAI error frame: degrade to a clean stop chunk.
-        if (!stopped) {
-          stopped = true;
-          yield sseData(chunk({}, 'stop'));
-        }
-        yield 'data: [DONE]\n\n';
+        // OpenAI-wire error frame: the official SDKs raise an APIError when a
+        // `data: {"error": ...}` frame arrives mid-stream. End WITHOUT `[DONE]`
+        // so the failure is never mistaken for a clean completion (silent
+        // truncation). Mirrors the Anthropic renderer's native `error` event.
+        yield sseData({
+          error: {
+            message: event.error.message,
+            type: mapErrorType(event.error.code),
+            param: null,
+            code: event.error.code,
+          },
+        });
         return;
       case 'done':
         yield 'data: [DONE]\n\n';
         return;
     }
+  }
+}
+
+/** Map an IR error code → an OpenAI wire error `type` (mirrors the Anthropic renderer's map). */
+function mapErrorType(code: string): string {
+  switch (code) {
+    case 'invalid_input':
+      return 'invalid_request_error';
+    case 'unauthorized':
+      return 'authentication_error';
+    case 'insufficient_credits':
+      return 'insufficient_quota';
+    case 'rate_limited':
+      return 'rate_limit_error';
+    default:
+      return 'server_error';
   }
 }
 

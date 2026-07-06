@@ -66,13 +66,13 @@ The credit **hold runs before the first SSE byte**, so a **pre-commit failure** 
 
 A **post-commit failure** (upstream dies mid-generation) surfaces differently per endpoint — this is a real footgun:
 
-| Streaming endpoint                        | Post-commit failure looks like                                                                                                                                                                      |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /v1/chat/completions` (OpenAI wire) | **No error frame.** It degrades to a clean `finish_reason:"stop"` chunk + `data: [DONE]`. You **cannot** distinguish a mid-stream failure from a normal finish here — output may just be truncated. |
-| `POST /v1/messages` (Anthropic wire)      | A wire `event: error` frame, payload `{ "type":"error", "error":{ "type", "message" } }` (Anthropic's error `type`, **not** the unified `code`/`retryable`).                                        |
-| `POST /v1/run/:id` (`exec_mode:stream`)   | A terminal `event: error` frame, payload `{ "kind":"error", "error":{ code, message, retryable } }` (the unified error).                                                                            |
+| Streaming endpoint                        | Post-commit failure looks like                                                                                                                                                                                                                                                                                                                                    |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /v1/chat/completions` (OpenAI wire) | A terminal `data: {"error": {"message", "type", "param", "code"}}` frame, and the stream ends **without** `data: [DONE]`. The official OpenAI SDKs raise an `APIError` on it; raw consumers should treat a missing `[DONE]` as an abnormal end. `error.code` is the unified code; `error.type` is the OpenAI-style class (`server_error`, `rate_limit_error`, …). |
+| `POST /v1/messages` (Anthropic wire)      | A wire `event: error` frame, payload `{ "type":"error", "error":{ "type", "message" } }` (Anthropic's error `type`, **not** the unified `code`/`retryable`).                                                                                                                                                                                                      |
+| `POST /v1/run/:id` (`exec_mode:stream`)   | A terminal `event: error` frame, payload `{ "kind":"error", "error":{ code, message, retryable } }` (the unified error).                                                                                                                                                                                                                                          |
 
-The `code` / `retryable` / `retry_after_ms` fields live **only** on the non-2xx HTTP envelope (pre-commit) and on the `/v1/run` error frame. If you need reliable post-commit error visibility on chat, use the Anthropic dialect or the `/v1/run` job path rather than OpenAI-dialect streaming.
+The `retryable` / `retry_after_ms` fields live **only** on the non-2xx HTTP envelope (pre-commit) and on the `/v1/run` error frame; the OpenAI-wire error frame carries the unified `code` but not the retry hints.
 
 ## Idempotency
 

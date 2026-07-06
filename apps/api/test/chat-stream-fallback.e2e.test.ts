@@ -340,15 +340,16 @@ describe('streaming model-fallback (OpenAI dialect)', () => {
     expect(asRecord(body.error).code).toBe('upstream_error');
   });
 
-  it('(d) post-commit mid-stream error → still in-band (200, content then clean stop)', async () => {
+  it('(d) post-commit mid-stream error → still in-band (200, content then an error frame, no [DONE])', async () => {
     const res = await streamChat(POST_COMMIT_MODEL);
     // The first event committed → headers already flushed → 200, the mid-stream
-    // error is handled in-band (OpenAI renders it as a clean stop chunk + [DONE]).
+    // error is handled in-band (OpenAI renders it as a `data: {"error": ...}`
+    // frame and the stream ends WITHOUT [DONE] — never a forged clean stop).
     expect(res.status).toBe(200);
     const blocks = await readSseBlocks(res);
     const dataLines = blocks.map((b) => b.replace(/^data:\s?/, ''));
-    expect(dataLines.at(-1)).toBe('[DONE]');
-    const chunks = dataLines.filter((d) => d !== '[DONE]').map((d) => asRecord(JSON.parse(d)));
+    expect(dataLines).not.toContain('[DONE]');
+    const chunks = dataLines.map((d) => asRecord(JSON.parse(d)));
     const texts = chunks
       .map((c) => {
         const first = (c.choices as unknown[] | undefined)?.[0];
@@ -357,5 +358,15 @@ describe('streaming model-fallback (OpenAI dialect)', () => {
       .filter((t): t is string => typeof t === 'string' && t.length > 0);
     // The pre-error content ('pa') reached the client; the stream did not fall over.
     expect(texts.join('')).toBe('pa');
+    // The terminal frame is the OpenAI-wire error (official SDKs raise on it).
+    const last = asRecord(chunks.at(-1)?.error);
+    expect(last.code).toBe('upstream_error');
+    expect(last.type).toBe('server_error');
+    // No chunk forged a clean stop.
+    const finishReasons = chunks
+      .map((c) => (c.choices as unknown[] | undefined)?.[0])
+      .filter((f): f is Record<string, unknown> => f !== undefined)
+      .map((f) => asRecord(f).finish_reason);
+    expect(finishReasons).not.toContain('stop');
   });
 });
