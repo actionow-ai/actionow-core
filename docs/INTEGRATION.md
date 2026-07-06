@@ -45,7 +45,9 @@ your_app.users
 
 - `subject.external_id` is **Model-B**: you set it to your own user id, and it is
   **immutable**, so it's a perfect reverse join key.
-- A generated asset comes back as a `file_id`; store that, not the bytes.
+- A generated media asset comes back as a directly-fetchable **url** in the job
+  output (`output.assets[].url`), not a `file_id`; store the `job_id` and re-fetch —
+  never mirror the bytes. (`file_id`s are for files **you** upload — see Step 5.)
 - An async generation returns a `job_id`; store that against the request row so a
   webhook (or a poll) can resolve it back to the user.
 
@@ -172,13 +174,22 @@ const res = await fetch(`${baseUrl}/v1/chat/completions`, {
 for await (const frame of consumeSse(res)) {
   if (frame.data === SSE_DONE) break;
   const chunk = JSON.parse(frame.data); // chat.completion.chunk
+  if (chunk.error) throw new Error(`stream failed: ${chunk.error.code}: ${chunk.error.message}`);
   process.stdout.write(chunk.choices?.[0]?.delta?.content ?? '');
 }
 ```
 
 The pre-flight credit hold runs **before** the first SSE byte, so an
 insufficient-credits / invalid-input failure is a real non-2xx HTTP error, not an
-in-band frame.
+in-band frame. A **post-commit** upstream failure (after streaming has begun)
+instead arrives as a terminal `data: {"error":{…}}` frame and the stream ends
+**without** `[DONE]` — handle it (as above) and treat a missing `[DONE]` as an
+abnormal end.
+
+When one model name is served by several channels, core routes automatically. To
+**pin** a call to a specific channel (e.g. an official key vs a reseller), send the
+`X-Actionow-Route-Tag` header, or bind the key to a route group — see the
+`actionow-integration` skill's _Pinning a channel_ section.
 
 ### Step 4 — async media (data plane, submit + poll)
 
@@ -199,10 +210,11 @@ const data = createActionowClient({ baseUrl, token: apiKey });
 const job = await submitAndWait(
   data,
   'image-relay',
-  { inputs: { prompt: 'a red bicycle' }, end_user: subjectId },
+  { inputs: { prompt: 'a red bicycle' } }, // the ak_ is subject-scoped → spend attributes automatically
   { pollMs: 1500, timeoutMs: 180_000 },
 );
-if (job.status === 'succeeded') console.log(job.output); // resolve any file_id via /v1/files
+// output for a media relay = { kind:"media", assets:[{ url, mime, … }] }; urls are directly fetchable
+if (job.status === 'succeeded') console.log(job.output);
 ```
 
 The **push alternative** to polling: submit with `exec_mode:"async-callback"` +
@@ -219,13 +231,13 @@ direct-to-storage (no API request / no credits).
 curl -sX POST "$CORE/v1/files/presign-upload" \
   -H "authorization: Bearer $AK" -H 'content-type: application/json' \
   -d '{"filename":"a.png","content_type":"image/png","size":12345}'
-# → { file_id, upload_url, key, expires_in }
+# → { file_id, upload_url, key, expires_in, public_url }   # public_url: stable non-expiring link (null if unconfigured)
 # 2. PUT bytes to upload_url (the storage host)
 curl -sX PUT "$UPLOAD_URL" -H 'content-type: image/png' --data-binary @a.png
 # 3. confirm
 curl -sX POST "$CORE/v1/files/$FILE_ID/confirm" -H "authorization: Bearer $AK"
 # download grant
-curl -s "$CORE/v1/files/$FILE_ID/url" -H "authorization: Bearer $AK"   # → { url, expires_in }
+curl -s "$CORE/v1/files/$FILE_ID/url" -H "authorization: Bearer $AK"   # → { url, expires_in, public_url }
 ```
 
 ```ts

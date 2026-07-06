@@ -62,7 +62,7 @@ Model-A 的 subject 只有 email+password、**没有 `external_id`**,且 `extern
 1. **双 client 隔离**:控制面 USER JWT 仅服务端;数据面 `ak_` 按端用户。
 2. **只存 ID,不镜像数据**:存 `subject_id`/`file_id`/`job_id`,余额/用量按需回源读。
 3. **钱是 µcredit 字符串**:`BigInt` 解析,绝不 `Number`(µcredit = 线上的 µUSD,1 credit = $1 = 1e6 µUSD);`expiresIn` 是时长字符串(`"12h"`)不是秒。
-4. **按 `retryable` 重试**:绝不重试 `402`/`400`;billed `/v1/run` 重试带 body `idempotency_key`。
+4. **按 `retryable` 重试**:绝不重试 `402`/`400`;billed `/v1/run` 重试带 body `idempotency_key`,而中继路由(chat / embeddings / rerank / moderations / 转写)用 `Idempotency-Key` **header** 幂等(阻塞回放原 job;流式复用键会 `400`,每次流式重试换新键)。
 5. **webhook 原始字节验签 → 快速 ack → 回拉 `GET /v1/jobs/:id`**(回调体只是 `{job_id}` 最小 ping);`callback_url` 必须公网可达。
 6. **`end_user = <external_id>`**,不是 subject UUID;且 `end_user` 只在 `/v1/run` 生效(chat 靠 key 的绑定 subject 归属)。
 7. **SDK 类型面窄**:整个中继方言 + `/console/{subjects,redeem,limit-plans}*` 未类型化 → 裸 `fetch`;typed = `/console/api-keys*`·`/console/payments*`·`/v1/{run,jobs,resources,files,audio/transcriptions}`。
