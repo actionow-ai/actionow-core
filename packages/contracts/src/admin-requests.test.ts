@@ -34,11 +34,17 @@ describe('admin request contracts', () => {
     expect(() => updateApiKeyGroupSchema.parse({})).toThrow();
   });
 
-  it('generateCodesSchema clamps count to 1..1000', () => {
+  it('generateCodesSchema clamps count to 1..1000 and defaults maxUsesPerCode to 1', () => {
     const ok = { count: 5, creditsPerCode: 10 };
-    expect(generateCodesSchema.parse(ok)).toEqual(ok);
+    // maxUsesPerCode is optional at the boundary and defaults to 1 (single-use).
+    expect(generateCodesSchema.parse(ok)).toEqual({ ...ok, maxUsesPerCode: 1 });
+    expect(generateCodesSchema.parse({ ...ok, maxUsesPerCode: 10 })).toEqual({
+      ...ok,
+      maxUsesPerCode: 10,
+    });
     expect(() => generateCodesSchema.parse({ count: 0, creditsPerCode: 10 })).toThrow();
     expect(() => generateCodesSchema.parse({ count: 1001, creditsPerCode: 10 })).toThrow();
+    expect(() => generateCodesSchema.parse({ ...ok, maxUsesPerCode: 0 })).toThrow();
   });
 
   it('createSubjectSchema requires at least one of externalId or email', () => {
