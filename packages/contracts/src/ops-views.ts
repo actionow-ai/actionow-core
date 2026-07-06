@@ -180,6 +180,10 @@ export type RelayTraceView = z.infer<typeof relayTraceViewSchema>;
 export const redemptionCodeViewSchema = z.object({
   code: z.string(),
   credit_amount: z.string(),
+  /** How many times the code may be redeemed (1 = single-use). */
+  max_uses: z.number().int(),
+  /** Successful redemptions so far (`status` is `redeemed` once this hits `max_uses`). */
+  redeemed_count: z.number().int(),
   status: z.string(),
   redeemed_by_tenant: z.string().nullable(),
   redeemed_at: z.string().nullable(),

@@ -1773,6 +1773,12 @@
           "credit_amount": {
             "type": "string"
           },
+          "max_uses": {
+            "type": "integer"
+          },
+          "redeemed_count": {
+            "type": "integer"
+          },
           "status": {
             "type": "string"
           },
@@ -1795,6 +1801,8 @@
         "required": [
           "code",
           "credit_amount",
+          "max_uses",
+          "redeemed_count",
           "status",
           "redeemed_by_tenant",
           "redeemed_at",
@@ -4260,6 +4268,11 @@
             "type": "number",
             "minimum": 0,
             "exclusiveMinimum": true
+          },
+          "maxUsesPerCode": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
           },
           "expiresAt": {
             "type": "string",

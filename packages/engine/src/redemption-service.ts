@@ -11,40 +11,43 @@ export interface RedeemResult {
 }
 
 /**
- * Redeem a code for a tenant (§C.3): atomically claim the code, then — only when
- * THIS call won the claim — credit the tenant's account via the existing `topUp`
- * ledger path (one `topup` ledger row). Idempotent on the code: a re-claim
- * returns `{redeemed:false}` and credits nothing (the claim UPDATE matched no
- * row). Throws `resource_not_found` for an unknown code, `invalid_input` for an
- * expired one, and `internal_error` when the tenant has no account.
- *
- * The console redeem route (Track B) calls this with the JWT-resolved tenant.
+ * Redeem one use of a code for a tenant (§C.3): consume a use (multi-use aware —
+ * a tenant gets at most one use), then — only when THIS call won a use — credit
+ * the tenant's account via the existing `topUp` ledger path (one `topup` ledger
+ * row). The claim + credit run in ONE transaction so a consumed use is never left
+ * uncredited (and a failed credit rolls back the use). Idempotent on the code: a
+ * re-claim (exhausted / already-redeemed-by-this-tenant) returns `{redeemed:false}`
+ * and credits nothing. Throws `resource_not_found` for an unknown code,
+ * `invalid_input` for an expired one, and `internal_error` when the tenant has no
+ * account.
  */
 export async function redeemCode(
   db: DbOrTx,
   code: string,
   tenantId: string,
 ): Promise<RedeemResult> {
-  const claim = await claimRedemptionCode(db, code, tenantId);
+  return db.transaction(async (tx) => {
+    const claim = await claimRedemptionCode(tx, code, tenantId);
 
-  if (!claim.claimed) {
-    if (claim.missing === true) {
-      throw engineError('resource_not_found', `code ${code} not found`);
+    if (!claim.claimed) {
+      if (claim.missing === true) {
+        throw engineError('resource_not_found', `code ${code} not found`);
+      }
+      if (claim.expired === true) throw engineError('invalid_input', `code ${code} expired`);
+      // Exhausted or already redeemed by this tenant → idempotent no-op.
+      return { redeemed: false };
     }
-    if (claim.expired === true) throw engineError('invalid_input', `code ${code} expired`);
-    // Already redeemed (by this or another tenant) → idempotent no-op.
-    return { redeemed: false };
-  }
 
-  if (claim.creditAmount === undefined) {
-    throw engineError('internal_error', 'claimed code missing credit_amount');
-  }
+    if (claim.creditAmount === undefined) {
+      throw engineError('internal_error', 'claimed code missing credit_amount');
+    }
 
-  const account = await getAccountByTenant(db, tenantId);
-  if (account === undefined) {
-    throw engineError('internal_error', `no account for tenant ${tenantId}`);
-  }
+    const account = await getAccountByTenant(tx, tenantId);
+    if (account === undefined) {
+      throw engineError('internal_error', `no account for tenant ${tenantId}`);
+    }
 
-  const balance = await topUp(db, account.id, tenantId, claim.creditAmount);
-  return { redeemed: true, balance };
+    const balance = await topUp(tx, account.id, tenantId, claim.creditAmount);
+    return { redeemed: true, balance };
+  });
 }

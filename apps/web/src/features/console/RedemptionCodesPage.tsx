@@ -42,13 +42,14 @@ export function RedemptionCodesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [count, setCount] = useState(10);
   const [creditsPerCode, setCreditsPerCode] = useState(0);
+  const [maxUsesPerCode, setMaxUsesPerCode] = useState(1);
   const [expiresAt, setExpiresAt] = useState('');
   const expiryId = useFieldId();
   const [minted, setMinted] = useState<string[] | null>(null);
 
   const generate = useMutation({
     mutationFn: () => {
-      const body: GenerateCodesBody = { count, creditsPerCode };
+      const body: GenerateCodesBody = { count, creditsPerCode, maxUsesPerCode };
       if (expiresAt.trim() !== '') body.expiresAt = isoMidnight(expiresAt.trim());
       return api.generateCodes(body);
     },
@@ -116,6 +117,13 @@ export function RedemptionCodesPage() {
       width: '120px',
     },
     {
+      key: 'uses',
+      header: t('redemptionCodes.cols.uses'),
+      numeric: true,
+      cell: (r) => `${String(r.redeemed_count)} / ${String(r.max_uses)}`,
+      width: '90px',
+    },
+    {
       key: 'redeemedBy',
       header: t('redemptionCodes.cols.redeemedBy'),
       width: '200px',
@@ -179,6 +187,13 @@ export function RedemptionCodesPage() {
           label={t('redemptionCodes.form.creditPerCode')}
           value={creditsPerCode}
           onChange={setCreditsPerCode}
+          min={1}
+          step={1}
+        />
+        <NumberField
+          label={t('redemptionCodes.form.maxUses')}
+          value={maxUsesPerCode}
+          onChange={setMaxUsesPerCode}
           min={1}
           step={1}
         />

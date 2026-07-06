@@ -2147,6 +2147,7 @@ export class AdminService {
         await createRedemptionCode(this.db, {
           code,
           creditAmount,
+          maxUses: dto.maxUsesPerCode,
           ...(expiresAt !== undefined ? { expiresAt } : {}),
         });
       } catch (err) {

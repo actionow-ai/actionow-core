@@ -12,6 +12,8 @@ import type { RedemptionCodeView } from '../../lib/api/types';
 const code: RedemptionCodeView = {
   code: 'GIFT-1',
   credit_amount: '5000000',
+  max_uses: 1,
+  redeemed_count: 0,
   status: 'unused',
   redeemed_by_tenant: null,
   redeemed_at: null,
