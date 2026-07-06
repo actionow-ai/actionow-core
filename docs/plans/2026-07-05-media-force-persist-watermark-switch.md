@@ -25,34 +25,38 @@ Making persist **required** means: on failure the job must **fail and release it
 hold** (not settle) — a change to the billing-critical settle/hold path. That is
 why this is planned + reviewed, not cowboyed.
 
-## Mechanism decision
+## Mechanism decision — per-request parameter (DECIDED 2026-07-05)
 
-**Recommended: a settings-driven switch (migration-free).**
+**Per-request `require_persist` on `runBodySchema`** (founder call: caller-controlled,
+not config-driven). The flag rides the request and is persisted on the `job` row so
+it reaches the worker at settle time.
 
-- New `SETTINGS_REGISTRY` key `MEDIA_REQUIRE_PERSIST` (bool, env-default `false`),
-  read via the existing `SettingsResolver`; optional per-tenant override through
-  `account.config` (already jsonb — no schema change). Compliance is a
-  tenant/jurisdiction policy, so tenant/global scope fits better than per-call.
-- Backward-compatible: default `false` → today's best-effort behavior unchanged.
+- `require_persist?: boolean` on `POST /v1/run` body, default `false` (backward-
+  compatible — today's best-effort behavior unchanged when omitted/false).
+- Requires a `job.require_persist` column (a `boolean NOT NULL DEFAULT false`
+  add — metadata-only on PG 11+, no rewrite/lock on the hot table; not an FK, so no
+  FK-naming rule; no new index).
 
-**Alternative considered — per-request `require_persist` on `runBodySchema`:**
-rejected for v1 because the flag must reach the worker via the `job` row, and
-`job` has no options column → a migration on the hot `job` table. Can be added
-later on top of the settings switch if a per-call override is needed.
+_(A settings/tenant-level default was considered and set aside per the founder's
+"参数可控，不要配置驱动" call; a tenant default could layer on later.)_
 
-## Changes (settings-driven)
+## Changes (per-request)
 
-1. `packages/contracts` — add `MEDIA_REQUIRE_PERSIST` to the settings registry.
-2. `packages/engine/src/media-result.ts` — `persistMediaResult` gains
+1. `packages/contracts/src/data-plane.ts` — add `require_persist: z.boolean().optional()`
+   (default false) to `runBodySchema`; regenerate openapi + SDK.
+2. `packages/db` — migration: `job.require_persist boolean NOT NULL DEFAULT false`.
+3. `apps/api/src/execution/run.service.ts` — thread `body.require_persist` into the
+   inserted `job` row.
+4. `packages/engine/src/media-result.ts` — `persistMediaResult` gains
    `requirePersist?: boolean`; when true and persistence would yield
    `persisted:false` (empty assets / caught error / no storage), **throw**
    `PersistRequiredError` (new typed error) instead of returning `persisted:false`.
-3. `packages/engine/src/execution-service.ts` (JobRunner) — the settle path
+5. `packages/engine/src/execution-service.ts` (JobRunner) — the settle path
    catches `PersistRequiredError` → route to `failJob` (releasing the hold) with a
    `persist_required` unified error, **exactly like any other settle-time failure**
    (reuse the existing fail+release path; do not add a new hold path).
-4. The 3 callers read `MEDIA_REQUIRE_PERSIST` (tenant-resolved) and pass
-   `requirePersist` into `persistMediaResult`.
+6. The 3 callers (`job-exec.processor`, `media-dialect.service`, `callbacks.service`)
+   read `job.require_persist` and pass `requirePersist` into `persistMediaResult`.
 
 ## Verification
 

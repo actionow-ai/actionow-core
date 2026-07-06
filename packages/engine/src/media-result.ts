@@ -1,5 +1,21 @@
 import type { Asset, MediaResult, StorageProvider } from '@actionow/contracts';
 
+/**
+ * Thrown by {@link persistMediaResult} ONLY when `requirePersist` is set and the
+ * asset could not be persisted to durable storage (no assets, or a fetch/put
+ * error). The JobRunner catches it and FAILS the job (releasing the hold, no
+ * charge) instead of settling on the transient upstream provider URL. When
+ * `requirePersist` is false/absent the function keeps its best-effort,
+ * never-throw contract and returns `persisted:false`.
+ */
+export class PersistRequiredError extends Error {
+  readonly code = 'persist_required';
+  constructor(message: string) {
+    super(message);
+    this.name = 'PersistRequiredError';
+  }
+}
+
 /** The bytes + content type sourced from an upstream URL (or decoded from b64). */
 export interface FetchedBytes {
   bytes: Uint8Array;
@@ -30,6 +46,14 @@ export interface PersistMediaResultInput {
   jobId: string;
   /** The canonical media result whose assets are copied into durable storage. */
   result: MediaResult;
+  /**
+   * When true, persistence is REQUIRED: if it can't happen (no assets, fetch/put
+   * error) this throws {@link PersistRequiredError} instead of returning
+   * `persisted:false`, so the JobRunner fails the job (hold released, no charge)
+   * rather than settling on the transient upstream URL. Default false =
+   * best-effort (never throws). The compliance/watermark force-persist switch.
+   */
+  requirePersist?: boolean;
 }
 
 export interface PersistMediaResultOutput {
@@ -102,6 +126,9 @@ export async function persistMediaResult(
 ): Promise<PersistMediaResultOutput> {
   const { result } = input;
   if (result.assets.length === 0) {
+    if (input.requirePersist === true) {
+      throw new PersistRequiredError('media result has no assets to persist');
+    }
     return { persisted: false, result, objects: [] };
   }
 
@@ -137,7 +164,13 @@ export async function persistMediaResult(
     }
 
     return { persisted: true, result: { ...result, assets: rewritten }, objects };
-  } catch {
+  } catch (err) {
+    if (err instanceof PersistRequiredError) throw err;
+    if (input.requirePersist === true) {
+      throw new PersistRequiredError(
+        `media persistence failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
     // Best-effort: settle with the temp upstream URL rather than failing the job.
     return { persisted: false, result, objects: [] };
   }

@@ -258,7 +258,7 @@ export class MediaDialectService {
     if (storage === null || publicBaseUrl === undefined) return undefined;
     const db = this.db;
     const bucket = this.env.STORAGE_BUCKET ?? '';
-    return async ({ tenantId, jobId, result }) => {
+    return async ({ tenantId, jobId, result, requirePersist }) => {
       const persisted = await persistMediaResult({
         storage,
         publicBaseUrl,
@@ -267,6 +267,7 @@ export class MediaDialectService {
         result,
         fetchBytes: fetchBytesWithTimeout,
         putBytes: putBytesWithTimeout,
+        ...(requirePersist === true ? { requirePersist: true } : {}),
       });
       for (const obj of persisted.objects) {
         try {

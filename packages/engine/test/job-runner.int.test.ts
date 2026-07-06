@@ -19,6 +19,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { BreakerStore, RoutableChannelRef } from '../src/breaker.js';
 import type { JobProgressEvent } from '../src/job-progress.js';
 import { type JobExecutionContext, JobRunner } from '../src/job-runner.js';
+import { PersistRequiredError } from '../src/media-result.js';
 
 /**
  * A recording {@link BreakerStore}: `filterAvailable` drops `excludeIds`, and
@@ -120,7 +121,7 @@ const IMAGE_PRICEBOOK: PricebookEntry = {
   spec: { method: 'unit', dimensions: { images: { rate: 100 } } },
 };
 
-async function makeQueuedJob(s: Seed, hold: bigint): Promise<Job> {
+async function makeQueuedJob(s: Seed, hold: bigint, requirePersist = false): Promise<Job> {
   const ok = await holdCredits(db, s.accountId, hold);
   if (!ok) throw new Error('hold failed in fixture');
   return createJob(db, {
@@ -130,6 +131,7 @@ async function makeQueuedJob(s: Seed, hold: bigint): Promise<Job> {
     execMode: 'async-poll',
     inputs: { prompt: 'a cat' },
     quotedCredits: hold,
+    ...(requirePersist ? { requirePersist: true } : {}),
   });
 }
 
@@ -638,5 +640,108 @@ describe('JobRunner.settle — optional media persistence (async path)', () => {
     // The mock emits https://mock.local/{upstreamHandle}; settle must store it verbatim.
     const output = settled?.output as Record<string, unknown> | undefined;
     expect(output?.image_url).toBe(`https://mock.local/${handle}`);
+  });
+
+  it('require_persist: a persist failure FAILS the job, releasing the hold with NO charge', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n, true);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 0 }));
+    const runner = new JobRunner({
+      db,
+      adapters,
+      loadContext: () => Promise.resolve(contextFor(s)),
+      resolveSecret: () => Promise.resolve(undefined),
+      http: { request: () => Promise.reject(new Error('no http')) },
+      maxPolls: 5,
+      pollIntervalMs: 0,
+      sleep: () => Promise.resolve(),
+      // Simulate required persistence that can't complete (e.g. storage down).
+      persistMediaResult: () => Promise.reject(new PersistRequiredError('storage down')),
+    });
+
+    await runner.process(job.id);
+
+    const settled = await getJob(db, job.id);
+    expect(settled?.status).toBe('failed');
+    expect(settled?.error).toMatchObject({ code: 'job_failed' });
+    // The billing invariant: hold RELEASED, balance UNCHANGED — not charged, not leaked.
+    expect(await readAccount(s.accountId)).toEqual({ balance: 1_000_000n, held: 0n });
+    // failJob path (not settleJob) → zero settle ledger rows.
+    const settleRows = (
+      await db.select().from(ledgerTxn).where(eq(ledgerTxn.jobId, job.id))
+    ).filter((l) => l.type === 'settle');
+    expect(settleRows).toHaveLength(0);
+    // No succeeded usage_log mirror for a failed job.
+    const logs = await db
+      .select()
+      .from(schema.usageLog)
+      .where(eq(schema.usageLog.tenantId, s.tenantId));
+    expect(logs).toHaveLength(0);
+  });
+
+  it('require_persist with NO persister configured (storage off) FAILS instead of settling on upstream', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n, true);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 0 }));
+    const runner = buildRunner(s, adapters); // omits persistMediaResult (storage unconfigured)
+
+    await runner.process(job.id);
+
+    const settled = await getJob(db, job.id);
+    expect(settled?.status).toBe('failed');
+    expect(await readAccount(s.accountId)).toEqual({ balance: 1_000_000n, held: 0n });
+  });
+
+  it('require_persist: when persistence SUCCEEDS the job settles + charges normally', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n, true);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 0 }));
+    const runner = new JobRunner({
+      db,
+      adapters,
+      loadContext: () => Promise.resolve(contextFor(s)),
+      resolveSecret: () => Promise.resolve(undefined),
+      http: { request: () => Promise.reject(new Error('no http')) },
+      maxPolls: 5,
+      pollIntervalMs: 0,
+      sleep: () => Promise.resolve(),
+      persistMediaResult: (input) => Promise.resolve({ result: input.result, objects: [] }),
+    });
+
+    await runner.process(job.id);
+
+    const settled = await getJob(db, job.id);
+    expect(settled?.status).toBe('succeeded');
+    // Charged the 100 µcredit cost, hold released (no regression from require_persist).
+    expect(await readAccount(s.accountId)).toEqual({ balance: 999_900n, held: 0n });
+  });
+
+  it('only PersistRequiredError diverts: a generic persist throw is NOT converted to a hold-releasing fail', async () => {
+    const s = await seed(1_000_000n);
+    const job = await makeQueuedJob(s, 1_000n, true);
+    const adapters = new AdapterRegistry();
+    adapters.register(createAsyncMediaMock({ readyAfterPolls: 0 }));
+    const runner = new JobRunner({
+      db,
+      adapters,
+      loadContext: () => Promise.resolve(contextFor(s)),
+      resolveSecret: () => Promise.resolve(undefined),
+      http: { request: () => Promise.reject(new Error('no http')) },
+      maxPolls: 5,
+      pollIntervalMs: 0,
+      sleep: () => Promise.resolve(),
+      persistMediaResult: () => Promise.reject(new Error('unexpected bug')),
+    });
+
+    // A non-PersistRequiredError is re-thrown (preserving prior behavior), NOT
+    // silently routed to failJob — so it does not mask a bug as a clean fail.
+    await expect(runner.process(job.id)).rejects.toThrow('unexpected bug');
+    // The job never reached a terminal settle/fail via the persist path — the hold
+    // stays until the reaper (correct: a bug must not release/charge silently).
+    const after = await getJob(db, job.id);
+    expect(after?.status).toBe('running');
   });
 });

@@ -274,6 +274,7 @@ export class RunService {
       idempotencyKey: body.idempotency_key,
       endUser: body.end_user,
       estimatedUsage: body.estimated_usage,
+      requirePersist: body.require_persist ?? false,
     };
     // 染色: record the canary tag on the engine's relay_trace + usage_log rows.
     if (routeTag !== undefined) req.routeTag = routeTag;

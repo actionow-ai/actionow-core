@@ -150,6 +150,14 @@ export interface RunRequest {
   idempotencyKey?: string | undefined;
   endUser?: string | undefined;
   /**
+   * Force-persist the media output (compliance/watermark switch): when true and
+   * the asset can't be persisted to core storage, the job FAILS (hold released,
+   * no charge) instead of settling on the transient upstream URL. Carried onto
+   * the job snapshot so the worker honors it at settle. Default false. No effect
+   * on non-media runs.
+   */
+  requirePersist?: boolean | undefined;
+  /**
    * When set, a best-effort `usage_log` row is mirrored on settle with this model
    * name and the run's token usage (§C.4), populating the console/admin usage
    * views. Absent for non-relay runs (media/dify) → no log written. A log-insert
@@ -1268,6 +1276,7 @@ export class ExecutionService {
       idempotencyKey: req.idempotencyKey ?? null,
       endUser: req.endUser ?? null,
       subjectId: req.subjectId ?? null,
+      requirePersist: req.requirePersist ?? false,
     });
   }
 

@@ -82,7 +82,7 @@ export function createJobExecProcessor(runtime: WorkerRuntime): JobExecProcessor
 function buildPersistMediaResult(runtime: WorkerRuntime): PersistMediaResultFn | undefined {
   const { storage, publicBaseUrl, fetchBytes, putBytes } = runtime;
   if (storage === null || publicBaseUrl === undefined) return undefined;
-  return async ({ tenantId, jobId, result }) => {
+  return async ({ tenantId, jobId, result, requirePersist }) => {
     const persisted = await persistMediaResult({
       storage,
       publicBaseUrl,
@@ -91,6 +91,7 @@ function buildPersistMediaResult(runtime: WorkerRuntime): PersistMediaResultFn |
       result,
       fetchBytes,
       putBytes,
+      ...(requirePersist === true ? { requirePersist: true } : {}),
     });
     for (const obj of persisted.objects) {
       try {

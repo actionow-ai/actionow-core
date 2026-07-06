@@ -1,0 +1,1 @@
+ALTER TABLE "job" ADD COLUMN "require_persist" boolean DEFAULT false NOT NULL;

@@ -13859,6 +13859,7 @@ export interface components {
             estimated_usage?: {
                 [key: string]: number;
             };
+            require_persist?: boolean;
         };
         PresignUploadBody: {
             filename: string;

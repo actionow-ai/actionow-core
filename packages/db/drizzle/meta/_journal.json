@@ -463,6 +463,13 @@
       "when": 1782881002570,
       "tag": "0065_slim_magus",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1783311136889,
+      "tag": "0066_amused_thing",
+      "breakpoints": true
     }
   ]
 }
