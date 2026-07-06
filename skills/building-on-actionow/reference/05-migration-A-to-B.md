@@ -26,4 +26,4 @@
 ## 反模式
 
 - `PATCH /console/subjects/:id` 想改 `external_id` —— 该字段不可变,会被忽略/拒绝。
-- 为老用户**新建重复 subject**(想让它带 external_id)—— email 会冲突(`registerMember` 已占用),而且会**丢掉**老 subject 的余额/用量。用 `subject_id` 关联即可。
+- 为老用户**新建重复 subject**(想让它带 external_id)—— 带同 email 会撞唯一索引;只带 `externalId` 会**静默成功**并把该用户的余额/用量劈成两半。核心规则:**根本不要建第二个 subject**,用 `subject_id` 关联即可。

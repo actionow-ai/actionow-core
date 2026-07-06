@@ -65,7 +65,7 @@ digraph choose {
 2. **只存 core 的 ID,不镜像数据**:在你的用户行上存 `subject_id` / `file_id` / `job_id`,不要把 core 的余额/用量/文件复制进你的库(federation)。
 3. **钱是 µcredit 字符串**:响应里的钱用 `BigInt` 解析,绝不用 `Number`;请求里的钱是人类数字。见 [../actionow-integration/reference/04-billing-and-limits.md](../actionow-integration/reference/04-billing-and-limits.md)。
 4. **按 `retryable` 标志重试**:绝不重试 `402`/`400`;billed 的 `/v1/run` 重试带 body `idempotency_key`。见 [../actionow-integration/reference/05-errors-and-idempotency.md](../actionow-integration/reference/05-errors-and-idempotency.md)。
-5. **webhook 原始字节验签 → 快速 ack → 回拉 job**:回调体只是 `{ job_id }` 最小 ping,真正结果 `GET /v1/jobs/:id`。见 [../actionow-integration/reference/06-webhooks.md](../actionow-integration/reference/06-webhooks.md)。
+5. **webhook 原始字节验签 → 快速 ack → 回拉 job**:回调体是最小 ping(`{ job_id }`,失败时附 `error`/`status`)——验签后回拉 `GET /v1/jobs/:id` 为准。见 [../actionow-integration/reference/06-webhooks.md](../actionow-integration/reference/06-webhooks.md)。
 6. **`end_user = <你的 external_id>`,不是 subject UUID**:core 按 `external_id` 归属/建号。见 [../actionow-integration/reference/01-authentication.md](../actionow-integration/reference/01-authentication.md)。
 
 ## 子技能
