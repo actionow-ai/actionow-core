@@ -1,6 +1,7 @@
 import type { StorageProviderConfig } from '@actionow/contracts';
 import { createApiKey, schema } from '@actionow/db';
 import type { JobQueuePort } from '@actionow/engine';
+import type { AppEnv } from '@actionow/infra';
 import { createS3StorageProvider, FakeRateLimitRedis, RedisRateLimiter } from '@actionow/infra';
 import { CreateBucketCommand } from '@aws-sdk/client-s3';
 import type { INestApplication } from '@nestjs/common';
@@ -31,6 +32,10 @@ let client: ReturnType<typeof postgres>;
 let db: PostgresJsDatabase<typeof schema>;
 let app: INestApplication;
 let filesService: FilesService;
+let storage: ReturnType<typeof createS3StorageProvider>;
+
+/** A public CDN base to prove the stable `public_url` derivation (#3). */
+const PUBLIC_BASE = 'https://cdn.files-test.example';
 
 const noopQueue: JobQueuePort = {
   enqueueExec: () => Promise.reject(new Error('files path must not enqueue')),
@@ -62,7 +67,7 @@ beforeAll(async () => {
     secretAccessKey: MINIO_PASSWORD,
     forcePathStyle: true,
   };
-  const storage = createS3StorageProvider(storageCfg);
+  storage = createS3StorageProvider(storageCfg);
   await storage.client.send(new CreateBucketCommand({ Bucket: BUCKET }));
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
@@ -134,6 +139,8 @@ describe('POST/GET /v1/files over real MinIO', () => {
     expect(presign.body.upload_url).toContain('X-Amz-Signature');
     expect(presign.body.key).toMatch(new RegExp(`^${tenantId}/.+\\.txt$`));
     expect(presign.body.expires_in).toBeGreaterThan(0);
+    // No STORAGE_PUBLIC_BASE_URL configured in this app → public_url is null (but present).
+    expect(presign.body.public_url).toBeNull();
 
     // 2. real PUT to MinIO (global fetch). Without the non-AWS checksum fix this
     //    400s — so a 200 here also proves the fix end-to-end through the API.
@@ -153,6 +160,7 @@ describe('POST/GET /v1/files over real MinIO', () => {
     expect(confirm.body.status).toBe('ready');
     expect(confirm.body.size).toBe(body.byteLength);
     expect(confirm.body.etag).toBeTruthy();
+    expect(confirm.body.public_url).toBeNull();
 
     // 4. get-url → real GET returns the exact bytes.
     const urlRes = await request(app.getHttpServer())
@@ -160,11 +168,51 @@ describe('POST/GET /v1/files over real MinIO', () => {
       .set('authorization', `Bearer ${key}`)
       .expect(200);
     expect(urlRes.body.url).toContain('X-Amz-Signature');
+    expect(urlRes.body.public_url).toBeNull();
 
     const getRes = await fetch(String(urlRes.body.url));
     expect(getRes.status).toBe(200);
     const downloaded = new Uint8Array(await getRes.arrayBuffer());
     expect(new TextDecoder().decode(downloaded)).toBe('the quick brown fox');
+  });
+
+  it('exposes a stable, non-expiring public_url when STORAGE_PUBLIC_BASE_URL is set (#3)', async () => {
+    // Drive FilesService directly with an env that carries a public CDN base, so
+    // presign / confirm / get-url all surface `{base}/{key}` — the durable link a
+    // client-uploaded artifact (e.g. a self-rendered mp4) can persist, alongside
+    // the still-expiring presigned GET.
+    const tenantId = await seedTenant('cdn-tenant');
+    const env = {
+      STORAGE_BUCKET: BUCKET,
+      STORAGE_MAX_UPLOAD_BYTES: 1024,
+      STORAGE_PUBLIC_BASE_URL: PUBLIC_BASE,
+    } as unknown as AppEnv;
+    const svc = new FilesService(db, env, storage);
+    const ctx = { tenantId, subjectId: null } as unknown as TenantContext;
+
+    const bytes = new TextEncoder().encode('a tiny clip');
+    const presign = await svc.presignUpload(
+      { filename: 'clip.mp4', content_type: 'video/mp4', size: bytes.byteLength },
+      ctx,
+    );
+    const expected = `${PUBLIC_BASE}/${presign.key}`;
+    expect(presign.public_url).toBe(expected);
+
+    // Real PUT so confirm's head() finds the object.
+    const put = await fetch(presign.upload_url, {
+      method: 'PUT',
+      headers: { 'content-type': 'video/mp4' },
+      body: bytes,
+    });
+    expect(put.status).toBe(200);
+
+    const confirmed = await svc.confirm(presign.file_id, ctx);
+    expect(confirmed.public_url).toBe(expected);
+
+    const url = await svc.getUrl(presign.file_id, ctx);
+    // The presigned GET is still expiring; the public_url is the stable one.
+    expect(url.url).toContain('X-Amz-Signature');
+    expect(url.public_url).toBe(expected);
   });
 
   it('confirm 400 invalid_input when the upload never landed', async () => {

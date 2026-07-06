@@ -3964,13 +3964,18 @@
           },
           "expires_in": {
             "type": "number"
+          },
+          "public_url": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
           "file_id",
           "upload_url",
           "key",
-          "expires_in"
+          "expires_in",
+          "public_url"
         ]
       },
       "FileView": {
@@ -3996,6 +4001,10 @@
           },
           "created_at": {
             "type": "string"
+          },
+          "public_url": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -4004,7 +4013,8 @@
           "size",
           "content_type",
           "etag",
-          "created_at"
+          "created_at",
+          "public_url"
         ]
       },
       "FileUrlResult": {
@@ -4015,11 +4025,16 @@
           },
           "expires_in": {
             "type": "number"
+          },
+          "public_url": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
           "url",
-          "expires_in"
+          "expires_in",
+          "public_url"
         ]
       },
       "CreateTenantBody": {
