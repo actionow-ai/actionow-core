@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.9](https://github.com/actionow-ai/actionow-core/compare/v0.0.8...v0.0.9) (2026-07-06)
+
+
+### Bug Fixes
+
+* **relay:** emit OpenAI-wire stream error frame and label served model on blocking responses ([#112](https://github.com/actionow-ai/actionow-core/issues/112)) ([2975eba](https://github.com/actionow-ai/actionow-core/commit/2975eba89ca5a0855d2e2cb7ce7942736e1a46a6))
+
 ## [0.0.8](https://github.com/actionow-ai/actionow-core/compare/v0.0.7...v0.0.8) (2026-07-06)
 
 
