@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.10](https://github.com/actionow-ai/actionow-core/compare/v0.0.9...v0.0.10) (2026-07-06)
+
+
+### Features
+
+* **billing:** multi-use redemption codes (卡密 redeemable N times) ([#119](https://github.com/actionow-ai/actionow-core/issues/119)) ([6ef9b62](https://github.com/actionow-ai/actionow-core/commit/6ef9b627ed0beca27655ba8d21427a02ea00ae75))
+
 ## [0.0.9](https://github.com/actionow-ai/actionow-core/compare/v0.0.8...v0.0.9) (2026-07-06)
 
 
