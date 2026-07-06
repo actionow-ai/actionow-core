@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.7](https://github.com/actionow-ai/actionow-core/compare/v0.0.6...v0.0.7) (2026-07-06)
+
+
+### Features
+
+* **files:** stable public_url on /v1/files + media force-persist switch ([#108](https://github.com/actionow-ai/actionow-core/issues/108)) ([137700e](https://github.com/actionow-ai/actionow-core/commit/137700e3e362e44b562a816228bc9a02871b4aff))
+
 ## [0.0.6](https://github.com/actionow-ai/actionow-core/compare/v0.0.5...v0.0.6) (2026-07-04)
 
 
