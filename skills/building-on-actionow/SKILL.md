@@ -9,6 +9,8 @@ description: Use when a team wants to build an AIGC application ON an Actionow /
 
 **actionow-core is a capability base (能力基座), not your whole backend.** You build an AIGC product on top of it and reuse its identity, credits, top-up, model relay, and file storage — while keeping your own users, product UX, prompts, and business data.
 
+> core 有两种用法。**用法 A · 全模态模型中转站**:一把租户级 `ak_` key 打 `/v1`,跨 chat / 图 / 视频 / 音频 / embeddings / rerank 全模态调用,不建 subject、不碰 `/console` 联邦——你只需要 [actionow-integration](../actionow-integration/SKILL.md),不需要本 skill。**用法 B · 基于 core 建应用(应用基座)**:在 A 的基础上,再把你自己的端用户联邦为 subject(每用户 key / 子钱包 / 限额 / 消费归属)。本 skill 讲的就是用法 B——用法 A 是它机制的严格子集,需要每用户钱包 / 限额 / 归属时再上 B。
+
 Two layers, two skills:
 
 - **[actionow-integration](../actionow-integration/SKILL.md) = 机制层** — how one call is written correctly (endpoints, auth, request/response, errors, billing, webhooks).

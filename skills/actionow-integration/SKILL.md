@@ -9,12 +9,20 @@ description: Use when a third-party app (or its coding agent) needs to integrate
 
 **Actionow (actionow-core) is a multi-tenant AI-relay gateway with an OpenAI-compatible `/v1` API.** You call it for chat / image / video / audio / embeddings, and it handles provider keys, routing, fallback, circuit-breaking, a credit ledger, payments, object storage, and a per-end-user billing identity.
 
-**Core principle — federation, not mirroring:** your app keeps its own database, users, and business logic. It runs a thin server that holds an Actionow credential and calls Actionow, referencing it **only by the stable IDs Actionow returns** — `subject_id`, `file_id`, `job_id`. If it touches a _provider key, a credit, or a stored byte_, it's Actionow's; everything that makes your product yours stays yours.
+Actionow core can be used **two ways** — pick the lighter one that fits:
+
+- **Mode A · Full-modality model gateway (模型中转站).** Point any OpenAI-compatible SDK at core's `/v1` with a single `ak_` key and call **chat / image / video / audio / embeddings / rerank** across every provider core fronts — routing, fallback, circuit-breaking, and one unified credit bill included. **No subjects, no `/console` federation.** Setup: create a tenant + account, fund the pool, mint one **tenant-level** `ak_` key (no `subjectId`), point your SDK at `baseURL`. This is core as your self-hosted multi-modal LLM gateway (think OpenRouter, in-house).
+- **Mode B · Build an app on core (应用基座).** Everything in A, **plus** federate _your own_ end-users as **subjects** — per-user `ak_` keys, sub-wallets, per-user limits & spend attribution — so you resell core's capabilities to your users behind your own product.
+
+Mode A is a strict subset of Mode B's mechanics — the _same_ `/v1` calls; Mode B only adds the per-end-user identity layer. **Start with A; adopt B when you need per-user wallets / limits / attribution.**
+
+**Mode B principle — federation, not mirroring:** your app keeps its own database, users, and business logic. It runs a thin server that holds an Actionow credential and calls Actionow, referencing it **only by the stable IDs Actionow returns** — `subject_id`, `file_id`, `job_id`. If it touches a _provider key, a credit, or a stored byte_, it's Actionow's; everything that makes your product yours stays yours. **Mode A skips this entirely** — no app-DB federation, no subjects; you just hold one tenant-level key and call `/v1`.
 
 **If you are a coding agent:** you almost certainly do NOT have Actionow's source code. This skill IS your contract. Do not invent endpoints, parameters, or response shapes — everything you need is in this skill and its `reference/` sub-skills. When unsure, run `scripts/smoke-test.sh` against a live gateway instead of guessing.
 
 ## When to use
 
+- Using core as a plain multi-modal model gateway — one tenant-level `ak_` key against `/v1`, no subjects/federation (Mode A).
 - Building an app _on top of_ an Actionow gateway (chatbot, image/video generator, RAG, agent backend).
 - Wiring up auth, credits/billing, async jobs, file uploads, or webhooks against `/v1/*` or `/console/*`.
 - Debugging a `401 / 402 / 429` from an Actionow gateway, or a mid-stream SSE error.
