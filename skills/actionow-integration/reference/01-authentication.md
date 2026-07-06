@@ -11,7 +11,7 @@ The four credentials, how to get them, and how to onboard your end-users. See th
 | **Admin service token** | `at_…`              | `Authorization: Bearer at_…`                          | `/admin/*`     | Platform operators — not you    |
 | **Member JWT**          | JWT (`typ:subject`) | `Authorization: Bearer <jwt>`                         | `/member/*`    | End-user (Model-A only)         |
 
-- The **console JWT is tenant-admin**: it can mint keys and move credits for _any_ subject in your tenant. Keep it server-side; never ship it to a browser.
+- The **console JWT is tenant-admin**: it can mint keys and move credits for _any_ subject in your tenant. Keep it server-side; never ship it to a browser. Console users carry a `tenant_role` of `admin` or `member`, and **every route in this doc is tenant-admin-gated** — a member-seat JWT gets `403`. Use a tenant-admin JWT.
 - An API key is stored server-side only as a **SHA-256 hash** — the plaintext `ak_…` is shown **once** at creation and is unrecoverable. Store it immediately or plan to rotate.
 
 ## Getting a console JWT
@@ -65,7 +65,7 @@ Runnable end-to-end: [scripts/onboard-subject.mjs](../scripts/onboard-subject.mj
 | Attribution        | Whole tenant                                                           | One end-user                                      |
 | Serving many users | Yes — pass `end_user: <externalId>` per call on `/v1/run` to tag usage | N/A — already scoped                              |
 
-**`end_user` is your own user handle (the subject's `external_id`), NOT the subject UUID.** On `/v1/run`, Actionow resolves `end_user` by `external_id` (creating the subject if new) — passing a subject UUID would mis-attribute spend to a bogus new subject. On a **subject-scoped** key, omit `end_user` (already scoped); if you pass one it must be that same subject's `external_id`, else `401`.
+**`end_user` is your own user handle (the subject's `external_id`), NOT the subject UUID.** On `/v1/run`, Actionow resolves `end_user` by `external_id`. Auto-creation of unknown handles happens **only if your tenant's `jit_provisioning_enabled` config is true** (off by default — ask your platform operator); otherwise an unknown `end_user` is a hard `400 invalid_input`. When JIT is off, pre-create users via `POST /console/subjects` before their first `/v1/run` call. With JIT on, passing a subject UUID would mis-attribute spend to a bogus new subject. On a **subject-scoped** key, omit `end_user` (already scoped). If you do pass one, the `401` fires only when the handle resolves to a **different existing** subject — a handle matching no subject is silently ignored (the call attributes to the key's own subject), so don't rely on the `401` to catch typos.
 
 **Recommendation:** one subject-scoped key per end-user, so spend, governance limits, and job/file ownership all attribute to that subject automatically.
 
@@ -74,7 +74,7 @@ Runnable end-to-end: [scripts/onboard-subject.mjs](../scripts/onboard-subject.mj
 `POST /console/api-keys` accepts only `{ subjectId?, resourceAllowlist?, rateLimit? }`:
 
 - `resourceAllowlist`: restrict the key to specific resource ids (empty = all). A call to a disallowed `/v1/run/:resourceId` → `401 unauthorized`.
-- `rateLimit`: a per-key RPM cap.
+- `rateLimit`: an RPM cap — but it is applied per **(tenant, resource)**: the Redis minute-window is **shared across all your keys** hitting the same resource, and the key's value just overrides the cap on that shared bucket. For genuinely per-user throttling, bind an `rpm` limit-rule plan to the **subject** (see [04-billing-and-limits.md](04-billing-and-limits.md)).
 
 Governance plans are **not** bound on the key here — bind them to the **subject** via `POST /console/subjects/:id/limit-plan { planId }` (see [04-billing-and-limits.md](04-billing-and-limits.md)).
 
@@ -101,7 +101,7 @@ POST /auth/login-member      { email, password, tenantId }       → member JWT 
 
 **`tenantId` is required** on both — omitting it is a hard `400 invalid_input`. (Your app knows which tenant it operates under.)
 
-The member JWT unlocks the **read-only** self-service plane:
+The member JWT unlocks the self-service plane — mostly reads, plus a few self-service writes (profile/password edits and self-mint/revoke of the member's own `ak_` keys):
 
 | Route                                                   | Returns                             |
 | ------------------------------------------------------- | ----------------------------------- |

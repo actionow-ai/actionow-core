@@ -25,19 +25,19 @@ description: Use when a third-party app (or its coding agent) needs to integrate
 
 Every request belongs to exactly one plane, and each plane has its own credential. **An app backend almost only ever touches the first two.**
 
-| Plane             | Routes                                                                   | Credential                          | Who holds it                                           |
-| ----------------- | ------------------------------------------------------------------------ | ----------------------------------- | ------------------------------------------------------ |
-| **Data plane**    | `/v1/*` (chat, run, jobs, files, resources, embeddings…)                 | `ak_…` API key (per end-user)       | Your server, on the user's behalf                      |
-| **Control plane** | `/console/*` + `/auth/login` (subjects, keys, wallets, limits, payments) | Console **USER JWT** (tenant-admin) | Your server ONLY — high trust, never ship to a browser |
-| **Member plane**  | `/member/*` (read-only self-service)                                     | Member JWT (`typ:subject`)          | An end-user, only if you use Model-A auth              |
-| **Admin plane**   | `/admin/*` (platform operator)                                           | `at_…` service token                | Platform operators — **not** an app backend            |
+| Plane             | Routes                                                                                                                       | Credential                          | Who holds it                                           |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------ |
+| **Data plane**    | `/v1/*` (chat, run, jobs, files, resources, embeddings…)                                                                     | `ak_…` API key (per end-user)       | Your server, on the user's behalf                      |
+| **Control plane** | `/console/*` + `/auth/login` (subjects, keys, wallets, limits, payments)                                                     | Console **USER JWT** (tenant-admin) | Your server ONLY — high trust, never ship to a browser |
+| **Member plane**  | `/member/*` (self-service: read own identity/usage/balance/limits + edit profile/password + self-mint/revoke own `ak_` keys) | Member JWT (`typ:subject`)          | An end-user, only if you use Model-A auth              |
+| **Admin plane**   | `/admin/*` (platform operator)                                                                                               | `at_…` service token                | Platform operators — **not** an app backend            |
 
 Send any credential as `Authorization: Bearer <credential>`. The data-plane key also accepts `x-api-key: ak_…`.
 
 ## Two tenancy models for your end-users
 
 - **Model-B (recommended):** your app authenticates its own users. Mirror each as a **subject** with `external_id` = your user id (immutable → perfect reverse-join key), and mint each an `ak_…` key. Actionow never sees a password.
-- **Model-A:** Actionow authenticates the end-user (email+password under your tenant) via `/auth/register-member` / `/auth/login-member`, issuing a member JWT for the read-only `/member/*` plane.
+- **Model-A:** Actionow authenticates the end-user (email+password under your tenant) via `/auth/register-member` / `/auth/login-member`, issuing a member JWT for the self-service `/member/*` plane (read own identity/usage/balance/limits + edit profile/password + self-mint/revoke own `ak_` keys).
 
 Both attribute spend, limits, and ownership down to the individual subject. See [reference/01-authentication.md](reference/01-authentication.md).
 
@@ -79,19 +79,20 @@ For plain chat, prefer the OpenAI-compatible `POST /v1/chat/completions` (set `s
 
 ## Quick reference — most-used endpoints
 
-| Do this                                   | Call                                                                        | Plane   |
-| ----------------------------------------- | --------------------------------------------------------------------------- | ------- |
-| Chat (OpenAI wire, `stream:true` for SSE) | `POST /v1/chat/completions`                                                 | data    |
-| Anthropic / Gemini wire                   | `POST /v1/messages` · `POST /v1beta/models/:model:generateContent`          | data    |
-| Embeddings · rerank · moderation          | `POST /v1/embeddings` · `/v1/rerank` · `/v1/moderations`                    | data    |
-| List callable models                      | `GET /v1/models`                                                            | data    |
-| Run a resource (media etc.)               | `POST /v1/run/:resourceId`                                                  | data    |
-| Poll / stream / cancel a job              | `GET /v1/jobs/:id` · `GET /v1/jobs/:id/stream` · `POST /v1/jobs/:id/cancel` | data    |
-| Discover resources                        | `GET /v1/resources` · `GET /v1/resources/:id`                               | data    |
-| Upload a file                             | `POST /v1/files/presign-upload` → PUT → `POST /v1/files/:id/confirm`        | data    |
-| Download a file                           | `GET /v1/files/:id/url`                                                     | data    |
-| Onboard end-user                          | `POST /console/subjects` → `POST /console/api-keys`                         | control |
-| Fund                                      | `POST /console/redeem` · `POST /console/payments/intents`                   | control |
+| Do this                                   | Call                                                                                                     | Plane   |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------- |
+| Chat (OpenAI wire, `stream:true` for SSE) | `POST /v1/chat/completions`                                                                              | data    |
+| Anthropic / Gemini wire                   | `POST /v1/messages` · `POST /v1beta/models/:model:generateContent`                                       | data    |
+| Embeddings · rerank · moderation          | `POST /v1/embeddings` · `/v1/rerank` · `/v1/moderations`                                                 | data    |
+| List callable models                      | `GET /v1/models`                                                                                         | data    |
+| Run a resource (media etc.)               | `POST /v1/run/:resourceId`                                                                               | data    |
+| Image gen · TTS (OpenAI wire)             | `POST /v1/images/generations` · `POST /v1/audio/speech` (see [03](reference/03-media-jobs-and-files.md)) | data    |
+| Poll / stream / cancel a job              | `GET /v1/jobs/:id` · `GET /v1/jobs/:id/stream` · `POST /v1/jobs/:id/cancel`                              | data    |
+| Discover resources                        | `GET /v1/resources` · `GET /v1/resources/:id`                                                            | data    |
+| Upload a file                             | `POST /v1/files/presign-upload` → PUT → `POST /v1/files/:id/confirm`                                     | data    |
+| Download a file                           | `GET /v1/files/:id/url`                                                                                  | data    |
+| Onboard end-user                          | `POST /console/subjects` → `POST /console/api-keys`                                                      | control |
+| Fund                                      | `POST /console/redeem` · `POST /console/payments/intents`                                                | control |
 
 Full catalog of every public endpoint: [reference/endpoint-catalog.md](reference/endpoint-catalog.md).
 
@@ -100,19 +101,20 @@ Full catalog of every public endpoint: [reference/endpoint-catalog.md](reference
 1. **Chat is standard OpenAI wire.** Send `{"model","messages":[{"role","content"}],"stream"}` — the same body you'd send OpenAI. Nothing custom.
 2. **Money in responses is a µcredit decimal STRING**, not a number. `1 credit = 1_000_000 µcredit`. Parse with `BigInt`, never `Number`. Money in _request_ bodies is a human number (e.g. `amount_minor` in cents/fen).
 3. **`exec_mode` is exactly one of** `blocking | stream | async-poll | async-callback`. There is no bare `"async"`.
-4. **The credit hold runs BEFORE the first SSE byte**, so a pre-commit failure (`insufficient_credits` / `invalid_input` / `unauthorized` / `rate_limited`) is a real non-2xx HTTP error — check `res.ok` first. Post-commit errors are **dialect-specific**: OpenAI-wire chat has **no** error frame (it degrades to a clean `stop` + `[DONE]`); only `/v1/messages` (Anthropic) and `/v1/run` (`stream`) emit an `error` frame. See [05](reference/05-errors-and-idempotency.md).
+4. **The credit hold runs BEFORE the first SSE byte**, so a pre-commit failure (`insufficient_credits` / `invalid_input` / `unauthorized` / `rate_limited`) is a real non-2xx HTTP error — check `res.ok` first. Post-commit errors are in-band, **dialect-specific** frames: OpenAI-wire chat emits a terminal `data: {"error": …}` frame and ends **without** `[DONE]`; `/v1/messages` (Anthropic) and `/v1/run` (`stream`) emit an `error` event frame. See [05](reference/05-errors-and-idempotency.md).
 5. **Webhook deliveries are a minimal ping**, not the result: `{ job_id }` on success, `{ job_id, error }` on failure. Fetch `GET /v1/jobs/:id` for status/output/cost. Verify the signature over the **RAW request bytes** (`HMAC-SHA256(secret, rawBody)` vs `X-Actionow-Signature`) — never `JSON.parse`-then-restringify. `callback_url` must be a **public** http(s) URL (localhost is dead-lettered).
 6. **`end_user` is your external user handle (the subject's `external_id`), not the subject UUID** — Actionow resolves/creates the subject by it. Subject/key IDs are bare UUIDs; only the `ak_`/`at_`/`rt_` secrets carry prefixes.
-7. **The `Idempotency-Key` header is a no-op on `/v1/*`** (honored only on admin routes). For a safe-to-retry billed `/v1/run`, put `idempotency_key` in the **body**.
-8. **`/console/subjects` (and a few console routes) are not yet in the generated OpenAPI**, so `@actionow/sdk` doesn't type them — call those with plain `fetch`. `/console/api-keys` and all of `/v1/*` ARE typed.
+7. **The `Idempotency-Key` header IS billing-idempotent on the relay routes** (`/v1/chat/completions`, `/v1/messages`, `/v1beta/*`, `/v1/embeddings`, `/v1/rerank`, `/v1/moderations`, `/v1/audio/transcriptions`): a retried blocking POST replays the original job — no double-charge. It is NOT body-fingerprinted, so never reuse a key with a different body. An in-flight duplicate → `429` retryable; reusing a key on a **streaming** request → `400 invalid_input` (send a fresh key per stream attempt). The header is a no-op ONLY on `/v1/run` (put `idempotency_key` in the **body**) and `/v1/files`/`/v1/jobs`; it is also NOT honored on `/v1/images/generations` / `/v1/audio/speech`.
+8. **`/console/subjects` (and a few console routes) are not yet in the generated OpenAPI**, so `@actionow/sdk` doesn't type them — call those with plain `fetch`. `/console/api-keys` and the data-plane job/file surface (`/v1/run`, `/v1/jobs`, `/v1/resources`, `/v1/files`, `/v1/audio/transcriptions`) ARE typed; the relay dialect (`/v1/chat/completions`, `/v1/messages`, `/v1beta/*`, `/v1/embeddings`, `/v1/rerank`, `/v1/moderations`, `/v1/models`) and `/v1/jobs/:id/stream` are NOT — call those with plain `fetch` (see [07](reference/07-sdk-reference.md)).
 9. **Store IDs, not data.** Keep `subject_id`, `file_id`, `job_id`; never mirror Actionow's rows into your DB.
+10. **`response.model` is the SERVED model** — after fallback-chain degradation it can differ from the model you requested (blocking and streaming, since v0.0.9); the `x-actionow-channel` response header names the provider type that served. Do not assert `response.model === request.model`.
 
 ## Sub-skills (`reference/`)
 
 | File                                                                   | Read it when                                                                                                |
 | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | [01-authentication.md](reference/01-authentication.md)                 | Credentials, Model-A vs B, onboarding subjects, minting/rotating keys, resource allowlists                  |
-| [02-chat-and-relay.md](reference/02-chat-and-relay.md)                 | Chat (OpenAI/Anthropic/Gemini), streaming, embeddings, rerank, moderation, model discovery                  |
+| [02-chat-and-relay.md](reference/02-chat-and-relay.md)                 | Chat (OpenAI/Anthropic/Gemini), streaming, embeddings, rerank, moderation, model discovery, channel pinning |
 | [03-media-jobs-and-files.md](reference/03-media-jobs-and-files.md)     | `/v1/run`, exec modes, jobs polling/streaming/cancel, images/TTS/transcription, file upload/download        |
 | [04-billing-and-limits.md](reference/04-billing-and-limits.md)         | µcredit money, tenant pool + sub-wallets, hold→settle, funding, governance limits, checking balance/usage   |
 | [05-errors-and-idempotency.md](reference/05-errors-and-idempotency.md) | Error envelope, all 11 codes, retry semantics, `Idempotency-Key`, streaming error behavior                  |

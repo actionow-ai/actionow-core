@@ -31,7 +31,7 @@ core ──(webhook 最小 ping)──▶ 你的后端 ──(ak_)──▶ GET 
 
 `POST /console/subjects { externalId=<你的用户id> }` → 存 `subject.id`;`POST /console/api-keys { subjectId }` → 存 `plaintext`(`ak_`,仅一次)。机制:[../../actionow-integration/reference/01-authentication.md](../../actionow-integration/reference/01-authentication.md)。
 
-> `/console/subjects`(及 `/sub-account/*`、`/limit-plan`)、`/console/redeem`、`/console/limit-plans` 都**不在** OpenAPI —— 用裸 `fetch`;`/console/api-keys`、`/console/payments/intents` 有类型。同理**整个中继方言**(`/v1/chat/completions`、`/v1/embeddings` 等)也未类型化,只有 `/v1/run`·`/v1/jobs`·`/v1/resources`·`/v1/files` 有类型。完整「哪些 SDK 有类型、哪些走裸 fetch」清单见 [../../actionow-integration/reference/07-sdk-reference.md](../../actionow-integration/reference/07-sdk-reference.md)。
+> `/console/subjects`(及 `/sub-account/*`、`/limit-plan`)、`/console/redeem`、`/console/limit-plans` 都**不在** OpenAPI —— 用裸 `fetch`;`/console/api-keys`、`/console/payments/intents` 有类型。同理**整个中继方言**(`/v1/chat/completions`、`/v1/embeddings`、`/v1/audio/transcriptions` 等)与 `/auth/refresh`、`/auth/logout` 也未类型化,只有 `/v1/run`·`/v1/jobs`·`/v1/resources`·`/v1/files` 有类型。完整「哪些 SDK 有类型、哪些走裸 fetch」清单见 [../../actionow-integration/reference/07-sdk-reference.md](../../actionow-integration/reference/07-sdk-reference.md)。
 
 ### B. 充值 / 额度
 
@@ -43,7 +43,7 @@ core ──(webhook 最小 ping)──▶ 你的后端 ──(ak_)──▶ GET 
 
 ### D. 媒体 / 异步
 
-`POST /v1/run/:resourceId`(`async-poll` 轮询 或 `async-callback` webhook)→ `GET /v1/jobs/:id`。机制:[../../actionow-integration/reference/03-media-jobs-and-files.md](../../actionow-integration/reference/03-media-jobs-and-files.md) + [../../actionow-integration/reference/06-webhooks.md](../../actionow-integration/reference/06-webhooks.md)。
+`POST /v1/run/:resourceId`(`async-poll` 轮询 或 `async-callback` webhook)→ `GET /v1/jobs/:id`;第三条结果通道:`GET /v1/jobs/:id/stream`(SSE 进度推送,终态 `done`/`error`)。机制:[../../actionow-integration/reference/03-media-jobs-and-files.md](../../actionow-integration/reference/03-media-jobs-and-files.md) + [../../actionow-integration/reference/06-webhooks.md](../../actionow-integration/reference/06-webhooks.md)。
 
 ### E. 文件
 

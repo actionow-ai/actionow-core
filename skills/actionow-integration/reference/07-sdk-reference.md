@@ -74,9 +74,13 @@ const res = await fetch(`${baseUrl}/v1/chat/completions`, {
 });
 for await (const frame of consumeSse(res)) {
   if (frame.data === SSE_DONE) break;
-  process.stdout.write(JSON.parse(frame.data).choices?.[0]?.delta?.content ?? '');
+  const chunk = JSON.parse(frame.data);
+  if (chunk.error) throw new Error(`stream failed: ${chunk.error.code}: ${chunk.error.message}`);
+  process.stdout.write(chunk.choices?.[0]?.delta?.content ?? '');
 }
 ```
+
+Since v0.0.9 a mid-stream failure emits a `data: {"error":{...}}` frame (handled above). A stream that ends **without** `data: [DONE]` is a failed stream — treat it as an error, not a complete response.
 
 ## Webhook subpath
 
@@ -91,8 +95,8 @@ import { verifyWebhookSignature } from '@actionow/sdk/webhook'; // + WEBHOOK_SIG
 - **Money:** response money fields are µcredit decimal **strings** — `sum + BigInt(m.input_price)`, never `Number`. Request money is a human number.
 - **Pagination:** list endpoints return `{ data, next_cursor, has_more }`; loop feeding `next_cursor` back as the `cursor` query param.
 - **Coverage gap — the typed surface is narrower than it looks.** Only these are in the generated OpenAPI (callable via `client.GET/POST`):
-  - `/v1/*`: **only** `/v1/run/:id`, `/v1/jobs*`, `/v1/resources*`, `/v1/files*`, `/v1/audio/transcriptions`. The **entire relay dialect is UNTYPED** — `/v1/chat/completions`, `/v1/messages`, `/v1/embeddings`, `/v1/rerank`, `/v1/moderations`, `/v1/models`, `/v1beta/models/*` — call all of them (blocking AND streaming) with raw `fetch`, never `client.POST`.
-  - `/console/*`: typed = `/console/api-keys*`, `/console/payments/intents*`, `/console/settings`, `/console/conversations*`, `/console/files*`, and the GET reads (`/console/{me,balance,models,usage,usage-log,analytics/usage}`). **Untyped → raw `fetch`:** `/console/subjects*` (incl. all `/sub-account/*`, `/limit-plan`, `/limit-status`), `/console/redeem`, `/console/limit-plans*`.
+  - `/v1/*`: **only** `/v1/run/{resourceId}`, `/v1/jobs`, `/v1/jobs/{id}`, `/v1/jobs/{id}/cancel`, `/v1/resources`, `/v1/resources/{id}`, the `/v1/files` presign-upload/confirm/list/`{id}`/url routes, and `/v1/audio/transcriptions`. Note `GET /v1/files/usage`, `DELETE /v1/files/{id}`, and `GET /v1/jobs/{id}/stream` exist but are **UNTYPED** — raw `fetch` (use `consumeJobStream` for the stream). The **entire relay dialect is UNTYPED** — `/v1/chat/completions`, `/v1/messages`, `/v1/embeddings`, `/v1/rerank`, `/v1/moderations`, `/v1/images/generations`, `/v1/audio/speech`, `/v1/models`, `/v1beta/models/*` — call all of them (blocking AND streaming) with raw `fetch`, never `client.POST`.
+  - `/console/*`: typed = `/console/api-keys*`, `/console/payments/intents*` (and `GET /console/payments`), `/console/settings`, `/console/conversations*`, `/console/files*`, and the GET reads (`/console/{me,balance,models,usage,usage-log,analytics/usage}`). **Untyped → raw `fetch`:** `/console/subjects*` (incl. all `/sub-account/*`, `/limit-plan`, `/limit-status`), `/console/redeem`, `/console/limit-plans*`, `/console/users*`, `GET /console/limits`.
   - `/auth/login` is untyped (`/auth/refresh`, `/auth/logout` are typed).
 
   When unsure, let `tsc` tell you: an untyped path fails to type-check on `client.POST`, so fall back to `fetch`.

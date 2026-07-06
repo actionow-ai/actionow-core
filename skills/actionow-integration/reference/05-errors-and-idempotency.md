@@ -18,7 +18,7 @@
 - `code` — one of the 11 unified codes below.
 - `message` — human-readable, sanitized (never contains secrets, URLs, or credentials).
 - `retryable` — boolean. **Branch on this, not on the status code.**
-- `retry_after_ms` — present only on rate-limited / retryable-upstream errors. Wait this long before retrying.
+- `retry_after_ms` — present only on `rate_limited` (429) envelopes; `upstream_*` errors never include it (use your own backoff). Note: concurrency-limit 429s carry `retry_after_ms: 0`.
 
 Upstream provider errors are wrapped, not leaked: an `upstream_error` / `upstream_timeout` carries provider context (e.g. the provider name) but the raw upstream body is never forwarded. (That `upstream` context object is emitted on the wire but is **not** part of the typed SDK `ErrorView`, so SDK clients won't see it typed.)
 
@@ -71,8 +71,9 @@ A **post-commit failure** (upstream dies mid-generation) surfaces differently pe
 | `POST /v1/chat/completions` (OpenAI wire) | A terminal `data: {"error": {"message", "type", "param", "code"}}` frame, and the stream ends **without** `data: [DONE]`. The official OpenAI SDKs raise an `APIError` on it; raw consumers should treat a missing `[DONE]` as an abnormal end. `error.code` is the unified code; `error.type` is the OpenAI-style class (`server_error`, `rate_limit_error`, …). |
 | `POST /v1/messages` (Anthropic wire)      | A wire `event: error` frame, payload `{ "type":"error", "error":{ "type", "message" } }` (Anthropic's error `type`, **not** the unified `code`/`retryable`).                                                                                                                                                                                                      |
 | `POST /v1/run/:id` (`exec_mode:stream`)   | A terminal `event: error` frame, payload `{ "kind":"error", "error":{ code, message, retryable } }` (the unified error).                                                                                                                                                                                                                                          |
+| Gemini wire `streamGenerateContent`       | final `data:` chunk with candidate `finishReason` `"OTHER"` and no parts, then close — NO error frame; treat `finishReason` `OTHER` as post-commit failure.                                                                                                                                                                                                       |
 
-The `retryable` / `retry_after_ms` fields live **only** on the non-2xx HTTP envelope (pre-commit) and on the `/v1/run` error frame; the OpenAI-wire error frame carries the unified `code` but not the retry hints.
+The `retryable` field lives **only** on the non-2xx HTTP envelope (pre-commit) and on the `/v1/run` error frame; the OpenAI-wire error frame carries the unified `code` but not the retry hints. `retry_after_ms` appears only on `rate_limited` (429) HTTP envelopes — `upstream_*` errors never include it (use your own backoff); the `/v1/run` error frame spells it `retryAfterMs` and never carries it in practice.
 
 ## Idempotency
 
@@ -85,7 +86,7 @@ POST /v1/run/image-relay
 { "inputs": { … }, "idempotency_key": "<stable-uuid-per-logical-op>" }
 ```
 
-**The `Idempotency-Key` HTTP header** is honored **only** on the small allowlist of `@Idempotent`-decorated admin/console mutation POSTs. On `/v1/run`, `/v1/chat/completions`, and the other `/v1/*` calls the **header is a no-op** — do not rely on it there. Where it _is_ honored:
+**The `Idempotency-Key` HTTP header** is honored in two places. The **relay routes** — chat completions (all dialects), embeddings, rerank, moderations, and audio transcriptions — honor it with **billing-idempotent replay**: on a blocking call, a replayed key returns the original job's result (NOT body-fingerprinted — same key with a different body still replays the original); an in-flight duplicate gets a `429` with `retryable: true`; reusing the key on a **streaming** request gets `400 invalid_input`. It is also honored on the small allowlist of `@Idempotent`-decorated admin mutation POSTs (`/admin/*`; console routes are not decorated). The header is a **no-op** ONLY on `/v1/run` (use the body `idempotency_key`), `/v1/files` / `/v1/jobs`, and the media dialect endpoints. Where the `@Idempotent` cached-replay mechanism applies (the admin allowlist):
 
 - **First request** with a key: runs normally; the response is cached under `(METHOD, path, key)`.
 - **Replay** (same key, same route, same body): the cached `{status, body}` is returned verbatim — the handler does not re-run.
