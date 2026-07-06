@@ -6574,6 +6574,9 @@
             "additionalProperties": {
               "type": "number"
             }
+          },
+          "require_persist": {
+            "type": "boolean"
           }
         }
       },

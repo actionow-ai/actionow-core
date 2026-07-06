@@ -33,6 +33,15 @@ export const runBodySchema = z.object({
   idempotency_key: z.string().min(1).optional(),
   end_user: z.string().optional(),
   estimated_usage: z.record(z.number()).optional(),
+  /**
+   * Force the generated media asset to be persisted to core storage: when the
+   * persistence can't happen the job FAILS (releasing its hold, no charge)
+   * instead of silently settling on the transient upstream provider URL. Off by
+   * default (best-effort). Use it for compliance/watermark workflows that must
+   * have a stable, core-hosted `public_url` to operate on. No effect on
+   * non-media resources.
+   */
+  require_persist: z.boolean().optional(),
 });
 export type RunBody = z.infer<typeof runBodySchema>;
 

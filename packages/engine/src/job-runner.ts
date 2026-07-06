@@ -30,7 +30,7 @@ import { isFailoverRetryable } from './channel-routing.js';
 import { EngineError } from './errors.js';
 import type { RunChannel } from './execution-service.js';
 import type { JobProgressEvent } from './job-progress.js';
-import { meterMedia, type PersistedMediaObject } from './media-result.js';
+import { meterMedia, type PersistedMediaObject, PersistRequiredError } from './media-result.js';
 import { serializeAppliedModifiers, settledCost } from './pricing.js';
 import { type TraceContext, TracingHttpClient } from './relay-trace.js';
 
@@ -63,6 +63,12 @@ export type PersistMediaResultFn = (input: {
   tenantId: string;
   jobId: string;
   result: MediaResult;
+  /**
+   * When true, persistence is required: the fn throws {@link PersistRequiredError}
+   * (instead of falling back to the upstream URL) if the asset can't be persisted,
+   * so the settle path fails the job + releases the hold. Default false.
+   */
+  requirePersist?: boolean;
 }) => Promise<{ result: MediaResult; objects: PersistedMediaObject[] }>;
 
 /** A per-call `usage_log` row for a settled media job (P1 metering / margin). */
@@ -371,12 +377,38 @@ export class JobRunner {
     // `output`. Absent dep (non-media setups / tests) → output unchanged. The hook
     // never throws (falls back to the temp upstream URL); settle proceeds regardless.
     if (result.mediaResult !== undefined && this.deps.persistMediaResult !== undefined) {
-      const persisted = await this.deps.persistMediaResult({
-        tenantId: job.tenantId,
-        jobId: job.id,
-        result: result.mediaResult,
+      try {
+        const persisted = await this.deps.persistMediaResult({
+          tenantId: job.tenantId,
+          jobId: job.id,
+          result: result.mediaResult,
+          requirePersist: job.requirePersist,
+        });
+        output = persisted.result;
+      } catch (err) {
+        // require_persist (compliance/watermark switch): persistence was mandatory
+        // and failed → FAIL the job (releasing the hold, no charge) BEFORE any
+        // settle write, instead of settling on the transient upstream URL. Only
+        // PersistRequiredError diverts; any other error preserves prior behavior.
+        if (err instanceof PersistRequiredError) {
+          return this.fail(job, ctx, {
+            code: 'job_failed',
+            message: err.message,
+            retryable: false,
+          });
+        }
+        throw err;
+      }
+    } else if (result.mediaResult !== undefined && job.requirePersist) {
+      // require_persist was set but no persister is wired (object storage
+      // unconfigured) → cannot guarantee persistence, so fail rather than settle
+      // on the upstream URL.
+      return this.fail(job, ctx, {
+        code: 'job_failed',
+        message:
+          'media persistence is required (require_persist) but object storage is not configured',
+        retryable: false,
       });
-      output = persisted.result;
     }
     // Cost is computed from `usage` + `job.inputs`, so rewriting `output` does
     // not affect pricing. Capped at the placed hold (shared policy) so a media

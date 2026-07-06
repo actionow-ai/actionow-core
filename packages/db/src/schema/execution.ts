@@ -2,6 +2,7 @@ import type { UnifiedError, UsageVector } from '@actionow/contracts';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   check,
   index,
   integer,
@@ -51,6 +52,11 @@ export const job = pgTable(
     callbackUrl: text('callback_url'),
     idempotencyKey: text('idempotency_key'),
     endUser: text('end_user'),
+    // When true, a media job whose output can't be persisted to core storage
+    // FAILS (releasing its hold, no charge) instead of settling on the transient
+    // upstream URL — the compliance/watermark force-persist switch (per-run,
+    // carried from runBodySchema.require_persist). Default false = best-effort.
+    requirePersist: boolean('require_persist').notNull().default(false),
     // The subject (end-user) this job is attributed to (unified tenancy G-B);
     // NULL → tenant-level (today). Settle/fail route the wallet branch off this.
     subjectId: uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),

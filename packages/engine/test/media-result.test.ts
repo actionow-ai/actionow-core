@@ -1,7 +1,7 @@
 import type { MediaResult } from '@actionow/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
-import { meterMedia, persistMediaResult } from '../src/media-result.js';
+import { meterMedia, persistMediaResult, PersistRequiredError } from '../src/media-result.js';
 
 function baseInput() {
   return {
@@ -99,6 +99,44 @@ describe('persistMediaResult', () => {
     const out = await persistMediaResult({ ...input, result });
     expect(out.persisted).toBe(false);
     expect(out.result).toBe(result);
+    expect(out.objects).toEqual([]);
+  });
+
+  it('requirePersist: THROWS PersistRequiredError on a fetch error (not best-effort)', async () => {
+    const input = baseInput();
+    input.fetchBytes = vi.fn(() => Promise.reject(new Error('network')));
+    const result = mr([
+      { role: 'primary', modality: 'image', url: 'https://up/a.png', mime: 'image/png' },
+    ]);
+    await expect(
+      persistMediaResult({ ...input, result, requirePersist: true }),
+    ).rejects.toBeInstanceOf(PersistRequiredError);
+  });
+
+  it('requirePersist: THROWS PersistRequiredError when there are no assets', async () => {
+    const input = baseInput();
+    await expect(
+      persistMediaResult({ ...input, result: mr([]), requirePersist: true }),
+    ).rejects.toBeInstanceOf(PersistRequiredError);
+  });
+
+  it('requirePersist: succeeds normally (no throw) when persistence works', async () => {
+    const input = baseInput();
+    const out = await persistMediaResult({
+      ...input,
+      requirePersist: true,
+      result: mr([
+        { role: 'primary', modality: 'image', url: 'https://up/a.png', mime: 'image/png' },
+      ]),
+    });
+    expect(out.persisted).toBe(true);
+    expect(out.result.assets[0]?.url).toBe('https://cdn.x/t1/j1.png');
+  });
+
+  it('no assets + NOT required → best-effort persisted:false (regression)', async () => {
+    const input = baseInput();
+    const out = await persistMediaResult({ ...input, result: mr([]) });
+    expect(out.persisted).toBe(false);
     expect(out.objects).toEqual([]);
   });
 });
