@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.8](https://github.com/actionow-ai/actionow-core/compare/v0.0.7...v0.0.8) (2026-07-06)
+
+
+### Features
+
+* **media:** per-request require_persist force-persist switch ([#2](https://github.com/actionow-ai/actionow-core/issues/2)) ([#110](https://github.com/actionow-ai/actionow-core/issues/110)) ([89eb6d0](https://github.com/actionow-ai/actionow-core/commit/89eb6d036b93158b980dfe98ea20a1a39c3763c8))
+
 ## [0.0.7](https://github.com/actionow-ai/actionow-core/compare/v0.0.6...v0.0.7) (2026-07-06)
 
 
