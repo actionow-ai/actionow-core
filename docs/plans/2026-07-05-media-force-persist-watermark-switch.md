@@ -1,0 +1,74 @@
+# Design — media force-persist switch (watermark enabler) · #2
+
+**Status:** proposed (awaiting go-ahead) · **Scope:** core only · **Date:** 2026-07-05
+
+## Outcome
+
+A core switch that, when on, **guarantees a generated media asset is persisted to
+core storage** (and therefore has a stable, core-hosted `public_url` — see #3),
+so an integrating app can reliably fetch that durable artifact and embed **its own**
+watermark (GB45438 深度合成标识). Core does **not** composite the watermark
+(that stays with the app / a provider-plugin); core only guarantees the artifact
+exists at a stable URL instead of silently settling on the transient upstream
+provider URL.
+
+## Why it's not a one-liner (the settle path)
+
+Today `persistMediaResult` is **best-effort**: on empty assets, a fetch/put error,
+or unconfigured storage it returns `persisted:false` and the job **settles on the
+raw upstream provider URL** (`packages/engine/src/media-result.ts:104-143`). The
+persist closure is invoked **inside the JobRunner settle sequence**
+(`packages/engine/src/execution-service.ts`, via the `persistMediaResult` fn passed
+from the 3 callers: `apps/worker/.../job-exec.processor.ts`,
+`apps/api/.../media-dialect.service.ts`, `apps/api/.../callbacks.service.ts`).
+Making persist **required** means: on failure the job must **fail and release its
+hold** (not settle) — a change to the billing-critical settle/hold path. That is
+why this is planned + reviewed, not cowboyed.
+
+## Mechanism decision
+
+**Recommended: a settings-driven switch (migration-free).**
+
+- New `SETTINGS_REGISTRY` key `MEDIA_REQUIRE_PERSIST` (bool, env-default `false`),
+  read via the existing `SettingsResolver`; optional per-tenant override through
+  `account.config` (already jsonb — no schema change). Compliance is a
+  tenant/jurisdiction policy, so tenant/global scope fits better than per-call.
+- Backward-compatible: default `false` → today's best-effort behavior unchanged.
+
+**Alternative considered — per-request `require_persist` on `runBodySchema`:**
+rejected for v1 because the flag must reach the worker via the `job` row, and
+`job` has no options column → a migration on the hot `job` table. Can be added
+later on top of the settings switch if a per-call override is needed.
+
+## Changes (settings-driven)
+
+1. `packages/contracts` — add `MEDIA_REQUIRE_PERSIST` to the settings registry.
+2. `packages/engine/src/media-result.ts` — `persistMediaResult` gains
+   `requirePersist?: boolean`; when true and persistence would yield
+   `persisted:false` (empty assets / caught error / no storage), **throw**
+   `PersistRequiredError` (new typed error) instead of returning `persisted:false`.
+3. `packages/engine/src/execution-service.ts` (JobRunner) — the settle path
+   catches `PersistRequiredError` → route to `failJob` (releasing the hold) with a
+   `persist_required` unified error, **exactly like any other settle-time failure**
+   (reuse the existing fail+release path; do not add a new hold path).
+4. The 3 callers read `MEDIA_REQUIRE_PERSIST` (tenant-resolved) and pass
+   `requirePersist` into `persistMediaResult`.
+
+## Verification
+
+- Unit: `persistMediaResult` throws `PersistRequiredError` when required + (empty |
+  put-error | no-storage); returns normally when not required (regression) and when
+  required + success.
+- Engine: JobRunner fails the job + **releases the hold** (no stuck hold, no charge)
+  on `PersistRequiredError`; billing invariant test (hold released == held amount).
+- e2e: with `MEDIA_REQUIRE_PERSIST=true` + storage unconfigured, a media run
+  **fails** (not settles-on-upstream); with storage configured it succeeds with a
+  `public_url`. Default-off path unchanged (existing media e2e stays green).
+- Independent verifier on the settle/hold diff before merge.
+
+## Risks / guardrails
+
+- **Billing:** the only risk surface. Mitigated by reusing the existing
+  fail+release path and a hold-conservation test. No new charge on failure.
+- **No migration** in the recommended design → avoids hot-table lock risk.
+- Fail-open default (`false`) → zero behavior change for existing tenants.

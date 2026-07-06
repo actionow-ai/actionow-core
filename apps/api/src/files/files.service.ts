@@ -29,12 +29,21 @@ export interface PresignUploadResult {
   upload_url: string;
   key: string;
   expires_in: number;
+  /**
+   * The object's stable, non-expiring public URL (`{STORAGE_PUBLIC_BASE_URL}/{key}`),
+   * or `null` when no public base is configured. Same scheme generated assets
+   * use, so an uploaded artifact carries a durable link without the caller having
+   * to reconstruct it from `key`.
+   */
+  public_url: string | null;
 }
 
 /** A presigned-download grant returned by {@link FilesService.getUrl}. */
 export interface FileUrlResult {
   url: string;
   expires_in: number;
+  /** Stable, non-expiring public URL (or `null` when no public base is configured). */
+  public_url: string | null;
 }
 
 /** The public view of a `file_object` row. */
@@ -45,6 +54,8 @@ export interface FileView {
   content_type: string | null;
   etag: string | null;
   created_at: string;
+  /** Stable, non-expiring public URL (or `null` when no public base is configured). */
+  public_url: string | null;
 }
 
 /** The caller-tenant's object-storage usage + the effective quota (bytes; `quota_bytes` null → no cap). */
@@ -132,6 +143,7 @@ export class FilesService {
       upload_url: presign.url,
       key,
       expires_in: presign.expiresIn,
+      public_url: this.publicUrlFor(key),
     };
   }
 
@@ -156,7 +168,7 @@ export class FilesService {
     if (head.etag !== undefined) meta.etag = head.etag;
 
     const updated = await markFileReady(this.db, file.id, meta);
-    return toView(updated ?? file);
+    return toView(updated ?? file, this.publicBase());
   }
 
   /** Mint a presigned GET URL for a tenant-owned file. 404 if not visible. */
@@ -164,7 +176,11 @@ export class FilesService {
     const storage = this.requireStorage();
     const file = await this.requireFile(id, ctx);
     const presign = await storage.presignGet(file.key);
-    return { url: presign.url, expires_in: presign.expiresIn };
+    return {
+      url: presign.url,
+      expires_in: presign.expiresIn,
+      public_url: this.publicUrlFor(file.key),
+    };
   }
 
   /**
@@ -226,7 +242,12 @@ export class FilesService {
       page,
       ctx.subjectId ?? null,
     );
-    return mapPageEnvelope(result, (r) => r.id, toView);
+    const publicBase = this.publicBase();
+    return mapPageEnvelope(
+      result,
+      (r) => r.id,
+      (r) => toView(r, publicBase),
+    );
   }
 
   /**
@@ -308,6 +329,24 @@ export class FilesService {
   private bucket(): string {
     return this.env.STORAGE_BUCKET ?? '';
   }
+
+  /**
+   * The configured public base URL for web-served objects (e.g. a CDN domain
+   * mapped to the bucket), or `undefined` when the deployment only exposes
+   * expiring presigned links.
+   */
+  private publicBase(): string | undefined {
+    return this.env.STORAGE_PUBLIC_BASE_URL;
+  }
+
+  /**
+   * The stable, non-expiring public URL for an object `key`, or `null` when no
+   * public base is configured. Mirrors the console gallery's `url` field.
+   */
+  private publicUrlFor(key: string): string | null {
+    const base = this.publicBase();
+    return base !== undefined ? `${base}/${key}` : null;
+  }
 }
 
 /**
@@ -328,8 +367,12 @@ function extensionOf(filename: string): string | undefined {
   return filename.slice(dot + 1).toLowerCase();
 }
 
-/** Project a `file_object` row to its public {@link FileView}. */
-function toView(file: FileObject): FileView {
+/**
+ * Project a `file_object` row to its public {@link FileView}. `publicBase` (the
+ * configured `STORAGE_PUBLIC_BASE_URL`) builds the stable `public_url`; when
+ * absent the object isn't web-served and `public_url` is `null`.
+ */
+function toView(file: FileObject, publicBase: string | undefined): FileView {
   return {
     id: file.id,
     status: file.status,
@@ -337,5 +380,6 @@ function toView(file: FileObject): FileView {
     content_type: file.contentType,
     etag: file.etag,
     created_at: file.createdAt.toISOString(),
+    public_url: publicBase !== undefined ? `${publicBase}/${file.key}` : null,
   };
 }

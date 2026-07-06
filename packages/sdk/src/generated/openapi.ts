@@ -13196,6 +13196,7 @@ export interface components {
             upload_url: string;
             key: string;
             expires_in: number;
+            public_url: string | null;
         };
         FileView: {
             id: string;
@@ -13204,10 +13205,12 @@ export interface components {
             content_type: string | null;
             etag: string | null;
             created_at: string;
+            public_url: string | null;
         };
         FileUrlResult: {
             url: string;
             expires_in: number;
+            public_url: string | null;
         };
         CreateTenantBody: {
             name: string;
