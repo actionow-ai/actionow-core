@@ -454,7 +454,7 @@ multica skill pull building-on-actionow <b>--dir</b> ~/.agents/skills</div>
         <div class="rule"><div class="rn">1</div><p><b>双 client 隔离</b>:控制面 JWT 仅服务端;数据面 <code>ak_</code> 按端用户。</p></div>
         <div class="rule"><div class="rn">2</div><p><b>只存 ID,不镜像数据</b>:存 subject_id / file_id / job_id,余额按需回源读。</p></div>
         <div class="rule"><div class="rn">3</div><p><b>钱是 µcredit 字符串</b>:<code>BigInt</code> 解析,绝不 Number;<code>expiresIn</code> 是时长串。</p></div>
-        <div class="rule"><div class="rn">4</div><p><b>按 retryable 重试</b>:绝不重试 402/400;billed 重试带 <code>idempotency_key</code>。</p></div>
+        <div class="rule"><div class="rn">4</div><p><b>按 retryable 重试</b>:绝不重试 402/400;billed <code>/v1/run</code> 带 body <code>idempotency_key</code>,中继路由用 <code>Idempotency-Key</code> header(流式复用键会 400,换新键)。</p></div>
         <div class="rule"><div class="rn">5</div><p><b>webhook 原始字节验签</b> → 快速 ack → 回拉 <code>GET /v1/jobs/:id</code>。</p></div>
         <div class="rule"><div class="rn">6</div><p><b>end_user = external_id</b>,不是 subject UUID;且只在 /v1/run 生效。</p></div>
         <div class="rule"><div class="rn">7</div><p><b>SDK 类型面窄</b>:整个中继方言 + /console/subjects* 走裸 <code>fetch</code>。</p></div>
