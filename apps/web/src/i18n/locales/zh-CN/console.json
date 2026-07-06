@@ -1936,6 +1936,7 @@
       "code": "卡密",
       "creditAmount": "额度",
       "status": "状态",
+      "uses": "已用/次数",
       "redeemedBy": "兑换租户",
       "expiresAt": "过期时间",
       "created": "创建时间"
@@ -1943,6 +1944,7 @@
     "form": {
       "count": "卡密数量",
       "creditPerCode": "单个额度(credits)",
+      "maxUses": "每张可兑次数",
       "expiresAt": "过期时间(可选)",
       "expiresHint": "留空=永不过期;可填 YYYY-MM-DD 或 ISO 时间"
     },

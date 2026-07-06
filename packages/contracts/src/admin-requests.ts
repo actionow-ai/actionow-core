@@ -177,8 +177,10 @@ export type CreateSecretBody = z.infer<typeof createSecretSchema>;
 export const generateCodesSchema = z.object({
   /** How many codes to mint (1..1000). */
   count: z.number().int().min(1).max(1000),
-  /** HUMAN-credit grant per code (converted to µcredits). */
+  /** HUMAN-credit grant per code, per redemption (converted to µcredits). */
   creditsPerCode: z.number().positive(),
+  /** How many times EACH code may be redeemed (>=1; default 1 = single-use 卡密). */
+  maxUsesPerCode: z.number().int().min(1).default(1),
   /** Optional ISO-8601 expiry; absent → never expires. */
   expiresAt: z.string().datetime().optional(),
 });

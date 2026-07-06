@@ -2797,6 +2797,8 @@ function toRedemptionCodeView(row: RedemptionCodeRow): RedemptionCodeView {
   return redemptionCodeViewSchema.parse({
     code: row.code,
     credit_amount: row.creditAmount.toString(),
+    max_uses: row.maxUses,
+    redeemed_count: row.redeemedCount,
     status: row.status,
     redeemed_by_tenant: row.redeemedByTenant,
     redeemed_at: row.redeemedAt === null ? null : row.redeemedAt.toISOString(),

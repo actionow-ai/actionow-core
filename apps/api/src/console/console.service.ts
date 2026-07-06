@@ -783,17 +783,20 @@ export class ConsoleService {
   // ----- redemption codes -----
 
   /**
-   * Redeem a single-use gift code, crediting the caller's OWN tenant account.
-   * The whole claim+credit runs in ONE transaction so a code is never consumed
-   * without the matching credit (and a failed credit rolls back the claim flip):
+   * Redeem one use of a gift code, crediting the caller's OWN tenant account. A
+   * code may be single-use (default) or multi-use (`max_uses > 1`); either way a
+   * tenant gets AT MOST one use of a given code. The whole claim+credit runs in
+   * ONE transaction so a use is never consumed without the matching credit (and a
+   * failed credit rolls back the whole claim):
    *
-   *  1. {@link claimRedemptionCode} atomically flips `unused`→`redeemed` for THIS
-   *     tenant via a single conditional UPDATE (no read-then-write window → no
-   *     double-redeem under concurrency).
-   *  2. On a miss it disambiguates the failure (missing / expired / already
-   *     redeemed) and throws the matching engine error — the throw rolls back the
-   *     tx, un-flipping the row it just touched. So a NOT-claimed outcome leaves
-   *     the row exactly as it was.
+   *  1. {@link claimRedemptionCode} atomically consumes one use for THIS tenant —
+   *     per-tenant idempotency + a guarded `redeemed_count` increment (no
+   *     read-then-write window → no over-redeem under concurrency) + a
+   *     `redemption_claim` audit row.
+   *  2. On a no-win it disambiguates the failure (missing / expired /
+   *     already-redeemed-by-you / fully-redeemed) and throws the matching engine
+   *     error — the throw rolls back the tx, so a NOT-claimed outcome leaves the
+   *     row exactly as it was.
    *  3. On a win it {@link topUp}s the tenant pool by the µcredit grant (appending
    *     a `topup` ledger row); `topUp` opens a SAVEPOINT under the outer tx, which
    *     stays atomic.
@@ -805,22 +808,62 @@ export class ConsoleService {
     tenantId: string,
     accountId: string,
   ): Promise<{ credited: string; balance: string }> {
-    return this.db.transaction(async (tx) => {
-      const result = await claimRedemptionCode(tx, code, tenantId);
-      if (!result.claimed) {
-        if (result.missing) throw engineNotFound('redemption code not found');
-        if (result.expired) throw engineInvalidInput('redemption code expired');
-        // Otherwise it exists but was already redeemed (by this or another tenant).
-        throw engineInvalidInput('redemption code already redeemed');
+    try {
+      return await this.db.transaction(async (tx) => {
+        const result = await claimRedemptionCode(tx, code, tenantId);
+        if (!result.claimed) {
+          if (result.missing) throw engineNotFound('redemption code not found');
+          if (result.expired) throw engineInvalidInput('redemption code expired');
+          if (result.alreadyClaimedByThisTenant) {
+            throw engineInvalidInput('you have already redeemed this code');
+          }
+          // Otherwise every use of the code has been consumed (exhausted).
+          throw engineInvalidInput('redemption code fully redeemed');
+        }
+        // `claimed === true` guarantees `creditAmount` (a µcredit bigint); narrow at
+        // runtime so neither a cast nor a `!` assertion is needed.
+        const { creditAmount } = result;
+        if (creditAmount === undefined) {
+          throw new Error('claimRedemptionCode returned claimed without a creditAmount');
+        }
+        const balanceAfter = await topUp(tx, accountId, tenantId, creditAmount);
+        return { credited: creditAmount.toString(), balance: balanceAfter.toString() };
+      });
+    } catch (err) {
+      // A SAME-TENANT concurrent double-redeem of a MULTI-USE code can slip past
+      // the non-locking per-tenant idempotency SELECT: both txns win the guarded
+      // increment, then the loser's `redemption_claim` insert trips the
+      // `unique(code, tenant)` index. That 23505 already rolled back the whole tx
+      // (increment + topUp undone → NO double-credit), so translate it to the same
+      // clean 400 the sequential path returns instead of leaking a 500.
+      if (isRedemptionClaimConflict(err)) {
+        throw engineInvalidInput('you have already redeemed this code');
       }
-      // `claimed === true` guarantees `creditAmount` (a µcredit bigint); narrow at
-      // runtime so neither a cast nor a `!` assertion is needed.
-      const { creditAmount } = result;
-      if (creditAmount === undefined) {
-        throw new Error('claimRedemptionCode returned claimed without a creditAmount');
-      }
-      const balanceAfter = await topUp(tx, accountId, tenantId, creditAmount);
-      return { credited: creditAmount.toString(), balance: balanceAfter.toString() };
-    });
+      throw err;
+    }
   }
+}
+
+/** Postgres `unique_violation`. */
+const PG_UNIQUE_VIOLATION = '23505';
+
+/**
+ * True iff `err` (or a wrapped cause) is a Postgres unique violation on the
+ * `redemption_claim_code_tenant_unique` index — i.e. a same-tenant concurrent
+ * double-redeem lost the race. Walks the `cause` chain because drizzle wraps the
+ * driver error. Scoped to THAT constraint so an unrelated 23505 stays a 500.
+ */
+function isRedemptionClaimConflict(err: unknown): boolean {
+  let cur: unknown = err;
+  for (let depth = 0; cur !== null && cur !== undefined && depth < 8; depth += 1) {
+    const e = cur as { code?: unknown; constraint_name?: unknown; cause?: unknown };
+    if (
+      e.code === PG_UNIQUE_VIOLATION &&
+      e.constraint_name === 'redemption_claim_code_tenant_unique'
+    ) {
+      return true;
+    }
+    cur = typeof cur === 'object' ? e.cause : undefined;
+  }
+  return false;
 }

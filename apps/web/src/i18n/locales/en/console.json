@@ -1936,6 +1936,7 @@
       "code": "Code",
       "creditAmount": "Credit",
       "status": "Status",
+      "uses": "Uses",
       "redeemedBy": "Redeemed by",
       "expiresAt": "Expires",
       "created": "Created"
@@ -1943,6 +1944,7 @@
     "form": {
       "count": "Number of codes",
       "creditPerCode": "Credit per code",
+      "maxUses": "Max uses per code",
       "expiresAt": "Expiry (optional)",
       "expiresHint": "Blank = never expires; accepts YYYY-MM-DD or an ISO timestamp"
     },

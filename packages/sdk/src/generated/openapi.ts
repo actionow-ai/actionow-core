@@ -12672,6 +12672,8 @@ export interface components {
         RedemptionCodeView: {
             code: string;
             credit_amount: string;
+            max_uses: number;
+            redeemed_count: number;
             status: string;
             redeemed_by_tenant: string | null;
             redeemed_at: string | null;
@@ -13278,6 +13280,8 @@ export interface components {
         GenerateCodesBody: {
             count: number;
             creditsPerCode: number;
+            /** @default 1 */
+            maxUsesPerCode: number;
             /** Format: date-time */
             expiresAt?: string;
         };

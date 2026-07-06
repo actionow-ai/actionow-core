@@ -470,6 +470,13 @@
       "when": 1783311136889,
       "tag": "0066_amused_thing",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1783352469512,
+      "tag": "0067_secret_randall",
+      "breakpoints": true
     }
   ]
 }
