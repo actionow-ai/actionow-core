@@ -266,6 +266,13 @@ export interface ChatRunOutcome {
   cost: RunCost;
   /** The channel/provider that ultimately served (after any cross-provider failover). */
   servedBy?: { channelId: string; providerType: string; model?: string };
+  /**
+   * The model that ACTUALLY served this run (= `req.usageLogModel`). The relay
+   * loops the `fallbackModels` chain above `runChat`, so a degraded attempt is a
+   * fresh run with its own `usageLogModel` — the controller labels the response's
+   * `model` field with the served model (parity with {@link ChatStreamOutcome}).
+   */
+  servedModel?: string;
 }
 
 /** The result of a blocking IR {@link runEmbed}: the job id, embeddings result, cost. */
@@ -559,7 +566,7 @@ export class ExecutionService {
         if (existing === undefined) {
           throw engineError('internal_error', 'idempotency key claimed but job missing');
         }
-        return this.replayChat(existing);
+        return this.replayChat(existing, req.usageLogModel);
       }
       // We own the key; executeChat below must use `probeJobId` so the claim row
       // points at the job we are about to create.
@@ -569,7 +576,7 @@ export class ExecutionService {
   }
 
   /** Reconstruct a {@link ChatRunOutcome} from a settled chat job (idempotent replay). */
-  private replayChat(job: Job): ChatRunOutcome {
+  private replayChat(job: Job, servedModel?: string): ChatRunOutcome {
     if (job.status !== 'succeeded') {
       // A concurrent duplicate is still in flight (or the original failed); we
       // cannot fabricate a response, so surface a retryable conflict — the
@@ -580,11 +587,15 @@ export class ExecutionService {
     if (ir === undefined) {
       throw engineError('internal_error', 'replayed chat job has no IR output');
     }
-    return {
+    const outcome: ChatRunOutcome = {
       jobId: job.id,
       response: ir as ChatResponse,
       cost: { credits: job.costCredits ?? 0n },
     };
+    // The replay is keyed per attempt (the relay derives `:fbN` idempotency keys),
+    // so the caller's `usageLogModel` matches the attempt this job settled under.
+    if (servedModel !== undefined) outcome.servedModel = servedModel;
+    return outcome;
   }
 
   /**
@@ -663,6 +674,9 @@ export class ExecutionService {
     );
     const cost = outcome.status === 'succeeded' ? outcome.cost : { credits: 0n };
     const result: ChatRunOutcome = { jobId, response, cost };
+    // The committed model is `usageLogModel` (parity with `runChatStream`), so the
+    // controller can label the response's `model` field with the SERVED model.
+    if (req.usageLogModel !== undefined) result.servedModel = req.usageLogModel;
     if (served !== undefined) {
       const servedBy: ChatRunOutcome['servedBy'] = {
         channelId: served.id,

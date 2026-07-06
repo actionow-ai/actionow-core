@@ -116,11 +116,22 @@ describe('renderOpenAIChatStream', () => {
     expect(new Set(ids).size).toBe(1);
   });
 
-  it('degrades a mid-stream error to a clean stop then [DONE]', async () => {
+  it('renders a mid-stream error as an OpenAI error frame and ends WITHOUT [DONE]', async () => {
     const out = await collect(renderOpenAIChatStream(events(errorPath), 'gpt-4o'));
     const dataFrames = out.split('\n\n').filter((f) => f.startsWith('data: '));
-    expect(out).toContain('"finish_reason":"stop"');
-    expect(dataFrames.at(-1)).toBe('data: [DONE]');
+    // The terminal frame is the error — never a forged clean stop or [DONE]
+    // (a truncated stream must not look like a normal completion).
+    expect(out).not.toContain('"finish_reason":"stop"');
+    expect(out).not.toContain('[DONE]');
+    const last = JSON.parse((dataFrames.at(-1) ?? '').slice('data: '.length)) as {
+      error: { message: string; type: string; param: null; code: string };
+    };
+    expect(last.error).toEqual({
+      message: 'boom',
+      type: 'server_error',
+      param: null,
+      code: 'upstream_error',
+    });
   });
 
   // P2-5 (stream) — the terminal chunk surfaces native_finish_reason when the IR

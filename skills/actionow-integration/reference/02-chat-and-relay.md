@@ -40,7 +40,7 @@ Runnable, with the SSE parser inlined: [scripts/chat.mjs](../scripts/chat.mjs).
 
 > **The credit hold happens before the first byte.** A pre-commit failure (`insufficient_credits`, `invalid_input`, `unauthorized`, `rate_limited`) is a real non-2xx HTTP response — check `res.ok` / `res.status` before reading the stream.
 >
-> **OpenAI-dialect streams have no error frame.** A post-commit upstream failure degrades to a clean `finish_reason:"stop"` chunk + `data: [DONE]` — you cannot distinguish it from a normal finish (output may just be truncated). If you need reliable mid-stream error visibility, use the Anthropic dialect (`POST /v1/messages`, which emits a real `event: error` frame) or the `/v1/run` job path. See [05-errors-and-idempotency.md](05-errors-and-idempotency.md#streaming-error-behavior-important-and-dialect-specific). A usage-bearing final chunk carries an empty `choices: []`.
+> **OpenAI-dialect streams DO emit an error frame.** A post-commit upstream failure is rendered as a `data: {"error": {"message", "type", "param", "code"}}` frame and the stream ends **without** `data: [DONE]` — the official OpenAI SDKs raise an `APIError` on it, and raw consumers should treat a missing `[DONE]` as an abnormal end. `error.code` carries the unified code (e.g. `upstream_error`); `error.type` is the OpenAI-style class (`server_error`, `rate_limit_error`, …). See [05-errors-and-idempotency.md](05-errors-and-idempotency.md#streaming-error-behavior-important-and-dialect-specific). A usage-bearing final chunk carries an empty `choices: []`.
 
 ## Anthropic wire · `POST /v1/messages`
 
