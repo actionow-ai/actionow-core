@@ -21,6 +21,7 @@ export function NumberField({
   disabled,
   id,
   onBlur,
+  ariaLabel,
 }: {
   label?: string;
   value: number;
@@ -36,6 +37,8 @@ export function NumberField({
   id?: string;
   /** Fired when the input loses focus — for commit-on-blur (e.g. one write per edit). */
   onBlur?: () => void;
+  /** Accessible name for a label-less control (e.g. a value editor whose row already shows the key). */
+  ariaLabel?: string;
 }) {
   const fieldId = useFieldId(id);
   return (
@@ -56,6 +59,7 @@ export function NumberField({
         step={step}
         disabled={disabled}
         required={required}
+        aria-label={ariaLabel}
         {...fieldAria(fieldId, error, hint)}
         onChange={(e) => {
           const n = e.target.valueAsNumber;

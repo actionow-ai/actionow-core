@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { check, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 import { secretRef } from './catalog.js';
 
@@ -35,5 +35,12 @@ export const oauthSession = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [check('oauth_session_status_allowed', sql`${t.status} IN ('active', 'needs_reauth')`)],
+  (t) => [
+    check('oauth_session_status_allowed', sql`${t.status} IN ('active', 'needs_reauth')`),
+    // Human name unique among LIVE sessions (partial: null names + revoked rows
+    // exempt) — same pick-key reliability as secret_ref.name.
+    uniqueIndex('oauth_session_name_idx')
+      .on(t.name)
+      .where(sql`${t.name} IS NOT NULL AND ${t.deletedAt} IS NULL`),
+  ],
 );

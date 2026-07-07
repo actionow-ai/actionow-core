@@ -4,6 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import { eq } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
@@ -265,6 +266,24 @@ describe('re-create after soft-delete / conflict', () => {
     expect(conflict.body.error.code).toBe('invalid_input');
     expect(conflict.body.error.message).toContain('dup-res');
   });
+
+  it('creating a model whose name is already LIVE is a clean 400 (not a 500)', async () => {
+    await auth(
+      request(app.getHttpServer())
+        .post('/admin/models')
+        .send({ name: 'dup-live', resourceId: 'gpt4o-res', inputPrice: 1 }),
+    ).expect(201);
+
+    // A second create for the SAME live name hits the `model_name_idx` partial
+    // unique → 23505, which must surface as invalid_input 400, never a 500.
+    const conflict = await auth(
+      request(app.getHttpServer())
+        .post('/admin/models')
+        .send({ name: 'dup-live', resourceId: 'gpt4o-res', inputPrice: 2 }),
+    ).expect(400);
+    expect(conflict.body.error.code).toBe('invalid_input');
+    expect(conflict.body.error.message).toContain('dup-live');
+  });
 });
 
 describe('D2: model_grant list / revoke', () => {
@@ -355,6 +374,50 @@ describe('channel↔model links (catalog supply-hierarchy)', () => {
     ).expect(200);
     expect(empty.body).toHaveLength(0);
     await auth(request(app.getHttpServer()).get('/admin/models/link-m')).expect(200);
+  });
+
+  it('soft-deleting a linked model cascades: its channel links are dropped', async () => {
+    const ch = await auth(
+      request(app.getHttpServer())
+        .post('/admin/resources/gpt4o-res/channels')
+        .send({ providerType: 'openai' }),
+    ).expect(201);
+    const channelId = ch.body.id as string;
+
+    const m = await auth(
+      request(app.getHttpServer())
+        .post('/admin/models')
+        .send({ name: 'cascade-m', resourceId: 'gpt4o-res' }),
+    ).expect(201);
+    const modelId = m.body.id as string;
+
+    await auth(
+      request(app.getHttpServer())
+        .post(`/admin/resources/gpt4o-res/channels/${channelId}/models`)
+        .send({ model_id: modelId }),
+    ).expect(201);
+    // The channel now serves 1 model.
+    let grid = await auth(
+      request(app.getHttpServer()).get(`/admin/resources/gpt4o-res/channels/${channelId}/models`),
+    ).expect(200);
+    expect(grid.body).toHaveLength(1);
+
+    // Soft-delete the model → its channel_model link is cascaded away (no orphan
+    // left to be inherited by a future same-name recreate).
+    await auth(request(app.getHttpServer()).delete('/admin/models/cascade-m')).expect(204);
+    grid = await auth(
+      request(app.getHttpServer()).get(`/admin/resources/gpt4o-res/channels/${channelId}/models`),
+    ).expect(200);
+    expect(grid.body).toHaveLength(0);
+
+    // The grid empties from soft-delete filtering ALONE, so assert the cascade
+    // directly at the table: the `channel_model` link row must be physically gone
+    // (else it would accumulate as a permanent orphan).
+    const orphanLinks = await db
+      .select()
+      .from(schema.channelModel)
+      .where(eq(schema.channelModel.modelId, modelId));
+    expect(orphanLinks).toHaveLength(0);
   });
 
   it('rejects linking a model from a different platform (400)', async () => {

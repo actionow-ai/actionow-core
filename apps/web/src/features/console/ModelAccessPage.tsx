@@ -1,19 +1,23 @@
 import { featuresToCapabilities } from '@actionow/contracts';
 import {
   ArrowsClockwiseIcon,
+  BuildingsIcon,
   CaretDownIcon,
   CaretRightIcon,
+  LinkBreakIcon,
   PencilSimpleIcon,
   PlusIcon,
   SlidersHorizontalIcon,
+  TrashIcon,
 } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
 import type { CSSProperties, ReactNode } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
+import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
 import { BrandIcon } from '../../components/data/BrandIcon';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
@@ -22,6 +26,7 @@ import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { FilterMenu } from '../../components/ui/FilterMenu';
+import { Modal } from '../../components/ui/Modal';
 import { RowAction } from '../../components/ui/RowAction';
 import { toast } from '../../components/ui/toast';
 import { enumLabel, MODALITIES } from '../../lib/api/enums';
@@ -35,7 +40,7 @@ import { ChannelCard } from './ChannelCard';
 import { ChannelEditor } from './ChannelEditor';
 import { ModelEditor } from './ModelEditor';
 import { ParamOverrideEditor } from './ParamOverrideEditor';
-import { PluginEditor } from './PluginsPage';
+import { PluginEditor } from './PluginEditor';
 import { type FacetDef, useFacets } from './useFacets';
 
 /** Format an integer µUSD-per-1M string as a compact `$X` price (mirrors ModelGrid). */
@@ -57,7 +62,19 @@ export function ModelAccessPage() {
   const { t } = useTranslation('console');
   const api = useAdminApi();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const narrow = useMediaQuery('(max-width: 900px)');
+
+  // 平台与定价 is a contextual surface reachable only from here (nav-config keeps
+  // it hidden) — this TopBar link is the entry the nav comment promises.
+  useSetConsoleAction(
+    () => (
+      <Button variant="ghost" onClick={() => void navigate('/console/platforms')}>
+        <BuildingsIcon size={14} weight="bold" aria-hidden="true" /> {t('nav.platforms')}
+      </Button>
+    ),
+    [t],
+  );
   // `plugin` + `cid` live in one URL so a plugin switch sets the plugin AND clears
   // the channel in a single navigate (two setters would clobber each other).
   const [params, setParams] = useSearchParams();
@@ -143,11 +160,23 @@ export function ModelAccessPage() {
   );
 
   const [pluginEdit, setPluginEdit] = useState<ProviderPluginView | 'new' | null>(null);
+  const [pluginDelTarget, setPluginDelTarget] = useState<ProviderPluginView | undefined>(undefined);
   const [channelEdit, setChannelEdit] = useState<ChannelView | 'new' | null>(null);
   const [chDelTarget, setChDelTarget] = useState<ChannelView | undefined>(undefined);
   const [modelEdit, setModelEdit] = useState<{ name?: string; resourceId: string } | null>(null);
+  // Link-existing-models picker for the selected channel (真关联,非新建).
+  const [linkOpen, setLinkOpen] = useState(false);
   // Per-(model×channel) param override editor target (模型参数绑定 Phase 0).
   const [overrideEdit, setOverrideEdit] = useState<ModelView | null>(null);
+
+  // The platform's model catalog — candidates for the link picker (only loaded
+  // once the picker is relevant; a channel must be selected).
+  const allModels = useQuery({
+    queryKey: qk.models(),
+    queryFn: () => api.listModels(),
+    staleTime: STALE_REFERENCE,
+    enabled: selectedChannel !== undefined,
+  });
 
   const invalidateChannels = async (): Promise<void> => {
     if (selectedPlugin !== undefined)
@@ -178,6 +207,35 @@ export function ModelAccessPage() {
       await invalidateChannels();
       await qc.invalidateQueries({ queryKey: qk.models() });
       toast(t('channels.synced', { total: res.total }));
+    },
+    onError: mutationError(t),
+  });
+  const deletePlugin = useMutation({
+    mutationFn: (p: ProviderPluginView) => api.deletePlugin(p.id),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.plugins() });
+      toast(t('plugins.deleted'));
+      setPluginDelTarget(undefined);
+    },
+    onError: mutationError(t),
+  });
+  const linkModel = useMutation({
+    mutationFn: ({ channel, modelId }: { channel: ChannelView; modelId: string }) =>
+      api.linkChannelModel(channel.resource_id, channel.id, modelId),
+    onSuccess: async (_r, { channel }) => {
+      await qc.invalidateQueries({ queryKey: qk.channelModels(channel.id) });
+      await invalidateChannels();
+      toast(t('models.linked'));
+    },
+    onError: mutationError(t),
+  });
+  const unlinkModel = useMutation({
+    mutationFn: ({ channel, modelId }: { channel: ChannelView; modelId: string }) =>
+      api.unlinkChannelModel(channel.resource_id, channel.id, modelId),
+    onSuccess: async (_r, { channel }) => {
+      await qc.invalidateQueries({ queryKey: qk.channelModels(channel.id) });
+      await invalidateChannels();
+      toast(t('models.unlinked'));
     },
     onError: mutationError(t),
   });
@@ -334,11 +392,19 @@ export function ModelAccessPage() {
                         onClick={(e) => e.stopPropagation()}
                         onKeyDown={(e) => e.stopPropagation()}
                         role="presentation"
+                        style={{ display: 'inline-flex', gap: 'var(--s-1)' }}
                       >
                         <RowAction
                           icon={PencilSimpleIcon}
                           label={t('common.edit')}
                           onClick={() => setPluginEdit(p)}
+                        />
+                        <RowAction
+                          icon={TrashIcon}
+                          label={t('common.delete')}
+                          danger
+                          disabled={p.builtin}
+                          onClick={() => setPluginDelTarget(p)}
                         />
                       </span>
                     </div>
@@ -426,11 +492,9 @@ export function ModelAccessPage() {
                       {t('channels.actions.syncModels')}
                     </Button>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setModelEdit({ resourceId: selectedChannel.resource_id })}
-                  >
+                  {/* 真·关联: pick EXISTING platform models to link — creating a
+                      brand-new model lives inside the picker's footer. */}
+                  <Button variant="ghost" size="sm" onClick={() => setLinkOpen(true)}>
                     <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('models.link')}
                   </Button>
                 </>
@@ -448,6 +512,7 @@ export function ModelAccessPage() {
                 onRowClick={(m) =>
                   setModelEdit({ name: m.name, resourceId: selectedChannel.resource_id })
                 }
+                actionsWidth="132px"
                 rowActions={(m) => (
                   <>
                     <RowAction
@@ -460,6 +525,14 @@ export function ModelAccessPage() {
                       label={t('common.edit')}
                       onClick={() =>
                         setModelEdit({ name: m.name, resourceId: selectedChannel.resource_id })
+                      }
+                    />
+                    <RowAction
+                      icon={LinkBreakIcon}
+                      label={t('models.unlink')}
+                      danger
+                      onClick={() =>
+                        unlinkModel.mutate({ channel: selectedChannel, modelId: m.id })
                       }
                     />
                   </>
@@ -532,6 +605,84 @@ export function ModelAccessPage() {
         }}
         onClose={() => setChDelTarget(undefined)}
       />
+
+      <ConfirmDialog
+        open={pluginDelTarget !== undefined}
+        title={t('plugins.delete.title')}
+        message={t('plugins.delete.message', { name: pluginDelTarget?.label ?? '' })}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        danger
+        loading={deletePlugin.isPending}
+        onConfirm={() => {
+          if (pluginDelTarget !== undefined) deletePlugin.mutate(pluginDelTarget);
+        }}
+        onClose={() => setPluginDelTarget(undefined)}
+      />
+
+      {/* Link-existing picker: the platform models not yet on this channel. */}
+      {linkOpen && selectedChannel !== undefined && (
+        <Modal
+          open
+          title={t('models.linkTitle', { channel: selectedChannel.provider_type })}
+          onClose={() => setLinkOpen(false)}
+          footer={
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setLinkOpen(false);
+                setModelEdit({ resourceId: selectedChannel.resource_id });
+              }}
+            >
+              <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('models.new')}
+            </Button>
+          }
+        >
+          <QueryBoundary query={allModels}>
+            {(() => {
+              const linked = new Set((channelModels.data ?? []).map((m) => m.id));
+              const candidates = (allModels.data ?? []).filter(
+                (m) => m.resource_id === selectedChannel.resource_id && !linked.has(m.id),
+              );
+              if (candidates.length === 0) {
+                return (
+                  <p style={{ color: 'var(--muted)', fontSize: 'var(--fs-sm)' }}>
+                    {t('models.allLinked')}
+                  </p>
+                );
+              }
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
+                  {candidates.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className="entity-card is-clickable"
+                      style={{
+                        textAlign: 'left',
+                        padding: 'var(--s-3) var(--s-4)',
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => {
+                        linkModel.mutate(
+                          { channel: selectedChannel, modelId: m.id },
+                          { onSuccess: () => setLinkOpen(false) },
+                        );
+                      }}
+                    >
+                      <span style={{ fontWeight: 'var(--fw-medium)' }}>{m.name}</span>
+                      <span style={{ color: 'var(--muted)' }}>
+                        {' '}
+                        · {enumLabel(t, MODALITIES, m.modality)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+          </QueryBoundary>
+        </Modal>
+      )}
     </div>
   );
 }

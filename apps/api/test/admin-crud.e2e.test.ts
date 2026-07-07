@@ -873,6 +873,58 @@ describe('Track D1: secrets list / get (metadata only, never the material)', () 
     ).expect(404);
     expect(missing.body.error.code).toBe('resource_not_found');
   });
+
+  it('stores an optional human name and rejects a duplicate LIVE name with 400', async () => {
+    const created = await auth(
+      request(app.getHttpServer())
+        .post('/admin/secrets')
+        .send({ value: 'sk-named-1', name: 'Primary OpenAI' }),
+    ).expect(201);
+    expect(created.body.name).toBe('Primary OpenAI');
+
+    // A second credential with the SAME live name hits `secret_ref_name_idx` →
+    // 23505, mapped to a clean invalid_input 400 (never a 500).
+    const dup = await auth(
+      request(app.getHttpServer())
+        .post('/admin/secrets')
+        .send({ value: 'sk-named-2', name: 'Primary OpenAI' }),
+    ).expect(400);
+    expect(dup.body.error.code).toBe('invalid_input');
+    expect(dup.body.error.message).toContain('Primary OpenAI');
+
+    // Revoking the first frees the name (partial index excludes tombstoned rows).
+    await auth(
+      request(app.getHttpServer()).delete(`/admin/secrets/${created.body.id as string}`),
+    ).expect(204);
+    const reused = await auth(
+      request(app.getHttpServer())
+        .post('/admin/secrets')
+        .send({ value: 'sk-named-3', name: 'Primary OpenAI' }),
+    ).expect(201);
+    expect(reused.body.name).toBe('Primary OpenAI');
+  });
+
+  it('renaming a credential onto a taken LIVE name is a clean 400 (not a 500)', async () => {
+    await auth(
+      request(app.getHttpServer())
+        .post('/admin/secrets')
+        .send({ value: 'sk-rn-1', name: 'Taken Name' }),
+    ).expect(201);
+    const other = await auth(
+      request(app.getHttpServer())
+        .post('/admin/secrets')
+        .send({ value: 'sk-rn-2', name: 'Free Name' }),
+    ).expect(201);
+
+    // PATCH the second onto the first's name → hits `secret_ref_name_idx` → 400.
+    const conflict = await auth(
+      request(app.getHttpServer())
+        .patch(`/admin/secrets/${other.body.id as string}`)
+        .send({ name: 'Taken Name' }),
+    ).expect(400);
+    expect(conflict.body.error.code).toBe('invalid_input');
+    expect(conflict.body.error.message).toContain('Taken Name');
+  });
 });
 
 describe('POST /admin/dify/import', () => {

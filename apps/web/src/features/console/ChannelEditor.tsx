@@ -128,13 +128,6 @@ export function ChannelEditor({
     queryFn: () => api.listProxies(),
     staleTime: STALE_REFERENCE,
   });
-  const proxyOptions = [
-    { value: '', label: t('channels.form.proxyNone') },
-    ...(proxies.data ?? []).map((p) => ({
-      value: p.id,
-      label: `${p.name} · ${p.scheme} ${p.host}`,
-    })),
-  ];
 
   const [providerType, setProviderType] = useState(channel?.provider_type ?? '');
   // The platform modality to auto-create/reuse under (3-pane create only). Seeded
@@ -143,6 +136,19 @@ export function ChannelEditor({
   const [faultPolicyId, setFaultPolicyId] = useState(channel?.fault_policy_id ?? '');
   const [endpoint, setEndpoint] = useState(channel?.endpoint ?? '');
   const [proxyRef, setProxyRef] = useState(channel?.proxy_ref ?? '');
+  // A proxyRef that isn't a managed proxy id is a raw locator typed in the
+  // advanced field. Surface it as its own option so the dropdown never reads
+  // "no proxy" while a locator is set (and selecting it is a no-op, not a clobber).
+  const isManagedProxy = (proxies.data ?? []).some((p) => p.id === proxyRef);
+  const rawLocatorSet = proxyRef.trim() !== '' && !isManagedProxy;
+  const proxyOptions = [
+    { value: '', label: t('channels.form.proxyNone') },
+    ...(rawLocatorSet ? [{ value: proxyRef, label: t('channels.form.proxyCustom') }] : []),
+    ...(proxies.data ?? []).map((p) => ({
+      value: p.id,
+      label: `${p.name} · ${p.scheme} ${p.host}`,
+    })),
+  ];
   const [credentialRef, setCredentialRef] = useState(channel?.credential_ref ?? '');
   const [weight, setWeight] = useState(channel?.weight ?? 1);
   // Operator cost = what *we* pay upstream per 1M tokens, stored as a µUSD
@@ -180,11 +186,13 @@ export function ChannelEditor({
 
   const [credOpen, setCredOpen] = useState(false);
   const [credValue, setCredValue] = useState('');
+  const [credName, setCredName] = useState('');
   const [credLabel, setCredLabel] = useState('');
   const createCred = useMutation({
     mutationFn: () =>
       api.createSecret({
         value: credValue,
+        name: credName.trim() === '' ? undefined : credName.trim(),
         label: credLabel.trim() === '' ? undefined : credLabel.trim(),
       }),
     onSuccess: async (s) => {
@@ -194,6 +202,7 @@ export function ChannelEditor({
       setCredentialRef(s.id);
       setCredOpen(false);
       setCredValue('');
+      setCredName('');
       setCredLabel('');
       toast(t('credentials.created'));
     },
@@ -354,7 +363,7 @@ export function ChannelEditor({
       <SelectField
         label={t('channels.form.proxy')}
         tooltip={t('channels.tip.proxy')}
-        value={(proxies.data ?? []).some((p) => p.id === proxyRef) ? proxyRef : ''}
+        value={proxyRef}
         onChange={setProxyRef}
         options={proxyOptions}
       />
@@ -411,6 +420,12 @@ export function ChannelEditor({
             gap: 'var(--s-2)',
           }}
         >
+          <TextField
+            label={t('credentials.name')}
+            hint={t('credentials.nameHint')}
+            value={credName}
+            onChange={setCredName}
+          />
           <TextField
             label={t('credentials.value')}
             tooltip={t('credentials.tip.value')}

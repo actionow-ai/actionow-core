@@ -22,6 +22,7 @@ export function TextField({
   minLength,
   maxLength,
   id,
+  ariaLabel,
 }: {
   label?: string;
   value: string;
@@ -37,6 +38,8 @@ export function TextField({
   minLength?: number;
   maxLength?: number;
   id?: string;
+  /** Accessible name for a label-less control (e.g. a value editor whose row already shows the key). */
+  ariaLabel?: string;
 }) {
   const fieldId = useFieldId(id);
   return (
@@ -58,6 +61,7 @@ export function TextField({
         required={required}
         minLength={minLength}
         maxLength={maxLength}
+        aria-label={ariaLabel}
         {...fieldAria(fieldId, error, hint)}
         onChange={(e) => onChange(e.target.value)}
         className="field"

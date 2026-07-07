@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../lib/auth/AuthProvider';
 import { useReducedMotion } from '../../../lib/motion/useReducedMotion';
 import { useTheme } from '../../../lib/theme/ThemeProvider';
+import { Z } from '../../../lib/zIndex';
 import { HexMark } from '../../brand/HexMark';
 import { IconButton } from '../../ui/IconButton';
 import { useNavConfig } from '../ConsoleChrome';
@@ -41,7 +42,7 @@ export function Rail({ pathname }: { pathname: string }) {
         // tooltips (which overflow to the right, into the SubNav's column) are
         // never painted under the SubNav panel.
         position: 'relative',
-        zIndex: 50,
+        zIndex: Z.nav,
       }}
     >
       <button

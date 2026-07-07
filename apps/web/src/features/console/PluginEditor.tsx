@@ -1,30 +1,22 @@
-import { PencilSimpleIcon, PlayIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { PlayIcon } from '@phosphor-icons/react';
+import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useSetConsoleAction } from '../../components/console/ConsoleChrome';
-import { BrandIcon } from '../../components/data/BrandIcon';
-import type { Column } from '../../components/data/DataTable';
-import { DataTable } from '../../components/data/DataTable';
 import { IconPicker } from '../../components/data/IconPicker';
-import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
+import { StatusBadge } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ChipsField } from '../../components/ui/ChipsField';
 import { CodeEditor } from '../../components/ui/CodeEditor';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Drawer } from '../../components/ui/Drawer';
 import { FormField, useFieldId } from '../../components/ui/FormField';
 import { JsonField } from '../../components/ui/JsonField';
-import { RowAction } from '../../components/ui/RowAction';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
-import { qk } from '../../lib/api/queryKeys';
 import type { ProviderPluginView, TestPluginResponse } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
-import { STALE_REFERENCE } from '../../lib/query';
 
 const SIGNERS = [
   'bearer',
@@ -45,165 +37,6 @@ const STARTER_HANDLER = `function mapRequest(ctx){
 function mapResponse(a){
   return { kind: 'media', assets: [{ role: 'primary', modality: 'image', url: a.response.data[0].url, mime: 'image/png' }], usage: { images: 1 } };
 }`;
-
-/**
- * The operator provider-plugin surface (spec §3.7): a list of built-in + custom
- * plugins, an editor (manifest fields + handler code) and a sandbox test panel
- * (run one handler fn against a sample arg, preview the JSON result). Lives under
- * the 接入与供给 group.
- */
-export function PluginsPage() {
-  const { t } = useTranslation('console');
-  const api = useAdminApi();
-  const qc = useQueryClient();
-
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: qk.plugins(),
-    queryFn: () => api.listPlugins(),
-    staleTime: STALE_REFERENCE,
-  });
-
-  const [editing, setEditing] = useState<ProviderPluginView | 'new' | null>(null);
-  const [delTarget, setDelTarget] = useState<ProviderPluginView | null>(null);
-
-  const del = useMutation({
-    mutationFn: (p: ProviderPluginView) => api.deletePlugin(p.id),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: qk.plugins() });
-      toast(t('plugins.deleted'));
-      setDelTarget(null);
-    },
-    onError: mutationError(t),
-  });
-
-  useSetConsoleAction(
-    () => (
-      <Button variant="ghost" onClick={() => setEditing('new')}>
-        <PlusIcon size={14} weight="bold" /> {t('plugins.new')}
-      </Button>
-    ),
-    [t],
-  );
-
-  const cols: Column<ProviderPluginView>[] = [
-    {
-      key: 'label',
-      header: t('plugins.cols.name'),
-      grow: true,
-      cell: (p) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)' }}>
-          <BrandIcon icon={p.icon} fallbacks={[p.slug]} size={18} />
-          <span>
-            <strong>{p.label}</strong>
-            <span style={{ color: 'var(--muted)' }}> · {p.slug}</span>
-          </span>
-        </span>
-      ),
-    },
-    {
-      key: 'modalities',
-      header: t('plugins.cols.modalities'),
-      noClip: true,
-      cell: (p) => p.modalities.join(', ') || '—',
-      width: '160px',
-    },
-    {
-      key: 'protocol',
-      header: t('plugins.cols.protocol'),
-      cell: (p) => p.protocol,
-      width: '120px',
-    },
-    {
-      key: 'auth',
-      header: t('plugins.cols.auth'),
-      noClip: true,
-      cell: (p) => <span className="chip">{p.auth_strategy}</span>,
-      width: '150px',
-    },
-    {
-      key: 'version',
-      header: t('plugins.cols.version'),
-      cell: (p) => `v${String(p.version)}`,
-      width: '72px',
-    },
-    {
-      key: 'kind',
-      header: t('plugins.cols.kind'),
-      width: '104px',
-      noClip: true,
-      cell: (p) => (
-        <span className="chip">{p.builtin ? t('plugins.builtin') : t('plugins.custom')}</span>
-      ),
-    },
-    {
-      key: 'status',
-      header: t('plugins.cols.status'),
-      width: '110px',
-      noClip: true,
-      cell: (p) => (
-        <StatusBadge tone={statusTone(p.status)} label={t('status.' + p.status, p.status)} />
-      ),
-    },
-  ];
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-      <DataTable
-        columns={cols}
-        rows={data ?? []}
-        rowKey={(p) => p.id}
-        loading={isLoading}
-        error={isError}
-        onRetry={() => void refetch()}
-        empty={t('plugins.empty')}
-        searchable
-        actionsWidth="96px"
-        rowActions={(p) => (
-          <>
-            <RowAction
-              icon={PencilSimpleIcon}
-              label={t('common.edit')}
-              onClick={() => setEditing(p)}
-            />
-            <RowAction
-              icon={TrashIcon}
-              label={t('common.delete')}
-              danger
-              disabled={p.builtin}
-              onClick={() => setDelTarget(p)}
-            />
-          </>
-        )}
-      />
-
-      {editing !== null && (
-        <PluginEditor
-          key={editing === 'new' ? 'new' : editing.id}
-          plugin={editing === 'new' ? undefined : editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            void qc.invalidateQueries({ queryKey: qk.plugins() });
-            setEditing(null);
-          }}
-        />
-      )}
-
-      <ConfirmDialog
-        open={delTarget !== null}
-        title={t('plugins.delete.title')}
-        message={t('plugins.delete.message', { name: delTarget?.label ?? '' })}
-        confirmLabel={t('common.delete')}
-        cancelLabel={t('common.cancel')}
-        danger
-        loading={del.isPending}
-        onConfirm={() => {
-          if (delTarget !== null) del.mutate(delTarget);
-        }}
-        onClose={() => setDelTarget(null)}
-      />
-    </div>
-  );
-}
 
 /** Create/edit one plugin (manifest fields + handler code) with an inline test panel. */
 export function PluginEditor({

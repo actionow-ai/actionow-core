@@ -634,7 +634,10 @@ export interface paths {
         /** List relay models */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    cursor?: string;
+                    limit?: number | null;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -13276,6 +13279,7 @@ export interface components {
         CreateSecretBody: {
             value: string;
             label?: string;
+            name?: string;
         };
         GenerateCodesBody: {
             count: number;
@@ -13313,6 +13317,7 @@ export interface components {
             };
             /** @enum {boolean} */
             acknowledgeUpstreamTos: true;
+            name?: string;
         };
         UpdateCredentialMetaBody: {
             name?: string | null;
@@ -13329,6 +13334,7 @@ export interface components {
             code: string;
             state: string;
             accountLabel?: string;
+            name?: string;
         };
         BulkModelActionBody: {
             ids: string[];

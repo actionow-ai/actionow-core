@@ -1,5 +1,5 @@
-import { PlusIcon } from '@phosphor-icons/react';
-import { useQuery } from '@tanstack/react-query';
+import { PencilSimpleIcon, PlusIcon, TrashIcon, UsersIcon } from '@phosphor-icons/react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,13 +9,18 @@ import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge, statusTone } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { RowAction } from '../../components/ui/RowAction';
+import { toast } from '../../components/ui/toast';
 import { enumLabel, MODALITIES } from '../../lib/api/enums';
+import { mutationError } from '../../lib/api/mutationError';
 import { qk } from '../../lib/api/queryKeys';
 import type { ModelView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
 import { FacetBar } from './FacetBar';
 import { ModelEditor } from './ModelEditor';
+import { ModelGrantsDrawer } from './ModelGrantsDrawer';
 import { useModelFacets } from './useModelFacets';
 
 /** µUSD/1M string → `$X.XX`. */
@@ -41,6 +46,20 @@ export function ModelsCatalogPage() {
   const { filtered, facets } = useModelFacets(models.data ?? []);
   // A model name to edit, the sentinel 'new' (create), or null (closed).
   const [edit, setEdit] = useState<string | null>(null);
+  // The model whose tenant grants are being managed / whose deletion is pending.
+  const [grants, setGrants] = useState<string | null>(null);
+  const [delTarget, setDelTarget] = useState<ModelView | undefined>(undefined);
+
+  const qc = useQueryClient();
+  const deleteModel = useMutation({
+    mutationFn: (m: ModelView) => api.deleteModel(m.name),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.models() });
+      toast(t('models.deleted'));
+      setDelTarget(undefined);
+    },
+    onError: mutationError(t),
+  });
 
   useSetConsoleAction(
     () => (
@@ -106,14 +125,15 @@ export function ModelsCatalogPage() {
     },
     {
       key: 'channels',
-      header: t('resources.detail.servedModels'),
-      width: '72px',
+      // How many channels SERVE this model — not「模型」(the old key mislabeled it).
+      header: t('models.cols.servedChannels'),
+      width: '96px',
       numeric: true,
       cell: (r) => String(r.served_channel_ids.length),
     },
     {
       key: 'status',
-      header: t('app.models.cols.status', t('models.cols.status')),
+      header: t('models.cols.status'),
       width: '100px',
       noClip: true,
       cell: (r) => (
@@ -136,6 +156,27 @@ export function ModelsCatalogPage() {
         searchable
         pageSize={25}
         onRowClick={(r) => setEdit(r.name)}
+        actionsWidth="132px"
+        rowActions={(r) => (
+          <>
+            <RowAction
+              icon={PencilSimpleIcon}
+              label={t('common.edit')}
+              onClick={() => setEdit(r.name)}
+            />
+            <RowAction
+              icon={UsersIcon}
+              label={t('models.actions.grants')}
+              onClick={() => setGrants(r.name)}
+            />
+            <RowAction
+              icon={TrashIcon}
+              label={t('common.delete')}
+              danger
+              onClick={() => setDelTarget(r)}
+            />
+          </>
+        )}
       />
       {edit !== null && (
         <ModelEditor
@@ -145,6 +186,22 @@ export function ModelsCatalogPage() {
           onClose={() => setEdit(null)}
         />
       )}
+      {grants !== null && (
+        <ModelGrantsDrawer key={grants} name={grants} open onClose={() => setGrants(null)} />
+      )}
+      <ConfirmDialog
+        open={delTarget !== undefined}
+        title={t('models.confirm.deleteTitle')}
+        message={t('models.confirm.deleteMsg', { name: delTarget?.name ?? '' })}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        danger
+        loading={deleteModel.isPending}
+        onConfirm={() => {
+          if (delTarget !== undefined) deleteModel.mutate(delTarget);
+        }}
+        onClose={() => setDelTarget(undefined)}
+      />
     </div>
   );
 }

@@ -196,6 +196,12 @@ export const secretRef = pgTable(
     // (provider, locator) resolution/dedup was a full scan (no secondary index).
     // Non-unique on purpose: the same env locator may back several named refs.
     index('secret_ref_provider_locator_idx').on(t.provider, t.locator),
+    // Human name must be unique among LIVE credentials so it's a reliable pick key
+    // in the channel editor's credential dropdown (partial: null names + tombstoned
+    // rows are exempt, so an unnamed or revoked credential never blocks a name).
+    uniqueIndex('secret_ref_name_idx')
+      .on(t.name)
+      .where(sql`${t.name} IS NOT NULL AND ${t.deletedAt} IS NULL`),
   ],
 );
 

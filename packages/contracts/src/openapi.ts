@@ -605,7 +605,7 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   list('/admin/accounts', 'List accounts (balance/held)', Account, 'tenants');
   list('/admin/resources', 'List catalog resources', Resource, 'catalog');
   list('/admin/resources/{id}/channels', 'List a resource’s channels', Channel, 'catalog');
-  list('/admin/models', 'List relay models', Model, 'catalog');
+  list('/admin/models', 'List relay models', Model, 'catalog', keyset);
   list('/admin/pricebook', 'List pricebook entries', Pricebook, 'pricing', pricebookQuery);
   list('/admin/modifiers', 'List pricing modifiers', Modifier, 'pricing', keyset);
   list('/admin/api-keys', 'List a tenant’s API keys', ApiKey, 'admin', apiKeysQuery);
