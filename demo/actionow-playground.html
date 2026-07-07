@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Actionow Playground — 全模型 / 全功能 / 全参数测试台</title>
+    <style>
+      :root {
+        --bg: #0b0b0e;
+        --panel: #141419;
+        --panel2: #1c1c24;
+        --line: #2a2a34;
+        --fg: #e6e6ea;
+        --muted: #9a9aa6;
+        --accent: #c9a84c;
+        --accent2: #8ab4ff;
+        --ok: #6ee7a8;
+        --err: #ff8a8a;
+        --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 14px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      a { color: var(--accent2); }
+      header {
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        flex-wrap: wrap;
+        position: sticky;
+        top: 0;
+        background: rgba(11, 11, 14, 0.92);
+        backdrop-filter: blur(8px);
+        z-index: 5;
+      }
+      header h1 { font-size: 15px; margin: 0; letter-spacing: 0.3px; }
+      header h1 b { color: var(--accent); }
+      .cfg { display: flex; gap: 8px; align-items: center; flex: 1; flex-wrap: wrap; }
+      .cfg input {
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        color: var(--fg);
+        border-radius: 8px;
+        padding: 7px 10px;
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+      .cfg input.url { width: 260px; }
+      .cfg input.key { width: 300px; }
+      .pill { font-size: 11px; color: var(--muted); }
+      .pill.ok { color: var(--ok); }
+      .pill.err { color: var(--err); }
+      nav { display: flex; gap: 4px; padding: 10px 20px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+      nav button {
+        background: transparent;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        color: var(--muted);
+        padding: 8px 14px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      nav button.active { color: var(--fg); border-bottom-color: var(--accent); }
+      main { padding: 18px 20px 60px; max-width: 1200px; margin: 0 auto; }
+      .tab { display: none; }
+      .tab.active { display: block; }
+      .grid { display: grid; grid-template-columns: 340px 1fr; gap: 18px; align-items: start; }
+      @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+      .panel h3 { margin: 0 0 10px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+      label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+      select, input[type="text"], input[type="number"], textarea {
+        width: 100%;
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        color: var(--fg);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 13px;
+        font-family: inherit;
+      }
+      textarea { font-family: var(--mono); font-size: 12px; resize: vertical; }
+      .row { display: flex; gap: 8px; }
+      .row > * { flex: 1; }
+      .chk { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+      .chk input { width: auto; }
+      button.go {
+        margin-top: 14px;
+        width: 100%;
+        background: var(--accent);
+        color: #17140a;
+        border: 0;
+        border-radius: 9px;
+        padding: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      button.go:disabled { opacity: 0.55; cursor: default; }
+      button.mini {
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        color: var(--fg);
+        border-radius: 7px;
+        padding: 5px 10px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .out { min-height: 200px; }
+      .msg { white-space: pre-wrap; word-break: break-word; }
+      .bubble { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+      .bubble .who { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+      .meta { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-top: 8px; }
+      .meta b { color: var(--accent); }
+      pre.raw { background: #08080b; border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow: auto; max-height: 320px; font-size: 11px; color: #b9c2cc; }
+      .imgs { display: flex; gap: 10px; flex-wrap: wrap; }
+      .imgs img, video { max-width: 100%; border-radius: 10px; border: 1px solid var(--line); }
+      video { width: 100%; }
+      .status { font-size: 12px; color: var(--muted); margin: 8px 0; font-family: var(--mono); }
+      details { margin-top: 10px; }
+      summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+      .hint { font-size: 11px; color: var(--muted); margin-top: 6px; }
+      .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1><b>Actionow</b> Playground</h1>
+      <div class="cfg">
+        <input class="url" id="baseUrl" placeholder="Base URL" />
+        <input class="key" id="apiKey" type="password" placeholder="API Key (ak_…)" />
+        <button class="mini" id="saveCfg">保存</button>
+        <button class="mini" id="loadModels">拉取模型</button>
+        <span class="pill" id="cfgStatus">未连接</span>
+      </div>
+    </header>
+
+    <nav>
+      <button data-tab="chat" class="active">💬 对话 (LLM)</button>
+      <button data-tab="image">🖼️ 图像</button>
+      <button data-tab="video">🎬 视频</button>
+      <button data-tab="audio">🔊 音频 (STT)</button>
+      <button data-tab="models">📚 模型列表</button>
+    </nav>
+
+    <main>
+      <!-- CHAT -->
+      <section class="tab active" id="tab-chat">
+        <div class="grid">
+          <div class="panel">
+            <h3>参数</h3>
+            <label>模型</label>
+            <select id="chatModel"></select>
+            <label>System 提示</label>
+            <textarea id="chatSystem" rows="2">You are a helpful assistant.</textarea>
+            <label>User 消息</label>
+            <textarea id="chatUser" rows="3">用三句话介绍一下你自己。</textarea>
+            <div class="kv">
+              <div><label>temperature</label><input type="number" id="p_temperature" step="0.1" min="0" max="2" value="1" /></div>
+              <div><label>top_p</label><input type="number" id="p_top_p" step="0.05" min="0" max="1" value="1" /></div>
+              <div><label>max_tokens</label><input type="number" id="p_max_tokens" min="1" value="512" /></div>
+              <div><label>seed</label><input type="number" id="p_seed" placeholder="(空)" /></div>
+              <div><label>frequency_penalty</label><input type="number" id="p_frequency_penalty" step="0.1" min="-2" max="2" placeholder="(空)" /></div>
+              <div><label>presence_penalty</label><input type="number" id="p_presence_penalty" step="0.1" min="-2" max="2" placeholder="(空)" /></div>
+            </div>
+            <label>reasoning_effort</label>
+            <select id="p_reasoning_effort">
+              <option value="">(不发送)</option>
+              <option>minimal</option><option>low</option><option>medium</option><option>high</option><option>xhigh</option>
+            </select>
+            <label>response_format</label>
+            <select id="p_response_format">
+              <option value="">(默认 text)</option>
+              <option value="json_object">json_object</option>
+            </select>
+            <label>stop (JSON 数组，可空)</label>
+            <input type="text" id="p_stop" placeholder='["\n\n"]' />
+            <label>tools (JSON 数组，可空 — 函数调用)</label>
+            <textarea id="p_tools" rows="3" placeholder='[{"type":"function","function":{"name":"get_weather","parameters":{"type":"object","properties":{"city":{"type":"string"}}}}}]'></textarea>
+            <div class="chk"><input type="checkbox" id="p_stream" checked /><label style="margin:0">流式 (stream)</label></div>
+            <button class="go" id="chatSend">发送</button>
+            <div class="hint">走 <code>POST /v1/chat/completions</code>（OpenAI 兼容）。</div>
+          </div>
+          <div class="panel">
+            <h3>输出</h3>
+            <div class="out" id="chatOut"><div class="status">— 等待发送 —</div></div>
+            <div class="meta" id="chatMeta"></div>
+            <details><summary>原始请求 / 响应</summary><pre class="raw" id="chatRaw"></pre></details>
+          </div>
+        </div>
+      </section>
+
+      <!-- IMAGE -->
+      <section class="tab" id="tab-image">
+        <div class="grid">
+          <div class="panel">
+            <h3>参数</h3>
+            <label>模型</label>
+            <select id="imgModel">
+              <option>seedream-4.5</option><option>seedream-5.0-lite</option>
+              <option>nb-2</option><option>nb-2-official</option>
+              <option>nb-pro</option><option>nb-pro-official</option>
+              <option>image-2</option><option>image-2-official</option>
+              <option>z-image-turbo</option>
+            </select>
+            <label>Prompt</label>
+            <textarea id="imgPrompt" rows="3">一只戴着宇航头盔的柴犬，赛博朋克风格，霓虹灯</textarea>
+            <div class="kv">
+              <div><label>size</label><input type="text" id="imgSize" value="1024x1024" /></div>
+              <div><label>n</label><input type="number" id="imgN" min="1" max="4" value="1" /></div>
+            </div>
+            <label>参考图 URL（img2img / 参考生图，可选）</label>
+            <input type="text" id="imgRefUrl" placeholder="https://asset.actionow.ai/…（留空则文生图）" />
+            <label>或上传参考图文件（可选，走 presign 上传）</label>
+            <input type="file" id="imgRefFile" accept="image/*" />
+            <button class="go" id="imgGo">生成图像</button>
+            <div class="hint">走 <code>POST /v1/run/image-relay</code>（异步轮询，慢模型不超时）。model 透传到 huimeng。填 URL 或上传文件即触发<b>参考生图</b>（归一化为 <code>image_url</code>）。</div>
+          </div>
+          <div class="panel">
+            <h3>输出</h3>
+            <div class="status" id="imgStatus">— 等待生成 —</div>
+            <div class="imgs" id="imgOut"></div>
+            <details><summary>原始请求 / 响应</summary><pre class="raw" id="imgRaw"></pre></details>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIDEO -->
+      <section class="tab" id="tab-video">
+        <div class="grid">
+          <div class="panel">
+            <h3>参数</h3>
+            <label>模型</label>
+            <select id="vidModel">
+              <option>seedance-2.0</option><option>seedance-2.0-fast</option><option>seedance-2.0-value</option>
+              <option>seedance-2.0-fast-value</option><option>seedance-1.5-pro</option><option>seedance-1.0-pro</option>
+              <option>seedance-1.0-pro-fast</option><option>kling-v3</option><option>kling-v3-omni</option>
+            </select>
+            <label>Prompt</label>
+            <textarea id="vidPrompt" rows="3">一只猫在海滩上漫步，阳光洒在海面上，电影感</textarea>
+            <div class="kv">
+              <div><label>duration (秒)</label><input type="number" id="vidDuration" min="1" value="5" /></div>
+              <div><label>ratio</label><input type="text" id="vidRatio" value="16:9" /></div>
+            </div>
+            <button class="go" id="vidGo">生成视频</button>
+            <div class="hint">走 <code>POST /v1/run/video-relay</code>（异步）→ 轮询 <code>GET /v1/jobs/:id</code>。</div>
+          </div>
+          <div class="panel">
+            <h3>输出</h3>
+            <div class="status" id="vidStatus">— 等待生成 —</div>
+            <div id="vidOut"></div>
+            <details><summary>原始请求 / 响应</summary><pre class="raw" id="vidRaw"></pre></details>
+          </div>
+        </div>
+      </section>
+
+      <!-- AUDIO (STT) -->
+      <section class="tab" id="tab-audio">
+        <div class="grid">
+          <div class="panel">
+            <h3>参数</h3>
+            <label>模型</label>
+            <input type="text" id="audModel" value="whisper-1" />
+            <label>音频文件 (mp3/wav/m4a…)</label>
+            <input type="file" id="audFile" accept="audio/*" />
+            <button class="go" id="audGo">转写 (STT)</button>
+            <div class="hint">
+              走 <code>POST /v1/audio/transcriptions</code>（multipart）。
+              注意：HuiMeng 无音频；语音转写走平台的 whisper/openai 通道，需在后台配置 OpenAI 凭证。
+            </div>
+          </div>
+          <div class="panel">
+            <h3>转写结果</h3>
+            <div class="status" id="audStatus">— 等待上传 —</div>
+            <div class="msg" id="audOut"></div>
+            <details><summary>原始响应</summary><pre class="raw" id="audRaw"></pre></details>
+          </div>
+        </div>
+      </section>
+
+      <!-- MODELS -->
+      <section class="tab" id="tab-models">
+        <div class="panel">
+          <h3>GET /v1/models — 可见模型</h3>
+          <div class="status" id="modStatus">点击顶部「拉取模型」加载</div>
+          <pre class="raw" id="modOut" style="max-height:600px"></pre>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const LS = 'actionow-playground';
+      // ---- config ----
+      const cfg = JSON.parse(localStorage.getItem(LS) || '{}');
+      // When served over http(s) — i.e. via `demo/serve.mjs` — call the SAME
+      // origin, which proxies /v1 to the gateway with CORS (works today, before
+      // the CORS build ships). When opened as a bare file://, call the gateway
+      // directly (works once v0.0.5's CORS is live). Pre-filled with the funded
+      // test tenant (5000 credits).
+      const isFile = location.protocol === 'file:';
+      $('baseUrl').value = isFile ? cfg.baseUrl || 'https://core.actionow.ai' : location.origin;
+      $('apiKey').value = cfg.apiKey || 'ak_4x0Uo_2F9XnDP76tEsQRoZKKtpTu8Ya6LADFKtYUPbU';
+      const saveCfg = () => {
+        localStorage.setItem(LS, JSON.stringify({ baseUrl: $('baseUrl').value.trim().replace(/\/$/, ''), apiKey: $('apiKey').value.trim() }));
+        setStatus('已保存', 'ok');
+      };
+      $('saveCfg').onclick = saveCfg;
+      const base = () => $('baseUrl').value.trim().replace(/\/$/, '');
+      const key = () => $('apiKey').value.trim();
+      const setStatus = (t, cls) => { const el = $('cfgStatus'); el.textContent = t; el.className = 'pill ' + (cls || ''); };
+      const H = () => ({ authorization: 'Bearer ' + key(), 'content-type': 'application/json' });
+
+      // ---- tabs ----
+      document.querySelectorAll('nav button').forEach((b) => {
+        b.onclick = () => {
+          document.querySelectorAll('nav button').forEach((x) => x.classList.remove('active'));
+          document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
+          b.classList.add('active');
+          $('tab-' + b.dataset.tab).classList.add('active');
+        };
+      });
+
+      // ---- models ----
+      async function loadModels() {
+        try {
+          setStatus('拉取模型…');
+          const r = await fetch(base() + '/v1/models', { headers: H() });
+          const j = await r.json();
+          if (!r.ok) throw new Error(JSON.stringify(j));
+          const ids = (j.data || []).map((m) => m.id);
+          $('modStatus').textContent = ids.length + ' 个模型';
+          $('modOut').textContent = JSON.stringify(j, null, 2);
+          // populate chat model dropdown (all; media dropdowns are curated lists)
+          const sel = $('chatModel');
+          sel.innerHTML = '';
+          ids.forEach((id) => { const o = document.createElement('option'); o.textContent = id; sel.appendChild(o); });
+          if (ids.length === 0) sel.innerHTML = '<option>(无可见模型)</option>';
+          setStatus('已连接 · ' + ids.length + ' 模型', 'ok');
+        } catch (e) {
+          setStatus('拉取失败', 'err');
+          $('modStatus').textContent = '错误：' + e.message;
+        }
+      }
+      $('loadModels').onclick = loadModels;
+
+      // ---- chat ----
+      function numOrUndef(id) { const v = $(id).value.trim(); return v === '' ? undefined : Number(v); }
+      function jsonOrUndef(id) { const v = $(id).value.trim(); if (v === '') return undefined; try { return JSON.parse(v); } catch { return undefined; } }
+      function buildChatBody() {
+        const body = {
+          model: $('chatModel').value,
+          messages: [
+            ...($('chatSystem').value.trim() ? [{ role: 'system', content: $('chatSystem').value }] : []),
+            { role: 'user', content: $('chatUser').value },
+          ],
+          stream: $('p_stream').checked,
+        };
+        const t = numOrUndef('p_temperature'); if (t !== undefined) body.temperature = t;
+        const tp = numOrUndef('p_top_p'); if (tp !== undefined) body.top_p = tp;
+        const mt = numOrUndef('p_max_tokens'); if (mt !== undefined) body.max_tokens = mt;
+        const sd = numOrUndef('p_seed'); if (sd !== undefined) body.seed = sd;
+        const fp = numOrUndef('p_frequency_penalty'); if (fp !== undefined) body.frequency_penalty = fp;
+        const pp = numOrUndef('p_presence_penalty'); if (pp !== undefined) body.presence_penalty = pp;
+        const re = $('p_reasoning_effort').value; if (re) body.reasoning_effort = re;
+        const rf = $('p_response_format').value; if (rf) body.response_format = { type: rf };
+        const stop = jsonOrUndef('p_stop'); if (stop !== undefined) body.stop = stop;
+        const tools = jsonOrUndef('p_tools'); if (tools !== undefined) body.tools = tools;
+        return body;
+      }
+      $('chatSend').onclick = async () => {
+        const body = buildChatBody();
+        $('chatOut').innerHTML = '';
+        $('chatMeta').textContent = '';
+        $('chatRaw').textContent = '→ ' + JSON.stringify(body, null, 2);
+        const btn = $('chatSend'); btn.disabled = true; btn.textContent = '生成中…';
+        try {
+          const r = await fetch(base() + '/v1/chat/completions', { method: 'POST', headers: H(), body: JSON.stringify(body) });
+          if (!r.ok) { const j = await r.json(); throw new Error(JSON.stringify(j)); }
+          if (body.stream) {
+            const reader = r.body.getReader();
+            const dec = new TextDecoder();
+            let buf = '', text = '', toolBuf = '';
+            const outEl = document.createElement('div'); outEl.className = 'msg'; $('chatOut').appendChild(outEl);
+            for (;;) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buf += dec.decode(value, { stream: true });
+              const lines = buf.split('\n'); buf = lines.pop();
+              for (const line of lines) {
+                const s = line.trim();
+                if (!s.startsWith('data:')) continue;
+                const data = s.slice(5).trim();
+                if (data === '[DONE]') continue;
+                try {
+                  const ch = JSON.parse(data);
+                  const d = ch.choices?.[0]?.delta || {};
+                  if (d.content) { text += d.content; outEl.textContent = text; }
+                  if (d.tool_calls) { toolBuf += JSON.stringify(d.tool_calls); }
+                  if (ch.usage) $('chatMeta').innerHTML = usageLine(ch.usage);
+                } catch {}
+              }
+            }
+            if (toolBuf) $('chatOut').innerHTML += '<div class="meta">tool_calls: ' + toolBuf + '</div>';
+            $('chatRaw').textContent += '\n\n← (streamed)\n' + text;
+          } else {
+            const j = await r.json();
+            const m = j.choices?.[0]?.message || {};
+            $('chatOut').innerHTML = '<div class="msg">' + (m.content ? escapeHtml(m.content) : '') + '</div>' +
+              (m.tool_calls ? '<div class="meta">tool_calls: ' + escapeHtml(JSON.stringify(m.tool_calls)) + '</div>' : '');
+            if (j.usage) $('chatMeta').innerHTML = usageLine(j.usage);
+            $('chatRaw').textContent += '\n\n← ' + JSON.stringify(j, null, 2);
+          }
+        } catch (e) {
+          $('chatOut').innerHTML = '<div class="status" style="color:var(--err)">错误：' + escapeHtml(e.message) + '</div>';
+        } finally { btn.disabled = false; btn.textContent = '发送'; }
+      };
+      const usageLine = (u) => `tokens: <b>${u.total_tokens ?? '?'}</b> (prompt ${u.prompt_tokens ?? '?'} / completion ${u.completion_tokens ?? '?'})`;
+      const escapeHtml = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+
+      // ---- file upload (presign → PUT bytes → confirm → file_id), used for
+      // img2img reference images uploaded from disk. Returns the new file_id. ----
+      const uploadFile = async (file) => {
+        const pr = await fetch(base() + '/v1/files/presign-upload', {
+          method: 'POST', headers: H(),
+          body: JSON.stringify({ filename: file.name, content_type: file.type || 'application/octet-stream', size: file.size }),
+        });
+        const p = await pr.json();
+        if (!pr.ok) throw new Error('presign failed: ' + JSON.stringify(p));
+        const put = await fetch(p.upload_url, { method: 'PUT', headers: { 'content-type': file.type || 'application/octet-stream' }, body: file });
+        if (!put.ok) throw new Error('upload PUT failed (' + put.status + ') — R2 CORS? 可改用「参考图 URL」');
+        const cf = await fetch(base() + '/v1/files/' + p.file_id + '/confirm', { method: 'POST', headers: H() });
+        if (!cf.ok) throw new Error('confirm failed: ' + JSON.stringify(await cf.json()));
+        return p.file_id;
+      };
+
+      // ---- image (async run → poll; robust for slow models like nb-2 that would
+      // 504 on the synchronous /v1/images/generations path) ----
+      $('imgGo').onclick = async () => {
+        const model = $('imgModel').value;
+        const n = Number($('imgN').value);
+        const inputs = { prompt: $('imgPrompt').value, model, size: $('imgSize').value };
+        $('imgOut').innerHTML = ''; $('imgStatus').textContent = '提交任务…';
+        const btn0 = $('imgGo'); btn0.disabled = true;
+        try {
+          // reference image (参考生图): an uploaded file wins over a pasted URL.
+          const refFile = $('imgRefFile').files[0];
+          const refUrl = $('imgRefUrl').value.trim();
+          if (refFile) { $('imgStatus').textContent = '上传参考图…'; inputs.image = await uploadFile(refFile); }
+          else if (refUrl) { inputs.image_url = refUrl; }
+        } catch (e) { $('imgStatus').innerHTML = '<span style="color:var(--err)">参考图错误：' + escapeHtml(e.message) + '</span>'; btn0.disabled = false; return; }
+        const body = { inputs, estimated_usage: { images: n } };
+        $('imgStatus').textContent = '提交任务…';
+        $('imgRaw').textContent = '→ POST /v1/run/image-relay\n' + JSON.stringify(body, null, 2);
+        try {
+          const r = await fetch(base() + '/v1/run/image-relay', { method: 'POST', headers: H(), body: JSON.stringify(body) });
+          let job = await r.json();
+          $('imgRaw').textContent += '\n\n← ' + JSON.stringify(job, null, 2);
+          if (!r.ok) throw new Error(JSON.stringify(job));
+          for (let i = 0; i < 100 && job.status !== 'succeeded' && job.status !== 'failed'; i++) {
+            $('imgStatus').textContent = `任务 ${job.job_id} · ${job.status}… (${i * 3}s)`;
+            await new Promise((res) => setTimeout(res, 3000));
+            const pr = await fetch(base() + '/v1/jobs/' + job.job_id, { headers: H() });
+            job = await pr.json();
+          }
+          $('imgRaw').textContent += '\n\n← final\n' + JSON.stringify(job, null, 2);
+          if (job.status === 'succeeded') {
+            const o = job.output || {};
+            const urls = (o.assets || []).map((a) => a && a.url).filter(Boolean);
+            if (o.image_url && !urls.length) urls.push(o.image_url);
+            urls.forEach((u) => { const im = document.createElement('img'); im.src = u; $('imgOut').appendChild(im); });
+            $('imgStatus').textContent = urls.length ? '完成 · ' + urls.length + ' 张' : '完成（无 url，见原始响应）';
+          } else { $('imgStatus').innerHTML = '<span style="color:var(--err)">失败：' + escapeHtml(job.error?.message || job.status) + '</span>'; }
+        } catch (e) { $('imgStatus').innerHTML = '<span style="color:var(--err)">错误：' + escapeHtml(e.message) + '</span>'; }
+        finally { btn0.disabled = false; }
+      };
+
+      // ---- video (async run → poll) ----
+      $('vidGo').onclick = async () => {
+        const dur = Number($('vidDuration').value);
+        const body = {
+          inputs: { prompt: $('vidPrompt').value, model: $('vidModel').value, duration: dur, ratio: $('vidRatio').value },
+          estimated_usage: { duration_seconds: dur, tasks: 1 },
+        };
+        $('vidOut').innerHTML = ''; $('vidStatus').textContent = '提交任务…';
+        $('vidRaw').textContent = '→ POST /v1/run/video-relay\n' + JSON.stringify(body, null, 2);
+        const btn = $('vidGo'); btn.disabled = true;
+        try {
+          const r = await fetch(base() + '/v1/run/video-relay', { method: 'POST', headers: H(), body: JSON.stringify(body) });
+          const j = await r.json();
+          $('vidRaw').textContent += '\n\n← ' + JSON.stringify(j, null, 2);
+          if (!r.ok) throw new Error(JSON.stringify(j));
+          let job = j;
+          // poll until terminal
+          for (let i = 0; i < 150 && job.status !== 'succeeded' && job.status !== 'failed'; i++) {
+            $('vidStatus').textContent = `任务 ${job.job_id} · ${job.status}… (${i * 4}s)`;
+            await new Promise((res) => setTimeout(res, 4000));
+            const pr = await fetch(base() + '/v1/jobs/' + job.job_id, { headers: H() });
+            job = await pr.json();
+          }
+          $('vidRaw').textContent += '\n\n← final\n' + JSON.stringify(job, null, 2);
+          if (job.status === 'succeeded') {
+            const o = job.output || {};
+            const asset = (o.assets || []).find((a) => a && a.url);
+            const url = o.video_url || o.url || asset?.url;
+            $('vidStatus').textContent = '完成';
+            if (url) { const v = document.createElement('video'); v.src = url; v.controls = true; $('vidOut').appendChild(v); }
+            else $('vidOut').innerHTML = '<div class="status">无 video_url，见原始响应</div>';
+          } else { $('vidStatus').innerHTML = '<span style="color:var(--err)">失败：' + escapeHtml(job.error?.message || job.status) + '</span>'; }
+        } catch (e) { $('vidStatus').innerHTML = '<span style="color:var(--err)">错误：' + escapeHtml(e.message) + '</span>'; }
+        finally { btn.disabled = false; }
+      };
+
+      // ---- audio STT ----
+      $('audGo').onclick = async () => {
+        const f = $('audFile').files[0];
+        if (!f) { $('audStatus').textContent = '请先选择音频文件'; return; }
+        $('audStatus').textContent = '转写中…'; $('audOut').textContent = ''; $('audRaw').textContent = '';
+        const btn = $('audGo'); btn.disabled = true;
+        try {
+          const fd = new FormData();
+          fd.append('file', f); fd.append('model', $('audModel').value);
+          const r = await fetch(base() + '/v1/audio/transcriptions', { method: 'POST', headers: { authorization: 'Bearer ' + key() }, body: fd });
+          const txt = await r.text();
+          $('audRaw').textContent = txt;
+          if (!r.ok) throw new Error(txt);
+          let j; try { j = JSON.parse(txt); } catch { j = { text: txt }; }
+          $('audOut').textContent = j.text || '(无 text 字段，见原始响应)';
+          $('audStatus').textContent = '完成';
+        } catch (e) { $('audStatus').innerHTML = '<span style="color:var(--err)">错误：' + escapeHtml(e.message) + '</span>'; }
+        finally { btn.disabled = false; }
+      };
+
+      // auto-load models if a key is present
+      if (key()) loadModels();
+    </script>
+  </body>
+</html>

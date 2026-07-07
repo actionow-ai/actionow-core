@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Actionow · 使用场景图谱</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF8F3;
+    --paper2:#F3EFE6;
+    --card:#FFFFFF;
+    --ink:#15171C;
+    --ink2:#3A3D45;
+    --muted:#7A746A;
+    --line:#E8E2D6;
+    --line2:#DCD4C5;
+
+    --subject:#B26A4A;   /* 端用户 · 黏土 */
+    --tenant:#2F7D6B;    /* 应用方/租户 · 青绿 */
+    --core:#2B3A67;      /* Actionow 平台 · 靛蓝（品牌） */
+    --upstream:#5A6472;  /* 上游 AI · 石板 */
+    --money:#B0801E;     /* 资金 · 琥珀金 */
+    --money-bright:#D8A23A;
+
+    --r:18px;
+    --shadow:0 26px 60px -38px rgba(28,24,16,.55);
+    --shadow-sm:0 10px 26px -18px rgba(28,24,16,.45);
+    --serif:"Fraunces",ui-serif,Georgia,"Songti SC",serif;
+    --sans:"Noto Sans SC",ui-sans-serif,system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    --maxw:1060px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;color:var(--ink);font-family:var(--sans);font-weight:400;line-height:1.7;
+    background:
+      radial-gradient(1100px 520px at 88% -6%, rgba(43,58,103,.06), transparent 60%),
+      radial-gradient(900px 480px at 6% 2%, rgba(176,128,30,.05), transparent 60%),
+      var(--paper);
+    -webkit-font-smoothing:antialiased;letter-spacing:.1px;
+  }
+  ::selection{background:rgba(43,58,103,.16)}
+
+  /* ── top bar ─────────────────────────── */
+  .topbar{position:sticky;top:0;z-index:40;background:rgba(250,248,243,.82);backdrop-filter:saturate(140%) blur(10px);border-bottom:1px solid var(--line)}
+  .topbar .in{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;gap:16px;padding:13px 26px}
+  .wm{display:flex;align-items:center;gap:11px;font-weight:700;letter-spacing:.3px}
+  .wm .mk{width:26px;height:26px;color:var(--core)}
+  .wm small{color:var(--muted);font-weight:400;border-left:1px solid var(--line2);padding-left:11px;margin-left:2px}
+  .qlinks{margin-left:auto;display:flex;gap:3px}
+  .qlinks a{font-size:13px;color:var(--muted);padding:6px 12px;border-radius:999px;transition:.16s;text-decoration:none}
+  .qlinks a:hover{color:var(--ink);background:var(--paper2)}
+
+  main{max-width:var(--maxw);margin:0 auto;padding:0 26px 130px}
+
+  /* ── hero ─────────────────────────── */
+  .hero{padding:78px 0 26px}
+  .eyebrow{font-family:var(--mono);font-size:12.5px;letter-spacing:3px;text-transform:uppercase;color:var(--money);margin:0 0 20px}
+  .hero h1{font-family:var(--serif);font-weight:500;font-size:clamp(40px,7.2vw,82px);line-height:1.02;letter-spacing:-1.5px;margin:0 0 22px;color:var(--ink)}
+  .hero h1 em{font-style:italic;color:var(--core)}
+  .hero .lead{font-size:clamp(16px,2vw,20px);color:var(--ink2);max-width:680px;margin:0;font-weight:300}
+  .hero .lead b{font-weight:500;color:var(--ink)}
+
+  .legend{display:flex;flex-wrap:wrap;gap:9px;margin:34px 0 0}
+  .lg{display:inline-flex;align-items:center;gap:9px;font-size:13px;color:var(--ink2);background:var(--card);border:1px solid var(--line);border-radius:11px;padding:8px 13px;box-shadow:var(--shadow-sm)}
+  .lg .dot{width:11px;height:11px;border-radius:4px}
+  .lg .ic{width:16px;height:16px}
+
+  .bp-note{display:flex;gap:13px;align-items:flex-start;margin:30px 0 0;padding:15px 18px;border-radius:14px;
+    background:linear-gradient(180deg,#FBF6EA,#FAF3E2);border:1px solid #EAD9AE;color:#6B5A2C;font-size:13.5px}
+  .bp-note svg{width:20px;height:20px;flex:0 0 auto;color:var(--money);margin-top:1px}
+  .bp-note b{color:#4d3f1c}
+
+  /* ── section ─────────────────────────── */
+  section{scroll-margin-top:80px;padding:64px 0 8px;border-top:1px solid var(--line)}
+  .shead{display:flex;align-items:baseline;gap:16px;margin-bottom:8px}
+  .skicker{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border:1px solid var(--line2);border-radius:7px;padding:3px 9px;white-space:nowrap}
+  h2{font-family:var(--serif);font-weight:500;font-size:clamp(25px,3.6vw,38px);letter-spacing:-.6px;margin:0;color:var(--ink)}
+  .sdesc{color:var(--ink2);max-width:760px;margin:14px 0 30px;font-weight:300;font-size:16px}
+  .sdesc b{font-weight:500;color:var(--ink)}
+
+  /* ── generic node / flow ─────────────────────────── */
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:30px 30px 26px;margin:6px 0 4px}
+  .panel-title{font-size:13px;font-weight:500;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;font-family:var(--mono);margin:0 0 22px;display:flex;align-items:center;gap:10px}
+  .panel-title::before{content:"";width:22px;height:2px;background:var(--money);border-radius:2px}
+
+  .flow-scroll{overflow-x:auto;padding-bottom:6px;margin:0 -6px}
+  .flow{display:flex;align-items:stretch;gap:0;min-width:max-content;padding:6px 6px 4px}
+
+  .node{flex:0 0 auto;width:148px;background:var(--card);border:1px solid var(--line2);border-top:3px solid var(--nc,var(--line2));
+    border-radius:14px;padding:16px 15px 14px;text-align:center;box-shadow:var(--shadow-sm)}
+  .node .ic{width:30px;height:30px;color:var(--nc,var(--ink));margin:2px auto 10px;display:block}
+  .node b{display:block;font-weight:500;font-size:14.5px;color:var(--ink);line-height:1.35}
+  .node small{display:block;color:var(--muted);font-size:12px;margin-top:4px;font-weight:300}
+  .node.n-subject{--nc:var(--subject)} .node.n-tenant{--nc:var(--tenant)}
+  .node.n-core{--nc:var(--core)} .node.n-upstream{--nc:var(--upstream)} .node.n-money{--nc:var(--money)}
+
+  .edge{flex:1 1 92px;min-width:92px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:7px;padding:0 6px;align-self:center}
+  .edge .el{font-size:12px;color:var(--ink2);font-weight:500;white-space:nowrap;background:var(--paper);padding:1px 4px}
+  .edge .ln{position:relative;width:100%;height:2px;background:var(--line2);border-radius:2px}
+  .edge .ln::after{content:"";position:absolute;right:-1px;top:50%;transform:translateY(-50%);
+    border-left:7px solid var(--line2);border-top:5px solid transparent;border-bottom:5px solid transparent}
+  .edge.money .el{color:var(--money)}
+  .edge.money .ln{height:3px;background:
+    repeating-linear-gradient(90deg,var(--money) 0 9px,transparent 9px 17px),var(--money-bright);
+    background-size:17px 100%,100% 100%;background-color:rgba(216,162,58,.28);animation:flow 1.1s linear infinite}
+  .edge.money .ln::after{border-left-color:var(--money)}
+  @keyframes flow{to{background-position:17px 0,0 0}}
+
+  /* vertical drop annotations (topup / settle) under a node */
+  .subflows{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+  .subflow{display:inline-flex;align-items:center;gap:9px;font-size:13px;color:var(--ink2);background:var(--paper);border:1px dashed var(--line2);border-radius:10px;padding:8px 13px}
+  .subflow .tg{font-family:var(--mono);font-size:11px;color:#fff;background:var(--money);border-radius:6px;padding:2px 7px}
+
+  /* ── money strip ─────────────────────────── */
+  .money-strip{margin-top:22px;background:linear-gradient(180deg,#FBF6EA,#FAF2DF);border:1px solid #EAD9AE;border-radius:16px;padding:18px 22px}
+  .money-strip .ms-h{font-size:12px;font-family:var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--money);margin:0 0 14px;display:flex;align-items:center;gap:9px}
+  .money-strip .ms-h svg{width:16px;height:16px}
+  .money-flow{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+  .mpill{font-size:14px;font-weight:500;color:#5b4a22;background:#fff;border:1px solid #E6CF9E;border-radius:999px;padding:6px 14px;white-space:nowrap}
+  .marrow{display:inline-flex;flex-direction:column;align-items:center;color:var(--money);font-weight:600;padding:0 6px;font-size:13px;white-space:nowrap}
+  .marrow .amt{font-family:var(--serif);font-style:italic;font-size:14px}
+  .marrow .ar{font-size:16px;line-height:1}
+
+  /* ── meta chips + tech footnote ─────────────────────────── */
+  .meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+  .chip{font-size:13px;color:var(--ink2);background:var(--paper2);border:1px solid var(--line);border-radius:10px;padding:8px 14px}
+  .chip b{color:var(--ink);font-weight:500}
+  .chip .k{color:var(--muted);margin-right:6px}
+  .tech{margin-top:16px;font-size:12.5px;color:var(--muted);font-family:var(--mono);line-height:1.7;background:var(--paper);border-left:2px solid var(--line2);padding:9px 14px;border-radius:0 8px 8px 0}
+  .tech b{color:var(--ink2);font-weight:500}
+
+  /* ── scenario block ─────────────────────────── */
+  .scn{margin-top:34px}
+  .scn-head{display:flex;align-items:flex-start;gap:22px;margin-bottom:6px}
+  .scn-no{font-family:var(--serif);font-weight:500;font-size:clamp(50px,8vw,92px);line-height:.82;color:var(--snc,var(--core));opacity:.16;flex:0 0 auto;letter-spacing:-2px}
+  .scn-head .tt{padding-top:6px}
+  .scn-head .badge{display:inline-block;font-size:12px;font-weight:500;letter-spacing:.5px;color:#fff;background:var(--snc,var(--core));border-radius:999px;padding:3px 12px;margin-bottom:9px}
+  .scn-head h3{font-family:var(--serif);font-weight:500;font-size:clamp(22px,3vw,31px);margin:0 0 6px;letter-spacing:-.4px;color:var(--ink)}
+  .scn-head .one{color:var(--ink2);font-size:15.5px;font-weight:300;max-width:640px}
+  .scn-head .one b{font-weight:500;color:var(--ink)}
+
+  /* ── data-flow steps ─────────────────────────── */
+  .steps{display:flex;flex-wrap:nowrap;gap:0;min-width:max-content;padding:4px 4px}
+  .step{flex:0 0 auto;width:166px;position:relative;background:var(--card);border:1px solid var(--line2);border-radius:13px;padding:16px 15px;box-shadow:var(--shadow-sm)}
+  .step.bill{border-color:#EAD9AE;background:linear-gradient(180deg,#FFFDF8,#FCF6E8)}
+  .step .sn{font-family:var(--serif);font-style:italic;font-size:22px;color:var(--core);line-height:1}
+  .step.bill .sn{color:var(--money)}
+  .step p{margin:9px 0 0;font-size:13.5px;color:var(--ink);font-weight:400;line-height:1.45}
+  .step .sx{font-size:11.5px;color:var(--muted);margin-top:6px;font-weight:300}
+  .stepgap{flex:0 0 30px;align-self:center;display:flex;align-items:center;justify-content:center;color:var(--line2);font-size:18px}
+  .step.bill + .stepgap, .stepgap.bill{color:var(--money)}
+
+  /* ── comparison table ─────────────────────────── */
+  .tbl{width:100%;border-collapse:collapse;font-size:14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)}
+  .tbl thead th{font-family:var(--mono);font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);text-align:left;padding:15px 16px;background:var(--paper2);border-bottom:1px solid var(--line)}
+  .tbl td{padding:15px 16px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink2)}
+  .tbl tbody tr:last-child td{border-bottom:none}
+  .tbl tbody tr:hover td{background:#FCFAF5}
+  .tbl .nm{font-weight:500;color:var(--ink);white-space:nowrap}
+  .tbl .nm .d{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:8px;vertical-align:middle}
+  .tbl .mp{color:var(--money);font-weight:500}
+
+  /* ── reveal ─────────────────────────── */
+  .reveal{opacity:0;transform:translateY(16px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}.edge.money .ln{animation:none}}
+
+  footer{max-width:var(--maxw);margin:0 auto;padding:34px 26px 80px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--line)}
+  footer b{color:var(--ink2);font-weight:500}
+
+  @media (max-width:680px){.qlinks{display:none}.scn-head{gap:14px}}
+</style>
+</head>
+<body>
+
+<!-- inline icon symbols -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="ic-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="8" r="3.2"/><path d="M5 20c0-3.9 3.1-6.2 7-6.2s7 2.3 7 6.2"/></symbol>
+  <symbol id="ic-app" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2.6"/><path d="M3.5 9h17"/><circle cx="6.3" cy="6.7" r=".7" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="ic-core" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3.2l8.5 4.4L12 12 3.5 7.6z"/><path d="M3.5 12L12 16.4 20.5 12"/><path d="M3.5 16.4L12 20.8 20.5 16.4"/></symbol>
+  <symbol id="ic-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7.2 18.5h9.6a4.3 4.3 0 0 0 .5-8.57A6.1 6.1 0 0 0 6 9.4 3.7 3.7 0 0 0 7.2 18.5z"/><path d="M9.5 13.3l1.6 1.6 3-3"/></symbol>
+  <symbol id="ic-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3.3" y="6" width="17.4" height="13" rx="2.6"/><path d="M3.3 10.2h17.4"/><circle cx="16.6" cy="13.8" r="1.3"/></symbol>
+  <symbol id="ic-coin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.3"/><path d="M12 7.4v9.2M9.6 10.1h3.3a1.8 1.8 0 0 1 0 3.6H9.9"/></symbol>
+  <symbol id="ic-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18"/></symbol>
+</defs></svg>
+
+<header class="topbar">
+  <div class="in">
+    <span class="wm"><svg class="mk" viewBox="0 0 24 24"><use href="#ic-core"/></svg>Actionow <small>使用场景图谱 · BP 版</small></span>
+    <nav class="qlinks">
+      <a href="#position">平台站位</a>
+      <a href="#dataflow">一次调用</a>
+      <a href="#s1">B2B2C</a>
+      <a href="#s2">B2B</a>
+      <a href="#s3">B2C</a>
+      <a href="#s4">内部分摊</a>
+      <a href="#compare">对比</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- HERO -->
+  <div class="hero reveal in">
+    <p class="eyebrow">USAGE SCENARIOS</p>
+    <h1>一套平台，<br/>四种<em>赚钱方式</em>。</h1>
+    <p class="lead">
+      Actionow 是部署在公司内部的 <b>AI 能力中台</b>：对上对接各家大模型与媒体供应商，对下让多个 AI 产品接入。
+      它统一完成<b>调用中继、用量计量、按量计费与记账</b>——因此同一套系统，能直接支撑 B2B2C、B2B、B2C 与内部成本分摊四种商业模式。
+    </p>
+
+    <div class="legend">
+      <span class="lg"><span class="dot" style="background:var(--subject)"></span><svg class="ic" style="color:var(--subject)"><use href="#ic-user"/></svg>端用户 · 真实使用者</span>
+      <span class="lg"><span class="dot" style="background:var(--tenant)"></span><svg class="ic" style="color:var(--tenant)"><use href="#ic-app"/></svg>应用方 / 租户 · 接入的产品</span>
+      <span class="lg"><span class="dot" style="background:var(--core)"></span><svg class="ic" style="color:var(--core)"><use href="#ic-core"/></svg>Actionow 平台 · 中台</span>
+      <span class="lg"><span class="dot" style="background:var(--upstream)"></span><svg class="ic" style="color:var(--upstream)"><use href="#ic-cloud"/></svg>上游 AI · 大模型供应商</span>
+      <span class="lg"><span class="dot" style="background:var(--money)"></span><svg class="ic" style="color:var(--money)"><use href="#ic-coin"/></svg>资金 / 钱包 / 账本</span>
+    </div>
+
+    <div class="bp-note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2h6c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/></svg>
+      <div><b>放进 BP 用：</b>本页每一节都是自包含的，可单独截图作为商业计划书 / 路演 PPT 的一页。资金流向用<b>琥珀金</b>统一标注，一眼看清「钱怎么走」。</div>
+    </div>
+  </div>
+
+  <!-- A · PLATFORM POSITION -->
+  <section id="position">
+    <div class="shead reveal"><span class="skicker">站位</span><h2>平台站在哪里</h2></div>
+    <p class="sdesc reveal">先看全局：Actionow 夹在<b>上游 AI 供应商</b>与<b>接入的产品（租户）</b>之间，向下服务每个产品的<b>端用户</b>。它把「采购 AI 能力」与「把能力卖给用户」之间的一切——路由、计量、计费、记账、治理——一次性接管。</p>
+    <div class="panel reveal">
+      <p class="panel-title">价值链条</p>
+      <div class="flow-scroll"><div class="flow">
+        <div class="node n-upstream"><svg class="ic"><use href="#ic-cloud"/></svg><b>上游 AI</b><small>OpenAI · Claude · 火山 · 媒体模型…</small></div>
+        <div class="edge"><span class="el">采购能力</span><span class="ln"></span></div>
+        <div class="node n-core"><svg class="ic"><use href="#ic-core"/></svg><b>Actionow 平台</b><small>中继 · 计量 · 计费 · 记账 · 治理</small></div>
+        <div class="edge"><span class="el">能力接入</span><span class="ln"></span></div>
+        <div class="node n-tenant"><svg class="ic"><use href="#ic-app"/></svg><b>应用方 / 租户</b><small>公司的各个 AI 产品</small></div>
+        <div class="edge"><span class="el">产品服务</span><span class="ln"></span></div>
+        <div class="node n-subject"><svg class="ic"><use href="#ic-user"/></svg><b>端用户</b><small>掏钱的真实使用者</small></div>
+      </div></div>
+      <div class="meta">
+        <span class="chip"><span class="k">一句话</span><b>对上集采、对下分销</b>的 AI 能力中台</span>
+        <span class="chip"><span class="k">护城河</span><b>记录系统</b>：用量、计费、账本、审计逐用户可追溯</span>
+        <span class="chip"><span class="k">货币单位</span>统一 <b>µUSD</b>（微美元），精确到每次调用</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- B · ONE CALL DATA FLOW -->
+  <section id="dataflow">
+    <div class="shead reveal"><span class="skicker">数据流</span><h2>一次调用，发生了什么</h2></div>
+    <p class="sdesc reveal">这是所有场景共用的「主干」。无论谁付钱，<b>每一次 AI 调用</b>都会走完下面六步——其中<b>计量与扣费记账</b>（金色两步）是平台真正创造价值、也是营收发生的地方。</p>
+    <div class="panel reveal">
+      <p class="panel-title">单次请求 · 通俗版</p>
+      <div class="flow-scroll"><div class="steps">
+        <div class="step"><span class="sn">1</span><p>产品发起调用</p><span class="sx">带上 API 密钥</span></div>
+        <div class="stepgap">→</div>
+        <div class="step"><span class="sn">2</span><p>校验身份与额度</p><span class="sx">没权限 / 超额度即拦截</span></div>
+        <div class="stepgap">→</div>
+        <div class="step"><span class="sn">3</span><p>智能路由并中继</p><span class="sx">选最优通道转给上游 AI</span></div>
+        <div class="stepgap bill">→</div>
+        <div class="step bill"><span class="sn">4</span><p>计量用量</p><span class="sx">tokens / 张数 / 次数</span></div>
+        <div class="stepgap bill">→</div>
+        <div class="step bill"><span class="sn">5</span><p>扣费 + 记账</p><span class="sx">从钱包扣款，写入账本</span></div>
+        <div class="stepgap">→</div>
+        <div class="step"><span class="sn">6</span><p>返回结果</p><span class="sx">附本次费用明细</span></div>
+      </div></div>
+      <div class="meta">
+        <span class="chip"><span class="k">先扣后用</span>调用前先<b>预留额度（hold）</b>，完成后<b>按实结算（settle）</b>，余额不足直接挡住</span>
+        <span class="chip"><span class="k">可靠性</span>通道故障自动<b>重试 / 切换 / 熔断</b>，用户无感</span>
+      </div>
+      <div class="tech"><b>技术映射</b>：① <b>ak_*</b> API key → ② ApiKeyGuard + GovernanceGuard（额度套餐 rpm/spend/tokens）→ ③ 路由分组 + 容错策略 + 熔断 → ④ usage 计量 → ⑤ ledger_txn 结算 + usage_log 镜像 → ⑥ 返回 cost.credits（µUSD）。</div>
+    </div>
+  </section>
+
+  <!-- 1 · B2B2C -->
+  <section id="s1">
+    <div class="shead reveal"><span class="skicker">场景一</span><h2>四种使用场景</h2></div>
+    <p class="sdesc reveal">同一套引擎，靠两个开关组合出四种模式：<b>是否给每个端用户单独建钱包</b>，以及<b>费用是否归因到具体用户</b>。</p>
+
+    <div class="scn reveal" style="--snc:var(--subject)">
+      <div class="scn-head">
+        <div class="scn-no">01</div>
+        <div class="tt">
+          <span class="badge">B2B2C</span>
+          <h3>公司自营产品，卖给消费者</h3>
+          <p class="one">公司自建一个对外的 AI 产品（=租户），它的<b>付费用户</b>消费 AI；平台按用量向产品方收成本，产品方赚差价。</p>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="panel-title">调用链</p>
+        <div class="flow-scroll"><div class="flow">
+          <div class="node n-subject"><svg class="ic"><use href="#ic-user"/></svg><b>端用户</b><small>产品的付费用户</small></div>
+          <div class="edge"><span class="el">使用产品</span><span class="ln"></span></div>
+          <div class="node n-tenant"><svg class="ic"><use href="#ic-app"/></svg><b>自营产品</b><small>租户 Team A</small></div>
+          <div class="edge"><span class="el">发起调用</span><span class="ln"></span></div>
+          <div class="node n-core"><svg class="ic"><use href="#ic-core"/></svg><b>Actionow</b><small>计量 · 计费 · 记账</small></div>
+          <div class="edge money"><span class="el">扣费 / 记账</span><span class="ln"></span></div>
+          <div class="node n-money"><svg class="ic"><use href="#ic-wallet"/></svg><b>用户钱包</b><small>独立子钱包或共享池</small></div>
+        </div></div>
+        <div class="subflows">
+          <span class="subflow"><span class="tg">充值</span>产品方按批发价向平台预付 µUSD（topup）</span>
+          <span class="subflow"><span class="tg">归因</span>每笔费用记到具体端用户，逐用户核算成本与利润</span>
+        </div>
+
+        <div class="money-strip">
+          <p class="ms-h"><svg viewBox="0 0 24 24"><use href="#ic-coin"/></svg>资金路径</p>
+          <div class="money-flow">
+            <span class="mpill">端用户</span>
+            <span class="marrow"><span class="amt">付零售价 $X</span><span class="ar">→</span></span>
+            <span class="mpill">自营产品（租户）</span>
+            <span class="marrow"><span class="amt">充值批发价 $Y</span><span class="ar">→</span></span>
+            <span class="mpill">Actionow 平台</span>
+            <span class="marrow"><span class="amt">承担成本</span><span class="ar">→</span></span>
+            <span class="mpill">上游 AI</span>
+          </div>
+        </div>
+
+        <div class="meta">
+          <span class="chip"><span class="k">钱包归属</span>每端用户独立钱包（HARD）或共享租户池</span>
+          <span class="chip"><span class="k">适用对象</span>对外的消费级 / 行业 AIGC 产品</span>
+          <span class="chip"><span class="k">卖点</span><b>天然按用户计量</b>，差价 = X − Y 一清二楚</span>
+        </div>
+        <div class="tech"><b>技术映射</b>：subject 子钱包（sub_account）/ ledger settle(subject_id) / 按 subject 绑定额度套餐 / 端用户自助门户 /member。</div>
+      </div>
+    </div>
+
+    <!-- 2 · B2B -->
+    <div class="scn reveal" style="--snc:var(--tenant)">
+      <div class="scn-head">
+        <div class="scn-no">02</div>
+        <div class="tt">
+          <span class="badge">B2B</span>
+          <h3>把 AI 能力批发给另一家企业</h3>
+          <p class="one">按<b>席位 / 套餐</b>把能力卖给合作企业，<b>不区分</b>对方的每个用户；用额度套餐防超用，月底按量出账。</p>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="panel-title">调用链</p>
+        <div class="flow-scroll"><div class="flow">
+          <div class="node n-subject"><svg class="ic"><use href="#ic-app"/></svg><b>合作企业</b><small>批量买方</small></div>
+          <div class="edge"><span class="el">租户级密钥</span><span class="ln"></span></div>
+          <div class="node n-tenant"><svg class="ic"><use href="#ic-app"/></svg><b>应用方</b><small>租户 B（代理）</small></div>
+          <div class="edge"><span class="el">发起调用</span><span class="ln"></span></div>
+          <div class="node n-core"><svg class="ic"><use href="#ic-core"/></svg><b>Actionow</b><small>额度套餐管控</small></div>
+          <div class="edge money"><span class="el">扣费 / 记账</span><span class="ln"></span></div>
+          <div class="node n-money"><svg class="ic"><use href="#ic-wallet"/></svg><b>应用方账户</b><small>共享池</small></div>
+        </div></div>
+        <div class="subflows">
+          <span class="subflow"><span class="tg">管控</span>密钥级额度：频率 / 花费 / 请求上限，超限即拒</span>
+          <span class="subflow"><span class="tg">归因</span>仅记到应用方（不拆分到对方每个用户）</span>
+        </div>
+
+        <div class="money-strip">
+          <p class="ms-h"><svg viewBox="0 0 24 24"><use href="#ic-coin"/></svg>资金路径</p>
+          <div class="money-flow">
+            <span class="mpill">合作企业</span>
+            <span class="marrow"><span class="amt">月度席位费</span><span class="ar">→</span></span>
+            <span class="mpill">应用方（租户 B）</span>
+            <span class="marrow"><span class="amt">按用量付费</span><span class="ar">→</span></span>
+            <span class="mpill">Actionow 平台</span>
+            <span class="marrow"><span class="amt">承担成本</span><span class="ar">→</span></span>
+            <span class="mpill">上游 AI</span>
+          </div>
+        </div>
+
+        <div class="meta">
+          <span class="chip"><span class="k">钱包归属</span>应用方共享账户（无端用户钱包）</span>
+          <span class="chip"><span class="k">适用对象</span>API 经销 / 企业集成 / 白标</span>
+          <span class="chip"><span class="k">卖点</span><b>套餐封顶 + 用量出账</b>，杜绝超卖</span>
+        </div>
+        <div class="tech"><b>技术映射</b>：租户级 api_key（无 subject 绑定）/ limit_plan(rpm·spend·requests) / settle(subject_id = null)。</div>
+      </div>
+    </div>
+
+    <!-- 3 · B2C -->
+    <div class="scn reveal" style="--snc:var(--money)">
+      <div class="scn-head">
+        <div class="scn-no">03</div>
+        <div class="tt">
+          <span class="badge">B2C</span>
+          <h3>单一产品，直面消费者</h3>
+          <p class="one">每位消费者<b>独立充值、独立扣费</b>。预付 + 实时扣减 + 余额护栏，从根上杜绝坏账。</p>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="panel-title">调用链</p>
+        <div class="flow-scroll"><div class="flow">
+          <div class="node n-subject"><svg class="ic"><use href="#ic-user"/></svg><b>消费者</b><small>自有预付钱包</small></div>
+          <div class="edge"><span class="el">使用 App</span><span class="ln"></span></div>
+          <div class="node n-tenant"><svg class="ic"><use href="#ic-app"/></svg><b>消费级产品</b><small>租户 C</small></div>
+          <div class="edge"><span class="el">发起调用</span><span class="ln"></span></div>
+          <div class="node n-core"><svg class="ic"><use href="#ic-core"/></svg><b>Actionow</b><small>实时扣减 + 护栏</small></div>
+          <div class="edge money"><span class="el">从钱包扣</span><span class="ln"></span></div>
+          <div class="node n-money"><svg class="ic"><use href="#ic-wallet"/></svg><b>消费者钱包</b><small>余额不足即拦截</small></div>
+        </div></div>
+        <div class="subflows">
+          <span class="subflow"><span class="tg">充值</span>Stripe / 支付宝 / 微信 → 验签回调 → 充入本人钱包</span>
+          <span class="subflow"><span class="tg">护栏</span>余额不足返回 insufficient_credits，不产生欠款</span>
+        </div>
+
+        <div class="money-strip">
+          <p class="ms-h"><svg viewBox="0 0 24 24"><use href="#ic-coin"/></svg>资金路径</p>
+          <div class="money-flow">
+            <span class="mpill">消费者</span>
+            <span class="marrow"><span class="amt">刷卡充值</span><span class="ar">→</span></span>
+            <span class="mpill">支付渠道</span>
+            <span class="marrow"><span class="amt">入账</span><span class="ar">→</span></span>
+            <span class="mpill">消费者钱包</span>
+            <span class="marrow"><span class="amt">调用扣减</span><span class="ar">→</span></span>
+            <span class="mpill">Actionow → 上游 AI</span>
+          </div>
+        </div>
+
+        <div class="meta">
+          <span class="chip"><span class="k">钱包归属</span>每消费者独立预付钱包（HARD）</span>
+          <span class="chip"><span class="k">适用对象</span>面向 C 端的 AI 工具 / 助手 / 创作应用</span>
+          <span class="chip"><span class="k">卖点</span><b>预付制 + 多支付渠道</b>，现金流健康、零坏账</span>
+        </div>
+        <div class="tech"><b>技术映射</b>：payment_intent → 签名 webhook(payment_event) → 充值 sub_account / 调用从子钱包 hold·settle。</div>
+      </div>
+    </div>
+
+    <!-- 4 · INTERNAL CHARGEBACK -->
+    <div class="scn reveal" style="--snc:var(--core)">
+      <div class="scn-head">
+        <div class="scn-no">04</div>
+        <div class="tt">
+          <span class="badge">内部成本分摊</span>
+          <h3>多团队共用，按量分摊成本</h3>
+          <p class="one">公司内部多个团队<b>共用一套 AI 平台</b>，各自领预算，按实际用量把成本分摊回各团队，月末对账上游账单。</p>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="panel-title">调用链</p>
+        <div class="flow-scroll"><div class="flow">
+          <div class="node n-tenant"><svg class="ic"><use href="#ic-app"/></svg><b>团队 A·B·C</b><small>各为一个租户</small></div>
+          <div class="edge"><span class="el">各自调用</span><span class="ln"></span></div>
+          <div class="node n-core"><svg class="ic"><use href="#ic-core"/></svg><b>Actionow</b><small>统一治理 + 用量透明</small></div>
+          <div class="edge money"><span class="el">按团队记账</span><span class="ln"></span></div>
+          <div class="node n-money"><svg class="ic"><use href="#ic-coin"/></svg><b>各团队账户</b><small>月度预算额度</small></div>
+          <div class="edge"><span class="el">中继</span><span class="ln"></span></div>
+          <div class="node n-upstream"><svg class="ic"><use href="#ic-cloud"/></svg><b>上游 AI</b><small>企业统采账号</small></div>
+        </div></div>
+        <div class="subflows">
+          <span class="subflow"><span class="tg">预算</span>运营方给各团队分配月度额度，80% 自动预警</span>
+          <span class="subflow"><span class="tg">对账</span>月末按用量汇总，分摊对齐上游真实账单</span>
+        </div>
+
+        <div class="money-strip">
+          <p class="ms-h"><svg viewBox="0 0 24 24"><use href="#ic-coin"/></svg>资金路径</p>
+          <div class="money-flow">
+            <span class="mpill">运营方 / 财务</span>
+            <span class="marrow"><span class="amt">分配预算</span><span class="ar">→</span></span>
+            <span class="mpill">各团队账户</span>
+            <span class="marrow"><span class="amt">用量扣减</span><span class="ar">→</span></span>
+            <span class="mpill">月末汇总对账</span>
+            <span class="marrow"><span class="amt">对齐账单</span><span class="ar">→</span></span>
+            <span class="mpill">上游 AI</span>
+          </div>
+        </div>
+
+        <div class="meta">
+          <span class="chip"><span class="k">钱包归属</span>各团队独立账户 + 月度预算</span>
+          <span class="chip"><span class="k">适用对象</span>大型企业内部多团队 / 多 BU 共享 AI 预算</span>
+          <span class="chip"><span class="k">卖点</span><b>统一治理 + 用量透明 + 按团队分摊</b></span>
+        </div>
+        <div class="tech"><b>技术映射</b>：各租户 account + limit_plan（月度 spend）/ 审计日志(audit_log) + 用量对账(reconcile)。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARE -->
+  <section id="compare">
+    <div class="shead reveal"><span class="skicker">对比</span><h2>一表看懂「钱怎么走」</h2></div>
+    <p class="sdesc reveal">四种模式的核心差别，就在<b>谁付钱给谁</b>与<b>钱包归属</b>两列。</p>
+    <div class="reveal" style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr>
+          <th>场景</th><th>谁付钱给谁</th><th>钱包归属</th><th>平台 / 应用方收入</th><th>适用对象</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td class="nm"><span class="d" style="background:var(--subject)"></span>B2B2C</td>
+            <td class="mp">端用户→产品方（零售）；产品方→平台（批发）</td>
+            <td>每端用户独立钱包，或共享租户池</td>
+            <td>产品方赚零售-批发差价；平台收批发用量费</td>
+            <td>对外消费级 / 行业 AIGC 产品</td>
+          </tr>
+          <tr>
+            <td class="nm"><span class="d" style="background:var(--tenant)"></span>B2B</td>
+            <td class="mp">合作企业→应用方（席位费）；应用方→平台（用量）</td>
+            <td>应用方共享账户（无端用户钱包）</td>
+            <td>应用方收席位/套餐费；平台收用量费</td>
+            <td>API 经销 / 企业集成 / 白标</td>
+          </tr>
+          <tr>
+            <td class="nm"><span class="d" style="background:var(--money)"></span>B2C</td>
+            <td class="mp">消费者→产品方（充值）；调用从本人钱包扣</td>
+            <td>每消费者独立预付钱包</td>
+            <td>产品方收充值差价；平台收用量费</td>
+            <td>面向 C 端的 AI 工具 / 助手</td>
+          </tr>
+          <tr>
+            <td class="nm"><span class="d" style="background:var(--core)"></span>内部分摊</td>
+            <td class="mp">运营方注资；各团队按用量扣减、月末对账</td>
+            <td>各团队独立账户 + 月度预算</td>
+            <td>不以营收为目的，按成本分摊回团队</td>
+            <td>企业内部多团队共享 AI 预算</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <b>Actionow · 使用场景图谱（BP 版）</b> — 面向商业沟通的通俗化呈现；技术细节见 <a href="actionow-system-architecture.html" style="color:#2B3A67;text-decoration:none">系统架构图</a>。资金单位统一为 µUSD（微美元）。生成于 2026-06-26。
+</footer>
+
+<script>
+  // staggered scroll reveal
+  const io = new IntersectionObserver((es)=>{
+    es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} });
+  }, { rootMargin:'0px 0px -8% 0px', threshold:.08 });
+  document.querySelectorAll('.reveal').forEach((el,i)=>{ el.style.transitionDelay=(Math.min(i,6)*40)+'ms'; io.observe(el); });
+</script>
+</body>
+</html>

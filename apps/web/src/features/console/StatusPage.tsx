@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ErrorState } from '../../components/data/ErrorState';
 import { Pill, type PillTone } from '../../components/ui/Pill';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { config } from '../../config';
@@ -39,7 +40,7 @@ export function StatusPage() {
   const api = useAdminApi();
   const [days, setDays] = useState(7);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: qk.modelHealth(days),
     queryFn: () => api.modelHealth(days),
     refetchInterval: 60_000, // live-ish: refresh each minute
@@ -47,7 +48,14 @@ export function StatusPage() {
 
   const models = data ?? [];
   const down = models.filter((m) => m.last_status === 'failed').length;
-  const overallTone: PillTone = models.length === 0 ? 'idle' : down > 0 ? 'fail' : 'ok';
+  // A failed health query must read as FAIL, not as a neutral "no data".
+  const overallTone: PillTone = isError
+    ? 'fail'
+    : models.length === 0
+      ? 'idle'
+      : down > 0
+        ? 'fail'
+        : 'ok';
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: 'var(--s-2) var(--s-3) var(--s-4)' }}>
@@ -64,11 +72,13 @@ export function StatusPage() {
           {t('status.title')}
         </h1>
         <Pill tone={overallTone} dot>
-          {models.length === 0
-            ? t('status.noData')
-            : down > 0
-              ? t('status.degraded', { n: down })
-              : t('status.operational')}
+          {isError
+            ? t('errors.loadFailed')
+            : models.length === 0
+              ? t('status.noData')
+              : down > 0
+                ? t('status.degraded', { n: down })
+                : t('status.operational')}
         </Pill>
         <div style={{ marginLeft: 'auto' }}>
           <SegmentedControl
@@ -86,7 +96,9 @@ export function StatusPage() {
 
       <ReadinessCard />
 
-      {isLoading ? (
+      {isError ? (
+        <ErrorState onRetry={() => void refetch()} />
+      ) : isLoading ? (
         <p style={{ color: 'var(--muted)' }}>{t('common.loading')}</p>
       ) : models.length === 0 ? (
         <p style={{ color: 'var(--muted)' }}>{t('status.empty')}</p>
@@ -121,7 +133,7 @@ interface ReadyzReport {
  */
 function ReadinessCard() {
   const { t } = useTranslation('console');
-  const { data } = useQuery({
+  const { data, isError } = useQuery({
     queryKey: qk.readyz(),
     queryFn: async (): Promise<ReadyzReport> => {
       const res = await fetch(`${config.apiBase}/readyz`);
@@ -148,17 +160,26 @@ function ReadinessCard() {
       }}
     >
       <strong style={{ fontSize: 'var(--fs-sm)' }}>{t('status.readiness.title')}</strong>
-      {data !== undefined && (
-        <Pill tone={data.status === 'ready' ? 'ok' : 'fail'} dot>
-          {t('status.readiness.' + data.status, data.status)}
+      {/* A failed probe request reads as FAIL — not as an unknown/idle state. */}
+      {isError ? (
+        <Pill tone="fail" dot>
+          {t('status.readiness.unreachable')}
         </Pill>
+      ) : (
+        data !== undefined && (
+          <Pill tone={data.status === 'ready' ? 'ok' : 'fail'} dot>
+            {t('status.readiness.' + data.status, data.status)}
+          </Pill>
+        )
       )}
       <span
         style={{ marginLeft: 'auto', display: 'inline-flex', gap: 'var(--s-2)', flexWrap: 'wrap' }}
       >
-        {dep('PostgreSQL', data?.checks.postgres)}
-        {dep('Redis', data?.checks.redis)}
-        {dep('Queue', data?.checks.queue)}
+        {/* On a failed probe the per-dependency state is UNKNOWN (idle), not the
+            stale last-success snapshot react-query keeps in `data`. */}
+        {dep('PostgreSQL', isError ? undefined : data?.checks.postgres)}
+        {dep('Redis', isError ? undefined : data?.checks.redis)}
+        {dep('Queue', isError ? undefined : data?.checks.queue)}
       </span>
     </div>
   );

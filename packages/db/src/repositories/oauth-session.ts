@@ -29,6 +29,8 @@ export interface CreateOAuthSessionInput {
   readonly accountId?: string | undefined;
   /** Optional access-token expiry; drives the refresh sweep. */
   readonly expiresAt?: Date | undefined;
+  /** Optional human name (unique among live sessions); the UI pick key. */
+  readonly name?: string | undefined;
 }
 
 /**
@@ -54,6 +56,7 @@ export async function createOAuthSession(
       providerKind: input.providerKind,
       accountLabel: input.accountLabel ?? null,
       accountId: input.accountId ?? null,
+      name: input.name ?? null,
       accessEnc,
       refreshEnc,
       expiresAt: input.expiresAt ?? null,

@@ -169,7 +169,10 @@ export type ProvisionBody = z.infer<typeof provisionSchema>;
 /** `POST /admin/secrets` — create an encrypted-at-rest credential. */
 export const createSecretSchema = z.object({
   value: z.string().min(1),
+  /** The env-key locator this credential is stored under (defaults to a generated one). */
   label: z.string().optional(),
+  /** Optional human name (unique among live credentials) — the pick key in the UI. */
+  name: z.string().min(1).optional(),
 });
 export type CreateSecretBody = z.infer<typeof createSecretSchema>;
 
@@ -209,6 +212,8 @@ export const createOAuthSessionSchema = z.object({
     .passthrough(),
   /** Must be exactly `true`: an explicit acknowledgement of the upstream ToS. */
   acknowledgeUpstreamTos: z.literal(true),
+  /** Optional human name (unique among live sessions) — the pick key in the UI. */
+  name: z.string().min(1).optional(),
 });
 export type CreateOAuthSessionBody = z.infer<typeof createOAuthSessionSchema>;
 
@@ -237,6 +242,8 @@ export const codexLoginCompleteSchema = z.object({
   state: z.string().min(1),
   /** Optional label override (falls back to the id_token email/account). */
   accountLabel: z.string().min(1).optional(),
+  /** Optional human name (unique among live sessions) — the pick key in the UI. */
+  name: z.string().min(1).optional(),
 });
 export type CodexLoginCompleteBody = z.infer<typeof codexLoginCompleteSchema>;
 
