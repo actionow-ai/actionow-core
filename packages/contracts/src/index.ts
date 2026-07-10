@@ -33,3 +33,4 @@ export * from './proxy.js';
 export * from './storage.js';
 export * from './supply-entities.js';
 export * from './supply-params.js';
+export * from './supply-requests.js';

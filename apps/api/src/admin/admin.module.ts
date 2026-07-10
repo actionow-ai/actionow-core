@@ -26,6 +26,8 @@ import {
   defaultAdminTokenAuthRepo,
 } from './auth/admin-token-auth.service.js';
 import { ModelTestService } from './model-test.service.js';
+import { SupplyAdminController } from './supply.controller.js';
+import { SupplyAdminService } from './supply.service.js';
 
 /**
  * Admin surface (Phase 5). `POST /admin/auth/login` issues a JWT; the
@@ -43,13 +45,15 @@ import { ModelTestService } from './model-test.service.js';
     }),
     AuditModule,
   ],
-  controllers: [AdminAuthController, AdminController, AdminDifyController],
+  controllers: [AdminAuthController, AdminController, AdminDifyController, SupplyAdminController],
   providers: [
     AdminAuthService,
     AdminService,
     AdminDifyService,
     AdminTokenService,
     ModelTestService,
+    // NEW-WORLD supply skeleton CRUD (/admin/supply/*, model-supply 批次1).
+    SupplyAdminService,
     // Job SSE progress (#62): admin watches any tenant's in-flight job. The
     // stream service is tenant-scoped; the admin handler resolves the job's own
     // tenant (JobsService.resolveAdminContext) and reuses it unchanged.

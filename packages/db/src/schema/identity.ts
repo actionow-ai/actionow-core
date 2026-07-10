@@ -43,6 +43,14 @@ export const apiKey = pgTable(
       .$type<string[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    // NEW-WORLD model-dimension whitelist (model-supply-greenfield 批次1, design
+    // §2.6): the supply_model external `name`s this key may call. Empty array =
+    // allow ALL models — the semantics MIRROR `resource_allowlist` above (空 =
+    // 全放行). A jsonb name list (not an FK), enforced by the new-world guard.
+    modelAllowlist: jsonb('model_allowlist')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     // The route group (分组) this key is bound to (Track 3). NULLABLE → a null
     // means "use the well-known `default` group", resolved at routing time
     // (Track 4). The group scopes which channels the key may use + sets the

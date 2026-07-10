@@ -172,6 +172,31 @@ import {
   proxyViewSchema,
   updateProxySchema,
 } from './proxy.js';
+import {
+  channelSchema as supplyChannelViewSchema,
+  credentialSchema as supplyCredentialViewSchema,
+  modelSchema as supplyModelViewSchema,
+  offeringSchema as supplyOfferingViewSchema,
+  priceCardSchema as supplyPriceCardViewSchema,
+  providerSchema as supplyProviderViewSchema,
+} from './supply-entities.js';
+import {
+  createSupplyChannelSchema,
+  createSupplyCredentialSchema,
+  createSupplyModelSchema,
+  createSupplyOfferingSchema,
+  createSupplyPriceCardSchema,
+  createSupplyPriceCardVersionSchema,
+  createSupplyProviderSchema,
+  grantSupplyModelSchema,
+  supplyPriceCardFromOfficialSchema,
+  updateApiKeyModelAllowlistSchema,
+  updateSupplyChannelSchema,
+  updateSupplyCredentialSchema,
+  updateSupplyModelSchema,
+  updateSupplyOfferingSchema,
+  updateSupplyProviderSchema,
+} from './supply-requests.js';
 
 /**
  * BUILD-TIME ONLY. This module turns the pure zod view contracts into an OpenAPI
@@ -1557,6 +1582,275 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
         content: { 'application/json': { schema: Jwks } },
       },
     },
+  });
+
+  // --- supply skeleton (model-supply greenfield 批次1) — registered LAST so the
+  // generated document APPENDS (components and paths) instead of reshuffling
+  // pre-existing entries: the FROZEN entity schemas double as the CRUD views;
+  // the write bodies come from supply-requests.ts.
+  const SupplyProvider = registry.register('SupplyProviderView', supplyProviderViewSchema);
+  const SupplyChannel = registry.register('SupplyChannelView', supplyChannelViewSchema);
+  const SupplyCredential = registry.register('SupplyCredentialView', supplyCredentialViewSchema);
+  const SupplyModel = registry.register('SupplyModelView', supplyModelViewSchema);
+  const SupplyOffering = registry.register('SupplyOfferingView', supplyOfferingViewSchema);
+  const SupplyPriceCard = registry.register('SupplyPriceCardView', supplyPriceCardViewSchema);
+  const CreateSupplyProvider = registry.register(
+    'CreateSupplyProviderBody',
+    createSupplyProviderSchema,
+  );
+  const UpdateSupplyProvider = registry.register(
+    'UpdateSupplyProviderBody',
+    updateSupplyProviderSchema,
+  );
+  const CreateSupplyChannel = registry.register(
+    'CreateSupplyChannelBody',
+    createSupplyChannelSchema,
+  );
+  const UpdateSupplyChannel = registry.register(
+    'UpdateSupplyChannelBody',
+    updateSupplyChannelSchema,
+  );
+  const CreateSupplyCredential = registry.register(
+    'CreateSupplyCredentialBody',
+    createSupplyCredentialSchema,
+  );
+  const UpdateSupplyCredential = registry.register(
+    'UpdateSupplyCredentialBody',
+    updateSupplyCredentialSchema,
+  );
+  const CreateSupplyModel = registry.register('CreateSupplyModelBody', createSupplyModelSchema);
+  const UpdateSupplyModel = registry.register('UpdateSupplyModelBody', updateSupplyModelSchema);
+  const GrantSupplyModel = registry.register('GrantSupplyModelBody', grantSupplyModelSchema);
+  const SupplyPriceCardFromOfficial = registry.register(
+    'SupplyPriceCardFromOfficialBody',
+    supplyPriceCardFromOfficialSchema,
+  );
+  const CreateSupplyOffering = registry.register(
+    'CreateSupplyOfferingBody',
+    createSupplyOfferingSchema,
+  );
+  const UpdateSupplyOffering = registry.register(
+    'UpdateSupplyOfferingBody',
+    updateSupplyOfferingSchema,
+  );
+  const CreateSupplyPriceCard = registry.register(
+    'CreateSupplyPriceCardBody',
+    createSupplyPriceCardSchema,
+  );
+  const CreateSupplyPriceCardVersion = registry.register(
+    'CreateSupplyPriceCardVersionBody',
+    createSupplyPriceCardVersionSchema,
+  );
+  const UpdateApiKeyModelAllowlist = registry.register(
+    'UpdateApiKeyModelAllowlistBody',
+    updateApiKeyModelAllowlistSchema,
+  );
+
+  // supply skeleton (model-supply greenfield 批次1) — /admin/supply/* CRUD.
+  const supplyChannelsQuery = keyset.extend({
+    provider_id: z.string().optional(),
+    tenant_id: z.string().optional(),
+  });
+  const supplyCredentialsQuery = keyset.extend({ channel_id: z.string().optional() });
+  const supplyModelsQuery = keyset.extend({ status: z.string().optional() });
+  const supplyOfferingsQuery = keyset.extend({
+    model_id: z.string().optional(),
+    channel_id: z.string().optional(),
+    status: z.string().optional(),
+  });
+  list('/admin/supply/providers', 'List supply providers (厂商)', SupplyProvider, 'supply', keyset);
+  getOne('/admin/supply/providers/{id}', 'Get one supply provider', SupplyProvider, 'supply');
+  write({
+    method: 'post',
+    path: '/admin/supply/providers',
+    summary: 'Register a supply provider (brand + defaults; slug unique)',
+    tag: 'supply',
+    body: CreateSupplyProvider,
+    response: SupplyProvider,
+    created: true,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/supply/providers/{id}',
+    summary: 'Update a supply provider',
+    tag: 'supply',
+    body: UpdateSupplyProvider,
+    response: SupplyProvider,
+  });
+  del('/admin/supply/providers/{id}', 'Soft-delete a supply provider', 'supply');
+  list(
+    '/admin/supply/channels',
+    'List supply channels (渠道)',
+    SupplyChannel,
+    'supply',
+    supplyChannelsQuery,
+  );
+  getOne('/admin/supply/channels/{id}', 'Get one supply channel', SupplyChannel, 'supply');
+  write({
+    method: 'post',
+    path: '/admin/supply/channels',
+    summary: 'Create a supply channel under a provider',
+    tag: 'supply',
+    body: CreateSupplyChannel,
+    response: SupplyChannel,
+    created: true,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/supply/channels/{id}',
+    summary: 'Update a supply channel (provider binding immutable)',
+    tag: 'supply',
+    body: UpdateSupplyChannel,
+    response: SupplyChannel,
+  });
+  del('/admin/supply/channels/{id}', 'Soft-delete a supply channel', 'supply');
+  list(
+    '/admin/supply/credentials',
+    'List supply credentials (redacted; never the secret)',
+    SupplyCredential,
+    'supply',
+    supplyCredentialsQuery,
+  );
+  getOne(
+    '/admin/supply/credentials/{id}',
+    'Get one supply credential (redacted)',
+    SupplyCredential,
+    'supply',
+  );
+  write({
+    method: 'post',
+    path: '/admin/supply/credentials',
+    summary: 'Add a credential to a channel pool (secret encrypted at rest; response redacted)',
+    tag: 'supply',
+    body: CreateSupplyCredential,
+    response: SupplyCredential,
+    created: true,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/supply/credentials/{id}',
+    summary: 'Update a supply credential (metadata/quota/cooldown; never the secret)',
+    tag: 'supply',
+    body: UpdateSupplyCredential,
+    response: SupplyCredential,
+  });
+  del('/admin/supply/credentials/{id}', 'Soft-delete a supply credential', 'supply');
+  list(
+    '/admin/supply/models',
+    'List supply models (product face)',
+    SupplyModel,
+    'supply',
+    supplyModelsQuery,
+  );
+  getOne('/admin/supply/models/{id}', 'Get one supply model', SupplyModel, 'supply');
+  write({
+    method: 'post',
+    path: '/admin/supply/models',
+    summary: 'Register a supply model (external name unique; active requires a sale price card)',
+    tag: 'supply',
+    body: CreateSupplyModel,
+    response: SupplyModel,
+    created: true,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/supply/models/{id}',
+    summary: 'Update a supply model (needs_pricing gate: active requires a sale price card)',
+    tag: 'supply',
+    body: UpdateSupplyModel,
+    response: SupplyModel,
+  });
+  del('/admin/supply/models/{id}', 'Soft-delete a supply model', 'supply');
+  list(
+    '/admin/supply/models/{id}/grants',
+    "List a supply model's tenant grants",
+    ModelGrant,
+    'supply',
+    keyset,
+  );
+  write({
+    method: 'post',
+    path: '/admin/supply/models/{id}/grants',
+    summary: 'Grant a granted-visibility supply model to a tenant (idempotent)',
+    tag: 'supply',
+    body: GrantSupplyModel,
+    response: z.object({ ok: z.boolean() }),
+    created: true,
+  });
+  del(
+    '/admin/supply/models/{id}/grants/{tenantId}',
+    'Revoke (hard-delete) a tenant grant of a supply model',
+    'supply',
+  );
+  write({
+    method: 'post',
+    path: '/admin/supply/models/{id}/price-card/from-official',
+    summary: 'Mint the SALE price card from the official price catalog and bind it',
+    tag: 'supply',
+    body: SupplyPriceCardFromOfficial,
+    response: SupplyPriceCard,
+    created: true,
+  });
+  list(
+    '/admin/supply/offerings',
+    'List supply offerings (model × channel bindings)',
+    SupplyOffering,
+    'supply',
+    supplyOfferingsQuery,
+  );
+  getOne('/admin/supply/offerings/{id}', 'Get one supply offering', SupplyOffering, 'supply');
+  write({
+    method: 'post',
+    path: '/admin/supply/offerings',
+    summary: 'Create a supply offering (unique per live (model, channel))',
+    tag: 'supply',
+    body: CreateSupplyOffering,
+    response: SupplyOffering,
+    created: true,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/supply/offerings/{id}',
+    summary: 'Update a supply offering ((model, channel) identity immutable)',
+    tag: 'supply',
+    body: UpdateSupplyOffering,
+    response: SupplyOffering,
+  });
+  del('/admin/supply/offerings/{id}', 'Soft-delete a supply offering', 'supply');
+  list(
+    '/admin/supply/price-cards',
+    'List supply price cards (versioned)',
+    SupplyPriceCard,
+    'supply',
+    keyset,
+  );
+  getOne('/admin/supply/price-cards/{id}', 'Get one supply price card', SupplyPriceCard, 'supply');
+  write({
+    method: 'post',
+    path: '/admin/supply/price-cards',
+    summary: 'Mint a supply price card (immutable once effective; no PATCH)',
+    tag: 'supply',
+    body: CreateSupplyPriceCard,
+    response: SupplyPriceCard,
+    created: true,
+  });
+  write({
+    method: 'post',
+    path: '/admin/supply/price-cards/{id}/versions',
+    summary: 'Mint the next version of a price card (the only price-change path)',
+    tag: 'supply',
+    body: CreateSupplyPriceCardVersion,
+    response: SupplyPriceCard,
+    created: true,
+  });
+  del('/admin/supply/price-cards/{id}', 'Soft-delete a supply price card', 'supply');
+  write({
+    method: 'patch',
+    path: '/admin/api-keys/{id}/model-allowlist',
+    summary: "Replace an API key's supply-model allowlist ([] = allow all)",
+    tag: 'supply',
+    body: UpdateApiKeyModelAllowlist,
+    response: z.object({ models: z.array(z.string()) }),
   });
 
   const generator = new OpenApiGeneratorV3(registry.definitions);

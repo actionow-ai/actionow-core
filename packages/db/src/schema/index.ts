@@ -21,4 +21,5 @@ export * from './redemption.js';
 export * from './relay-trace.js';
 export * from './route-group.js';
 export * from './storage.js';
+export * from './supply.js';
 export * from './usage.js';

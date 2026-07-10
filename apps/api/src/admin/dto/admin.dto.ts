@@ -24,11 +24,19 @@ import {
   createSecretSchema,
   createSubAccountSchema,
   createSubjectSchema,
+  createSupplyChannelSchema,
+  createSupplyCredentialSchema,
+  createSupplyModelSchema,
+  createSupplyOfferingSchema,
+  createSupplyPriceCardSchema,
+  createSupplyPriceCardVersionSchema,
+  createSupplyProviderSchema,
   createTenantSchema,
   difyImportSchema,
   ensureResourceSchema,
   generateCodesSchema,
   grantModelSchema,
+  grantSupplyModelSchema,
   latestAuditRequestSchema,
   modelTestRequestSchema,
   provisionSchema,
@@ -36,12 +44,14 @@ import {
   refundJobSchema,
   setFileTtlSchema,
   setLimitPlanRequestSchema,
+  supplyPriceCardFromOfficialSchema,
   syncChannelModelsSchema,
   testPluginRequestSchema,
   topupSchema,
   topupSubAccountSchema,
   transferCreditsSchema,
   updateApiKeyGroupSchema,
+  updateApiKeyModelAllowlistSchema,
   updateChannelModelParamOverrideSchema,
   updateChannelSchema,
   updateCredentialMetaSchema,
@@ -58,6 +68,11 @@ import {
   updateResourceSchema,
   updateRouteGroupSchema,
   updateSubjectSchema,
+  updateSupplyChannelSchema,
+  updateSupplyCredentialSchema,
+  updateSupplyModelSchema,
+  updateSupplyOfferingSchema,
+  updateSupplyProviderSchema,
   updateTenantSchema,
 } from '@actionow/contracts';
 import { z } from 'zod';
@@ -109,11 +124,19 @@ export {
   createSecretSchema,
   createSubAccountSchema,
   createSubjectSchema,
+  createSupplyChannelSchema,
+  createSupplyCredentialSchema,
+  createSupplyModelSchema,
+  createSupplyOfferingSchema,
+  createSupplyPriceCardSchema,
+  createSupplyPriceCardVersionSchema,
+  createSupplyProviderSchema,
   createTenantSchema,
   difyImportSchema,
   ensureResourceSchema,
   generateCodesSchema,
   grantModelSchema,
+  grantSupplyModelSchema,
   latestAuditRequestSchema,
   modelTestRequestSchema,
   provisionSchema,
@@ -121,12 +144,14 @@ export {
   refundJobSchema,
   setFileTtlSchema,
   setLimitPlanRequestSchema,
+  supplyPriceCardFromOfficialSchema,
   syncChannelModelsSchema,
   testPluginRequestSchema,
   topupSchema,
   topupSubAccountSchema,
   transferCreditsSchema,
   updateApiKeyGroupSchema,
+  updateApiKeyModelAllowlistSchema,
   updateChannelModelParamOverrideSchema,
   updateChannelSchema,
   updateCredentialMetaSchema,
@@ -143,6 +168,11 @@ export {
   updateResourceSchema,
   updateRouteGroupSchema,
   updateSubjectSchema,
+  updateSupplyChannelSchema,
+  updateSupplyCredentialSchema,
+  updateSupplyModelSchema,
+  updateSupplyOfferingSchema,
+  updateSupplyProviderSchema,
   updateTenantSchema,
 };
 export type UpdateCredentialMetaDto = z.infer<typeof updateCredentialMetaSchema>;
@@ -213,6 +243,25 @@ export type AddGroupChannelDto = z.infer<typeof addGroupChannelSchema>;
 export type CreateOAuthSessionDto = z.infer<typeof createOAuthSessionSchema>;
 export type CodexLoginStart = z.infer<typeof codexLoginStartSchema>;
 export type CodexLoginComplete = z.infer<typeof codexLoginCompleteSchema>;
+
+// --- supply skeleton (model-supply greenfield 批次1) --------------------------
+// Bodies single-sourced in @actionow/contracts (supply-requests.ts) and
+// re-exported above; consumed by supply.controller / supply.service.
+export type CreateSupplyProviderDto = z.infer<typeof createSupplyProviderSchema>;
+export type UpdateSupplyProviderDto = z.infer<typeof updateSupplyProviderSchema>;
+export type CreateSupplyChannelDto = z.infer<typeof createSupplyChannelSchema>;
+export type UpdateSupplyChannelDto = z.infer<typeof updateSupplyChannelSchema>;
+export type CreateSupplyCredentialDto = z.infer<typeof createSupplyCredentialSchema>;
+export type UpdateSupplyCredentialDto = z.infer<typeof updateSupplyCredentialSchema>;
+export type CreateSupplyModelDto = z.infer<typeof createSupplyModelSchema>;
+export type UpdateSupplyModelDto = z.infer<typeof updateSupplyModelSchema>;
+export type GrantSupplyModelDto = z.infer<typeof grantSupplyModelSchema>;
+export type SupplyPriceCardFromOfficialDto = z.infer<typeof supplyPriceCardFromOfficialSchema>;
+export type CreateSupplyOfferingDto = z.infer<typeof createSupplyOfferingSchema>;
+export type UpdateSupplyOfferingDto = z.infer<typeof updateSupplyOfferingSchema>;
+export type CreateSupplyPriceCardDto = z.infer<typeof createSupplyPriceCardSchema>;
+export type CreateSupplyPriceCardVersionDto = z.infer<typeof createSupplyPriceCardVersionSchema>;
+export type UpdateApiKeyModelAllowlistDto = z.infer<typeof updateApiKeyModelAllowlistSchema>;
 
 // --- Query schemas (GET; `z.coerce`/query-params — no body twin, stay local) -
 
