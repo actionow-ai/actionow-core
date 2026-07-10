@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>model-supply-greenfield</title>
+<style>:root{--ink:#1C1C1C;--mid:#4A4D4A;--soft:#7E827E;--frame:#2B2B2B;--line:#C9CCC9;--page:#F3F3F1;--red:#A8332A;--redtint:#F8EDEB;--gold:#8A6420;--goldtint:#FBF7EA;--green:#2F5D50}
+body.t-plan{--type:#7A2018;--tint:#F7EDEB}
+body.t-research{--type:#2B4A78;--tint:#EDF1F7}
+body.t-case{--type:#2F5D50;--tint:#EEF4F1}
+body.t-handoff{--type:#8A6420;--tint:#F6F0E3}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Songti SC","Noto Serif CJK SC",serif;background:var(--page);color:var(--ink);line-height:1.85;font-size:14px;max-width:780px;margin:0 auto;padding:22px 24px 40px}
+.sheet{background:#fff;border:2px solid var(--frame);padding:0 0 26px}
+.ctrl{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:7px 22px;font-family:"PingFang SC",sans-serif;font-size:10.5px;letter-spacing:2.5px;color:var(--soft)}
+.ctrl b{color:var(--type);font-weight:700}
+.appr{display:grid;grid-template-columns:106px 1.25fr 1.1fr 1fr 1fr;border-bottom:2px solid var(--frame)}
+.ac{border-right:1px solid var(--frame);padding:7px 14px 6px}
+.ac.last{border-right:0}
+.ac .al{font-family:"PingFang SC",sans-serif;font-size:9.5px;letter-spacing:2px;color:var(--soft);margin-bottom:1px}
+.ac .av{font-family:"PingFang SC",sans-serif;font-weight:600;font-size:13px;overflow-wrap:anywhere}
+.ac .av.t{color:var(--type);font-weight:700}
+.ac .av.ok{color:var(--green);font-weight:700}
+.ac .av.warn{color:var(--red);font-weight:700}
+.ac2{border-top:1px solid var(--line)}
+.sealcell{grid-column:1;grid-row:1/span 2;border-right:1px solid var(--frame);display:grid;place-items:center;padding:8px}
+.sq{width:62px;height:62px;border:2.5px solid var(--type);box-shadow:inset 0 0 0 1.5px #fff,inset 0 0 0 3px var(--type);display:grid;place-items:center;color:var(--type);font-family:"STZhongsong","Songti SC",serif;font-size:19px;font-weight:900;letter-spacing:2px;line-height:1.5;text-align:center}
+.titlebar{padding:18px 26px 0}
+h1{font-family:"PingFang SC",sans-serif;font-size:22px;font-weight:800;letter-spacing:.5px;line-height:1.5;overflow-wrap:anywhere}
+.sub{font-size:13.5px;color:var(--mid);margin-top:4px}
+.tally{display:grid;grid-template-columns:1fr 1fr 1fr 1.7fr;border:1.5px solid var(--frame);margin:14px 26px 0}
+.tally.c3{grid-template-columns:1fr 1fr 1.7fr}
+.tc{padding:9px 14px 8px;border-right:1px solid var(--frame)}
+.tc:last-child{border-right:0}
+.tc .n{font-family:"PingFang SC",sans-serif;font-size:23px;font-weight:800;line-height:1.3;color:var(--ink)}
+.tc .n.sm{font-size:15px;line-height:1.95}
+.tc .n small{font-size:13px;color:var(--soft);font-weight:500}
+.tc .l{font-family:"PingFang SC",sans-serif;font-size:9.5px;letter-spacing:2.5px;color:var(--soft);margin-top:1px}
+.tc.warn .n{color:var(--red)}
+.tc.v{background:var(--type)}
+.tc.v .n{color:#fff;font-size:15px;line-height:1.85;font-weight:700}
+.tc.v .l{color:rgba(255,255,255,.75)}
+.keypoints{margin:12px 26px 0;border:1.5px solid var(--type);background:var(--tint);padding:11px 17px 10px}
+.keypoints .kt{font-family:"PingFang SC",sans-serif;font-weight:800;font-size:12.5px;letter-spacing:3px;color:var(--type);margin-bottom:5px}
+.keypoints ol{list-style:none}
+.keypoints li{padding:3px 0 3px 28px;position:relative;font-size:13px}
+.keypoints li .kn{position:absolute;left:0;top:5px;width:18px;height:18px;background:var(--type);color:#fff;font-family:"PingFang SC",sans-serif;font-size:10.5px;font-weight:700;display:grid;place-items:center}
+.keypoints li b{font-family:"PingFang SC",sans-serif;font-weight:700}
+.question{margin:14px 26px 0;border:1.5px solid var(--frame);background:#fff;padding:12px 17px}
+.question .qt{font-family:"PingFang SC",sans-serif;font-weight:800;font-size:12.5px;letter-spacing:3px;color:var(--type);margin-bottom:5px}
+.question p{font-family:"PingFang SC",sans-serif;font-weight:600;font-size:14.5px;line-height:1.8;text-align:justify}
+.meta{padding:9px 26px 0;font-size:12px;color:var(--soft);letter-spacing:1px}
+.body{padding:0 26px}
+h2{font-family:"PingFang SC",sans-serif;font-size:15px;font-weight:800;letter-spacing:1px;margin:26px 0 10px;padding:7px 12px;background:#F1F1EF;border-left:5px solid var(--type)}
+h2 .num{font-family:"SF Mono",Menlo,monospace;color:var(--type);margin-right:10px;font-size:13px}
+h2.danger{border-left-color:var(--red)}
+h2.danger .num{color:var(--red)}
+p{margin-bottom:.8em;text-align:justify}
+p:last-child{margin-bottom:0}
+b,strong{font-family:"PingFang SC",sans-serif;font-weight:600}
+.clause{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:6px 0;font-size:13.5px}
+.clause.n{grid-template-columns:44px 1fr}
+.clause dt{font-family:"PingFang SC",sans-serif;font-size:11.5px;font-weight:700;color:var(--soft);padding-top:2px;letter-spacing:1px}
+.clause.n dt{font-family:"SF Mono",Menlo,monospace;color:var(--type);letter-spacing:0}
+.clause dd{text-align:justify;overflow-wrap:anywhere}
+.note{font-size:12px;color:var(--soft)}
+table.formal{width:100%;border-collapse:collapse;margin:8px 0 6px;font-size:13px}
+table.formal th{font-family:"PingFang SC",sans-serif;font-weight:700;font-size:11.5px;letter-spacing:1.5px;border:1px solid var(--frame);background:#F1F1EF;padding:6px 10px;text-align:center}
+table.formal th.danger{background:var(--redtint);color:var(--red)}
+table.formal td{border:1px solid var(--line);border-left:1px solid var(--frame);border-right:1px solid var(--frame);padding:7px 10px 6px;vertical-align:top;line-height:1.78;overflow-wrap:anywhere}
+table.formal tr:last-child td{border-bottom:1px solid var(--frame)}
+table.formal td.c{text-align:center;white-space:nowrap;font-family:"SF Mono",Menlo,monospace;font-size:12px}
+.mk{font-family:"PingFang SC",sans-serif;font-weight:700;white-space:nowrap}
+.mk.ok{color:var(--green)}
+.mk.bad{color:var(--red)}
+.mk.wait{color:var(--soft)}
+.vd{font-family:"PingFang SC",sans-serif;font-weight:700;white-space:nowrap}
+.vd.ok{color:var(--green)}
+.vd.bad{color:var(--red)}
+.vd.mid{color:var(--gold)}
+.vd i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.vd.ok i{background:var(--green)}
+.vd.bad i{background:var(--red)}
+.vd.mid i{background:var(--gold)}
+.judge{border:1.5px solid var(--frame);margin-bottom:13px}
+.judge-h{display:flex;gap:12px;align-items:baseline;padding:9px 16px;border-bottom:1px solid var(--frame);background:#F1F1EF}
+.judge-h .ji{font-family:"PingFang SC",sans-serif;font-size:11px;font-weight:800;color:#fff;background:var(--type);padding:2px 10px;letter-spacing:3px;white-space:nowrap}
+.judge-h .jt{font-family:"PingFang SC",sans-serif;font-weight:700;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+.judge-b{padding:8px 16px 12px}
+.jrow{display:grid;grid-template-columns:70px 1fr;gap:10px;padding:5px 0;font-size:13px}
+.jrow dt{font-family:"PingFang SC",sans-serif;font-size:11.5px;font-weight:700;color:var(--soft);padding-top:2px;letter-spacing:1.5px}
+.jrow dd{text-align:justify;color:var(--mid);overflow-wrap:anywhere}
+.hind{margin:8px 0 2px;border:1px solid var(--gold);background:var(--goldtint);padding:9px 14px}
+.hind dt{font-family:"PingFang SC",sans-serif;font-size:11px;font-weight:800;letter-spacing:2px;color:var(--gold);margin-bottom:3px}
+.hind dd{font-family:"PingFang SC",sans-serif;font-weight:600;font-size:13px;line-height:1.8}
+.aux{font-size:12.5px;color:var(--mid);padding-top:6px}
+.aux dt{display:inline;font-family:"PingFang SC",sans-serif;font-size:11px;font-weight:700;color:var(--soft);margin-right:8px;letter-spacing:1px}
+.aux dd{display:inline}
+.appetite{margin:8px 0 4px;border:1.5px solid var(--gold);background:var(--goldtint);padding:11px 16px}
+.appetite .at{font-family:"PingFang SC",sans-serif;font-size:11px;font-weight:800;letter-spacing:2px;color:var(--gold);margin-bottom:3px}
+.appetite .av2{font-family:"PingFang SC",sans-serif;font-weight:700;font-size:15px}
+.appetite .av2 small{font-weight:500;font-size:12.5px;color:var(--mid)}
+.dgrid{display:grid;grid-template-columns:46px 1fr;gap:8px;padding:5px 0;font-size:13px}
+.dgrid dt{font-family:"SF Mono",Menlo,monospace;font-size:11px;color:var(--type);font-weight:700;padding-top:2px}
+.dgrid dd{text-align:justify;color:var(--mid)}
+.dgrid dd b{color:var(--ink)}
+.next{border:1.5px solid var(--type);background:var(--tint);padding:13px 17px 11px;margin-top:12px}
+.next .lead{font-family:"PingFang SC",sans-serif;font-weight:700;font-size:14.5px;line-height:1.8;margin-bottom:8px}
+.next p{font-size:13px;color:var(--mid)}
+.gate{margin-top:9px;border:1px solid var(--red);background:var(--redtint);padding:9px 13px;font-size:13px}
+.gate .gl{font-family:"PingFang SC",sans-serif;font-size:11px;font-weight:800;letter-spacing:2px;color:var(--red);margin-right:9px}
+.pend{font-family:"PingFang SC",sans-serif;font-size:10px;font-weight:700;color:var(--red);border:1px solid var(--red);padding:1px 7px;white-space:nowrap}
+code{font-family:"SF Mono",Menlo,monospace;background:#F1F1EF;padding:1px 5px;border-radius:2px;font-size:11.5px;overflow-wrap:anywhere}
+footer{margin-top:12px;text-align:center;font-family:"PingFang SC",sans-serif;font-size:10.5px;color:var(--soft);letter-spacing:2px}</style></head>
+<body class="t-plan">
+<div class="sheet">
+<div class="ctrl"><span>受控文档 · <b>model-supply-greenfield</b></span><span>流程依据:SOP v0.4 非妥协 #1</span></div>
+<div class="appr"><div class="sealcell"><div class="sq">计<br>划</div></div><div class="ac"><div class="al">文档类别</div><div class="av t">实施计划</div></div><div class="ac"><div class="al">编号</div><div class="av">model-supply-greenfield</div></div><div class="ac"><div class="al">层级</div><div class="av">项目层</div></div><div class="ac last"><div class="al">阶段</div><div class="av">送审待批</div></div><div class="ac ac2"><div class="al">拟制</div><div class="av">曾振华</div></div><div class="ac ac2"><div class="al">评审</div><div class="av">子 agent（staff engineer · 独立上下文）</div></div><div class="ac ac2"><div class="al">批准</div><div class="av">待负责人拍板</div></div><div class="ac ac2 last"><div class="al">日期</div><div class="av">2026-07-10</div></div></div>
+<div class="titlebar"><h1>model-supply-greenfield</h1></div>
+<div class="tally"><div class="tc"><div class="n">10<small> 条</small></div><div class="l">完成标准</div></div><div class="tc"><div class="n">8<small> 项</small></div><div class="l">已拍决策</div></div><div class="tc"><div class="n">6<small> 项</small></div><div class="l">风险</div></div><div class="tc v"><div class="n sm">3 周（投入上限 · 5 批次；超限按预置砍刀降范围不延期，砍刀与验收降级见 Risks R4）</div><div class="l">投入预算 · 超时升版重审</div></div></div><div class="keypoints"><div class="kt">拍板要点</div><ol><li><span class="kn">1</span>切换策略：双面并存短窗 ≠ 兼容层——旧端点窗口期原样存活、新旧不桥接；回滚=版本回退（旧表旧账本全程未动）；删除是最后一步不可逆动作，DRI 显式确认后执行</li><li><span class="kn">2</span>绿地不兼容：不做数据迁移与长期兼容层；迁移窗后 /v1/run 与 Dify 专用子系统（packages/dify、dify_binding、dify-workflow adapter、BYO 导入）整体移除，Dify 按普通方言接入（一 app 一渠道）</li><li><span class="kn">3</span>billing_relevant 参数强制参与路由过滤（按默认解析后的生效值判定）——封死「按 720p 收费、按 1080p 付成本」的毛利倒挂</li><li><span class="kn">4</span>direct 阻塞取数 = 至多一次语义：崩溃接管即 failed 且不扣费（上游成本平台吸收）；租约恢复只承诺 submit_poll/submit_callback</li><li><span class="kn">5</span>产物双轨：默认签名 URL+保留期；public 稳定 URL 为画廊模式，受租户策略约束（保留 v0.0.7 public_url 能力）</li><li><span class="kn">6</span>慢操作纯服务端自动升格 202（无客户端 opt-in），SDK 以 submit-and-wait 消化双形态</li><li><span class="kn">7</span>task 路由与同步完全对齐（钉选/tag/容错/熔断），废除现状异步旁路</li><li><span class="kn">8</span>明确出界：透传门面（验签-重签+usage 旁路）、Realtime、语义缓存、成本智能路由</li></ol></div>
+<div class="body">
+<h2><span class="num">1</span>目标</h2>
+<p>按设计 v2（docs/plans/draft_2026-07-10_model-supply-greenfield.md，已过独立对抗评审并吸收全部 Blocker/Major）绿地重构模型供给与接入架构：五实体供给模型（厂商/渠道/凭证池/模型/供给项）+ 单一适配器 SPI（DSL+代码双作者、一致性测试门）+ 参数感知路由（billing_relevant 强制过滤）+ 全强度任务中心（租约/事件流/回调双保险）+ 模型寻址任务 API（/v1/videos/generations 等 + /v1/tasks 族），整体替换现有 resource/upstream_channel/channel_model 三层与三轨适配器。绿地约束：不做长期兼容层与数据迁移；生产切换走「双面并存短窗→租户迁移→整体删除」预案（见 Approach），/v1/run 与 Dify 专用子系统在窗口结束后整体移除。</p>
+<h2><span class="num">2</span>完成标准(送审 · 待验)</h2>
+<table class="formal"><tr><th style="width:44px">序号</th><th>完成标准</th><th style="width:92px">核验</th></tr><tr><td class="c">2.1</td><td>五实体（provider/channel/credential/model/offering）schema 落库，管理面 CRUD+审计全可用；api_key 白名单为 model 维度；model_grant 可见性与 BYOK 租户私有渠道生效（集成测试覆盖）</td><td class="c"><span class="mk wait">☐ 待验</span></td></tr><tr><td class="c">2.2</td><td>同一视频模型经两条异构供给项（AK/SK+submit_poll 与 apikey+direct）对外语义一致：e2e 双渠道各跑通 202+Task+webhook/SSE，响应回显实际供给项（合成验收，批次4 末验，批次2/3 不得提前自认达标）</td><td class="c"><span class="mk wait">☐ 待验</span></td></tr><tr><td class="c">2.3</td><td>参数感知路由用例全绿：billing_relevant 参数（含默认解析值）参与过滤，毛利倒挂用例（默认 720p → fixed:1080p 供给项）被正确过滤；全军覆没返回 400 unsupported_parameter 且错误细节指明排除原因</td><td class="c"><span class="mk wait">☐ 待验</span></td></tr><tr><td class="c">2.4</td><td>适配器一致性测试门进 CI：openai/anthropic/gemini/火山（AK/SK 签名）/惠梦 5 个方言全部过门；另以 mock 厂商演示 DSL 零代码接入一个新方言成功</td><td class="c"><span class="mk wait">☐ 待验</span></td></tr><tr><td class="c">2.5</td><td>任务中心可靠性 e2e：worker kill -9 后 submit_poll 任务被租约接管跑完；direct 任务崩溃置 failed 且不扣费；超 15 分钟慢任务（mock）不被误杀；上游回调路径打通（验签+去重+乱序容忍+反查）</td><td class="c"><span class="mk wait">☐ 待验</span></td></tr><tr><td class="c">2.6</td><td>计费闭环补全（批次4 承接）：估算 usage 带 estimated 标志、计费事件含价格快照（卡 id+版本）；幂等同键不同体返回 409；对账=官方渠道按日自动+中转渠道月度报表（报表可出即达标，自动化属可砍项见 R4）</td><td class="c"><span class="mk wait">☐ 待验</span></td></tr><tr><td class="c">2.7</td><td>产物双轨 e2e：signed 产物保留期满后取回返回 expired，public 产物稳定 URL 长期可访问且现有画廊用例不回归；请求级覆盖受租户策略约束的用例绿</td><td class="c"><span class="mk wait">☐ 待验</span></td></tr><tr><td class="c">2.8</td><td>自动升格 e2e：slow 标记模型打 /v1/images/generations 返回 202+Task、快模型仍同步 200；SDK submit-and-wait 消化 200/202 双形态用例绿</td><td class="c"><span class="mk wait">☐ 待验</span></td></tr><tr><td class="c">2.9</td><td>task 路由对齐 e2e：route-tag/租户与 key 钉选/熔断在 task 路径生效——钉选渠道故障时 task 与同步以相同规则 failover，废除异步旁路的回归用例绿</td><td class="c"><span class="mk wait">☐ 待验</span></td></tr><tr><td class="c">2.10</td><td>旧世界清除与破坏面交付：@actionow/sdk 重生成（含 /v1/tasks 族与 submit-and-wait）发布、actionow-integration/building-on-actionow skill 重写并推 registry、租户迁移通告发出且迁移窗结束后 /v1/run 与 dify 相关包/表/adapter 全删，全量 e2e 绿；接入向导五步 UI 可走通</td><td class="c"><span class="mk wait">☐ 待验</span></td></tr></table>
+<h2><span class="num">3</span>分工</h2>
+<table class="formal"><tr><th style="width:96px">角色</th><th>承担</th></tr><tr><td class="c">负责人</td><td>曾振华</td></tr><tr><td class="c">执行</td><td>Claude（编排+实现，分批次 build session）</td></tr><tr><td class="c">协作</td><td>(无)</td></tr><tr><td class="c">评审</td><td>子 agent（staff engineer · 独立上下文）</td></tr></table>
+<h2><span class="num">4</span>投入预算</h2>
+<div class="appetite"><div class="at">预算上限</div><div class="av2">3 周（投入上限 · 5 批次；超限按预置砍刀降范围不延期，砍刀与验收降级见 Risks R4）<small>　超时即触发升版强制重审,不带病延期。</small></div></div>
+<h2><span class="num">5</span>方案要点</h2>
+<p>方向：绿地替换供给骨架（数据模型+适配器 SPI+任务中心+API 面），保留达标资产（µUSD 七法与 hold/settle、pre-commit 流式、熔断参数、route_group/tags 钉选、relay_trace、R2、audit、动态配置）。设计唯一真相 = 设计 v2 文档；本 plan 只定目标/边界/批次/切换预案/分工。</p><p>切换与回滚预案（生产在线约束，v0.0.11 租户内测运行中）：采用「双面并存短窗」而非兼容层——新五实体表与新端点独立部署，与旧 resource 三层/旧端点在同一服务内并存；旧端点窗口期原样存活、新旧互不桥接翻译。切换四步：①批次4 末新面全量上线（旧面未动，零停机）；②供给配置经批建工具在新表全量重建，内部租户（自家产品）先切新面灰度 ≥3 天；③发租户迁移通告，迁移窗（目标 1 周，内部租户可控）内新旧双活，切换日出新旧双账快照保对账连续性（账本 append-only 不迁移，新旧账本并存）；④迁移窗结束 + 观察期无致命缺陷 → 批次5 末删除旧端点/旧表/dify 子系统。回滚路径：删除动作前任何时点回滚=部署版本回退（旧代码在 git、旧表全程未动、旧账本未动），新表数据弃置不影响旧面；删除动作本身是最后一步且不可逆，执行前需 DRI 显式确认。</p><p>批次1 · 供给数据模型：五实体 schema 与仓储、参数契约结构化声明（supports/domain/map/fixed/unsupported + billing_relevant 标记）、可见性/BYOK/key 白名单改 model 维度、官方价目对接与 needs_pricing 闸、CRUD API+审计。</p><p>批次2 · 适配器 SPI：六切面接口与执行流水线（凭证注入后冻结）、签名器提升为共享切面、DSL 引擎与版本化装配、一致性测试门进 CI、既有 5 方言（openai/anthropic/gemini/volc/惠梦）迁移过门。与批次1 同期交错推进（单执行者下为交错 session），contracts 接缝于两批开工首日冻结（批次0 动作：IR/五实体的 zod 契约先行合入，之后只增不改）。</p><p>批次3 · 路由与执行规划器：参数感知候选过滤与排序、fetch_profile 四模式规划（direct 至多一次+独立长阻塞池）、慢操作纯服务端自动升格、并发闸门 min(offering, credential) 双维信号量、task 路由与同步对齐钉选/容错。依赖批次1+2。</p><p>批次4 · 任务中心、API 面与计费闭环：/v1/videos/generations 等资源风格端点 + /v1/tasks 族（查询/列表/取消/SSE）+ GET /v1/models 发现端点（member 面与 key 白名单依赖）、task_events 事件流（retention 受控）、租约恢复（仅可恢复 fetch 模式）、上游回调双保险（修 envelope 断链）、下游 webhook 事件信封、产物双轨、媒体字节路径加固（SSRF+流式管道）、幂等体指纹 409、计费闭环（estimated 标志+价格快照+对账报表）、@actionow/sdk 重生成（含 submit-and-wait）。批内预置砍刀（超限时先砍且验收相应后置）：public 轨可后置、webhook 退避档位固定 5 档不做可配。本批末执行切换预案第①②步。</p><p>批次5 · 运营面收口与旧世界删除：发现/批建/golden probe 双门、接入向导 UI 五步、下线与软删语义、对账自动化（官方渠道；可砍项）、integration/building-on skill 重写与租户迁移通告（切换预案第③步）、迁移窗后删除 /v1/run 与 dify 子系统（第④步，DRI 确认后执行）、全量 e2e 与文档。</p><p>研究输入：docs/research/research_2026-07-10_omni-gateway-model-onboarding-gap.html（issue TEA-1072）；设计评审报告 docs/research/research_2026-07-10_omni-gateway-gap.d/05-design-eval.md（4 Blocker/14 Major 已全部吸收进设计 v2，plan 评审人已抽查核实）；产品裁决 4 项（产物双轨/纯服务端升格/task 对齐钉选/对账降级）已由用户拍板并写入 v2。</p>
+<div class="dgrid"><dt>D1</dt><dd>切换策略：双面并存短窗 ≠ 兼容层——旧端点窗口期原样存活、新旧不桥接；回滚=版本回退（旧表旧账本全程未动）；删除是最后一步不可逆动作，DRI 显式确认后执行</dd></div>
+<div class="dgrid"><dt>D2</dt><dd>绿地不兼容：不做数据迁移与长期兼容层；迁移窗后 /v1/run 与 Dify 专用子系统（packages/dify、dify_binding、dify-workflow adapter、BYO 导入）整体移除，Dify 按普通方言接入（一 app 一渠道）</dd></div>
+<div class="dgrid"><dt>D3</dt><dd>billing_relevant 参数强制参与路由过滤（按默认解析后的生效值判定）——封死「按 720p 收费、按 1080p 付成本」的毛利倒挂</dd></div>
+<div class="dgrid"><dt>D4</dt><dd>direct 阻塞取数 = 至多一次语义：崩溃接管即 failed 且不扣费（上游成本平台吸收）；租约恢复只承诺 submit_poll/submit_callback</dd></div>
+<div class="dgrid"><dt>D5</dt><dd>产物双轨：默认签名 URL+保留期；public 稳定 URL 为画廊模式，受租户策略约束（保留 v0.0.7 public_url 能力）</dd></div>
+<div class="dgrid"><dt>D6</dt><dd>慢操作纯服务端自动升格 202（无客户端 opt-in），SDK 以 submit-and-wait 消化双形态</dd></div>
+<div class="dgrid"><dt>D7</dt><dd>task 路由与同步完全对齐（钉选/tag/容错/熔断），废除现状异步旁路</dd></div>
+<div class="dgrid"><dt>D8</dt><dd>明确出界：透传门面（验签-重签+usage 旁路）、Realtime、语义缓存、成本智能路由</dd></div>
+<div class="dgrid"><dt>R1</dt><dd>生产切换风险：预案见 Approach（双面并存/灰度/双账快照/版本回退式回滚）；残余风险=迁移窗内双面并行的运维复杂度与租户拖延迁移——内部租户可控，迁移窗硬上限 1 周，逾期由 DRI 裁决强切或延窗</dd></div>
+<div class="dgrid"><dt>R2</dt><dd>对外破坏面：已分发的 integration skill 与 SDK 深度依赖 /v1/run、/v1/jobs——交付时序固定为「批次4 出新面+新 SDK → 批次5 skill 重写+通告 → 迁移窗 → 删除」，删除前 skill/SDK 必须已可用（完成标准 10 兜底）</dd></div>
+<div class="dgrid"><dt>R3</dt><dd>DSL 引擎是新造轮子，边界失守会重演三轨——以「签名/私有分帧/多步/WS 四类立即升代码切面」判据+一致性测试门双重约束</dd></div>
+<div class="dgrid"><dt>R4</dt><dd>appetite 安全阀（预置砍刀与验收降级，超限按序执行）：①批次5 对账自动化→降级为月度报表（完成标准 6 已按报表口径写）；②接入向导 UI 打磨→降级为 CRUD 可用+文档化步骤（完成标准 10 的『五步可走通』降级为 API 层可走通）；③批次4 public 轨后置（完成标准 7 的 public 子项顺延为切换后补验，画廊回归用例不可砍）；砍到③仍超限 → DRI 重新裁 appetite 或砍批次5 整批延后</dd></div>
+<div class="dgrid"><dt>R5</dt><dd>golden probe 真上游探测有真实资金成本与限频——探测预算走动态配置（新增 key：probe.daily_budget_usd 默认 5、probe.min_interval，媒体类探测强制最小档参数），超预算探测排队不失败</dd></div>
+<div class="dgrid"><dt>R6</dt><dd>遗留商务口径：上游「排队后失败仍扣费」的成本转嫁待裁决——先按打标不转嫁实现，口径定了只改配置，不阻塞批次</dd></div>
+</div>
+</div>
+<footer>AI MIQ 团队 · 受控文档 · 计划 · multica issue 内联渲染</footer>
+</body></html>
