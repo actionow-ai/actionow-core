@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -78,8 +78,12 @@ describe('OAuthSessionsPage', () => {
 
     await screen.findByText('me@example.com');
     await user.click(screen.getByRole('button', { name: i18n.t('console:oauthSessions.revoke') }));
-    // ConfirmDialog confirm button.
-    await user.click(await screen.findByRole('button', { name: i18n.t('console:common.delete') }));
+    // ConfirmDialog confirm button — now shares the row's "revoke" verb, so scope
+    // to the dialog to disambiguate from the still-mounted row action.
+    const dialog = await screen.findByRole('dialog');
+    await user.click(
+      within(dialog).getByRole('button', { name: i18n.t('console:oauthSessions.revoke') }),
+    );
 
     expect(mockApi.revokeOAuthSession).toHaveBeenCalledWith('s1');
   });

@@ -46,12 +46,16 @@ export function DifyImportPage() {
   // Set true on a submit attempt so required-field errors appear only after a
   // try, not on first paint of an empty form.
   const [attempted, setAttempted] = useState(false);
+  // A fresh idempotency key per opened import so a double-submit replays rather
+  // than double-registers (the endpoint is `@Idempotent`).
+  const [idemKey, setIdemKey] = useState(() => crypto.randomUUID());
   const [editing, setEditing] = useState<DifyBindingView | null>(null);
   const [deleting, setDeleting] = useState<DifyBindingView | null>(null);
 
   // Open the import modal on a clean slate (a re-import shouldn't inherit the
   // previous run's form or compat report).
   const openCreate = () => {
+    setIdemKey(crypto.randomUUID());
     setTenantId('');
     setResourceId('');
     setEndpoint('');
@@ -68,17 +72,20 @@ export function DifyImportPage() {
 
   const submit = useMutation({
     mutationFn: () =>
-      api.difyImport({
-        tenantId,
-        resourceId,
-        yaml,
-        endpoint,
-        pricingModel,
-        // Optional service-key binding (a stored secret) + allow blocked
-        // workflows (the backend 422s a blocked import otherwise).
-        serviceKeyRef: serviceKeyRef === '' ? undefined : serviceKeyRef,
-        allowBlockers,
-      }),
+      api.difyImport(
+        {
+          tenantId,
+          resourceId,
+          yaml,
+          endpoint,
+          pricingModel,
+          // Optional service-key binding (a stored secret) + allow blocked
+          // workflows (the backend 422s a blocked import otherwise).
+          serviceKeyRef: serviceKeyRef === '' ? undefined : serviceKeyRef,
+          allowBlockers,
+        },
+        idemKey,
+      ),
     onSuccess: async (r) => {
       // Keep the modal open and surface the compat report inline — the operator
       // reads it, then closes manually.

@@ -282,6 +282,7 @@ export {
   type SyncModelSummary,
   type SyncPricedKind,
   unlinkAllForChannel,
+  unlinkAllForModel,
   unlinkChannelModel,
   updateModel,
   type UpdateModelInput,

@@ -16,6 +16,8 @@ export const Z = {
   background: 0,
   /** In-flow page/app content. */
   base: 1,
+  /** In-page sticky surfaces (the ops filter bars) — over page content, under app chrome. */
+  sticky: 10,
   /** App chrome that floats over content but under overlays: sticky nav, mobile bottom tabs. */
   nav: 40,
   /** Modal & Drawer backdrop (scrim) + the dialog it contains. */

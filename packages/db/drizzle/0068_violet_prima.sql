@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "secret_ref_name_idx" ON "secret_ref" USING btree ("name") WHERE "secret_ref"."name" IS NOT NULL AND "secret_ref"."deleted_at" IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "oauth_session_name_idx" ON "oauth_session" USING btree ("name") WHERE "oauth_session"."name" IS NOT NULL AND "oauth_session"."deleted_at" IS NULL;

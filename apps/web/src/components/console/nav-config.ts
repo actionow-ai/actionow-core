@@ -27,10 +27,12 @@ export interface NavConfig {
 
 /**
  * The ADMIN nav grouped by responsibility (职责分组):
- * - ops: dashboard / analytics / relay traces
+ * - ops (运营): overview·analytics / 服务状态 / 熔断 / 中转追踪 / 审计日志 / 系统设置
  * - models (模型): the model CATALOG — a flat faceted list of every model (browse
  *   "what we serve"). The wiring lives in 接入设置.
- * - access (接入设置): 模型接入 (平台·通道·模型 management) / 插件 / 代理 / Dify / 凭据
+ * - access (接入设置): 模型接入 (the 插件▸通道▸模型 3-pane — plugins are managed inline
+ *   there, not as a separate page) / 代理 / Dify / 凭据. 平台与定价 (/console/platforms)
+ *   is a hidden contextual surface reached from the 模型接入 TopBar link.
  * - billing (计费与路由): groups / official prices / pricing modifiers
  * - tenants (租户): tenants (hub — account balance/top-up lives in the tenant
  *   detail drawer) / API keys

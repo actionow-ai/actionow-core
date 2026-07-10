@@ -61,6 +61,7 @@
   /* stacking ladder — mirror of lib/zIndex.ts (background < base < chrome < scrim < popover < toast < tooltip) */
   --z-background: 0;
   --z-base: 1;
+  --z-sticky: 10;
   --z-nav: 40;
   --z-scrim: 100;
   --z-popover: 200;

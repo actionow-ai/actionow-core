@@ -1,4 +1,4 @@
-import { PencilSimpleIcon, PlusIcon, ProhibitIcon } from '@phosphor-icons/react';
+import { PencilSimpleIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -115,19 +115,24 @@ export function OAuthSessionsPage() {
   // Bulk revoke. OAuth sessions go through ONE `/admin/oauth-sessions/bulk` call
   // (partial success → succeeded/failed counts in the toast). Secrets have no bulk
   // endpoint yet, so they keep the allSettled fan-out (one failure doesn't abort
-  // the rest) until one lands.
+  // the rest) until one lands. Never throws — callers fire it with `void`.
   const bulkRevoke = async (ids: string[], kind: CredTab, clear: () => void) => {
-    if (kind === 'oauth') {
-      const r = await api.bulkRevokeOAuthSessions(ids);
-      await invalidateSessions();
-      toast(t('admin.bulk.result', { ok: r.succeeded.length, failed: r.failed.length }));
+    try {
+      if (kind === 'oauth') {
+        const r = await api.bulkRevokeOAuthSessions(ids);
+        await invalidateSessions();
+        toast(t('admin.bulk.result', { ok: r.succeeded.length, failed: r.failed.length }));
+        clear();
+        return;
+      }
+      const results = await Promise.allSettled(ids.map((id) => api.deleteSecret(id)));
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      await invalidateSecrets();
+      toast(t('admin.bulk.result', { ok: ids.length - failed, failed }));
       clear();
-      return;
+    } catch (e) {
+      mutationError(t)(e);
     }
-    await Promise.allSettled(ids.map((id) => api.deleteSecret(id)));
-    await invalidateSecrets();
-    toast(t('credentials.bulkRevoked', { n: ids.length }));
-    clear();
   };
 
   // --- codex login + paste-auth (unchanged create flows) ---
@@ -160,7 +165,10 @@ export function OAuthSessionsPage() {
         acknowledgeUpstreamTos: true,
         code: code.trim(),
         state: authorize.state,
-        ...(codexLabel.trim() !== '' ? { accountLabel: codexLabel.trim() } : {}),
+        // The operator's label doubles as the human name (the pick key).
+        ...(codexLabel.trim() !== ''
+          ? { accountLabel: codexLabel.trim(), name: codexLabel.trim() }
+          : {}),
       });
     },
     onSuccess: async () => {
@@ -175,6 +183,32 @@ export function OAuthSessionsPage() {
     setPasteTos(false);
     setAuthJson('');
   };
+
+  // --- create stored secret (the secrets tab's own create entry) ---
+  const [secretOpen, setSecretOpen] = useState(false);
+  const [secretValue, setSecretValue] = useState('');
+  const [secretName, setSecretName] = useState('');
+  const [secretLabel, setSecretLabel] = useState('');
+  const closeSecret = () => {
+    setSecretOpen(false);
+    setSecretValue('');
+    setSecretName('');
+    setSecretLabel('');
+  };
+  const createSecret = useMutation({
+    mutationFn: () =>
+      api.createSecret({
+        value: secretValue,
+        name: secretName.trim() === '' ? undefined : secretName.trim(),
+        label: secretLabel.trim() === '' ? undefined : secretLabel.trim(),
+      }),
+    onSuccess: async () => {
+      await invalidateSecrets();
+      toast(t('credentials.created'));
+      closeSecret();
+    },
+    onError: mutationError(t),
+  });
   const create = useMutation({
     mutationFn: () => {
       if (!parsed.ok || parsed.value === undefined) throw new Error('invalid auth json');
@@ -192,18 +226,24 @@ export function OAuthSessionsPage() {
     onError: mutationError(t),
   });
 
+  // The create controls follow the active tab: OAuth kinds vs a stored secret.
   useSetConsoleAction(
-    () => (
-      <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
-        <Button variant="ghost" onClick={() => setPasteOpen(true)}>
-          {t('oauthSessions.paste.action')}
+    () =>
+      active === 'secrets' ? (
+        <Button variant="cta" onClick={() => setSecretOpen(true)}>
+          <PlusIcon size={14} weight="bold" /> {t('credentials.new')}
         </Button>
-        <Button variant="cta" onClick={() => setCodexOpen(true)}>
-          <PlusIcon size={14} weight="bold" /> {t('oauthSessions.codex.action')}
-        </Button>
-      </div>
-    ),
-    [t],
+      ) : (
+        <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
+          <Button variant="ghost" onClick={() => setPasteOpen(true)}>
+            {t('oauthSessions.paste.action')}
+          </Button>
+          <Button variant="cta" onClick={() => setCodexOpen(true)}>
+            <PlusIcon size={14} weight="bold" /> {t('oauthSessions.codex.action')}
+          </Button>
+        </div>
+      ),
+    [t, active],
   );
 
   const fmtDate = (s: string | null) =>
@@ -386,7 +426,7 @@ export function OAuthSessionsPage() {
                   }
                 />
                 <RowAction
-                  icon={ProhibitIcon}
+                  icon={TrashIcon}
                   label={t('oauthSessions.revoke')}
                   danger
                   onClick={() => setRevokeTarget(r)}
@@ -442,7 +482,7 @@ export function OAuthSessionsPage() {
                   }
                 />
                 <RowAction
-                  icon={ProhibitIcon}
+                  icon={TrashIcon}
                   label={t('secrets.revoke')}
                   danger
                   onClick={() => setSecretRevokeTarget(r)}
@@ -584,13 +624,44 @@ export function OAuthSessionsPage() {
         <Checkbox checked={pasteTos} onChange={setPasteTos} label={t('oauthSessions.tosAck')} />
       </Modal>
 
+      <Modal
+        open={secretOpen}
+        title={t('credentials.new')}
+        onClose={closeSecret}
+        footer={
+          <Button
+            variant="cta"
+            onClick={() => createSecret.mutate()}
+            loading={createSecret.isPending}
+            disabled={secretValue.trim() === ''}
+          >
+            {t('credentials.save')}
+          </Button>
+        }
+      >
+        <TextField
+          label={t('credentials.name')}
+          hint={t('credentials.nameHint')}
+          value={secretName}
+          onChange={setSecretName}
+        />
+        <TextField
+          label={t('credentials.value')}
+          hint={t('credentials.tip.value')}
+          value={secretValue}
+          onChange={setSecretValue}
+          required
+        />
+        <TextField label={t('credentials.label')} value={secretLabel} onChange={setSecretLabel} />
+      </Modal>
+
       <ConfirmDialog
         open={revokeTarget !== undefined}
         title={t('oauthSessions.confirmRevokeTitle')}
         message={t('oauthSessions.confirmRevokeMsg', {
           account: revokeTarget?.name ?? revokeTarget?.account_label ?? revokeTarget?.id ?? '',
         })}
-        confirmLabel={t('common.delete')}
+        confirmLabel={t('oauthSessions.revoke')}
         cancelLabel={t('common.cancel')}
         danger
         loading={revoke.isPending}
@@ -610,7 +681,7 @@ export function OAuthSessionsPage() {
             secretRevokeTarget?.id ??
             '',
         })}
-        confirmLabel={t('common.delete')}
+        confirmLabel={t('secrets.revoke')}
         cancelLabel={t('common.cancel')}
         danger
         loading={revokeSecret.isPending}

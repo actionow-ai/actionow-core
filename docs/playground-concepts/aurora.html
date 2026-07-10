@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Playground · Aurora</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #07080d;
+        --panel: rgba(22, 25, 38, 0.55);
+        --panel-solid: #121525;
+        --stroke: rgba(255, 255, 255, 0.08);
+        --stroke-2: rgba(255, 255, 255, 0.14);
+        --text: #eef1fb;
+        --muted: #9aa3c0;
+        --faint: #5e6685;
+        --accent: #4fd1c5;
+        --accent-2: #5b8cff;
+        --user: #1a1f33;
+        --display: "Bricolage Grotesque", sans-serif;
+        --body: "Figtree", sans-serif;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { height: 100%; }
+      body {
+        font-family: var(--body);
+        color: var(--text);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;
+      }
+      .aurora {
+        position: fixed; inset: -20%;
+        background:
+          radial-gradient(40% 50% at 18% 12%, rgba(91, 140, 255, 0.28), transparent 60%),
+          radial-gradient(45% 55% at 82% 8%, rgba(79, 209, 197, 0.22), transparent 62%),
+          radial-gradient(50% 60% at 60% 100%, rgba(120, 90, 255, 0.18), transparent 65%);
+        filter: blur(40px) saturate(125%);
+        animation: drift 22s ease-in-out infinite alternate;
+        z-index: 0;
+      }
+      @keyframes drift { to { transform: translate3d(2%, -2%, 0) scale(1.06); } }
+      @media (prefers-reduced-motion: reduce) { .aurora { animation: none; } }
+
+      .app { position: relative; z-index: 1; height: 100vh; display: grid; grid-template-columns: 280px 1fr; }
+
+      /* sidebar */
+      .side {
+        padding: 22px 16px;
+        border-right: 1px solid var(--stroke);
+        backdrop-filter: blur(20px);
+        background: rgba(10, 12, 20, 0.4);
+        display: flex; flex-direction: column; gap: 6px;
+      }
+      .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 20px; }
+      .logo { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: grid; place-items: center; color: #06121a; font-weight: 700; font-family: var(--display); }
+      .brand b { font-family: var(--display); font-weight: 600; letter-spacing: -0.01em; font-size: 16px; }
+      .newbtn {
+        display: flex; align-items: center; gap: 8px; justify-content: center;
+        padding: 11px; border-radius: 12px; cursor: pointer;
+        background: linear-gradient(135deg, rgba(79,209,197,0.18), rgba(91,140,255,0.18));
+        border: 1px solid var(--stroke-2); color: var(--text); font-weight: 600; font-size: 14px; margin-bottom: 14px;
+        transition: transform 0.15s, border-color 0.15s;
+      }
+      .newbtn:hover { transform: translateY(-1px); border-color: var(--accent); }
+      .clabel { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); padding: 6px 8px; }
+      .conv { padding: 10px 12px; border-radius: 10px; color: var(--muted); font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 9px; transition: background 0.15s, color 0.15s; }
+      .conv:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+      .conv.active { background: rgba(79,209,197,0.12); color: var(--text); }
+      .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; opacity: 0.0; }
+      .conv.active .dot { opacity: 1; }
+
+      /* main */
+      .main { display: flex; flex-direction: column; min-width: 0; }
+      .top {
+        display: flex; align-items: center; gap: 12px; padding: 16px 28px;
+        border-bottom: 1px solid var(--stroke);
+        backdrop-filter: blur(16px);
+      }
+      .picker {
+        display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 12px;
+        background: var(--panel); border: 1px solid var(--stroke-2); cursor: pointer;
+      }
+      .picker .av { width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(135deg,#4f8cff,#6f5bff); display:grid; place-items:center; font-size: 12px; font-weight: 700; }
+      .picker b { font-family: var(--display); font-weight: 600; font-size: 14.5px; }
+      .picker .ctx { color: var(--faint); font-size: 12px; }
+      .pill { margin-left: auto; display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); padding: 7px 12px; border-radius: 999px; border: 1px solid var(--stroke); }
+      .pill .g { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+
+      .scroll { flex: 1; overflow-y: auto; padding: 36px 28px; }
+      .thread { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 30px; }
+
+      .turn-user { display: flex; justify-content: flex-end; }
+      .bubble-user { max-width: 78%; background: var(--user); border: 1px solid var(--stroke-2); padding: 13px 17px; border-radius: 18px 18px 4px 18px; font-size: 15px; line-height: 1.65; }
+
+      .turn-ai { display: flex; gap: 14px; }
+      .ai-av { width: 32px; height: 32px; border-radius: 11px; flex: none; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: grid; place-items: center; color: #06121a; }
+      .ai-body { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+      .think {
+        border: 1px solid var(--stroke); border-radius: 12px; padding: 12px 14px;
+        background: rgba(255,255,255,0.02); color: var(--muted); font-size: 13.5px; line-height: 1.6;
+      }
+      .think .h { display: flex; align-items: center; gap: 8px; color: var(--faint); font-size: 12.5px; margin-bottom: 8px; }
+      .answer { font-size: 15px; line-height: 1.75; color: var(--text); }
+      .answer p { margin-bottom: 10px; }
+      .answer b { color: #fff; font-weight: 600; }
+      .metrics { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12.5px; color: var(--faint); align-items: center; }
+      .metrics b { color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+      .acts { margin-left: auto; display: flex; gap: 6px; }
+      .icb { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--faint); border: 1px solid transparent; cursor: pointer; }
+      .icb:hover { color: var(--text); border-color: var(--stroke-2); }
+
+      .composer-wrap { padding: 16px 28px 26px; }
+      .composer {
+        max-width: 760px; margin: 0 auto; display: flex; align-items: flex-end; gap: 10px;
+        background: var(--panel); border: 1px solid var(--stroke-2); border-radius: 18px; padding: 12px 12px 12px 18px;
+        backdrop-filter: blur(20px);
+      }
+      .composer input { flex: 1; background: none; border: none; outline: none; color: var(--text); font-family: var(--body); font-size: 15px; padding: 8px 0; }
+      .composer input::placeholder { color: var(--faint); }
+      .send { width: 38px; height: 38px; border-radius: 12px; border: none; cursor: pointer; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #06121a; display: grid; place-items: center; }
+      .send svg { width: 18px; height: 18px; }
+      svg { stroke-width: 2; }
+    </style>
+  </head>
+  <body>
+    <div class="aurora" aria-hidden="true"></div>
+    <div class="app">
+      <aside class="side">
+        <div class="brand"><span class="logo">A</span><b>Playground</b></div>
+        <div class="newbtn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
+          新对话
+        </div>
+        <div class="clabel">今天</div>
+        <div class="conv active"><span class="dot"></span>Transformer 注意力机制</div>
+        <div class="conv"><span class="dot"></span>把这段 Python 改成异步</div>
+        <div class="clabel">更早</div>
+        <div class="conv"><span class="dot"></span>Postgres 隔离级别对比</div>
+        <div class="conv"><span class="dot"></span>给周报写个开头</div>
+      </aside>
+
+      <main class="main">
+        <div class="top">
+          <div class="picker">
+            <span class="av">D</span><b>DeepSeek V4 Pro</b><span class="ctx">· 64K</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          <div class="pill"><span class="g"></span>已就绪</div>
+        </div>
+
+        <div class="scroll">
+          <div class="thread">
+            <div class="turn-user">
+              <div class="bubble-user">用三句话解释 Transformer 的注意力机制</div>
+            </div>
+
+            <div class="turn-ai">
+              <div class="ai-av">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8z"/></svg>
+              </div>
+              <div class="ai-body">
+                <div class="think">
+                  <div class="h">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9.5 2a5.5 5.5 0 00-3 10.1V17a2 2 0 002 2h.5M14.5 2a5.5 5.5 0 013 10.1V17a2 2 0 01-2 2H15"/></svg>
+                    已思考 3.6s
+                  </div>
+                  用户想要简明的解释，限定三句话。我应覆盖：查询/键/值的匹配、加权求和、并行捕捉长距离依赖。
+                </div>
+                <div class="answer">
+                  <p>注意力让每个词用自己的<b>查询向量</b>去和所有词的<b>键向量</b>打分，得到“该关注谁”的权重。</p>
+                  <p>再用这些权重对各词的<b>值向量</b>做加权求和，于是每个位置都融合了全句最相关的信息。</p>
+                  <p>因为这一步对所有位置并行计算，模型能一次性捕捉任意远的依赖，这正是它取代循环结构的关键。</p>
+                </div>
+                <div class="metrics">
+                  延迟 <b>3.32s</b><span>·</span>总计 <b>7.89s</b><span>·</span>输入 <b>6</b><span>·</span>输出 <b>129</b>
+                  <span class="acts">
+                    <span class="icb"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></span>
+                    <span class="icb"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12a9 9 0 0015.5 6.3M21 12A9 9 0 005.5 5.7M3 4v5h5M21 20v-5h-5"/></svg></span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer-wrap">
+          <div class="composer">
+            <input placeholder="发送消息…" />
+            <button class="send"><svg viewBox="0 0 24 24" fill="none" stroke="#06121a"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

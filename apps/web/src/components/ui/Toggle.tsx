@@ -9,11 +9,14 @@ export function Toggle({
   onChange,
   label,
   disabled,
+  ariaLabel,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label?: string;
   disabled?: boolean;
+  /** Accessible name when no visible `label` is rendered (e.g. a value editor whose row shows the key). */
+  ariaLabel?: string;
 }) {
   return (
     <button
@@ -21,7 +24,7 @@ export function Toggle({
       role="switch"
       className="hit-slop"
       aria-checked={checked}
-      aria-label={label}
+      aria-label={ariaLabel ?? label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       style={{

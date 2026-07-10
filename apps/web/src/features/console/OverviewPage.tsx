@@ -7,6 +7,11 @@ import { Link } from 'react-router-dom';
 import { ModelHealthCard, useOpsHealth } from '../../components/console/ModelHealthCard';
 import { type HealthState } from '../../components/console/ModelHealthCard';
 import { StatCard } from '../../components/console/StatCard';
+import {
+  FILTER_SELECT_MIN_W,
+  InlineFilterLabel,
+  StickyFilterBar,
+} from '../../components/console/StickyFilterBar';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { MetricBarChart } from '../../components/data/MetricBarChart';
@@ -38,15 +43,6 @@ const HEALTH_TONE: Record<HealthState, PillTone> = {
   reauth: 'wait',
   disabled: 'idle',
 };
-
-/** Inline "起/止 + control" wrapper for the date-range filters. */
-const DATE_LABEL = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 'var(--s-2)',
-  fontSize: 'var(--fs-sm)',
-  color: 'var(--muted)',
-} as const;
 
 /**
  * Operator OVERVIEW · ANALYTICS (the merged dashboard + analytics surface). One
@@ -263,23 +259,8 @@ export function OverviewPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
       {/* Single-lens sticky filter (scope + dimension + metric + date) */}
-      <div
-        className="panel"
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 5,
-          borderRadius: 'var(--r-md)',
-          padding: 'var(--s-3)',
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 'var(--s-3)',
-          alignItems: 'center',
-          backdropFilter: 'blur(8px)',
-          boxShadow: 'var(--shadow-lift)',
-        }}
-      >
-        <div style={{ minWidth: 180 }}>
+      <StickyFilterBar>
+        <div style={{ minWidth: FILTER_SELECT_MIN_W }}>
           <TenantSelect
             value={tenantId}
             onChange={setTenantId}
@@ -298,25 +279,23 @@ export function OverviewPage() {
           onChange={setMetric}
           options={METRICS.map((m) => ({ value: m, label: t(`analytics.metric.${m}`) }))}
         />
-        <span style={DATE_LABEL}>
-          {t('analytics.from')}
+        <InlineFilterLabel text={t('analytics.from')}>
           <DateField
             value={from}
             onChange={setFrom}
             max={to === '' ? undefined : to}
             ariaLabel={t('analytics.from')}
           />
-        </span>
-        <span style={DATE_LABEL}>
-          {t('analytics.to')}
+        </InlineFilterLabel>
+        <InlineFilterLabel text={t('analytics.to')}>
           <DateField
             value={to}
             onChange={setTo}
             min={from === '' ? undefined : from}
             ariaLabel={t('analytics.to')}
           />
-        </span>
-      </div>
+        </InlineFilterLabel>
+      </StickyFilterBar>
 
       {/* KPI band — perf-led, plus authoritative counts */}
       <div
@@ -337,7 +316,7 @@ export function OverviewPage() {
           >
             {t('overview.kpi.health')}
           </div>
-          <div style={{ marginTop: 10 }}>
+          <div style={{ marginTop: 'var(--s-2)' }}>
             {healthLoading ? (
               <span style={{ color: 'var(--faint)' }}>…</span>
             ) : (
@@ -348,21 +327,29 @@ export function OverviewPage() {
           </div>
         </div>
         <StatCard label={t('overview.kpi.rpm')} value={rpm} />
+        {/* The four usage-derived KPIs show `—` (not a silent 0) when the usage
+            query failed — the chart's QueryBoundary below carries the error+retry. */}
         <StatCard
           label={t('overview.kpi.successRate')}
-          value={totals.successRate === null ? '—' : `${totals.successRate.toFixed(1)}%`}
+          value={
+            usage.isError || totals.successRate === null ? '—' : `${totals.successRate.toFixed(1)}%`
+          }
         />
         <StatCard
           label={t('overview.kpi.avgLatency')}
-          value={totals.avgLatency === null ? '—' : `${totals.avgLatency.toLocaleString()} ms`}
+          value={
+            usage.isError || totals.avgLatency === null
+              ? '—'
+              : `${totals.avgLatency.toLocaleString()} ms`
+          }
         />
         <StatCard
           label={t('analytics.stats.cost')}
-          value={formatCredits(totals.cost, i18n.language)}
+          value={usage.isError ? '—' : formatCredits(totals.cost, i18n.language)}
         />
         <StatCard
           label={t('analytics.stats.margin')}
-          value={formatCreditsSigned(totals.margin, i18n.language)}
+          value={usage.isError ? '—' : formatCreditsSigned(totals.margin, i18n.language)}
         />
         <StatCard
           label={t('overview.kpi.scale')}

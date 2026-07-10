@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { qk } from '../../lib/api/queryKeys';
+import type { SecretView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_REFERENCE } from '../../lib/query';
 import { Select } from '../ui/Select';
@@ -33,7 +34,18 @@ export function SecretSelect({
     queryFn: () => api.listSecrets(),
     staleTime: STALE_REFERENCE,
   });
-  const options = (data ?? []).map((s) => ({ value: s.id, label: `${s.id} · ${s.provider}` }));
+  // Human name first, then the locator, then the id — operators pick credentials
+  // by name, not by UUID. Empty strings (a legacy row) fall through too, so the
+  // option is never a bare " · provider".
+  const pickLabel = (s: SecretView): string => {
+    const name = s.name?.trim();
+    if (name !== undefined && name !== '') return name;
+    return s.locator !== '' ? s.locator : s.id;
+  };
+  const options = (data ?? []).map((s) => ({
+    value: s.id,
+    label: `${pickLabel(s)} · ${s.provider}`,
+  }));
   // Always surface the currently-set credential even if it's not in the loaded
   // page (beyond the first page, or since-revoked) so editing never hides what's
   // actually set — otherwise the picker would render an empty placeholder.

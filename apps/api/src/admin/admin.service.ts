@@ -370,6 +370,8 @@ interface OAuthSessionInputs {
   accountId?: string | undefined;
   /** An explicit label override (paste path: `account_label`/`email`; login: `accountLabel`). */
   accountLabel?: string | undefined;
+  /** Optional human name (unique among live sessions); the UI pick key. */
+  name?: string | undefined;
 }
 
 /** The atomic result of {@link AdminService.provision}: tenant + account + one-time key. */
@@ -851,7 +853,18 @@ export class AdminService {
     if (Buffer.from(keyB64, 'base64').length !== 32) {
       throw engineInvalidInput('SECRET_ENCRYPTION_KEY must be a base64-encoded 32-byte key');
     }
-    return createEncryptedSecret(this.db, { value: dto.value, label: dto.label, keyB64 });
+    try {
+      return await createEncryptedSecret(this.db, {
+        value: dto.value,
+        label: dto.label,
+        name: dto.name,
+        keyB64,
+      });
+    } catch (err) {
+      if (isUniqueViolation(err))
+        throw engineInvalidInput(`credential name '${dto.name ?? ''}' is taken`);
+      throw err;
+    }
   }
 
   /**
@@ -904,7 +917,16 @@ export class AdminService {
       group?: string | null | undefined;
     },
   ): Promise<SecretRefView> {
-    const updated = await updateSecretRefMeta(this.db, id, meta);
+    let updated: SecretRefView | undefined;
+    try {
+      updated = await updateSecretRefMeta(this.db, id, meta);
+    } catch (err) {
+      // Renaming onto a name another LIVE credential holds hits
+      // `secret_ref_name_idx` → clean 400 rather than a Postgres 500.
+      if (isUniqueViolation(err))
+        throw engineInvalidInput(`credential name '${meta.name ?? ''}' is taken`);
+      throw err;
+    }
     if (updated === undefined) {
       throw engineNotFound(`secret ${id} not found`);
     }
@@ -951,6 +973,7 @@ export class AdminService {
       idToken: a.id_token,
       accountId: a.account_id,
       accountLabel: a.account_label ?? a.email,
+      name: dto.name,
     });
   }
 
@@ -1000,7 +1023,16 @@ export class AdminService {
       group?: string | null | undefined;
     },
   ): Promise<OAuthSessionListRow> {
-    const row = await updateOAuthSessionMeta(this.db, secretRefId, meta);
+    let row: OAuthSessionListRow | undefined;
+    try {
+      row = await updateOAuthSessionMeta(this.db, secretRefId, meta);
+    } catch (err) {
+      // Renaming onto a name another LIVE session holds hits
+      // `oauth_session_name_idx` → clean 400 rather than a Postgres 500.
+      if (isUniqueViolation(err))
+        throw engineInvalidInput(`credential name '${meta.name ?? ''}' is taken`);
+      throw err;
+    }
     if (row === undefined) {
       throw engineNotFound(`oauth session ${secretRefId} not found`);
     }
@@ -1263,6 +1295,7 @@ export class AdminService {
       expiresAt: tokens.expiresAt,
       idToken: tokens.idToken,
       accountLabel: dto.accountLabel,
+      name: dto.name,
     });
   }
 
@@ -1328,8 +1361,16 @@ export class AdminService {
       expiresAt: s.expiresAt,
       ...(accountId !== undefined ? { accountId } : {}),
       ...(accountLabel !== undefined ? { accountLabel } : {}),
+      ...(s.name !== undefined ? { name: s.name } : {}),
     };
-    const row = await createOAuthSession(this.db, input);
+    let row: SecretRefRow;
+    try {
+      row = await createOAuthSession(this.db, input);
+    } catch (err) {
+      if (isUniqueViolation(err))
+        throw engineInvalidInput(`credential name '${s.name ?? ''}' is taken`);
+      throw err;
+    }
     return {
       id: row.id,
       providerKind,
@@ -1877,7 +1918,7 @@ export class AdminService {
    * integers (`$X/1M → X×1e6`; NOT human credits) — passed through unchanged.
    * `capabilities` defaults to `{}` when omitted.
    */
-  createModel(dto: CreateModelDto): Promise<ModelRow> {
+  async createModel(dto: CreateModelDto): Promise<ModelRow> {
     const input: CreateModelInput = {
       name: dto.name,
       resourceId: dto.resourceId,
@@ -1900,7 +1941,14 @@ export class AdminService {
       ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
     };
-    return createModel(this.db, input);
+    try {
+      return await createModel(this.db, input);
+    } catch (err) {
+      // A LIVE model with this name already exists (the `model_name_idx` partial
+      // unique index) — turn the 23505 into a clean 400 rather than a 500.
+      if (isUniqueViolation(err)) throw engineInvalidInput(`model '${dto.name}' already exists`);
+      throw err;
+    }
   }
 
   listModels(page: PageParams): Promise<KeysetResult<ModelRow>> {

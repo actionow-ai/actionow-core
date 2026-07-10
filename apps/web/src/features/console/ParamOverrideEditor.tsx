@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ErrorState } from '../../components/data/ErrorState';
 import { Button } from '../../components/ui/Button';
 import { Drawer } from '../../components/ui/Drawer';
 import { NumberField } from '../../components/ui/NumberField';
@@ -163,99 +164,112 @@ export function ParamOverrideEditor({
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button variant="cta" onClick={() => save.mutate()} loading={save.isPending}>
+          <Button
+            variant="cta"
+            onClick={() => save.mutate()}
+            loading={save.isPending}
+            // Don't save from an unseeded form: an empty op list CLEARS the
+            // override, so saving before the current one loads would wipe it.
+            disabled={query.isLoading || query.isError}
+          >
             {t('common.save')}
           </Button>
         </>
       }
     >
-      <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>
-        {t('override.hint')}
-      </p>
+      {query.isError ? (
+        <ErrorState onRetry={() => void query.refetch()} retrying={query.isFetching} />
+      ) : (
+        <>
+          <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>
+            {t('override.hint')}
+          </p>
 
-      {rows.map((row, index) => (
-        <div
-          key={index}
-          className="panel"
-          style={{
-            borderRadius: 'var(--r-sm)',
-            padding: 'var(--s-3)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--s-2)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--s-2)' }}>
-            <div style={{ flex: '0 0 130px' }}>
-              <SelectField
-                inline
-                label={t('override.op')}
-                value={row.op}
-                onChange={(v) => patchRow(index, { op: v as OpKind })}
-                options={opOptions}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
+          {rows.map((row, index) => (
+            <div
+              key={index}
+              className="panel"
+              style={{
+                borderRadius: 'var(--r-sm)',
+                padding: 'var(--s-3)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--s-2)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--s-2)' }}>
+                <div style={{ flex: '0 0 130px' }}>
+                  <SelectField
+                    inline
+                    label={t('override.op')}
+                    value={row.op}
+                    onChange={(v) => patchRow(index, { op: v as OpKind })}
+                    options={opOptions}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <TextField
+                    label={t('override.opName')}
+                    value={row.name}
+                    onChange={(v) => patchRow(index, { name: v })}
+                    placeholder="temperature"
+                  />
+                </div>
+                <div style={{ paddingTop: 'var(--s-5)' }}>
+                  <RowAction
+                    icon={TrashIcon}
+                    label={t('common.delete')}
+                    danger
+                    onClick={() => setRows((prev) => prev.filter((_, i) => i !== index))}
+                  />
+                </div>
+              </div>
+
+              {row.op === 'set' && (
+                <TextField
+                  label={t('override.opValue')}
+                  value={row.value}
+                  onChange={(v) => patchRow(index, { value: v })}
+                  hint={t('override.opValueHint')}
+                />
+              )}
+              {row.op === 'clamp' && (
+                <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
+                  <div style={{ flex: 1 }}>
+                    <NumberField
+                      label={t('override.opMin')}
+                      value={row.min === '' ? Number.NaN : Number(row.min)}
+                      onChange={(v) => patchRow(index, { min: Number.isNaN(v) ? '' : String(v) })}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <NumberField
+                      label={t('override.opMax')}
+                      value={row.max === '' ? Number.NaN : Number(row.max)}
+                      onChange={(v) => patchRow(index, { max: Number.isNaN(v) ? '' : String(v) })}
+                    />
+                  </div>
+                </div>
+              )}
+
               <TextField
-                label={t('override.opName')}
-                value={row.name}
-                onChange={(v) => patchRow(index, { name: v })}
-                placeholder="temperature"
+                label={t('override.when')}
+                value={row.when}
+                onChange={(v) => patchRow(index, { when: v })}
+                hint={t('override.whenHint')}
               />
             </div>
-            <div style={{ paddingTop: 'var(--s-5)' }}>
-              <RowAction
-                icon={TrashIcon}
-                label={t('common.delete')}
-                danger
-                onClick={() => setRows((prev) => prev.filter((_, i) => i !== index))}
-              />
-            </div>
-          </div>
+          ))}
 
-          {row.op === 'set' && (
-            <TextField
-              label={t('override.opValue')}
-              value={row.value}
-              onChange={(v) => patchRow(index, { value: v })}
-              hint={t('override.opValueHint')}
-            />
-          )}
-          {row.op === 'clamp' && (
-            <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
-              <div style={{ flex: 1 }}>
-                <NumberField
-                  label={t('override.opMin')}
-                  value={row.min === '' ? Number.NaN : Number(row.min)}
-                  onChange={(v) => patchRow(index, { min: Number.isNaN(v) ? '' : String(v) })}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <NumberField
-                  label={t('override.opMax')}
-                  value={row.max === '' ? Number.NaN : Number(row.max)}
-                  onChange={(v) => patchRow(index, { max: Number.isNaN(v) ? '' : String(v) })}
-                />
-              </div>
-            </div>
-          )}
-
-          <TextField
-            label={t('override.when')}
-            value={row.when}
-            onChange={(v) => patchRow(index, { when: v })}
-            hint={t('override.whenHint')}
-          />
-        </div>
-      ))}
-
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setRows((prev) => [...prev, { ...EMPTY_OP }])}
-      >
-        <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('override.addOp')}
-      </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setRows((prev) => [...prev, { ...EMPTY_OP }])}
+          >
+            <PlusIcon size={14} weight="bold" aria-hidden="true" /> {t('override.addOp')}
+          </Button>
+        </>
+      )}
     </Drawer>
   );
 }

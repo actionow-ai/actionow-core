@@ -660,21 +660,6 @@
   transform: translateY(0);
 }
 
-/* 模型接入 3-pane (插件│通道│模型): three equal columns on desktop; stack on a
-   phone-width screen so the columns aren't crushed to unreadable widths. */
-.tri-pane {
-  height: 100%;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--s-3);
-}
-@media (max-width: 860px) {
-  .tri-pane {
-    grid-template-columns: 1fr;
-    height: auto;
-  }
-}
-
 /* Overview bento: a 2fr/1fr chart+health row on desktop; single column with
    natural height on a phone (the fixed 360px split reads far too narrow there). */
 .bento-2col {

@@ -127,6 +127,8 @@ export interface CreateEncryptedSecretInput {
   readonly value: string;
   /** Optional human label, stored as the `secret_ref` locator (defaults to `''`). */
   readonly label?: string | undefined;
+  /** Optional human name (unique among live credentials); the UI pick key. */
+  readonly name?: string | undefined;
   /** Base64 AES-256 master key used to encrypt the value. */
   readonly keyB64: string;
 }
@@ -142,7 +144,11 @@ export async function createEncryptedSecret(
   return db.transaction(async (tx) => {
     const [ref] = await tx
       .insert(secretRef)
-      .values({ provider: 'enc', locator: input.label ?? '' })
+      .values({
+        provider: 'enc',
+        locator: input.label ?? '',
+        ...(input.name !== undefined ? { name: input.name } : {}),
+      })
       .returning();
     if (!ref) throw new Error('createEncryptedSecret: secret_ref insert returned no row');
     // Encrypt AFTER the insert so the ciphertext is AAD-bound to its own

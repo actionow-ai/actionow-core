@@ -349,8 +349,8 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
 
     // HYBRID: the dify-import response (`DifyImportView`) isn't a registered path
     // response (the import path declares only a 201 with no body schema).
-    difyImport: (body: DifyImportBody) =>
-      rawClient.post<DifyImportView>('/admin/dify/import', body),
+    difyImport: (body: DifyImportBody, idempotencyKey?: string) =>
+      rawClient.post<DifyImportView>('/admin/dify/import', body, { idempotencyKey }),
     listDify: async (
       params: { cursor?: string; limit?: number } = {},
     ): Promise<Page<DifyBindingView>> =>
@@ -554,7 +554,21 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     // HYBRID: the secrets POST path declares only a 201 (no body schema), but the
     // FE consumes the returned `SecretView` — keep on raw.
     createSecret: (body: CreateSecretBody) => rawClient.post<SecretView>('/admin/secrets', body),
-    listSecrets: async () => page<SecretView>(await sdk.GET('/admin/secrets'), u).rows,
+    // The credential PICKER source: drains every page so a secret beyond the
+    // first page is still selectable (the picker has no LoadMore of its own).
+    listSecrets: async (): Promise<SecretView[]> => {
+      const all: SecretView[] = [];
+      let cursor: string | undefined;
+      do {
+        const p = page<SecretView>(
+          await sdk.GET('/admin/secrets', { params: { query: { cursor, limit: 100 } } }),
+          u,
+        );
+        all.push(...p.rows);
+        cursor = p.nextCursor ?? undefined;
+      } while (cursor !== undefined);
+      return all;
+    },
     // Keyset-paginated variant (the credentials page lists with LoadMore).
     listSecretsPage: async (
       params: { cursor?: string; limit?: number } = {},
@@ -587,7 +601,21 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     testPlugin: async (body: TestPluginRequest): Promise<TestPluginResponse> =>
       unwrap(await sdk.POST('/admin/plugins/test', { body }), u),
 
-    listModels: async () => page<ModelView>(await sdk.GET('/admin/models'), u).rows,
+    // Drains every page: the catalog paginates client-side and the 3-pane link
+    // picker has no LoadMore, so both need the full model set, not just page 1.
+    listModels: async (): Promise<ModelView[]> => {
+      const all: ModelView[] = [];
+      let cursor: string | undefined;
+      do {
+        const p = page<ModelView>(
+          await sdk.GET('/admin/models', { params: { query: { cursor, limit: 100 } } }),
+          u,
+        );
+        all.push(...p.rows);
+        cursor = p.nextCursor ?? undefined;
+      } while (cursor !== undefined);
+      return all;
+    },
     createModel: async (body: CreateModelBody, idempotencyKey?: string) =>
       unwrap(await sdk.POST('/admin/models', { body, headers: idem(idempotencyKey) }), u),
     // Pre-add probe: connectivity + functional test of a CANDIDATE model (the

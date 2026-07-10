@@ -570,7 +570,6 @@
     }
   },
   "settings": {
-    "value": "值",
     "saved": "设置已保存",
     "reset": "设置已恢复默认",
     "resetToDefault": "恢复默认",
@@ -578,6 +577,12 @@
     "source": {
       "env": "默认",
       "db": "已覆盖"
+    },
+    "empty": "暂无可调设置",
+    "groups": {
+      "trace": "中转追踪",
+      "rateLimit": "限流",
+      "other": "其他"
     }
   },
   "relayTraces": {
@@ -943,7 +948,8 @@
       "visibility": "可见性",
       "status": "状态",
       "rateLimit": "限流",
-      "fallback": "降级链"
+      "fallback": "降级链",
+      "servedChannels": "服务通道"
     },
     "form": {
       "name": "名称",
@@ -1126,7 +1132,8 @@
       "proxyNone": "无(直连/全局默认)",
       "tags": "路由标签(染色)",
       "tagsPlaceholder": "输入后回车,如 canary / beta",
-      "config": "配置"
+      "config": "配置",
+      "proxyCustom": "自定义 locator（见高级）"
     },
     "tip": {
       "platform": "该通道所属的平台(资源/上游)。路由按平台聚合通道。",
@@ -1428,7 +1435,17 @@
     "editTitle": "编辑凭证",
     "saved": "已保存",
     "bulkRevoke": "撤销 {{n}}",
-    "bulkRevoked": "已撤销 {{n}} 项"
+    "bulkRevoked": "已撤销 {{n}} 项",
+    "new": "新建凭证",
+    "created": "凭证已创建",
+    "pickExisting": "选择已有凭证",
+    "label": "标签",
+    "value": "密钥值",
+    "save": "保存凭证",
+    "tip": {
+      "value": "粘贴上游 API Key / 密钥原文；仅保存加密后的密文，此后不可回读"
+    },
+    "nameHint": "便于识别的名称，在通道的「凭证 Ref」下拉中显示；同一时刻不可重名"
   },
   "pricebook": {
     "empty": "暂无定价",
@@ -1592,7 +1609,8 @@
     "save": "保存",
     "loadMore": "加载更多",
     "search": "搜索",
-    "lastChanged": "最近变更"
+    "lastChanged": "最近变更",
+    "done": "完成"
   },
   "confirm": {
     "deleteChannelTitle": "删除通道?",
@@ -1751,7 +1769,8 @@
     "readiness": {
       "title": "平台就绪",
       "ready": "全部依赖正常",
-      "degraded": "基础设施异常"
+      "degraded": "基础设施异常",
+      "unreachable": "探测失败"
     },
     "window": "时间窗口",
     "days": "{{n}} 天",
@@ -1997,7 +2016,7 @@
       "authJson": "授权 JSON"
     },
     "confirmRevokeTitle": "撤销凭证?",
-    "confirmRevokeMsg": "确定撤销 {{account}}?使用它的渠道将无法解析。",
+    "confirmRevokeMsg": "确定撤销 {{account}}？使用它的渠道将无法解析，此操作不可恢复。",
     "title": "OAuth 会话"
   },
   "override": {
@@ -2063,7 +2082,7 @@
       "created": "创建时间"
     },
     "confirmRevokeTitle": "吊销凭据？",
-    "confirmRevokeMsg": "确定吊销 {{provider}} 凭据？使用它的渠道在重新绑定前将失败。"
+    "confirmRevokeMsg": "确定吊销 {{provider}} 凭据？使用它的渠道在重新绑定前将失败，此操作不可恢复。"
   },
   "facets": {
     "modality": "模态",

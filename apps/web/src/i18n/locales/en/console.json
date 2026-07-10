@@ -570,7 +570,6 @@
     }
   },
   "settings": {
-    "value": "Value",
     "saved": "Setting saved",
     "reset": "Setting reset to its default",
     "resetToDefault": "Reset to default",
@@ -578,6 +577,12 @@
     "source": {
       "env": "Default",
       "db": "Overridden"
+    },
+    "empty": "No tunable settings",
+    "groups": {
+      "trace": "Relay tracing",
+      "rateLimit": "Rate limits",
+      "other": "Other"
     }
   },
   "relayTraces": {
@@ -943,7 +948,8 @@
       "visibility": "Visibility",
       "status": "Status",
       "rateLimit": "Rate limit",
-      "fallback": "Fallback"
+      "fallback": "Fallback",
+      "servedChannels": "Channels"
     },
     "form": {
       "name": "Name",
@@ -1126,7 +1132,8 @@
       "proxyNone": "None (direct / global default)",
       "tags": "Route tags (染色)",
       "tagsPlaceholder": "Type and press Enter, e.g. canary / beta",
-      "config": "Config"
+      "config": "Config",
+      "proxyCustom": "Custom locator (see advanced)"
     },
     "tip": {
       "platform": "The platform (resource/upstream) this channel belongs to. Routing aggregates channels per platform.",
@@ -1428,7 +1435,17 @@
     "editTitle": "Edit credential",
     "saved": "Saved",
     "bulkRevoke": "Revoke {{n}}",
-    "bulkRevoked": "Revoked {{n}}"
+    "bulkRevoked": "Revoked {{n}}",
+    "new": "New credential",
+    "created": "Credential created",
+    "pickExisting": "Pick an existing credential",
+    "label": "Label",
+    "value": "Secret value",
+    "save": "Save credential",
+    "tip": {
+      "value": "Paste the upstream API key / secret; only the encrypted ciphertext is stored and it cannot be read back"
+    },
+    "nameHint": "A recognizable name shown in the channel \"Credential Ref\" dropdown; must be unique among live credentials"
   },
   "pricebook": {
     "empty": "No pricing yet",
@@ -1592,7 +1609,8 @@
     "save": "Save",
     "loadMore": "Load more",
     "search": "Search",
-    "lastChanged": "Last changed"
+    "lastChanged": "Last changed",
+    "done": "Done"
   },
   "confirm": {
     "deleteChannelTitle": "Delete channel?",
@@ -1751,7 +1769,8 @@
     "readiness": {
       "title": "Platform readiness",
       "ready": "All systems ready",
-      "degraded": "Infrastructure degraded"
+      "degraded": "Infrastructure degraded",
+      "unreachable": "Probe failed"
     },
     "window": "Window",
     "days": "{{n}}d",
@@ -1997,7 +2016,7 @@
       "authJson": "Auth JSON"
     },
     "confirmRevokeTitle": "Revoke credential?",
-    "confirmRevokeMsg": "Revoke {{account}}? Channels using it stop resolving.",
+    "confirmRevokeMsg": "Revoke {{account}}? Channels using it will fail to resolve. This cannot be undone.",
     "title": "OAuth sessions"
   },
   "override": {
@@ -2063,7 +2082,7 @@
       "created": "Created"
     },
     "confirmRevokeTitle": "Revoke credential?",
-    "confirmRevokeMsg": "Revoke the {{provider}} credential? Channels using it will fail until re-bound."
+    "confirmRevokeMsg": "Revoke the {{provider}} credential? Channels using it will fail until rebound. This cannot be undone."
   },
   "facets": {
     "modality": "Modality",

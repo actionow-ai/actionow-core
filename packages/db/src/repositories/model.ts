@@ -730,8 +730,20 @@ export async function softDeleteModel(db: DbOrTx, name: string): Promise<string 
     .update(model)
     .set({ deletedAt: new Date() })
     .where(and(eq(model.name, name), isNull(model.deletedAt)))
-    .returning({ name: model.name });
-  return rows[0]?.name;
+    .returning({ name: model.name, id: model.id });
+  const deleted = rows[0];
+  if (deleted === undefined) return undefined;
+  // Cascade the channel links: `channel_model` has no soft-delete, so a
+  // recreated same-name model gets a fresh id and would never inherit these
+  // rows — leaving them behind as permanent orphans. Drop them with the model
+  // (mirrors `unlinkAllForChannel` on the channel-delete path).
+  await unlinkAllForModel(db, deleted.id);
+  return deleted.name;
+}
+
+/** Remove ALL channel links for a model (called when a model is soft-deleted). */
+export async function unlinkAllForModel(db: DbOrTx, modelId: string): Promise<void> {
+  await db.delete(channelModel).where(eq(channelModel.modelId, modelId));
 }
 
 /** One tenant grant of a {@link model} (admin grant-listing view). */

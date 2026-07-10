@@ -94,17 +94,25 @@ export function BreakersPage() {
     {
       key: 'channel',
       header: t('breakers.cols.channel'),
+      // The identity column absorbs leftover width (was pinned at 200px while the
+      // trailing muted timestamp ballooned as the accidental elastic column).
+      grow: true,
       cell: (r) => (
         <span>
           <strong>{r.channel_name ?? t('breakers.unknownChannel')}</strong>
           {r.resource_id !== null && (
-            <span style={{ marginLeft: 6, fontSize: 'var(--fs-caption)', color: 'var(--muted)' }}>
+            <span
+              style={{
+                marginLeft: 'var(--s-1h)',
+                fontSize: 'var(--fs-caption)',
+                color: 'var(--muted)',
+              }}
+            >
               {r.resource_id}
             </span>
           )}
         </span>
       ),
-      width: '200px',
     },
     {
       key: 'model',
@@ -136,13 +144,15 @@ export function BreakersPage() {
     {
       key: 'trips',
       header: t('breakers.cols.trips'),
-      cell: (r) => <span className="tabular">{r.trip_count}</span>,
+      numeric: true,
+      cell: (r) => r.trip_count,
       width: '80px',
     },
     {
       key: 'failureRate',
       header: t('breakers.cols.failureRate'),
-      cell: (r) => <span className="tabular">{failureRateLabel(r.failure_rate)}</span>,
+      numeric: true,
+      cell: (r) => failureRateLabel(r.failure_rate),
       width: '110px',
     },
     {
@@ -153,6 +163,7 @@ export function BreakersPage() {
           {fmtTime(r.last_transition_at)}
         </span>
       ),
+      width: '170px',
     },
   ];
 

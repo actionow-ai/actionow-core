@@ -4250,6 +4250,10 @@
           },
           "label": {
             "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [
@@ -4384,6 +4388,10 @@
             "enum": [
               true
             ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [
@@ -4441,6 +4449,10 @@
             "minLength": 1
           },
           "accountLabel": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
             "type": "string",
             "minLength": 1
           }
@@ -7422,6 +7434,25 @@
         "summary": "List relay models",
         "tags": [
           "catalog"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "nullable": true
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
         ],
         "responses": {
           "200": {

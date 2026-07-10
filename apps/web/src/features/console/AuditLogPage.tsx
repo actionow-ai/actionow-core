@@ -1,8 +1,15 @@
+import { XIcon } from '@phosphor-icons/react';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { DetailRow } from '../../components/console/DetailScaffold';
+import {
+  FILTER_SELECT_MIN_W,
+  InlineFilterField,
+  InlineFilterLabel,
+  StickyFilterBar,
+} from '../../components/console/StickyFilterBar';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
 import { LoadMore } from '../../components/data/LoadMore';
@@ -89,8 +96,9 @@ export function AuditLogPage() {
     {
       key: 'actor',
       header: t('auditLog.cols.actor'),
+      noClip: true,
       cell: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-1h)' }}>
           <Pill tone={ACTOR_TONE[r.actor_type] ?? 'idle'}>
             {t('auditLog.actor.' + r.actor_type, r.actor_type)}
           </Pill>
@@ -149,7 +157,6 @@ export function AuditLogPage() {
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             display: 'block',
-            maxWidth: 320,
           }}
         >
           {metaPreview(r.meta)}
@@ -160,23 +167,8 @@ export function AuditLogPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-      <div
-        className="panel"
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 5,
-          borderRadius: 'var(--r-md)',
-          padding: 'var(--s-3)',
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 'var(--s-3)',
-          alignItems: 'center',
-          backdropFilter: 'blur(8px)',
-          boxShadow: 'var(--shadow-lift)',
-        }}
-      >
-        <div style={{ minWidth: 180 }}>
+      <StickyFilterBar>
+        <div style={{ minWidth: FILTER_SELECT_MIN_W }}>
           <TenantSelect
             value={tenantId}
             onChange={setTenantId}
@@ -194,70 +186,56 @@ export function AuditLogPage() {
             { value: 'system', label: t('auditLog.actor.system') },
           ]}
         />
-        <div style={{ width: 170 }}>
+        <InlineFilterField id="flt-audit-action" label={t('auditLog.cols.action')}>
           <TextField
+            id="flt-audit-action"
             value={actionLocal}
             onChange={setActionLocal}
             placeholder={t('auditLog.actionPlaceholder')}
           />
-        </div>
-        <div style={{ width: 150 }}>
-          <TextField
-            value={targetLocal}
-            onChange={setTargetLocal}
-            placeholder={t('auditLog.targetPlaceholder')}
-          />
-        </div>
+        </InlineFilterField>
+        <InlineFilterField id="flt-audit-target" label={t('auditLog.targetPlaceholder')}>
+          <TextField id="flt-audit-target" value={targetLocal} onChange={setTargetLocal} />
+        </InlineFilterField>
         {targetId !== '' && (
           <button
             type="button"
             onClick={() => setTargetId('')}
             title={t('auditLog.clearTargetId')}
+            // NOT `all: unset` — that would also kill the global :focus-visible ring.
             style={{
-              all: 'unset',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              font: 'inherit',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
             }}
           >
-            <Pill tone="neutral">{t('auditLog.targetIdFilter', { id: SHORT(targetId) })} ✕</Pill>
+            <Pill tone="neutral">
+              {t('auditLog.targetIdFilter', { id: SHORT(targetId) })}{' '}
+              <XIcon size={12} weight="bold" aria-hidden="true" />
+            </Pill>
           </button>
         )}
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--s-2)',
-            fontSize: 'var(--fs-sm)',
-            color: 'var(--muted)',
-          }}
-        >
-          {t('auditLog.from')}
+        <InlineFilterLabel text={t('auditLog.from')}>
           <DateField
             value={from}
             onChange={setFrom}
             max={to === '' ? undefined : to}
             ariaLabel={t('auditLog.from')}
           />
-        </span>
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--s-2)',
-            fontSize: 'var(--fs-sm)',
-            color: 'var(--muted)',
-          }}
-        >
-          {t('auditLog.to')}
+        </InlineFilterLabel>
+        <InlineFilterLabel text={t('auditLog.to')}>
           <DateField
             value={to}
             onChange={setTo}
             min={from === '' ? undefined : from}
             ariaLabel={t('auditLog.to')}
           />
-        </span>
-      </div>
+        </InlineFilterLabel>
+      </StickyFilterBar>
 
       <DataTable
         columns={cols}
@@ -323,24 +301,6 @@ export function AuditLogPage() {
           </div>
         )}
       </Drawer>
-    </div>
-  );
-}
-
-function DetailRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-1)' }}>
-      <span
-        style={{
-          fontSize: 'var(--fs-caption)',
-          textTransform: 'uppercase',
-          letterSpacing: '.06em',
-          color: 'var(--faint)',
-        }}
-      >
-        {label}
-      </span>
-      <span style={{ fontSize: 'var(--fs-sm)' }}>{children}</span>
     </div>
   );
 }

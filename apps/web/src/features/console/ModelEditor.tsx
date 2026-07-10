@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ErrorState } from '../../components/data/ErrorState';
 import { FeaturesField } from '../../components/data/FeaturesField';
 import { IconPicker } from '../../components/data/IconPicker';
 import type { ParameterRuleDraft } from '../../components/data/ParameterRulesEditor';
@@ -360,7 +361,15 @@ export function ModelEditor({
       onClose={onClose}
       footer={
         editing ? (
-          <Button variant="cta" onClick={() => update.mutate()} loading={update.isPending}>
+          <Button
+            variant="cta"
+            onClick={() => update.mutate()}
+            loading={update.isPending}
+            // Never save from an unsettled edit form: the fields still hold their
+            // empty defaults until the fetch seeds them, so a click here would
+            // clobber the live model with zeros.
+            disabled={model.isLoading || model.isError}
+          >
             {t('models.save')}
           </Button>
         ) : probeFailed ? (
@@ -383,6 +392,16 @@ export function ModelEditor({
         )
       }
     >
+      {/* An edit form that hasn't loaded (or failed to) must not be edited: its
+          fields still show empty defaults. Surface the state instead of the form. */}
+      {editing && model.isError && (
+        <ErrorState onRetry={() => void model.refetch()} retrying={model.isFetching} />
+      )}
+      {editing && model.isLoading && (
+        <div style={{ padding: 'var(--s-4)', color: 'var(--muted)', fontSize: 'var(--fs-sm)' }}>
+          {t('common.loading')}
+        </div>
+      )}
       {editing ? (
         <TextField
           label={t('models.form.name')}

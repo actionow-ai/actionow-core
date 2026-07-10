@@ -1,8 +1,13 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import {
+  FILTER_SELECT_MIN_W,
+  InlineFilterField,
+  InlineFilterLabel,
+  StickyFilterBar,
+} from '../../components/console/StickyFilterBar';
 import { httpTone, TraceViewer } from '../../components/console/TraceViewer';
 import type { Column } from '../../components/data/DataTable';
 import { DataTable } from '../../components/data/DataTable';
@@ -22,29 +27,6 @@ import { useAdminApi } from '../../lib/api/useAdminApi';
 import { STALE_VOLATILE } from '../../lib/query';
 import { useDebounced } from '../../lib/useDebounced';
 import { useUrlState } from '../../lib/useUrlState';
-
-/** Inline "起/止 + control" wrapper for the date-range filters (single label, no dup). */
-const DATE_LABEL = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 'var(--s-2)',
-  fontSize: 'var(--fs-sm)',
-  color: 'var(--muted)',
-} as const;
-/** Inline-labelled filter cell: label to the LEFT of the control (toolbar-friendly). */
-function InlineField({ id, label, children }: { id: string; label: string; children: ReactNode }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)' }}>
-      <label
-        htmlFor={id}
-        style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', whiteSpace: 'nowrap' }}
-      >
-        {label}
-      </label>
-      <div style={{ width: 150 }}>{children}</div>
-    </span>
-  );
-}
 
 /**
  * One async TASK aggregated from the `relay_trace` rows that share a `job_id`:
@@ -249,6 +231,7 @@ export function RelayTracesPage() {
     {
       key: 'routeTag',
       header: t('relayTraces.cols.routeTag'),
+      noClip: true,
       // 染色: the canary tag the call was pinned to; a chip when set, a faint dash when not.
       cell: (r) =>
         r.route_tag !== null && r.route_tag !== '' ? (
@@ -286,6 +269,7 @@ export function RelayTracesPage() {
       key: 'status',
       header: t('relayTraces.cols.status'),
       align: 'right',
+      noClip: true,
       cell: (r) =>
         r.response_status !== null ? (
           <Pill tone={httpTone(r.response_status)}>{r.response_status}</Pill>
@@ -355,6 +339,7 @@ export function RelayTracesPage() {
       key: 'status',
       header: t('relayTraces.task.cols.status'),
       align: 'right',
+      noClip: true,
       cell: (tk) =>
         tk.taskStatus !== null ? (
           <Pill tone={taskStatusTone(tk.taskStatus)}>{tk.taskStatus}</Pill>
@@ -388,22 +373,7 @@ export function RelayTracesPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
       {/* Sticky single-lens filter bar */}
-      <div
-        className="panel"
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 5,
-          borderRadius: 'var(--r-md)',
-          padding: 'var(--s-3)',
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 'var(--s-3)',
-          alignItems: 'center',
-          backdropFilter: 'blur(8px)',
-          boxShadow: 'var(--shadow-lift)',
-        }}
-      >
+      <StickyFilterBar>
         <SegmentedControl
           ariaLabel={t('relayTraces.viewLabel')}
           value={view}
@@ -413,14 +383,14 @@ export function RelayTracesPage() {
             { value: 'tasks', label: t('relayTraces.view.tasks') },
           ]}
         />
-        <div style={{ minWidth: 180 }}>
+        <div style={{ minWidth: FILTER_SELECT_MIN_W }}>
           <TenantSelect
             value={tenantId}
             onChange={setTenantId}
             placeholder={t('relayTraces.allTenants')}
           />
         </div>
-        <InlineField id="flt-provider" label={t('relayTraces.providerLabel')}>
+        <InlineFilterField id="flt-provider" label={t('relayTraces.providerLabel')}>
           <ComboboxField
             id="flt-provider"
             value={providerLocal}
@@ -428,31 +398,21 @@ export function RelayTracesPage() {
             options={providerOptions}
             placeholder={t('relayTraces.providerPlaceholder')}
           />
-        </InlineField>
-        <InlineField id="flt-job" label={t('relayTraces.jobIdLabel')}>
-          <TextField
-            id="flt-job"
-            value={jobLocal}
-            onChange={setJobLocal}
-            placeholder={t('relayTraces.jobIdLabel')}
-          />
-        </InlineField>
-        <InlineField id="flt-channel" label={t('relayTraces.channelIdLabel')}>
-          <TextField
-            id="flt-channel"
-            value={chanLocal}
-            onChange={setChanLocal}
-            placeholder={t('relayTraces.channelIdLabel')}
-          />
-        </InlineField>
-        <InlineField id="flt-route-tag" label={t('relayTraces.routeTagLabel')}>
+        </InlineFilterField>
+        <InlineFilterField id="flt-job" label={t('relayTraces.jobIdLabel')}>
+          <TextField id="flt-job" value={jobLocal} onChange={setJobLocal} />
+        </InlineFilterField>
+        <InlineFilterField id="flt-channel" label={t('relayTraces.channelIdLabel')}>
+          <TextField id="flt-channel" value={chanLocal} onChange={setChanLocal} />
+        </InlineFilterField>
+        <InlineFilterField id="flt-route-tag" label={t('relayTraces.routeTagLabel')}>
           <TextField
             id="flt-route-tag"
             value={tagLocal}
             onChange={setTagLocal}
             placeholder={t('relayTraces.routeTagPlaceholder')}
           />
-        </InlineField>
+        </InlineFilterField>
         <SegmentedControl
           ariaLabel={t('relayTraces.statusLabel')}
           value={errors}
@@ -462,25 +422,23 @@ export function RelayTracesPage() {
             { value: '1', label: t('relayTraces.statusErrors') },
           ]}
         />
-        <span style={DATE_LABEL}>
-          {t('relayTraces.from')}
+        <InlineFilterLabel text={t('relayTraces.from')}>
           <DateField
             value={from}
             onChange={setFrom}
             max={to === '' ? undefined : to}
             ariaLabel={t('relayTraces.from')}
           />
-        </span>
-        <span style={DATE_LABEL}>
-          {t('relayTraces.to')}
+        </InlineFilterLabel>
+        <InlineFilterLabel text={t('relayTraces.to')}>
           <DateField
             value={to}
             onChange={setTo}
             min={from === '' ? undefined : from}
             ariaLabel={t('relayTraces.to')}
           />
-        </span>
-      </div>
+        </InlineFilterLabel>
+      </StickyFilterBar>
 
       {grouped ? (
         <DataTable
