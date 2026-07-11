@@ -1,0 +1,161 @@
+# model-supply-greenfield 批次2 wave2 — 惠梦 (HuiMeng, api.huimengi.com) DSL pack.
+# A seed media relay (seedream / seedance) that speaks the generic `async-media`
+# protocol: bearer auth, submit → poll → callback three-段式, with an
+# HMAC-SHA256(secret, `${ts}.${rawBody}`) hex + 5-min replay-window callback.
+# Its wire shape aligns 1:1 with the DSL's `hmac_sha256_timestamp` callback
+# strategy + taskParse/taskQuery/taskCallback specs — so it needs ZERO adapter
+# code (§6 作者方式: DSL 覆盖简单 REST 厂商).
+#
+# 权威 wire = packages/adapters/src/async-media.ts + seed RELAY_CONFIG
+# (apps/api/src/seed/seed-providers.ts). One task operation ONLY:
+# images.generation — the DSL's parseQueryResponse/parseCallback call
+# resolveTaskOp(pack, undefined) with NO operation to disambiguate, so two task
+# operations in one pack would throw and fail gate ⑤. video.generation is
+# isomorphic and lives in its own pack if ever needed.
+#
+# RED LINE (§4.1 layer 3): every `body`/`query`/path value is pure structure
+# porterage from EffectiveParams.upstream (or the reserved upstream_model_name).
+# 惠梦 nests generation params under body.params.{...} with `model` at the top —
+# that is WIRE STRUCTURE, not a value transform (json paths just relocate the
+# bytes). No value scaling / semantic mapping anywhere.
+
+ref: huimeng
+version: 1.0.0
+
+auth:
+  scheme: bearer
+  placement:
+    in: header
+    name: Authorization
+    prefix: 'Bearer '
+
+# Dialect-wide error table (→ Dialect.errorTable + the operation's aspect ⑤
+# default). The relay returns errors by HTTP status (submit 非2xx →
+# httpStatusToUnified); a failed TASK is NOT an HTTP error but status='failed'
+# + error_message in the poll/callback body (→ statusMap failed→failed →
+# synthesized task_failed), so no 200-carried businessError row is needed.
+# Every STANDARD_ERROR_PROBES tier gets an explicit row (gate ⑥ requirement).
+errorTable:
+  rows:
+    - match: { httpStatus: 400 }
+      code: invalid_input
+      retryable: false
+      failover: false
+    - match: { httpStatus: 401 }
+      code: unauthorized
+      retryable: false
+      failover: true
+    - match: { httpStatus: 403 }
+      code: forbidden
+      retryable: false
+      failover: true
+    # poll-side 404 is really "task not found"; submit-side 404 is "unknown
+    # model". A status-code (not path) table picks one — model_not_found here,
+    # consistent with the mock vendor (gate ⑥ only needs an explicit 404 row).
+    - match: { httpStatus: 404 }
+      code: model_not_found
+      retryable: false
+      failover: true
+    - match: { httpStatus: 408 }
+      code: upstream_timeout
+      retryable: true
+      failover: true
+    - match: { httpStatus: 429 }
+      code: rate_limited
+      retryable: true
+      failover: true
+    - match: { httpStatus: [500, 599] }
+      code: upstream_error
+      retryable: true
+      failover: true
+    - match: { kind: timeout }
+      code: upstream_timeout
+      retryable: true
+      failover: true
+    - match: { kind: network }
+      code: upstream_error
+      retryable: true
+      failover: true
+  fallback:
+    code: upstream_error
+    retryable: false
+    failover: true
+
+operations:
+  # 惠梦 images: submit_poll + submit_callback (§3). No `direct`/`stream` — a
+  # media task, so gate ④ (streaming) legally SKIPS (no stream case offered).
+  images.generation:
+    fetchModes: [submit_poll, submit_callback]
+    request:
+      method: POST
+      path: /api/v1/tasks
+      bodyKind: json
+      # body is a NESTED wire structure: model at the top, generation params
+      # under `params`. json paths relocate bytes only (§4.1 layer 3).
+      body:
+        upstream_model_name: '$.model'
+        prompt: '$.params.prompt'
+        size: '$.params.size'
+      # aspect ②: the ref-image medium → body.params.image_url. deliveryForms
+      # [url] is faithful — 惠梦's image_url param is a URL (the upper-layer
+      # resolver presigns uploads to a GET URL before the aspect sees it). The
+      # gate still drives BOTH url + base64 placement (red line); the DSL inject
+      # base64-encodes bytes into the same slot, so both truly place.
+      media:
+        deliveryForms: [url]
+        placements:
+          - param: image
+            path: '$.params.image_url'
+    response:
+      # poll/submit share this response spec (aspect ⑤). Output is the whole
+      # `result` block; images billed by result.image_count.
+      output: '$.result'
+      usage:
+        images: '$.result.image_count'
+    task:
+      # submit response: { task_id, status:'pending' } → the handle is task_id.
+      submit:
+        response:
+          taskIdPath: '$.task_id'
+      # poll (query): GET /api/v1/tasks/{task_id}; the RESPONSE echoes the id as
+      # `id` (NOT task_id — 惠梦's头号 id 陷阱), status/result/error_message at the
+      # TOP level.
+      query:
+        request:
+          method: GET
+          path: /api/v1/tasks/{task_id}
+        taskIdPath: '$.id'
+        statusPath: '$.status'
+        statusMap:
+          pending: pending
+          processing: running
+          completed: succeeded
+          failed: failed
+        unknownStatus: running
+        outputPath: '$.result'
+        usage:
+          images: '$.result.image_count'
+        errorMessagePath: '$.error_message'
+      # inbound callback: { event, task_id, data:{ status, result, error_message } }.
+      # id back to `task_id`; status/result/error_message NESTED under `data`.
+      # verify = HMAC-SHA256(ctx.config.callbackSecret, `${ts}.${rawBody}`) hex,
+      # 5-min replay window, timing-safe compare.
+      callback:
+        verify:
+          strategy: hmac_sha256_timestamp
+          signatureHeader: X-HuiMeng-Signature
+          timestampHeader: X-HuiMeng-Timestamp
+          windowMs: 300000
+          secretConfigKey: callbackSecret
+        taskIdPath: '$.task_id'
+        statusPath: '$.data.status'
+        statusMap:
+          pending: pending
+          processing: running
+          completed: succeeded
+          failed: failed
+        unknownStatus: running
+        outputPath: '$.data.result'
+        usage:
+          images: '$.data.result.image_count'
+        errorMessagePath: '$.data.error_message'
