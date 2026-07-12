@@ -182,8 +182,13 @@ export type ParamDeclRule = z.infer<typeof paramDeclRuleSchema>;
 /**
  * One row of the offering's declaration table (§2.5 参数声明). `operation`
  * scopes the row when the model exposes several operation surfaces; absent →
- * applies to all of them. At most one row per (operation, param, origin) is
- * meaningful — later batches enforce that at write time.
+ * applies to all of them. Constraint kinds (supports/domain/fixed/unsupported)
+ * and the translation kind (map) are ORTHOGONAL aspects — a param may carry one
+ * constraint row AND one map row for the same (operation, param, origin) (e.g.
+ * "accept only {720p,1080p}" domain + "rename to `res`, 720p→hd" map). So the
+ * meaningful uniqueness key is (operation, param, origin, aspect), where aspect
+ * ∈ {constraint, translation}; later batches enforce THAT at write time (not a
+ * single row per origin — the planner composes the two, §4.1 layer 2).
  */
 export const offeringParamDeclSchema = z
   .object({

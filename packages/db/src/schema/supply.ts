@@ -334,6 +334,45 @@ export const supplyOffering = pgTable(
 );
 
 /**
+ * Per-offering circuit-breaker RUNTIME state (批次3 — design §2.5: health /
+ * breaker state lives ON the offering, in a runtime table, NOT a frozen
+ * entity). Migrates the breaker key from the old world's `(channel, model)`
+ * ({@link ../schema/channel-breaker.js channelBreaker}) to the offering — the
+ * first-class (model × channel) binding IS the routing unit, so it is the
+ * breaker unit too. One row per offering (PK = offering_id, CASCADE on
+ * offering hard-delete); the absence of a row = `closed` initial state.
+ *
+ * The FSM decisions stay in the PURE `packages/engine` breaker
+ * (onFailure/onSuccessTransition); this table only PERSISTS the resulting
+ * snapshot. `consecutive_opens` feeds the exponential-backoff `cooldownMs`
+ * (the trip_count input), so `cooldown_until` is derivable and not stored.
+ * Runtime-mutable state: HARD overwrite on upsert, NO soft-delete, and the
+ * append-only audit trigger is deliberately NOT attached.
+ */
+export const supplyOfferingBreaker = pgTable(
+  'supply_offering_breaker',
+  {
+    offeringId: uuid('offering_id')
+      .primaryKey()
+      .references(() => supplyOffering.id, { onDelete: 'cascade' }),
+    state: text('state').notNull().default('closed'),
+    /** When it entered Open; null while closed. */
+    openedAt: timestamp('opened_at', { withTimezone: true }),
+    /** Consecutive successes accumulated in HalfOpen. */
+    halfOpenSuccesses: integer('half_open_successes').notNull().default(0),
+    /** Consecutive trips → exp-backoff cooldown (breaker.ts `cooldownMs`); reset on HalfOpen→Closed. */
+    consecutiveOpens: integer('consecutive_opens').notNull().default(0),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      'supply_offering_breaker_state_allowed',
+      sql`${t.state} IN ('closed', 'open', 'half_open')`,
+    ),
+  ],
+);
+
+/**
  * Grants a `granted`-visibility {@link supplyModel} to one tenant (§2.1 —
  * mirrors the old-world `model_grant` shape exactly). `public` models need no
  * grant. HARD-deleted (no soft-delete); unique on `(model_id, tenant_id)` so a

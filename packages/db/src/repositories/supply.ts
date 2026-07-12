@@ -12,12 +12,15 @@ import { credentialSecretSchema } from '@actionow/contracts';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import {
   and,
+  arrayContains,
+  asc,
   desc,
   eq,
   getTableColumns,
   inArray,
   isNotNull,
   isNull,
+  lt,
   or,
   type SQL,
 } from 'drizzle-orm';
@@ -29,6 +32,7 @@ import {
   supplyModel,
   supplyModelGrant,
   supplyOffering,
+  supplyOfferingBreaker,
   supplyPriceCard,
   supplyProvider,
 } from '../schema/index.js';
@@ -49,6 +53,7 @@ export type SupplyCredentialRow = InferSelectModel<typeof supplyCredential>;
 export type SupplyModelRow = InferSelectModel<typeof supplyModel>;
 export type SupplyOfferingRow = InferSelectModel<typeof supplyOffering>;
 export type SupplyModelGrantRow = InferSelectModel<typeof supplyModelGrant>;
+export type SupplyOfferingBreakerRow = InferSelectModel<typeof supplyOfferingBreaker>;
 
 // --- price_card (§2.7 / §9.2 — IMMUTABLE, versioned) -------------------------
 
@@ -1046,6 +1051,208 @@ export async function listRoutableSupplyOfferings(
       ),
     )
     .orderBy(desc(supplyOffering.tier), desc(supplyOffering.createdAt), desc(supplyOffering.id));
+}
+
+// --- planner routing queries (批次3 §8 候选装配一站式取数) ----------------------
+
+/** The channel routing dimensions a planner candidate carries. */
+export type RoutingCandidateChannel = Pick<
+  SupplyChannelRow,
+  | 'id'
+  | 'tenantId'
+  | 'providerId'
+  | 'tags'
+  | 'routeGroupId'
+  | 'dialect'
+  | 'baseUrl'
+  | 'proxyRef'
+  | 'authScheme'
+  | 'region'
+  | 'status'
+>;
+
+/**
+ * A routable offering PLUS its channel's routing dimensions — the one-stop
+ * candidate row the 批次3 planner assembles from (§8).
+ */
+export interface RoutingCandidate extends SupplyOfferingRow {
+  readonly channel: RoutingCandidateChannel;
+}
+
+/** Params for {@link listRoutingCandidates}. */
+export interface ListRoutingCandidatesParams {
+  readonly modelId: string;
+  /** The CALLING tenant — the §2.3 BYOK ownership gate is evaluated against it. */
+  readonly tenantId: string;
+  /**
+   * §route-tagging narrow-only pin: keep ONLY channels whose `tags` contain
+   * this tag. Zero matches → empty result; the 400 on an empty pin is the
+   * planner's job (slice 3), never this query's.
+   */
+  readonly routeTag?: string | undefined;
+  /** Narrow to channels bound to this route group. */
+  readonly routeGroupId?: string | undefined;
+}
+
+/**
+ * The SUPERSET of {@link listRoutableSupplyOfferings} the planner consumes:
+ * same gates (`enabled` offering × live `active` channel × BYOK ownership —
+ * hard principle #4, ownership in the SQL WHERE, never post-filtered) plus the
+ * channel's routing dimensions inline and the optional route-tag /
+ * route-group narrowing. Rows come back tier DESC (§8 primary sort; same-tier
+ * weight randomization is the planner's job), then created_at/id DESC.
+ */
+export async function listRoutingCandidates(
+  db: DbOrTx,
+  params: ListRoutingCandidatesParams,
+): Promise<RoutingCandidate[]> {
+  const predicates: SQL[] = [];
+  if (params.routeTag !== undefined)
+    predicates.push(arrayContains(supplyChannel.tags, [params.routeTag]));
+  if (params.routeGroupId !== undefined)
+    predicates.push(eq(supplyChannel.routeGroupId, params.routeGroupId));
+  return db
+    .select({
+      ...getTableColumns(supplyOffering),
+      channel: {
+        id: supplyChannel.id,
+        tenantId: supplyChannel.tenantId,
+        providerId: supplyChannel.providerId,
+        tags: supplyChannel.tags,
+        routeGroupId: supplyChannel.routeGroupId,
+        dialect: supplyChannel.dialect,
+        baseUrl: supplyChannel.baseUrl,
+        proxyRef: supplyChannel.proxyRef,
+        authScheme: supplyChannel.authScheme,
+        region: supplyChannel.region,
+        status: supplyChannel.status,
+      },
+    })
+    .from(supplyOffering)
+    .innerJoin(supplyChannel, eq(supplyOffering.channelId, supplyChannel.id))
+    .where(
+      and(
+        eq(supplyOffering.modelId, params.modelId),
+        eq(supplyOffering.status, 'enabled'),
+        isNull(supplyOffering.deletedAt),
+        eq(supplyChannel.status, 'active'),
+        isNull(supplyChannel.deletedAt),
+        or(isNull(supplyChannel.tenantId), eq(supplyChannel.tenantId, params.tenantId)),
+        ...predicates,
+      ),
+    )
+    .orderBy(desc(supplyOffering.tier), desc(supplyOffering.createdAt), desc(supplyOffering.id));
+}
+
+/**
+ * A channel's USABLE key pool right now (§2.4 / §7.8): live `active`
+ * credentials not in cooldown (`cooldown_until` null or already elapsed at
+ * `now`). Ordered created_at ASC so in-pool rotation is deterministic. Rows
+ * carry `quota` (the upstream mirror) for the §7.8 concurrency clamp.
+ */
+export async function listActiveCredentialsForChannel(
+  db: DbOrTx,
+  channelId: string,
+  now: Date,
+): Promise<SupplyCredentialRow[]> {
+  return db
+    .select()
+    .from(supplyCredential)
+    .where(
+      and(
+        eq(supplyCredential.channelId, channelId),
+        isNull(supplyCredential.deletedAt),
+        eq(supplyCredential.status, 'active'),
+        or(isNull(supplyCredential.cooldownUntil), lt(supplyCredential.cooldownUntil, now)),
+      ),
+    )
+    .orderBy(asc(supplyCredential.createdAt));
+}
+
+/**
+ * Batch-fetch live price cards by id → `Map<id, row>` (soft-deleted / unknown
+ * ids simply absent; `[]` → empty Map). The planner pulls a candidate set's
+ * SALE + COST cards in ONE round-trip instead of per-offering lookups.
+ */
+export async function getSupplyPriceCardsByIds(
+  db: DbOrTx,
+  ids: string[],
+): Promise<Map<string, SupplyPriceCardRow>> {
+  if (ids.length === 0) return new Map();
+  const rows = await db
+    .select()
+    .from(supplyPriceCard)
+    .where(and(inArray(supplyPriceCard.id, ids), isNull(supplyPriceCard.deletedAt)));
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
+// --- offering breaker runtime state (批次3 — per-offering FSM persistence) -------
+
+/**
+ * Batch-read breaker rows for a candidate set → `Map<offering_id, row>` (`[]`
+ * → empty Map). A MISSING offering is in the `closed` initial state — the
+ * planner defaults it; this repo never fabricates rows. State DECISIONS live
+ * in the pure engine FSM (breaker.ts); this layer only reads/writes.
+ */
+export async function getSupplyOfferingBreakers(
+  db: DbOrTx,
+  offeringIds: string[],
+): Promise<Map<string, SupplyOfferingBreakerRow>> {
+  if (offeringIds.length === 0) return new Map();
+  const rows = await db
+    .select()
+    .from(supplyOfferingBreaker)
+    .where(inArray(supplyOfferingBreaker.offeringId, offeringIds));
+  return new Map(rows.map((row) => [row.offeringId, row]));
+}
+
+/**
+ * The FULL breaker snapshot an upsert persists — the engine FSM emits complete
+ * next-states, so writes are whole-row (runtime table, HARD overwrite).
+ */
+export interface SupplyOfferingBreakerSnapshotInput {
+  readonly state: 'closed' | 'open' | 'half_open';
+  readonly openedAt: Date | null;
+  readonly halfOpenSuccesses: number;
+  readonly consecutiveOpens: number;
+}
+
+/**
+ * Persist an offering's breaker snapshot: INSERT the first transition,
+ * hard-OVERWRITE thereafter (`onConflictDoUpdate` on the offering_id PK).
+ * No FSM logic here — the caller (slice 3 orchestration) computes `snapshot`
+ * via the pure breaker.ts transitions and this function only lands it.
+ */
+export async function upsertSupplyOfferingBreaker(
+  db: DbOrTx,
+  offeringId: string,
+  snapshot: SupplyOfferingBreakerSnapshotInput,
+): Promise<SupplyOfferingBreakerRow> {
+  const now = new Date();
+  const rows = await db
+    .insert(supplyOfferingBreaker)
+    .values({
+      offeringId,
+      state: snapshot.state,
+      openedAt: snapshot.openedAt,
+      halfOpenSuccesses: snapshot.halfOpenSuccesses,
+      consecutiveOpens: snapshot.consecutiveOpens,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: supplyOfferingBreaker.offeringId,
+      set: {
+        state: snapshot.state,
+        openedAt: snapshot.openedAt,
+        halfOpenSuccesses: snapshot.halfOpenSuccesses,
+        consecutiveOpens: snapshot.consecutiveOpens,
+        updatedAt: now,
+      },
+    })
+    .returning();
+  const row = rows[0];
+  if (!row) throw new Error('upsertSupplyOfferingBreaker: upsert returned no row');
+  return row;
 }
 
 // --- api_key model allowlist (§2.6) ---------------------------------------------
