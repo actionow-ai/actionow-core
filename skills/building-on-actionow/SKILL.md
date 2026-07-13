@@ -64,11 +64,11 @@ digraph choose {
 ## 铁律(工程规则,机制细节见 actionow-integration)
 
 1. **双 client 隔离**:控制面 USER JWT **仅服务端**(能为任意 subject 发 key、动账);数据面 `ak_` 按端用户。见 [../actionow-integration/reference/07-sdk-reference.md](../actionow-integration/reference/07-sdk-reference.md)。
-2. **只存 core 的 ID,不镜像数据**:在你的用户行上存 `subject_id` / `file_id` / `job_id`,不要把 core 的余额/用量/文件复制进你的库(federation)。
+2. **只存 core 的 ID,不镜像数据**:在你的用户行上存 `subject_id` / `file_id` / `task_id`,不要把 core 的余额/用量/文件复制进你的库(federation)。
 3. **钱是 µcredit 字符串**:响应里的钱用 `BigInt` 解析,绝不用 `Number`;请求里的钱是人类数字。见 [../actionow-integration/reference/04-billing-and-limits.md](../actionow-integration/reference/04-billing-and-limits.md)。
-4. **按 `retryable` 标志重试**:绝不重试 `402`/`400`;billed 的 `/v1/run` 重试带 body `idempotency_key`。见 [../actionow-integration/reference/05-errors-and-idempotency.md](../actionow-integration/reference/05-errors-and-idempotency.md)。
-5. **webhook 原始字节验签 → 快速 ack → 回拉 job**:回调体是最小 ping(`{ job_id }`,失败时附 `error`/`status`)——验签后回拉 `GET /v1/jobs/:id` 为准。见 [../actionow-integration/reference/06-webhooks.md](../actionow-integration/reference/06-webhooks.md)。
-6. **`end_user = <你的 external_id>`,不是 subject UUID**:core 按 `external_id` 归属/建号。见 [../actionow-integration/reference/01-authentication.md](../actionow-integration/reference/01-authentication.md)。
+4. **按 `retryable` 标志重试**:绝不重试 `402`/`400`;billed 的任务创建(`/v1/tasks` 族)重试带 `Idempotency-Key` **header**——同键同体回放原任务,同键不同体是硬 `409 conflict`(deprecated 的 `/v1/run` 才是 body `idempotency_key`)。见 [../actionow-integration/reference/05-errors-and-idempotency.md](../actionow-integration/reference/05-errors-and-idempotency.md)。
+5. **webhook 原始字节验签(带时间戳 `t=…,v1=…`)→ 快速 ack → 按 `evt_id` 幂等**:任务回调是签名事件信封 `{ evt_id, event_type, created_at, task }`,**自带完整 task 体**(终态无需回拉);signing secret 是租户级配置。见 [../actionow-integration/reference/06-webhooks.md](../actionow-integration/reference/06-webhooks.md)。
+6. **新任务面(`/v1/tasks` 族)按用户归因只有一条路:subject 级 `ak_`**——没有 `end_user` 字段;`end_user = <你的 external_id>`(不是 subject UUID)只保留给 deprecated 的 `/v1/run`。见 [../actionow-integration/reference/01-authentication.md](../actionow-integration/reference/01-authentication.md)。
 
 ## 子技能
 

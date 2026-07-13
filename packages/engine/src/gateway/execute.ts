@@ -545,7 +545,15 @@ async function dispatchPlanInner(
     upstreamModelName: offering.upstreamModelName,
     params: plan.effective,
     secret,
-    ctx: resolved.ctx,
+    // §6 aspect-⑤ operation pin: `normalize` carries no operation argument, so
+    // a MULTI-OPERATION dialect (openai: chat.completions + embeddings)
+    // dispatches its output/usage extraction on `ctx.config.operation` — the
+    // caller pins it (the golden-probe 范式; without the pin an embeddings
+    // response would be normalized as chat and its output silently dropped).
+    ctx: {
+      ...resolved.ctx,
+      config: { ...resolved.ctx.config, operation: request.operation },
+    },
   };
   const servedBy: ServedBy = {
     offeringId: offering.id,

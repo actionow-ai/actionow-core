@@ -175,6 +175,13 @@ const EnvSchema = z
     // config overridable — the monthly report endpoint ships in 批次4; the
     // automated daily comparer consumes this key in 批次5 (对账自动化).
     RECONCILIATION_DEVIATION_PCT: z.coerce.number().positive().optional(),
+    // R5 探测预算 (批次5 slice1 golden probe): the daily USD budget for
+    // PLATFORM-FUNDED golden probes (real-upstream small-sample tests; BYOK
+    // channels probe on the tenant's own key and are NOT counted) and the
+    // per-offering minimum interval between probes. Optional env; unset → the
+    // CODE defaults (settings.ts: 5 USD / 60 s). Dynamic-config overridable.
+    PROBE_DAILY_BUDGET_USD: z.coerce.number().positive().optional(),
+    PROBE_MIN_INTERVAL_SEC: z.coerce.number().int().nonnegative().optional(),
     // 切换预案② (plan v3): the PLATFORM default for the per-tenant gateway-v2
     // gray-release flag — whether a tenant's LEGACY sync surfaces (chat/
     // embeddings…) route through the NEW supply gateway. Per-tenant override

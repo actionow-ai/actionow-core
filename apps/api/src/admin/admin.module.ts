@@ -26,9 +26,11 @@ import {
   defaultAdminTokenAuthRepo,
 } from './auth/admin-token-auth.service.js';
 import { ModelTestService } from './model-test.service.js';
+import { OfferingLifecycleService } from './offering-lifecycle.service.js';
 import { ReconciliationController } from './reconciliation.controller.js';
 import { SupplyAdminController } from './supply.controller.js';
 import { SupplyAdminService } from './supply.service.js';
+import { SupplyOnboardingService } from './supply-onboarding.service.js';
 
 /**
  * Admin surface (Phase 5). `POST /admin/auth/login` issues a JWT; the
@@ -62,6 +64,16 @@ import { SupplyAdminService } from './supply.service.js';
     ModelTestService,
     // NEW-WORLD supply skeleton CRUD (/admin/supply/*, model-supply 批次1).
     SupplyAdminService,
+    // 批次5 slice1: golden probe + enable 双门 (/admin/supply/offerings/:id/
+    // probe|enable). Builds its own SPI registry + probe HttpClient by default;
+    // PROBE_DIALECTS / PROBE_HTTP (supply.tokens.ts) are @Optional overrides
+    // for tests (no real egress).
+    OfferingLifecycleService,
+    // 批次5 slice2: 发现与批建 (/admin/supply/channels/:id/discover |
+    // offerings/batch | offerings/probe-and-enable). Shares the lifecycle
+    // service's enable path (one probe budget); DISCOVERY_PACKS is the
+    // @Optional test seam for DSL discovery declarations.
+    SupplyOnboardingService,
     // Job SSE progress (#62): admin watches any tenant's in-flight job. The
     // stream service is tenant-scoped; the admin handler resolves the job's own
     // tenant (JobsService.resolveAdminContext) and reuses it unchanged.

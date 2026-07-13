@@ -7,11 +7,12 @@ import type { WorkerRuntime } from '../src/runtime.js';
 
 /**
  * Light unit test for {@link startWorkers}: `bullmq` is mocked so no Redis is
- * required. We assert that booting binds exactly the eleven queue names (the six
+ * required. We assert that booting binds exactly the twelve queue names (the six
  * old-world ones — `job-exec`, `webhook-outbox`, `hold-reaper`,
  * `token-refresh`, `relay-trace-reaper`, `file-lifecycle-reaper` — plus the
  * 批次4 slice4 task-center sweeps `task-poll`, `task-reaper`, `task-webhook`,
- * `task-events-reaper`), registers the repeatable sweeps at the requested
+ * `task-events-reaper`, the slice5 `artifact-reaper` and the 批次5 slice4
+ * `reconcile-daily` comparer), registers the repeatable sweeps at the requested
  * cadence, and that `close()` drains every Worker + Queue. The real BullMQ/Redis
  * path is covered by the api full-stack e2e.
  */
@@ -62,7 +63,7 @@ afterEach(() => {
 });
 
 describe('startWorkers', () => {
-  it('binds the eleven queue names and registers all sweeps, then closes cleanly', async () => {
+  it('binds the twelve queue names and registers all sweeps, then closes cleanly', async () => {
     const { startWorkers } = await import('../src/start.js');
 
     const handle = startWorkers(runtime, {
@@ -76,10 +77,12 @@ describe('startWorkers', () => {
       taskWebhookSweepMs: 1700,
       taskEventsSweepMs: 1900,
       artifactSweepMs: 2100,
+      reconcileDailySweepMs: 2300,
     });
 
-    // Exactly the eleven processing queues are bound as Workers (six old-world
-    // + the four 批次4 slice4 task-center sweeps + the slice5 artifact reaper).
+    // Exactly the twelve processing queues are bound as Workers (six old-world
+    // + the four 批次4 slice4 task-center sweeps + the slice5 artifact reaper
+    // + the 批次5 slice4 daily reconcile comparer).
     expect(workerNames).toEqual([
       'job-exec',
       'webhook-outbox',
@@ -92,6 +95,7 @@ describe('startWorkers', () => {
       'task-webhook',
       'task-events-reaper',
       'artifact-reaper',
+      'reconcile-daily',
     ]);
 
     // All repeatable sweeps were scheduled with the requested cadences.
@@ -146,10 +150,15 @@ describe('startWorkers', () => {
       {},
       { repeat: { every: 2100 }, jobId: 'artifact-reaper-sweep' },
     );
+    expect(queueAddSpy).toHaveBeenCalledWith(
+      'sweep',
+      {},
+      { repeat: { every: 2300 }, jobId: 'reconcile-daily-sweep' },
+    );
 
-    // close() drains all eleven Workers and all ten sweep Queues.
+    // close() drains all twelve Workers and all eleven sweep Queues.
     await handle.close();
-    expect(workerCloseSpy).toHaveBeenCalledTimes(11);
-    expect(queueCloseSpy).toHaveBeenCalledTimes(10);
+    expect(workerCloseSpy).toHaveBeenCalledTimes(12);
+    expect(queueCloseSpy).toHaveBeenCalledTimes(11);
   });
 });

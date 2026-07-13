@@ -15,7 +15,8 @@
 import { readFileSync } from 'node:fs';
 
 import { anthropicDialect, geminiDialect, openaiDialect, volcDialect } from './dialects/index.js';
-import { registerPack } from './dsl/engine.js';
+import { loadDialectPack, registerPack } from './dsl/engine.js';
+import type { DialectPack } from './dsl/schema.js';
 import { DialectRegistry } from './registry.js';
 
 /**
@@ -42,4 +43,17 @@ export function createBuiltinDialectRegistry(): DialectRegistry {
   registry.register(volcDialect);
   registerPack(registry, builtinDialectPackYaml('huimeng'));
   return registry;
+}
+
+/**
+ * The builtin DSL packs, validated (§10 发现与批建 consumer). The `discovery`
+ * declaration lives on the PACK — `compileDialect` deliberately drops it (a
+ * compiled {@link Dialect} carries only the six runtime aspects) — so the
+ * discovery feature reads packs, keyed `ref@version`, alongside the registry.
+ * Code-aspect dialects (openai/anthropic/gemini/volc) have no pack and thus no
+ * discovery endpoint: channels on them discover via the official catalog
+ * instead (§10 目录勾选).
+ */
+export function builtinDialectPacks(): DialectPack[] {
+  return [loadDialectPack(builtinDialectPackYaml('huimeng'))];
 }

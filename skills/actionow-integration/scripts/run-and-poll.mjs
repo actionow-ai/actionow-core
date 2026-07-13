@@ -1,14 +1,23 @@
 #!/usr/bin/env node
-// run-and-poll.mjs — submit POST /v1/run/:resourceId (async-poll) and poll the job.
-// Zero dependencies (global fetch, Node 18+). Mirrors what @actionow/sdk's
-// submitAndWait() does, so you can see the raw contract.
+// run-and-poll.mjs — task submit-and-wait over the NEW task paradigm:
+// POST /v1/tasks (model addressing) → digest the 200/202 dual shape → poll
+// GET /v1/tasks/:id to a terminal status. Zero dependencies (global fetch,
+// Node 18+). Mirrors what @actionow/sdk's submitTaskAndWait() does, so you can
+// see the raw contract.
 //
 //   Env:   ACTIONOW_BASE_URL, ACTIONOW_API_KEY
-//   Usage: node run-and-poll.mjs <resourceId> '<inputs-json>' [endUser]
-//   e.g.   node run-and-poll.mjs image-relay '{"prompt":"a red bicycle"}' user_42
-//   NOTE: endUser is YOUR own user handle (the subject's external_id), NOT a
-//   subject UUID — Actionow resolves/creates the subject by it. Omit it on a
-//   subject-scoped key (already attributed).
+//   Usage: node run-and-poll.mjs <type> <model> '<params-json>'
+//   e.g.   node run-and-poll.mjs video.generation seedance-pro '{"prompt":"a red bicycle"}'
+//   e.g.   node run-and-poll.mjs images.generation gpt-image-1 '{"prompt":"a red bicycle"}'
+//
+//   <type> is the operation (video.generation | music.generation | images.generation | tts | …
+//   — discover a model's operations via GET /v1/gateway/models). <params-json>
+//   keys are canonical params of the model's contract; an unsupported param is
+//   a 400 unsupported_parameter (nothing is silently dropped).
+//
+//   NOTE: the old `node run-and-poll.mjs <resourceId> …` form targeted the
+//   DEPRECATED POST /v1/run/:resourceId face — that face is scheduled for
+//   removal; this script now speaks the replacement API.
 
 const BASE = (process.env.ACTIONOW_BASE_URL ?? '').replace(/\/$/, '');
 const KEY = process.env.ACTIONOW_API_KEY;
@@ -17,64 +26,70 @@ if (!BASE || !KEY) {
   process.exit(2);
 }
 
-const [resourceId, inputsJson, endUser] = process.argv.slice(2);
-if (!resourceId) {
-  console.error("usage: node run-and-poll.mjs <resourceId> '<inputs-json>' [endUser]");
+const [type, model, paramsJson] = process.argv.slice(2);
+if (!type || !model) {
+  console.error("usage: node run-and-poll.mjs <type> <model> '<params-json>'");
   process.exit(2);
 }
 
-const headers = { authorization: `Bearer ${KEY}`, 'content-type': 'application/json' };
-const inputs = inputsJson ? JSON.parse(inputsJson) : {};
-const POLL_MS = 1500;
-const TIMEOUT_MS = 180_000;
+const headers = {
+  authorization: `Bearer ${KEY}`,
+  'content-type': 'application/json',
+  // Same key + same body replays the recorded task (no double-charge);
+  // same key + different body → 409 conflict.
+  'idempotency-key': crypto.randomUUID(),
+};
+const params = paramsJson ? JSON.parse(paramsJson) : {};
+const POLL_MS = 2000;
+const TIMEOUT_MS = 600_000; // media tasks run long
 
-// 1. submit — exec_mode async-poll → 202 { job_id, status:"queued" } (or 200 succeeded if the resource is sync)
-const submit = await fetch(`${BASE}/v1/run/${encodeURIComponent(resourceId)}`, {
+// 1. submit — the SERVER decides the shape: 200 sync result | 202 + Task.
+const submit = await fetch(`${BASE}/v1/tasks`, {
   method: 'POST',
   headers,
-  body: JSON.stringify({
-    inputs,
-    exec_mode: 'async-poll',
-    ...(endUser ? { end_user: endUser } : {}),
-  }),
+  body: JSON.stringify({ type, model, ...params }),
 });
-const submitBody = await submit.json().catch(() => ({}));
-if (!submit.ok) {
-  console.error(`submit HTTP ${submit.status}`, JSON.stringify(submitBody.error ?? submitBody));
+const body = await submit.json().catch(() => ({}));
+if (!submit.ok && submit.status !== 202) {
+  console.error(`submit HTTP ${submit.status}`, JSON.stringify(body.error ?? body));
   process.exit(1);
 }
 
-const jobId = submitBody.job_id;
-console.error(`submitted → job ${jobId} (${submitBody.status})`);
-if (submitBody.status === 'succeeded') {
-  console.log(JSON.stringify(submitBody.output, null, 2));
+// Discriminate on the BODY shape (object === 'task'), not the status alone —
+// an idempotent replay of an already-terminal task answers 200 with a Task body.
+if (body.object !== 'task') {
+  console.error('sync result (fast model answered 200 inline)');
+  console.log(JSON.stringify(body.output ?? body, null, 2));
   process.exit(0);
 }
 
-// 2. poll GET /v1/jobs/:id until terminal
+console.error(`submitted → task ${body.id} (${body.status})`);
+const TERMINAL = ['succeeded', 'failed', 'canceled', 'expired'];
+
+// 2. poll GET /v1/tasks/:id until terminal.
+let task = body;
 const deadline = Date.now() + TIMEOUT_MS;
-for (;;) {
+while (!TERMINAL.includes(task.status)) {
   if (Date.now() > deadline) {
-    console.error(`timeout after ${TIMEOUT_MS}ms; job ${jobId} still running`);
+    console.error(`timeout after ${TIMEOUT_MS}ms; task ${task.id} still ${task.status}`);
     process.exit(1);
   }
   await new Promise((r) => setTimeout(r, POLL_MS));
-  const res = await fetch(`${BASE}/v1/jobs/${jobId}`, { headers });
-  const job = await res.json().catch(() => ({}));
+  const res = await fetch(`${BASE}/v1/tasks/${task.id}`, { headers });
+  task = await res.json().catch(() => ({}));
   if (!res.ok) {
-    console.error(`poll HTTP ${res.status}`, JSON.stringify(job.error ?? job));
+    console.error(`poll HTTP ${res.status}`, JSON.stringify(task.error ?? task));
     process.exit(1);
   }
-  process.stderr.write(`  status: ${job.status}\r`);
-  if (job.status === 'succeeded') {
-    console.error(`\nsucceeded · cost ${job.cost?.credits ?? '0'} µcredit`);
-    // media output = { kind:"media", assets:[{ role, modality, url, mime, … }] } with directly-fetchable
-    // urls (or legacy flat { image_url|video_url|audio_url }); outputs never contain file_ids.
-    console.log(JSON.stringify(job.output, null, 2));
-    process.exit(0);
-  }
-  if (job.status === 'failed' || job.status === 'canceled') {
-    console.error(`\njob ${job.status}:`, JSON.stringify(job.error));
-    process.exit(1);
-  }
+  process.stderr.write(`  status: ${task.status}${task.progress != null ? ` (${task.progress}%)` : ''}\r`);
 }
+
+if (task.status === 'succeeded') {
+  const metrics = task.usage?.metrics ? JSON.stringify(task.usage.metrics) : 'n/a';
+  console.error(`\nsucceeded · usage ${metrics}${task.usage?.estimated ? ' (estimated)' : ''}`);
+  // media output carries artifact URLs; signed-track URLs expire at task.expires_at.
+  console.log(JSON.stringify(task.output, null, 2));
+  process.exit(0);
+}
+console.error(`\ntask ${task.status}:`, JSON.stringify(task.error));
+process.exit(1);

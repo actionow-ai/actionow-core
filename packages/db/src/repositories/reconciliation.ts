@@ -17,7 +17,7 @@
 // Money discipline: sums are bigint µcredits — postgres numeric comes back as
 // a string and is parsed with BigInt(), never Number() (the rollupUsage
 // precedent).
-import { and, eq, gte, like, lt, type SQL, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, like, lt, type SQL, sql } from 'drizzle-orm';
 
 import { ledgerTxn } from '../schema/execution.js';
 import { supplyChannel, supplyModel, supplyOffering, supplyProvider } from '../schema/supply.js';
@@ -138,4 +138,90 @@ export async function aggregateGatewayReconciliation(
     saleSideCredits: BigInt(r.saleSideCredits ?? 0),
     costSideCredits: BigInt(r.costSideCredits ?? 0),
   }));
+}
+
+// --- per-settle samples (批次5 官方渠道日对账比对器 feed) ---------------------------
+
+/**
+ * One gateway settle SAMPLE for the daily official-channel comparer: the
+ * observed usage vector plus the §9.2 cost-side stamp of a single settle row.
+ * The comparer re-prices `usageVector` against the OFFICIAL price catalog
+ * (matchOfficialPrice/officialPriceToSpec) and compares the result against the
+ * booked `costSideCredits`.
+ */
+export interface GatewaySettleSampleRow {
+  offeringId: string;
+  /** The settle's observed usage metrics (`ledger_txn.usage_vector`); null = none recorded. */
+  usageVector: Record<string, number> | null;
+  /** The §9.2 cost-side stamp (µcredits); null = degraded (对账降级 — no cost card / compute failure). */
+  costSideCredits: bigint | null;
+  /** §9.2 estimated 标志 from the settle envelope. */
+  estimated: boolean;
+}
+
+export interface GatewaySettleSampleQuery {
+  /** Inclusive window start. */
+  from: Date;
+  /** Exclusive window end. */
+  to: Date;
+  /** The offerings to sample (exact `supply_offering:<id>` attribution match). */
+  offeringIds: string[];
+}
+
+interface RawSampleRow {
+  offeringId: string;
+  usageVector: unknown;
+  costSideCredits: string | null;
+  estimated: boolean | null;
+}
+
+/**
+ * Fetch the individual gateway settle rows for `offeringIds` inside a window —
+ * the 批次5 daily comparer's per-settle feed (it needs each settle's OWN usage
+ * vector to re-price against the official catalog; the aggregate view cannot
+ * carry a non-linear re-pricing). Exact `resource_id` equality (not LIKE) so
+ * the ledger index applies. Money discipline: `cost_side_credits` is parsed
+ * with `BigInt`, never `Number`.
+ */
+export async function listGatewaySettleSamples(
+  db: DbOrTx,
+  q: GatewaySettleSampleQuery,
+): Promise<GatewaySettleSampleRow[]> {
+  if (q.offeringIds.length === 0) return [];
+  const resourceIds = q.offeringIds.map((id) => `${OFFERING_RESOURCE_PREFIX}${id}`);
+  const rows = await db
+    .select({
+      offeringId: sql<string>`substring(${ledgerTxn.resourceId} from ${sql.raw(String(OFFERING_RESOURCE_PREFIX.length + 1))})`,
+      usageVector: ledgerTxn.usageVector,
+      costSideCredits: sql<string | null>`(${ledgerTxn.modifiersApplied} ->> 'cost_side_credits')`,
+      estimated: sql<boolean | null>`(${ledgerTxn.modifiersApplied} ->> 'estimated')::boolean`,
+    })
+    .from(ledgerTxn)
+    .where(
+      and(
+        eq(ledgerTxn.type, 'settle'),
+        inArray(ledgerTxn.resourceId, resourceIds),
+        gte(ledgerTxn.createdAt, q.from),
+        lt(ledgerTxn.createdAt, q.to),
+      ),
+    );
+
+  return (rows as RawSampleRow[]).map((r) => ({
+    offeringId: r.offeringId,
+    usageVector: normalizeUsageVector(r.usageVector),
+    costSideCredits: r.costSideCredits === null ? null : BigInt(r.costSideCredits),
+    estimated: r.estimated === true,
+  }));
+}
+
+/** Defensive jsonb → numeric-vector coercion (non-object / non-numeric values are dropped). */
+function normalizeUsageVector(raw: unknown): Record<string, number> | null {
+  if (raw === null || raw === undefined || typeof raw !== 'object' || Array.isArray(raw)) {
+    return null;
+  }
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
+  }
+  return out;
 }

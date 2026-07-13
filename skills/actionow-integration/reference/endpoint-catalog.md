@@ -17,52 +17,64 @@ Every public endpoint a third-party app touches, by plane. Auth column: **AK** =
 | POST   | `/v1/embeddings`                              | `{ model, input }` → `{ data:[{ index, embedding }], usage }`                                                                                                                                                |
 | POST   | `/v1/rerank`                                  | `{ model, query, documents, topN? }` → `{ results:[{ index, relevance_score }] }`                                                                                                                            |
 | POST   | `/v1/moderations`                             | `{ model, input }` → `{ results:[{ flagged, categories, category_scores }] }`                                                                                                                                |
-| GET    | `/v1/models`                                  | `{ data:[{ id, owned_by:"actionow" }] }` (free)                                                                                                                                                              |
 
-### Media convenience → [03](03-media-jobs-and-files.md)
+### Discovery → [02](02-chat-and-relay.md), [03](03-media-tasks-and-files.md)
 
-| Method | Path                       | Notes                                                  |
-| ------ | -------------------------- | ------------------------------------------------------ |
-| POST   | `/v1/images/generations`   | `{ prompt, n?, size? }` → `{ data:[{ url }] }`         |
-| POST   | `/v1/audio/speech`         | `{ input, voice? }` → **binary** audio                 |
-| POST   | `/v1/audio/transcriptions` | multipart `file`+`model` → `{ text }` / text / verbose |
+| Method | Path                 | Notes                                                                                                           |
+| ------ | -------------------- | --------------------------------------------------------------------------------------------------------------- |
+| GET    | `/v1/gateway/models` | **NEW discovery face**: usable models (visibility ∩ key allowlist) + operations/paradigms/`slow`/param contract |
+| GET    | `/v1/models`         | bare OpenAI list shape `{ data:[{ id, owned_by:"actionow" }] }` (free)                                          |
 
-### Resources & runs → [03](03-media-jobs-and-files.md)
+### Tasks (the task paradigm) → [03](03-media-tasks-and-files.md)
 
-| Method | Path                  | Notes                                                                                                                                                               |
-| ------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/v1/resources`       | list (keyset) `{ id, kind, modality, provider_type, exec_modes }`                                                                                                   |
-| GET    | `/v1/resources/:id`   | + `io_schema`, `pricing`                                                                                                                                            |
-| POST   | `/v1/run/:resourceId` | `exec_mode: blocking\|stream\|async-poll\|async-callback`; 200/202/SSE; optional `require_persist` (media only; persistence failure → job **FAILS**, hold released) |
+| Method | Path                     | Notes                                                                                                                                                          |
+| ------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/v1/videos/generations` | model addressing; 200 sync result OR 202 + Task (server-decided); envelope keys `model/stream/callback_url/artifact_mode/require_persist`, rest = model params |
+| POST   | `/v1/audio/music`        | same wire, music generation                                                                                                                                    |
+| POST   | `/v1/tasks`              | generic create — operation rides body `type`                                                                                                                   |
+| GET    | `/v1/tasks`              | list your tasks (keyset, newest-first; `?status=` & `?type=`)                                                                                                  |
+| GET    | `/v1/tasks/:id`          | one Task (status/progress/output/usage/error/served_by/expires_at); unowned id → 404 `task_not_found`                                                          |
+| GET    | `/v1/tasks/:id/stream`   | SSE to terminal: `snapshot` → `progress`\* → `done`/`error`                                                                                                    |
+| POST   | `/v1/tasks/:id/cancel`   | cancel + hold release; idempotent on `canceled`; other terminal → 409                                                                                          |
 
-### Jobs → [03](03-media-jobs-and-files.md)
+### Media convenience (may auto-upgrade to 202 + Task) → [03](03-media-tasks-and-files.md)
 
-| Method | Path                  | Notes                                    |
-| ------ | --------------------- | ---------------------------------------- |
-| GET    | `/v1/jobs`            | list your jobs (keyset, newest-first)    |
-| GET    | `/v1/jobs/:id`        | one job (status/output/usage/cost/error) |
-| GET    | `/v1/jobs/:id/stream` | SSE progress to terminal                 |
-| POST   | `/v1/jobs/:id/cancel` | cancel queued + release hold             |
+| Method | Path                       | Notes                                                                           |
+| ------ | -------------------------- | ------------------------------------------------------------------------------- |
+| POST   | `/v1/images/generations`   | `{ model, prompt, n?, size? }` → `{ data:[{ url }] }` (slow model ⇒ 202 + Task) |
+| POST   | `/v1/audio/speech`         | `{ model, input, voice? }` → **binary** audio (slow model ⇒ 202 + Task)         |
+| POST   | `/v1/audio/transcriptions` | multipart `file`+`model` → `{ text }` / text / verbose                          |
 
-### Files → [03](03-media-jobs-and-files.md)
+### DEPRECATED legacy job face (migration window only — removal scheduled) → [03](03-media-tasks-and-files.md#the-deprecated-legacy-face-v1run--v1jobs)
 
-| Method | Path                       | Notes                                                                                                                                                    |
-| ------ | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/v1/files`                | list (`?status=pending\|ready`); each file includes `public_url` (stable, non-expiring; `null` when unconfigured)                                        |
-| POST   | `/v1/files/presign-upload` | `{ filename, content_type, size }` → `{ file_id, upload_url, key, expires_in, public_url }` (`public_url` stable non-expiring, `null` when unconfigured) |
-| POST   | `/v1/files/:id/confirm`    | flip to `ready` after PUT                                                                                                                                |
-| GET    | `/v1/files/:id/url`        | presigned download `{ url, expires_in, public_url }` (`public_url` stable non-expiring, `null` when unconfigured)                                        |
-| GET    | `/v1/files/usage`          | `{ bytes, count, quota_bytes, effective_ttl_days }`                                                                                                      |
-| DELETE | `/v1/files/:id`            | soft-delete → 204                                                                                                                                        |
+| Method | Path                  | Replaced by                                                     |
+| ------ | --------------------- | --------------------------------------------------------------- |
+| GET    | `/v1/resources[/:id]` | `GET /v1/gateway/models`                                        |
+| POST   | `/v1/run/:resourceId` | `POST /v1/videos/generations` · `/v1/audio/music` · `/v1/tasks` |
+| GET    | `/v1/jobs[/:id]`      | `GET /v1/tasks[/:id]`                                           |
+| GET    | `/v1/jobs/:id/stream` | `GET /v1/tasks/:id/stream`                                      |
+| POST   | `/v1/jobs/:id/cancel` | `POST /v1/tasks/:id/cancel`                                     |
+
+### Files → [03](03-media-tasks-and-files.md)
+
+| Method | Path                       | Notes                                                                                                             |
+| ------ | -------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| GET    | `/v1/files`                | list (`?status=pending\|ready`); each file includes `public_url` (stable, non-expiring; `null` when unconfigured) |
+| POST   | `/v1/files/presign-upload` | `{ filename, content_type, size }` → `{ file_id, upload_url, key, expires_in, public_url }`                       |
+| POST   | `/v1/files/:id/confirm`    | flip to `ready` after PUT                                                                                         |
+| GET    | `/v1/files/:id/url`        | presigned download `{ url, expires_in, public_url }`                                                              |
+| GET    | `/v1/files/usage`          | `{ bytes, count, quota_bytes, effective_ttl_days }`                                                               |
+| DELETE | `/v1/files/:id`            | soft-delete → 204                                                                                                 |
 
 ### Self-service payments → [04](04-billing-and-limits.md)
 
-| Method | Path                              | Auth | Notes                                                                                 |
-| ------ | --------------------------------- | ---- | ------------------------------------------------------------------------------------- |
-| POST   | `/v1/payments/intents`            | AK   | `{ provider, purpose, amount_minor, currency }` → `{ intent_id, redirect_url?, qr? }` |
-| GET    | `/v1/payments/intents/:id`        | AK   | intent status                                                                         |
-| POST   | `/v1/payments/webhooks/:provider` | Sig  | provider → Actionow (you don't call)                                                  |
-| POST   | `/v1/callbacks/:provider`         | Sig  | upstream async callbacks (you don't call)                                             |
+| Method | Path                                | Auth | Notes                                                                                 |
+| ------ | ----------------------------------- | ---- | ------------------------------------------------------------------------------------- |
+| POST   | `/v1/payments/intents`              | AK   | `{ provider, purpose, amount_minor, currency }` → `{ intent_id, redirect_url?, qr? }` |
+| GET    | `/v1/payments/intents/:id`          | AK   | intent status                                                                         |
+| POST   | `/v1/payments/webhooks/:provider`   | Sig  | provider → Actionow (you don't call)                                                  |
+| POST   | `/v1/gateway/callbacks/:offeringId` | Sig  | upstream async callbacks, new gateway (you don't call)                                |
+| POST   | `/v1/callbacks/:provider`           | Sig  | upstream async callbacks, legacy face (you don't call)                                |
 
 ## Control plane · `/console/*` + `/auth/*` (auth: JWT) → [01](01-authentication.md), [04](04-billing-and-limits.md)
 
@@ -86,7 +98,7 @@ Every public endpoint a third-party app touches, by plane. Auth column: **AK** =
 | GET                         | `/console/payments/intents/:id`                                              | JWT  | poll topup intent status                                                                                              |
 | GET                         | `/console/payments`                                                          | JWT  | payment history                                                                                                       |
 | POST                        | `/console/subjects/:id/sub-account/open`                                     | JWT  | `{ credits? }`                                                                                                        |
-| POST                        | `/console/subjects/:id/sub-account/topup`                                    | JWT  | `{ credits }` (direct allocation — NOT pool-conserving)                                                               |
+| POST                        | `/console/subjects/:id/sub-account/topup`                                    | JWT  | `{ credits }` (pool-conserving)                                                                                       |
 | POST                        | `/console/subjects/:id/sub-account/transfer`                                 | JWT  | `{ credits, direction:"to_subject"\|"to_tenant" }` (conserving)                                                       |
 | GET                         | `/console/subjects/:id/sub-account`                                          | JWT  | → `{ credit_balance, credit_held, status, … }`                                                                        |
 | POST · GET · PATCH · DELETE | `/console/limit-plans[/:id]`                                                 | JWT  | governance-plan CRUD (PATCH replaces `rules`)                                                                         |
@@ -95,8 +107,6 @@ Every public endpoint a third-party app touches, by plane. Auth column: **AK** =
 | POST · GET · PATCH · DELETE | `/console/users`                                                             | JWT  | tenant seat/RBAC management                                                                                           |
 | PATCH                       | `/console/settings`                                                          | JWT  | console-user self-serve (`{ currentPassword, newPassword }`)                                                          |
 | GET                         | `/console/balance` · `/console/usage` · `/console/models` · `/console/files` | JWT  | tenant reads                                                                                                          |
-
-> The `/console/subjects/:id/sub-account/*` and `/limit-*` routes are documented in the Actionow repo's `docs/INTEGRATION.md`; confirm exact bodies against your gateway's `/docs`. `/console/api-keys` (+ `/rotate`) is the key-management surface already in the typed SDK; `/console/subjects` create is not.
 
 ## Member plane · `/member/*` (auth: Member, Model-A only) → [01](01-authentication.md)
 

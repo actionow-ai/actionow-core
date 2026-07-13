@@ -61,3 +61,53 @@ export const reconciliationReportSchema = z.object({
   }),
 });
 export type ReconciliationReport = z.infer<typeof reconciliationReportSchema>;
+
+// --- 批次5 slice4: 官方渠道日对账比对器 (§9.2 对账降级 · daily half) --------------------
+
+/**
+ * One offering's daily reconciliation row (批次5 官方渠道日对账). `scope`
+ * splits the §9.2 对账降级 decision: `official` offerings are day-compared
+ * against the official price catalog; `relay` (中转渠道) stays monthly-report
+ * scope and is only MARKED here; `unknown` = the supply chain could not be
+ * resolved. Money stays µcredit decimal strings.
+ */
+export const dailyReconcileOfferingRowSchema = z.object({
+  offering_id: z.string(),
+  provider: z.string().nullable(),
+  model: z.string().nullable(),
+  channel_name: z.string().nullable(),
+  scope: z.enum(['official', 'relay', 'unknown']),
+  settle_count: z.number().int().nonnegative(),
+  estimated_count: z.number().int().nonnegative(),
+  cost_missing_count: z.number().int().nonnegative(),
+  /** Sale-side µcredits (Σ across tenants for the day). */
+  sale_credits: z.string(),
+  /** Booked cost-side µcredits (Σ; degraded settles contribute 0). */
+  cost_credits: z.string(),
+  /** Settles that entered the official re-pricing (usage + cost side both present). */
+  compared_settle_count: z.number().int().nonnegative(),
+  /** Booked cost over the compared settles only (the deviation basis). */
+  compared_cost_credits: z.string(),
+  /** Official-baseline recomputation over the compared settles; null = not compared. */
+  expected_cost_credits: z.string().nullable(),
+  /** |booked − expected| / expected × 100; null = not compared. */
+  deviation_pct: z.number().nullable(),
+  /** True when the deviation crossed RECONCILIATION_DEVIATION_PCT and alerted. */
+  alerted: z.boolean(),
+  note: z.string().optional(),
+});
+export type DailyReconcileOfferingRowView = z.infer<typeof dailyReconcileOfferingRowSchema>;
+
+/** The daily official-channel reconciliation report (批次5 slice4). */
+export const dailyReconcileReportSchema = z.object({
+  /** The reconciled UTC day, `YYYY-MM-DD`. */
+  date: z.string(),
+  /** The RECONCILIATION_DEVIATION_PCT threshold in effect (percent). */
+  threshold_pct: z.number(),
+  rows: z.array(dailyReconcileOfferingRowSchema),
+  official_count: z.number().int().nonnegative(),
+  relay_count: z.number().int().nonnegative(),
+  unknown_count: z.number().int().nonnegative(),
+  alerts_count: z.number().int().nonnegative(),
+});
+export type DailyReconcileReport = z.infer<typeof dailyReconcileReportSchema>;

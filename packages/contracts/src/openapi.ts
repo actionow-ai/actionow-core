@@ -139,6 +139,10 @@ import {
   gatewayTaskCreateBodySchema,
   gatewayTaskViewSchema,
 } from './gateway-wire.js';
+import {
+  enableSupplyOfferingResponseSchema,
+  probeSupplyOfferingResponseSchema,
+} from './golden-probe.js';
 import { modelTestRequestSchema, modelTestResultSchema } from './model-test.js';
 import {
   apiKeyViewSchema,
@@ -180,7 +184,14 @@ import {
   proxyViewSchema,
   updateProxySchema,
 } from './proxy.js';
-import { reconciliationReportSchema } from './reconciliation.js';
+import { dailyReconcileReportSchema, reconciliationReportSchema } from './reconciliation.js';
+import {
+  batchCreateSupplyOfferingsResponseSchema,
+  batchCreateSupplyOfferingsSchema,
+  batchProbeEnableSupplyOfferingsResponseSchema,
+  batchProbeEnableSupplyOfferingsSchema,
+  discoverSupplyModelsResponseSchema,
+} from './supply-discovery.js';
 import {
   channelSchema as supplyChannelViewSchema,
   credentialSchema as supplyCredentialViewSchema,
@@ -1985,6 +1996,149 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
       200: {
         description: 'The aggregated reconciliation report',
         content: { 'application/json': { schema: ReconciliationReport } },
+      },
+    },
+  });
+
+  // --- 批次5 slice4: 官方渠道日对账比对器 (§9.2 daily half) — appended AFTER
+  // the monthly-report block (same append-only doc discipline).
+  const DailyReconcileReport = registry.register(
+    'DailyReconcileReportView',
+    dailyReconcileReportSchema,
+  );
+  registry.registerPath({
+    method: 'get',
+    path: '/admin/reconciliation/daily',
+    summary:
+      'Daily official-channel reconciliation: per-offering official-baseline recompute vs booked cost with deviation/alert flags (§9.2 对账降级 — 官方渠道日比对; 中转渠道 stays monthly-report scope)',
+    tags: ['supply'],
+    request: {
+      query: z.object({
+        /** The UTC day to reconcile, YYYY-MM-DD. */
+        date: z.string(),
+        /** Optional explicit threshold override (percent); default = RECONCILIATION_DEVIATION_PCT. */
+        threshold_pct: z.string().optional(),
+      }),
+    },
+    responses: {
+      200: {
+        description: 'The daily reconciliation comparison report',
+        content: { 'application/json': { schema: DailyReconcileReport } },
+      },
+    },
+  });
+
+  // --- 批次5 slice1: golden probe + offering enable 双门 (§10) — appended
+  // AFTER the reconciliation block (same append-only doc discipline).
+  const ProbeSupplyOffering = registry.register(
+    'ProbeSupplyOfferingResponse',
+    probeSupplyOfferingResponseSchema,
+  );
+  const EnableSupplyOffering = registry.register(
+    'EnableSupplyOfferingResponse',
+    enableSupplyOfferingResponseSchema,
+  );
+  registry.registerPath({
+    method: 'post',
+    path: '/admin/supply/offerings/{id}/probe',
+    summary:
+      'Run a golden probe against the offering upstream (real small sample; R5 budget-gated; no status change)',
+    tags: ['supply'],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: {
+        description: 'The probe verdict (completed) or the R5 budget-gate refusal (rejected)',
+        content: { 'application/json': { schema: ProbeSupplyOffering } },
+      },
+    },
+  });
+  registry.registerPath({
+    method: 'post',
+    path: '/admin/supply/offerings/{id}/enable',
+    summary:
+      'Enable an offering through the gate stack (needs_pricing + 3 config-time invariants + golden probe); violations answer structured with enabled: false',
+    tags: ['supply'],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: {
+        description: 'The enable verdict: enabled, or the structured gate violations',
+        content: { 'application/json': { schema: EnableSupplyOffering } },
+      },
+    },
+  });
+
+  // --- 批次5 slice2: 发现与批建 (§10 Major A5) — appended AFTER the slice-1
+  // lifecycle block (same append-only doc discipline).
+  const DiscoverSupplyModels = registry.register(
+    'DiscoverSupplyModelsResponse',
+    discoverSupplyModelsResponseSchema,
+  );
+  const BatchCreateSupplyOfferings = registry.register(
+    'BatchCreateSupplyOfferingsBody',
+    batchCreateSupplyOfferingsSchema,
+  );
+  const BatchCreateSupplyOfferingsResponse = registry.register(
+    'BatchCreateSupplyOfferingsResponse',
+    batchCreateSupplyOfferingsResponseSchema,
+  );
+  const BatchProbeEnableSupplyOfferings = registry.register(
+    'BatchProbeEnableSupplyOfferingsBody',
+    batchProbeEnableSupplyOfferingsSchema,
+  );
+  const BatchProbeEnableSupplyOfferingsResponse = registry.register(
+    'BatchProbeEnableSupplyOfferingsResponse',
+    batchProbeEnableSupplyOfferingsResponseSchema,
+  );
+  registry.registerPath({
+    method: 'post',
+    path: '/admin/supply/channels/{id}/discover',
+    summary:
+      "Discover the channel's upstream models (dialect discovery endpoint or the official catalog by provider slug); flags models already offered on the channel",
+    tags: ['supply'],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: {
+        description: 'The discovered model candidates and which source produced them',
+        content: { 'application/json': { schema: DiscoverSupplyModels } },
+      },
+    },
+  });
+  registry.registerPath({
+    method: 'post',
+    path: '/admin/supply/channels/{id}/offerings/batch',
+    summary:
+      'Batch-create the picked offerings on the channel — ALWAYS draft — minting missing SALE cards from the official catalog (no match → needs_pricing)',
+    tags: ['supply'],
+    request: {
+      params: z.object({ id: z.string() }),
+      body: {
+        content: { 'application/json': { schema: BatchCreateSupplyOfferings } },
+      },
+    },
+    responses: {
+      201: {
+        description: 'The created draft offerings with their per-model pricing outcomes',
+        content: { 'application/json': { schema: BatchCreateSupplyOfferingsResponse } },
+      },
+    },
+  });
+  registry.registerPath({
+    method: 'post',
+    path: '/admin/supply/channels/{id}/offerings/probe-and-enable',
+    summary:
+      "Run the channel's draft/probing offerings (or an explicit id list) through the FULL enable stack one by one; per-offering verdicts with failure reasons",
+    tags: ['supply'],
+    request: {
+      params: z.object({ id: z.string() }),
+      body: {
+        content: { 'application/json': { schema: BatchProbeEnableSupplyOfferings } },
+      },
+    },
+    responses: {
+      200: {
+        description:
+          'Per-offering enable verdicts (violations + probe results) and the enabled count',
+        content: { 'application/json': { schema: BatchProbeEnableSupplyOfferingsResponse } },
       },
     },
   });

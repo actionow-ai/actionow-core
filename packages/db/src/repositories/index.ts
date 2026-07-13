@@ -400,6 +400,9 @@ export {
 export { type ExpiredHold, listExpiredHolds } from './reaper.js';
 export {
   aggregateGatewayReconciliation,
+  type GatewaySettleSampleQuery,
+  type GatewaySettleSampleRow,
+  listGatewaySettleSamples,
   OFFERING_RESOURCE_PREFIX,
   type ReconciliationAggregateRow,
   type ReconciliationQuery,

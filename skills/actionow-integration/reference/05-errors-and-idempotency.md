@@ -1,8 +1,8 @@
 # 05 · Errors & idempotency
 
-## The uniform error envelope
+## The gateway error envelope (task-paradigm + new-gateway routes)
 
-**Every** non-2xx response (control and data plane) has this exact shape:
+**Every** non-2xx response from the task-paradigm endpoints (`/v1/videos|audio/music|tasks`, `GET /v1/tasks*`, `GET /v1/gateway/models`) has this exact shape:
 
 ```json
 {
@@ -10,33 +10,46 @@
     "code": "rate_limited",
     "message": "slow down",
     "retryable": true,
-    "retry_after_ms": 1000
+    "failover": false,
+    "retry_after_ms": 1000,
+    "request_id": "…"
   }
 }
 ```
 
-- `code` — one of the 11 unified codes below.
+- `code` — one of the unified codes below.
 - `message` — human-readable, sanitized (never contains secrets, URLs, or credentials).
 - `retryable` — boolean. **Branch on this, not on the status code.**
-- `retry_after_ms` — present only on `rate_limited` (429) envelopes; `upstream_*` errors never include it (use your own backoff). Note: concurrency-limit 429s carry `retry_after_ms: 0`.
+- `failover` — whether the gateway already tried failing over internally (diagnostic).
+- `retry_after_ms` — present on `rate_limited`; a 429 also carries a `Retry-After` response header (seconds).
+- `request_id` — echo of your `X-Request-Id` (or server-generated); quote it in support requests.
+- `upstream` — optional `{ provider, rawCode? }` context on upstream errors; the raw upstream body is never forwarded.
+- `details` — optional structured context (e.g. which param excluded which supply on `unsupported_parameter`, the offending `idempotencyKey` on `conflict`).
 
-Upstream provider errors are wrapped, not leaked: an `upstream_error` / `upstream_timeout` carries provider context (e.g. the provider name) but the raw upstream body is never forwarded. (That `upstream` context object is emitted on the wire but is **not** part of the typed SDK `ErrorView`, so SDK clients won't see it typed.)
+### The gateway codes
 
-## The 11 codes
+| `code`                  | HTTP | `retryable`  | What it means / what to do                                                                          |
+| ----------------------- | ---- | ------------ | --------------------------------------------------------------------------------------------------- |
+| `invalid_input`         | 400  | false        | Malformed body, bad enum, missing field, zero-match route tag. Fix the request.                     |
+| `unsupported_parameter` | 400  | false        | A param (or its EFFECTIVE default) excluded every candidate supply; `details` names it. Fix params. |
+| `unauthorized`          | 401  | false        | Missing/invalid/disabled key; disabled subject. Task endpoints REQUIRE a real `ak_` key.            |
+| `insufficient_credits`  | 402  | false        | Wallet too low, or a spend/requests/tokens governance cap hit. Top up, then retry.                  |
+| `forbidden`             | 403  | false        | Authenticated but not permitted (e.g. cross-tenant access).                                         |
+| `model_not_found`       | 404  | false        | Unknown model, not visible to your tenant, excluded by your key's allowlist, or fully disabled.     |
+| `task_not_found`        | 404  | false        | No such task (or not yours).                                                                        |
+| `conflict`              | 409  | false        | `Idempotency-Key` reused with a DIFFERENT body, or canceling an already-terminal task.              |
+| `content_filtered`      | 422  | false        | Upstream safety filter rejected the content.                                                        |
+| `rate_limited`          | 429  | true         | RPM/concurrency limit. Back off `retry_after_ms` (also on the `Retry-After` header) and retry.      |
+| `upstream_error`        | 502  | provider-set | Upstream provider errored. **Retry only if `retryable` is true.**                                   |
+| `upstream_timeout`      | 504  | provider-set | Upstream timed out. Usually retryable, but honor the flag.                                          |
+| `task_failed`           | 500  | false        | Task execution failed (see the task's `error`).                                                     |
+| `internal_error`        | 500  | false        | Actionow-side error; never exposes the real cause.                                                  |
 
-| `code`                 | HTTP | `retryable`  | What it means / what to do                                                                        |
-| ---------------------- | ---- | ------------ | ------------------------------------------------------------------------------------------------- |
-| `invalid_input`        | 400  | false        | Malformed body, bad enum, missing field, zero-match route tag. Fix the request.                   |
-| `unauthorized`         | 401  | false        | Missing/invalid/disabled key or JWT; disabled subject; key not allowed for this resource.         |
-| `forbidden`            | 403  | false        | Authenticated but not permitted (e.g. cross-tenant access).                                       |
-| `insufficient_credits` | 402  | false        | Wallet too low, or a spend/requests/tokens governance cap hit. Top up, then retry.                |
-| `resource_not_found`   | 404  | false        | No such resource/job/file (or not yours).                                                         |
-| `content_filtered`     | 422  | false        | Upstream safety filter rejected the content.                                                      |
-| `rate_limited`         | 429  | true         | RPM/concurrency limit. Back off `retry_after_ms` and retry.                                       |
-| `upstream_error`       | 502  | provider-set | Upstream provider errored. **Retry only if `retryable` is true** — it is not fixed for this code. |
-| `upstream_timeout`     | 504  | provider-set | Upstream timed out. Usually retryable, but honor the `retryable` flag.                            |
-| `job_failed`           | 500  | false        | Async job execution failed (see the job's `error`).                                               |
-| `internal_error`       | 500  | false        | Actionow-side error; never exposes the real cause.                                                |
+**Deprecation headers:** a `deprecated` model still serves, but every response carries `Deprecation: true` + `X-Actionow-Model-Deprecated: <model>` — treat these as a migration deadline; after the notice period the model answers `404 model_not_found`.
+
+### The legacy envelope (deprecated `/v1/run` + `/v1/jobs` and untouched relay routes)
+
+The old face keeps its original 11-code envelope (`invalid_input`, `unauthorized`, `forbidden`, `insufficient_credits`, `resource_not_found`, `content_filtered`, `rate_limited`, `upstream_error`, `upstream_timeout`, `job_failed`, `internal_error`) without `failover`/`request_id`. Same discipline applies: branch on `retryable`.
 
 ### Recommended client policy
 
@@ -58,39 +71,35 @@ async function callWithRetry(doCall, { max = 3 } = {}) {
 }
 ```
 
-Branch on the `retryable` **flag**, never on the HTTP status or the code name — `upstream_*` retryability is provider-set, not fixed. Never retry `insufficient_credits` (402) without adding credits, or `invalid_input` (400) without changing the request — they will just fail again. When you do retry a _billed_ POST, pair it with an idempotency guard (below) so the retry can't double-charge.
+Branch on the `retryable` **flag**, never on the HTTP status or the code name — `upstream_*` retryability is provider-set, not fixed. Never retry `insufficient_credits` (402) without adding credits, `invalid_input`/`unsupported_parameter` (400) without changing the request, or `conflict` (409) without a fresh key — they will just fail again. When you do retry a _billed_ POST, pair it with an `Idempotency-Key` (below) so the retry can't double-charge.
 
 ## Streaming error behavior (important, and dialect-specific)
 
 The credit **hold runs before the first SSE byte**, so a **pre-commit failure** (`insufficient_credits`, `invalid_input`, `unauthorized`, `rate_limited`) always comes back as a **real non-2xx HTTP response** with the envelope above — no SSE bytes written. **Always check `res.ok` / `res.status` before consuming any stream.** This holds for every streaming endpoint.
 
-A **post-commit failure** (upstream dies mid-generation) surfaces differently per endpoint — this is a real footgun:
+A **post-commit failure** (upstream dies mid-generation) surfaces differently per endpoint:
 
-| Streaming endpoint                        | Post-commit failure looks like                                                                                                                                                                                                                                                                                                                                    |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /v1/chat/completions` (OpenAI wire) | A terminal `data: {"error": {"message", "type", "param", "code"}}` frame, and the stream ends **without** `data: [DONE]`. The official OpenAI SDKs raise an `APIError` on it; raw consumers should treat a missing `[DONE]` as an abnormal end. `error.code` is the unified code; `error.type` is the OpenAI-style class (`server_error`, `rate_limit_error`, …). |
-| `POST /v1/messages` (Anthropic wire)      | A wire `event: error` frame, payload `{ "type":"error", "error":{ "type", "message" } }` (Anthropic's error `type`, **not** the unified `code`/`retryable`).                                                                                                                                                                                                      |
-| `POST /v1/run/:id` (`exec_mode:stream`)   | A terminal `event: error` frame, payload `{ "kind":"error", "error":{ code, message, retryable } }` (the unified error).                                                                                                                                                                                                                                          |
-| Gemini wire `streamGenerateContent`       | final `data:` chunk with candidate `finishReason` `"OTHER"` and no parts, then close — NO error frame; treat `finishReason` `OTHER` as post-commit failure.                                                                                                                                                                                                       |
+| Streaming endpoint                        | Post-commit failure looks like                                                                                                                                                                                                                  |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /v1/chat/completions` (OpenAI wire) | A terminal `data: {"error": {"message", "type", "param", "code"}}` frame, and the stream ends **without** `data: [DONE]`. The official OpenAI SDKs raise an `APIError` on it; raw consumers should treat a missing `[DONE]` as an abnormal end. |
+| `POST /v1/messages` (Anthropic wire)      | A wire `event: error` frame, payload `{ "type":"error", "error":{ "type", "message" } }` (Anthropic's error `type`).                                                                                                                            |
+| `GET /v1/tasks/:id/stream`                | A terminal `event: error` frame carrying the final Task view (its `error` field holds the unified error) — or, on stream timeout, a bare unified-error payload. A task stream that ends without `done`/`error` was cut — reconnect or poll.     |
+| Gemini wire `streamGenerateContent`       | final `data:` chunk with candidate `finishReason` `"OTHER"` and no parts, then close — NO error frame; treat `finishReason` `OTHER` as post-commit failure.                                                                                     |
 
-The `retryable` field lives **only** on the non-2xx HTTP envelope (pre-commit) and on the `/v1/run` error frame; the OpenAI-wire error frame carries the unified `code` but not the retry hints. `retry_after_ms` appears only on `rate_limited` (429) HTTP envelopes — `upstream_*` errors never include it (use your own backoff); the `/v1/run` error frame spells it `retryAfterMs` and never carries it in practice.
+## Idempotency — the `Idempotency-Key` header
 
-## Idempotency
+Retrying a billed POST safely (e.g. after a network blip) risks a double-charge. On the **task-paradigm creates** (`POST /v1/videos/generations`, `/v1/audio/music`, `/v1/tasks`) the `Idempotency-Key` header is first-class and **body-fingerprinted**:
 
-Retrying a POST safely (e.g. after a network blip) risks a double-charge. There are **two different mechanisms** — pick the right one for the route:
+- **First request** with a key: runs normally; the task/result is recorded under the key.
+- **Replay** (same key + byte-identical body): the recorded task answers — **202 while still running, 200 once terminal** (a Task body either way; nothing re-executes, nothing re-bills). This also covers streams and sync-shaped calls: any keyed create persists a task row as the replay target.
+- **Same key + DIFFERENT body → hard `409 conflict`** (`details.idempotencyKey` names the key). Never a silent replay of the wrong result.
+- Scope: the key string is unique **per tenant** (no per-subject window) — two of your users reusing the same literal key WILL collide; namespace keys per user/operation (e.g. `user42:gen:0193f…`).
 
-**For `/v1/run/:id` (the data-plane job path): use the body field `idempotency_key`.** The engine claims that key and replays the same job instead of running (and charging) twice. This is the mechanism a third-party app actually relies on for billed calls.
+Use a stable UUID per logical operation (per generation request). The SDK's `submitTaskAndWait` takes `{ idempotencyKey }` and sends the header for you.
 
-```jsonc
-POST /v1/run/image-relay
-{ "inputs": { … }, "idempotency_key": "<stable-uuid-per-logical-op>" }
-```
+**Elsewhere:**
 
-**The `Idempotency-Key` HTTP header** is honored in two places. The **relay routes** — chat completions (all dialects), embeddings, rerank, moderations, and audio transcriptions — honor it with **billing-idempotent replay**: on a blocking call, a replayed key returns the original job's result (NOT body-fingerprinted — same key with a different body still replays the original); an in-flight duplicate gets a `429` with `retryable: true`; reusing the key on a **streaming** request gets `400 invalid_input`. It is also honored on the small allowlist of `@Idempotent`-decorated admin mutation POSTs (`/admin/*`; console routes are not decorated). The header is a **no-op** ONLY on `/v1/run` (use the body `idempotency_key`), `/v1/files` / `/v1/jobs`, and the media dialect endpoints. Where the `@Idempotent` cached-replay mechanism applies (the admin allowlist):
-
-- **First request** with a key: runs normally; the response is cached under `(METHOD, path, key)`.
-- **Replay** (same key, same route, same body): the cached `{status, body}` is returned verbatim — the handler does not re-run.
-- **Reused key with a _different_ body** → `400 invalid_input` ("Idempotency-Key reused with a different request body").
-- Replay is **best-effort** (store failures / concurrent-duplicate races are swallowed) and responses over 64 KiB are not cached — don't treat it as a hard exactly-once guarantee.
-
-Use a stable UUID per logical operation (per user message, per generation request). Secret-minting endpoints (creating API keys, secrets) intentionally do **not** cache — never assume a key-creation POST is idempotent.
+- The **relay routes** (chat completions in all dialects, embeddings, rerank, moderations, audio transcriptions) honor the header with billing-idempotent replay of the original result. Historically NOT body-fingerprinted there — never reuse a key with a different body anywhere.
+- The small allowlist of `@Idempotent`-decorated **admin** POSTs replays cached responses; reuse with a different body → `400`.
+- The header is a **no-op** on `/v1/files`, and on the deprecated `/v1/run` (which reads a body `idempotency_key` field instead — legacy semantics, see [03](03-media-tasks-and-files.md#the-deprecated-legacy-face-v1run--v1jobs)).
+- Secret-minting endpoints (API keys, secrets) intentionally never cache — never assume a key-creation POST is idempotent.

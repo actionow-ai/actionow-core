@@ -10546,6 +10546,1279 @@
           "rows",
           "totals"
         ]
+      },
+      "DailyReconcileReportView": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "threshold_pct": {
+            "type": "number"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "offering_id": {
+                  "type": "string"
+                },
+                "provider": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "model": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "channel_name": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "official",
+                    "relay",
+                    "unknown"
+                  ]
+                },
+                "settle_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "estimated_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "cost_missing_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "sale_credits": {
+                  "type": "string"
+                },
+                "cost_credits": {
+                  "type": "string"
+                },
+                "compared_settle_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "compared_cost_credits": {
+                  "type": "string"
+                },
+                "expected_cost_credits": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "deviation_pct": {
+                  "type": "number",
+                  "nullable": true
+                },
+                "alerted": {
+                  "type": "boolean"
+                },
+                "note": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "offering_id",
+                "provider",
+                "model",
+                "channel_name",
+                "scope",
+                "settle_count",
+                "estimated_count",
+                "cost_missing_count",
+                "sale_credits",
+                "cost_credits",
+                "compared_settle_count",
+                "compared_cost_credits",
+                "expected_cost_credits",
+                "deviation_pct",
+                "alerted"
+              ]
+            }
+          },
+          "official_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "relay_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unknown_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "alerts_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "date",
+          "threshold_pct",
+          "rows",
+          "official_count",
+          "relay_count",
+          "unknown_count",
+          "alerts_count"
+        ]
+      },
+      "ProbeSupplyOfferingResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "completed"
+                ]
+              },
+              "result": {
+                "type": "object",
+                "properties": {
+                  "offering_id": {
+                    "type": "string"
+                  },
+                  "operation": {
+                    "type": "string",
+                    "enum": [
+                      "chat.completions",
+                      "embeddings",
+                      "rerank",
+                      "moderations",
+                      "images.generation",
+                      "images.edit",
+                      "video.generation",
+                      "music.generation",
+                      "tts",
+                      "asr"
+                    ]
+                  },
+                  "connectivity": {
+                    "type": "object",
+                    "properties": {
+                      "ok": {
+                        "type": "boolean"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "code": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "ok",
+                      "message"
+                    ]
+                  },
+                  "functional": {
+                    "type": "object",
+                    "properties": {
+                      "ok": {
+                        "type": "boolean"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "code": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "ok",
+                      "message"
+                    ]
+                  },
+                  "sample": {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string"
+                      },
+                      "url": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "elapsed_ms": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "offering_id",
+                  "operation",
+                  "connectivity",
+                  "functional",
+                  "elapsed_ms"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "result"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "rejected"
+                ]
+              },
+              "rejection": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "budget_exceeded",
+                      "min_interval"
+                    ]
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "retry_after_seconds": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "reason",
+                  "message"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "rejection"
+            ]
+          }
+        ]
+      },
+      "EnableSupplyOfferingResponse": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "offering_status": {
+            "type": "string"
+          },
+          "violations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "gate": {
+                  "type": "string",
+                  "enum": [
+                    "needs_pricing",
+                    "operator_subset",
+                    "default_in_domain",
+                    "billing_translation_tier",
+                    "golden_probe"
+                  ]
+                },
+                "param": {
+                  "type": "string"
+                },
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "chat.completions",
+                    "embeddings",
+                    "rerank",
+                    "moderations",
+                    "images.generation",
+                    "images.edit",
+                    "video.generation",
+                    "music.generation",
+                    "tts",
+                    "asr"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "gate",
+                "message"
+              ]
+            }
+          },
+          "probe": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "completed"
+                    ]
+                  },
+                  "result": {
+                    "type": "object",
+                    "properties": {
+                      "offering_id": {
+                        "type": "string"
+                      },
+                      "operation": {
+                        "type": "string",
+                        "enum": [
+                          "chat.completions",
+                          "embeddings",
+                          "rerank",
+                          "moderations",
+                          "images.generation",
+                          "images.edit",
+                          "video.generation",
+                          "music.generation",
+                          "tts",
+                          "asr"
+                        ]
+                      },
+                      "connectivity": {
+                        "type": "object",
+                        "properties": {
+                          "ok": {
+                            "type": "boolean"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "ok",
+                          "message"
+                        ]
+                      },
+                      "functional": {
+                        "type": "object",
+                        "properties": {
+                          "ok": {
+                            "type": "boolean"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "ok",
+                          "message"
+                        ]
+                      },
+                      "sample": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "elapsed_ms": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "offering_id",
+                      "operation",
+                      "connectivity",
+                      "functional",
+                      "elapsed_ms"
+                    ]
+                  }
+                },
+                "required": [
+                  "status",
+                  "result"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "rejected"
+                    ]
+                  },
+                  "rejection": {
+                    "type": "object",
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "enum": [
+                          "budget_exceeded",
+                          "min_interval"
+                        ]
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "retry_after_seconds": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "reason",
+                      "message"
+                    ]
+                  }
+                },
+                "required": [
+                  "status",
+                  "rejection"
+                ]
+              }
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "offering_status",
+          "violations"
+        ]
+      },
+      "DiscoverSupplyModelsResponse": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "dialect_discovery",
+              "catalog"
+            ]
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "upstream_model_name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "display_name": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "dialect_discovery",
+                    "catalog"
+                  ]
+                },
+                "exists_as_offering": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "upstream_model_name",
+                "source",
+                "exists_as_offering"
+              ]
+            }
+          }
+        },
+        "required": [
+          "source",
+          "models"
+        ]
+      },
+      "BatchCreateSupplyOfferingsBody": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "upstream_model_name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "model_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "new_model": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "display_name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "modality": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "operations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "operation": {
+                            "type": "string",
+                            "enum": [
+                              "chat.completions",
+                              "embeddings",
+                              "rerank",
+                              "moderations",
+                              "images.generation",
+                              "images.edit",
+                              "video.generation",
+                              "music.generation",
+                              "tts",
+                              "asr"
+                            ]
+                          },
+                          "paradigms": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "sync",
+                                "stream",
+                                "task",
+                                "realtime"
+                              ]
+                            },
+                            "minItems": 1
+                          },
+                          "slow": {
+                            "type": "boolean",
+                            "default": false
+                          },
+                          "params": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "float",
+                                    "int",
+                                    "boolean",
+                                    "string",
+                                    "enum",
+                                    "json",
+                                    "file",
+                                    "media"
+                                  ]
+                                },
+                                "billingRelevant": {
+                                  "type": "boolean",
+                                  "default": false
+                                },
+                                "required": {
+                                  "type": "boolean",
+                                  "default": false
+                                },
+                                "default": {
+                                  "nullable": true
+                                },
+                                "values": {
+                                  "type": "array",
+                                  "items": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "number"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "min": {
+                                  "type": "number"
+                                },
+                                "max": {
+                                  "type": "number"
+                                },
+                                "mediaKinds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "image",
+                                      "audio",
+                                      "video"
+                                    ]
+                                  }
+                                },
+                                "constraint": {
+                                  "type": "object",
+                                  "properties": {
+                                    "mimeTypes": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "maxSizeBytes": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "exclusiveMinimum": true
+                                    },
+                                    "maxDurationSeconds": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "exclusiveMinimum": true
+                                    },
+                                    "minWidth": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "exclusiveMinimum": true
+                                    },
+                                    "maxWidth": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "exclusiveMinimum": true
+                                    },
+                                    "minHeight": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "exclusiveMinimum": true
+                                    },
+                                    "maxHeight": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "exclusiveMinimum": true
+                                    }
+                                  }
+                                },
+                                "multiple": {
+                                  "type": "boolean"
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "help": {
+                                  "type": "string"
+                                },
+                                "widget": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "type"
+                              ]
+                            },
+                            "default": []
+                          }
+                        },
+                        "required": [
+                          "operation",
+                          "paradigms"
+                        ]
+                      },
+                      "minItems": 1
+                    }
+                  },
+                  "required": [
+                    "name"
+                  ]
+                }
+              },
+              "required": [
+                "upstream_model_name"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 100
+          },
+          "fetch_profile": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "direct",
+                  "stream",
+                  "submit_poll",
+                  "submit_callback"
+                ]
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "BatchCreateSupplyOfferingsResponse": {
+        "type": "object",
+        "properties": {
+          "offerings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "offering": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "model_id": {
+                      "type": "string"
+                    },
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "probing",
+                        "enabled",
+                        "disabled"
+                      ]
+                    },
+                    "upstream_model_name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "fetch_profile": {
+                      "type": "object",
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "direct",
+                            "stream",
+                            "submit_poll",
+                            "submit_callback"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "mode"
+                      ]
+                    },
+                    "timeout_budget_seconds": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "param_declarations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "param": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "operation": {
+                            "type": "string",
+                            "enum": [
+                              "chat.completions",
+                              "embeddings",
+                              "rerank",
+                              "moderations",
+                              "images.generation",
+                              "images.edit",
+                              "video.generation",
+                              "music.generation",
+                              "tts",
+                              "asr"
+                            ]
+                          },
+                          "origin": {
+                            "type": "string",
+                            "enum": [
+                              "upstream",
+                              "operator"
+                            ],
+                            "default": "upstream"
+                          },
+                          "rule": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "supports"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "domain"
+                                    ]
+                                  },
+                                  "values": {
+                                    "type": "array",
+                                    "items": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "min": {
+                                    "type": "number"
+                                  },
+                                  "max": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "map"
+                                    ]
+                                  },
+                                  "upstreamName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "nullable": true
+                                    }
+                                  },
+                                  "scale": {
+                                    "type": "number"
+                                  },
+                                  "offset": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "fixed"
+                                    ]
+                                  },
+                                  "value": {
+                                    "nullable": true
+                                  },
+                                  "upstreamValue": {
+                                    "nullable": true
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "unsupported"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "param",
+                          "rule"
+                        ]
+                      },
+                      "default": []
+                    },
+                    "cost_price_card_id": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "max_concurrency": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "weight": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "default": 1
+                    },
+                    "tier": {
+                      "type": "integer",
+                      "default": 0
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "model_id",
+                    "channel_id",
+                    "status",
+                    "upstream_model_name",
+                    "fetch_profile",
+                    "timeout_budget_seconds",
+                    "cost_price_card_id",
+                    "max_concurrency",
+                    "created_at",
+                    "updated_at"
+                  ]
+                },
+                "model_id": {
+                  "type": "string"
+                },
+                "upstream_model_name": {
+                  "type": "string"
+                },
+                "pricing": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "existing",
+                        "minted",
+                        "needs_pricing"
+                      ]
+                    },
+                    "price_card_id": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                }
+              },
+              "required": [
+                "offering",
+                "model_id",
+                "upstream_model_name",
+                "pricing"
+              ]
+            }
+          },
+          "needs_pricing_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "offerings",
+          "needs_pricing_count"
+        ]
+      },
+      "BatchProbeEnableSupplyOfferingsBody": {
+        "type": "object",
+        "properties": {
+          "offering_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        }
+      },
+      "BatchProbeEnableSupplyOfferingsResponse": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "offering_id": {
+                  "type": "string"
+                },
+                "upstream_model_name": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "offering_status": {
+                  "type": "string"
+                },
+                "violations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "gate": {
+                        "type": "string",
+                        "enum": [
+                          "needs_pricing",
+                          "operator_subset",
+                          "default_in_domain",
+                          "billing_translation_tier",
+                          "golden_probe"
+                        ]
+                      },
+                      "param": {
+                        "type": "string"
+                      },
+                      "operation": {
+                        "type": "string",
+                        "enum": [
+                          "chat.completions",
+                          "embeddings",
+                          "rerank",
+                          "moderations",
+                          "images.generation",
+                          "images.edit",
+                          "video.generation",
+                          "music.generation",
+                          "tts",
+                          "asr"
+                        ]
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "gate",
+                      "message"
+                    ]
+                  }
+                },
+                "probe": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "completed"
+                          ]
+                        },
+                        "result": {
+                          "type": "object",
+                          "properties": {
+                            "offering_id": {
+                              "type": "string"
+                            },
+                            "operation": {
+                              "type": "string",
+                              "enum": [
+                                "chat.completions",
+                                "embeddings",
+                                "rerank",
+                                "moderations",
+                                "images.generation",
+                                "images.edit",
+                                "video.generation",
+                                "music.generation",
+                                "tts",
+                                "asr"
+                              ]
+                            },
+                            "connectivity": {
+                              "type": "object",
+                              "properties": {
+                                "ok": {
+                                  "type": "boolean"
+                                },
+                                "message": {
+                                  "type": "string"
+                                },
+                                "code": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "ok",
+                                "message"
+                              ]
+                            },
+                            "functional": {
+                              "type": "object",
+                              "properties": {
+                                "ok": {
+                                  "type": "boolean"
+                                },
+                                "message": {
+                                  "type": "string"
+                                },
+                                "code": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "ok",
+                                "message"
+                              ]
+                            },
+                            "sample": {
+                              "type": "object",
+                              "properties": {
+                                "text": {
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "elapsed_ms": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "offering_id",
+                            "operation",
+                            "connectivity",
+                            "functional",
+                            "elapsed_ms"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "result"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "rejected"
+                          ]
+                        },
+                        "rejection": {
+                          "type": "object",
+                          "properties": {
+                            "reason": {
+                              "type": "string",
+                              "enum": [
+                                "budget_exceeded",
+                                "min_interval"
+                              ]
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retry_after_seconds": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "reason",
+                            "message"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "rejection"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "offering_id",
+                "upstream_model_name",
+                "enabled",
+                "offering_status",
+                "violations"
+              ]
+            }
+          },
+          "enabled_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "results",
+          "enabled_count"
+        ]
       }
     },
     "parameters": {}
@@ -27845,6 +29118,512 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ReconciliationReportView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/reconciliation/daily": {
+      "get": {
+        "summary": "Daily official-channel reconciliation: per-offering official-baseline recompute vs booked cost with deviation/alert flags (§9.2 对账降级 — 官方渠道日比对; 中转渠道 stays monthly-report scope)",
+        "tags": [
+          "supply"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "threshold_pct",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The daily reconciliation comparison report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyReconcileReportView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/supply/offerings/{id}/probe": {
+      "post": {
+        "summary": "Run a golden probe against the offering upstream (real small sample; R5 budget-gated; no status change)",
+        "tags": [
+          "supply"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The probe verdict (completed) or the R5 budget-gate refusal (rejected)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProbeSupplyOfferingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/supply/offerings/{id}/enable": {
+      "post": {
+        "summary": "Enable an offering through the gate stack (needs_pricing + 3 config-time invariants + golden probe); violations answer structured with enabled: false",
+        "tags": [
+          "supply"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The enable verdict: enabled, or the structured gate violations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnableSupplyOfferingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/supply/channels/{id}/discover": {
+      "post": {
+        "summary": "Discover the channel's upstream models (dialect discovery endpoint or the official catalog by provider slug); flags models already offered on the channel",
+        "tags": [
+          "supply"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The discovered model candidates and which source produced them",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverSupplyModelsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/supply/channels/{id}/offerings/batch": {
+      "post": {
+        "summary": "Batch-create the picked offerings on the channel — ALWAYS draft — minting missing SALE cards from the official catalog (no match → needs_pricing)",
+        "tags": [
+          "supply"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchCreateSupplyOfferingsBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created draft offerings with their per-model pricing outcomes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCreateSupplyOfferingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/supply/channels/{id}/offerings/probe-and-enable": {
+      "post": {
+        "summary": "Run the channel's draft/probing offerings (or an explicit id list) through the FULL enable stack one by one; per-offering verdicts with failure reasons",
+        "tags": [
+          "supply"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchProbeEnableSupplyOfferingsBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Per-offering enable verdicts (violations + probe results) and the enabled count",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchProbeEnableSupplyOfferingsResponse"
                 }
               }
             }

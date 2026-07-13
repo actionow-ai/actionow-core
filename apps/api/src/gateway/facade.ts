@@ -179,15 +179,16 @@ function optionsOf(
 
 // --- canonical type/domain validation ------------------------------------------------
 
-type CheckResult = { ok: true } | { ok: false; error: GatewayError };
+export type CheckResult = { ok: true } | { ok: false; error: GatewayError };
 
 /**
  * Validate one EXPLICIT wire value against the CANONICAL contract (name is the
  * caller's own — the resource-style wire vocabulary IS the canonical snake_case
- * vocabulary; alias mapping belongs to the chat/OpenAI dialect facades, slice6).
- * `multiple: true` accepts an array of items, each item-validated.
+ * vocabulary; alias mapping belongs to the chat/OpenAI dialect facade,
+ * chat-facade.ts, which REUSES this validator). `multiple: true` accepts an
+ * array of items, each item-validated.
  */
-function checkCanonical(param: CanonicalParam, raw: unknown): CheckResult {
+export function checkCanonical(param: CanonicalParam, raw: unknown): CheckResult {
   if (param.multiple === true) {
     if (!Array.isArray(raw)) {
       return invalid(`parameter '${param.name}' expects an array`, { param: param.name });

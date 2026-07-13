@@ -5,8 +5,12 @@
 // The OLD-WORLD execution-service/relay hot paths are untouched — the two
 // worlds coexist; this is the new one's single seam.
 export * from './dialect-resolve.js';
+export * from './discover.js';
+export * from './enable-gate.js';
 export * from './execute.js';
+export * from './golden-probe.js';
 export * from './persist.js';
+export * from './reconcile-daily.js';
 export * from './settle-task.js';
 export * from './task-recovery.js';
 export * from './task-view.js';

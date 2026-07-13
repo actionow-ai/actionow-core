@@ -33,6 +33,16 @@ const DEFAULT_ARTIFACT_RETENTION_DAYS = 30;
  */
 const DEFAULT_RECONCILIATION_DEVIATION_PCT = 5;
 
+/**
+ * R5 探测预算 code defaults (批次5 slice1 golden probe): the daily USD budget
+ * for PLATFORM-FUNDED probes (BYOK probes ride the tenant's own key and are
+ * not counted) and the per-offering minimum probe interval. 5 USD/day bounds
+ * a runaway batch-probe loop at roughly 25 media probes or hundreds of chat
+ * pings; 60 s stops per-offering hammering of a real upstream.
+ */
+const DEFAULT_PROBE_DAILY_BUDGET_USD = 5;
+const DEFAULT_PROBE_MIN_INTERVAL_SEC = 60;
+
 /** One dynamic-config setting: how to validate an override value + derive the env/code default. */
 export interface SettingDef<T> {
   /** Validates an admin/DB-supplied value; a bad value is rejected (write) or ignored (read). */
@@ -97,6 +107,20 @@ export const SETTINGS_REGISTRY = {
     type: 'number',
     description:
       '对账偏差告警阈值（百分比）：官方渠道按日自动对账时，usage 计算成本与上游账单口径偏差超过该值即告警（批次5 对账自动化消费；月度报表不受其影响，缺省 5）',
+  }),
+  PROBE_DAILY_BUDGET_USD: def({
+    schema: z.number().positive(),
+    default: (e: AppEnv) => e.PROBE_DAILY_BUDGET_USD ?? DEFAULT_PROBE_DAILY_BUDGET_USD,
+    type: 'number',
+    description:
+      'golden probe 平台日预算（USD）：真上游探测按估算成本计入，当日预算耗尽即拒绝新探测（budget_exceeded）；仅计平台自营渠道，BYOK 渠道用租户自己的 key 不计入（缺省 5）',
+  }),
+  PROBE_MIN_INTERVAL_SEC: def({
+    schema: z.number().int().nonnegative(),
+    default: (e: AppEnv) => e.PROBE_MIN_INTERVAL_SEC ?? DEFAULT_PROBE_MIN_INTERVAL_SEC,
+    type: 'number',
+    description:
+      'golden probe 单供给项最小探测间隔（秒）：间隔未到即拒绝（min_interval），防止对真上游高频锤击；0 = 不限（缺省 60）',
   }),
   GATEWAY_V2_DEFAULT: def({
     schema: z.boolean(),

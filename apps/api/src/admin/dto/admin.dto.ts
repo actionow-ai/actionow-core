@@ -1,5 +1,7 @@
 import {
   addGroupChannelSchema,
+  batchCreateSupplyOfferingsSchema,
+  batchProbeEnableSupplyOfferingsSchema,
   bulkChannelActionSchema,
   bulkModelActionSchema,
   bulkOAuthSessionActionSchema,
@@ -100,6 +102,8 @@ import { z } from 'zod';
 // --- Request-body schemas (single source of truth in @actionow/contracts) ---
 export {
   addGroupChannelSchema,
+  batchCreateSupplyOfferingsSchema,
+  batchProbeEnableSupplyOfferingsSchema,
   bulkChannelActionSchema,
   bulkModelActionSchema,
   bulkOAuthSessionActionSchema,
@@ -262,6 +266,12 @@ export type UpdateSupplyOfferingDto = z.infer<typeof updateSupplyOfferingSchema>
 export type CreateSupplyPriceCardDto = z.infer<typeof createSupplyPriceCardSchema>;
 export type CreateSupplyPriceCardVersionDto = z.infer<typeof createSupplyPriceCardVersionSchema>;
 export type UpdateApiKeyModelAllowlistDto = z.infer<typeof updateApiKeyModelAllowlistSchema>;
+// 批次5 slice2: 发现与批建 (supply-discovery.ts) — consumed by
+// supply.controller / supply-onboarding.service.
+export type BatchCreateSupplyOfferingsDto = z.infer<typeof batchCreateSupplyOfferingsSchema>;
+export type BatchProbeEnableSupplyOfferingsDto = z.infer<
+  typeof batchProbeEnableSupplyOfferingsSchema
+>;
 
 // --- Query schemas (GET; `z.coerce`/query-params — no body twin, stay local) -
 

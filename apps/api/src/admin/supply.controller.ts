@@ -1,8 +1,12 @@
 import {
+  type BatchCreateSupplyOfferingsResponse,
+  type BatchProbeEnableSupplyOfferingsResponse,
   type Channel as SupplyChannelView,
   channelSchema as supplyChannelViewSchema,
   type Credential as SupplyCredentialView,
   credentialSchema as supplyCredentialViewSchema,
+  type DiscoverSupplyModelsResponse,
+  type EnableSupplyOfferingResponse,
   type Model as SupplyModelView,
   type ModelGrantView,
   modelGrantViewSchema,
@@ -11,6 +15,7 @@ import {
   offeringSchema as supplyOfferingViewSchema,
   type PriceCard as SupplyPriceCardView,
   priceCardSchema as supplyPriceCardViewSchema,
+  type ProbeSupplyOfferingResponse,
   type Provider as SupplyProviderView,
   providerSchema as supplyProviderViewSchema,
 } from '@actionow/contracts';
@@ -47,6 +52,10 @@ import { ZodBody } from '../common/zod.pipe.js';
 import { AdminGuard } from './auth/admin.guard.js';
 import { Roles } from './auth/roles.decorator.js';
 import {
+  type BatchCreateSupplyOfferingsDto,
+  batchCreateSupplyOfferingsSchema,
+  type BatchProbeEnableSupplyOfferingsDto,
+  batchProbeEnableSupplyOfferingsSchema,
   type CreateSupplyChannelDto,
   createSupplyChannelSchema,
   type CreateSupplyCredentialDto,
@@ -78,7 +87,9 @@ import {
   type UpdateSupplyProviderDto,
   updateSupplyProviderSchema,
 } from './dto/admin.dto.js';
+import { OfferingLifecycleService } from './offering-lifecycle.service.js';
 import { SupplyAdminService } from './supply.service.js';
+import { SupplyOnboardingService } from './supply-onboarding.service.js';
 
 /**
  * Admin CRUD for the NEW-WORLD supply skeleton (model-supply greenfield 批次1,
@@ -98,7 +109,11 @@ import { SupplyAdminService } from './supply.service.js';
 @UseInterceptors(AuditInterceptor)
 @Controller('admin')
 export class SupplyAdminController {
-  constructor(private readonly supply: SupplyAdminService) {}
+  constructor(
+    private readonly supply: SupplyAdminService,
+    private readonly lifecycle: OfferingLifecycleService,
+    private readonly onboarding: SupplyOnboardingService,
+  ) {}
 
   // ----- providers (厂商) -----
 
@@ -227,6 +242,81 @@ export class SupplyAdminController {
   })
   async deleteSupplyChannel(@Param('id') id: string): Promise<void> {
     await this.supply.deleteChannel(id);
+  }
+
+  // ----- channel onboarding (批次5 slice2: 发现 → 批建 draft → 批探测 enable, §10) -----
+
+  @Post('supply/channels/:id/discover')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      "Discover the channel's upstream models (dialect discovery endpoint when the DSL pack declares one, else the official catalog by provider slug); flags models already offered on the channel",
+  })
+  @Audit({
+    action: 'supply_channel.discover',
+    target: 'supply_channel',
+    resolve: ({ params, result }) => {
+      const r = result as { source?: string; models?: unknown[] };
+      return {
+        targetId: params.id ?? null,
+        meta: { source: r.source, count: r.models?.length },
+      };
+    },
+  })
+  async discoverSupplyChannelModels(
+    @Param('id') id: string,
+  ): Promise<DiscoverSupplyModelsResponse> {
+    return this.onboarding.discoverChannelModels(id);
+  }
+
+  @Post('supply/channels/:id/offerings/batch')
+  @HttpCode(201)
+  @Idempotent()
+  @ApiOperation({
+    summary:
+      'Batch-create the picked offerings on the channel — ALWAYS draft (enable only via the gate stack) — minting each un-priced model’s SALE card from the official catalog (no match → needs_pricing, never 0-priced)',
+  })
+  @Audit({
+    action: 'supply_offering.batch_create',
+    target: 'supply_channel',
+    resolve: ({ params, result }) => {
+      const r = result as { offerings?: unknown[]; needs_pricing_count?: number };
+      return {
+        targetId: params.id ?? null,
+        meta: { created: r.offerings?.length, needs_pricing: r.needs_pricing_count },
+      };
+    },
+  })
+  async batchCreateSupplyOfferings(
+    @Param('id') id: string,
+    @Body(new ZodBody(batchCreateSupplyOfferingsSchema)) dto: BatchCreateSupplyOfferingsDto,
+  ): Promise<BatchCreateSupplyOfferingsResponse> {
+    return this.onboarding.batchCreateOfferings(id, dto);
+  }
+
+  @Post('supply/channels/:id/offerings/probe-and-enable')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      "Run the channel's draft/probing offerings (or an explicit id list) through the FULL enable stack one by one — config gates + golden probe; per-offering verdicts with failure reasons; the shared R5 probe budget paces the batch",
+  })
+  @Audit({
+    action: 'supply_offering.batch_probe_enable',
+    target: 'supply_channel',
+    resolve: ({ params, result }) => {
+      const r = result as { results?: unknown[]; enabled_count?: number };
+      return {
+        targetId: params.id ?? null,
+        meta: { probed: r.results?.length, enabled: r.enabled_count },
+      };
+    },
+  })
+  async batchProbeEnableSupplyOfferings(
+    @Param('id') id: string,
+    @Body(new ZodBody(batchProbeEnableSupplyOfferingsSchema))
+    dto: BatchProbeEnableSupplyOfferingsDto,
+  ): Promise<BatchProbeEnableSupplyOfferingsResponse> {
+    return this.onboarding.batchProbeAndEnable(id, dto);
   }
 
   // ----- credentials (凭证 — response ALWAYS redacted) -----
@@ -510,6 +600,47 @@ export class SupplyAdminController {
     @Body(new ZodBody(updateSupplyOfferingSchema)) dto: UpdateSupplyOfferingDto,
   ): Promise<SupplyOfferingView> {
     return toSupplyOfferingView(await this.supply.updateOffering(id, dto));
+  }
+
+  // ----- offering lifecycle (批次5 slice1: golden probe + enable 双门) -----
+
+  @Post('supply/offerings/:id/probe')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      'Run a golden probe against the offering upstream (real small sample; R5 budget-gated; no status change)',
+  })
+  @Audit({
+    action: 'supply_offering.probe',
+    target: 'supply_offering',
+    resolve: ({ params, result }) => {
+      const r = result as { status?: string };
+      return { targetId: params.id ?? null, meta: { status: r.status } };
+    },
+  })
+  async probeSupplyOffering(@Param('id') id: string): Promise<ProbeSupplyOfferingResponse> {
+    return this.lifecycle.probeOffering(id);
+  }
+
+  @Post('supply/offerings/:id/enable')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      'Enable an offering through the gate stack (needs_pricing + 3 config-time invariants + golden probe); violations answer structured, not enabled',
+  })
+  @Audit({
+    action: 'supply_offering.enable',
+    target: 'supply_offering',
+    resolve: ({ params, result }) => {
+      const r = result as { enabled?: boolean; offering_status?: string };
+      return {
+        targetId: params.id ?? null,
+        meta: { enabled: r.enabled, status: r.offering_status },
+      };
+    },
+  })
+  async enableSupplyOffering(@Param('id') id: string): Promise<EnableSupplyOfferingResponse> {
+    return this.lifecycle.enableOffering(id);
   }
 
   @Delete('supply/offerings/:id')

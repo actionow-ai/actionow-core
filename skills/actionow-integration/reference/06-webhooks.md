@@ -1,62 +1,68 @@
-# 06 · Webhooks (async job callbacks)
+# 06 · Webhooks (task event callbacks)
 
-The push alternative to polling: submit a run with a `callback_url`, and Actionow POSTs a signed **ping** to it when the job finishes. This is the **outbound** gateway→your-app delivery (distinct from the inbound provider ingress `POST /v1/callbacks/:provider`, which _you never implement_).
+The push alternative to polling: create a task with a `callback_url`, and Actionow POSTs **signed event envelopes** to it as the task progresses and finishes. This is the **outbound** gateway→your-app delivery (distinct from the inbound provider ingress `POST /v1/gateway/callbacks/:offeringId`, which _you never implement_).
 
-## Submitting for a callback
+## Subscribing
 
 ```jsonc
-POST /v1/run/:resourceId
-{ "inputs": { … }, "exec_mode": "async-callback", "callback_url": "https://you.example/webhooks/actionow" }
-// → 202 { job_id, status:"queued" }
+POST /v1/tasks   (or /v1/videos/generations, /v1/audio/music)
+{ "type": "video.generation", "model": "seedance-pro", "prompt": "…",
+  "callback_url": "https://you.example/webhooks/actionow-tasks" }
+// → 202 { id, object:"task", status:"pending", … }
 ```
 
-Persist the returned `job_id` against your app's request row so the incoming webhook can be correlated back to the user.
+Persist the returned task `id` against your app's request row; incoming envelopes also carry the full task so correlation is one lookup.
 
-> **`callback_url` must be a publicly-reachable `http(s)` URL.** An egress guard rejects private / loopback / link-local / reserved addresses (`http://localhost`, `127.0.0.1`, `10.x`, `192.168.x`, …) and non-`http(s)` schemes, and **dead-letters the delivery immediately** — so a webhook to a local dev server silently never arrives. For local testing, expose your receiver through a tunnel (ngrok, Cloudflare Tunnel, etc.). If you or your platform team operate the gateway, you can instead set `WEBHOOK_ALLOW_PRIVATE_TARGETS=true` on the worker to allow localhost/private callback targets in dev — tunnels are only required against a gateway you don't control.
+> **`callback_url` must be a publicly-reachable `http(s)` URL.** An egress guard rejects private / loopback / link-local / reserved addresses (`http://localhost`, `127.0.0.1`, `10.x`, `192.168.x`, …) and non-`http(s)` schemes — a webhook to a local dev server silently never arrives. For local testing, expose your receiver through a tunnel (ngrok, Cloudflare Tunnel, etc.), or have the gateway operator allow private targets in dev.
 
-> **Webhooks fire for _any_ run that carries `callback_url`** — async-poll and even blocking/stream runs — not just `exec_mode: "async-callback"`. Deliveries are sent with `Content-Type: application/json` and carry no identifying header besides `X-Actionow-Signature`.
+## What the delivery contains — the event envelope
 
-## What the delivery actually contains (read this)
+Unlike the legacy job ping, a task webhook delivers the **FULL Task object** inside a typed envelope:
 
-The delivered body is **minimal** — it is a _"job N reached a terminal state"_ ping, **not** the job result:
+```jsonc
+{
+  "evt_id": "…",                 // DETERMINISTIC per logical event — your dedupe key
+  "event_type": "task.succeeded", // task.running | task.progress | task.succeeded | task.failed | task.canceled
+  "created_at": "2026-07-13T09:00:00.000Z",
+  "task": { "id": "…", "object": "task", "status": "succeeded", "output": {…}, "usage": {…}, … }
+}
+```
 
-| Outcome              | Body                                                           |
-| -------------------- | -------------------------------------------------------------- |
-| Success              | `{ "job_id": "<uuid>" }`                                       |
-| Failure              | `{ "job_id": "<uuid>", "error": { … } }`                       |
-| Hold-expiry / reaped | `{ "job_id": "<uuid>", "status": "canceled", "error": { … } }` |
+Headers on every delivery:
 
-There is **no** `status` / `output` / `usage` / `cost` on the success body. Distinguish success from failure by the **presence of an `error` key**. To get the result, **fetch the job**: `GET /v1/jobs/:job_id` with your data-plane `ak_…` key → the full `{ status, output, usage, cost, … }`, then resolve any `output` `file_id` via `GET /v1/files/:id/url`.
+- `X-Actionow-Event: <event_type>` — routing convenience.
+- `X-Actionow-Signature: t=<unix seconds>,v1=<hex>` — the **timestamped** HMAC (below).
+- `Content-Type: application/json`.
 
-Header on every delivery: `X-Actionow-Signature: <lowercase hex>` = `HMAC-SHA256(secret, rawBody)`. On a `2xx` from you the delivery is marked `sent`; on non-2xx / timeout it is retried with exponential backoff — **5 total attempts by default** (~1s / 2s / 4s / 8s between them) — then dead-lettered **permanently** (there is no replay API; dead-lettering does **not** affect billing — the job already settled). Sweep for missed jobs via `GET /v1/jobs` as a backstop.
+Terminal events (`task.succeeded` / `task.failed` / `task.canceled`) carry the final output/usage/error in `task` — usually no follow-up fetch is needed; `GET /v1/tasks/:id` remains the authoritative read if you want one.
 
-## Verifying — over the RAW bytes
+## Verifying — timestamped HMAC over the RAW bytes
 
-The #1 mistake is verifying a re-serialized body. HMAC is over the **exact bytes** Actionow sent; `JSON.parse` + `JSON.stringify` reorders/reformats and the signature won't match. Read the raw body, verify, _then_ parse.
+The signature scheme is `v1 = HMAC-SHA256(secret, "<t>.<rawBody>")` where `t` is the unix-seconds timestamp from the header. Verify over the **exact bytes** received (never `JSON.parse`-then-restringify), check `t` against a replay window (default tolerance ±300 s — each retry attempt is re-signed fresh, so a tight window is safe), and compare digests constant-time.
+
+The signing **secret is tenant-level configuration** on the core side (ask your platform operator to set your tenant's webhook secret; it is NOT passed per request). No secret configured → deliveries arrive **unsigned** (no header) — decide deliberately whether to accept that; for anything that mutates state or money, **fail closed**.
 
 ### With `@actionow/sdk`
 
 ```js
 import express from 'express';
-import { verifyWebhookSignature } from '@actionow/sdk/webhook'; // WEBHOOK_SIGNATURE_HEADER === 'X-Actionow-Signature'
+import { verifyTaskWebhookSignature } from '@actionow/sdk/webhook';
 
-app.post('/webhooks/actionow', express.raw({ type: 'application/json' }), async (req, res) => {
-  const result = verifyWebhookSignature(
+app.post('/webhooks/actionow-tasks', express.raw({ type: 'application/json' }), (req, res) => {
+  const result = verifyTaskWebhookSignature(
     req.body, // Buffer — the raw bytes, NOT parsed
     req.header('X-Actionow-Signature'),
     process.env.ACTIONOW_WEBHOOK_SECRET,
   );
-  if (!result.valid) return res.status(401).json({ error: result.reason }); // 'missing-signature' | 'invalid-signature'
+  if (!result.valid) return res.status(401).json({ error: result.reason });
+  // reasons: 'missing-signature' | 'malformed-signature' | 'stale-timestamp' | 'invalid-signature'
 
-  const ping = JSON.parse(req.body.toString('utf8')); // { job_id, error? }
+  const evt = JSON.parse(req.body.toString('utf8')); // { evt_id, event_type, created_at, task }
   res.sendStatus(200); // ack FAST (2xx), do the rest out of band
 
-  // correlate + fetch the real result
-  if (ping.error) return markFailed(ping.job_id, ping.error);
-  const job = await fetch(`${BASE}/v1/jobs/${ping.job_id}`, {
-    headers: { authorization: `Bearer ${AK}` },
-  }).then((r) => r.json());
-  // job.status / job.output / job.cost.credits (µcredit string) — resolve file_ids via /v1/files/:id/url
+  if (alreadyProcessed(evt.evt_id)) return; // retries reuse the SAME evt_id — dedupe here
+  if (evt.event_type === 'task.succeeded') deliverToUser(evt.task.output);
+  else if (evt.event_type === 'task.failed') markFailed(evt.task.id, evt.task.error);
 });
 ```
 
@@ -64,27 +70,30 @@ app.post('/webhooks/actionow', express.raw({ type: 'application/json' }), async 
 
 ```js
 import crypto from 'node:crypto';
-function verify(rawBody, header, secret) {
+function verify(rawBody, header, secret, toleranceSec = 300) {
+  const m = /^t=(\d+),v1=([0-9a-f]+)$/.exec(String(header ?? '').trim());
   if (!header) return { valid: false, reason: 'missing-signature' };
-  const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
-  const a = Buffer.from(expected),
-    b = Buffer.from(String(header));
+  if (!m) return { valid: false, reason: 'malformed-signature' };
+  const ts = Number(m[1]);
+  if (Math.abs(Date.now() / 1000 - ts) > toleranceSec)
+    return { valid: false, reason: 'stale-timestamp' };
+  const expected = crypto.createHmac('sha256', secret).update(`${ts}.${rawBody}`).digest('hex');
+  const a = Buffer.from(m[2]),
+    b = Buffer.from(expected);
   const ok = a.length === b.length && crypto.timingSafeEqual(a, b);
-  return ok ? { valid: true } : { valid: false, reason: 'invalid-signature' };
+  return ok ? { valid: true, timestamp: ts } : { valid: false, reason: 'invalid-signature' };
 }
 ```
 
 Standalone verifier + a tiny raw-body receiver you can run: [scripts/verify-webhook.mjs](../scripts/verify-webhook.mjs).
 
-## Failing closed
+## Delivery & retry semantics to design around
 
-The signing secret is resolved per webhook URL on the Actionow side. If it can't resolve one, the delivery is sent **unsigned** (no header) — which surfaces distinctly as `missing-signature`. Decide deliberately whether to accept unsigned deliveries; for anything that mutates state or money, **fail closed** (reject `missing-signature`).
+- On a `2xx` from you the delivery is marked delivered; on non-2xx / timeout it retries on a **fixed five-slot backoff ladder — 5s / 30s / 2m / 10m / 1h** — then dead-letters permanently (no replay API; dead-lettering does **not** affect billing — the task already settled). Sweep `GET /v1/tasks?status=succeeded` as a backstop.
+- Deliveries can arrive **more than once** and out of order — the SAME logical event always carries the SAME `evt_id`; make your handler idempotent on it, and treat a terminal event as final even if a late `task.progress` arrives afterwards.
+- Return `2xx` fast; do slow work (downloading artifacts, notifying users) out of band so a slow handler doesn't consume retry budget.
+- **Canceling via `POST /v1/tasks/:id/cancel` DOES emit a `task.canceled` envelope** (the terminal transition is engine-side).
 
-How the gateway provisions the secret: the worker resolves it as `SECRET_<callback-url, non-alphanumerics → _, upper-cased>` from its environment (or a credential row). Without that entry on the gateway side, pings are delivered unsigned.
+## Legacy job webhooks (deprecated `/v1/run` face)
 
-## Semantics to design around
-
-- Deliveries can arrive **more than once** (retries) — make your handler idempotent on `job_id`.
-- There is currently **no timestamp** on the outbound signature, so there's no built-in replay window; rely on `job_id` idempotency. (The separate inbound `POST /v1/callbacks/:provider` ingress _does_ use a timestamp window, but that path is provider→gateway and never something your app builds.)
-- Return `2xx` fast; do slow work (fetching the job, downloading a `file_id`, notifying the user) out of band so Actionow doesn't retry a delivery you actually received.
-- **Canceling a job yourself (`POST /v1/jobs/:id/cancel`) does NOT produce a webhook.** Only engine-side terminal transitions (settle, fail, hold-expiry reap) deliver — reconcile externally-canceled jobs via `GET /v1/jobs/:id`.
+The old face's deliveries are different in every way that matters: a minimal ping body (`{ job_id }`, plus `error`/`status` on failure — NOT the result), signed with a **body-only** HMAC (no timestamp) in the same `X-Actionow-Signature` header, secret resolved per-URL from the gateway environment. Verify those with `verifyWebhookSignature` (not `verifyTaskWebhookSignature`) and fetch `GET /v1/jobs/:id` for the result. This path disappears with the migration window — plan its removal.

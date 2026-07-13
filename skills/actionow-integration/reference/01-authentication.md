@@ -59,22 +59,23 @@ Runnable end-to-end: [scripts/onboard-subject.mjs](../scripts/onboard-subject.mj
 
 ## Tenant-level vs subject-scoped keys
 
-|                    | `subjectId = null` (tenant key)                                        | `subjectId = <uuid>` (subject key)                |
-| ------------------ | ---------------------------------------------------------------------- | ------------------------------------------------- |
-| Charged wallet     | Tenant pool                                                            | Subject's sub-wallet (falls back to pool if none) |
-| Attribution        | Whole tenant                                                           | One end-user                                      |
-| Serving many users | Yes — pass `end_user: <externalId>` per call on `/v1/run` to tag usage | N/A — already scoped                              |
+|                    | `subjectId = null` (tenant key)                                                        | `subjectId = <uuid>` (subject key)                |
+| ------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Charged wallet     | Tenant pool                                                                            | Subject's sub-wallet (falls back to pool if none) |
+| Attribution        | Whole tenant                                                                           | One end-user                                      |
+| Serving many users | Only on the deprecated `/v1/run` (its `end_user` body field); NOT on the task paradigm | N/A — already scoped                              |
 
-**`end_user` is your own user handle (the subject's `external_id`), NOT the subject UUID.** On `/v1/run`, Actionow resolves `end_user` by `external_id`. Auto-creation of unknown handles happens **only if your tenant's `jit_provisioning_enabled` config is true** (off by default — ask your platform operator); otherwise an unknown `end_user` is a hard `400 invalid_input`. When JIT is off, pre-create users via `POST /console/subjects` before their first `/v1/run` call. With JIT on, passing a subject UUID would mis-attribute spend to a bogus new subject. On a **subject-scoped** key, omit `end_user` (already scoped). If you do pass one, the `401` fires only when the handle resolves to a **different existing** subject — a handle matching no subject is silently ignored (the call attributes to the key's own subject), so don't rely on the `401` to catch typos.
+**On the task-paradigm endpoints (`/v1/tasks` family) attribution rides the KEY** — there is no `end_user` field; a per-user subject-scoped `ak_` is the ONLY per-user attribution mechanism. The legacy `end_user: <external_id>` body field exists only on the deprecated `POST /v1/run/:resourceId` (it resolves the subject by `external_id`; auto-creation of unknown handles requires the tenant's `jit_provisioning_enabled` config, off by default — otherwise unknown handles are a hard `400`). Do not carry `end_user` into new integrations.
 
-**Recommendation:** one subject-scoped key per end-user, so spend, governance limits, and job/file ownership all attribute to that subject automatically.
+**Recommendation:** one subject-scoped key per end-user, so spend, governance limits, and task/file ownership all attribute to that subject automatically.
 
 ### Key scoping options (on the mint call)
 
 `POST /console/api-keys` accepts only `{ subjectId?, resourceAllowlist?, rateLimit? }`:
 
-- `resourceAllowlist`: restrict the key to specific resource ids (empty = all). A call to a disallowed `/v1/run/:resourceId` → `401 unauthorized`.
-- `rateLimit`: an RPM cap — but it is applied per **(tenant, resource)**: the Redis minute-window is **shared across all your keys** hitting the same resource, and the key's value just overrides the cap on that shared bucket. For genuinely per-user throttling, bind an `rpm` limit-rule plan to the **subject** (see [04-billing-and-limits.md](04-billing-and-limits.md)).
+- `resourceAllowlist`: restricts the key on the **deprecated** `/v1/run` face only (resource ids; empty = all). A disallowed `/v1/run/:resourceId` → `401 unauthorized`.
+- **Model allowlist (new gateway):** the task-paradigm/new-gateway face checks a separate per-key **model** whitelist (`[]` = allow all models; an excluded model answers `404 model_not_found`, indistinguishable from a missing one). It is currently managed on the platform-operator plane (`PATCH /admin/api-keys/:id/model-allowlist`) — ask your operator to scope a key, and read your effective set via `GET /v1/gateway/models` (already intersected).
+- `rateLimit`: an RPM cap override for this key. For genuinely per-user throttling, bind an `rpm` limit-rule plan to the **subject** (see [04-billing-and-limits.md](04-billing-and-limits.md)).
 
 Governance plans are **not** bound on the key here — bind them to the **subject** via `POST /console/subjects/:id/limit-plan { planId }` (see [04-billing-and-limits.md](04-billing-and-limits.md)).
 

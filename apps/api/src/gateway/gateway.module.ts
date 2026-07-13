@@ -31,6 +31,7 @@ import { Module } from '@nestjs/common';
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { DB, ENV } from '../common/tokens.js';
 import { SettingsService } from '../settings/settings.service.js';
+import { GatewayChatV2Service } from './chat-v2.service.js';
 import { GatewayCreateController } from './create.controller.js';
 import { GatewayService } from './gateway.service.js';
 import { GATEWAY_DIALECTS, GATEWAY_HTTP, GATEWAY_PERSIST } from './gateway.tokens.js';
@@ -101,6 +102,7 @@ const persistProvider: Provider = {
   ],
   providers: [
     GatewayService,
+    GatewayChatV2Service,
     GatewayTasksService,
     GatewayTaskStreamService,
     GatewayCallbacksService,
@@ -109,6 +111,10 @@ const persistProvider: Provider = {
     httpProvider,
     persistProvider,
   ],
+  // 切换预案③ (批次5 slice3): the ChatModule's legacy OpenAI controllers
+  // branch to GatewayChatV2Service at their entry line when the 预案② flag
+  // says a tenant rides the new gateway (双面并存 — no other coupling).
+  exports: [GatewayChatV2Service],
 })
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- NestJS modules are decorated empty classes
 export class GatewayModule {}

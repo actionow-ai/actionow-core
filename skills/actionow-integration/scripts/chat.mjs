@@ -42,6 +42,9 @@ if (!stream) {
 }
 
 // --- streaming: parse SSE frames, print each delta, stop on [DONE] ---
+// Contract: a clean stream ends with `data: [DONE]`. A post-commit failure is a
+// terminal `data: {"error":{…}}` frame and the stream ends WITHOUT [DONE] —
+// treat any missing [DONE] as an abnormal end, not a complete response.
 const decoder = new TextDecoder();
 let buffer = '';
 for await (const chunk of res.body) {
@@ -57,9 +60,15 @@ for await (const chunk of res.body) {
       if (data === '[DONE]') { process.stdout.write('\n'); process.exit(0); }
       try {
         const obj = JSON.parse(data);
+        if (obj.error) {
+          console.error(`\nstream failed: ${obj.error.code ?? obj.error.type ?? '?'}: ${obj.error.message ?? ''}`);
+          process.exit(1);
+        }
         process.stdout.write(obj.choices?.[0]?.delta?.content ?? '');
       } catch { /* keep-alive / non-JSON frame */ }
     }
   }
 }
-process.stdout.write('\n');
+// The iterator drained without [DONE] — abnormal end.
+console.error('\nstream ended without data: [DONE] — treat as failed');
+process.exit(1);

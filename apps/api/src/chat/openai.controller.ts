@@ -8,6 +8,7 @@ import { AuthService } from '../auth/auth.service.js';
 import { GovernanceGuard } from '../auth/governance.guard.js';
 import { idempotencyKeyHeader } from '../common/idempotency.interceptor.js';
 import { routeTagHeader } from '../common/route-tag.js';
+import { GatewayChatV2Service } from '../gateway/chat-v2.service.js';
 import { ChatRelayService } from './chat-relay.service.js';
 import { pipeSse } from './sse.js';
 
@@ -18,6 +19,11 @@ import { pipeSse } from './sse.js';
  * OpenAI dialect (`chat.completion` JSON, or `chat.completion.chunk` SSE ending
  * `data: [DONE]`). The hold runs inside `chatStream` BEFORE any SSE byte, so
  * insufficient_credits/invalid_input surface as real HTTP errors.
+ *
+ * 切换预案③ (批次5 slice3, 双面并存): the ONE branch below routes a
+ * gray-released tenant (预案② `isV2Tenant`) through the NEW supply gateway
+ * ({@link GatewayChatV2Service}) end to end; every other tenant rides the
+ * untouched legacy relay path. The two worlds never bridge.
  */
 @ApiTags('v1')
 @ApiBearerAuth('api-key')
@@ -27,6 +33,7 @@ export class OpenAIChatController {
   constructor(
     private readonly relay: ChatRelayService,
     private readonly auth: AuthService,
+    private readonly gatewayV2: GatewayChatV2Service,
   ) {}
 
   @Post('completions')
@@ -37,6 +44,9 @@ export class OpenAIChatController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<Record<string, unknown> | undefined> {
     const ctx = this.auth.resolve(req);
+    if (await this.gatewayV2.isV2Tenant(ctx.tenantId)) {
+      return this.gatewayV2.completions(body, req, res);
+    }
     const ir = parseOpenAIChat(body);
     const idem = idempotencyKeyHeader(req);
     const routeTag = routeTagHeader(req);

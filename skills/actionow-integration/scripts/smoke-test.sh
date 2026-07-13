@@ -3,8 +3,12 @@
 # Run this BEFORE writing app code, and again whenever a call misbehaves.
 #
 # Required env:  ACTIONOW_BASE_URL, ACTIONOW_API_KEY
-# Optional env:  ACTIONOW_MODEL   (default: first model from /v1/models)
-#                RESOURCE_ID      (if set, also submits a run and polls the job)
+# Optional env:  ACTIONOW_MODEL   (default: first model from /v1/gateway/models)
+#                TASK_TYPE + TASK_MODEL + TASK_PARAMS
+#                                 (if set, also creates a task via POST /v1/tasks
+#                                  and polls GET /v1/tasks/:id to terminal, e.g.
+#                                  TASK_TYPE=video.generation TASK_MODEL=seedance-pro
+#                                  TASK_PARAMS='{"prompt":"a red bicycle"}')
 #
 # Usage:  ACTIONOW_MODEL=gpt-4o ./smoke-test.sh
 set -euo pipefail
@@ -16,8 +20,8 @@ AUTH=(-H "authorization: Bearer ${KEY}")
 JSON=(-H "content-type: application/json")
 has_jq() { command -v jq >/dev/null 2>&1; }
 
-pass() { printf '  \033[32m✓\033[0m %s\n' "$1"; }
-fail() { printf '  \033[31m✗\033[0m %s\n' "$1"; exit 1; }
+pass() { printf '  \033[32m+\033[0m %s\n' "$1"; }
+fail() { printf '  \033[31mx\033[0m %s\n' "$1"; exit 1; }
 
 # GET/POST helper that echoes the HTTP status and captures the body to $BODY.
 req() { # req METHOD PATH [curl-args...]
@@ -40,16 +44,16 @@ case "$STATUS" in
   *)   fail "GET /readyz → ${STATUS}" ;;
 esac
 
-# 3. auth + model discovery
-req GET /v1/models "${AUTH[@]}"
-[ "$STATUS" = "200" ] || fail "GET /v1/models → ${STATUS} ${BODY}  (key invalid/disabled?)"
+# 3. auth + NEW discovery face (visibility ∩ key allowlist + param contracts)
+req GET /v1/gateway/models "${AUTH[@]}"
+[ "$STATUS" = "200" ] || fail "GET /v1/gateway/models → ${STATUS} ${BODY}  (key invalid/disabled?)"
 if has_jq; then
   MODEL="${ACTIONOW_MODEL:-$(printf '%s' "$BODY" | jq -r '.data[0].id // empty')}"
   COUNT="$(printf '%s' "$BODY" | jq -r '.data | length')"
-  pass "GET /v1/models → 200 (${COUNT} model(s) visible)"
+  pass "GET /v1/gateway/models → 200 (${COUNT} model(s) usable)"
 else
   MODEL="${ACTIONOW_MODEL:-}"
-  pass "GET /v1/models → 200 (install jq to auto-pick a model)"
+  pass "GET /v1/gateway/models → 200 (install jq to auto-pick a model)"
 fi
 [ -n "${MODEL}" ] || fail "no model available — set ACTIONOW_MODEL"
 
@@ -65,20 +69,24 @@ else
   else fail "chat → ${STATUS} ${BODY}"; fi
 fi
 
-# 5. optional: run a resource and poll the job to terminal
-if [ -n "${RESOURCE_ID:-}" ]; then
-  req POST "/v1/run/${RESOURCE_ID}" "${AUTH[@]}" "${JSON[@]}" \
-    -d '{"inputs":{"prompt":"a red bicycle"},"exec_mode":"async-poll"}'
-  [ "$STATUS" = "200" ] || [ "$STATUS" = "202" ] || fail "run → ${STATUS} ${BODY}"
-  JOB="$(has_jq && printf '%s' "$BODY" | jq -r '.job_id' || echo '')"
-  pass "POST /v1/run/${RESOURCE_ID} → ${STATUS} (job ${JOB:-?})"
-  if [ -n "$JOB" ]; then
-    for _ in $(seq 1 40); do
-      sleep 1.5; req GET "/v1/jobs/${JOB}" "${AUTH[@]}"
+# 5. optional: create a task (POST /v1/tasks) and poll it to terminal
+if [ -n "${TASK_TYPE:-}" ] && [ -n "${TASK_MODEL:-}" ]; then
+  PARAMS="${TASK_PARAMS:-{\}}"
+  req POST /v1/tasks "${AUTH[@]}" "${JSON[@]}" \
+    -d "$(printf '{"type":"%s","model":"%s"}' "$TASK_TYPE" "$TASK_MODEL" | jq -c --argjson p "$PARAMS" '. + $p')"
+  [ "$STATUS" = "200" ] || [ "$STATUS" = "202" ] || fail "task create → ${STATUS} ${BODY}"
+  OBJ="$(has_jq && printf '%s' "$BODY" | jq -r '.object // empty' || echo '')"
+  if [ "$OBJ" != "task" ]; then
+    pass "POST /v1/tasks → ${STATUS} sync result (fast model answered inline)"
+  else
+    TASK_ID="$(printf '%s' "$BODY" | jq -r '.id')"
+    pass "POST /v1/tasks → ${STATUS} (task ${TASK_ID})"
+    for _ in $(seq 1 60); do
+      sleep 2; req GET "/v1/tasks/${TASK_ID}" "${AUTH[@]}"
       ST="$(printf '%s' "$BODY" | jq -r '.status')"
       case "$ST" in
-        succeeded) pass "job ${JOB} → succeeded"; break ;;
-        failed|canceled) fail "job ${JOB} → ${ST}: $(printf '%s' "$BODY" | jq -c '.error')" ;;
+        succeeded) pass "task ${TASK_ID} → succeeded"; break ;;
+        failed|canceled|expired) fail "task ${TASK_ID} → ${ST}: $(printf '%s' "$BODY" | jq -c '.error')" ;;
       esac
     done
   fi

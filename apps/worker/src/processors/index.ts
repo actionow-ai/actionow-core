@@ -6,6 +6,7 @@ export {
   type JobExecData,
   type JobExecProcessor,
 } from './job-exec.processor.js';
+export { createReconcileDailyProcessor } from './reconcile-daily.processor.js';
 export { createRelayTraceReaperProcessor } from './relay-trace-reaper.processor.js';
 export { createTaskEventsReaperProcessor } from './task-events-reaper.processor.js';
 export { createTaskPollProcessor } from './task-poll.processor.js';

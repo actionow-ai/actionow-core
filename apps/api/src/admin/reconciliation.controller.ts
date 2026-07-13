@@ -7,24 +7,34 @@
 // card's independent computation stamped at settle) and the gross margin.
 //
 // Usage: 中转渠道 monthly report = GET ?from=2026-07-01&to=2026-08-01 (人工
-// 核对); the day granularity of the rows is ALSO the feed the 批次5 官方渠道
-// daily auto-reconciliation comparer consumes (threshold: dynamic-config key
-// RECONCILIATION_DEVIATION_PCT). Read-only — no @Audit (no state change), no
-// idempotency (GET).
-import type { ReconciliationReport, ReconciliationRow } from '@actionow/contracts';
+// 核对); 官方渠道日比对 = GET /admin/reconciliation/daily?date=YYYY-MM-DD
+// (批次5 slice4 — the engine reconcileDaily comparer, threshold from
+// dynamic-config key RECONCILIATION_DEVIATION_PCT via SettingsService).
+// Read-only — no @Audit (no state change), no idempotency (GET).
+import type {
+  DailyReconcileOfferingRowView,
+  DailyReconcileReport,
+  ReconciliationReport,
+  ReconciliationRow,
+} from '@actionow/contracts';
 import type { Database, ReconciliationAggregateRow } from '@actionow/db';
 import { aggregateGatewayReconciliation } from '@actionow/db';
-import { Controller, Get, Inject, Query, UseGuards } from '@nestjs/common';
+import { DomainError } from '@actionow/domain';
+import type { DailyReconcileResult } from '@actionow/engine';
+import { reconcileDaily } from '@actionow/engine';
+import { Controller, Get, Inject, Optional, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { engineInvalidInput } from '../common/errors.js';
 import { DB } from '../common/tokens.js';
+import { SettingsService } from '../settings/settings.service.js';
 import { AdminGuard } from './auth/admin.guard.js';
 import { Roles } from './auth/roles.decorator.js';
 
 /** The db read this controller performs, injectable for unit tests. */
 export interface ReconciliationQueries {
   aggregateGatewayReconciliation: typeof aggregateGatewayReconciliation;
+  reconcileDaily: typeof reconcileDaily;
 }
 
 @ApiTags('admin')
@@ -33,9 +43,17 @@ export interface ReconciliationQueries {
 @Roles('admin')
 @Controller('admin')
 export class ReconciliationController {
-  private readonly queries: ReconciliationQueries = { aggregateGatewayReconciliation };
+  private readonly queries: ReconciliationQueries = {
+    aggregateGatewayReconciliation,
+    reconcileDaily,
+  };
 
-  constructor(@Inject(DB) private readonly db: Database) {}
+  constructor(
+    @Inject(DB) private readonly db: Database,
+    // 动态配置 threshold read (@Optional: partial test modules fall back to the
+    // engine default — the global SettingsModule provides it in production).
+    @Optional() private readonly settings?: SettingsService,
+  ) {}
 
   @Get('reconciliation/report')
   @ApiOperation({
@@ -58,6 +76,43 @@ export class ReconciliationController {
       tenantId,
     });
     return renderReport(from, to, rows);
+  }
+
+  @Get('reconciliation/daily')
+  @ApiOperation({
+    summary:
+      'Daily official-channel reconciliation (§9.2 批次5): official-baseline recompute vs booked cost per offering, with deviation/alert flags; 中转渠道 stays monthly-report scope',
+  })
+  async daily(
+    @Query('date') dateRaw?: string,
+    @Query('threshold_pct') thresholdRaw?: string,
+  ): Promise<DailyReconcileReport> {
+    if (dateRaw === undefined || dateRaw.length === 0) {
+      throw engineInvalidInput("query parameter 'date' is required (YYYY-MM-DD)");
+    }
+    let thresholdPct: number | undefined;
+    if (thresholdRaw !== undefined && thresholdRaw.length > 0) {
+      thresholdPct = Number(thresholdRaw);
+      if (!Number.isFinite(thresholdPct) || thresholdPct <= 0) {
+        throw engineInvalidInput(
+          `query parameter 'threshold_pct' must be a positive number: '${thresholdRaw}'`,
+        );
+      }
+    }
+    try {
+      const result = await this.queries.reconcileDaily(
+        { db: this.db, settings: this.settings },
+        { date: dateRaw, thresholdPct },
+      );
+      return renderDailyReport(result);
+    } catch (err) {
+      // The engine rejects malformed / non-existent calendar days with a
+      // DomainError('invalid_input') — surface it as the admin 400 envelope.
+      if (err instanceof DomainError && err.code === 'invalid_input') {
+        throw engineInvalidInput(err.message);
+      }
+      throw err;
+    }
   }
 }
 
@@ -118,5 +173,36 @@ export function renderReport(
       cost_side_credits: cost.toString(),
       gross_margin_credits: (sale - cost).toString(),
     },
+  };
+}
+
+/** Engine daily result → the wire report (µcredit strings). Exported for the unit test. */
+export function renderDailyReport(result: DailyReconcileResult): DailyReconcileReport {
+  const rows: DailyReconcileOfferingRowView[] = result.perOffering.map((r) => ({
+    offering_id: r.offeringId,
+    provider: r.providerSlug,
+    model: r.modelName,
+    channel_name: r.channelName,
+    scope: r.scope,
+    settle_count: r.settleCount,
+    estimated_count: r.estimatedCount,
+    cost_missing_count: r.costMissingCount,
+    sale_credits: r.saleCredits.toString(),
+    cost_credits: r.costCredits.toString(),
+    compared_settle_count: r.comparedSettleCount,
+    compared_cost_credits: r.comparedCostCredits.toString(),
+    expected_cost_credits: r.expectedCostCredits?.toString() ?? null,
+    deviation_pct: r.deviationPct,
+    alerted: r.alerted,
+    ...(r.note !== undefined ? { note: r.note } : {}),
+  }));
+  return {
+    date: result.date,
+    threshold_pct: result.thresholdPct,
+    rows,
+    official_count: result.officialCount,
+    relay_count: result.relayCount,
+    unknown_count: result.unknownCount,
+    alerts_count: result.alertsCount,
   };
 }

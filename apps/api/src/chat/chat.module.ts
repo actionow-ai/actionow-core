@@ -5,6 +5,7 @@ import { AuthService } from '../auth/auth.service.js';
 import { GovernanceGuard } from '../auth/governance.guard.js';
 import { ChannelRoutingService } from '../common/channel-routing.service.js';
 import { SecretResolver } from '../common/secret-resolver.js';
+import { GatewayModule } from '../gateway/gateway.module.js';
 import { AnthropicChatController } from './anthropic.controller.js';
 import { ChatRelayService } from './chat-relay.service.js';
 import { EmbedRelayService } from './embed-relay.service.js';
@@ -38,6 +39,10 @@ import { TranscriptionsController } from './transcriptions.controller.js';
  * Tests override {@link MODEL_RESOLVER} with a fake; production uses the real binding.
  */
 @Module({
+  // 切换预案③ (批次5 slice3): OpenAIChatController/EmbeddingsController branch
+  // per tenant to the exported GatewayChatV2Service at their ENTRY line (双面
+  // 并存 — the legacy relay path below is otherwise untouched).
+  imports: [GatewayModule],
   controllers: [
     OpenAIChatController,
     AnthropicChatController,

@@ -15702,6 +15702,513 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/reconciliation/daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daily official-channel reconciliation: per-offering official-baseline recompute vs booked cost with deviation/alert flags (§9.2 对账降级 — 官方渠道日比对; 中转渠道 stays monthly-report scope) */
+        get: {
+            parameters: {
+                query: {
+                    date: string;
+                    threshold_pct?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The daily reconciliation comparison report */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DailyReconcileReportView"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/supply/offerings/{id}/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run a golden probe against the offering upstream (real small sample; R5 budget-gated; no status change) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The probe verdict (completed) or the R5 budget-gate refusal (rejected) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProbeSupplyOfferingResponse"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/supply/offerings/{id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enable an offering through the gate stack (needs_pricing + 3 config-time invariants + golden probe); violations answer structured with enabled: false */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The enable verdict: enabled, or the structured gate violations */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EnableSupplyOfferingResponse"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/supply/channels/{id}/discover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discover the channel's upstream models (dialect discovery endpoint or the official catalog by provider slug); flags models already offered on the channel */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The discovered model candidates and which source produced them */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DiscoverSupplyModelsResponse"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/supply/channels/{id}/offerings/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Batch-create the picked offerings on the channel — ALWAYS draft — minting missing SALE cards from the official catalog (no match → needs_pricing) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["BatchCreateSupplyOfferingsBody"];
+                };
+            };
+            responses: {
+                /** @description The created draft offerings with their per-model pricing outcomes */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BatchCreateSupplyOfferingsResponse"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/supply/channels/{id}/offerings/probe-and-enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run the channel's draft/probing offerings (or an explicit id list) through the FULL enable stack one by one; per-offering verdicts with failure reasons */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["BatchProbeEnableSupplyOfferingsBody"];
+                };
+            };
+            responses: {
+                /** @description Per-offering enable verdicts (violations + probe results) and the enabled count */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BatchProbeEnableSupplyOfferingsResponse"];
+                    };
+                };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorView"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -18287,6 +18794,298 @@ export interface components {
                 cost_side_credits: string;
                 gross_margin_credits: string;
             };
+        };
+        DailyReconcileReportView: {
+            date: string;
+            threshold_pct: number;
+            rows: {
+                offering_id: string;
+                provider: string | null;
+                model: string | null;
+                channel_name: string | null;
+                /** @enum {string} */
+                scope: "official" | "relay" | "unknown";
+                settle_count: number;
+                estimated_count: number;
+                cost_missing_count: number;
+                sale_credits: string;
+                cost_credits: string;
+                compared_settle_count: number;
+                compared_cost_credits: string;
+                expected_cost_credits: string | null;
+                deviation_pct: number | null;
+                alerted: boolean;
+                note?: string;
+            }[];
+            official_count: number;
+            relay_count: number;
+            unknown_count: number;
+            alerts_count: number;
+        };
+        ProbeSupplyOfferingResponse: {
+            /** @enum {string} */
+            status: "completed";
+            result: {
+                offering_id: string;
+                /** @enum {string} */
+                operation: "chat.completions" | "embeddings" | "rerank" | "moderations" | "images.generation" | "images.edit" | "video.generation" | "music.generation" | "tts" | "asr";
+                connectivity: {
+                    ok: boolean;
+                    message: string;
+                    code?: string;
+                };
+                functional: {
+                    ok: boolean;
+                    message: string;
+                    code?: string;
+                };
+                sample?: {
+                    text?: string;
+                    url?: string;
+                };
+                elapsed_ms: number;
+            };
+        } | {
+            /** @enum {string} */
+            status: "rejected";
+            rejection: {
+                /** @enum {string} */
+                reason: "budget_exceeded" | "min_interval";
+                message: string;
+                retry_after_seconds?: number;
+            };
+        };
+        EnableSupplyOfferingResponse: {
+            enabled: boolean;
+            offering_status: string;
+            violations: {
+                /** @enum {string} */
+                gate: "needs_pricing" | "operator_subset" | "default_in_domain" | "billing_translation_tier" | "golden_probe";
+                param?: string;
+                /** @enum {string} */
+                operation?: "chat.completions" | "embeddings" | "rerank" | "moderations" | "images.generation" | "images.edit" | "video.generation" | "music.generation" | "tts" | "asr";
+                message: string;
+            }[];
+            probe?: {
+                /** @enum {string} */
+                status: "completed";
+                result: {
+                    offering_id: string;
+                    /** @enum {string} */
+                    operation: "chat.completions" | "embeddings" | "rerank" | "moderations" | "images.generation" | "images.edit" | "video.generation" | "music.generation" | "tts" | "asr";
+                    connectivity: {
+                        ok: boolean;
+                        message: string;
+                        code?: string;
+                    };
+                    functional: {
+                        ok: boolean;
+                        message: string;
+                        code?: string;
+                    };
+                    sample?: {
+                        text?: string;
+                        url?: string;
+                    };
+                    elapsed_ms: number;
+                };
+            } | {
+                /** @enum {string} */
+                status: "rejected";
+                rejection: {
+                    /** @enum {string} */
+                    reason: "budget_exceeded" | "min_interval";
+                    message: string;
+                    retry_after_seconds?: number;
+                };
+            };
+        };
+        DiscoverSupplyModelsResponse: {
+            /** @enum {string} */
+            source: "dialect_discovery" | "catalog";
+            models: {
+                upstream_model_name: string;
+                display_name?: string;
+                /** @enum {string} */
+                source: "dialect_discovery" | "catalog";
+                exists_as_offering: boolean;
+            }[];
+        };
+        BatchCreateSupplyOfferingsBody: {
+            items: {
+                upstream_model_name: string;
+                /** Format: uuid */
+                model_id?: string;
+                new_model?: {
+                    name: string;
+                    display_name?: string;
+                    modality?: string;
+                    operations?: {
+                        /** @enum {string} */
+                        operation: "chat.completions" | "embeddings" | "rerank" | "moderations" | "images.generation" | "images.edit" | "video.generation" | "music.generation" | "tts" | "asr";
+                        paradigms: ("sync" | "stream" | "task" | "realtime")[];
+                        /** @default false */
+                        slow: boolean;
+                        /** @default [] */
+                        params: {
+                            name: string;
+                            /** @enum {string} */
+                            type: "float" | "int" | "boolean" | "string" | "enum" | "json" | "file" | "media";
+                            /** @default false */
+                            billingRelevant: boolean;
+                            /** @default false */
+                            required: boolean;
+                            default?: unknown;
+                            values?: (string | number)[];
+                            min?: number;
+                            max?: number;
+                            mediaKinds?: ("image" | "audio" | "video")[];
+                            constraint?: {
+                                mimeTypes?: string[];
+                                maxSizeBytes?: number;
+                                maxDurationSeconds?: number;
+                                minWidth?: number;
+                                maxWidth?: number;
+                                minHeight?: number;
+                                maxHeight?: number;
+                            };
+                            multiple?: boolean;
+                            label?: string;
+                            help?: string;
+                            widget?: string;
+                        }[];
+                    }[];
+                };
+            }[];
+            fetch_profile?: {
+                /** @enum {string} */
+                mode: "direct" | "stream" | "submit_poll" | "submit_callback";
+            };
+        };
+        BatchCreateSupplyOfferingsResponse: {
+            offerings: {
+                offering: {
+                    id: string;
+                    model_id: string;
+                    channel_id: string;
+                    /** @enum {string} */
+                    status: "draft" | "probing" | "enabled" | "disabled";
+                    upstream_model_name: string;
+                    fetch_profile: {
+                        /** @enum {string} */
+                        mode: "direct" | "stream" | "submit_poll" | "submit_callback";
+                    };
+                    timeout_budget_seconds: number | null;
+                    /** @default [] */
+                    param_declarations: {
+                        param: string;
+                        /** @enum {string} */
+                        operation?: "chat.completions" | "embeddings" | "rerank" | "moderations" | "images.generation" | "images.edit" | "video.generation" | "music.generation" | "tts" | "asr";
+                        /**
+                         * @default upstream
+                         * @enum {string}
+                         */
+                        origin: "upstream" | "operator";
+                        rule: {
+                            /** @enum {string} */
+                            kind: "supports";
+                        } | {
+                            /** @enum {string} */
+                            kind: "domain";
+                            values?: (string | number)[];
+                            min?: number;
+                            max?: number;
+                        } | {
+                            /** @enum {string} */
+                            kind: "map";
+                            upstreamName?: string;
+                            values?: {
+                                [key: string]: unknown;
+                            };
+                            scale?: number;
+                            offset?: number;
+                        } | {
+                            /** @enum {string} */
+                            kind: "fixed";
+                            value?: unknown;
+                            upstreamValue?: unknown;
+                        } | {
+                            /** @enum {string} */
+                            kind: "unsupported";
+                        };
+                    }[];
+                    cost_price_card_id: string | null;
+                    max_concurrency: number | null;
+                    /** @default 1 */
+                    weight: number;
+                    /** @default 0 */
+                    tier: number;
+                    created_at: string;
+                    updated_at: string;
+                };
+                model_id: string;
+                upstream_model_name: string;
+                pricing: {
+                    /** @enum {string} */
+                    status: "existing" | "minted" | "needs_pricing";
+                    price_card_id?: string;
+                    message?: string;
+                };
+            }[];
+            needs_pricing_count: number;
+        };
+        BatchProbeEnableSupplyOfferingsBody: {
+            offering_ids?: string[];
+        };
+        BatchProbeEnableSupplyOfferingsResponse: {
+            results: {
+                offering_id: string;
+                upstream_model_name: string;
+                enabled: boolean;
+                offering_status: string;
+                violations: {
+                    /** @enum {string} */
+                    gate: "needs_pricing" | "operator_subset" | "default_in_domain" | "billing_translation_tier" | "golden_probe";
+                    param?: string;
+                    /** @enum {string} */
+                    operation?: "chat.completions" | "embeddings" | "rerank" | "moderations" | "images.generation" | "images.edit" | "video.generation" | "music.generation" | "tts" | "asr";
+                    message: string;
+                }[];
+                probe?: {
+                    /** @enum {string} */
+                    status: "completed";
+                    result: {
+                        offering_id: string;
+                        /** @enum {string} */
+                        operation: "chat.completions" | "embeddings" | "rerank" | "moderations" | "images.generation" | "images.edit" | "video.generation" | "music.generation" | "tts" | "asr";
+                        connectivity: {
+                            ok: boolean;
+                            message: string;
+                            code?: string;
+                        };
+                        functional: {
+                            ok: boolean;
+                            message: string;
+                            code?: string;
+                        };
+                        sample?: {
+                            text?: string;
+                            url?: string;
+                        };
+                        elapsed_ms: number;
+                    };
+                } | {
+                    /** @enum {string} */
+                    status: "rejected";
+                    rejection: {
+                        /** @enum {string} */
+                        reason: "budget_exceeded" | "min_interval";
+                        message: string;
+                        retry_after_seconds?: number;
+                    };
+                };
+            }[];
+            enabled_count: number;
         };
     };
     responses: never;

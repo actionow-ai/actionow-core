@@ -235,6 +235,22 @@ export function resolveEffectiveParams(input: ResolveEffectiveParamsInput): Effe
   return { effective: { canonical, upstream }, billingDims };
 }
 
+/**
+ * The upstream wire value one canonical value resolves to under a merged
+ * declaration — EXACTLY the runtime translation precedence of
+ * {@link resolveEffectiveParams} (operator level > upstream level >
+ * passthrough; within a level `fixed.upstreamValue` outranks `map`). Exported
+ * for the batch-5 CONFIG-TIME checks (enable-gate.ts invariant 3: billing
+ * translations must not cross price tiers) so gate-time and runtime can never
+ * disagree about what a value translates to.
+ */
+export function translateUpstreamValue(canonicalValue: unknown, decl: MergedParamDecl): unknown {
+  return (
+    translateAtLevel(canonicalValue, decl.opConstraint, decl.opMap) ??
+    translateAtLevel(canonicalValue, decl.upConstraint, decl.upMap) ?? { value: canonicalValue }
+  ).value;
+}
+
 /** A produced wire-value translation (wrapped so a translation TO `undefined` stays distinguishable from "no translation"). */
 interface Translated {
   value: unknown;

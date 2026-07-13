@@ -60,7 +60,7 @@ import {
   RedisRateLimiter,
 } from '@actionow/infra';
 import type { Dialect } from '@actionow/spi';
-import { DialectRegistry } from '@actionow/spi';
+import { DialectRegistry, openaiDialect } from '@actionow/spi';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
@@ -345,6 +345,9 @@ beforeAll(async () => {
   registry = new DialectRegistry();
   registry.register(akskDialect());
   registry.register(bearerDialect());
+  // 预案③ (批次5 slice3): the REAL baseline openai dialect serves the
+  // flag=true chat/embeddings leg below over the same versioned registry.
+  registry.register(openaiDialect);
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(DB)
@@ -844,5 +847,172 @@ describe('判据 2.9 — route-tag pin + failover on the task path', () => {
       .send({ model: 'routed-video', prompt: 'x' })
       .expect(400);
     expect(res.body.error.code).toBe('invalid_input');
+  }, 120_000);
+});
+
+// --- 预案③ (批次5 slice3) — flag=true 的 chat/embeddings 走新网关全链 --------------------
+
+describe('预案③ — gray-released tenant chat/embeddings ride the NEW gateway', () => {
+  const CHAT_BASE = 'https://up-chat.test/v1';
+
+  function chatOps(): ModelOperation[] {
+    return [
+      {
+        operation: 'chat.completions',
+        paradigms: ['sync', 'stream'],
+        slow: false,
+        params: [
+          { name: 'messages', type: 'json', billingRelevant: false, required: true },
+          {
+            name: 'temperature',
+            type: 'float',
+            billingRelevant: false,
+            required: false,
+            default: 1,
+            min: 0,
+            max: 2,
+          },
+        ],
+      },
+      {
+        operation: 'embeddings',
+        paradigms: ['sync'],
+        slow: false,
+        params: [{ name: 'input', type: 'json', billingRelevant: false, required: true }],
+      },
+    ];
+  }
+
+  /** provider→channel→credential→offering on the REAL openai dialect (ref openai@1.0.0). */
+  async function mkOpenAIOffering(modelId: string): Promise<ChainSeed> {
+    const provider = await createSupplyProvider(db, {
+      slug: 'openai-e2e',
+      name: 'OpenAI e2e',
+      defaultDialect: { ref: 'openai', version: '1.0.0' },
+    });
+    const channel = await createSupplyChannel(db, {
+      providerId: provider.id,
+      name: 'openai-e2e-ch',
+      authScheme: 'bearer',
+      baseUrl: CHAT_BASE,
+    });
+    await createSupplyCredential(db, {
+      channelId: channel.id,
+      name: 'openai-e2e-key',
+      secret: { scheme: 'bearer', api_key: 'sk-chat-e2e' },
+      keyB64: VAULT_KEY,
+      quota: { rpm: null, tpm: null, max_concurrency: 4 },
+    });
+    const offering = await createSupplyOffering(db, {
+      modelId,
+      channelId: channel.id,
+      status: 'enabled',
+      upstreamModelName: 'up-gpt-e2e',
+      fetchProfile: { mode: 'direct' },
+    });
+    return { offeringId: offering.id, channelId: channel.id, modelId };
+  }
+
+  /** 预案② per-tenant flag write (the SQL the cutover doc prescribes, via drizzle). */
+  async function flagTenant(tenantId: string, value: boolean): Promise<void> {
+    await db
+      .update(schema.tenant)
+      .set({ config: { webhook_secret: WEBHOOK_SECRET, gateway_v2: value } })
+      .where(eq(schema.tenant.id, tenantId));
+  }
+
+  it('flag=true: POST /v1/chat/completions serves over the new gateway (facade 归一 → planner → openai dialect → settle) and renders the OpenAI wire; flag=false stays on the old world', async () => {
+    const seed = await mkTenantAccountKey();
+    const modelId = await mkModel('gpt-e2e', chatOps());
+    const off = await mkOpenAIOffering(modelId);
+    await flagTenant(seed.tenantId, true);
+
+    http.on('POST', `${CHAT_BASE}/chat/completions`, () => ({
+      status: 200,
+      body: {
+        id: 'chatcmpl-up-1',
+        object: 'chat.completion',
+        choices: [
+          {
+            index: 0,
+            message: { role: 'assistant', content: 'bonjour' },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: { prompt_tokens: 9, completion_tokens: 3 },
+      },
+    }));
+
+    const messages = [{ role: 'user', content: 'say hi in french' }];
+    const res = await authed(request(app.getHttpServer()).post('/v1/chat/completions'))
+      .send({ model: 'gpt-e2e', messages })
+      .expect(200);
+
+    // OpenAI wire out (the new renderer), servedBy observable (§8).
+    expect(res.body.object).toBe('chat.completion');
+    expect(res.body.model).toBe('gpt-e2e');
+    expect(res.body.choices).toEqual([
+      { index: 0, message: { role: 'assistant', content: 'bonjour' }, finish_reason: 'stop' },
+    ]);
+    expect(res.body.usage).toEqual({ prompt_tokens: 9, completion_tokens: 3, total_tokens: 12 });
+    expect(res.headers['x-actionow-offering']).toBe(off.offeringId);
+
+    // Upstream wire in: offering's upstream_model_name, VERBATIM messages, the
+    // layer-1 contract default (temperature 1) resolved through layer 2, and
+    // the bearer credential injected by aspect ③.
+    const upstream = http.requests.find((r) => r.url === `${CHAT_BASE}/chat/completions`);
+    expect(upstream?.headers?.Authorization).toBe('Bearer sk-chat-e2e');
+    expect(upstream?.body).toMatchObject({
+      model: 'up-gpt-e2e',
+      messages,
+      temperature: 1,
+    });
+
+    // §9.2 the billing loop closed through the NEW chat face (sale card −5000).
+    const ledger = await db
+      .select()
+      .from(schema.ledgerTxn)
+      .where(like(schema.ledgerTxn.resourceId, `supply_offering:${off.offeringId}`));
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0]?.type).toBe('settle');
+    expect(ledger[0]?.creditsDelta).toBe(-5_000n);
+
+    // 双面并存: flip the flag OFF → the SAME request rides the untouched old
+    // relay, which does not know the supply-world model (404, old envelope).
+    await flagTenant(seed.tenantId, false);
+    await authed(request(app.getHttpServer()).post('/v1/chat/completions'))
+      .send({ model: 'gpt-e2e', messages })
+      .expect(404);
+  }, 120_000);
+
+  it('flag=true: POST /v1/embeddings serves over the new gateway and renders the OpenAI list', async () => {
+    const seed = await mkTenantAccountKey();
+    const modelId = await mkModel('gpt-e2e', chatOps());
+    const off = await mkOpenAIOffering(modelId);
+    await flagTenant(seed.tenantId, true);
+
+    http.on('POST', `${CHAT_BASE}/embeddings`, () => ({
+      status: 200,
+      body: {
+        object: 'list',
+        data: [{ object: 'embedding', index: 0, embedding: [0.25, 0.5] }],
+        model: 'up-gpt-e2e',
+        usage: { prompt_tokens: 6, total_tokens: 6 },
+      },
+    }));
+
+    const res = await authed(request(app.getHttpServer()).post('/v1/embeddings'))
+      .send({ model: 'gpt-e2e', input: 'hello world' })
+      .expect(200);
+
+    expect(res.body).toMatchObject({
+      object: 'list',
+      model: 'gpt-e2e',
+      data: [{ object: 'embedding', index: 0, embedding: [0.25, 0.5] }],
+      usage: { prompt_tokens: 6, total_tokens: 6 },
+    });
+    expect(res.headers['x-actionow-offering']).toBe(off.offeringId);
+    const upstream = http.requests.find((r) => r.url === `${CHAT_BASE}/embeddings`);
+    expect(upstream?.body).toMatchObject({ model: 'up-gpt-e2e', input: 'hello world' });
   }, 120_000);
 });

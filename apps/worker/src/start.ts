@@ -7,6 +7,7 @@ import {
   createFileLifecycleReaperProcessor,
   createHoldReaperProcessor,
   createJobExecProcessor,
+  createReconcileDailyProcessor,
   createRelayTraceReaperProcessor,
   createTaskEventsReaperProcessor,
   createTaskPollProcessor,
@@ -39,6 +40,8 @@ export const TASK_WEBHOOK_SWEEP_MS = 10_000;
 export const TASK_EVENTS_SWEEP_MS = 3_600_000;
 /** Default cadence for the §9.4 signed-track artifact lifecycle sweep (ms; hourly). */
 export const ARTIFACT_SWEEP_MS = 3_600_000;
+/** Default cadence for the §9.2 官方渠道 daily reconciliation sweep (ms; daily). */
+export const RECONCILE_DAILY_SWEEP_MS = 86_400_000;
 
 /** Tuning for {@link startWorkers}. */
 export interface StartWorkersOptions {
@@ -62,6 +65,8 @@ export interface StartWorkersOptions {
   taskEventsSweepMs?: number;
   /** §9.4 artifact lifecycle sweep cadence in ms (default {@link ARTIFACT_SWEEP_MS}). */
   artifactSweepMs?: number;
+  /** §9.2 daily official-channel reconcile sweep cadence in ms (default {@link RECONCILE_DAILY_SWEEP_MS}). */
+  reconcileDailySweepMs?: number;
   /**
    * BullMQ connection. When omitted a fresh ioredis client is created from
    * `runtime.env.REDIS_URL` and owned by the returned handle (closed on
@@ -106,6 +111,7 @@ export function startWorkers(
   const taskWebhookSweepMs = opts.taskWebhookSweepMs ?? TASK_WEBHOOK_SWEEP_MS;
   const taskEventsSweepMs = opts.taskEventsSweepMs ?? TASK_EVENTS_SWEEP_MS;
   const artifactSweepMs = opts.artifactSweepMs ?? ARTIFACT_SWEEP_MS;
+  const reconcileDailySweepMs = opts.reconcileDailySweepMs ?? RECONCILE_DAILY_SWEEP_MS;
 
   const jobExec = createJobExecProcessor(runtime);
   const processWebhookOutbox = createWebhookOutboxProcessor(runtime);
@@ -118,6 +124,7 @@ export function startWorkers(
   const processTaskWebhook = createTaskWebhookProcessor(runtime);
   const processTaskEventsReaper = createTaskEventsReaperProcessor(runtime);
   const processArtifactReaper = createArtifactReaperProcessor(runtime);
+  const processReconcileDaily = createReconcileDailyProcessor(runtime);
 
   // job-exec: one job per async run, payload { jobId }.
   const jobExecWorker = new Worker(
@@ -182,6 +189,11 @@ export function startWorkers(
     connection,
   });
 
+  // reconcile-daily: §9.2 官方渠道 daily reconciliation comparer (previous UTC day).
+  const reconcileDailyWorker = new Worker('reconcile-daily', () => processReconcileDaily(), {
+    connection,
+  });
+
   jobExecWorker.on('ready', () => {
     console.log(`worker ready: ${QUEUE_NAMES.join(', ')}`);
   });
@@ -198,6 +210,7 @@ export function startWorkers(
     taskWebhookWorker,
     taskEventsReaperWorker,
     artifactReaperWorker,
+    reconcileDailyWorker,
   ];
   for (const worker of workers) {
     worker.on('failed', (job, err) => {
@@ -218,6 +231,7 @@ export function startWorkers(
   const taskWebhookQueue = new Queue('task-webhook', { connection });
   const taskEventsReaperQueue = new Queue('task-events-reaper', { connection });
   const artifactReaperQueue = new Queue('artifact-reaper', { connection });
+  const reconcileDailyQueue = new Queue('reconcile-daily', { connection });
   const queues = [
     webhookQueue,
     reaperQueue,
@@ -229,6 +243,7 @@ export function startWorkers(
     taskWebhookQueue,
     taskEventsReaperQueue,
     artifactReaperQueue,
+    reconcileDailyQueue,
   ];
   const scheduled = Promise.all([
     webhookQueue.add(
@@ -276,6 +291,11 @@ export function startWorkers(
       'sweep',
       {},
       { repeat: { every: artifactSweepMs }, jobId: 'artifact-reaper-sweep' },
+    ),
+    reconcileDailyQueue.add(
+      'sweep',
+      {},
+      { repeat: { every: reconcileDailySweepMs }, jobId: 'reconcile-daily-sweep' },
     ),
   ]);
   // Surface a scheduling failure rather than leaving it floating; a real boot

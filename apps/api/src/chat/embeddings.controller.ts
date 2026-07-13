@@ -14,6 +14,7 @@ import { GovernanceGuard } from '../auth/governance.guard.js';
 import { idempotencyKeyHeader } from '../common/idempotency.interceptor.js';
 import { routeTagHeader } from '../common/route-tag.js';
 import { ZodBody } from '../common/zod.pipe.js';
+import { GatewayChatV2Service } from '../gateway/chat-v2.service.js';
 import { EmbedRelayService } from './embed-relay.service.js';
 
 /**
@@ -22,6 +23,11 @@ import { EmbedRelayService } from './embed-relay.service.js';
  * { model, input })` unchanged. Resolves the model → routes to a channel → calls
  * the upstream provider's `/v1/embeddings`, billed per INPUT token against the
  * wallet (hold → settle) through the SAME engine machinery as the chat relay.
+ *
+ * 切换预案③ (批次5 slice3, 双面并存): the ONE branch below routes a
+ * gray-released tenant (预案② `isV2Tenant`) through the NEW supply gateway
+ * ({@link GatewayChatV2Service}, on the RAW `req.body` wire) end to end; every
+ * other tenant rides the untouched legacy relay path.
  */
 @ApiTags('v1')
 @ApiBearerAuth('api-key')
@@ -31,6 +37,7 @@ export class EmbeddingsController {
   constructor(
     private readonly relay: EmbedRelayService,
     private readonly auth: AuthService,
+    private readonly gatewayV2: GatewayChatV2Service,
   ) {}
 
   @Post()
@@ -40,8 +47,11 @@ export class EmbeddingsController {
     @Body(new ZodBody(embeddingsRequestSchema)) ir: EmbeddingsRequest,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<EmbeddingsResponse> {
+  ): Promise<EmbeddingsResponse | Record<string, unknown> | undefined> {
     const ctx = this.auth.resolve(req);
+    if (await this.gatewayV2.isV2Tenant(ctx.tenantId)) {
+      return this.gatewayV2.embeddings((req.body ?? {}) as Record<string, unknown>, req, res);
+    }
     const idem = idempotencyKeyHeader(req);
     const routeTag = routeTagHeader(req);
     const { result, servedBy } = await this.relay.embed(ir.model, ir, ctx, idem, routeTag);

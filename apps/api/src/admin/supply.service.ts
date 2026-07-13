@@ -580,8 +580,24 @@ export class SupplyAdminService {
     return row;
   }
 
-  /** Patch a live offering (the (model, channel) identity is immutable). */
+  /**
+   * Patch a live offering (the (model, channel) identity is immutable).
+   * `status: 'enabled'` is NOT patchable (hard principle #4 + §10 双门):
+   * `enabled` is the ONLY routable state and may only be reached through
+   * `POST /admin/supply/offerings/:id/enable` (needs_pricing + the 3
+   * config-time invariants + a passing golden probe). A no-op PATCH on an
+   * already-enabled offering stays allowed (no transition happens).
+   */
   async updateOffering(id: string, dto: UpdateSupplyOfferingDto): Promise<SupplyOfferingRow> {
+    if (dto.status === 'enabled') {
+      const current = await getSupplyOfferingById(this.db, id);
+      if (current === undefined) throw engineNotFound(`supply offering ${id} not found`);
+      if (current.status !== 'enabled') {
+        throw engineInvalidInput(
+          "status 'enabled' cannot be set via PATCH — use POST /admin/supply/offerings/:id/enable (golden probe + config-time invariant gates)",
+        );
+      }
+    }
     const patch: UpdateSupplyOfferingInput = {
       ...(dto.status !== undefined ? { status: dto.status } : {}),
       ...(dto.upstream_model_name !== undefined
