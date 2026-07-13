@@ -28,6 +28,7 @@ import { engineInvalidInput } from '../common/errors.js';
 import { idempotencyKeyHeader } from '../common/idempotency.interceptor.js';
 import { routeTagHeader } from '../common/route-tag.js';
 import { ENV } from '../common/tokens.js';
+import { GatewayChatV2Service } from '../gateway/chat-v2.service.js';
 import { SttRelayService } from './stt-relay.service.js';
 
 /**
@@ -56,6 +57,13 @@ interface UploadedAudio {
  * calls the upstream `/v1/audio/transcriptions`, billed per AUDIO SECOND against
  * the wallet (a REAL hold → settle) through the SAME engine machinery as the
  * embeddings relay. The client-requested `response_format` shapes the response.
+ *
+ * 切换预案③ (批次5 slice6, 双面并存): the ONE branch below routes a
+ * gray-released tenant (预案② `isV2Tenant`) through the NEW supply gateway
+ * ({@link GatewayChatV2Service} — the audio part rides the §9.4 media input
+ * path, the multipart text fields ride raw) end to end; every other tenant
+ * rides the untouched legacy relay path. The auth resolve is hoisted to the
+ * entry (a pure guard-context projection) so the branch can run first.
  */
 @ApiTags('v1')
 @ApiBearerAuth('api-key')
@@ -65,6 +73,7 @@ export class TranscriptionsController {
   constructor(
     private readonly relay: SttRelayService,
     private readonly auth: AuthService,
+    private readonly gatewayV2: GatewayChatV2Service,
     @Inject(ENV) private readonly env: AppEnv,
   ) {}
 
@@ -79,7 +88,16 @@ export class TranscriptionsController {
     // strings; validate them with zod (the controller owns the file separately).
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<TranscriptionResponse | string> {
+  ): Promise<TranscriptionResponse | Record<string, unknown> | string | undefined> {
+    const ctx = this.auth.resolve(req);
+    if (await this.gatewayV2.isV2Tenant(ctx.tenantId)) {
+      return this.gatewayV2.transcriptions(
+        file,
+        (req.body ?? {}) as Record<string, unknown>,
+        req,
+        res,
+      );
+    }
     if (file === undefined) {
       throw engineInvalidInput('a multipart "file" part is required');
     }
@@ -95,7 +113,6 @@ export class TranscriptionsController {
     // multipart text fields are strings on req.body; coerce + zod-validate them.
     const dto = parseTranscriptionFields(req.body);
 
-    const ctx = this.auth.resolve(req);
     const idem = idempotencyKeyHeader(req);
     const routeTag = routeTagHeader(req);
 

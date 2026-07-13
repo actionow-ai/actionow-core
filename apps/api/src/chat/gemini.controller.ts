@@ -12,6 +12,7 @@ import { AuthService } from '../auth/auth.service.js';
 import { GovernanceGuard } from '../auth/governance.guard.js';
 import { idempotencyKeyHeader } from '../common/idempotency.interceptor.js';
 import { routeTagHeader } from '../common/route-tag.js';
+import { GatewayChatV2Service } from '../gateway/chat-v2.service.js';
 import { ChatRelayService } from './chat-relay.service.js';
 import { pipeSse } from './sse.js';
 
@@ -23,6 +24,11 @@ import { pipeSse } from './sse.js';
  * URL model into the neutral IR, drives the engine via {@link ChatRelayService},
  * and renders the IR back to Gemini's dialect (`candidates[]` JSON, or `alt=sse`
  * `data:` candidate frames). The hold runs inside `chatStream` BEFORE any byte.
+ *
+ * 切换预案③ (批次5 slice6, 双面并存): the ONE branch per handler below routes
+ * a gray-released tenant (预案② `isV2Tenant`) through the NEW supply gateway
+ * ({@link GatewayChatV2Service}) end to end; every other tenant rides the
+ * untouched legacy relay path. The two worlds never bridge.
  */
 @ApiTags('v1beta')
 @ApiBearerAuth('api-key')
@@ -32,6 +38,7 @@ export class GeminiChatController {
   constructor(
     private readonly relay: ChatRelayService,
     private readonly auth: AuthService,
+    private readonly gatewayV2: GatewayChatV2Service,
   ) {}
 
   @Post(':model\\:generateContent')
@@ -41,8 +48,11 @@ export class GeminiChatController {
     @Body() body: Record<string, unknown>,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<Record<string, unknown> | undefined> {
     const ctx = this.auth.resolve(req);
+    if (await this.gatewayV2.isV2Tenant(ctx.tenantId)) {
+      return this.gatewayV2.generateContent(model, body, req, res);
+    }
     const ir = parseGeminiChat(body, model);
     const { response, servedBy } = await this.relay.chat(
       ir.model,
@@ -63,6 +73,9 @@ export class GeminiChatController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
     const ctx = this.auth.resolve(req);
+    if (await this.gatewayV2.isV2Tenant(ctx.tenantId)) {
+      return this.gatewayV2.streamGenerateContent(model, body, req, res);
+    }
     const ir = parseGeminiChat(body, model);
     // The relay still walks the model fallback chain pre-commit (a degraded model
     // may serve the committed stream); Gemini's streaming frames carry no

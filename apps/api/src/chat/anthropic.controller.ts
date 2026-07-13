@@ -12,6 +12,7 @@ import { AuthService } from '../auth/auth.service.js';
 import { GovernanceGuard } from '../auth/governance.guard.js';
 import { idempotencyKeyHeader } from '../common/idempotency.interceptor.js';
 import { routeTagHeader } from '../common/route-tag.js';
+import { GatewayChatV2Service } from '../gateway/chat-v2.service.js';
 import { ChatRelayService } from './chat-relay.service.js';
 import { pipeSse } from './sse.js';
 
@@ -21,6 +22,11 @@ import { pipeSse } from './sse.js';
  * renders the IR back to the Anthropic dialect (`type:'message'` JSON, or the
  * typed streaming events `event: message_start`…`event: message_stop`). The
  * hold runs inside `chatStream` BEFORE any SSE byte.
+ *
+ * 切换预案③ (批次5 slice6, 双面并存): the ONE branch below routes a
+ * gray-released tenant (预案② `isV2Tenant`) through the NEW supply gateway
+ * ({@link GatewayChatV2Service}) end to end; every other tenant rides the
+ * untouched legacy relay path. The two worlds never bridge.
  */
 @ApiTags('v1')
 @ApiBearerAuth('api-key')
@@ -30,6 +36,7 @@ export class AnthropicChatController {
   constructor(
     private readonly relay: ChatRelayService,
     private readonly auth: AuthService,
+    private readonly gatewayV2: GatewayChatV2Service,
   ) {}
 
   @Post('messages')
@@ -40,6 +47,9 @@ export class AnthropicChatController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<Record<string, unknown> | undefined> {
     const ctx = this.auth.resolve(req);
+    if (await this.gatewayV2.isV2Tenant(ctx.tenantId)) {
+      return this.gatewayV2.messages(body, req, res);
+    }
     const ir = parseAnthropicChat(body);
     const idem = idempotencyKeyHeader(req);
     const routeTag = routeTagHeader(req);

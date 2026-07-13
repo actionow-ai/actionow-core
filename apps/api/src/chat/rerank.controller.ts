@@ -14,6 +14,7 @@ import { GovernanceGuard } from '../auth/governance.guard.js';
 import { idempotencyKeyHeader } from '../common/idempotency.interceptor.js';
 import { routeTagHeader } from '../common/route-tag.js';
 import { ZodBody } from '../common/zod.pipe.js';
+import { GatewayChatV2Service } from '../gateway/chat-v2.service.js';
 import { RerankRelayService } from './rerank-relay.service.js';
 
 /**
@@ -21,6 +22,11 @@ import { RerankRelayService } from './rerank-relay.service.js';
  * routes to a channel → calls the upstream provider's `/rerank`, scoring each
  * document against the query, billed per INPUT token (query + documents) against
  * the wallet (hold → settle) through the SAME engine machinery as the chat relay.
+ *
+ * 切换预案③ (批次5 slice6, 双面并存): the ONE branch below routes a
+ * gray-released tenant (预案② `isV2Tenant`) through the NEW supply gateway
+ * ({@link GatewayChatV2Service}, on the RAW `req.body` wire) end to end; every
+ * other tenant rides the untouched legacy relay path.
  */
 @ApiTags('v1')
 @ApiBearerAuth('api-key')
@@ -30,6 +36,7 @@ export class RerankController {
   constructor(
     private readonly relay: RerankRelayService,
     private readonly auth: AuthService,
+    private readonly gatewayV2: GatewayChatV2Service,
   ) {}
 
   @Post()
@@ -39,8 +46,11 @@ export class RerankController {
     @Body(new ZodBody(rerankRequestSchema)) ir: RerankRequest,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<RerankResponse> {
+  ): Promise<RerankResponse | Record<string, unknown> | undefined> {
     const ctx = this.auth.resolve(req);
+    if (await this.gatewayV2.isV2Tenant(ctx.tenantId)) {
+      return this.gatewayV2.rerank((req.body ?? {}) as Record<string, unknown>, req, res);
+    }
     const idem = idempotencyKeyHeader(req);
     const routeTag = routeTagHeader(req);
     const { result, servedBy } = await this.relay.rerank(ir.model, ir, ctx, idem, routeTag);

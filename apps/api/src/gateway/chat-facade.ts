@@ -27,6 +27,14 @@
 //
 // It does NO offering-declaration work and NO upstream I/O (红线: 门面只做
 // 第1层). Pure functions, Result-typed — the caller maps errors to the wire.
+//
+// 批次5 slice6 extends the same profile machinery to the remaining OpenAI-wire
+// SYNC surfaces: `POST /v1/rerank` (Cohere/Jina wire → operation `rerank`),
+// `POST /v1/moderations` (→ `moderations`) and the multipart
+// `POST /v1/audio/transcriptions` (→ `asr`, audio bytes riding the §9.4 media
+// input path as a base64 `mediaRefs` entry + the canonical `file` param).
+import { Buffer } from 'node:buffer';
+
 import type {
   CanonicalParamValue,
   GatewayError,
@@ -35,6 +43,7 @@ import type {
   ModelOperation,
   Operation,
 } from '@actionow/contracts';
+import { TRANSCRIPTION_FORMATS } from '@actionow/contracts';
 
 import type { FacadeAuth, FacadeResult } from './facade.js';
 import { checkCanonical, fingerprintBody } from './facade.js';
@@ -93,6 +102,47 @@ const EMBEDDINGS_PROFILE: WireProfile = {
   streamable: false,
 };
 
+/**
+ * Cohere/Jina rerank wire → operation `rerank`. The snake_case `top_n` IS the
+ * canonical spelling; the camelCase `topN` (the old contract-schema output some
+ * SDK wrappers emit) is an alias normalized here. `query` is a second
+ * structural anchor checked by {@link rerankToGatewayRequest} (the profile
+ * machinery anchors one key; rerank needs both).
+ */
+const RERANK_PROFILE: WireProfile = {
+  operation: 'rerank',
+  envelopeKeys: new Set(['model', 'stream']),
+  aliases: { topN: 'top_n' },
+  requiredKey: 'documents',
+  requiredIsArray: true,
+  streamable: false,
+};
+
+const MODERATIONS_PROFILE: WireProfile = {
+  operation: 'moderations',
+  envelopeKeys: new Set(['model', 'stream']),
+  aliases: {},
+  requiredKey: 'input',
+  requiredIsArray: false,
+  streamable: false,
+};
+
+/**
+ * OpenAI transcriptions multipart → operation `asr`. The multipart text parts
+ * (all strings on the wire) plus the synthesized base64 `file` param; the
+ * snake_case `response_format` is canonical (camelCase `responseFormat`
+ * aliased). Assembled by {@link transcriptionsToGatewayRequest}, never fed a
+ * raw body directly.
+ */
+const ASR_PROFILE: WireProfile = {
+  operation: 'asr',
+  envelopeKeys: new Set(['model', 'stream']),
+  aliases: { responseFormat: 'response_format' },
+  requiredKey: 'file',
+  requiredIsArray: false,
+  streamable: false,
+};
+
 // --- the layer-1 canonical 归一 (OpenAI wire) -----------------------------------------
 
 /** OpenAI chat body → the frozen {@link GatewayRequest} IR (§4.1 layer 1). */
@@ -103,6 +153,81 @@ export function chatToGatewayRequest(input: OpenAIFacadeInput): FacadeResult {
 /** OpenAI embeddings body → the frozen {@link GatewayRequest} IR (§4.1 layer 1). */
 export function embeddingsToGatewayRequest(input: OpenAIFacadeInput): FacadeResult {
   return openaiToGatewayRequest(EMBEDDINGS_PROFILE, input);
+}
+
+/** Cohere/Jina rerank body → the frozen {@link GatewayRequest} IR (§4.1 layer 1). */
+export function rerankToGatewayRequest(input: OpenAIFacadeInput): FacadeResult {
+  // Second structural anchor (the profile machinery anchors `documents`).
+  if (typeof input.body.query !== 'string' || input.body.query.length === 0) {
+    return invalid("rerank request requires a 'query' string", { param: 'query' });
+  }
+  return openaiToGatewayRequest(RERANK_PROFILE, input);
+}
+
+/** OpenAI moderations body → the frozen {@link GatewayRequest} IR (§4.1 layer 1). */
+export function moderationsToGatewayRequest(input: OpenAIFacadeInput): FacadeResult {
+  return openaiToGatewayRequest(MODERATIONS_PROFILE, input);
+}
+
+/** The multipart audio part the transcriptions facade consumes (the multer surface). */
+export interface UploadedAudioFile {
+  buffer: Uint8Array;
+  originalname: string;
+  mimetype: string;
+  size: number;
+}
+
+/**
+ * OpenAI transcriptions multipart (text fields + the audio `file` part) → the
+ * frozen {@link GatewayRequest} IR: operation `asr`, the audio riding the §9.4
+ * MEDIA INPUT path — a base64 `mediaRefs` entry (source `base64`, `mime` from
+ * the upload) MIRRORED as the canonical `file` param (the facade.ts file/media
+ * convention: params carry the value, mediaRefs index it for §9.4 validation).
+ * Multer delivers every text part as a string, so `temperature` is coerced to
+ * a number when numeric; `filename` rides as a param so an asr dialect can
+ * rebuild the upstream multipart part name. The idempotency fingerprint covers
+ * the assembled body INCLUDING the audio base64 (§5 same-key-different-audio ⇒
+ * 409).
+ */
+export function transcriptionsToGatewayRequest(
+  input: OpenAIFacadeInput,
+  file: UploadedAudioFile,
+): FacadeResult {
+  if (file.buffer.byteLength === 0) {
+    return invalid('the multipart "file" part is empty', { param: 'file' });
+  }
+
+  const body: Record<string, unknown> = { ...input.body };
+  // multipart text parts are strings; coerce the numeric wire field.
+  if (typeof body.temperature === 'string' && body.temperature !== '') {
+    const n = Number(body.temperature);
+    if (!Number.isNaN(n)) body.temperature = n;
+  }
+  // The client-facing response shape is validated HERE (parity with the old
+  // zod-piped surface): the renderer consumes it, so a bad value is a clean 400.
+  const format = body.response_format ?? body.responseFormat;
+  if (format !== undefined && !TRANSCRIPTION_FORMATS.some((f) => f === format)) {
+    return invalid(
+      `parameter 'response_format' expects one of ${TRANSCRIPTION_FORMATS.join(', ')}`,
+      { param: 'response_format' },
+    );
+  }
+
+  const base64 = Buffer.from(file.buffer).toString('base64');
+  body.file = base64;
+  if (body.filename === undefined && file.originalname !== '') {
+    body.filename = file.originalname;
+  }
+
+  const result = openaiToGatewayRequest(ASR_PROFILE, { ...input, body });
+  if (!result.ok) return result;
+  result.request.mediaRefs.push({
+    param: 'file',
+    source: 'base64',
+    data: base64,
+    ...(file.mimetype !== '' ? { mime: file.mimetype } : {}),
+  });
+  return result;
 }
 
 function openaiToGatewayRequest(profile: WireProfile, input: OpenAIFacadeInput): FacadeResult {

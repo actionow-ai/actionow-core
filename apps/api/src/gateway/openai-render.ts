@@ -350,6 +350,131 @@ export function renderEmbeddingsListOf(
   };
 }
 
+// --- rerank results (Cohere/Jina wire) ----------------------------------------------------------
+
+/**
+ * Render one sync rerank GatewayResponse as the Cohere/Jina wire shape
+ * (`results[]` of `{index, relevance_score, document?}` + input-token usage).
+ * The normalized output is dialect-authored (§6): a bare `results` array or a
+ * `{results:[…]}` envelope; items may carry `relevance_score` (wire) or
+ * `relevanceScore` (IR camelCase), and `document` as a string or the Cohere
+ * `{text}` object. Unrecognized items degrade to zero-scored entries — never a
+ * throw, never a silent empty body.
+ */
+export function renderRerank(response: GatewayResponse): Record<string, unknown> {
+  return renderRerankOf(response.output, response.usage, response.model);
+}
+
+/** The rerank assembly, reusable for §5 idempotent replays (task-row output/usage). */
+export function renderRerankOf(
+  output: unknown,
+  usage: GatewayUsage | undefined,
+  model: string,
+): Record<string, unknown> {
+  const raw: unknown[] = Array.isArray(output)
+    ? output
+    : isPlainObject(output) && Array.isArray(output.results)
+      ? output.results
+      : [];
+  const results = raw.filter(isPlainObject).map((r, i) => {
+    const score =
+      typeof r.relevance_score === 'number'
+        ? r.relevance_score
+        : typeof r.relevanceScore === 'number'
+          ? r.relevanceScore
+          : 0;
+    const item: Record<string, unknown> = {
+      index: typeof r.index === 'number' ? r.index : i,
+      relevance_score: score,
+    };
+    if (typeof r.document === 'string') {
+      item.document = r.document;
+    } else if (isPlainObject(r.document) && typeof r.document.text === 'string') {
+      item.document = r.document.text;
+    }
+    return item;
+  });
+  return {
+    model,
+    results,
+    // Rerank bills on INPUT tokens only.
+    usage: { input_tokens: usage?.metrics.input_tokens ?? 0 },
+  };
+}
+
+// --- moderations results ------------------------------------------------------------------------
+
+/**
+ * Render one sync moderations GatewayResponse as the OpenAI wire shape
+ * (`{id, model, results:[{flagged, categories, category_scores}]}`). The `id`
+ * is synthesized per response (`modr-<uuid>` — the old-surface convention;
+ * OpenAI's own id is opaque). Items may carry `category_scores` (wire) or
+ * `categoryScores` (IR camelCase).
+ */
+export function renderModerations(response: GatewayResponse): Record<string, unknown> {
+  return renderModerationsOf(response.output, response.model);
+}
+
+/** The moderations assembly, reusable for §5 idempotent replays (task-row output). */
+export function renderModerationsOf(output: unknown, model: string): Record<string, unknown> {
+  const raw: unknown[] = Array.isArray(output)
+    ? output
+    : isPlainObject(output) && Array.isArray(output.results)
+      ? output.results
+      : [];
+  const results = raw.filter(isPlainObject).map((r) => ({
+    flagged: r.flagged === true,
+    categories: isPlainObject(r.categories) ? r.categories : {},
+    category_scores: isPlainObject(r.category_scores)
+      ? r.category_scores
+      : isPlainObject(r.categoryScores)
+        ? r.categoryScores
+        : {},
+  }));
+  return { id: `modr-${randomUUID()}`, model, results };
+}
+
+// --- transcription (OpenAI audio wire) ----------------------------------------------------------
+
+/**
+ * Render one sync asr GatewayResponse into the client-requested
+ * `response_format` (the old-surface semantics): `text` → the raw transcript
+ * string, `verbose_json` → `{text, language?, duration?, segments?}`, default
+ * `json` → `{text}`. The normalized output is `{text, …}` or a bare string;
+ * an unrecognized shape degrades to a JSON-stringified transcript.
+ */
+export function renderTranscription(
+  response: GatewayResponse,
+  format: string | undefined,
+): Record<string, unknown> | string {
+  return renderTranscriptionOf(response.output, format);
+}
+
+/** The transcription assembly, reusable for §5 idempotent replays (task-row output). */
+export function renderTranscriptionOf(
+  output: unknown,
+  format: string | undefined,
+): Record<string, unknown> | string {
+  const text =
+    typeof output === 'string'
+      ? output
+      : isPlainObject(output) && typeof output.text === 'string'
+        ? output.text
+        : JSON.stringify(output ?? null);
+  if (format === 'text') return text;
+  if (format === 'verbose_json') {
+    const out: Record<string, unknown> = { text };
+    if (isPlainObject(output)) {
+      if (typeof output.language === 'string') out.language = output.language;
+      if (typeof output.duration === 'number') out.duration = output.duration;
+      if (Array.isArray(output.segments)) out.segments = output.segments;
+    }
+    return out;
+  }
+  // default `json`: just the transcript text.
+  return { text };
+}
+
 // --- OpenAI error envelope --------------------------------------------------------------------
 
 /** Frozen gateway taxonomy → the OpenAI wire error `type` string. */

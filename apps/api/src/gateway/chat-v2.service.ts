@@ -1,31 +1,42 @@
 // apps/api/src/gateway/chat-v2.service.ts
 //
-// model-supply-greenfield 批次5 slice3 — 切换预案③: the NEW-gateway handler
-// for the LEGACY OpenAI sync surfaces (`POST /v1/chat/completions`,
-// `POST /v1/embeddings`), plus the 预案② per-tenant gray-release decision the
-// old controllers branch on at their ENTRY line (双面并存: flag true ⇒ this
-// service end-to-end over the pure new gateway; flag false ⇒ the untouched
-// ChatRelayService/EmbedRelayService path — the two worlds never bridge).
+// model-supply-greenfield 批次5 slice3+slice6 — 切换预案③: the NEW-gateway
+// handler for the LEGACY sync surfaces, plus the 预案② per-tenant gray-release
+// decision the old controllers branch on at their ENTRY line (双面并存: flag
+// true ⇒ this service end-to-end over the pure new gateway; flag false ⇒ the
+// untouched legacy relay path — the two worlds never bridge).
 //
-// Flow per request (the create.controller 范式, rendered to the OpenAI wire):
+// slice3 delivered the OpenAI pair (`POST /v1/chat/completions`,
+// `POST /v1/embeddings`); slice6 completes the 7/7 cutover with the remaining
+// five legacy faces, each a SurfaceSpec over the SAME serve flow:
+//
+//   anthropic.messages          POST /v1/messages          → chat.completions
+//   gemini.generateContent      POST /v1beta/models/{m}:generateContent
+//   gemini.streamGenerateContent POST …:streamGenerateContent (stream forced)
+//   rerank                      POST /v1/rerank            → rerank
+//   moderations                 POST /v1/moderations       → moderations
+//   transcriptions              POST /v1/audio/transcriptions (multipart) → asr
+//
+// Flow per request (the create.controller 范式, rendered to the surface wire):
 //   auth (REAL api key required — the frozen IR mandates apiKeyId) → §2.6 key
 //   model-allowlist → §2.1/§10 visibility-gated model resolution → §4.1
-//   layer-1 chat/embeddings facade 归一 (chat-facade.ts) → gateway.execute →
-//   dispatch on ExecuteResult.kind:
+//   layer-1 facade 归一 → gateway.execute → dispatch on ExecuteResult.kind:
 //
-//   kind='sync'   → 200 `chat.completion` / embeddings `list` JSON
-//   kind='stream' → `chat.completion.chunk` SSE ending `data: [DONE]`
-//                   (pre-commit intact: execute() returns only after the first
-//                   upstream frame, so the 200 commits on a live upstream;
-//                   mid-stream failures are OpenAI error frames WITHOUT [DONE])
-//   kind='error'  → the OpenAI `{error:{message,type,param,code}}` envelope
-//                   (conflict→409, rate_limited→429+Retry-After,
-//                   model_not_found→404, insufficient_credits→402,
-//                   unsupported_parameter→400 …)
+//   kind='sync'   → 200, the surface's wire JSON (transcriptions: the
+//                   client-requested response_format, `text` ⇒ a raw string)
+//   kind='stream' → the surface's SSE dialect (OpenAI chunks + [DONE];
+//                   Anthropic typed events; Gemini alt=sse candidates —
+//                   pre-commit intact: execute() returns only after the first
+//                   upstream frame; mid-stream failures are in-band dialect
+//                   error frames)
+//   kind='error'  → the surface's error envelope (OpenAI
+//                   `{error:{message,type,param,code}}`; Anthropic
+//                   `{type:'error',error:{…}}`; Gemini `{error:{code,message,
+//                   status}}`), status from the frozen taxonomy
 //   kind='replay' → §5 同键同体: terminal succeeded re-renders the recorded
 //                   output as the wire JSON; failed re-answers the recorded
-//                   error; a still-live original answers 409 (an OpenAI sync
-//                   surface has no 202 vocabulary for "in flight")
+//                   error; a still-live original answers 409 (a sync surface
+//                   has no 202 vocabulary for "in flight")
 //   kind='task'   → 202 + Task (only reachable when the catalog marks the
 //                   operation slow — §3 自动升格 is a pure server-side product
 //                   ruling; SDK submit-and-wait consumes the dual shape)
@@ -35,7 +46,13 @@
 // reaching this service AND the new §7.8 gates inside planExecution. That is
 // the documented migration-window overlap (stricter-of-both, fail-closed);
 // the guard double-mount dies with the old world (slice5 删除).
-import type { GatewayError, GatewayRequest, ModelOperation } from '@actionow/contracts';
+import type {
+  GatewayError,
+  GatewayRequest,
+  ModelOperation,
+  Operation,
+  StreamFrame,
+} from '@actionow/contracts';
 import { TERMINAL_TASK_STATUSES } from '@actionow/contracts';
 import type { Database, TaskRow } from '@actionow/db';
 import type { ExecuteResult } from '@actionow/engine';
@@ -49,10 +66,30 @@ import { idempotencyKeyHeader } from '../common/idempotency.interceptor.js';
 import { routeTagHeader } from '../common/route-tag.js';
 import { DB, ENV } from '../common/tokens.js';
 import { SettingsService } from '../settings/settings.service.js';
-import { chatToGatewayRequest, embeddingsToGatewayRequest } from './chat-facade.js';
+import {
+  renderAnthropicMessage,
+  renderAnthropicMessageOf,
+  renderAnthropicMessagesSse,
+  sendAnthropicError,
+} from './anthropic-render.js';
+import { anthropicToGatewayRequest, geminiToGatewayRequest } from './chat-dialect-facade.js';
+import type { OpenAIFacadeInput, UploadedAudioFile } from './chat-facade.js';
+import {
+  chatToGatewayRequest,
+  embeddingsToGatewayRequest,
+  moderationsToGatewayRequest,
+  rerankToGatewayRequest,
+  transcriptionsToGatewayRequest,
+} from './chat-facade.js';
 import type { FacadeAuth, FacadeResult } from './facade.js';
 import { GatewayService } from './gateway.service.js';
 import { applyDeprecationHeaders, requestIdOf } from './gateway-error.js';
+import {
+  renderGeminiResponse,
+  renderGeminiResponseOf,
+  renderGeminiSse,
+  sendGeminiError,
+} from './gemini-render.js';
 import { isGatewayV2Tenant } from './gray-release.js';
 import {
   renderChatCompletion,
@@ -60,35 +97,125 @@ import {
   renderChatCompletionOf,
   renderEmbeddingsList,
   renderEmbeddingsListOf,
+  renderModerations,
+  renderModerationsOf,
+  renderRerank,
+  renderRerankOf,
+  renderTranscription,
+  renderTranscriptionOf,
   sendOpenAIError,
 } from './openai-render.js';
 import { toTaskView } from './task-view.js';
 
 const TERMINAL: readonly string[] = TERMINAL_TASK_STATUSES;
 
-/** The two OpenAI sync surfaces this service serves (facade + renderers per op). */
-type OpenAISurface = 'chat.completions' | 'embeddings';
-
-interface SurfaceRender {
-  facade: (input: Parameters<typeof chatToGatewayRequest>[0]) => FacadeResult;
-  renderSync: (result: Extract<ExecuteResult, { kind: 'sync' }>) => Record<string, unknown>;
-  renderReplay: (task: TaskRow, model: string) => Record<string, unknown>;
+/** One legacy sync surface on the new gateway: facade + renderers + error dialect. */
+interface SurfaceSpec {
+  /** The §2.1 operation the model contract is looked up under. */
+  operation: Operation;
+  facade: (input: OpenAIFacadeInput) => FacadeResult;
+  renderSync: (
+    result: Extract<ExecuteResult, { kind: 'sync' }>,
+    body: Record<string, unknown>,
+  ) => Record<string, unknown> | string;
+  renderReplay: (
+    task: TaskRow,
+    model: string,
+    body: Record<string, unknown>,
+  ) => Record<string, unknown> | string;
+  /**
+   * The surface's SSE dialect. Sync-only surfaces keep the OpenAI chunk
+   * renderer as a harmless guard — their facades never set `options.stream`,
+   * so kind='stream' is unreachable for them.
+   */
+  renderStream: (frames: AsyncIterable<StreamFrame>, model: string) => AsyncIterable<string>;
+  sendError: (res: Response, error: GatewayError, requestId: string) => void;
 }
 
-const SURFACES: Record<OpenAISurface, SurfaceRender> = {
+/** The client-requested transcription shape off the multipart text fields. */
+function transcriptionFormatOf(body: Record<string, unknown>): string | undefined {
+  const format = body.response_format ?? body.responseFormat;
+  return typeof format === 'string' ? format : undefined;
+}
+
+const SURFACES = {
   'chat.completions': {
+    operation: 'chat.completions',
     facade: chatToGatewayRequest,
     renderSync: (result) => renderChatCompletion(result.response),
     renderReplay: (task, model) =>
       renderChatCompletionOf(task.output, task.usage ?? undefined, model),
+    renderStream: renderChatCompletionChunks,
+    sendError: sendOpenAIError,
   },
   embeddings: {
+    operation: 'embeddings',
     facade: embeddingsToGatewayRequest,
     renderSync: (result) => renderEmbeddingsList(result.response),
     renderReplay: (task, model) =>
       renderEmbeddingsListOf(task.output, task.usage ?? undefined, model),
+    renderStream: renderChatCompletionChunks,
+    sendError: sendOpenAIError,
   },
-};
+  'anthropic.messages': {
+    operation: 'chat.completions',
+    facade: anthropicToGatewayRequest,
+    renderSync: (result) => renderAnthropicMessage(result.response),
+    renderReplay: (task, model) =>
+      renderAnthropicMessageOf(task.output, task.usage ?? undefined, model),
+    renderStream: renderAnthropicMessagesSse,
+    sendError: sendAnthropicError,
+  },
+  'gemini.generateContent': {
+    operation: 'chat.completions',
+    facade: (input) => geminiToGatewayRequest(input, false),
+    renderSync: (result) => renderGeminiResponse(result.response),
+    renderReplay: (task) => renderGeminiResponseOf(task.output, task.usage ?? undefined),
+    renderStream: renderGeminiSse,
+    sendError: sendGeminiError,
+  },
+  'gemini.streamGenerateContent': {
+    operation: 'chat.completions',
+    facade: (input) => geminiToGatewayRequest(input, true),
+    renderSync: (result) => renderGeminiResponse(result.response),
+    renderReplay: (task) => renderGeminiResponseOf(task.output, task.usage ?? undefined),
+    renderStream: renderGeminiSse,
+    sendError: sendGeminiError,
+  },
+  rerank: {
+    operation: 'rerank',
+    facade: rerankToGatewayRequest,
+    renderSync: (result) => renderRerank(result.response),
+    renderReplay: (task, model) => renderRerankOf(task.output, task.usage ?? undefined, model),
+    renderStream: renderChatCompletionChunks,
+    sendError: sendOpenAIError,
+  },
+  moderations: {
+    operation: 'moderations',
+    facade: moderationsToGatewayRequest,
+    renderSync: (result) => renderModerations(result.response),
+    renderReplay: (task, model) => renderModerationsOf(task.output, model),
+    renderStream: renderChatCompletionChunks,
+    sendError: sendOpenAIError,
+  },
+  // `facade` is bound per request (the audio part rides in); see transcriptions().
+  transcriptions: {
+    operation: 'asr',
+    facade: (): FacadeResult => {
+      throw new Error('transcriptions facade must be bound per request');
+    },
+    renderSync: (result, body) => renderTranscription(result.response, transcriptionFormatOf(body)),
+    renderReplay: (task, _model, body) =>
+      renderTranscriptionOf(task.output, transcriptionFormatOf(body)),
+    renderStream: renderChatCompletionChunks,
+    sendError: sendOpenAIError,
+  },
+} satisfies Record<string, SurfaceSpec>;
+
+/** The `model` off a wire body (OpenAI-style surfaces carry it in the body). */
+function modelOf(body: Record<string, unknown>): string | null {
+  return typeof body.model === 'string' && body.model.length > 0 ? body.model : null;
+}
 
 @Injectable()
 export class GatewayChatV2Service {
@@ -118,40 +245,159 @@ export class GatewayChatV2Service {
   }
 
   /** `POST /v1/chat/completions` on the new gateway (flag=true branch). */
-  completions(
+  async completions(
     body: Record<string, unknown>,
     req: Request,
     res: Response,
   ): Promise<Record<string, unknown> | undefined> {
-    return this.serve('chat.completions', body, req, res);
+    return this.serveJson(SURFACES['chat.completions'], modelOf(body), body, req, res);
   }
 
   /** `POST /v1/embeddings` on the new gateway (flag=true branch). */
-  embeddings(
+  async embeddings(
     body: Record<string, unknown>,
     req: Request,
     res: Response,
   ): Promise<Record<string, unknown> | undefined> {
-    return this.serve('embeddings', body, req, res);
+    return this.serveJson(SURFACES.embeddings, modelOf(body), body, req, res);
+  }
+
+  /** Anthropic `POST /v1/messages` on the new gateway (flag=true branch). */
+  async messages(
+    body: Record<string, unknown>,
+    req: Request,
+    res: Response,
+  ): Promise<Record<string, unknown> | undefined> {
+    return this.serveJson(SURFACES['anthropic.messages'], modelOf(body), body, req, res);
+  }
+
+  /** Gemini `POST /v1beta/models/{model}:generateContent` (flag=true branch). */
+  async generateContent(
+    model: string,
+    body: Record<string, unknown>,
+    req: Request,
+    res: Response,
+  ): Promise<Record<string, unknown> | undefined> {
+    return this.serveJson(
+      SURFACES['gemini.generateContent'],
+      model.length > 0 ? model : null,
+      body,
+      req,
+      res,
+    );
+  }
+
+  /**
+   * Gemini `POST /v1beta/models/{model}:streamGenerateContent` (flag=true
+   * branch). Normally answers alt=sse frames via pipeSse; when the planner
+   * legitimately answers sync/replay/task JSON instead (e.g. §3 自动升格), the
+   * body is written here — the legacy handler is `void`-shaped, so nothing
+   * upstream would send it.
+   */
+  async streamGenerateContent(
+    model: string,
+    body: Record<string, unknown>,
+    req: Request,
+    res: Response,
+  ): Promise<void> {
+    const out = await this.serve(
+      SURFACES['gemini.streamGenerateContent'],
+      model.length > 0 ? model : null,
+      body,
+      req,
+      res,
+    );
+    if (out !== undefined && !res.writableEnded) {
+      if (typeof out === 'string') res.send(out);
+      else res.json(out);
+    }
+  }
+
+  /** Cohere/Jina `POST /v1/rerank` on the new gateway (flag=true branch). */
+  async rerank(
+    body: Record<string, unknown>,
+    req: Request,
+    res: Response,
+  ): Promise<Record<string, unknown> | undefined> {
+    return this.serveJson(SURFACES.rerank, modelOf(body), body, req, res);
+  }
+
+  /** OpenAI `POST /v1/moderations` on the new gateway (flag=true branch). */
+  async moderations(
+    body: Record<string, unknown>,
+    req: Request,
+    res: Response,
+  ): Promise<Record<string, unknown> | undefined> {
+    return this.serveJson(SURFACES.moderations, modelOf(body), body, req, res);
+  }
+
+  /**
+   * OpenAI `POST /v1/audio/transcriptions` (multipart) on the new gateway
+   * (flag=true branch). The audio part is bound into the facade per request
+   * (§9.4 media input: base64 mediaRefs + the canonical `file` param); `body`
+   * is the multipart TEXT fields (multer strings). A `response_format: 'text'`
+   * answer is the raw transcript string (the old-surface contract). The
+   * operator upload ceiling (`STT_MAX_UPLOAD_BYTES`) is enforced here below
+   * the FileInterceptor's hard cap, as a clean invalid_input.
+   */
+  async transcriptions(
+    file: UploadedAudioFile | undefined,
+    body: Record<string, unknown>,
+    req: Request,
+    res: Response,
+  ): Promise<Record<string, unknown> | string | undefined> {
+    const requestId = requestIdOf(req);
+    if (file === undefined) {
+      sendOpenAIError(res, invalidInput('a multipart "file" part is required'), requestId);
+      return undefined;
+    }
+    const maxBytes = this.env.STT_MAX_UPLOAD_BYTES;
+    if (maxBytes !== undefined && file.size > maxBytes) {
+      sendOpenAIError(
+        res,
+        invalidInput(
+          `audio upload exceeds the ${String(maxBytes)}-byte limit (${String(file.size)} bytes)`,
+        ),
+        requestId,
+      );
+      return undefined;
+    }
+    const spec: SurfaceSpec = {
+      ...SURFACES.transcriptions,
+      facade: (input) => transcriptionsToGatewayRequest(input, file),
+    };
+    return this.serve(spec, modelOf(body), body, req, res);
   }
 
   // --- the shared serve flow -----------------------------------------------------
 
-  private async serve(
-    surface: OpenAISurface,
+  /** serve() for the JSON-object surfaces (everything but transcriptions' text format). */
+  private async serveJson(
+    spec: SurfaceSpec,
+    modelName: string | null,
     body: Record<string, unknown>,
     req: Request,
     res: Response,
   ): Promise<Record<string, unknown> | undefined> {
-    const render = SURFACES[surface];
+    return (await this.serve(spec, modelName, body, req, res)) as
+      | Record<string, unknown>
+      | undefined;
+  }
+
+  private async serve(
+    spec: SurfaceSpec,
+    modelName: string | null,
+    body: Record<string, unknown>,
+    req: Request,
+    res: Response,
+  ): Promise<Record<string, unknown> | string | undefined> {
     const requestId = requestIdOf(req);
 
-    const auth = this.authOf(req, res, requestId);
+    const auth = this.authOf(req, res, requestId, spec);
     if (auth === undefined) return undefined;
 
-    const modelName = typeof body.model === 'string' && body.model.length > 0 ? body.model : null;
     if (modelName === null) {
-      sendOpenAIError(res, invalidInput("request requires a 'model'"), requestId);
+      spec.sendError(res, invalidInput("request requires a 'model'"), requestId);
       return undefined;
     }
 
@@ -159,31 +405,31 @@ export class GatewayChatV2Service {
     // model_not_found, indistinguishable from a missing/ungranted one.
     const allowlist = await this.gateway.modelAllowlist(auth.apiKeyId);
     if (allowlist.length > 0 && !allowlist.includes(modelName)) {
-      sendOpenAIError(res, modelNotFound(modelName), requestId);
+      spec.sendError(res, modelNotFound(modelName), requestId);
       return undefined;
     }
 
     // §2.1/§10 visibility gate — this read hands the facade its canonical contract.
     const model = await this.gateway.resolveVisibleModel(modelName, auth.tenantId);
     if (model === undefined) {
-      sendOpenAIError(res, modelNotFound(modelName), requestId);
+      spec.sendError(res, modelNotFound(modelName), requestId);
       return undefined;
     }
 
     const contract: ModelOperation | undefined = model.operations.find(
-      (op) => op.operation === surface,
+      (op) => op.operation === spec.operation,
     );
     if (contract === undefined) {
-      sendOpenAIError(
+      spec.sendError(
         res,
-        invalidInput(`model '${model.name}' does not expose operation '${surface}'`),
+        invalidInput(`model '${model.name}' does not expose operation '${spec.operation}'`),
         requestId,
       );
       return undefined;
     }
 
-    // §4.1 layer 1 — OpenAI-wire canonical 归一 (isDefault marking; NO offering semantics).
-    const parsed = render.facade({
+    // §4.1 layer 1 — wire canonical 归一 (isDefault marking; NO offering semantics).
+    const parsed = spec.facade({
       modelName: model.name,
       contract,
       body,
@@ -192,7 +438,7 @@ export class GatewayChatV2Service {
       routeTag: routeTagHeader(req),
     });
     if (!parsed.ok) {
-      sendOpenAIError(res, parsed.error, requestId);
+      spec.sendError(res, parsed.error, requestId);
       return undefined;
     }
 
@@ -206,14 +452,14 @@ export class GatewayChatV2Service {
     switch (result.kind) {
       case 'sync':
         this.stampServedBy(res, result.response.servedBy);
-        return render.renderSync(result);
+        return spec.renderSync(result, body);
       case 'stream':
         // Pre-commit already happened inside execute(); frames replay the first
         // frame, then the rest, settling exactly once on drain/disconnect.
-        await pipeSse(res, renderChatCompletionChunks(result.frames, parsed.request.model));
+        await pipeSse(res, spec.renderStream(result.frames, parsed.request.model));
         return undefined;
       case 'replay':
-        return this.renderReplay(render, result.task, parsed.request, res, requestId);
+        return this.renderReplay(spec, result.task, parsed.request, body, res, requestId);
       case 'task': {
         // §3 自动升格 (slow-marked catalog contract): 202 + Task, pure
         // server-side — the SDK's submit-and-wait consumes the dual shape.
@@ -226,25 +472,26 @@ export class GatewayChatV2Service {
         return toTaskView(result.task);
       }
       case 'error':
-        sendOpenAIError(res, result.error, requestId);
+        spec.sendError(res, result.error, requestId);
         return undefined;
     }
   }
 
-  /** §5 同键同体回放 on a sync OpenAI surface (no 202 vocabulary here). */
+  /** §5 同键同体回放 on a sync surface (no 202 vocabulary here). */
   private renderReplay(
-    render: SurfaceRender,
+    spec: SurfaceSpec,
     task: TaskRow,
     request: GatewayRequest,
+    body: Record<string, unknown>,
     res: Response,
     requestId: string,
-  ): Record<string, unknown> | undefined {
+  ): Record<string, unknown> | string | undefined {
     if (task.status === 'succeeded') {
       res.status(200);
-      return render.renderReplay(task, request.model);
+      return spec.renderReplay(task, request.model, body);
     }
     if (TERMINAL.includes(task.status)) {
-      sendOpenAIError(
+      spec.sendError(
         res,
         task.error ?? {
           code: 'task_failed',
@@ -256,7 +503,7 @@ export class GatewayChatV2Service {
       );
       return undefined;
     }
-    sendOpenAIError(
+    spec.sendError(
       res,
       {
         code: 'conflict',
@@ -272,18 +519,19 @@ export class GatewayChatV2Service {
   /**
    * The guard-attached auth context. The new gateway face requires a REAL api
    * key (frozen IR: apiKeyId is mandatory — idempotency scope + attribution),
-   * so the dev x-tenant-id fallback is rejected with an OpenAI-wire 401.
+   * so the dev x-tenant-id fallback is rejected with the surface's wire 401.
    */
   private authOf(
     req: Request,
     res: Response,
     requestId: string,
+    spec: SurfaceSpec,
   ):
     | (FacadeAuth & { accountId: string; keyRpm: number | null; routeGroupId: string | null })
     | undefined {
     const auth = (req as AuthedRequest).auth;
     if (auth?.apiKeyId == null) {
-      sendOpenAIError(
+      spec.sendError(
         res,
         {
           code: 'unauthorized',

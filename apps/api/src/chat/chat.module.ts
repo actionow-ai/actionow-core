@@ -39,9 +39,11 @@ import { TranscriptionsController } from './transcriptions.controller.js';
  * Tests override {@link MODEL_RESOLVER} with a fake; production uses the real binding.
  */
 @Module({
-  // 切换预案③ (批次5 slice3): OpenAIChatController/EmbeddingsController branch
-  // per tenant to the exported GatewayChatV2Service at their ENTRY line (双面
-  // 并存 — the legacy relay path below is otherwise untouched).
+  // 切换预案③ (批次5 slice3+slice6, 7/7 全切): ALL seven legacy sync
+  // controllers (openai/embeddings/anthropic/gemini/rerank/moderations/
+  // transcriptions) branch per tenant to the exported GatewayChatV2Service at
+  // their ENTRY line (双面并存 — the legacy relay path below is otherwise
+  // untouched).
   imports: [GatewayModule],
   controllers: [
     OpenAIChatController,
