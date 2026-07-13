@@ -3,7 +3,6 @@ import type { CSSProperties, ReactElement } from 'react';
 import anthropicUrl from '../../assets/providers/anthropic.svg';
 import cloudflareUrl from '../../assets/providers/cloudflare.svg';
 import deepseekUrl from '../../assets/providers/deepseek.svg';
-import difyUrl from '../../assets/providers/dify.svg';
 import doubaoUrl from '../../assets/providers/doubao.svg';
 import ernieUrl from '../../assets/providers/ernie.svg';
 import geminiUrl from '../../assets/providers/gemini.svg';
@@ -59,7 +58,6 @@ const BRANDS: Brand[] = [
   { src: viduUrl, label: 'Vidu', match: ['vidu', 'shengshu'] },
   // Orchestration / infra
   { src: cloudflareUrl, label: 'Cloudflare', match: ['cloudflare', 'workersai'] },
-  { src: difyUrl, label: 'Dify', match: ['dify'] },
 ];
 
 function resolve(provider: string): Brand | null {

@@ -8,14 +8,13 @@ const ALL_PROVIDER_TYPES = [
   'gemini',
   'async-media',
   'async-media-mock',
-  'dify-workflow',
   'mock-stream',
   'mock-chat',
   'codex-oauth',
 ] as const;
 
 describe('createDefaultRegistry', () => {
-  it('resolves all nine built-in provider_types', () => {
+  it('resolves all eight built-in provider_types', () => {
     const registry = createDefaultRegistry();
     for (const providerType of ALL_PROVIDER_TYPES) {
       expect(registry.has(providerType)).toBe(true);

@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { ADAPTERS, DB, ENV, JOB_QUEUE, RATE_LIMITER } from '../src/common/tokens.js';
-import { SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, seedAll } from '../src/seed/seed.js';
+import { seedAll } from '../src/seed/seed.js';
 
 /**
  * §12 acceptance e2e — proves the seed → `POST /v1/run` path end-to-end against a
@@ -36,23 +36,6 @@ let db: PostgresJsDatabase<typeof schema>;
 let app: INestApplication;
 let apiKey: string;
 let seedTenantId: string;
-
-/** The §7.1 sample BYO workflow used by criterion 6 (dify import). */
-const WORKFLOW_DSL = `
-app: { mode: workflow, name: 小红书文案配图, icon: "🎨" }
-kind: app
-version: "0.1.5"
-workflow:
-  graph:
-    nodes:
-      - { id: start, data: { type: start, variables: [
-            { variable: topic, label: 主题, type: text-input, required: true, max_length: 100 } ] } }
-      - { id: llm1, data: { type: llm, model: { provider: openai, name: gpt-4o-mini } } }
-      - { id: img1, data: { type: tool, provider_type: builtin, tool_name: dalle3 } }
-      - { id: end, data: { type: end, outputs: [
-            { variable: caption,   value_selector: [llm1, text] },
-            { variable: image_url, value_selector: [img1, image] } ] } }
-`;
 
 /** Tokens the stub adapter always reports, so cost is deterministic. */
 const STUB_TOKENS = 300;
@@ -145,14 +128,6 @@ const SEED_RESOURCE = 'openai-gpt';
 
 function bearer(req: request.Test, key = apiKey): request.Test {
   return req.set('authorization', `Bearer ${key}`);
-}
-
-async function adminToken(): Promise<string> {
-  const res = await request(app.getHttpServer())
-    .post('/admin/auth/login')
-    .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
-    .expect(200);
-  return res.body.token as string;
 }
 
 /**
@@ -352,42 +327,5 @@ describe('§12 acceptance', () => {
     expect(blocked.body.error.retryable).toBe(true);
     expect(blocked.body.error.retry_after_ms).toBeTypeOf('number');
     expect(blocked.body.error.retry_after_ms).toBeGreaterThan(0);
-  });
-
-  it('criterion 6: admin dify import registers a BYO workflow visible via GET /v1/resources/:id', async () => {
-    const token = await adminToken();
-    const difyResourceId = 'acc-xhs';
-
-    // Import the BYO workflow for the SEED tenant so the seeded API key can see
-    // it through the tenant-scoped discovery endpoint.
-    const imported = await request(app.getHttpServer())
-      .post('/admin/dify/import')
-      .set('authorization', `Bearer ${token}`)
-      .send({
-        tenantId: seedTenantId,
-        resourceId: difyResourceId,
-        yaml: WORKFLOW_DSL,
-        endpoint: 'https://dify.example/v1',
-        pricingModel: 'fixed',
-      })
-      .expect(200);
-    expect(imported.body.resource_id).toBe(difyResourceId);
-
-    // The seeded API key (no allowlist) can now discover the imported resource's
-    // io_schema via GET /v1/resources/:id.
-    const got = await bearer(
-      request(app.getHttpServer()).get(`/v1/resources/${difyResourceId}`),
-    ).expect(200);
-
-    expect(got.body.id).toBe(difyResourceId);
-    expect(got.body.io_schema.inputs.map((i: { key: string }) => i.key)).toEqual(['topic']);
-    expect(got.body.io_schema.outputs.map((o: { key: string }) => o.key)).toEqual([
-      'caption',
-      'image_url',
-    ]);
-
-    // And it appears in the tenant-scoped list view.
-    const list = await bearer(request(app.getHttpServer()).get('/v1/resources')).expect(200);
-    expect(list.body.data.map((r: { id: string }) => r.id)).toContain(difyResourceId);
   });
 });

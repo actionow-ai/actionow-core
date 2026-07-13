@@ -1,21 +1,18 @@
-import { PlayIcon } from '@phosphor-icons/react';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { IconPicker } from '../../components/data/IconPicker';
-import { StatusBadge } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { ChipsField } from '../../components/ui/ChipsField';
 import { CodeEditor } from '../../components/ui/CodeEditor';
 import { Drawer } from '../../components/ui/Drawer';
 import { FormField, useFieldId } from '../../components/ui/FormField';
-import { JsonField } from '../../components/ui/JsonField';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { toast } from '../../components/ui/toast';
 import { mutationError } from '../../lib/api/mutationError';
-import type { ProviderPluginView, TestPluginResponse } from '../../lib/api/types';
+import type { ProviderPluginView } from '../../lib/api/types';
 import { useAdminApi } from '../../lib/api/useAdminApi';
 
 const SIGNERS = [
@@ -29,7 +26,6 @@ const SIGNERS = [
   'none',
 ];
 const PROTOCOLS = ['sync', 'async-poll'];
-const HANDLER_FNS = ['mapRequest', 'mapResponse', 'mapSubmit', 'mapPollRequest', 'mapPoll'];
 
 const STARTER_HANDLER = `function mapRequest(ctx){
   return { method: 'POST', pathSuffix: '/v1/images/generations', body: { model: ctx.model, prompt: ctx.inputs.prompt } };
@@ -38,7 +34,7 @@ function mapResponse(a){
   return { kind: 'media', assets: [{ role: 'primary', modality: 'image', url: a.response.data[0].url, mime: 'image/png' }], usage: { images: 1 } };
 }`;
 
-/** Create/edit one plugin (manifest fields + handler code) with an inline test panel. */
+/** Create/edit one plugin (manifest fields + handler code). */
 export function PluginEditor({
   plugin,
   onClose,
@@ -61,13 +57,6 @@ export function PluginEditor({
   const [handler, setHandler] = useState(plugin?.handler ?? STARTER_HANDLER);
   const [attempted, setAttempted] = useState(false);
   const handlerId = useFieldId();
-
-  // Test panel state.
-  const [testFn, setTestFn] = useState('mapRequest');
-  const [testArg, setTestArg] = useState(
-    '{ "inputs": { "prompt": "a cat" }, "model": "gpt-image-1" }',
-  );
-  const [testOut, setTestOut] = useState<TestPluginResponse | null>(null);
 
   const manifest = () => ({
     id: slug.trim(),
@@ -103,20 +92,6 @@ export function PluginEditor({
       toast(t(editing ? 'plugins.updated' : 'plugins.created'));
       onSaved();
     },
-    onError: mutationError(t),
-  });
-
-  const test = useMutation({
-    mutationFn: () => {
-      let arg: unknown;
-      try {
-        arg = JSON.parse(testArg);
-      } catch {
-        throw new Error(t('plugins.test.badArg'));
-      }
-      return api.testPlugin({ handler, fn: testFn as never, arg });
-    },
-    onSuccess: (r) => setTestOut(r),
     onError: mutationError(t),
   });
 
@@ -186,52 +161,6 @@ export function PluginEditor({
       >
         <CodeEditor value={handler} onChange={setHandler} ariaLabel={t('plugins.form.handler')} />
       </FormField>
-
-      {/* Test panel (spec §3.7) */}
-      <div
-        className="panel"
-        style={{
-          marginTop: 'var(--s-4)',
-          padding: 'var(--s-3)',
-          borderRadius: 'var(--r-md)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--s-3)',
-        }}
-      >
-        <div style={{ fontWeight: 'var(--fw-semibold)' }}>{t('plugins.test.title')}</div>
-        <SelectField
-          label={t('plugins.test.fn')}
-          value={testFn}
-          onChange={setTestFn}
-          options={HANDLER_FNS.map((f) => ({ value: f, label: f }))}
-        />
-        <JsonField label={t('plugins.test.arg')} value={testArg} onChange={setTestArg} />
-        <div>
-          <Button variant="ghost" onClick={() => test.mutate()} loading={test.isPending}>
-            <PlayIcon size={14} weight="bold" /> {t('plugins.test.run')}
-          </Button>
-        </div>
-        {testOut !== null && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
-            <StatusBadge
-              tone={testOut.ok ? 'ok' : 'fail'}
-              label={t(testOut.ok ? 'plugins.testOk' : 'plugins.testError')}
-            />
-            <pre
-              className="mono"
-              style={{
-                margin: 0,
-                fontSize: 'var(--fs-sm)',
-                whiteSpace: 'pre-wrap',
-                color: testOut.ok ? 'var(--text)' : 'var(--fail)',
-              }}
-            >
-              {testOut.ok ? JSON.stringify(testOut.result, null, 2) : testOut.error}
-            </pre>
-          </div>
-        )}
-      </div>
     </Drawer>
   );
 }

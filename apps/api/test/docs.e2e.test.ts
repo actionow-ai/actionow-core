@@ -51,7 +51,6 @@ describe('OpenAPI docs', () => {
     const paths = Object.keys(res.body.paths as Record<string, unknown>);
     expect(paths.some((p) => p.startsWith('/v1/run'))).toBe(true);
     expect(paths.some((p) => p.startsWith('/admin/tenants'))).toBe(true);
-    expect(paths.some((p) => p.startsWith('/admin/dify/import'))).toBe(true);
     // both bearer schemes are declared
     const schemes = Object.keys(
       (res.body.components as { securitySchemes: Record<string, unknown> }).securitySchemes,

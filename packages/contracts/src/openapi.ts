@@ -65,12 +65,10 @@ import {
   createModifierSchema,
   createPricebookSchema,
   createResourceSchema,
-  difyImportSchema,
   grantModelSchema,
   syncChannelModelsSchema,
   updateChannelModelParamOverrideSchema,
   updateChannelSchema,
-  updateDifySchema,
   updateModelSchema,
   updateModelSpecSchema,
   updateModifierSchema,
@@ -80,7 +78,6 @@ import {
 import {
   channelModelViewSchema,
   channelViewSchema,
-  difyBindingViewSchema,
   modelGrantViewSchema,
   modelSpecViewSchema,
   modelViewSchema,
@@ -149,7 +146,6 @@ import {
   breakerViewSchema,
   channelHealthViewSchema,
   codexLoginStartViewSchema,
-  difyImportViewSchema,
   jobViewSchema,
   ledgerViewSchema,
   modelHealthViewSchema,
@@ -174,8 +170,6 @@ import { priceSpecSchema } from './pricing.js';
 import {
   createPluginRequestSchema,
   providerPluginViewSchema,
-  testPluginRequestSchema,
-  testPluginResponseSchema,
   updatePluginRequestSchema,
 } from './provider-plugin.js';
 import {
@@ -288,8 +282,6 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const ModelGrant = registry.register('ModelGrantView', modelGrantViewSchema);
   const Pricebook = registry.register('PricebookView', pricebookViewSchema);
   const Modifier = registry.register('ModifierView', modifierViewSchema);
-  const DifyBinding = registry.register('DifyBindingView', difyBindingViewSchema);
-  const UpdateDify = registry.register('UpdateDifyBody', updateDifySchema);
 
   // admin operational views (ops-views)
   const ApiKey = registry.register('ApiKeyView', apiKeyViewSchema);
@@ -299,7 +291,6 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const UsageRollup = registry.register('UsageRollupView', usageRollupViewSchema);
   const Payment = registry.register('PaymentIntentView', paymentIntentViewSchema);
   const Secret = registry.register('SecretView', secretViewSchema);
-  registry.register('DifyImportView', difyImportViewSchema);
   const RelayTrace = registry.register('RelayTraceView', relayTraceViewSchema);
   const RedemptionCode = registry.register('RedemptionCodeView', redemptionCodeViewSchema);
   const RedeemCodes = registry.register('RedeemCodesResult', redeemCodesResultSchema);
@@ -307,8 +298,6 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const ProviderPlugin = registry.register('ProviderPluginView', providerPluginViewSchema);
   const CreatePlugin = registry.register('CreatePluginBody', createPluginRequestSchema);
   const UpdatePlugin = registry.register('UpdatePluginBody', updatePluginRequestSchema);
-  const TestPlugin = registry.register('TestPluginBody', testPluginRequestSchema);
-  const TestPluginResp = registry.register('TestPluginResponse', testPluginResponseSchema);
   const OAuthSession = registry.register('OAuthSessionView', oauthSessionViewSchema);
   const OAuthSessionList = registry.register('OAuthSessionListView', oauthSessionListViewSchema);
   const CodexLoginStartV = registry.register('CodexLoginStartView', codexLoginStartViewSchema);
@@ -437,7 +426,6 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const UpdatePricebook = registry.register('UpdatePricebookBody', updatePricebookSchema);
   const CreateModifier = registry.register('CreateModifierBody', createModifierSchema);
   const UpdateModifier = registry.register('UpdateModifierBody', updateModifierSchema);
-  const DifyImport = registry.register('DifyImportBody', difyImportSchema);
   const CreateModel = registry.register('CreateModelBody', createModelSchema);
   const UpdateModel = registry.register('UpdateModelBody', updateModelSchema);
   const CreateModelSpec = registry.register('CreateModelSpecBody', createModelSpecSchema);
@@ -880,14 +868,6 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     created: true,
   });
   write({
-    method: 'post',
-    path: '/admin/plugins/test',
-    summary: 'Run a handler fn in the sandbox (test panel)',
-    tag: 'catalog',
-    body: TestPlugin,
-    response: TestPluginResp,
-  });
-  write({
     method: 'patch',
     path: '/admin/plugins/{id}',
     summary: 'Update a provider plugin',
@@ -1242,24 +1222,6 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     body: UpdateModifier,
     response: Modifier,
   });
-  write({
-    method: 'post',
-    path: '/admin/dify/import',
-    summary: 'Register a BYO Dify workflow',
-    tag: 'catalog',
-    body: DifyImport,
-    created: true,
-  });
-  list('/admin/dify', 'List dify bindings', DifyBinding, 'catalog', keyset);
-  write({
-    method: 'patch',
-    path: '/admin/dify/{resourceId}',
-    summary: 'Update a dify binding',
-    tag: 'catalog',
-    body: UpdateDify,
-    response: DifyBinding,
-  });
-  del('/admin/dify/{resourceId}', 'Delete a dify binding', 'catalog');
   write({
     method: 'post',
     path: '/admin/models',

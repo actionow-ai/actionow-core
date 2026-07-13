@@ -16,7 +16,6 @@
     "@actionow/adapters": "workspace:*",
     "@actionow/contracts": "workspace:*",
     "@actionow/db": "workspace:*",
-    "@actionow/dify": "workspace:*",
     "@actionow/domain": "workspace:*",
     "@actionow/engine": "workspace:*",
     "@actionow/infra": "workspace:*",

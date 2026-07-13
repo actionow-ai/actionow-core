@@ -34,7 +34,6 @@ import {
   createSupplyPriceCardVersionSchema,
   createSupplyProviderSchema,
   createTenantSchema,
-  difyImportSchema,
   ensureResourceSchema,
   generateCodesSchema,
   grantModelSchema,
@@ -48,7 +47,6 @@ import {
   setLimitPlanRequestSchema,
   supplyPriceCardFromOfficialSchema,
   syncChannelModelsSchema,
-  testPluginRequestSchema,
   topupSchema,
   topupSubAccountSchema,
   transferCreditsSchema,
@@ -57,7 +55,6 @@ import {
   updateChannelModelParamOverrideSchema,
   updateChannelSchema,
   updateCredentialMetaSchema,
-  updateDifySchema,
   updateFaultPolicySchema,
   updateLimitPlanRequestSchema,
   updateModelSchema,
@@ -136,7 +133,6 @@ export {
   createSupplyPriceCardVersionSchema,
   createSupplyProviderSchema,
   createTenantSchema,
-  difyImportSchema,
   ensureResourceSchema,
   generateCodesSchema,
   grantModelSchema,
@@ -150,7 +146,6 @@ export {
   setLimitPlanRequestSchema,
   supplyPriceCardFromOfficialSchema,
   syncChannelModelsSchema,
-  testPluginRequestSchema,
   topupSchema,
   topupSubAccountSchema,
   transferCreditsSchema,
@@ -159,7 +154,6 @@ export {
   updateChannelModelParamOverrideSchema,
   updateChannelSchema,
   updateCredentialMetaSchema,
-  updateDifySchema,
   updateFaultPolicySchema,
   updateLimitPlanRequestSchema,
   updateModelSchema,
@@ -186,7 +180,6 @@ export type BulkOAuthSessionActionDto = z.infer<typeof bulkOAuthSessionActionSch
 export type LatestAuditRequestDto = z.infer<typeof latestAuditRequestSchema>;
 export type CreatePluginDto = z.infer<typeof createPluginRequestSchema>;
 export type UpdatePluginDto = z.infer<typeof updatePluginRequestSchema>;
-export type TestPluginDto = z.infer<typeof testPluginRequestSchema>;
 
 export type CreateTenantDto = z.infer<typeof createTenantSchema>;
 export type UpdateTenantDto = z.infer<typeof updateTenantSchema>;
@@ -219,8 +212,6 @@ export type CreatePricebookDto = z.infer<typeof createPricebookSchema>;
 export type UpdatePricebookDto = z.infer<typeof updatePricebookSchema>;
 export type CreateModifierDto = z.infer<typeof createModifierSchema>;
 export type UpdateModifierDto = z.infer<typeof updateModifierSchema>;
-export type DifyImportDto = z.infer<typeof difyImportSchema>;
-export type UpdateDifyDto = z.infer<typeof updateDifySchema>;
 export type CreateModelDto = z.infer<typeof createModelSchema>;
 export type UpdateModelDto = z.infer<typeof updateModelSchema>;
 export type CreateModelSpecDto = z.infer<typeof createModelSpecSchema>;

@@ -6,7 +6,6 @@ import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
-  createDifyBinding,
   createModifier,
   createResource,
   getResourceWithSchema,
@@ -14,7 +13,7 @@ import {
 } from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
 
-const { difyBinding, modifier, resource, resourceVersion, tenant } = schema;
+const { modifier, resource, resourceVersion, tenant } = schema;
 
 let container: StartedPostgreSqlContainer;
 let client: ReturnType<typeof postgres>;
@@ -113,44 +112,6 @@ describe('createResource', () => {
       .from(resourceVersion)
       .where(eq(resourceVersion.resourceId, 'bump'));
     expect(versions.map((v) => v.version).sort()).toEqual([1, 2]);
-  });
-});
-
-describe('createDifyBinding', () => {
-  it('writes the binding with provision_mode=byo and pricing_model=fixed', async () => {
-    const tenantId = await makeTenant();
-    await createResource(db, {
-      id: 'bound',
-      tenantId,
-      kind: 'workflow',
-      modality: 'composite',
-      providerType: 'dify-workflow',
-      execModes: ['blocking'],
-      ioSchema: IO_SCHEMA,
-      version: 1,
-    });
-
-    const binding = await createDifyBinding(db, {
-      resourceId: 'bound',
-      resourceVersion: 1,
-      mode: 'workflow',
-      difyAppEndpoint: 'https://dify.example/v1',
-      difyServiceKeyRef: null,
-      dslHash: 'deadbeef',
-      pricingModel: 'fixed',
-      provisionMode: 'byo',
-      requiredSecrets: ['dalle3'],
-      compatReport: { items: [], hasBlockers: false },
-    });
-
-    expect(binding.provisionMode).toBe('byo');
-    expect(binding.pricingModel).toBe('fixed');
-    expect(binding.requiredSecrets).toEqual(['dalle3']);
-
-    const [row] = await db.select().from(difyBinding).where(eq(difyBinding.resourceId, 'bound'));
-    expect(row?.dslHash).toBe('deadbeef');
-    expect(row?.difyAppEndpoint).toBe('https://dify.example/v1');
-    expect(row?.compatReport).toEqual({ items: [], hasBlockers: false });
   });
 });
 

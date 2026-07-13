@@ -22,7 +22,6 @@ import { ApiKeyDetailPage } from './features/console/ApiKeyDetailPage';
 import { ApiKeysPage } from './features/console/ApiKeysPage';
 import { AuditLogPage } from './features/console/AuditLogPage';
 import { BreakersPage } from './features/console/BreakersPage';
-import { DifyImportPage } from './features/console/DifyImportPage';
 import { FaultPoliciesPage } from './features/console/FaultPoliciesPage';
 import { LimitPlansPage } from './features/console/LimitPlansPage';
 import { ModelAccessPage } from './features/console/ModelAccessPage';
@@ -127,7 +126,6 @@ export function AppRoutes() {
           <Route path="limit-plans" element={<LimitPlansPage />} />
           <Route path="fault-policies" element={<FaultPoliciesPage />} />
           <Route path="official-prices" element={<OfficialPricesPage />} />
-          <Route path="dify" element={<DifyImportPage />} />
           <Route path="oauth-sessions" element={<OAuthSessionsPage />} />
           <Route path="tenants" element={<TenantsPage />} />
           <Route path="tenants/:id" element={<TenantDetailPage />} />

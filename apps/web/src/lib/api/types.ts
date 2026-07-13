@@ -72,9 +72,6 @@ export type {
   CreateSubAccountBody,
   CreateSubjectBody,
   CreateTenantBody,
-  DifyBindingView,
-  DifyImportBody,
-  DifyImportView,
   FaultPolicyView,
   FileView,
   GenerateCodesBody,
@@ -151,8 +148,6 @@ export type {
   SubjectView,
   SyncChannelModelsBody,
   TenantView,
-  TestPluginRequest,
-  TestPluginResponse,
   TokenPair,
   TopupBody,
   TopupSubAccountBody,
@@ -162,7 +157,6 @@ export type {
   UpdateChannelModelParamOverrideBody,
   UpdateConversationBody,
   UpdateCredentialMetaBody,
-  UpdateDifyBody,
   UpdateFaultPolicyBody,
   UpdateLimitPlanRequest,
   UpdateModelBody,
@@ -200,7 +194,7 @@ export interface Page<T> {
 // ModelGrantView now come from @actionow/contracts (catalog-views), and the
 // matching Create*/Update* request bodies from catalog-requests — see the
 // type-only re-export at the top of this file.
-// DifyImportView / SecretView / UsageLogView / UsageRollupView / LedgerView /
+// SecretView / UsageLogView / UsageRollupView / LedgerView /
 // PaymentIntentView now come from @actionow/contracts (ops-views) — see the
 // type-only re-export at the top of this file.
 
@@ -229,7 +223,6 @@ export type PricebookMethod =
   | 'model_token';
 export type PricebookTiming = 'pre' | 'post';
 export type ModifierOp = 'override_rate' | 'percent_off' | 'flat_off' | 'percent_add';
-export type DifyPricingModel = 'fixed' | 'matrix' | 'metered';
 export type ChannelStatus = 'active' | 'disabled';
 
 /** Result of a channel sync-models run: the model names created/updated. */

@@ -10,8 +10,6 @@ import {
   type PriceSpec,
   type RelayTraceView,
   relayTraceViewSchema,
-  type TestPluginRequest,
-  type TestPluginResponse,
   type UpdatePluginRequest,
 } from '@actionow/contracts';
 import {
@@ -235,8 +233,6 @@ import {
   generateCodexPkce,
   parseChatgptIdentity,
   redactHeaders,
-  runHandler,
-  SandboxError,
 } from '@actionow/engine';
 import { type AppEnv, createHttpClient } from '@actionow/infra';
 import { Inject, Injectable, Optional } from '@nestjs/common';
@@ -1231,21 +1227,6 @@ export class AdminService {
     if (row === undefined) throw engineNotFound(`plugin ${id} not found`);
     if (row.builtin) throw engineInvalidInput('built-in plugins cannot be deleted');
     await softDeletePlugin(this.db, id);
-  }
-
-  /**
-   * Run ONE handler fn in the QuickJS sandbox with a sample argument (operator
-   * test panel). A sandbox throw/timeout/non-JSON is returned as `{ok:false}` —
-   * never a 500 — so the panel renders the error inline.
-   */
-  async testPlugin(dto: TestPluginRequest): Promise<TestPluginResponse> {
-    try {
-      const result = await runHandler(dto.handler, dto.fn, dto.arg);
-      return { ok: true, result };
-    } catch (err) {
-      const message = err instanceof SandboxError ? err.message : 'handler failed';
-      return { ok: false, error: message };
-    }
   }
 
   /**

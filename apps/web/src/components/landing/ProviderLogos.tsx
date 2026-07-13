@@ -21,7 +21,6 @@ const PROVIDERS = [
   'kling',
   'vidu',
   'cloudflare',
-  'dify',
 ];
 
 function Group({ dup }: { dup?: boolean }) {

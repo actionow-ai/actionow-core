@@ -6,7 +6,6 @@ import { PgTransaction } from 'drizzle-orm/pg-core';
 import {
   account,
   channelBreaker,
-  difyBinding,
   modifier,
   pricebookEntry,
   resource,
@@ -23,7 +22,6 @@ export type ResourceVersionRow = InferSelectModel<typeof resourceVersion>;
 export type PricebookEntryRow = InferSelectModel<typeof pricebookEntry>;
 export type ModifierRow = InferSelectModel<typeof modifier>;
 export type UpstreamChannelRow = InferSelectModel<typeof upstreamChannel>;
-export type DifyBindingRow = InferSelectModel<typeof difyBinding>;
 
 /** Fetch a live resource row by id (soft-deleted → `undefined`). */
 export async function getResource(db: DbOrTx, resourceId: string): Promise<Resource | undefined> {
@@ -63,112 +61,6 @@ export async function getResourceVersion(
     .where(and(eq(resourceVersion.resourceId, resourceId), eq(resourceVersion.version, version)))
     .limit(1);
   return rows[0];
-}
-
-/**
- * Fetch the dify binding for a resource, highest `resource_version` first (the
- * binding for the current version). Returns `undefined` when the resource has
- * no binding yet — used to detect a no-op re-import by `dsl_hash`.
- */
-export async function getDifyBinding(
-  db: DbOrTx,
-  resourceId: string,
-): Promise<DifyBindingRow | undefined> {
-  const rows = await db
-    .select()
-    .from(difyBinding)
-    .where(and(eq(difyBinding.resourceId, resourceId), isNull(difyBinding.deletedAt)))
-    .orderBy(desc(difyBinding.resourceVersion))
-    .limit(1);
-  return rows[0];
-}
-
-/**
- * List live dify bindings (admin view; excludes soft-deleted), keyset-paginated
- * newest-first on `(created_at, resource_id)`. A dify resource has one live
- * binding (the current version), so `resource_id` is a stable keyset tiebreaker.
- */
-export async function listDifyBindings(
-  db: DbOrTx,
-  page: PageParams,
-): Promise<KeysetResult<DifyBindingRow>> {
-  return keysetPage<DifyBindingRow>(db, {
-    table: difyBinding,
-    createdAtCol: difyBinding.createdAt,
-    idCol: difyBinding.resourceId,
-    where: isNull(difyBinding.deletedAt),
-    page,
-  });
-}
-
-/** Mutable fields of a `dify_binding` (admin PATCH); omitted keys are unchanged. */
-export interface UpdateDifyBindingInput {
-  /** The dify app endpoint URL. */
-  readonly endpoint?: string | undefined;
-  /** A `secret_ref` id for the dify service key, or `null` to clear. */
-  readonly serviceKeyRef?: string | null | undefined;
-  /** `metered` | `fixed` | `matrix`. */
-  readonly pricingModel?: string | undefined;
-}
-
-/**
- * Patch the CURRENT live dify binding for a resource (the highest
- * `resource_version`, mirroring {@link getDifyBinding}), returning the new row.
- * Only the supplied fields change. The `dify_binding` table has NO `updated_at`
- * column, so nothing is stamped. Soft-deleted / unknown → `undefined`; an empty
- * patch reads the current live binding back.
- */
-export async function updateDifyBinding(
-  db: DbOrTx,
-  resourceId: string,
-  patch: UpdateDifyBindingInput,
-): Promise<DifyBindingRow | undefined> {
-  const current = await getDifyBinding(db, resourceId);
-  if (current === undefined) return undefined;
-  const set: Partial<InferInsertModel<typeof difyBinding>> = {};
-  if (patch.endpoint !== undefined) set.difyAppEndpoint = patch.endpoint;
-  if (patch.serviceKeyRef !== undefined) set.difyServiceKeyRef = patch.serviceKeyRef;
-  if (patch.pricingModel !== undefined) set.pricingModel = patch.pricingModel;
-  if (Object.keys(set).length === 0) return current;
-  const rows = await db
-    .update(difyBinding)
-    .set(set)
-    .where(
-      and(
-        eq(difyBinding.resourceId, resourceId),
-        eq(difyBinding.resourceVersion, current.resourceVersion),
-        isNull(difyBinding.deletedAt),
-      ),
-    )
-    .returning();
-  return rows[0];
-}
-
-/**
- * Revoke a dify binding by SOFT-DELETING the CURRENT live binding for a resource
- * (the highest `resource_version`). `getDifyBinding` / `listDifyBindings` filter
- * `deleted_at IS NULL`, so the binding drops out of resolution + the listing. The
- * `dify_binding` table has no `updated_at`, so only `deleted_at` is set. Returns
- * the resource id, or `undefined` when nothing matched — idempotent.
- */
-export async function softDeleteDifyBinding(
-  db: DbOrTx,
-  resourceId: string,
-): Promise<string | undefined> {
-  const current = await getDifyBinding(db, resourceId);
-  if (current === undefined) return undefined;
-  const rows = await db
-    .update(difyBinding)
-    .set({ deletedAt: new Date() })
-    .where(
-      and(
-        eq(difyBinding.resourceId, resourceId),
-        eq(difyBinding.resourceVersion, current.resourceVersion),
-        isNull(difyBinding.deletedAt),
-      ),
-    )
-    .returning({ resourceId: difyBinding.resourceId });
-  return rows[0]?.resourceId;
 }
 
 /**
@@ -620,8 +512,8 @@ async function writeResource(tx: DbOrTx, input: CreateResourceInput): Promise<Re
  * `(resource_id, version)`.
  *
  * Reuses an already-open transaction (`PgTransaction`) when one is passed so a
- * caller — e.g. dify registration writing the resource and its binding together
- * — gets a single flat transaction rather than a nested SAVEPOINT. When given
+ * caller writing the resource and related rows together gets a single flat
+ * transaction rather than a nested SAVEPOINT. When given
  * the root connection it opens its own transaction so the two writes stay
  * atomic on their own.
  */
@@ -638,17 +530,6 @@ export async function createResource(db: DbOrTx, input: CreateResourceInput): Pr
 /** True when `db` is an already-open transaction (vs. the root connection). */
 function isOpenTransaction(db: DbOrTx): boolean {
   return db instanceof PgTransaction;
-}
-
-/** Insert a `dify_binding` row. */
-export async function createDifyBinding(
-  db: DbOrTx,
-  binding: InferInsertModel<typeof difyBinding>,
-): Promise<DifyBindingRow> {
-  const rows = await db.insert(difyBinding).values(binding).returning();
-  const row = rows[0];
-  if (!row) throw new Error('createDifyBinding: insert returned no row');
-  return row;
 }
 
 /** A resource joined with the `io_schema` of its current version. */

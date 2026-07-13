@@ -175,23 +175,6 @@ export const modifierViewSchema = z.object({
 export type ModifierView = z.infer<typeof modifierViewSchema>;
 
 /**
- * One BYO Dify binding (`GET /admin/dify`, the PATCH response). The metadata
- * view — EXCLUDES the dsl/compat-report blobs. `service_key_ref` is the bound
- * stored-secret id or null.
- */
-export const difyBindingViewSchema = z.object({
-  resource_id: z.string(),
-  resource_version: z.number(),
-  mode: z.string(),
-  endpoint: z.string(),
-  service_key_ref: z.string().nullable(),
-  pricing_model: z.string(),
-  provision_mode: z.string(),
-  created_at: z.string(),
-});
-export type DifyBindingView = z.infer<typeof difyBindingViewSchema>;
-
-/**
  * One row of the official **model spec catalog** (规格库; `GET /admin/model-specs`),
  * the admin-maintained reference description of an upstream model — what it IS
  * (modalities/context/key params/intro/sources), independent of channel wiring.

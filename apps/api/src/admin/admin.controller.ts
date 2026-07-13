@@ -88,7 +88,6 @@ import {
   subjectViewSchema,
   type TenantView,
   tenantViewSchema,
-  type TestPluginResponse,
   type UsageLogView,
   usageLogViewSchema,
   type UsageRollupView,
@@ -257,8 +256,6 @@ import {
   setLimitPlanRequestSchema,
   type SyncChannelModelsDto,
   syncChannelModelsSchema,
-  type TestPluginDto,
-  testPluginRequestSchema,
   type TopupDto,
   topupSchema,
   type TopupSubAccountDto,
@@ -1469,14 +1466,6 @@ export class AdminController {
     @Body(new ZodBody(createPluginRequestSchema)) dto: CreatePluginDto,
   ): Promise<ProviderPluginView> {
     return toPluginView(await this.admin.createPlugin(dto));
-  }
-
-  @Post('plugins/test')
-  @ApiOperation({ summary: 'Run one handler fn in the sandbox with a sample arg (test panel)' })
-  async testPlugin(
-    @Body(new ZodBody(testPluginRequestSchema)) dto: TestPluginDto,
-  ): Promise<TestPluginResponse> {
-    return this.admin.testPlugin(dto);
   }
 
   @Patch('plugins/:id')

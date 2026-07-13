@@ -29,7 +29,6 @@ import { hashPassword } from '@actionow/infra';
 import { importCatalog } from './seed-catalog.js';
 import { seedIcons } from './seed-icons.js';
 import { OFFICIAL_PRICE_SEED_KEYS, seedOfficialPrices } from './seed-official-prices.js';
-import { backfillChannelPlugins, seedPlugins } from './seed-plugins.js';
 import { PROVIDER_SEED_IDS, seedProviders } from './seed-providers.js';
 
 /**
@@ -376,12 +375,7 @@ async function main(): Promise<void> {
   // DATA. Idempotent + network-free; the channels' credentials/proxies resolve
   // from env at run time.
   await seedProviders(db, { tenantId: result.tenantId });
-  // P2: built-in provider plugins (vendor-named media + native chat + Codex CLI) as DATA.
-  await seedPlugins(db);
   await seedIcons(db);
-  // 模型接入 3-pane: group existing channels under a plugin by provider_type
-  // (routing is unchanged — dispatch keys on provider_type, never plugin_id).
-  await backfillChannelPlugins(db);
 
   const log = console.log.bind(console);
   log('seed complete');

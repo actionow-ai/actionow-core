@@ -57,23 +57,6 @@ let client: ReturnType<typeof postgres>;
 let db: PostgresJsDatabase<typeof schema>;
 let app: INestApplication;
 
-/** The §7.1 sample BYO workflow: a model node + an image tool node. */
-const WORKFLOW_DSL = `
-app: { mode: workflow, name: 小红书文案配图, icon: "🎨" }
-kind: app
-version: "0.1.5"
-workflow:
-  graph:
-    nodes:
-      - { id: start, data: { type: start, variables: [
-            { variable: topic, label: 主题, type: text-input, required: true, max_length: 100 } ] } }
-      - { id: llm1, data: { type: llm, model: { provider: openai, name: gpt-4o-mini } } }
-      - { id: img1, data: { type: tool, provider_type: builtin, tool_name: dalle3 } }
-      - { id: end, data: { type: end, outputs: [
-            { variable: caption,   value_selector: [llm1, text] },
-            { variable: image_url, value_selector: [img1, image] } ] } }
-`;
-
 beforeAll(async () => {
   container = await new PostgreSqlContainer('postgres:16-alpine').start();
   client = postgres(container.getConnectionUri(), { max: 10 });
@@ -927,64 +910,6 @@ describe('Track D1: secrets list / get (metadata only, never the material)', () 
   });
 });
 
-describe('POST /admin/dify/import', () => {
-  it('registers a BYO fixed workflow and returns its io_schema', async () => {
-    const tenantRes = await auth(
-      request(app.getHttpServer()).post('/admin/tenants').send({ name: 'dify' }),
-    ).expect(201);
-    const tenantId = tenantRes.body.id as string;
-
-    const res = await auth(
-      request(app.getHttpServer()).post('/admin/dify/import').send({
-        tenantId,
-        resourceId: 'xhs',
-        yaml: WORKFLOW_DSL,
-        endpoint: 'https://dify.example/v1',
-        pricingModel: 'fixed',
-      }),
-    ).expect(200);
-
-    expect(res.body.resource_id).toBe('xhs');
-    expect(res.body.version).toBe(1);
-    expect(res.body.io_schema.inputs.map((i: { key: string }) => i.key)).toEqual(['topic']);
-    expect(res.body.io_schema.outputs.map((o: { key: string }) => o.key)).toEqual([
-      'caption',
-      'image_url',
-    ]);
-
-    // persisted: resource + binding rows exist
-    const [resRow] = await db.select().from(schema.resource);
-    expect(resRow?.id).toBe('xhs');
-    expect(resRow?.providerType).toBe('dify-workflow');
-    const [bindRow] = await db.select().from(schema.difyBinding);
-    expect(bindRow?.pricingModel).toBe('fixed');
-  });
-
-  it('rejects a BYO + metered import with a 400 metered_not_allowed envelope', async () => {
-    const tenantRes = await auth(
-      request(app.getHttpServer()).post('/admin/tenants').send({ name: 'metered' }),
-    ).expect(201);
-    const tenantId = tenantRes.body.id as string;
-
-    const res = await auth(
-      request(app.getHttpServer()).post('/admin/dify/import').send({
-        tenantId,
-        resourceId: 'metered-xhs',
-        yaml: WORKFLOW_DSL,
-        endpoint: 'https://dify.example/v1',
-        pricingModel: 'metered',
-      }),
-    ).expect(400);
-
-    expect(res.body.error.code).toBe('invalid_input');
-    expect(res.body.error.message).toMatch(/metered_not_allowed/);
-
-    // nothing persisted
-    const resources = await db.select().from(schema.resource);
-    expect(resources).toHaveLength(0);
-  });
-});
-
 /** Create a tenant + a chat resource the catalog rows can attach to. */
 async function seedTenantResource(name: string, resourceId: string): Promise<string> {
   const t = await auth(request(app.getHttpServer()).post('/admin/tenants').send({ name })).expect(
@@ -1238,50 +1163,6 @@ describe('D4: redemption-code list (status filter, paginated)', () => {
       request(app.getHttpServer()).get('/admin/redemption-codes').query({ status: 'bogus' }),
     ).expect(400);
     expect(bad.body.error.code).toBe('invalid_input');
-  });
-});
-
-describe('D4: dify list / patch / delete', () => {
-  it('import → list → PATCH (endpoint/pricing) → DELETE (204) → list empty', async () => {
-    const tenantRes = await auth(
-      request(app.getHttpServer()).post('/admin/tenants').send({ name: 'dify-d4' }),
-    ).expect(201);
-    const tenantId = tenantRes.body.id as string;
-
-    await auth(
-      request(app.getHttpServer()).post('/admin/dify/import').send({
-        tenantId,
-        resourceId: 'dify-d4-res',
-        yaml: WORKFLOW_DSL,
-        endpoint: 'https://dify.example/v1',
-        pricingModel: 'fixed',
-      }),
-    ).expect(200);
-
-    const list = await auth(request(app.getHttpServer()).get('/admin/dify')).expect(200);
-    expect(list.body.data.map((b: { resource_id: string }) => b.resource_id)).toContain(
-      'dify-d4-res',
-    );
-
-    const patched = await auth(
-      request(app.getHttpServer())
-        .patch('/admin/dify/dify-d4-res')
-        .send({ endpoint: 'https://dify.example/v2', pricingModel: 'matrix' }),
-    ).expect(200);
-    expect(patched.body.endpoint).toBe('https://dify.example/v2');
-    expect(patched.body.pricing_model).toBe('matrix');
-
-    await auth(request(app.getHttpServer()).delete('/admin/dify/dify-d4-res')).expect(204);
-    const after = await auth(request(app.getHttpServer()).get('/admin/dify')).expect(200);
-    expect(after.body.data.map((b: { resource_id: string }) => b.resource_id)).not.toContain(
-      'dify-d4-res',
-    );
-
-    // PATCH/DELETE of an unknown binding → 404.
-    await auth(
-      request(app.getHttpServer()).patch('/admin/dify/nope').send({ pricingModel: 'fixed' }),
-    ).expect(404);
-    await auth(request(app.getHttpServer()).delete('/admin/dify/dify-d4-res')).expect(404);
   });
 });
 

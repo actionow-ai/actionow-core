@@ -93,32 +93,3 @@ export const updatePluginRequestSchema = z.object({
   status: z.string().optional(),
 });
 export type UpdatePluginRequest = z.infer<typeof updatePluginRequestSchema>;
-
-/**
- * Run ONE handler function in the sandbox with a sample argument — backs the
- * operator test panel (spec §3.7): paste sample inputs → preview the upstream
- * request (`mapRequest`); paste a sample upstream response → preview the
- * `MediaResult` (`mapResponse`/`mapPoll`).
- */
-export const testPluginRequestSchema = z.object({
-  handler: z.string().min(1),
-  fn: z.enum([
-    'mapRequest',
-    'mapResponse',
-    'mapSubmit',
-    'mapPollRequest',
-    'mapPoll',
-    'mapCallback',
-  ]),
-  arg: z.unknown(),
-});
-export type TestPluginRequest = z.infer<typeof testPluginRequestSchema>;
-
-export const testPluginResponseSchema = z.object({
-  ok: z.boolean(),
-  /** The handler's JSON return value when ok. */
-  result: z.unknown().optional(),
-  /** The sandbox error message when not ok (throw/timeout/non-JSON). */
-  error: z.string().optional(),
-});
-export type TestPluginResponse = z.infer<typeof testPluginResponseSchema>;

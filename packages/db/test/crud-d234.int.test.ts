@@ -10,16 +10,13 @@ import {
   getModifierById,
   getPricebookEntryById,
   grantModel,
-  listDifyBindings,
   listModelGrants,
   listRedemptionCodes,
   schema,
   softDeleteChannel,
-  softDeleteDifyBinding,
   softDeleteModel,
   softDeleteModifier,
   softDeletePricebookEntry,
-  updateDifyBinding,
   updateModel,
   updateModifier,
   updatePricebookEntry,
@@ -32,7 +29,7 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
-const { difyBinding, tenant } = schema;
+const { tenant } = schema;
 
 let container: StartedPostgreSqlContainer;
 let client: ReturnType<typeof postgres>;
@@ -210,33 +207,5 @@ describe('D4: redemption-code list (status filter)', () => {
 
     const unused = await listRedemptionCodes(db, { status: 'unused' }, { limit: 50 });
     expect(unused.rows.map((r) => r.code)).toEqual(['AAAA']);
-  });
-});
-
-describe('D4: dify binding list / update / soft-delete', () => {
-  it('updates the current binding and soft-deletes it', async () => {
-    await seedResource('d-res');
-    await db.insert(difyBinding).values({
-      resourceId: 'd-res',
-      resourceVersion: 1,
-      mode: 'workflow',
-      difyAppEndpoint: 'https://dify.example/v1',
-      dslHash: 'h1',
-      pricingModel: 'fixed',
-    });
-
-    const list = await listDifyBindings(db, { limit: 50 });
-    expect(list.rows.map((r) => r.resourceId)).toContain('d-res');
-
-    const patched = await updateDifyBinding(db, 'd-res', {
-      endpoint: 'https://dify.example/v2',
-      pricingModel: 'matrix',
-    });
-    expect(patched?.difyAppEndpoint).toBe('https://dify.example/v2');
-    expect(patched?.pricingModel).toBe('matrix');
-
-    expect(await softDeleteDifyBinding(db, 'd-res')).toBe('d-res');
-    expect((await listDifyBindings(db, { limit: 50 })).rows).toHaveLength(0);
-    expect(await softDeleteDifyBinding(db, 'd-res')).toBeUndefined();
   });
 });

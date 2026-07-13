@@ -5,13 +5,11 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuditModule } from '../audit/audit.module.js';
 import { LoginThrottleGuard } from '../auth/login-throttle.guard.js';
 import { IdempotencyInterceptor } from '../common/idempotency.interceptor.js';
-import { ENV, HTTP, KNOWN_MODELS } from '../common/tokens.js';
+import { ENV, HTTP } from '../common/tokens.js';
 import { JobStreamService } from '../jobs/job-stream.service.js';
 import { JobsService } from '../jobs/jobs.service.js';
 import { AdminController } from './admin.controller.js';
 import { AdminService } from './admin.service.js';
-import { AdminDifyController } from './admin-dify.controller.js';
-import { AdminDifyService } from './admin-dify.service.js';
 import { AdminTokenService } from './admin-token.service.js';
 import { AdminGuard } from './auth/admin.guard.js';
 import { AdminAuthController } from './auth/admin-auth.controller.js';
@@ -35,10 +33,8 @@ import { SupplyOnboardingService } from './supply-onboarding.service.js';
 /**
  * Admin surface (Phase 5). `POST /admin/auth/login` issues a JWT; the
  * {@link AdminGuard} + `@Roles` decorator protect the admin CRUD routes
- * ({@link AdminController}) and the dify-import endpoint
- * ({@link AdminDifyController}). The JWT secret is read from `ADMIN_JWT_SECRET`
- * via the global env. `KNOWN_MODELS` (the dify compat-report model allowlist)
- * defaults to empty here and is overridable in tests.
+ * ({@link AdminController}). The JWT secret is read from `ADMIN_JWT_SECRET`
+ * via the global env.
  */
 @Module({
   imports: [
@@ -51,7 +47,6 @@ import { SupplyOnboardingService } from './supply-onboarding.service.js';
   controllers: [
     AdminAuthController,
     AdminController,
-    AdminDifyController,
     SupplyAdminController,
     // §9.2 reconciliation report (批次4 slice6, read-only).
     ReconciliationController,
@@ -59,7 +54,6 @@ import { SupplyOnboardingService } from './supply-onboarding.service.js';
   providers: [
     AdminAuthService,
     AdminService,
-    AdminDifyService,
     AdminTokenService,
     ModelTestService,
     // NEW-WORLD supply skeleton CRUD (/admin/supply/*, model-supply 批次1).
@@ -90,7 +84,6 @@ import { SupplyOnboardingService } from './supply-onboarding.service.js';
     IdempotencyInterceptor,
     { provide: ADMIN_AUTH_REPO, useValue: defaultAdminAuthRepo },
     { provide: ADMIN_TOKEN_AUTH_REPO, useValue: defaultAdminTokenAuthRepo },
-    { provide: KNOWN_MODELS, useValue: new Set<string>() },
     // The shared HttpClient for the codex OAuth code-exchange; overridable in
     // tests (the OAuth-login e2e injects a fake — no real network call).
     { provide: HTTP, useValue: createHttpClient() },

@@ -35,9 +35,6 @@ import type {
   CreateSubAccountBody,
   CreateSubjectBody,
   CreateTenantBody,
-  DifyBindingView,
-  DifyImportBody,
-  DifyImportView,
   FaultPolicyView,
   GenerateCodesBody,
   IconAssetView,
@@ -84,8 +81,6 @@ import type {
   SyncChannelModelsBody,
   SyncChannelModelsResult,
   TenantView,
-  TestPluginRequest,
-  TestPluginResponse,
   TopupBody,
   TopupSubAccountBody,
   TransferCreditsBody,
@@ -93,7 +88,6 @@ import type {
   UpdateChannelBody,
   UpdateChannelModelParamOverrideBody,
   UpdateCredentialMetaBody,
-  UpdateDifyBody,
   UpdateFaultPolicyBody,
   UpdateLimitPlanRequest,
   UpdateModelBody,
@@ -347,23 +341,6 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
       unwrap(await sdk.DELETE('/admin/modifiers/{id}', { params: { path: { id } } }), u);
     },
 
-    // HYBRID: the dify-import response (`DifyImportView`) isn't a registered path
-    // response (the import path declares only a 201 with no body schema).
-    difyImport: (body: DifyImportBody, idempotencyKey?: string) =>
-      rawClient.post<DifyImportView>('/admin/dify/import', body, { idempotencyKey }),
-    listDify: async (
-      params: { cursor?: string; limit?: number } = {},
-    ): Promise<Page<DifyBindingView>> =>
-      page<DifyBindingView>(await sdk.GET('/admin/dify', { params: { query: params } }), u),
-    updateDify: async (resourceId: string, body: UpdateDifyBody) =>
-      unwrap(
-        await sdk.PATCH('/admin/dify/{resourceId}', { params: { path: { resourceId } }, body }),
-        u,
-      ),
-    deleteDify: async (resourceId: string): Promise<void> => {
-      unwrap(await sdk.DELETE('/admin/dify/{resourceId}', { params: { path: { resourceId } } }), u);
-    },
-
     listAccounts: async () => page<AccountView>(await sdk.GET('/admin/accounts'), u).rows,
     createAccount: async (body: CreateAccountBody) =>
       unwrap(await sdk.POST('/admin/accounts', { body }), u),
@@ -598,8 +575,6 @@ export function makeAdminApi(sdk: SdkClient, rawClient: ApiClient, onUnauthorize
     deletePlugin: async (id: string): Promise<void> => {
       unwrap(await sdk.DELETE('/admin/plugins/{id}', { params: { path: { id } } }), u);
     },
-    testPlugin: async (body: TestPluginRequest): Promise<TestPluginResponse> =>
-      unwrap(await sdk.POST('/admin/plugins/test', { body }), u),
 
     // Drains every page: the catalog paginates client-side and the 3-pane link
     // picker has no LoadMore, so both need the full model set, not just page 1.

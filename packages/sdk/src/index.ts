@@ -63,7 +63,6 @@ export type UsageLogView = Schemas['UsageLogView'];
 export type UsageRollupView = Schemas['UsageRollupView'];
 export type PaymentIntentView = Schemas['PaymentIntentView'];
 export type SecretView = Schemas['SecretView'];
-export type DifyImportView = Schemas['DifyImportView'];
 export type RedemptionCodeView = Schemas['RedemptionCodeView'];
 export type RedeemCodesResult = Schemas['RedeemCodesResult'];
 // upstream OAuth subscription sessions (credential management)
@@ -132,7 +131,6 @@ export type CreatePricebookBody = Schemas['CreatePricebookBody'];
 export type UpdatePricebookBody = Schemas['UpdatePricebookBody'];
 export type CreateModifierBody = Schemas['CreateModifierBody'];
 export type UpdateModifierBody = Schemas['UpdateModifierBody'];
-export type DifyImportBody = Schemas['DifyImportBody'];
 export type CreateModelBody = Schemas['CreateModelBody'];
 export type UpdateModelBody = Schemas['UpdateModelBody'];
 export type GrantModelBody = Schemas['GrantModelBody'];
