@@ -11,6 +11,7 @@ import { appendLedger } from './ledger.js';
 import { releaseSubAccountHold, settleSubAccount } from './sub-account.js';
 import { type TaskRow, transitionTask } from './task.js';
 import type { DbOrTx } from './types.js';
+import { insertUsageLog, usageBreakdownFields } from './usage.js';
 
 // model-supply-greenfield 批次4 slice2 — the GATEWAY settle/fail primitives
 // (§9.2), the {@link settleJob}/{@link failJob} 范式 re-based onto the NEW-WORLD
@@ -24,6 +25,27 @@ import type { DbOrTx } from './types.js';
 // `resourceId` (`task:<id>` / `supply_offering:<id>`); the settle-once dedup is
 // the guarded `pending|running → succeeded` transition (the settleJob
 // precedent names the transition guard as the primary dedup).
+
+/**
+ * 批次6 P5b — the settle's usage_log mirror + limit accrual attribution (§9.1
+ * 层2 闭环). Present ⇒ the settle transaction appends ONE `usage_log` row
+ * (status `succeeded`, `cost` = finalCost, `provider_cost` = the §9.2 cost
+ * side) via {@link insertUsageLog}, which itself accrues the call's
+ * spend/tokens into `limit_usage` (the proven `accrueLimitUsage` primitive) —
+ * so the §7.8 read-only precheck (`precheckQuota` → getUsage/windowedUsage)
+ * sees NEW-FACE settles exactly like it saw the legacy guard's. Absent ⇒ no
+ * usage row (the old `usageLogModel === undefined` relay gating, verbatim).
+ */
+export interface SettleUsageLogInput {
+  /** The EXTERNAL model name (usage_log.model + model-scoped rule narrowing). */
+  model: string;
+  /** The calling api_key (key-plan accrual scope); null → console/keyless. */
+  apiKeyId: string | null;
+  /** §9.2 cost side (µUSD) → usage_log.provider_cost; null = 对账降级 (unknown). */
+  providerCost: bigint | null;
+  /** The per-request route tag (染色 echo); null/absent → untagged. */
+  routeTag?: string | null | undefined;
+}
 
 /** One gateway settle: charge `finalCost`, release `holdAmount`, snapshot the §9.2 price refs. */
 export interface SettleGatewayTaskInput {
@@ -62,6 +84,13 @@ export interface SettleGatewayTaskInput {
   artifactExpiresAt?: Date | null | undefined;
   /** §9.4 lifecycle record: persisted object keys + sha256 checksums, onto the settle event. */
   artifactObjects?: unknown;
+  /**
+   * 批次6 P5b — usage_log mirror + spend/tokens limit accrual, INSIDE this
+   * guarded transaction (§7.8: 预检只读、settle 侧累计写; the transition
+   * no-op's early return above the write is the idempotency guard — a replayed
+   * settle never double-accrues). Absent/null → no usage row, no accrual.
+   */
+  usageLog?: SettleUsageLogInput | null | undefined;
 }
 
 /** `settled: false` ⇒ the task was already terminal — no wallet movement, no ledger row (idempotent replay). */
@@ -147,6 +176,33 @@ export async function settleGatewayTask(
       modifiersApplied: p.modifiersApplied ?? null,
       usageVector: p.usage?.metrics ?? null,
     });
+
+    // 批次6 P5b — the usage_log mirror + limit accrual, SAME guarded
+    // transaction (§9.1 层2 闭环): insertUsageLog appends the per-call row
+    // (rolling-window spend/tokens/requests read it via windowedUsage, margin
+    // analytics read provider_cost) AND accrues spend/tokens into limit_usage
+    // through the proven accrueLimitUsage primitive (+ threshold alerts). The
+    // task path's transition guard already returned `{settled: false}` on a
+    // replay BEFORE this line, so a late duplicate settle accrues NOTHING; a
+    // failure here rolls the whole settle back (charge and accrual land
+    // atomically or not at all — 账实一致 over best-effort).
+    if (p.usageLog != null) {
+      const metrics = p.usage?.metrics ?? {};
+      await insertUsageLog(tx, {
+        tenantId: p.tenantId,
+        model: p.usageLog.model,
+        inputTokens: metrics.input_tokens ?? 0,
+        outputTokens: metrics.output_tokens ?? 0,
+        // Breakdown counts (reasoning/cached/audio…) ride along when reported.
+        ...usageBreakdownFields(metrics),
+        cost: p.finalCost,
+        ...(p.usageLog.providerCost !== null ? { providerCost: p.usageLog.providerCost } : {}),
+        status: 'succeeded',
+        ...(p.usageLog.apiKeyId !== null ? { apiKeyId: p.usageLog.apiKeyId } : {}),
+        subjectId: p.subjectId ?? null,
+        routeTag: p.usageLog.routeTag ?? null,
+      });
+    }
 
     return { settled: true, task, balanceAfter };
   });

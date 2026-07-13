@@ -292,6 +292,81 @@ describe('settleGatewayResult (§9.2 快照 + §7.5 hook + slot-only release)', 
   });
 });
 
+describe('settleGatewayResult usageLog envelope (P5b §9.1 层2 accrual attribution)', () => {
+  function settleDeps(): { deps: GatewaySettleDeps; store: ReturnType<typeof fakeSettleStore> } {
+    const store = fakeSettleStore({ cards: [saleCardRow(), costCardRow()] });
+    return { deps: { db: POISONED_DB, repo: store.repo }, store };
+  }
+
+  const attributed = (
+    reservation: ReturnType<typeof fakeReservation>['reservation'],
+  ): Parameters<typeof settleGatewayResult>[1] => ({
+    tenantId: 'tenant-1',
+    accountId: 'acct-1',
+    subjectId: 'subj-1',
+    model: 'test-model',
+    apiKeyId: 'key-1',
+    routeTag: 'canary',
+    wallet: { kind: 'tenant', accountId: 'acct-1', tenantId: 'tenant-1' },
+    holdAmount: 5_000n,
+    saleCardRef: { cardId: 'card-sale', version: 3 },
+    costCardRef: { cardId: 'card-cost', version: 1 },
+    billingDims: {},
+    upstreamInputs: {},
+    modifiers: [],
+    usage: { metrics: { requests: 1 }, billingDims: {}, estimated: false },
+    output: null,
+    offeringId: 'off-1',
+    reservation,
+  });
+
+  it('threads model/apiKeyId/routeTag into the settle transaction with provider_cost = the §9.2 cost side', async () => {
+    const { reservation } = fakeReservation();
+    const { deps: d, store } = settleDeps();
+
+    const out = await settleGatewayResult(d, attributed(reservation));
+
+    expect(out.ok).toBe(true);
+    expect(store.settles[0]?.usageLog).toEqual({
+      model: 'test-model',
+      apiKeyId: 'key-1',
+      providerCost: 1_000n, // costCardRow fixed 1000µ — dual.costSide, NOT the sale charge
+      routeTag: 'canary',
+    });
+  });
+
+  it('cost side degraded (no cost card) → provider_cost null; keyless/untagged default to null', async () => {
+    const { reservation } = fakeReservation();
+    const { deps: d, store } = settleDeps();
+
+    const input = attributed(reservation);
+    input.costCardRef = null;
+    delete (input as { apiKeyId?: unknown }).apiKeyId;
+    delete (input as { routeTag?: unknown }).routeTag;
+    const out = await settleGatewayResult(d, input);
+
+    expect(out.ok).toBe(true);
+    expect(store.settles[0]?.usageLog).toEqual({
+      model: 'test-model',
+      apiKeyId: null,
+      providerCost: null,
+      routeTag: null,
+    });
+  });
+
+  it('model attribution absent → NO usageLog envelope (the old usageLogModel gating, verbatim)', async () => {
+    const { reservation } = fakeReservation();
+    const { deps: d, store } = settleDeps();
+
+    const input = attributed(reservation);
+    delete (input as { model?: unknown }).model;
+    const out = await settleGatewayResult(d, input);
+
+    expect(out.ok).toBe(true);
+    expect(store.settles[0]?.usageLog).toBeUndefined();
+  });
+});
+
 describe('failGatewayResult (§3/§7.8 不扣费)', () => {
   it('with a live reservation: task → failed, then reservation.release() (hold rollback) — settle repo NEVER touched', async () => {
     const taskStore = fakeTaskStore();

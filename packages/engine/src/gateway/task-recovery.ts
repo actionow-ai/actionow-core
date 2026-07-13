@@ -186,10 +186,12 @@ const EMPTY_USAGE: GatewayUsage = { metrics: {}, billingDims: {}, estimated: tru
 
 /** The `inputs` IR envelope shape execute.ts stamps at create (slice2). */
 interface TaskInputsEnvelope {
+  /** The EXTERNAL model name the request addressed (P5b usage_log/accrual attribution). */
+  model?: string;
   effective?: EffectiveParams;
   billingDims?: BillingDims;
   modifiers?: Modifier[];
-  options?: { requirePersist?: boolean };
+  options?: { requirePersist?: boolean; routeTag?: string };
 }
 
 /**
@@ -225,6 +227,13 @@ export function reconstructSettleBase(
     tenantId: task.tenantId,
     accountId: task.accountId,
     subjectId: task.subjectId,
+    // 批次6 P5b — usage_log/limit-accrual attribution from the durable row:
+    // model from the create-time inputs snapshot (absent on a pre-P5b row →
+    // the settle skips the usage mirror, old-relay gating), key from the row
+    // column, route tag from the recorded request options.
+    ...(typeof inputs.model === 'string' ? { model: inputs.model } : {}),
+    apiKeyId: task.apiKeyId,
+    routeTag: inputs.options?.routeTag ?? null,
     wallet:
       task.subAccountId !== null
         ? { kind: 'subject', subAccountId: task.subAccountId }

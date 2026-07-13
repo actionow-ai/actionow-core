@@ -135,6 +135,26 @@ describe('executeGateway sync×direct (§3 matrix row 1)', () => {
     expect(h.http.requests[0]?.headers?.authorization).toBe('Bearer sk-mock-1234');
   });
 
+  it('P5b: the settle carries the usage_log/limit-accrual attribution — request.model + apiKeyId + options.routeTag, provider_cost = cost side', async () => {
+    const { plan } = fakePlan();
+    const h = harness({ plan });
+
+    const res = await executeGateway(
+      h.deps,
+      gatewayRequest({ subjectId: 'subj-1', options: { routeTag: 'canary' } }),
+      OPTS,
+    );
+
+    expect(res.kind).toBe('sync');
+    expect(h.settleStore.settles[0]?.usageLog).toEqual({
+      model: 'test-model', // request.model — the EXTERNAL name, not the upstream pin
+      apiKeyId: 'key-1',
+      providerCost: 1_000n, // §9.2 cost side (card-cost fixed 1000µ), NOT the sale charge
+      routeTag: 'canary',
+    });
+    expect(h.settleStore.settles[0]?.subjectId).toBe('subj-1');
+  });
+
   it('失败: upstream 500 → reservation.release() (hold rollback + slot), error passthrough, ZERO settle', async () => {
     const { plan, log } = fakePlan();
     const h = harness({ plan, http: { responses: [{ status: 500, body: { msg: 'boom' } }] } });

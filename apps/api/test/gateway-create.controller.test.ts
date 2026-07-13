@@ -298,4 +298,28 @@ describe('GatewayCreateController — §5 idempotency + §10 deprecation', () =>
       routeGroupId: 'rg-1',
     });
   });
+
+  it('批次6 P5: the auth limit-plan bindings ride execute(opts.limits)', async () => {
+    const { controller, gateway } = controllerWith(taskResult());
+    const res = fakeRes();
+    await controller.createVideo(
+      { ...BODY },
+      fakeReq({
+        auth: {
+          ...AUTH,
+          limitPlanId: 'plan-key',
+          tenantLimitPlanId: 'plan-tenant',
+          subjectLimitPlanId: 'plan-subject',
+        },
+      }),
+      res,
+    );
+    expect(gateway.execute.mock.calls[0]?.[1]).toMatchObject({
+      limits: {
+        keyLimitPlanId: 'plan-key',
+        tenantLimitPlanId: 'plan-tenant',
+        subjectLimitPlanId: 'plan-subject',
+      },
+    });
+  });
 });

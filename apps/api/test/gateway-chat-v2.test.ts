@@ -101,6 +101,29 @@ describe('GatewayChatV2Service — chat completions over the new gateway', () =>
     expect(gateway.execute.mock.calls[0]?.[1]).toMatchObject({ accountId: 'acct-1' });
   });
 
+  it('批次6 P5: the auth limit-plan bindings ride execute(opts.limits)', async () => {
+    const { service, gateway } = serviceWith(syncChatResult());
+    await service.completions(
+      { ...CHAT_BODY },
+      fakeReq({
+        auth: {
+          ...AUTH,
+          limitPlanId: 'plan-key',
+          tenantLimitPlanId: 'plan-tenant',
+          subjectLimitPlanId: 'plan-subject',
+        },
+      }),
+      fakeRes(),
+    );
+    expect(gateway.execute.mock.calls[0]?.[1]).toMatchObject({
+      limits: {
+        keyLimitPlanId: 'plan-key',
+        tenantLimitPlanId: 'plan-tenant',
+        subjectLimitPlanId: 'plan-subject',
+      },
+    });
+  });
+
   it('kind=stream → OpenAI chunk SSE ending [DONE]', async () => {
     async function* frames(): AsyncGenerator<StreamFrame> {
       await Promise.resolve();

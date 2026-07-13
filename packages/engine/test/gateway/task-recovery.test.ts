@@ -526,3 +526,42 @@ describe('reconstructSettleBase — FIX6 holdAmount null 守卫 (§9.2 绝不免
     expect(h.settleStore.fails).toHaveLength(0);
   });
 });
+
+describe('reconstructSettleBase — P5b usage_log/limit-accrual attribution from the row', () => {
+  it('threads model (inputs snapshot) + apiKeyId (row column) + routeTag (recorded options)', () => {
+    const base = reconstructSettleBase(
+      recoveryTask({
+        apiKeyId: 'key-9',
+        inputs: {
+          model: 'ext-model',
+          billingDims: {},
+          modifiers: [],
+          options: { routeTag: 'canary' },
+        },
+      }),
+    );
+    expect(base).toMatchObject({ model: 'ext-model', apiKeyId: 'key-9', routeTag: 'canary' });
+  });
+
+  it('a pre-P5b row without inputs.model → model absent (settle skips the usage mirror), routeTag null', () => {
+    const base = reconstructSettleBase(
+      recoveryTask({ inputs: { billingDims: {}, modifiers: [], options: {} } }),
+    );
+    expect(base).toBeDefined();
+    expect(base?.model).toBeUndefined();
+    expect(base?.routeTag).toBeNull();
+  });
+
+  it('a recovered settle carries the usageLog envelope end to end (worker path parity with execute)', async () => {
+    const task = recoveryTask({ ownerNode: 'node-A' });
+    const h = harness({ tasks: [task], http: { responses: [{ status: 200, body: SUCCEEDED }] } });
+    const outcome = await recoverClaimedTask(h.deps, task);
+    expect(outcome.kind).toBe('settled');
+    expect(h.settleStore.settles[0]?.usageLog).toEqual({
+      model: 'test-model', // recoveryTask's inputs.model snapshot
+      apiKeyId: 'key-1', // taskRowOf's row column
+      providerCost: 1_000n, // cost card fixed 1000µ — the §9.2 cost side
+      routeTag: null,
+    });
+  });
+});

@@ -281,6 +281,18 @@ export interface SettleGatewayResultInput {
   /** The tenant pool account (ledger attribution — required even when a sub-wallet moves). */
   accountId: string;
   subjectId?: string | null | undefined;
+  /**
+   * 批次6 P5b — the EXTERNAL model name (request.model / the row's inputs
+   * snapshot). Present ⇒ the settle transaction mirrors this call into
+   * `usage_log` (provider_cost = the §9.2 cost side) and accrues its
+   * spend/tokens into `limit_usage` (§9.1 层2 闭环). Absent ⇒ no usage row —
+   * the old relay's `usageLogModel === undefined` gating, verbatim.
+   */
+  model?: string | undefined;
+  /** The calling api_key (key-plan accrual scope); null/absent → keyless. */
+  apiKeyId?: string | null | undefined;
+  /** The per-request route tag (染色 echo into usage_log); null/absent → untagged. */
+  routeTag?: string | null | undefined;
   /** Where the §7.8 hold landed (reservation.holdTxn.wallet, or reconstructed from task columns). */
   wallet: HoldWallet;
   holdAmount: MicroCredits;
@@ -461,6 +473,21 @@ export async function settleGatewayResult(
           artifactMode: artifact.mode,
           artifactExpiresAt: artifact.expiresAt,
           artifactObjects: artifact.objects,
+        }
+      : {}),
+    // 批次6 P5b — usage_log mirror + spend/tokens limit accrual (§9.1 层2),
+    // written INSIDE the same guarded settle transaction. provider_cost = the
+    // §9.2 cost side (对账/margin analytics; null = degraded). Gated on the
+    // model attribution being known — every production caller (execute's
+    // buildSettleBase, recovery's reconstructSettleBase) supplies it.
+    ...(input.model !== undefined
+      ? {
+          usageLog: {
+            model: input.model,
+            apiKeyId: input.apiKeyId ?? null,
+            providerCost: dual.costSide,
+            routeTag: input.routeTag ?? null,
+          },
         }
       : {}),
   });

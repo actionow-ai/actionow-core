@@ -19,6 +19,7 @@ import type {
 import type { Database, SupplyModelRow } from '@actionow/db';
 import {
   createDb,
+  createLimitPlan,
   createSupplyChannel,
   createSupplyCredential,
   createSupplyModel,
@@ -26,7 +27,10 @@ import {
   createSupplyPriceCard,
   createSupplyProvider,
   getSupplyOfferingBreakers,
+  getUsage,
   grantSupplyModel,
+  incrUsage,
+  replacePlanRules,
   schema,
   updateSupplyOffering,
 } from '@actionow/db';
@@ -39,10 +43,12 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { type BreakerConfig, DEFAULT_BREAKER_CONFIG } from '../../src/breaker.js';
 import {
+  accrueRequestCount,
   type PlanDeps,
   planExecution,
   type PlanExecutionInput,
   recordOfferingOutcome,
+  resolveScopedRules,
 } from '../../src/index.js';
 
 /** The vault master key credentials are encrypted with (real AES-GCM vault rows). */
@@ -66,7 +72,7 @@ afterAll(async () => {
 
 afterEach(async () => {
   await db.execute(
-    sql`TRUNCATE TABLE supply_offering_breaker, supply_model_grant, supply_offering, supply_credential, supply_model, supply_channel, supply_provider, supply_price_card, secret_material, secret_ref, account, tenant RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE supply_offering_breaker, supply_model_grant, supply_offering, supply_credential, supply_model, supply_channel, supply_provider, supply_price_card, secret_material, secret_ref, limit_usage, limit_alert, limit_rule, limit_plan, account, tenant RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -913,6 +919,150 @@ describe('planExecution gate order against the REAL ledger (§7.8 red lines)', (
       expect(res.error.retryAfterMs).toBe(1_234);
     }
     // §7.8: steps 1–3 touch neither the semaphore nor the ledger
+    expect(h.semKeys).toEqual([]);
+    await expect(readHeld(accountId)).resolves.toBe(0n);
+  });
+});
+
+// --- 8. 批次6 P5 — limit-plan 额度套餐 over the REAL db --------------------------
+
+describe('planExecution × limit-plan (批次6 P5, real limit_plan/limit_rule/limit_usage)', () => {
+  /** Seed an ACTIVE platform plan with the given rules; answers its id. */
+  async function mkPlan(
+    rules: { dimension: string; period?: string | null; cap: bigint; modelScope?: string | null }[],
+    status = 'active',
+  ): Promise<string> {
+    const plan = await createLimitPlan(db, { name: `plan-${String(Math.random())}`, status });
+    await replacePlanRules(db, plan.id, rules);
+    return plan.id;
+  }
+
+  it('resolveScopedRules over real SQL: key+tenant plans → tagged rules; a disabled plan contributes nothing', async () => {
+    const keyPlanId = await mkPlan([{ dimension: 'requests', period: 'day', cap: 5n }]);
+    const tenantPlanId = await mkPlan([{ dimension: 'spend', period: 'month', cap: 100n }]);
+    const disabledPlanId = await mkPlan([{ dimension: 'rpm', cap: 1n }], 'disabled');
+
+    const scoped = await resolveScopedRules(
+      { db },
+      {
+        tenantId: 't-real',
+        apiKeyId: 'key-int-1',
+        keyLimitPlanId: keyPlanId,
+        tenantLimitPlanId: tenantPlanId,
+        subjectLimitPlanId: disabledPlanId,
+        subjectId: 'subj-1',
+      },
+    );
+
+    expect(scoped).toHaveLength(2); // the disabled subject plan resolved to []
+    expect(scoped).toContainEqual(
+      expect.objectContaining({
+        subjectType: 'key',
+        subjectId: 'key-int-1',
+        rule: expect.objectContaining({ dimension: 'requests', cap: 5n }),
+      }),
+    );
+    expect(scoped).toContainEqual(
+      expect.objectContaining({
+        subjectType: 'tenant',
+        subjectId: 't-real',
+        rule: expect.objectContaining({ dimension: 'spend', cap: 100n }),
+      }),
+    );
+  });
+
+  it('an at-cap spend budget rejects the plan (§7.8 step 2, read-only): 402 verdict, ZERO hold, ZERO semaphore', async () => {
+    const { tenantId, accountId } = await mkTenantAccount('capped', 1_000_000n);
+    await mkChain({ slug: 'capped', modelName: 'capped-model' });
+    const planId = await mkPlan([{ dimension: 'spend', period: 'month', cap: 100n }]);
+    const scoped = await resolveScopedRules(
+      { db },
+      {
+        tenantId,
+        apiKeyId: 'key-int-1',
+        keyLimitPlanId: planId,
+        tenantLimitPlanId: null,
+      },
+    );
+    // Accrue the budget to cap in the REAL limit_usage table (what settle does).
+    await incrUsage(
+      db,
+      { subjectType: 'key', subjectId: 'key-int-1', dimension: 'spend', periodKey: '2026-07' },
+      100n,
+    );
+
+    const h = harness();
+    const res = await planExecution(
+      h.deps,
+      planInput(req({ tenantId, model: 'capped-model' }), accountId, { scopedRules: scoped }),
+    );
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe('insufficient_credits');
+      expect(res.error.message).toContain('budget exceeded');
+    }
+    expect(h.semKeys).toEqual([]); // rejected BEFORE the semaphore layer
+    await expect(readHeld(accountId)).resolves.toBe(0n); // and before any ledger write
+  });
+
+  it('requests quota round trip: precheck read-only under cap → accrual writes 1 → the NEXT plan rejects at cap', async () => {
+    const { tenantId, accountId } = await mkTenantAccount('reqcap', 1_000_000n);
+    await mkChain({ slug: 'reqcap', modelName: 'reqcap-model' });
+    const planId = await mkPlan([{ dimension: 'requests', period: 'day', cap: 1n }]);
+    const scoped = await resolveScopedRules(
+      { db },
+      { tenantId, apiKeyId: 'key-int-1', keyLimitPlanId: planId, tenantLimitPlanId: null },
+    );
+    const usageKey = {
+      subjectType: 'key',
+      subjectId: 'key-int-1',
+      dimension: 'requests',
+      periodKey: '2026-07-12',
+    };
+
+    // 1st request: under cap (0 < 1) → admitted; the PRECHECK wrote nothing.
+    const first = await planExecution(
+      harness().deps,
+      planInput(req({ tenantId, model: 'reqcap-model' }), accountId, { scopedRules: scoped }),
+    );
+    expect(first.ok).toBe(true);
+    await expect(getUsage(db, usageKey)).resolves.toBe(0n); // 额度预检只读
+    if (first.ok) await first.reservation.release();
+
+    // The dispatch-side accrual (what executeGateway runs post-admission).
+    await accrueRequestCount({ db }, { scopedRules: scoped, model: 'reqcap-model', now: NOW });
+    await expect(getUsage(db, usageKey)).resolves.toBe(1n);
+
+    // 2nd request: at cap (1 >= 1) → §7.8 step-2 rejection.
+    const second = await planExecution(
+      harness().deps,
+      planInput(req({ tenantId, model: 'reqcap-model' }), accountId, { scopedRules: scoped }),
+    );
+    expect(second.ok).toBe(false);
+    if (!second.ok) expect(second.error.code).toBe('insufficient_credits');
+    await expect(readHeld(accountId)).resolves.toBe(0n);
+  });
+
+  it('an rpm plan rule rides the layer-1 bucket: the scoped gl:rpm key is consulted and can reject', async () => {
+    const { tenantId, accountId } = await mkTenantAccount('rpmplan', 1_000_000n);
+    await mkChain({ slug: 'rpmplan', modelName: 'rpmplan-model' });
+    const planId = await mkPlan([{ dimension: 'rpm', cap: 1n }]);
+    const scoped = await resolveScopedRules(
+      { db },
+      { tenantId, apiKeyId: 'key-int-1', keyLimitPlanId: planId, tenantLimitPlanId: null },
+    );
+    const ruleId = scoped[0]?.rule.id ?? '';
+
+    const h = harness({ rejectRateKeys: new Set([`gl:rpm:key:key-int-1:${ruleId}`]) });
+    const res = await planExecution(
+      h.deps,
+      planInput(req({ tenantId, model: 'rpmplan-model' }), accountId, { scopedRules: scoped }),
+    );
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.code).toBe('rate_limited');
+    expect(h.rateKeys).toContain(`gl:rpm:key:key-int-1:${ruleId}`);
     expect(h.semKeys).toEqual([]);
     await expect(readHeld(accountId)).resolves.toBe(0n);
   });

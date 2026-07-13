@@ -20,7 +20,9 @@
 //
 // Governance: ONLY ApiKeyGuard mounts here (择稳裁决 — see gateway.service.ts:
 // the §7.8 gates inside planExecution own the new-world 限流; mounting the
-// legacy GovernanceGuard would double-enforce).
+// legacy GovernanceGuard would double-enforce). 批次6 P5: the auth-derived
+// limit-plan bindings ride `execute(opts.limits)` so those gates enforce the
+// key/tenant/subject 额度套餐 (rpm/requests/tokens/spend) on this face.
 import type { GatewayInvokeResponse, GatewayResponse, Operation } from '@actionow/contracts';
 import {
   gatewayResourceCreateBodySchema,
@@ -158,6 +160,12 @@ export class GatewayCreateController {
       accountId: auth.accountId,
       keyRpm: auth.rateLimit,
       ...(auth.routeGroupId !== null ? { routeGroupId: auth.routeGroupId } : {}),
+      // 批次6 P5 — the guard-resolved limit-plan bindings feed the §7.8 gates.
+      limits: {
+        keyLimitPlanId: auth.limitPlanId,
+        tenantLimitPlanId: auth.tenantLimitPlanId,
+        subjectLimitPlanId: auth.subjectLimitPlanId,
+      },
     });
 
     applyDeprecationHeaders(res, result.deprecation);

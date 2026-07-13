@@ -1,5 +1,5 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm';
 
 import {
   account,
@@ -319,7 +319,11 @@ export async function windowedUsage(
     .where(
       and(
         eq(subjectCol, opts.subjectId),
-        sql`${usageLog.createdAt} >= ${opts.since}`,
+        // gte() (not a raw sql template): the column operator maps the Date
+        // through the driver's timestamptz serializer — a raw-template Date
+        // param crashes postgres.js ("argument must be of type string…"),
+        // caught by the P5b real-db rolling-window test.
+        gte(usageLog.createdAt, opts.since),
         opts.modelScope ? eq(usageLog.model, opts.modelScope) : undefined,
       ),
     );

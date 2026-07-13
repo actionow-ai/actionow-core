@@ -204,6 +204,22 @@ describe('precheckQuota — §7.8 step 2, STRICTLY read-only (red line)', () => 
     expect(since?.getTime()).toBe(NOW.getTime() - 86_400_000);
   });
 
+  it('P5b 层2 闭环: a settle-accrued spend bucket (getUsage reflects the NEW-FACE limit_usage incr) at/over cap rejects the next request', async () => {
+    // The settle side (settleGatewayTask + usageLog envelope) accrued two
+    // 1500µ settles into the tenant spend bucket — the SAME limit_usage row
+    // getUsage reads here (task-settle-accrual.int.test.ts proves the write).
+    const deps = limitsDeps({ getUsage: () => Promise.resolve(3_000n) });
+    const verdict = await precheckQuota(deps, {
+      scopedRules: [scoped(rule({ dimension: 'spend', cap: 2_000n, period: 'month' }), 'tenant')],
+      now: NOW,
+    });
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) {
+      expect(verdict.error.code).toBe('insufficient_credits');
+      expect(verdict.error.details).toMatchObject({ dimension: 'spend', subjectType: 'tenant' });
+    }
+  });
+
   it('rpm and concurrency dimensions are not this gate’s concern', async () => {
     const reads: string[] = [];
     const deps = limitsDeps({

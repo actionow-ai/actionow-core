@@ -636,6 +636,7 @@ export {
   settleGatewayTask,
   type SettleGatewayTaskInput,
   type SettleGatewayTaskResult,
+  type SettleUsageLogInput,
 } from './task-settle.js';
 export type { DbOrTx } from './types.js';
 export {

@@ -82,6 +82,7 @@ import {
   transcriptionsToGatewayRequest,
 } from './chat-facade.js';
 import type { FacadeAuth, FacadeResult } from './facade.js';
+import type { GatewayLimitBindings } from './gateway.service.js';
 import { GatewayService } from './gateway.service.js';
 import { applyDeprecationHeaders, requestIdOf } from './gateway-error.js';
 import {
@@ -446,6 +447,11 @@ export class GatewayChatV2Service {
       accountId: auth.accountId,
       keyRpm: auth.keyRpm,
       ...(auth.routeGroupId !== null ? { routeGroupId: auth.routeGroupId } : {}),
+      // 批次6 P5 — the guard-resolved limit-plan bindings feed the §7.8 gates
+      // (during the 双面并存 window a flag=true request ALSO passed the legacy
+      // GovernanceGuard on the old controller — stricter-of-both; the overlap
+      // dies with the guard's deletion).
+      limits: auth.limits,
     });
 
     applyDeprecationHeaders(res, result.deprecation);
@@ -527,7 +533,13 @@ export class GatewayChatV2Service {
     requestId: string,
     spec: SurfaceSpec,
   ):
-    | (FacadeAuth & { accountId: string; keyRpm: number | null; routeGroupId: string | null })
+    | (FacadeAuth & {
+        accountId: string;
+        keyRpm: number | null;
+        routeGroupId: string | null;
+        /** 批次6 P5 — the guard-resolved limit-plan bindings (额度套餐). */
+        limits: GatewayLimitBindings;
+      })
     | undefined {
     const auth = (req as AuthedRequest).auth;
     if (auth?.apiKeyId == null) {
@@ -550,6 +562,11 @@ export class GatewayChatV2Service {
       accountId: auth.accountId,
       keyRpm: auth.rateLimit,
       routeGroupId: auth.routeGroupId,
+      limits: {
+        keyLimitPlanId: auth.limitPlanId,
+        tenantLimitPlanId: auth.tenantLimitPlanId,
+        subjectLimitPlanId: auth.subjectLimitPlanId,
+      },
     };
   }
 

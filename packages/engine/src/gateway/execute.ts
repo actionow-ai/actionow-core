@@ -93,9 +93,10 @@ import type {
   PlanDeps,
   PlanExecutionInput,
   PlanSuccess,
+  RequestAccrualWrites,
   Reservation,
 } from '../planner/index.js';
-import { planExecution } from '../planner/index.js';
+import { accrueRequestCount, planExecution } from '../planner/index.js';
 import { resolveDialectForOffering } from './dialect-resolve.js';
 import type {
   GatewaySettleDeps,
@@ -166,6 +167,12 @@ export interface ExecuteGatewayDeps extends PlanDeps {
   persist?: PersistHook | undefined;
   /** §7.6 downstream-webhook emitter override (tests); absent → production emitter. */
   emitTaskWebhook?: TaskWebhookEmitter | undefined;
+  /**
+   * 批次6 P5 — the `requests` quota accrual's limit_usage write surface
+   * (incrUsage/checkLimitAlert), injectable for tests; production omits → the
+   * real @actionow/db primitives.
+   */
+  limitWrites?: Partial<RequestAccrualWrites> | undefined;
   gatewayQueries?: Partial<GatewayQueries> | undefined;
   taskRepo?: Partial<GatewayTaskRepo> | undefined;
   settleRepo?: Partial<GatewaySettleRepo> | undefined;
@@ -311,6 +318,8 @@ export async function executeGateway(
   /** The idempotency/task row carried ACROSS hops (re-bound per reservation). */
   let carriedTask: TaskRow | undefined;
   let lastFailure: { error: GatewayError; base: ExecuteResultBase } | undefined;
+  /** §9.1 `requests` accrual — exactly once per gateway execution (see below). */
+  let requestsAccrued = false;
 
   for (;;) {
     const plan = await planner(deps, {
@@ -338,6 +347,29 @@ export async function executeGateway(
         deprecation: plan.deprecation,
         warnings: plan.warnings,
       };
+    }
+
+    // §9.1/§7.8 — the `requests` quota dimension accrues HERE (批次6 P5),
+    // exactly once per gateway execution, the instant the FIRST reservation
+    // exists: the hold is placed ⇒ the request is definitely going upstream
+    // (额度预检只读 — precheckQuota compared, never counted; this is the split
+    // write half of the guard's check-then-incr). §8 failover hops re-plan but
+    // never re-count (same caller request); replay/conflict/plan-refusal paths
+    // return before this line and count nothing. Best-effort by design: a
+    // counter write failure must never fail a request already holding its
+    // reservation (losing one count is recoverable; a leaked hold is not).
+    if (!requestsAccrued) {
+      requestsAccrued = true;
+      try {
+        await accrueRequestCount(
+          { db: deps.db, writes: deps.limitWrites },
+          { scopedRules: opts.scopedRules ?? [], model: request.model, now: deps.now() },
+        );
+      } catch (err) {
+        console.warn(
+          `limit-plan requests accrual failed (best-effort): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
 
     const outcome = await dispatchPlan(deps, settleDeps, tasks, queries, {
@@ -1168,6 +1200,12 @@ function buildSettleBase(
     tenantId: request.tenantId,
     accountId: opts.accountId,
     subjectId: request.subjectId ?? null,
+    // 批次6 P5b — usage_log/limit-accrual attribution (§9.1 层2): the EXTERNAL
+    // model name gates the settle's usage_log mirror; key + route tag ride
+    // along for the key-plan accrual scope and the 染色 echo.
+    model: request.model,
+    apiKeyId: request.apiKeyId,
+    routeTag: request.options.routeTag ?? null,
     wallet: plan.reservation.holdTxn.wallet,
     holdAmount: plan.reservation.holdAmount,
     saleCardRef: plan.reservation.saleCardRef,

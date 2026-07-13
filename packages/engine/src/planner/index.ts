@@ -8,12 +8,15 @@
 // hold), the (offering, credential) semaphore, and the per-offering breaker
 // runtime with §2.4 429/401 credential-cooldown attribution. slice 4:
 // planExecution — the composition entry (批次4 挂载点) stitching all of the
-// above behind ONE call.
+// above behind ONE call. 批次6 P5: limit-plan (额度套餐) resolution
+// (resolveScopedRules — the extracted GovernanceGuard algorithm) + the
+// post-admission `requests` accrual.
 export * from './breaker-runtime.js';
 export * from './candidates.js';
 export * from './effective-params.js';
 export * from './fetch-plan.js';
 export * from './gate.js';
+export * from './limit-plan.js';
 export * from './limits.js';
 export * from './param-filter.js';
 export * from './plan.js';
