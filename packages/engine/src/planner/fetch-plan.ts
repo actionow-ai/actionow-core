@@ -47,6 +47,35 @@ export function isRecoverableFetchMode(mode: FetchMode): boolean {
 }
 
 /**
+ * §3 servability matrix — can THIS external paradigm be served INLINE over
+ * THAT offering fetch mode by the gateway execution service (批次4 slice2)?
+ * Pure; the planner filters unservable pairings OUT at candidate assembly so
+ * a request never holds/dispatches against supply that cannot answer it
+ * (zero hold-write/rollback churn — the dispatch-side mismatch branches are
+ * demoted to defensive assertions):
+ *
+ *   - sync   → EVERY fetch mode serves: direct answers directly, stream is
+ *              drained and assembled, submit_poll/submit_callback block-poll
+ *              to the terminal state in-request (§3 阻塞排流).
+ *   - stream → only `stream` (passthrough) and `direct` (single-frame 优雅
+ *              降级). submit_poll/submit_callback need worker-synthesized
+ *              progress streams — a later slice, NOT inline-servable yet.
+ *   - task   → submit_poll/submit_callback (the native shapes) and `direct`
+ *              (§3 at-most-once long-blocking runner). `stream` needs a
+ *              worker drain — a later slice, NOT inline-servable yet.
+ */
+export function isServable(paradigm: ExternalParadigm, mode: FetchMode): boolean {
+  switch (paradigm) {
+    case 'sync':
+      return true;
+    case 'stream':
+      return mode === 'stream' || mode === 'direct';
+    case 'task':
+      return mode !== 'stream';
+  }
+}
+
+/**
  * Dynamic-config knobs for the §3 auto-upgrade (产品裁决: 纯服务端行为,无客户端
  * opt-in). Both resolve from the settings registry (SettingsResolver) — the
  * CALLER resolves them; this module only consumes the verdicts.

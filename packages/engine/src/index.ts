@@ -4,6 +4,7 @@ export * from './dify-registration.js';
 export * from './errors.js';
 export * from './execution-service.js';
 export * from './fault-policy.js';
+export * from './gateway/index.js';
 export * from './job-progress.js';
 export * from './job-runner.js';
 export * from './media-result.js';

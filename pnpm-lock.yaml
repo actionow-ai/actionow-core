@@ -95,6 +95,9 @@ importers:
       '@actionow/payments':
         specifier: workspace:*
         version: link:../../packages/payments
+      '@actionow/spi':
+        specifier: workspace:*
+        version: link:../../packages/spi
       '@nestjs/common':
         specifier: ^11.0.0
         version: 11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -292,6 +295,9 @@ importers:
       '@actionow/infra':
         specifier: workspace:*
         version: link:../../packages/infra
+      '@actionow/spi':
+        specifier: workspace:*
+        version: link:../../packages/spi
       bullmq:
         specifier: ^5.13.0
         version: 5.78.1
@@ -448,6 +454,9 @@ importers:
       '@actionow/payments':
         specifier: workspace:*
         version: link:../payments
+      '@actionow/spi':
+        specifier: workspace:*
+        version: link:../spi
       quickjs-emscripten:
         specifier: ^0.32.0
         version: 0.32.0

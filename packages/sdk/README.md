@@ -67,6 +67,70 @@ const { data: tenant, error } = await api.POST('/admin/tenants', {
 await api.DELETE('/admin/api-keys/{id}', { params: { path: { id: keyId } } });
 ```
 
+## Tasks (async generation)
+
+The task-paradigm endpoints (`POST /v1/videos/generations`,
+`POST /v1/audio/music`, and the generic `POST /v1/tasks` with a `type`) answer
+in **two server-decided shapes**: a fast model returns the result inline as
+**200**, a slow/task model returns **202 + Task** (the server auto-upgrades
+slow operations — there is no client opt-in). `submitTaskAndWait` digests
+both:
+
+```ts
+import { submitTaskAndWait } from '@actionow/sdk';
+
+const result = await submitTaskAndWait(
+  api,
+  '/v1/videos/generations',
+  {
+    model: 'seedance-pro',
+    prompt: 'a red bicycle riding itself',
+    resolution: '1080p',
+  },
+  {
+    idempotencyKey: crypto.randomUUID(), // §5: same key+body replays, different body ⇒ 409
+  },
+);
+
+if (result.kind === 'sync') {
+  console.log(result.response.output); // 200 — done inline
+} else if (result.task.status === 'succeeded') {
+  console.log(result.task.output, result.task.served_by); // 202 → polled to terminal
+} else {
+  console.error(result.task.error); // failed/canceled/expired resolve, never throw
+}
+```
+
+- `waitForTask(api, taskId, opts)` polls an existing task to a terminal
+  status; `GET /v1/tasks/{id}/stream` is the SSE alternative.
+- To pre-judge which shape you'll get (e.g. to show a progress UI up front),
+  read the discovery face's slow marker: `GET /v1/gateway/models` →
+  `operations[].slow` (`operationIsSlow(model, 'images.generation')`).
+- Pass `routeTag` to pin supply via `X-Actionow-Route-Tag` (narrow-only).
+- Task webhooks (`callback_url` on the create body) are signed with a
+  **timestamped** HMAC — verify with `verifyTaskWebhookSignature` from
+  `@actionow/sdk/webhook`:
+
+```ts
+import { verifyTaskWebhookSignature } from '@actionow/sdk/webhook';
+
+app.post('/webhooks/actionow-tasks', express.raw({ type: 'application/json' }), (req, res) => {
+  const v = verifyTaskWebhookSignature(
+    req.body, // the RAW bytes — never a re-serialized object
+    req.header('X-Actionow-Signature'), // t=<unix>,v1=<hex>
+    process.env.ACTIONOW_WEBHOOK_SECRET!, // tenant-level secret configured in core
+  );
+  if (!v.valid) return res.status(401).json({ error: v.reason });
+  const event = JSON.parse(req.body.toString('utf8'));
+  // dedupe on event.evt_id (retries reuse it), then act on event.task
+  res.sendStatus(200);
+});
+```
+
+(The legacy `/v1/run` job flow keeps `submitAndWait` + the body-only
+`verifyWebhookSignature`; both generations coexist until the old endpoints are
+removed.)
+
 ## Conventions
 
 ### Money

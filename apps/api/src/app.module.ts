@@ -11,6 +11,7 @@ import { ConsoleModule } from './console/console.module.js';
 import { DbModule } from './db/db.module.js';
 import { ExecutionModule } from './execution/execution.module.js';
 import { FilesModule } from './files/files.module.js';
+import { GatewayModule } from './gateway/gateway.module.js';
 import { HealthController } from './health/health.controller.js';
 import { HealthService } from './health/health.service.js';
 import { JobsModule } from './jobs/jobs.module.js';
@@ -38,6 +39,9 @@ import { WellKnownModule } from './well-known/well-known.module.js';
     MemberModule,
     ChatModule,
     MediaDialectModule,
+    // NEW gateway face (model-supply greenfield 批次4 slice3) — 双面并存:
+    // new paths only (/v1/tasks 族 + /v1/videos|audio creates + /v1/gateway/models).
+    GatewayModule,
     SettingsModule,
     WellKnownModule,
   ],

@@ -9819,6 +9819,733 @@
         "required": [
           "models"
         ]
+      },
+      "GatewayTaskView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "object": {
+            "type": "string",
+            "enum": [
+              "task"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "chat.completions",
+              "embeddings",
+              "rerank",
+              "moderations",
+              "images.generation",
+              "images.edit",
+              "video.generation",
+              "music.generation",
+              "tts",
+              "asr"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "succeeded",
+              "failed",
+              "canceled",
+              "expired"
+            ]
+          },
+          "progress": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 100
+          },
+          "output": {
+            "nullable": true
+          },
+          "usage": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "metrics": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number"
+                }
+              },
+              "billing_dims": {
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                }
+              },
+              "estimated": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "metrics",
+              "billing_dims",
+              "estimated"
+            ]
+          },
+          "error": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "invalid_input",
+                  "unsupported_parameter",
+                  "unauthorized",
+                  "forbidden",
+                  "model_not_found",
+                  "task_not_found",
+                  "conflict",
+                  "insufficient_credits",
+                  "rate_limited",
+                  "content_filtered",
+                  "upstream_error",
+                  "upstream_timeout",
+                  "task_failed",
+                  "internal_error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "failover": {
+                "type": "boolean"
+              },
+              "upstream": {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "rawCode": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider"
+                ]
+              },
+              "retryAfterMs": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": {
+                  "nullable": true
+                }
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "retryable",
+              "failover"
+            ]
+          },
+          "served_by": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "offering_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "offering_id"
+            ]
+          },
+          "created": {
+            "type": "integer"
+          },
+          "started": {
+            "type": "integer",
+            "nullable": true
+          },
+          "finished": {
+            "type": "integer",
+            "nullable": true
+          },
+          "expires_at": {
+            "type": "integer",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "type",
+          "model",
+          "status",
+          "progress",
+          "usage",
+          "error",
+          "served_by",
+          "created",
+          "started",
+          "finished",
+          "expires_at"
+        ]
+      },
+      "GatewayInvokeResponse": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "chat.completions",
+              "embeddings",
+              "rerank",
+              "moderations",
+              "images.generation",
+              "images.edit",
+              "video.generation",
+              "music.generation",
+              "tts",
+              "asr"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "output": {
+            "nullable": true
+          },
+          "usage": {
+            "type": "object",
+            "properties": {
+              "metrics": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number"
+                }
+              },
+              "billing_dims": {
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                }
+              },
+              "estimated": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "metrics",
+              "billing_dims",
+              "estimated"
+            ]
+          },
+          "served_by": {
+            "type": "object",
+            "properties": {
+              "offering_id": {
+                "type": "string"
+              },
+              "channel_id": {
+                "type": "string"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "upstream_model_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "offering_id",
+              "channel_id"
+            ]
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "message": {
+                  "type": "string"
+                },
+                "param": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "operation",
+          "model",
+          "usage",
+          "served_by",
+          "warnings"
+        ]
+      },
+      "GatewayErrorView": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "failover": {
+                "type": "boolean"
+              },
+              "upstream": {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "rawCode": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider"
+                ]
+              },
+              "retry_after_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": {
+                  "nullable": true
+                }
+              },
+              "request_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "retryable",
+              "failover"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "GatewayModelList": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "enum": [
+              "list"
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "object": {
+                  "type": "string",
+                  "enum": [
+                    "model"
+                  ]
+                },
+                "created": {
+                  "type": "integer"
+                },
+                "owned_by": {
+                  "type": "string"
+                },
+                "display_name": {
+                  "type": "string"
+                },
+                "modality": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "operations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "operation": {
+                        "type": "string",
+                        "enum": [
+                          "chat.completions",
+                          "embeddings",
+                          "rerank",
+                          "moderations",
+                          "images.generation",
+                          "images.edit",
+                          "video.generation",
+                          "music.generation",
+                          "tts",
+                          "asr"
+                        ]
+                      },
+                      "paradigms": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "sync",
+                            "stream",
+                            "task",
+                            "realtime"
+                          ]
+                        }
+                      },
+                      "slow": {
+                        "type": "boolean"
+                      },
+                      "params": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "float",
+                                "int",
+                                "boolean",
+                                "string",
+                                "enum",
+                                "json",
+                                "file",
+                                "media"
+                              ]
+                            },
+                            "required": {
+                              "type": "boolean"
+                            },
+                            "billing_relevant": {
+                              "type": "boolean"
+                            },
+                            "default": {
+                              "nullable": true
+                            },
+                            "values": {
+                              "type": "array",
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "number"
+                                  }
+                                ]
+                              }
+                            },
+                            "min": {
+                              "type": "number"
+                            },
+                            "max": {
+                              "type": "number"
+                            },
+                            "multiple": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "type",
+                            "required",
+                            "billing_relevant"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "operation",
+                      "paradigms",
+                      "slow",
+                      "params"
+                    ]
+                  }
+                },
+                "capabilities": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "object",
+                "created",
+                "owned_by",
+                "display_name",
+                "modality",
+                "status",
+                "operations",
+                "capabilities"
+              ]
+            }
+          }
+        },
+        "required": [
+          "object",
+          "data"
+        ]
+      },
+      "GatewayResourceCreateBody": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stream": {
+            "type": "boolean"
+          },
+          "callback_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "artifact_mode": {
+            "type": "string",
+            "enum": [
+              "signed",
+              "public"
+            ]
+          },
+          "require_persist": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      },
+      "GatewayTaskCreateBody": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stream": {
+            "type": "boolean"
+          },
+          "callback_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "artifact_mode": {
+            "type": "string",
+            "enum": [
+              "signed",
+              "public"
+            ]
+          },
+          "require_persist": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "chat.completions",
+              "embeddings",
+              "rerank",
+              "moderations",
+              "images.generation",
+              "images.edit",
+              "video.generation",
+              "music.generation",
+              "tts",
+              "asr"
+            ]
+          }
+        },
+        "required": [
+          "model",
+          "type"
+        ]
+      },
+      "ReconciliationReportView": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "day": {
+                  "type": "string"
+                },
+                "tenant_id": {
+                  "type": "string"
+                },
+                "offering_id": {
+                  "type": "string"
+                },
+                "channel_id": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "channel_name": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "provider": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "model": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "settle_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "estimated_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "cost_missing_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "sale_side_credits": {
+                  "type": "string"
+                },
+                "cost_side_credits": {
+                  "type": "string"
+                },
+                "gross_margin_credits": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "day",
+                "tenant_id",
+                "offering_id",
+                "channel_id",
+                "channel_name",
+                "provider",
+                "model",
+                "settle_count",
+                "estimated_count",
+                "cost_missing_count",
+                "sale_side_credits",
+                "cost_side_credits",
+                "gross_margin_credits"
+              ]
+            }
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "settle_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "estimated_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cost_missing_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sale_side_credits": {
+                "type": "string"
+              },
+              "cost_side_credits": {
+                "type": "string"
+              },
+              "gross_margin_credits": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "settle_count",
+              "estimated_count",
+              "cost_missing_count",
+              "sale_side_credits",
+              "cost_side_credits",
+              "gross_margin_credits"
+            ]
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "rows",
+          "totals"
+        ]
       }
     },
     "parameters": {}
@@ -26326,6 +27053,798 @@
                   "required": [
                     "models"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/videos/generations": {
+      "post": {
+        "summary": "Create a video generation task (202 + Task)",
+        "tags": [
+          "gateway"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayResourceCreateBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sync result (fast model)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayInvokeResponse"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Task accepted (task paradigm / §3 auto-upgrade)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayTaskView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency-Key reused with a different body (§5)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/audio/music": {
+      "post": {
+        "summary": "Create a music generation task (202 + Task)",
+        "tags": [
+          "gateway"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayResourceCreateBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sync result (fast model)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayInvokeResponse"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Task accepted (task paradigm / §3 auto-upgrade)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayTaskView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency-Key reused with a different body (§5)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks": {
+      "post": {
+        "summary": "Create a task (generic syntactic sugar; operation rides body.type)",
+        "tags": [
+          "gateway"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayTaskCreateBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sync result (fast model)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayInvokeResponse"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Task accepted (task paradigm / §3 auto-upgrade)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayTaskView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency-Key reused with a different body (§5)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorView"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List your tasks (keyset, status/type filters)",
+        "tags": [
+          "gateway"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "nullable": true
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "type",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List your tasks (keyset, status/type filters)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GatewayTaskView"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/{id}": {
+      "get": {
+        "summary": "Get a task by id",
+        "tags": [
+          "gateway"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get a task by id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayTaskView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/{id}/cancel": {
+      "post": {
+        "summary": "Cancel a task (local mark + hold release; upstream forward in slice4)",
+        "tags": [
+          "gateway"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The canceled task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayTaskView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Task already terminal (not cancelable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/{id}/stream": {
+      "get": {
+        "summary": "Stream task progress over SSE until terminal (DB-poll backstop)",
+        "tags": [
+          "gateway"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "text/event-stream of task progress frames"
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/gateway/models": {
+      "get": {
+        "summary": "NEW discovery face: models visible to the caller (tenant visibility ∩ key allowlist) with operations/paradigms/contract summary",
+        "tags": [
+          "gateway"
+        ],
+        "responses": {
+          "200": {
+            "description": "NEW discovery face: models visible to the caller (tenant visibility ∩ key allowlist) with operations/paradigms/contract summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayModelList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/reconciliation/report": {
+      "get": {
+        "summary": "Usage-side reconciliation report: gateway settles aggregated per (day, tenant, channel, offering) with sale/cost/margin µcredits (§9.2 对账降级 — 月度报表; 官方渠道日对账自动化在批次5)",
+        "tags": [
+          "supply"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "tenant_id",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The aggregated reconciliation report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconciliationReportView"
                 }
               }
             }

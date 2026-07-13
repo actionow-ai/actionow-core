@@ -11,6 +11,19 @@ export const PLATFORM_SETTING_KEYS = [
   'RELAY_TRACE',
   'RELAY_TRACE_MAX_BYTES',
   'RELAY_TRACE_RETENTION_DAYS',
+  // task_events retention (批次4 任务中心, §7.1/§9.3) — the registry entry lives
+  // in infra SETTINGS_REGISTRY; the key MUST be mirrored here or the settings
+  // view parse rejects the whole /admin/settings list.
+  'TASK_EVENTS_RETENTION_DAYS',
+  // §9.4 signed-track artifact retention platform default (批次4 slice5) —
+  // same mirroring rule as above.
+  'ARTIFACT_RETENTION_DAYS',
+  // §9.2 对账偏差告警阈值 (批次4 slice6; 批次5 对账自动化消费) — same
+  // mirroring rule as above.
+  'RECONCILIATION_DEVIATION_PCT',
+  // 切换预案② per-tenant 灰度: legacy 同步面走新网关的平台默认开关 (批次4
+  // slice6; tenant.config.gateway_v2 per-tenant 覆盖).
+  'GATEWAY_V2_DEFAULT',
   'RATE_LIMIT_TENANT_PER_MIN',
   'RATE_LIMIT_RESOURCE_PER_MIN',
   'AUTH_RATE_LIMIT_PER_MIN',

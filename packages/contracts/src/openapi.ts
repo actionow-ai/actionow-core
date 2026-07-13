@@ -131,6 +131,14 @@ import {
   faultPolicyViewSchema,
   updateFaultPolicySchema,
 } from './fault-policy.js';
+import {
+  gatewayErrorViewSchema,
+  gatewayInvokeResponseSchema,
+  gatewayModelListSchema,
+  gatewayResourceCreateBodySchema,
+  gatewayTaskCreateBodySchema,
+  gatewayTaskViewSchema,
+} from './gateway-wire.js';
 import { modelTestRequestSchema, modelTestResultSchema } from './model-test.js';
 import {
   apiKeyViewSchema,
@@ -172,6 +180,7 @@ import {
   proxyViewSchema,
   updateProxySchema,
 } from './proxy.js';
+import { reconciliationReportSchema } from './reconciliation.js';
 import {
   channelSchema as supplyChannelViewSchema,
   credentialSchema as supplyCredentialViewSchema,
@@ -1851,6 +1860,133 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     tag: 'supply',
     body: UpdateApiKeyModelAllowlist,
     response: z.object({ models: z.array(z.string()) }),
+  });
+
+  // --- NEW gateway external face (model-supply greenfield 批次4 slice3, §5) —
+  // registered LAST (append-only doc discipline, same as the supply block).
+  const GatewayTask = registry.register('GatewayTaskView', gatewayTaskViewSchema);
+  const GatewayInvokeResponse = registry.register(
+    'GatewayInvokeResponse',
+    gatewayInvokeResponseSchema,
+  );
+  const GatewayError = registry.register('GatewayErrorView', gatewayErrorViewSchema);
+  const GatewayModelList = registry.register('GatewayModelList', gatewayModelListSchema);
+  const GatewayResourceCreate = registry.register(
+    'GatewayResourceCreateBody',
+    gatewayResourceCreateBodySchema,
+  );
+  const GatewayTaskCreate = registry.register('GatewayTaskCreateBody', gatewayTaskCreateBodySchema);
+  /** A task-paradigm create: 200 sync result (fast), 202 + Task (task/§3 自动升格). */
+  const gatewayCreate = (path: string, summary: string, body: z.ZodTypeAny) => {
+    registry.registerPath({
+      method: 'post',
+      path,
+      summary,
+      tags: ['gateway'],
+      request: { body: { content: { 'application/json': { schema: body } }, required: true } },
+      responses: {
+        200: {
+          description: 'Sync result (fast model)',
+          content: { 'application/json': { schema: GatewayInvokeResponse } },
+        },
+        202: {
+          description: 'Task accepted (task paradigm / §3 auto-upgrade)',
+          content: { 'application/json': { schema: GatewayTask } },
+        },
+        409: {
+          description: 'Idempotency-Key reused with a different body (§5)',
+          content: { 'application/json': { schema: GatewayError } },
+        },
+      },
+    });
+  };
+  gatewayCreate(
+    '/v1/videos/generations',
+    'Create a video generation task (202 + Task)',
+    GatewayResourceCreate,
+  );
+  gatewayCreate(
+    '/v1/audio/music',
+    'Create a music generation task (202 + Task)',
+    GatewayResourceCreate,
+  );
+  gatewayCreate(
+    '/v1/tasks',
+    'Create a task (generic syntactic sugar; operation rides body.type)',
+    GatewayTaskCreate,
+  );
+  const gatewayTasksQuery = keyset.extend({
+    status: z.string().optional(),
+    type: z.string().optional(),
+  });
+  list(
+    '/v1/tasks',
+    'List your tasks (keyset, status/type filters)',
+    GatewayTask,
+    'gateway',
+    gatewayTasksQuery,
+  );
+  getOne('/v1/tasks/{id}', 'Get a task by id', GatewayTask, 'gateway');
+  registry.registerPath({
+    method: 'post',
+    path: '/v1/tasks/{id}/cancel',
+    summary: 'Cancel a task (local mark + hold release; upstream forward in slice4)',
+    tags: ['gateway'],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: {
+        description: 'The canceled task',
+        content: { 'application/json': { schema: GatewayTask } },
+      },
+      409: {
+        description: 'Task already terminal (not cancelable)',
+        content: { 'application/json': { schema: GatewayError } },
+      },
+    },
+  });
+  registry.registerPath({
+    method: 'get',
+    path: '/v1/tasks/{id}/stream',
+    summary: 'Stream task progress over SSE until terminal (DB-poll backstop)',
+    tags: ['gateway'],
+    request: { params: z.object({ id: z.string() }) },
+    responses: { 200: { description: 'text/event-stream of task progress frames' } },
+  });
+  getOne(
+    '/v1/gateway/models',
+    'NEW discovery face: models visible to the caller (tenant visibility ∩ key allowlist) with operations/paradigms/contract summary',
+    GatewayModelList,
+    'gateway',
+  );
+
+  // --- §9.2 reconciliation report (批次4 slice6, 判据 2.6 报表可出即达标) —
+  // appended AFTER the gateway block (same append-only doc discipline).
+  const ReconciliationReport = registry.register(
+    'ReconciliationReportView',
+    reconciliationReportSchema,
+  );
+  registry.registerPath({
+    method: 'get',
+    path: '/admin/reconciliation/report',
+    summary:
+      'Usage-side reconciliation report: gateway settles aggregated per (day, tenant, channel, offering) with sale/cost/margin µcredits (§9.2 对账降级 — 月度报表; 官方渠道日对账自动化在批次5)',
+    tags: ['supply'],
+    request: {
+      query: z.object({
+        /** Inclusive ISO start (or YYYY-MM-DD) of the window. */
+        from: z.string(),
+        /** Exclusive ISO end (or YYYY-MM-DD) of the window. */
+        to: z.string(),
+        /** Optional tenant scope. */
+        tenant_id: z.string().optional(),
+      }),
+    },
+    responses: {
+      200: {
+        description: 'The aggregated reconciliation report',
+        content: { 'application/json': { schema: ReconciliationReport } },
+      },
+    },
   });
 
   const generator = new OpenApiGeneratorV3(registry.definitions);

@@ -11,6 +11,7 @@
 // production consumer whose devDeps are pruned (batch-3 engine imports this
 // barrel). Reach it via the `@actionow/spi/conformance` subpath export instead.
 export * from './aspects.js';
+export * from './builtin.js';
 export * from './dialects/index.js';
 export * from './dsl/engine.js';
 export * from './dsl/jsonpath.js';

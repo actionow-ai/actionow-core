@@ -3,10 +3,15 @@ import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 
 import {
+  createArtifactReaperProcessor,
   createFileLifecycleReaperProcessor,
   createHoldReaperProcessor,
   createJobExecProcessor,
   createRelayTraceReaperProcessor,
+  createTaskEventsReaperProcessor,
+  createTaskPollProcessor,
+  createTaskReaperProcessor,
+  createTaskWebhookProcessor,
   createTokenRefreshProcessor,
   createWebhookOutboxProcessor,
   type JobExecData,
@@ -24,6 +29,16 @@ export const TOKEN_REFRESH_SWEEP_MS = 60_000;
 export const RELAY_TRACE_SWEEP_MS = 3_600_000;
 /** Default cadence for the repeatable file-lifecycle (TTL) sweep (ms; hourly). */
 export const FILE_LIFECYCLE_SWEEP_MS = 3_600_000;
+/** Default cadence for the §7.2 task lease-takeover poll sweep (ms). */
+export const TASK_POLL_SWEEP_MS = 10_000;
+/** Default cadence for the §3/§7.3 task orphan + hold-expiry sweep (ms). */
+export const TASK_REAPER_SWEEP_MS = 30_000;
+/** Default cadence for the §7.6 task webhook delivery sweep (ms). */
+export const TASK_WEBHOOK_SWEEP_MS = 10_000;
+/** Default cadence for the §9.3 task_events retention sweep (ms; hourly). */
+export const TASK_EVENTS_SWEEP_MS = 3_600_000;
+/** Default cadence for the §9.4 signed-track artifact lifecycle sweep (ms; hourly). */
+export const ARTIFACT_SWEEP_MS = 3_600_000;
 
 /** Tuning for {@link startWorkers}. */
 export interface StartWorkersOptions {
@@ -37,6 +52,16 @@ export interface StartWorkersOptions {
   relayTraceSweepMs?: number;
   /** Repeatable file-lifecycle (TTL) sweep cadence in ms (default {@link FILE_LIFECYCLE_SWEEP_MS}). */
   fileLifecycleSweepMs?: number;
+  /** §7.2 task lease-takeover poll sweep cadence in ms (default {@link TASK_POLL_SWEEP_MS}). */
+  taskPollSweepMs?: number;
+  /** §3/§7.3 task orphan + hold-expiry sweep cadence in ms (default {@link TASK_REAPER_SWEEP_MS}). */
+  taskReaperSweepMs?: number;
+  /** §7.6 task webhook delivery sweep cadence in ms (default {@link TASK_WEBHOOK_SWEEP_MS}). */
+  taskWebhookSweepMs?: number;
+  /** §9.3 task_events retention sweep cadence in ms (default {@link TASK_EVENTS_SWEEP_MS}). */
+  taskEventsSweepMs?: number;
+  /** §9.4 artifact lifecycle sweep cadence in ms (default {@link ARTIFACT_SWEEP_MS}). */
+  artifactSweepMs?: number;
   /**
    * BullMQ connection. When omitted a fresh ioredis client is created from
    * `runtime.env.REDIS_URL` and owned by the returned handle (closed on
@@ -51,10 +76,11 @@ export interface RunningWorkers {
 }
 
 /**
- * Boot the worker's three BullMQ Workers (`job-exec`, `webhook-outbox`,
- * `hold-reaper`) over the injected {@link WorkerRuntime} and register the
- * repeatable webhook/reaper sweeps. Extracted from `main.ts` so the api's
- * full-stack e2e can stand up a real worker against a Testcontainers Redis.
+ * Boot the worker's BullMQ Workers (the six old-world queues plus the 批次4
+ * slice4 task-center sweeps `task-poll` / `task-reaper` / `task-webhook` /
+ * `task-events-reaper`) over the injected {@link WorkerRuntime} and register
+ * the repeatable sweeps. Extracted from `main.ts` so the api's full-stack e2e
+ * can stand up a real worker against a Testcontainers Redis.
  *
  * Returns a handle whose `close()` drains and closes every Worker + Queue and,
  * when this function owned the connection, quits the ioredis client — so the
@@ -75,6 +101,11 @@ export function startWorkers(
   const tokenRefreshSweepMs = opts.tokenRefreshSweepMs ?? TOKEN_REFRESH_SWEEP_MS;
   const relayTraceSweepMs = opts.relayTraceSweepMs ?? RELAY_TRACE_SWEEP_MS;
   const fileLifecycleSweepMs = opts.fileLifecycleSweepMs ?? FILE_LIFECYCLE_SWEEP_MS;
+  const taskPollSweepMs = opts.taskPollSweepMs ?? TASK_POLL_SWEEP_MS;
+  const taskReaperSweepMs = opts.taskReaperSweepMs ?? TASK_REAPER_SWEEP_MS;
+  const taskWebhookSweepMs = opts.taskWebhookSweepMs ?? TASK_WEBHOOK_SWEEP_MS;
+  const taskEventsSweepMs = opts.taskEventsSweepMs ?? TASK_EVENTS_SWEEP_MS;
+  const artifactSweepMs = opts.artifactSweepMs ?? ARTIFACT_SWEEP_MS;
 
   const jobExec = createJobExecProcessor(runtime);
   const processWebhookOutbox = createWebhookOutboxProcessor(runtime);
@@ -82,6 +113,11 @@ export function startWorkers(
   const processTokenRefresh = createTokenRefreshProcessor(runtime);
   const processRelayTraceReaper = createRelayTraceReaperProcessor(runtime);
   const processFileLifecycleReaper = createFileLifecycleReaperProcessor(runtime);
+  const processTaskPoll = createTaskPollProcessor(runtime);
+  const processTaskReaper = createTaskReaperProcessor(runtime);
+  const processTaskWebhook = createTaskWebhookProcessor(runtime);
+  const processTaskEventsReaper = createTaskEventsReaperProcessor(runtime);
+  const processArtifactReaper = createArtifactReaperProcessor(runtime);
 
   // job-exec: one job per async run, payload { jobId }.
   const jobExecWorker = new Worker(
@@ -126,6 +162,26 @@ export function startWorkers(
     { connection },
   );
 
+  // task-poll: the §7.2 lease-takeover sweep — claims expired-lease recoverable
+  // tasks (submit_poll/submit_callback) and polls each to a terminal state.
+  const taskPollWorker = new Worker('task-poll', () => processTaskPoll(), { connection });
+
+  // task-reaper: §3 direct orphans + §7.3 hold-expiry backstop (fail, no charge).
+  const taskReaperWorker = new Worker('task-reaper', () => processTaskReaper(), { connection });
+
+  // task-webhook: drains due §7.6 webhook_deliveries (signed envelopes, fixed ladder).
+  const taskWebhookWorker = new Worker('task-webhook', () => processTaskWebhook(), { connection });
+
+  // task-events-reaper: §9.3 task_events retention sweep.
+  const taskEventsReaperWorker = new Worker('task-events-reaper', () => processTaskEventsReaper(), {
+    connection,
+  });
+
+  // artifact-reaper: §9.4 signed-track expiry (public 轨豁免清理 by construction).
+  const artifactReaperWorker = new Worker('artifact-reaper', () => processArtifactReaper(), {
+    connection,
+  });
+
   jobExecWorker.on('ready', () => {
     console.log(`worker ready: ${QUEUE_NAMES.join(', ')}`);
   });
@@ -137,6 +193,11 @@ export function startWorkers(
     tokenRefreshWorker,
     relayTraceWorker,
     fileLifecycleWorker,
+    taskPollWorker,
+    taskReaperWorker,
+    taskWebhookWorker,
+    taskEventsReaperWorker,
+    artifactReaperWorker,
   ];
   for (const worker of workers) {
     worker.on('failed', (job, err) => {
@@ -152,12 +213,22 @@ export function startWorkers(
   const tokenRefreshQueue = new Queue('token-refresh', { connection });
   const relayTraceQueue = new Queue('relay-trace-reaper', { connection });
   const fileLifecycleQueue = new Queue('file-lifecycle-reaper', { connection });
+  const taskPollQueue = new Queue('task-poll', { connection });
+  const taskReaperQueue = new Queue('task-reaper', { connection });
+  const taskWebhookQueue = new Queue('task-webhook', { connection });
+  const taskEventsReaperQueue = new Queue('task-events-reaper', { connection });
+  const artifactReaperQueue = new Queue('artifact-reaper', { connection });
   const queues = [
     webhookQueue,
     reaperQueue,
     tokenRefreshQueue,
     relayTraceQueue,
     fileLifecycleQueue,
+    taskPollQueue,
+    taskReaperQueue,
+    taskWebhookQueue,
+    taskEventsReaperQueue,
+    artifactReaperQueue,
   ];
   const scheduled = Promise.all([
     webhookQueue.add(
@@ -180,6 +251,31 @@ export function startWorkers(
       'sweep',
       {},
       { repeat: { every: fileLifecycleSweepMs }, jobId: 'file-lifecycle-reaper-sweep' },
+    ),
+    taskPollQueue.add(
+      'sweep',
+      {},
+      { repeat: { every: taskPollSweepMs }, jobId: 'task-poll-sweep' },
+    ),
+    taskReaperQueue.add(
+      'sweep',
+      {},
+      { repeat: { every: taskReaperSweepMs }, jobId: 'task-reaper-sweep' },
+    ),
+    taskWebhookQueue.add(
+      'sweep',
+      {},
+      { repeat: { every: taskWebhookSweepMs }, jobId: 'task-webhook-sweep' },
+    ),
+    taskEventsReaperQueue.add(
+      'sweep',
+      {},
+      { repeat: { every: taskEventsSweepMs }, jobId: 'task-events-reaper-sweep' },
+    ),
+    artifactReaperQueue.add(
+      'sweep',
+      {},
+      { repeat: { every: artifactSweepMs }, jobId: 'artifact-reaper-sweep' },
     ),
   ]);
   // Surface a scheduling failure rather than leaving it floating; a real boot

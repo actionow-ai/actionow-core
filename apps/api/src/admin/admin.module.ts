@@ -26,6 +26,7 @@ import {
   defaultAdminTokenAuthRepo,
 } from './auth/admin-token-auth.service.js';
 import { ModelTestService } from './model-test.service.js';
+import { ReconciliationController } from './reconciliation.controller.js';
 import { SupplyAdminController } from './supply.controller.js';
 import { SupplyAdminService } from './supply.service.js';
 
@@ -45,7 +46,14 @@ import { SupplyAdminService } from './supply.service.js';
     }),
     AuditModule,
   ],
-  controllers: [AdminAuthController, AdminController, AdminDifyController, SupplyAdminController],
+  controllers: [
+    AdminAuthController,
+    AdminController,
+    AdminDifyController,
+    SupplyAdminController,
+    // §9.2 reconciliation report (批次4 slice6, read-only).
+    ReconciliationController,
+  ],
   providers: [
     AdminAuthService,
     AdminService,

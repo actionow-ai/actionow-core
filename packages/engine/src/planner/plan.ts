@@ -141,6 +141,13 @@ export interface PlanExecutionInput {
   routeGroupId?: string | undefined;
   /** §4 rule 4 filter mode; absent → 'strict'. */
   mode?: FilterMode | undefined;
+  /**
+   * §8 failover loop (批次4): offerings already attempted this request —
+   * excluded from candidate assembly so each re-plan hop selects a fresh
+   * sibling (and re-runs the FULL assemble/filter/gate pipeline, 每跳重过
+   * 参数校验与映射 by construction).
+   */
+  excludeOfferingIds?: readonly string[] | undefined;
 }
 
 /**
@@ -263,7 +270,9 @@ export async function planExecution(
   });
 
   // ── 4. §8/§4 candidate assembly (slice 3a): enabled × BYOK × tag pin ×
-  //       breaker × pool × param filter. Its errors pass through VERBATIM. ───
+  //       §3 servability (paradigm×fetch, isServable — an unservable pairing
+  //       never enters the set, so it can never hold-and-bounce) × breaker ×
+  //       pool × param filter. Its errors pass through VERBATIM. ─────────────
   const assembled = await assembleCandidates(
     { db: deps.db, now: () => now, queries: deps.queries },
     {
@@ -275,6 +284,8 @@ export async function planExecution(
       routeGroupId: input.routeGroupId,
       mode: input.mode,
       breakerConfig: deps.breakerConfig,
+      excludeOfferingIds: input.excludeOfferingIds,
+      externalParadigm: paradigmPlan.externalParadigm,
     },
   );
   if (assembled.error !== undefined) {

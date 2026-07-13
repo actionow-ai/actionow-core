@@ -1186,6 +1186,25 @@ export async function getSupplyPriceCardsByIds(
   return new Map(rows.map((row) => [row.id, row]));
 }
 
+/**
+ * Batch-fetch price cards by id INCLUDING soft-deleted rows → `Map<id, row>`.
+ * §2.7 settle-time snapshot rebuild (批次4 slice2): a card referenced by a
+ * hold-time snapshot `{card_id, version}` must re-price EXACTLY even when the
+ * card was soft-deleted between hold and settle — card rows are immutable
+ * (version = that id's version), and a soft delete only closes the card to
+ * NEW admissions. The live-only variant above is for admission-time reads;
+ * this one is for snapshot reconstruction. Ids that never existed are simply
+ * absent from the Map.
+ */
+export async function getSupplyPriceCardsByIdsIncludingDeleted(
+  db: DbOrTx,
+  ids: string[],
+): Promise<Map<string, SupplyPriceCardRow>> {
+  if (ids.length === 0) return new Map();
+  const rows = await db.select().from(supplyPriceCard).where(inArray(supplyPriceCard.id, ids));
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
 // --- offering breaker runtime state (批次3 — per-offering FSM persistence) -------
 
 /**
@@ -1274,4 +1293,21 @@ export async function updateApiKeyModelAllowlist(
     .where(and(eq(apiKey.id, keyId), isNull(apiKey.deletedAt)))
     .returning({ id: apiKey.id });
   return rows.length === 1;
+}
+
+/**
+ * Read a live api_key's NEW-WORLD model whitelist (`model_allowlist`) —
+ * consumed by the 批次4 gateway face (§2.6 guard 强制 + §5 发现面交集).
+ * `[]` = allow ALL models; `undefined` = the key is unknown / soft-deleted.
+ */
+export async function getApiKeyModelAllowlist(
+  db: DbOrTx,
+  keyId: string,
+): Promise<string[] | undefined> {
+  const rows = await db
+    .select({ modelAllowlist: apiKey.modelAllowlist })
+    .from(apiKey)
+    .where(and(eq(apiKey.id, keyId), isNull(apiKey.deletedAt)))
+    .limit(1);
+  return rows[0]?.modelAllowlist;
 }

@@ -15,6 +15,9 @@
 //   2. route-tag narrow-only pin: tag given + zero matches → 400 invalid_input
 //      (route-tagging 现状语义; no tag + zero matches is NOT an error here —
 //      "no supply" is the orchestrator's concern).
+//   2b/2c. §8 failover exclusion + §3 paradigm×fetch servability (isServable):
+//      already-tried offerings and fetch modes that cannot serve the planned
+//      external paradigm INLINE fall out BEFORE any hold can be taken on them.
 //   3. breaker-closed filter — PURE FSM verdicts from breaker.ts, never a
 //      re-implementation: open & cooling → out; open & cooldown elapsed →
 //      in (half-open probes route through the normal pool, §2.5); half_open →
@@ -60,6 +63,7 @@ import {
   DEFAULT_BREAKER_CONFIG,
   openEligibleAt,
 } from '../breaker.js';
+import { type ExternalParadigm, isServable } from './fetch-plan.js';
 import { filterCandidates, type FilterMode } from './param-filter.js';
 
 /**
@@ -113,6 +117,21 @@ export interface AssembleInput {
    * {@link DEFAULT_BREAKER_CONFIG}.
    */
   breakerConfig?: BreakerConfig | undefined;
+  /**
+   * §8 failover loop (批次4): offerings ALREADY TRIED this request — excluded
+   * from assembly so every re-plan hop lands on a fresh sibling (每跳重过参数
+   * 校验与映射 happens naturally because the whole pipeline re-runs).
+   */
+  excludeOfferingIds?: readonly string[] | undefined;
+  /**
+   * The request's PLANNED external shape (§3 planParadigm verdict). When
+   * present, candidates whose fetch mode cannot serve this paradigm INLINE
+   * ({@link isServable} — stream×submit_* / task×stream await worker
+   * synthesis in a later slice) are filtered here rather than discovered as a
+   * dispatch mismatch after the hold — zero hold-write/rollback churn.
+   * Absent → no servability filtering (direct assembly callers).
+   */
+  externalParadigm?: ExternalParadigm | undefined;
 }
 
 /**
@@ -128,7 +147,12 @@ export interface AssembledCandidate {
   activeCredentialCount: number;
 }
 
-export type AssembleRejectionStage = 'breaker' | 'credentials' | 'params';
+export type AssembleRejectionStage =
+  | 'excluded'
+  | 'servability'
+  | 'breaker'
+  | 'credentials'
+  | 'params';
 
 /** One offering's elimination record (observability — relay_trace fodder). */
 export interface AssembleRejection {
@@ -220,18 +244,70 @@ export async function assembleCandidates(
     return { candidates: [], rejected, warnings: [] };
   }
 
+  // 2b. §8 failover exclusion (批次4 loop): offerings already attempted this
+  //     request fall out AFTER the tag pin judgment (a tag that matched only
+  //     already-tried offerings is exhaustion, not a caller mistake). All
+  //     excluded → empty set → the orchestrator answers "no routable supply".
+  let pool = raw;
+  if (input.excludeOfferingIds !== undefined && input.excludeOfferingIds.length > 0) {
+    const excludedIds = new Set(input.excludeOfferingIds);
+    pool = [];
+    for (const cand of raw) {
+      if (excludedIds.has(cand.id)) {
+        rejected.push({
+          offeringId: cand.id,
+          stage: 'excluded',
+          reason: 'offering already attempted this request (§8 failover loop exclusion)',
+        });
+        continue;
+      }
+      pool.push(cand);
+    }
+    if (pool.length === 0) {
+      return { candidates: [], rejected, warnings: [] };
+    }
+  }
+
+  // 2c. §3 paradigm×fetch servability filter: an offering whose fetch mode
+  //     cannot serve the planned external paradigm INLINE (stream×submit_* /
+  //     task×stream — worker synthesis is a later slice) never enters the
+  //     candidate set, so it can never win the sort, take a hold and bounce
+  //     back as a dispatch mismatch (确定性空转). Judged AFTER the tag pin
+  //     (a tag matching only unservable supply is exhaustion, not a caller
+  //     mistake) and BEFORE the I/O stages (no breaker/pool lookups wasted).
+  //     sync passes everything — the filter can never starve the common path.
+  if (input.externalParadigm !== undefined) {
+    const paradigm = input.externalParadigm;
+    const servable: RoutingCandidate[] = [];
+    for (const cand of pool) {
+      if (!isServable(paradigm, cand.fetchProfile.mode)) {
+        rejected.push({
+          offeringId: cand.id,
+          stage: 'servability',
+          reason: `fetch mode '${cand.fetchProfile.mode}' cannot serve the '${paradigm}' paradigm inline (§3 servability matrix)`,
+        });
+        continue;
+      }
+      servable.push(cand);
+    }
+    pool = servable;
+    if (pool.length === 0) {
+      return { candidates: [], rejected, warnings: [] };
+    }
+  }
+
   // 3. breaker-closed filter (pure FSM verdicts from breaker.ts).
   const cfg = input.breakerConfig ?? DEFAULT_BREAKER_CONFIG;
   const afterBreaker: RoutingCandidate[] = [];
   if (!cfg.enabled) {
     // Breaker administratively disabled → it never removes a candidate.
-    afterBreaker.push(...raw);
+    afterBreaker.push(...pool);
   } else {
     const breakers = await q.getSupplyOfferingBreakers(
       deps.db,
-      raw.map((o) => o.id),
+      pool.map((o) => o.id),
     );
-    for (const cand of raw) {
+    for (const cand of pool) {
       const row = breakers.get(cand.id);
       // Missing row = closed initial state → routable (slice-1 contract).
       if (row === undefined) {

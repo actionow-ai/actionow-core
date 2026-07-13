@@ -1,7 +1,13 @@
 import { type AdapterRegistry, createDefaultRegistry } from '@actionow/adapters';
 import type { HttpClient, StorageProvider } from '@actionow/contracts';
 import { appendAuditLog, createDb, type Database, resolveSecretRef } from '@actionow/db';
-import type { BreakerStore, FetchBytes, JobProgressEvent, PutBytes } from '@actionow/engine';
+import type {
+  BreakerStore,
+  FetchBytes,
+  JobProgressEvent,
+  MediaTransfer,
+  PutBytes,
+} from '@actionow/engine';
 import {
   buildBreakerStore,
   jobProgressChannel,
@@ -11,6 +17,7 @@ import {
 import {
   type AppEnv,
   createHttpClient,
+  createMediaTransfer,
   createRedis,
   createS3StorageProvider,
   fetchBytesWithTimeout,
@@ -45,6 +52,14 @@ export interface WorkerRuntime {
   fetchBytes: FetchBytes;
   /** Upload bytes to a presigned PUT URL. Defaults to a global-`fetch` impl. */
   putBytes: PutBytes;
+  /**
+   * §9.4 hardened byte mover for the NEW-WORLD persist hook (批次4 slice5):
+   * SSRF-guarded, streaming (禁全量进内存), size-tier timed. Optional so a fake
+   * test runtime can inject a recorder; production wires infra's
+   * `createMediaTransfer()`. The legacy fetchBytes/putBytes above stay for the
+   * old job-runner path (双面并存零破坏).
+   */
+  mediaTransfer?: MediaTransfer;
   /**
    * The per-`(channel, model)` circuit breaker (弹性2.0) for the async/media
    * submit path (`JobRunner.submit`): excludes Open channels + trial-gates
@@ -115,6 +130,7 @@ export function createWorkerRuntime(): WorkerRuntime {
     publicBaseUrl: env.STORAGE_PUBLIC_BASE_URL,
     fetchBytes: fetchBytesWithTimeout,
     putBytes: putBytesWithTimeout,
+    mediaTransfer: createMediaTransfer(),
     breaker,
     settings: new SettingsResolver({ db, env }),
     publishProgress,

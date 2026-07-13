@@ -155,6 +155,39 @@ const EnvSchema = z
     // → NO pruning (today's behavior). relay_trace is NOT system-of-record, so a
     // short window (e.g. 7–30) keeps full request/response bodies from filling PG.
     RELAY_TRACE_RETENTION_DAYS: z.coerce.number().int().positive().optional(),
+    // Retention for the task center's `task_events` stream (批次4, design §7.1/
+    // §9.3: same policy shape as relay_trace but NOT forever-by-default). The
+    // worker's sweep hard-deletes events older than this many days. Optional
+    // env; when unset a CODE default applies (see settings.ts
+    // DEFAULT_TASK_EVENTS_RETENTION_DAYS) — an admin override (动态配置) can
+    // still change it at runtime.
+    TASK_EVENTS_RETENTION_DAYS: z.coerce.number().int().positive().optional(),
+    // §9.4 signed-track artifact retention platform default (批次4 slice5): a
+    // task's artifact_expires_at = settle time + this many days when neither
+    // the model's artifact.retention_days nor an admin override supplies one.
+    // Optional env; unset → the CODE default (settings.ts
+    // DEFAULT_ARTIFACT_RETENTION_DAYS, 30). Dynamic-config overridable.
+    ARTIFACT_RETENTION_DAYS: z.coerce.number().int().positive().optional(),
+    // §9.2 对账 (批次4 slice6): the deviation percentage threshold the
+    // official-channel daily auto-reconciliation alerts on (cost side computed
+    // from usage vs the upstream bill line). Optional env; unset → the CODE
+    // default (settings.ts DEFAULT_RECONCILIATION_DEVIATION_PCT, 5). Dynamic-
+    // config overridable — the monthly report endpoint ships in 批次4; the
+    // automated daily comparer consumes this key in 批次5 (对账自动化).
+    RECONCILIATION_DEVIATION_PCT: z.coerce.number().positive().optional(),
+    // 切换预案② (plan v3): the PLATFORM default for the per-tenant gateway-v2
+    // gray-release flag — whether a tenant's LEGACY sync surfaces (chat/
+    // embeddings…) route through the NEW supply gateway. Per-tenant override
+    // rides `tenant.config.gateway_v2` (see @actionow/db
+    // getTenantGatewayV2Flag). Default false: the new task-paradigm endpoints
+    // are fully live for everyone (预案①), but the legacy-surface cutover is
+    // opt-in per tenant during the migration window. Enum-transform (the
+    // WEBHOOK_ALLOW_PRIVATE_TARGETS pattern — z.coerce.boolean is a truthiness
+    // trap).
+    GATEWAY_V2_DEFAULT: z
+      .enum(['true', 'false'])
+      .transform((v) => v === 'true')
+      .optional(),
     // Opt-in platform-wide default for the per-tenant file lifecycle / TTL sweep:
     // the worker's file-lifecycle-reaper soft-deletes (+ best-effort bucket-deletes)
     // file_object rows older than this many days for any tenant WITHOUT its own

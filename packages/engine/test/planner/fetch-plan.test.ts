@@ -2,10 +2,16 @@
 // 3a): the sync/stream/task cascade, the slow/threshold server-side
 // auto-upgrade (产品裁决: 无客户端 opt-in), born-task vs upgraded-task, and the
 // four fetch-mode strategy markers.
-import type { Operation } from '@actionow/contracts';
+import type { FetchMode, Operation } from '@actionow/contracts';
 import { describe, expect, it } from 'vitest';
 
-import { isRecoverableFetchMode, planFetch, planParadigm } from '../../src/index.js';
+import {
+  type ExternalParadigm,
+  isRecoverableFetchMode,
+  isServable,
+  planFetch,
+  planParadigm,
+} from '../../src/index.js';
 import { modelOp } from './supply-fixtures.js';
 
 const OP: Operation = 'images.generation';
@@ -161,5 +167,32 @@ describe('isRecoverableFetchMode', () => {
     expect(isRecoverableFetchMode('submit_callback')).toBe(true);
     expect(isRecoverableFetchMode('direct')).toBe(false);
     expect(isRecoverableFetchMode('stream')).toBe(false);
+  });
+});
+
+describe('isServable (§3 paradigm×fetch servability matrix — FOUND-1)', () => {
+  it('matches the full §3 matrix exactly', () => {
+    const expected: Record<ExternalParadigm, Record<FetchMode, boolean>> = {
+      // sync: direct / drained stream / block-polled submit all assemble a sync answer
+      sync: { direct: true, stream: true, submit_poll: true, submit_callback: true },
+      // stream: passthrough + single-frame degradation only; submit needs worker synthesis
+      stream: { direct: true, stream: true, submit_poll: false, submit_callback: false },
+      // task: native submits + at-most-once direct; stream needs a worker drain
+      task: { direct: true, stream: false, submit_poll: true, submit_callback: true },
+    };
+    for (const [paradigm, row] of Object.entries(expected) as [
+      ExternalParadigm,
+      Record<FetchMode, boolean>,
+    ][]) {
+      for (const [mode, servable] of Object.entries(row) as [FetchMode, boolean][]) {
+        expect(isServable(paradigm, mode), `${paradigm}×${mode}`).toBe(servable);
+      }
+    }
+  });
+
+  it('sync serves EVERY fetch mode (the common path can never be starved by the filter)', () => {
+    for (const mode of ['direct', 'stream', 'submit_poll', 'submit_callback'] as const) {
+      expect(isServable('sync', mode)).toBe(true);
+    }
   });
 });

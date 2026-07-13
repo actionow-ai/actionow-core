@@ -6,5 +6,13 @@ export const QUEUE_NAMES = [
   'poll-upstream',
   'relay-trace-reaper',
   'file-lifecycle-reaper',
+  // model-supply-greenfield 批次4 slice4 — the NEW-WORLD task-center sweeps
+  // (双面并存: the old job-path queues above are untouched).
+  'task-poll',
+  'task-reaper',
+  'task-webhook',
+  'task-events-reaper',
+  // 批次4 slice5 — §9.4 signed-track artifact lifecycle sweep.
+  'artifact-reaper',
 ] as const;
 export type QueueName = (typeof QUEUE_NAMES)[number];

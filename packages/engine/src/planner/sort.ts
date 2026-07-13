@@ -33,6 +33,12 @@ export interface SortOptions {
  * submit_callback) ahead of direct/stream WITHIN a tier (§3 加权), weighted
  * random pick + weight-desc rest inside each sub-tier. Pure: does not mutate
  * the input array.
+ *
+ * Servability interplay (§3): assembly's isServable filter runs BEFORE this
+ * sort, so every candidate here can already serve the planned paradigm — the
+ * recoverable bonus only reorders WITHIN the servable set. It can never
+ * surface an unservable pairing (e.g. push a submit offering ahead of a
+ * stream request's stream/direct supply: those submits never reach the sort).
  */
 export function sortCandidates(
   candidates: readonly AssembledCandidate[],

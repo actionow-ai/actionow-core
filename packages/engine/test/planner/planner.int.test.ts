@@ -595,10 +595,13 @@ describe('planExecution route-tag pinning: task path IDENTICAL to sync (§8 产�
       fetchMode: 'submit_poll',
       tier: 0,
     });
-    // untagged channel, HIGH tier (wins whenever no tag narrows)
+    // untagged channel, HIGH tier (wins whenever no tag narrows). fetch=direct
+    // so BOTH paradigms can be served over it (§3 servability: task×stream is
+    // not inline-servable and would be filtered for video.generation).
     const untagged = await mkOfferingOnNewChannel({
       slug: 'pin-plain',
       modelId: seed.modelId,
+      fetchMode: 'direct',
       tier: 10,
     });
 
@@ -723,6 +726,76 @@ describe('planExecution paradigm/fetch decoupling (§3 / §1 原则2)', () => {
     if (preferred.ok) {
       expect(preferred.reservation.candidate.offering.id).toBe(seed.offeringId);
       await preferred.reservation.release();
+    }
+  });
+});
+
+// --- 5b. §3 servability filter (FOUND-1) ----------------------------------------
+
+describe('planExecution §3 servability filter (stream requests never land on submit supply)', () => {
+  it('stream ask over MIXED supply picks the stream offering (the submit sibling would win the §3 recoverable weighting otherwise); submit-only supply answers ONE deterministic no-supply with ZERO hold; plain sync still serves the submit offering', async () => {
+    const { tenantId, accountId } = await mkTenantAccount('serv', 1_000_000n);
+    // submit_poll offering at the SAME tier: pre-filter, §3 recoverable
+    // weighting ranks it FIRST — a stream request would select it, hit the
+    // dispatch mismatch and spin hold-write/rollback failover hops.
+    const seed = await mkChain({
+      slug: 'serv-poll',
+      modelName: 'serv-model',
+      operations: [chatOp()],
+      fetchMode: 'submit_poll',
+      tier: 0,
+    });
+    const streaming = await mkOfferingOnNewChannel({
+      slug: 'serv-stream',
+      modelId: seed.modelId,
+      fetchMode: 'stream',
+      tier: 0,
+    });
+
+    const res = await planExecution(
+      harness().deps,
+      planInput(req({ tenantId, model: 'serv-model', stream: true }), accountId),
+    );
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.paradigmPlan.externalParadigm).toBe('stream');
+      expect(res.reservation.candidate.offering.id).toBe(streaming.offeringId);
+      expect(res.fetchPlan.mode).toBe('stream');
+      // the submit offering never entered the candidate set
+      expect(res.trace.rejected).toContainEqual(
+        expect.objectContaining({ offeringId: seed.offeringId, stage: 'servability' }),
+      );
+      await res.reservation.release();
+    }
+
+    // submit-only supply for a stream ask: ONE deterministic no-supply answer
+    // (no hold ever written — nothing to roll back, no failover hops to burn)
+    await updateSupplyOffering(db, streaming.offeringId, { status: 'disabled' });
+    const dead = await planExecution(
+      harness().deps,
+      planInput(req({ tenantId, model: 'serv-model', stream: true }), accountId),
+    );
+    expect(dead.ok).toBe(false);
+    if (!dead.ok) {
+      expect(dead.error.code).toBe('upstream_error');
+      expect(dead.error.failover).toBe(false);
+      expect(dead.trace.rejected).toContainEqual(
+        expect.objectContaining({ offeringId: seed.offeringId, stage: 'servability' }),
+      );
+    }
+    await expect(readHeld(accountId)).resolves.toBe(0n);
+
+    // the SAME model still serves a plain sync ask over the submit offering
+    // (§3 block-poll) — the filter never starves the common path
+    const syncRes = await planExecution(
+      harness().deps,
+      planInput(req({ tenantId, model: 'serv-model' }), accountId),
+    );
+    expect(syncRes.ok).toBe(true);
+    if (syncRes.ok) {
+      expect(syncRes.paradigmPlan.externalParadigm).toBe('sync');
+      expect(syncRes.reservation.candidate.offering.id).toBe(seed.offeringId);
+      await syncRes.reservation.release();
     }
   });
 });

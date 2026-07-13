@@ -25,6 +25,21 @@ export {
   submitAndWait,
   type SubmitAndWaitOptions,
 } from './submit-and-wait.js';
+// NEW task-paradigm helpers (model-supply greenfield §5): one call digests the
+// 200 (sync) / 202 (Task → poll) dual shape the server decides (§3 自动升格).
+export {
+  isTerminalTaskStatus,
+  operationIsSlow,
+  submitTaskAndWait,
+  type SubmitTaskOptions,
+  type SubmitTaskResult,
+  type TaskCreateBody,
+  type TaskCreatePath,
+  TaskTimeoutError,
+  TERMINAL_TASK_STATUSES,
+  type TerminalTaskStatus,
+  waitForTask,
+} from './task.js';
 
 /**
  * The contract model types — the SAME single source the backend `.parse()`s and
@@ -80,6 +95,14 @@ export type ResourceDetail = Schemas['ResourceDetail'];
 export type PresignUploadResult = Schemas['PresignUploadResult'];
 export type FileView = Schemas['FileView'];
 export type FileUrlResult = Schemas['FileUrlResult'];
+// NEW gateway task-paradigm views (model-supply greenfield §5: /v1/tasks 族,
+// /v1/videos/generations, /v1/audio/music, /v1/gateway/models)
+export type GatewayTaskView = Schemas['GatewayTaskView'];
+export type GatewayInvokeResponse = Schemas['GatewayInvokeResponse'];
+export type GatewayErrorView = Schemas['GatewayErrorView'];
+export type GatewayModelList = Schemas['GatewayModelList'];
+export type GatewayResourceCreateBody = Schemas['GatewayResourceCreateBody'];
+export type GatewayTaskCreateBody = Schemas['GatewayTaskCreateBody'];
 
 /**
  * The contract REQUEST-BODY types — the SAME single source the backend `ZodBody`

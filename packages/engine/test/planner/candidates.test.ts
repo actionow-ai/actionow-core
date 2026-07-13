@@ -224,6 +224,104 @@ describe('assembleCandidates — route-tag narrow-only pin (§8 钉选)', () => 
   });
 });
 
+describe('assembleCandidates — §8 failover exclusion (批次4 loop)', () => {
+  it('drops already-attempted offerings with an `excluded` rejection; survivors assemble normally', async () => {
+    const { deps } = fakeDeps({
+      candidates: [offering({ id: 'off-A' }), offering({ id: 'off-B' })],
+    });
+    const result = await assembleCandidates(deps, input({ excludeOfferingIds: ['off-A'] }));
+    expect(result.candidates.map((c) => c.offering.id)).toEqual(['off-B']);
+    expect(result.rejected).toContainEqual(
+      expect.objectContaining({ offeringId: 'off-A', stage: 'excluded' }),
+    );
+    expect(result.error).toBeUndefined();
+  });
+
+  it('ALL candidates excluded → empty set WITHOUT an error (exhaustion, the orchestrator answers)', async () => {
+    const { deps } = fakeDeps({ candidates: [offering({ id: 'off-A' })] });
+    const result = await assembleCandidates(deps, input({ excludeOfferingIds: ['off-A'] }));
+    expect(result.candidates).toHaveLength(0);
+    expect(result.error).toBeUndefined();
+  });
+
+  it('exclusion is judged AFTER the route-tag pin: a tag matching only excluded offerings is exhaustion, not a 400', async () => {
+    const { deps } = fakeDeps({ candidates: [offering({ id: 'off-A' })] });
+    const result = await assembleCandidates(
+      deps,
+      input({ routeTag: 'eu', excludeOfferingIds: ['off-A'] }),
+    );
+    expect(result.candidates).toHaveLength(0);
+    expect(result.error).toBeUndefined(); // NOT invalid_input — the tag DID match supply
+  });
+});
+
+describe('assembleCandidates — §3 paradigm×fetch servability filter (FOUND-1)', () => {
+  const MIXED = [
+    offering({ id: 'off-stream', channelId: 'chan-1', mode: 'stream' }),
+    offering({ id: 'off-direct', channelId: 'chan-2', mode: 'direct' }),
+    offering({ id: 'off-poll', channelId: 'chan-3', mode: 'submit_poll' }),
+    offering({ id: 'off-cb', channelId: 'chan-4', mode: 'submit_callback' }),
+  ];
+
+  it('stream paradigm: submit_poll/submit_callback offerings never enter the set; stream/direct survive', async () => {
+    const { deps } = fakeDeps({ candidates: MIXED.map((c) => ({ ...c })) });
+    const result = await assembleCandidates(deps, input({ externalParadigm: 'stream' }));
+    expect(result.candidates.map((c) => c.offering.id)).toEqual(['off-stream', 'off-direct']);
+    expect(result.error).toBeUndefined();
+    expect(result.rejected).toEqual([
+      expect.objectContaining({ offeringId: 'off-poll', stage: 'servability' }),
+      expect.objectContaining({ offeringId: 'off-cb', stage: 'servability' }),
+    ]);
+  });
+
+  it('task paradigm: a stream-fetch offering is filtered; submits and direct survive', async () => {
+    const { deps } = fakeDeps({ candidates: MIXED.map((c) => ({ ...c })) });
+    const result = await assembleCandidates(deps, input({ externalParadigm: 'task' }));
+    expect(result.candidates.map((c) => c.offering.id)).toEqual([
+      'off-direct',
+      'off-poll',
+      'off-cb',
+    ]);
+    expect(result.rejected).toEqual([
+      expect.objectContaining({ offeringId: 'off-stream', stage: 'servability' }),
+    ]);
+  });
+
+  it('sync paradigm keeps ALL fetch modes (drain/block-poll serve them — 不被误过滤)', async () => {
+    const { deps } = fakeDeps({ candidates: MIXED.map((c) => ({ ...c })) });
+    const result = await assembleCandidates(deps, input({ externalParadigm: 'sync' }));
+    expect(result.candidates.map((c) => c.offering.id)).toEqual([
+      'off-stream',
+      'off-direct',
+      'off-poll',
+      'off-cb',
+    ]);
+    expect(result.rejected).toHaveLength(0);
+  });
+
+  it('stream paradigm over SUBMIT-ONLY supply → empty set WITHOUT an error (the orchestrator answers no-supply once — zero hold churn)', async () => {
+    const { deps, credentialCalls } = fakeDeps({
+      candidates: [
+        offering({ id: 'off-poll', mode: 'submit_poll' }),
+        offering({ id: 'off-cb', channelId: 'chan-2', mode: 'submit_callback' }),
+      ],
+    });
+    const result = await assembleCandidates(deps, input({ externalParadigm: 'stream' }));
+    expect(result.candidates).toHaveLength(0);
+    expect(result.error).toBeUndefined();
+    expect(result.rejected.map((r) => r.stage)).toEqual(['servability', 'servability']);
+    // the filter runs BEFORE the I/O stages — no credential lookups were wasted
+    expect(credentialCalls).toEqual([]);
+  });
+
+  it('absent externalParadigm → no servability filtering (direct assembly callers unchanged)', async () => {
+    const { deps } = fakeDeps({ candidates: MIXED.map((c) => ({ ...c })) });
+    const result = await assembleCandidates(deps, input());
+    expect(result.candidates).toHaveLength(4);
+    expect(result.rejected).toHaveLength(0);
+  });
+});
+
 describe('assembleCandidates — §4 parameter filtering integration', () => {
   it('passes the unsupported_parameter error through verbatim on total annihilation (§4 rule 4)', async () => {
     // Offering pins the billing param to 720p; the request explicitly asks 1080p.
