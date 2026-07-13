@@ -1,4 +1,3 @@
-import type { JobQueuePort } from '@actionow/engine';
 import { FakeRateLimitRedis, RedisRateLimiter } from '@actionow/infra';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -6,7 +5,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
-import { DB, ENV, JOB_QUEUE, RATE_LIMITER } from '../src/common/tokens.js';
+import { DB, ENV, RATE_LIMITER } from '../src/common/tokens.js';
 import { UnifiedErrorFilter } from '../src/common/unified-error.filter.js';
 
 /**
@@ -37,8 +36,6 @@ beforeAll(async () => {
     })
     .overrideProvider(DB)
     .useValue({})
-    .overrideProvider(JOB_QUEUE)
-    .useValue({ enqueueExec: () => Promise.resolve() } satisfies JobQueuePort)
     .overrideProvider(RATE_LIMITER)
     .useValue(new RedisRateLimiter(new FakeRateLimitRedis()))
     .compile();

@@ -111,10 +111,11 @@ const persistProvider: Provider = {
     httpProvider,
     persistProvider,
   ],
-  // 切换预案③ (批次5 slice3): the ChatModule's legacy OpenAI controllers
-  // branch to GatewayChatV2Service at their entry line when the 预案② flag
-  // says a tenant rides the new gateway (双面并存 — no other coupling).
-  exports: [GatewayChatV2Service],
+  // 批次6 D2 (旧世界删除后): the ChatModule's seven legacy sync controllers
+  // ride GatewayChatV2Service unconditionally (gray-release 分支已坍缩), and
+  // the media dialects (/v1/images/generations, /v1/audio/speech) drive the
+  // exported GatewayService directly.
+  exports: [GatewayChatV2Service, GatewayService],
 })
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- NestJS modules are decorated empty classes
 export class GatewayModule {}

@@ -21,8 +21,7 @@
     "@actionow/infra": "workspace:*",
     "@actionow/llm-protocol": "workspace:*",
     "@actionow/payments": "workspace:*",
-    "@actionow/spi": "workspace:*",
-    "quickjs-emscripten": "^0.32.0"
+    "@actionow/spi": "workspace:*"
   },
   "devDependencies": {
     "@testcontainers/postgresql": "^10.13.0",

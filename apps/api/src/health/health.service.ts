@@ -4,8 +4,7 @@ import { createRedis, type Redis } from '@actionow/infra';
 import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 
-import type { BullmqJobQueue } from '../common/bullmq-queue.js';
-import { DB, ENV, JOB_QUEUE } from '../common/tokens.js';
+import { DB, ENV } from '../common/tokens.js';
 
 /** A single dependency's readiness verdict. */
 export type CheckStatus = 'ok' | 'down';
@@ -14,7 +13,6 @@ export type CheckStatus = 'ok' | 'down';
 export interface ReadinessChecks {
   postgres: CheckStatus;
   redis: CheckStatus;
-  queue: CheckStatus;
 }
 
 /** A full readiness verdict: the aggregate plus each dependency's status. */
@@ -50,8 +48,10 @@ async function probe(op: () => Promise<unknown>): Promise<CheckStatus> {
 }
 
 /**
- * Readiness prober for the API's critical dependencies (Postgres, Redis, the
- * BullMQ broker). Each check is bounded by a short timeout and FAILS CLOSED to
+ * Readiness prober for the API's critical dependencies (Postgres, Redis).
+ * 批次6 D2: the BullMQ `queue` check died with the api-side job queue — the
+ * api no longer enqueues; the broker rides the same Redis the `redis` check
+ * probes. Each check is bounded by a short timeout and FAILS CLOSED to
  * `down` on any error/timeout, so `/readyz` always answers promptly. Liveness
  * (`/health`) does NOT use this — it returns 200 unconditionally.
  *
@@ -66,7 +66,6 @@ export class HealthService implements OnModuleDestroy {
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(ENV) private readonly env: AppEnv,
-    @Inject(JOB_QUEUE) private readonly queue: BullmqJobQueue,
   ) {}
 
   /** Close the lazily-opened readiness Redis client on app shutdown. */
@@ -79,13 +78,12 @@ export class HealthService implements OnModuleDestroy {
 
   /** Run all dependency checks concurrently and aggregate the verdict. */
   async readiness(): Promise<ReadinessReport> {
-    const [postgres, redis, queue] = await Promise.all([
+    const [postgres, redis] = await Promise.all([
       probe(() => this.db.execute(sql`SELECT 1`)),
       probe(() => this.redisClient().ping()),
-      probe(() => this.queue.ping()),
     ]);
-    const checks: ReadinessChecks = { postgres, redis, queue };
-    const ok = postgres === 'ok' && redis === 'ok' && queue === 'ok';
+    const checks: ReadinessChecks = { postgres, redis };
+    const ok = postgres === 'ok' && redis === 'ok';
     return { ok, checks };
   }
 

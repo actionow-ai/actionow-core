@@ -1,14 +1,11 @@
 // apps/api/src/gateway/chat-v2.service.ts
 //
-// model-supply-greenfield 批次5 slice3+slice6 — 切换预案③: the NEW-gateway
-// handler for the LEGACY sync surfaces, plus the 预案② per-tenant gray-release
-// decision the old controllers branch on at their ENTRY line (双面并存: flag
-// true ⇒ this service end-to-end over the pure new gateway; flag false ⇒ the
-// untouched legacy relay path — the two worlds never bridge).
+// model-supply-greenfield 批次5 slice3+slice6 (坍缩于批次6 D2) — the
+// NEW-gateway handler for the classic sync surfaces. The 预案② per-tenant
+// gray-release branch died with the legacy relay world: every controller now
+// delegates here unconditionally (always-new).
 //
-// slice3 delivered the OpenAI pair (`POST /v1/chat/completions`,
-// `POST /v1/embeddings`); slice6 completes the 7/7 cutover with the remaining
-// five legacy faces, each a SurfaceSpec over the SAME serve flow:
+// Seven faces, each a SurfaceSpec over the SAME serve flow:
 //
 //   anthropic.messages          POST /v1/messages          → chat.completions
 //   gemini.generateContent      POST /v1beta/models/{m}:generateContent
@@ -41,11 +38,10 @@
 //                   operation slow — §3 自动升格 is a pure server-side product
 //                   ruling; SDK submit-and-wait consumes the dual shape)
 //
-// Governance note: the old controllers keep their ApiKeyGuard+GovernanceGuard
-// mounts (旧面零改), so a flag=true request passes the LEGACY guard before
-// reaching this service AND the new §7.8 gates inside planExecution. That is
-// the documented migration-window overlap (stricter-of-both, fail-closed);
-// the guard double-mount dies with the old world (slice5 删除).
+// Governance: only ApiKeyGuard mounts on the controllers — the §7.8 gates
+// inside planExecution own the new-world 限流/额度 (批次6 P5 limit-plan
+// bindings ride `execute(opts.limits)`); the legacy GovernanceGuard double-
+// mount died with the old world (批次6 D2).
 import type {
   GatewayError,
   GatewayRequest,
@@ -54,18 +50,17 @@ import type {
   StreamFrame,
 } from '@actionow/contracts';
 import { TERMINAL_TASK_STATUSES } from '@actionow/contracts';
-import type { Database, TaskRow } from '@actionow/db';
+import type { TaskRow } from '@actionow/db';
 import type { ExecuteResult } from '@actionow/engine';
 import type { AppEnv } from '@actionow/infra';
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
 import type { AuthedRequest } from '../auth/api-key.guard.js';
 import { pipeSse } from '../chat/sse.js';
 import { idempotencyKeyHeader } from '../common/idempotency.interceptor.js';
 import { routeTagHeader } from '../common/route-tag.js';
-import { DB, ENV } from '../common/tokens.js';
-import { SettingsService } from '../settings/settings.service.js';
+import { ENV } from '../common/tokens.js';
 import {
   renderAnthropicMessage,
   renderAnthropicMessageOf,
@@ -91,7 +86,6 @@ import {
   renderGeminiSse,
   sendGeminiError,
 } from './gemini-render.js';
-import { isGatewayV2Tenant } from './gray-release.js';
 import {
   renderChatCompletion,
   renderChatCompletionChunks,
@@ -221,31 +215,11 @@ function modelOf(body: Record<string, unknown>): string | null {
 @Injectable()
 export class GatewayChatV2Service {
   constructor(
-    @Inject(DB) private readonly db: Database,
     @Inject(ENV) private readonly env: AppEnv,
     private readonly gateway: GatewayService,
-    // Global module in the real app; absent in partial test modules → the env
-    // GATEWAY_V2_DEFAULT (→ false) decides, matching the gray-release doc.
-    @Optional() private readonly settings?: SettingsService,
   ) {}
 
-  /**
-   * 预案② — should THIS tenant's legacy sync traffic ride the new gateway?
-   * tenant.config.gateway_v2 wins; else GATEWAY_V2_DEFAULT (settings → env →
-   * false). Fail-closed: no opinion anywhere ⇒ the old path.
-   */
-  isV2Tenant(tenantId: string): Promise<boolean> {
-    return isGatewayV2Tenant(
-      {
-        db: this.db,
-        getPlatformDefault: async () =>
-          (await this.settings?.get('GATEWAY_V2_DEFAULT')) ?? this.env.GATEWAY_V2_DEFAULT ?? false,
-      },
-      tenantId,
-    );
-  }
-
-  /** `POST /v1/chat/completions` on the new gateway (flag=true branch). */
+  /** `POST /v1/chat/completions` on the new gateway. */
   async completions(
     body: Record<string, unknown>,
     req: Request,
@@ -254,7 +228,7 @@ export class GatewayChatV2Service {
     return this.serveJson(SURFACES['chat.completions'], modelOf(body), body, req, res);
   }
 
-  /** `POST /v1/embeddings` on the new gateway (flag=true branch). */
+  /** `POST /v1/embeddings` on the new gateway. */
   async embeddings(
     body: Record<string, unknown>,
     req: Request,
@@ -263,7 +237,7 @@ export class GatewayChatV2Service {
     return this.serveJson(SURFACES.embeddings, modelOf(body), body, req, res);
   }
 
-  /** Anthropic `POST /v1/messages` on the new gateway (flag=true branch). */
+  /** Anthropic `POST /v1/messages` on the new gateway. */
   async messages(
     body: Record<string, unknown>,
     req: Request,
@@ -272,7 +246,7 @@ export class GatewayChatV2Service {
     return this.serveJson(SURFACES['anthropic.messages'], modelOf(body), body, req, res);
   }
 
-  /** Gemini `POST /v1beta/models/{model}:generateContent` (flag=true branch). */
+  /** Gemini `POST /v1beta/models/{model}:generateContent`. */
   async generateContent(
     model: string,
     body: Record<string, unknown>,
@@ -289,8 +263,7 @@ export class GatewayChatV2Service {
   }
 
   /**
-   * Gemini `POST /v1beta/models/{model}:streamGenerateContent` (flag=true
-   * branch). Normally answers alt=sse frames via pipeSse; when the planner
+   * Gemini `POST /v1beta/models/{model}:streamGenerateContent`   * branch). Normally answers alt=sse frames via pipeSse; when the planner
    * legitimately answers sync/replay/task JSON instead (e.g. §3 自动升格), the
    * body is written here — the legacy handler is `void`-shaped, so nothing
    * upstream would send it.
@@ -314,7 +287,7 @@ export class GatewayChatV2Service {
     }
   }
 
-  /** Cohere/Jina `POST /v1/rerank` on the new gateway (flag=true branch). */
+  /** Cohere/Jina `POST /v1/rerank` on the new gateway. */
   async rerank(
     body: Record<string, unknown>,
     req: Request,
@@ -323,7 +296,7 @@ export class GatewayChatV2Service {
     return this.serveJson(SURFACES.rerank, modelOf(body), body, req, res);
   }
 
-  /** OpenAI `POST /v1/moderations` on the new gateway (flag=true branch). */
+  /** OpenAI `POST /v1/moderations` on the new gateway. */
   async moderations(
     body: Record<string, unknown>,
     req: Request,
@@ -334,7 +307,7 @@ export class GatewayChatV2Service {
 
   /**
    * OpenAI `POST /v1/audio/transcriptions` (multipart) on the new gateway
-   * (flag=true branch). The audio part is bound into the facade per request
+   *. The audio part is bound into the facade per request
    * (§9.4 media input: base64 mediaRefs + the canonical `file` param); `body`
    * is the multipart TEXT fields (multer strings). A `response_format: 'text'`
    * answer is the raw transcript string (the old-surface contract). The
@@ -447,10 +420,9 @@ export class GatewayChatV2Service {
       accountId: auth.accountId,
       keyRpm: auth.keyRpm,
       ...(auth.routeGroupId !== null ? { routeGroupId: auth.routeGroupId } : {}),
-      // 批次6 P5 — the guard-resolved limit-plan bindings feed the §7.8 gates
-      // (during the 双面并存 window a flag=true request ALSO passed the legacy
-      // GovernanceGuard on the old controller — stricter-of-both; the overlap
-      // dies with the guard's deletion).
+      // 批次6 P5 — the auth-derived limit-plan bindings feed the §7.8 gates
+      // (the sole 限流/额度 enforcement since the legacy GovernanceGuard died
+      // in 批次6 D2).
       limits: auth.limits,
     });
 

@@ -1,45 +1,25 @@
-import {
-  parseGeminiChat,
-  renderGeminiChat,
-  renderGeminiGenerateContentStream,
-} from '@actionow/llm-protocol';
 import { Body, Controller, HttpCode, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
-import { AuthService } from '../auth/auth.service.js';
-import { GovernanceGuard } from '../auth/governance.guard.js';
-import { idempotencyKeyHeader } from '../common/idempotency.interceptor.js';
-import { routeTagHeader } from '../common/route-tag.js';
 import { GatewayChatV2Service } from '../gateway/chat-v2.service.js';
-import { ChatRelayService } from './chat-relay.service.js';
-import { pipeSse } from './sse.js';
 
 /**
- * Gemini-compatible chat relay under `/v1beta/models`. Gemini carries the model
- * in the URL path with a `:action` suffix (`/{model}:generateContent` and
+ * Gemini-compatible chat under `/v1beta/models`, served END TO END by the NEW
+ * supply gateway ({@link GatewayChatV2Service}). Gemini carries the model in
+ * the URL path with a `:action` suffix (`/{model}:generateContent` and
  * `/{model}:streamGenerateContent`); the literal colon is escaped in the route
- * so the `:model` param captures only the model name. Parses the wire body +
- * URL model into the neutral IR, drives the engine via {@link ChatRelayService},
- * and renders the IR back to Gemini's dialect (`candidates[]` JSON, or `alt=sse`
- * `data:` candidate frames). The hold runs inside `chatStream` BEFORE any byte.
+ * so the `:model` param captures only the model name.
  *
- * 切换预案③ (批次5 slice6, 双面并存): the ONE branch per handler below routes
- * a gray-released tenant (预案② `isV2Tenant`) through the NEW supply gateway
- * ({@link GatewayChatV2Service}) end to end; every other tenant rides the
- * untouched legacy relay path. The two worlds never bridge.
+ * 批次6 D2: the 切换预案②③ gray-release branch is collapsed — always-new.
  */
 @ApiTags('v1beta')
 @ApiBearerAuth('api-key')
-@UseGuards(ApiKeyGuard, GovernanceGuard)
+@UseGuards(ApiKeyGuard)
 @Controller('v1beta/models')
 export class GeminiChatController {
-  constructor(
-    private readonly relay: ChatRelayService,
-    private readonly auth: AuthService,
-    private readonly gatewayV2: GatewayChatV2Service,
-  ) {}
+  constructor(private readonly gatewayV2: GatewayChatV2Service) {}
 
   @Post(':model\\:generateContent')
   @HttpCode(200)
@@ -49,20 +29,7 @@ export class GeminiChatController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<Record<string, unknown> | undefined> {
-    const ctx = this.auth.resolve(req);
-    if (await this.gatewayV2.isV2Tenant(ctx.tenantId)) {
-      return this.gatewayV2.generateContent(model, body, req, res);
-    }
-    const ir = parseGeminiChat(body, model);
-    const { response, servedBy } = await this.relay.chat(
-      ir.model,
-      ir,
-      ctx,
-      idempotencyKeyHeader(req),
-      routeTagHeader(req),
-    );
-    if (servedBy !== undefined) res.setHeader('x-actionow-channel', servedBy.providerType);
-    return renderGeminiChat(response);
+    return this.gatewayV2.generateContent(model, body, req, res);
   }
 
   @Post(':model\\:streamGenerateContent')
@@ -72,22 +39,6 @@ export class GeminiChatController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
-    const ctx = this.auth.resolve(req);
-    if (await this.gatewayV2.isV2Tenant(ctx.tenantId)) {
-      return this.gatewayV2.streamGenerateContent(model, body, req, res);
-    }
-    const ir = parseGeminiChat(body, model);
-    // The relay still walks the model fallback chain pre-commit (a degraded model
-    // may serve the committed stream); Gemini's streaming frames carry no
-    // top-level model field, so the renderer takes no served-model arg — the
-    // served model is recorded on the usage_log/relay_trace by the engine.
-    const { events } = await this.relay.chatStream(
-      ir.model,
-      ir,
-      ctx,
-      idempotencyKeyHeader(req),
-      routeTagHeader(req),
-    );
-    await pipeSse(res, renderGeminiGenerateContentStream(events));
+    return this.gatewayV2.streamGenerateContent(model, body, req, res);
   }
 }

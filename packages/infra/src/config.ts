@@ -183,18 +183,6 @@ const EnvSchema = z
     PROBE_DAILY_BUDGET_USD: z.coerce.number().positive().optional(),
     PROBE_MIN_INTERVAL_SEC: z.coerce.number().int().nonnegative().optional(),
     // 切换预案② (plan v3): the PLATFORM default for the per-tenant gateway-v2
-    // gray-release flag — whether a tenant's LEGACY sync surfaces (chat/
-    // embeddings…) route through the NEW supply gateway. Per-tenant override
-    // rides `tenant.config.gateway_v2` (see @actionow/db
-    // getTenantGatewayV2Flag). Default false: the new task-paradigm endpoints
-    // are fully live for everyone (预案①), but the legacy-surface cutover is
-    // opt-in per tenant during the migration window. Enum-transform (the
-    // WEBHOOK_ALLOW_PRIVATE_TARGETS pattern — z.coerce.boolean is a truthiness
-    // trap).
-    GATEWAY_V2_DEFAULT: z
-      .enum(['true', 'false'])
-      .transform((v) => v === 'true')
-      .optional(),
     // Opt-in platform-wide default for the per-tenant file lifecycle / TTL sweep:
     // the worker's file-lifecycle-reaper soft-deletes (+ best-effort bucket-deletes)
     // file_object rows older than this many days for any tenant WITHOUT its own

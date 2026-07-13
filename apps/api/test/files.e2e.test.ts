@@ -1,6 +1,5 @@
 import type { StorageProviderConfig } from '@actionow/contracts';
 import { createApiKey, schema } from '@actionow/db';
-import type { JobQueuePort } from '@actionow/engine';
 import type { AppEnv } from '@actionow/infra';
 import { createS3StorageProvider, FakeRateLimitRedis, RedisRateLimiter } from '@actionow/infra';
 import { CreateBucketCommand } from '@aws-sdk/client-s3';
@@ -17,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import type { TenantContext } from '../src/auth/auth.service.js';
-import { DB, ENV, JOB_QUEUE, RATE_LIMITER, STORAGE } from '../src/common/tokens.js';
+import { DB, ENV, RATE_LIMITER, STORAGE } from '../src/common/tokens.js';
 import { FilesService } from '../src/files/files.service.js';
 
 const { account, tenant } = schema;
@@ -36,10 +35,6 @@ let storage: ReturnType<typeof createS3StorageProvider>;
 
 /** A public CDN base to prove the stable `public_url` derivation (#3). */
 const PUBLIC_BASE = 'https://cdn.files-test.example';
-
-const noopQueue: JobQueuePort = {
-  enqueueExec: () => Promise.reject(new Error('files path must not enqueue')),
-};
 
 beforeAll(async () => {
   // Real Postgres + real MinIO via Testcontainers (random host ports).
@@ -75,8 +70,6 @@ beforeAll(async () => {
     .useValue(db)
     .overrideProvider(STORAGE)
     .useValue(storage)
-    .overrideProvider(JOB_QUEUE)
-    .useValue(noopQueue)
     .overrideProvider(RATE_LIMITER)
     .useValue(new RedisRateLimiter(new FakeRateLimitRedis()))
     .overrideProvider(ENV)

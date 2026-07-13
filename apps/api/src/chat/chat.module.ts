@@ -2,13 +2,8 @@ import { Module } from '@nestjs/common';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
-import { GovernanceGuard } from '../auth/governance.guard.js';
-import { ChannelRoutingService } from '../common/channel-routing.service.js';
-import { SecretResolver } from '../common/secret-resolver.js';
 import { GatewayModule } from '../gateway/gateway.module.js';
 import { AnthropicChatController } from './anthropic.controller.js';
-import { ChatRelayService } from './chat-relay.service.js';
-import { EmbedRelayService } from './embed-relay.service.js';
 import { EmbeddingsController } from './embeddings.controller.js';
 import { GeminiChatController } from './gemini.controller.js';
 import {
@@ -17,33 +12,25 @@ import {
   realModelResolverPort,
 } from './model-resolver.service.js';
 import { ModelsController } from './models.controller.js';
-import { ModerationRelayService } from './moderation-relay.service.js';
 import { ModerationsController } from './moderations.controller.js';
 import { OpenAIChatController } from './openai.controller.js';
 import { RerankController } from './rerank.controller.js';
-import { RerankRelayService } from './rerank-relay.service.js';
-import { SttRelayService } from './stt-relay.service.js';
 import { TranscriptionsController } from './transcriptions.controller.js';
 
 /**
- * Wires the OpenAI/Anthropic/Gemini chat-relay surface
+ * The OpenAI/Anthropic/Gemini-compatible sync surfaces
  * (`POST /v1/chat/completions`, `POST /v1/messages`,
- * `POST /v1beta/models/{model}:generateContent[:streamGenerateContent]`), the
- * OpenAI-compatible embeddings relay (`POST /v1/embeddings`, billed per input
- * token via {@link EmbedRelayService}), the Cohere/Jina-compatible rerank relay
- * (`POST /v1/rerank` via {@link RerankRelayService}) and the OpenAI-compatible
- * moderations relay (`POST /v1/moderations` via {@link ModerationRelayService}),
- * each billed per input token; the {@link ChatRelayService} that funnels each
- * dialect into the engine, and the {@link ModelResolverService} resolving model
- * names via the REAL Track C `resolveModelForTenant` ({@link realModelResolverPort}).
- * Tests override {@link MODEL_RESOLVER} with a fake; production uses the real binding.
+ * `POST /v1beta/models/{model}:generateContent[:streamGenerateContent]`,
+ * `POST /v1/embeddings`, `POST /v1/rerank`, `POST /v1/moderations`,
+ * `POST /v1/audio/transcriptions`), each served END TO END by the exported
+ * {@link GatewayChatV2Service} (批次6 D2 — the legacy relay world is deleted;
+ * the 切换预案②③ gray-release branches are collapsed to always-new).
+ *
+ * `GET /v1/models` (OpenAI-shaped discovery over the OLD catalog's
+ * `listVisibleModels`) survives until the resource/model tables drop (D3);
+ * the new discovery face is `GET /v1/gateway/models`.
  */
 @Module({
-  // 切换预案③ (批次5 slice3+slice6, 7/7 全切): ALL seven legacy sync
-  // controllers (openai/embeddings/anthropic/gemini/rerank/moderations/
-  // transcriptions) branch per tenant to the exported GatewayChatV2Service at
-  // their ENTRY line (双面并存 — the legacy relay path below is otherwise
-  // untouched).
   imports: [GatewayModule],
   controllers: [
     OpenAIChatController,
@@ -56,17 +43,9 @@ import { TranscriptionsController } from './transcriptions.controller.js';
     ModelsController,
   ],
   providers: [
-    ChatRelayService,
-    EmbedRelayService,
-    RerankRelayService,
-    ModerationRelayService,
-    SttRelayService,
     ModelResolverService,
     AuthService,
-    SecretResolver,
-    ChannelRoutingService,
     ApiKeyGuard,
-    GovernanceGuard,
     { provide: MODEL_RESOLVER, useValue: realModelResolverPort },
   ],
 })

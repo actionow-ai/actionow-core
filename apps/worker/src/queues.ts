@@ -1,13 +1,9 @@
 export const QUEUE_NAMES = [
-  'job-exec',
-  'webhook-outbox',
-  'hold-reaper',
   'token-refresh',
-  'poll-upstream',
   'relay-trace-reaper',
   'file-lifecycle-reaper',
-  // model-supply-greenfield 批次4 slice4 — the NEW-WORLD task-center sweeps
-  // (双面并存: the old job-path queues above are untouched).
+  // model-supply-greenfield 批次4 slice4 — the task-center sweeps (批次6 D2:
+  // the old job-path queues job-exec/webhook-outbox/hold-reaper are deleted).
   'task-poll',
   'task-reaper',
   'task-webhook',

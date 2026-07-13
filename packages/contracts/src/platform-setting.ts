@@ -23,7 +23,6 @@ export const PLATFORM_SETTING_KEYS = [
   'RECONCILIATION_DEVIATION_PCT',
   // 切换预案② per-tenant 灰度: legacy 同步面走新网关的平台默认开关 (批次4
   // slice6; tenant.config.gateway_v2 per-tenant 覆盖).
-  'GATEWAY_V2_DEFAULT',
   // R5 探测预算 (批次5 slice1 golden probe): daily platform budget (USD,
   // 平台自营渠道探测计入; BYOK 探测用租户自己的 key 不计入) + per-offering
   // minimum probe interval. Registry entries live in infra SETTINGS_REGISTRY;

@@ -122,13 +122,6 @@ export const SETTINGS_REGISTRY = {
     description:
       'golden probe 单供给项最小探测间隔（秒）：间隔未到即拒绝（min_interval），防止对真上游高频锤击；0 = 不限（缺省 60）',
   }),
-  GATEWAY_V2_DEFAULT: def({
-    schema: z.boolean(),
-    default: (e: AppEnv) => e.GATEWAY_V2_DEFAULT ?? false,
-    type: 'boolean',
-    description:
-      '切换预案②：legacy 同步面（chat/embeddings…）走新供给网关的平台默认灰度开关；tenant.config.gateway_v2 可 per-tenant 覆盖（缺省 false，新任务面端点不受此开关影响）',
-  }),
   RATE_LIMIT_TENANT_PER_MIN: def({
     schema: z.number().int().positive(),
     default: (e: AppEnv) => e.RATE_LIMIT_TENANT_PER_MIN,

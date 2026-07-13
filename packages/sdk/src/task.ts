@@ -19,7 +19,19 @@
 import type { Client } from 'openapi-fetch';
 
 import type { components, paths } from './generated/openapi.js';
-import { ActionowApiError } from './submit-and-wait.js';
+
+/** A transport/HTTP failure from a helper call (the uniform error envelope rides along). */
+export class ActionowApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    /** The uniform `ErrorView` envelope, when the body parsed as one. */
+    public readonly body?: components['schemas']['ErrorView'],
+  ) {
+    super(message);
+    this.name = 'ActionowApiError';
+  }
+}
 
 type Schemas = components['schemas'];
 export type GatewayTaskView = Schemas['GatewayTaskView'];

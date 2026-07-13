@@ -8,18 +8,10 @@ import type {
   ModelTestCheck,
   ModelTestRequest,
   ModelTestResult,
-  PluginManifest,
   SubmitInput,
   UnifiedError,
 } from '@actionow/contracts';
-import {
-  type Database,
-  getPluginVersion,
-  getResource,
-  listChannels,
-  type UpstreamChannelRow,
-} from '@actionow/db';
-import { PLUGIN_PROVIDER_TYPE } from '@actionow/engine';
+import { type Database, getResource, listChannels, type UpstreamChannelRow } from '@actionow/db';
 import { type AppEnv, createHttpClient } from '@actionow/infra';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 
@@ -197,20 +189,21 @@ export class ModelTestService {
   // ----- context + classification -----
 
   /**
-   * Build the {@link AdapterContext} for the probe — mirrors the engine's
+   * Build the {@link AdapterContext} for the probe — mirrors the engine's old
    * `buildContext`: per-channel `model`/`endpoint`/`config`, the credential +
-   * egress proxy resolved via {@link SecretResolver}, and (for a plugin-bound
-   * channel) the frozen plugin snapshot + the resolved credential map. Returns
-   * the `providerType` to dispatch on (`'plugin'` for plugin channels).
+   * egress proxy resolved via {@link SecretResolver}. 批次6 D2: the QuickJS
+   * plugin runtime is deleted — a plugin-bound channel can no longer be
+   * probed and answers a clean `invalid_input`.
    */
   private async buildContext(
     channel: UpstreamChannelRow,
   ): Promise<{ ctx: AdapterContext; providerType: string }> {
-    // Capture the binding once so TS narrows away the `null`s without `!`.
-    const pluginId = channel.pluginId;
-    const pluginVersion = channel.pluginVersion;
-    const isPlugin = pluginId !== null && pluginVersion !== null;
-    const providerType = isPlugin ? PLUGIN_PROVIDER_TYPE : channel.providerType;
+    if (channel.pluginId !== null) {
+      throw engineInvalidInput(
+        `channel ${channel.id} is plugin-bound — the plugin runtime was removed (migrate the model to a supply offering)`,
+      );
+    }
+    const providerType = channel.providerType;
     const ctx: AdapterContext = { providerType, http: this.http };
     if (channel.model !== null) ctx.model = channel.model;
     if (channel.endpoint !== null) ctx.endpoint = channel.endpoint;
@@ -218,49 +211,11 @@ export class ModelTestService {
     const proxyUrl = await this.resolveProxy(channel);
     if (proxyUrl !== undefined) ctx.proxyUrl = proxyUrl;
 
-    if (pluginId !== null && pluginVersion !== null) {
-      const snapshot = await getPluginVersion(this.db, pluginId, pluginVersion);
-      if (snapshot === undefined) {
-        throw engineInvalidInput(
-          `plugin version ${String(pluginVersion)} not found for channel ${channel.id}`,
-        );
-      }
-      ctx.plugin = { manifest: snapshot.manifest as PluginManifest, handler: snapshot.handler };
-      ctx.credentials = await this.resolvePluginCredentials(channel);
-    } else if (channel.credentialRef !== null) {
+    if (channel.credentialRef !== null) {
       const apiKey = await this.secrets.resolve(channel.credentialRef);
       if (apiKey !== undefined) ctx.apiKey = apiKey;
     }
     return { ctx, providerType };
-  }
-
-  /** Plugin credential map: non-secret `config` strings overlaid with the secret(s). */
-  private async resolvePluginCredentials(
-    channel: UpstreamChannelRow,
-  ): Promise<Record<string, string>> {
-    const cred: Record<string, string> = {};
-    if (channel.config !== null) {
-      for (const [k, v] of Object.entries(channel.config)) if (typeof v === 'string') cred[k] = v;
-    }
-    if (channel.credentialRef !== null) {
-      const secret = await this.secrets.resolve(channel.credentialRef);
-      if (secret !== undefined) {
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(secret);
-        } catch {
-          parsed = undefined;
-        }
-        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-            if (typeof v === 'string') cred[k] = v;
-          }
-        } else {
-          cred.api_key = secret;
-        }
-      }
-    }
-    return cred;
   }
 
   private async resolveProxy(channel: UpstreamChannelRow): Promise<string | undefined> {

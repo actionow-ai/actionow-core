@@ -1,18 +1,14 @@
-// 批次5 slice3 — 切换预案③ tests: (1) GatewayChatV2Service end-to-end over a
-// mocked GatewayService (sync/stream/replay/task/error dispatch, OpenAI error
-// envelope, pre-execute gates), (2) the old controllers' ENTRY flag branch
-// (flag=true → new gateway; flag=false → the untouched legacy relay;
-// per-tenant split).
-import type { ChatResponse, GatewayResponse, StreamFrame } from '@actionow/contracts';
-import type { Database } from '@actionow/db';
+// 批次5 slice3 (坍缩于批次6 D2) — tests: (1) GatewayChatV2Service end-to-end
+// over a mocked GatewayService (sync/stream/replay/task/error dispatch, OpenAI
+// error envelope, pre-execute gates), (2) the collapsed controllers delegate
+// every request to the new gateway unconditionally (the gray-release branch
+// died with the legacy relay world).
+import type { GatewayResponse, StreamFrame } from '@actionow/contracts';
 import type { ExecuteResult } from '@actionow/engine';
 import type { AppEnv } from '@actionow/infra';
 import type { Request } from 'express';
 import { describe, expect, it, vi } from 'vitest';
 
-import { AuthService } from '../src/auth/auth.service.js';
-import type { ChatRelayService } from '../src/chat/chat-relay.service.js';
-import type { EmbedRelayService } from '../src/chat/embed-relay.service.js';
 import { EmbeddingsController } from '../src/chat/embeddings.controller.js';
 import { OpenAIChatController } from '../src/chat/openai.controller.js';
 import { GatewayChatV2Service } from '../src/gateway/chat-v2.service.js';
@@ -69,11 +65,7 @@ function serviceWith(result?: ExecuteResult): {
     resolveVisibleModel: vi.fn().mockResolvedValue(CHAT_MODEL),
     execute: vi.fn().mockResolvedValue(result),
   };
-  const service = new GatewayChatV2Service(
-    {} as Database,
-    {} as AppEnv,
-    gateway as unknown as GatewayService,
-  );
+  const service = new GatewayChatV2Service({} as AppEnv, gateway as unknown as GatewayService);
   return { service, gateway };
 }
 
@@ -301,133 +293,40 @@ describe('GatewayChatV2Service — embeddings over the new gateway', () => {
   });
 });
 
-// --- the controller entry branch (双面并存) ------------------------------------------------
+// --- the collapsed controllers (批次6 D2: always-new) -------------------------------------
 
 interface V2Stub {
-  isV2Tenant: ReturnType<typeof vi.fn>;
   completions: ReturnType<typeof vi.fn>;
   embeddings: ReturnType<typeof vi.fn>;
 }
 
-function v2Stub(flag: (tenantId: string) => boolean): V2Stub {
+function v2Stub(): V2Stub {
   return {
-    isV2Tenant: vi.fn().mockImplementation((tenantId: string) => Promise.resolve(flag(tenantId))),
     completions: vi.fn().mockResolvedValue({ object: 'chat.completion', served: 'v2' }),
     embeddings: vi.fn().mockResolvedValue({ object: 'list', served: 'v2' }),
   };
 }
 
-const IR_RESPONSE: ChatResponse = {
-  message: { role: 'assistant', content: [{ kind: 'text', text: 'old world' }] },
-  stopReason: 'stop',
-  usage: { inputTokens: 1, outputTokens: 1 },
-};
-
-describe('OpenAIChatController — 预案③ entry flag branch', () => {
-  function controllerWith(flag: (tenantId: string) => boolean): {
-    controller: OpenAIChatController;
-    relay: { chat: ReturnType<typeof vi.fn>; chatStream: ReturnType<typeof vi.fn> };
-    v2: V2Stub;
-  } {
-    const relay = {
-      chat: vi.fn().mockResolvedValue({
-        response: IR_RESPONSE,
-        servedBy: { providerType: 'openai' },
-        servedModel: undefined,
-      }),
-      chatStream: vi.fn(),
-    };
-    const v2 = v2Stub(flag);
-    const controller = new OpenAIChatController(
-      relay as unknown as ChatRelayService,
-      new AuthService(),
-      v2 as unknown as GatewayChatV2Service,
-    );
-    return { controller, relay, v2 };
-  }
-
-  it('flag=true routes to the new gateway; the legacy relay is never touched', async () => {
-    const { controller, relay, v2 } = controllerWith(() => true);
+describe('OpenAIChatController — delegates to the new gateway unconditionally', () => {
+  it('routes every request to GatewayChatV2Service.completions', async () => {
+    const v2 = v2Stub();
+    const controller = new OpenAIChatController(v2 as unknown as GatewayChatV2Service);
     const res = fakeRes();
     const body = await controller.completions({ ...CHAT_BODY }, fakeReq(), res);
     expect(v2.completions).toHaveBeenCalledTimes(1);
-    expect(relay.chat).not.toHaveBeenCalled();
     expect(body).toMatchObject({ served: 'v2' });
-  });
-
-  it('flag=false rides the untouched legacy relay; the new gateway is never touched', async () => {
-    const { controller, relay, v2 } = controllerWith(() => false);
-    const res = fakeRes();
-    const body = await controller.completions({ ...CHAT_BODY }, fakeReq(), res);
-    expect(v2.completions).not.toHaveBeenCalled();
-    expect(relay.chat).toHaveBeenCalledTimes(1);
-    expect(body).toMatchObject({ object: 'chat.completion' });
-    expect(res.headers['x-actionow-channel']).toBe('openai');
-  });
-
-  it('splits PER TENANT (预案②: one flag, two worlds in the same process)', async () => {
-    const { controller, relay, v2 } = controllerWith((tenantId) => tenantId === 'tenant-v2');
-    await controller.completions(
-      { ...CHAT_BODY },
-      fakeReq({ auth: { ...AUTH, tenantId: 'tenant-v2' } }),
-      fakeRes(),
-    );
-    expect(v2.completions).toHaveBeenCalledTimes(1);
-    expect(relay.chat).not.toHaveBeenCalled();
-
-    await controller.completions(
-      { ...CHAT_BODY },
-      fakeReq({ auth: { ...AUTH, tenantId: 'tenant-old' } }),
-      fakeRes(),
-    );
-    expect(relay.chat).toHaveBeenCalledTimes(1);
-    expect(v2.completions).toHaveBeenCalledTimes(1); // unchanged
   });
 });
 
-describe('EmbeddingsController — 预案③ entry flag branch', () => {
-  function controllerWith(flag: boolean): {
-    controller: EmbeddingsController;
-    relay: { embed: ReturnType<typeof vi.fn> };
-    v2: V2Stub;
-  } {
-    const relay = {
-      embed: vi.fn().mockResolvedValue({
-        result: { vectors: [[0.5]], usage: { inputTokens: 2 } },
-        servedBy: { providerType: 'openai' },
-      }),
-    };
-    const v2 = v2Stub(() => flag);
-    const controller = new EmbeddingsController(
-      relay as unknown as EmbedRelayService,
-      new AuthService(),
-      v2 as unknown as GatewayChatV2Service,
-    );
-    return { controller, relay, v2 };
-  }
-
-  const EMBED_IR = { model: 'embed-test', input: 'hi' };
-
-  it('flag=true routes the RAW req.body to the new gateway', async () => {
-    const { controller, relay, v2 } = controllerWith(true);
+describe('EmbeddingsController — delegates to the new gateway unconditionally', () => {
+  it('routes the RAW wire body to GatewayChatV2Service.embeddings', async () => {
+    const v2 = v2Stub();
+    const controller = new EmbeddingsController(v2 as unknown as GatewayChatV2Service);
     const req = fakeReq();
     const raw = { model: 'embed-test', input: 'hi', encoding_format: 'float' };
     (req as Request & { body?: unknown }).body = raw;
-    const body = await controller.create(EMBED_IR, req, fakeRes());
+    const body = await controller.create(raw, req, fakeRes());
     expect(v2.embeddings).toHaveBeenCalledWith(raw, req, expect.anything());
-    expect(relay.embed).not.toHaveBeenCalled();
     expect(body).toMatchObject({ served: 'v2' });
-  });
-
-  it('flag=false rides the untouched legacy embed relay', async () => {
-    const { controller, relay, v2 } = controllerWith(false);
-    const res = fakeRes();
-    const body = await controller.create(EMBED_IR, fakeReq(), res);
-    expect(v2.embeddings).not.toHaveBeenCalled();
-    expect(relay.embed).toHaveBeenCalledTimes(1);
-    expect(body).toMatchObject({
-      object: 'list',
-      usage: { prompt_tokens: 2, total_tokens: 2 },
-    });
   });
 });

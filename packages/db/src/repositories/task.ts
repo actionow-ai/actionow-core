@@ -603,29 +603,6 @@ export async function getTenantArtifactPublicAllowed(
   return rows[0]?.config.artifact_public_allowed !== false;
 }
 
-/**
- * 切换预案② per-tenant gray-release read (批次4 slice6): should THIS tenant's
- * LEGACY sync surfaces (chat/embeddings…) route through the NEW supply
- * gateway? Read from the tenant `config` bag under `gateway_v2` (the
- * `webhook_secret` precedent). Returns the tenant's EXPLICIT boolean, or
- * `undefined` when the tenant has no opinion — the caller falls back to the
- * platform default (SettingsResolver key `GATEWAY_V2_DEFAULT`, see
- * apps/api gateway/gray-release.ts). The NEW task-paradigm endpoints are NOT
- * gated by this flag (预案① 新面全量上线).
- */
-export async function getTenantGatewayV2Flag(
-  db: DbOrTx,
-  tenantId: string,
-): Promise<boolean | undefined> {
-  const rows = await db
-    .select({ config: tenant.config })
-    .from(tenant)
-    .where(and(eq(tenant.id, tenantId), isNull(tenant.deletedAt)))
-    .limit(1);
-  const flag = rows[0]?.config.gateway_v2;
-  return typeof flag === 'boolean' ? flag : undefined;
-}
-
 // --- §9.4 artifact lifecycle (signed track expiry; public exempt) ---------------------
 
 /** The internal_substate value marking a succeeded task whose SIGNED artifacts lapsed. */

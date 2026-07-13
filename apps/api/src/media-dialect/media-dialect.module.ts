@@ -2,25 +2,22 @@ import { Module } from '@nestjs/common';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
 import { AuthService } from '../auth/auth.service.js';
-import { GovernanceGuard } from '../auth/governance.guard.js';
-import { SecretResolver } from '../common/secret-resolver.js';
-import { ExecutionModule } from '../execution/execution.module.js';
-import { FilesModule } from '../files/files.module.js';
+import { GatewayModule } from '../gateway/gateway.module.js';
 import { AudioController } from './audio.controller.js';
 import { ImagesController } from './images.controller.js';
 import { MediaDialectService } from './media-dialect.service.js';
 
 /**
  * The OpenAI-compatible MEDIA dialects: `POST /v1/images/generations` +
- * `POST /v1/audio/speech`. Both relay onto the seeded `image-relay` / `audio-relay`
- * resources synchronously (the {@link MediaDialectService} drives the async job to
- * terminal in-process). Reuses `RunService` (from {@link ExecutionModule}) to build
- * the run; `DB`/`ADAPTERS`/`ENV`/`STORAGE` come from the global DbModule.
+ * `POST /v1/audio/speech`. 批次6 D2: both ride the NEW supply gateway
+ * ({@link GatewayModule}'s exported {@link GatewayService}) — operation
+ * `images.generation` / `tts`, model-addressed, §3 自动升格 for slow models.
+ * The old execution world (RunService/ExecutionService/JobRunner) is gone.
  */
 @Module({
-  imports: [ExecutionModule, FilesModule],
+  imports: [GatewayModule],
   controllers: [ImagesController, AudioController],
-  providers: [MediaDialectService, AuthService, SecretResolver, ApiKeyGuard, GovernanceGuard],
+  providers: [MediaDialectService, AuthService, ApiKeyGuard],
 })
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- NestJS modules are decorated empty classes
 export class MediaDialectModule {}

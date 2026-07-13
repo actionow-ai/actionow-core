@@ -73,14 +73,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { pgBreakerPersistence, resolveChannelBreakerConfig } from '../src/common/breaker-store.js';
-import {
-  BREAKER,
-  CONCURRENCY_LIMITER,
-  DB,
-  ENV,
-  JOB_QUEUE,
-  RATE_LIMITER,
-} from '../src/common/tokens.js';
+import { BREAKER, CONCURRENCY_LIMITER, DB, ENV, RATE_LIMITER } from '../src/common/tokens.js';
 import { GATEWAY_DIALECTS, GATEWAY_HTTP } from '../src/gateway/gateway.tokens.js';
 
 /** The vault master key credentials are encrypted with. */
@@ -356,8 +349,6 @@ beforeAll(async () => {
     .useValue(new RedisRateLimiter(new FakeRateLimitRedis()))
     .overrideProvider(CONCURRENCY_LIMITER)
     .useValue(new FakeConcurrencyLimiter())
-    .overrideProvider(JOB_QUEUE)
-    .useValue({ enqueueExec: () => Promise.reject(new Error('gateway e2e must not enqueue')) })
     .overrideProvider(BREAKER)
     .useValue(
       new DefaultBreakerStore({
@@ -850,9 +841,9 @@ describe('判据 2.9 — route-tag pin + failover on the task path', () => {
   }, 120_000);
 });
 
-// --- 预案③ (批次5 slice3) — flag=true 的 chat/embeddings 走新网关全链 --------------------
+// --- 批次6 D2 (原预案③, 已坍缩 always-new) — chat/embeddings 走新网关全链 -----------------
 
-describe('预案③ — gray-released tenant chat/embeddings ride the NEW gateway', () => {
+describe('chat/embeddings ride the NEW gateway end-to-end (坍缩后 always-new)', () => {
   const CHAT_BASE = 'https://up-chat.test/v1';
 
   function chatOps(): ModelOperation[] {
@@ -913,19 +904,10 @@ describe('预案③ — gray-released tenant chat/embeddings ride the NEW gatewa
     return { offeringId: offering.id, channelId: channel.id, modelId };
   }
 
-  /** 预案② per-tenant flag write (the SQL the cutover doc prescribes, via drizzle). */
-  async function flagTenant(tenantId: string, value: boolean): Promise<void> {
-    await db
-      .update(schema.tenant)
-      .set({ config: { webhook_secret: WEBHOOK_SECRET, gateway_v2: value } })
-      .where(eq(schema.tenant.id, tenantId));
-  }
-
-  it('flag=true: POST /v1/chat/completions serves over the new gateway (facade 归一 → planner → openai dialect → settle) and renders the OpenAI wire; flag=false stays on the old world', async () => {
-    const seed = await mkTenantAccountKey();
+  it('POST /v1/chat/completions serves over the new gateway (facade 归一 → planner → openai dialect → settle) and renders the OpenAI wire', async () => {
+    await mkTenantAccountKey();
     const modelId = await mkModel('gpt-e2e', chatOps());
     const off = await mkOpenAIOffering(modelId);
-    await flagTenant(seed.tenantId, true);
 
     http.on('POST', `${CHAT_BASE}/chat/completions`, () => ({
       status: 200,
@@ -976,20 +958,12 @@ describe('预案③ — gray-released tenant chat/embeddings ride the NEW gatewa
     expect(ledger).toHaveLength(1);
     expect(ledger[0]?.type).toBe('settle');
     expect(ledger[0]?.creditsDelta).toBe(-5_000n);
-
-    // 双面并存: flip the flag OFF → the SAME request rides the untouched old
-    // relay, which does not know the supply-world model (404, old envelope).
-    await flagTenant(seed.tenantId, false);
-    await authed(request(app.getHttpServer()).post('/v1/chat/completions'))
-      .send({ model: 'gpt-e2e', messages })
-      .expect(404);
   }, 120_000);
 
-  it('flag=true: POST /v1/embeddings serves over the new gateway and renders the OpenAI list', async () => {
-    const seed = await mkTenantAccountKey();
+  it('POST /v1/embeddings serves over the new gateway and renders the OpenAI list', async () => {
+    await mkTenantAccountKey();
     const modelId = await mkModel('gpt-e2e', chatOps());
     const off = await mkOpenAIOffering(modelId);
-    await flagTenant(seed.tenantId, true);
 
     http.on('POST', `${CHAT_BASE}/embeddings`, () => ({
       status: 200,

@@ -1047,7 +1047,7 @@ export class AdminService {
     return listChannelsByPlugin(this.db, pluginId);
   }
 
-  // ----- provider plugins (P2) -----
+  // ----- provider plugins (P2 · runtime deleted 批次6 D2, rows inert until D3) -----
 
   listPlugins(): Promise<ProviderPluginRow[]> {
     return listPlugins(this.db);

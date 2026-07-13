@@ -193,17 +193,7 @@ export {
   putIdempotentResponse,
   type PutIdempotentResponseInput,
 } from './idempotency-admin.js';
-export {
-  createJob,
-  type CreateJobInput,
-  getJob,
-  getJobByUpstreamHandle,
-  getJobForTenant,
-  type Job,
-  listJobs,
-  setUpstreamHandle,
-  transitionJob,
-} from './job.js';
+export { getJob, type Job, listJobs } from './job.js';
 export { appendLedger, type LedgerInput } from './ledger.js';
 export {
   accrueLimitUsage,
@@ -390,7 +380,6 @@ export {
   updateProxy,
   type UpdateProxyInput,
 } from './proxy.js';
-export { type ExpiredHold, listExpiredHolds } from './reaper.js';
 export {
   aggregateGatewayReconciliation,
   type GatewaySettleSampleQuery,
@@ -468,13 +457,6 @@ export {
   type SessionRow,
   sweepExpiredSessions,
 } from './session.js';
-export {
-  failJob,
-  type FailJobInput,
-  type OutboxInput,
-  settleJob,
-  type SettleJobInput,
-} from './settle.js';
 export {
   createSubAccount,
   getSubAccount,
@@ -601,7 +583,6 @@ export {
   getTaskByUpstreamTaskId,
   getTaskByUpstreamTaskIdForOffering,
   getTenantArtifactPublicAllowed,
-  getTenantGatewayV2Flag,
   getTenantWebhookSecret,
   listDueWebhookDeliveries,
   listExpiredHoldGatewayTasks,
@@ -646,10 +627,3 @@ export {
   type UsageRollupQuery,
   type UsageRollupRow,
 } from './usage.js';
-export {
-  listDueWebhooks,
-  markWebhookDead,
-  markWebhookSent,
-  rescheduleWebhook,
-  type WebhookOutboxRow,
-} from './webhook.js';

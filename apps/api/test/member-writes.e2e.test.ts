@@ -2,7 +2,6 @@ import type { ProviderAdapter } from '@actionow/adapters';
 import { AdapterRegistry } from '@actionow/adapters';
 import type { SubmitInput, SubmitResult, UnifiedError, UsageVector } from '@actionow/contracts';
 import { schema } from '@actionow/db';
-import type { JobQueuePort } from '@actionow/engine';
 import { hashPassword } from '@actionow/infra';
 import { FakeRateLimitRedis, RedisRateLimiter } from '@actionow/infra';
 import type { INestApplication } from '@nestjs/common';
@@ -17,7 +16,7 @@ import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
-import { ADAPTERS, DB, ENV, JOB_QUEUE, RATE_LIMITER } from '../src/common/tokens.js';
+import { ADAPTERS, DB, ENV, RATE_LIMITER } from '../src/common/tokens.js';
 import { resetDb } from './reset-db.js';
 
 const ADMIN_SECRET = 'member-writes-e2e-secret';
@@ -27,10 +26,6 @@ let client: ReturnType<typeof postgres>;
 let db: PostgresJsDatabase<typeof schema>;
 let app: INestApplication;
 const jwt = new JwtService({ secret: ADMIN_SECRET });
-
-const noopQueue: JobQueuePort = {
-  enqueueExec: () => Promise.reject(new Error('member path must not enqueue')),
-};
 
 /** A trivial sync LLM so a self-minted key can be exercised end-to-end on /v1. */
 const fakeLlm: ProviderAdapter = {
@@ -64,8 +59,6 @@ beforeAll(async () => {
     .useValue(db)
     .overrideProvider(ADAPTERS)
     .useValue(adapters)
-    .overrideProvider(JOB_QUEUE)
-    .useValue(noopQueue)
     .overrideProvider(RATE_LIMITER)
     .useValue(new RedisRateLimiter(new FakeRateLimitRedis()))
     .overrideProvider(ENV)
@@ -304,14 +297,13 @@ describe('/member/* write self-service (subject-scoped)', () => {
       .where(eq(schema.apiKey.id, mint.body.id as string));
     expect(firstRow(row).subjectId).toBe(subjectId);
 
-    // The self-minted key authenticates + runs end-to-end on the data plane.
-    const run = await request(server())
-      .post('/v1/run/openai-gpt')
+    // The self-minted key authenticates on the /v1 data plane (批次6 D2: the
+    // old /v1/run face is gone — the task-center list is the auth probe).
+    const tasks = await request(server())
+      .get('/v1/tasks')
       .set('authorization', `Bearer ${plaintext}`)
-      .send({ inputs: { prompt: 'hi' }, estimated_usage: { tokens: 1000 } })
       .expect(200);
-    expect(run.body.status).toBe('succeeded');
-    expect(run.body.output).toEqual({ text: 'echo: hi' });
+    expect(Array.isArray(tasks.body.data)).toBe(true);
 
     // It shows up in the member's own (masked) key list.
     const keys = await request(server())
@@ -383,9 +375,8 @@ describe('/member/* write self-service (subject-scoped)', () => {
 
     // B's key still authenticates after A's failed cross-subject revoke attempt.
     await request(server())
-      .post('/v1/run/openai-gpt')
+      .get('/v1/tasks')
       .set('authorization', `Bearer ${keyB.body.plaintext as string}`)
-      .send({ inputs: { prompt: 'hi' }, estimated_usage: { tokens: 1000 } })
       .expect(200);
 
     // A revokes its OWN key → 200; the revoked key then stops authenticating (401).
@@ -396,9 +387,8 @@ describe('/member/* write self-service (subject-scoped)', () => {
     expect(revoked.body.status).toBe('revoked');
 
     const afterRevoke = await request(server())
-      .post('/v1/run/openai-gpt')
+      .get('/v1/tasks')
       .set('authorization', `Bearer ${keyA.body.plaintext as string}`)
-      .send({ inputs: { prompt: 'hi' }, estimated_usage: { tokens: 1000 } })
       .expect(401);
     expect(afterRevoke.body.error.code).toBe('unauthorized');
 

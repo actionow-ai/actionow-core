@@ -116,11 +116,6 @@ import {
   fileViewSchema,
   presignUploadResultSchema,
   presignUploadSchema,
-  resourceDetailSchema,
-  resourceSummarySchema,
-  runBodySchema,
-  runJobViewSchema,
-  runResponseSchema,
 } from './data-plane.js';
 import { errorViewSchema } from './error-view.js';
 import {
@@ -366,12 +361,9 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const UpdateConversation = registry.register('UpdateConversationBody', updateConversationSchema);
   const AppendMessage = registry.register('AppendMessageBody', appendMessageSchema);
 
-  // data-plane views (data-plane): the generation hot path (/v1/run, /v1/jobs,
-  // /v1/resources, /v1/files) an external developer's app drives via @actionow/sdk.
-  const RunResp = registry.register('RunResponse', runResponseSchema);
-  const RunJob = registry.register('RunJobView', runJobViewSchema);
-  const ResourceSummary = registry.register('ResourceSummary', resourceSummarySchema);
-  const ResourceDetail = registry.register('ResourceDetail', resourceDetailSchema);
+  // data-plane views (data-plane): the /v1/files surface an external
+  // developer's app drives via @actionow/sdk (批次6 D2: the /v1/run · /v1/jobs
+  // · /v1/resources schemas died with the legacy execution world).
   const PresignResult = registry.register('PresignUploadResult', presignUploadResultSchema);
   const FileV = registry.register('FileView', fileViewSchema);
   const FileUrl = registry.register('FileUrlResult', fileUrlResultSchema);
@@ -469,7 +461,6 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     consoleChangePasswordSchema,
   );
   // data-plane request bodies (data-plane)
-  const RunReq = registry.register('RunBody', runBodySchema);
   const PresignReq = registry.register('PresignUploadBody', presignUploadSchema);
   // Speech-to-text relay (multipart) contracts. `TranscriptionReq` carries the
   // non-file fields; the path's multipart requestBody extends it with the binary
@@ -1439,40 +1430,9 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     body: ConsoleChangePassword,
   });
 
-  // --- data-plane paths (/v1/*): the generation hot path (ak_-key authed) -------
-  write({
-    method: 'post',
-    path: '/v1/run/{resourceId}',
-    summary: 'Run a resource (blocking → output inline; async → queued, poll /v1/jobs)',
-    tag: 'data-plane',
-    body: RunReq,
-    response: RunResp,
-  });
-  list('/v1/jobs', 'List your jobs (paginated)', RunJob, 'data-plane', keyset);
-  getOne('/v1/jobs/{id}', 'Get a job (status/output/usage/cost)', RunJob, 'data-plane');
-  registry.registerPath({
-    method: 'post',
-    path: '/v1/jobs/{id}/cancel',
-    summary: 'Cancel a queued/running job (releases the hold)',
-    tags: ['data-plane'],
-    request: { params: z.object({ id: z.string() }) },
-    responses: {
-      200: { description: 'Canceled job', content: { 'application/json': { schema: RunJob } } },
-    },
-  });
-  list(
-    '/v1/resources',
-    'List resources visible to your key',
-    ResourceSummary,
-    'data-plane',
-    keyset,
-  );
-  getOne(
-    '/v1/resources/{id}',
-    'Get a resource (io_schema + pricing)',
-    ResourceDetail,
-    'data-plane',
-  );
+  // --- data-plane paths (/v1/*): the ak_-key-authed file surface (批次6 D2:
+  // the legacy /v1/run + /v1/jobs + /v1/resources faces died with the old
+  // execution world — the task paradigm lives at /v1/tasks 族 below) --------
   const filesQuery = keyset.extend({ status: z.enum(['pending', 'ready']).optional() });
   list('/v1/files', 'List your files (paginated)', FileV, 'data-plane', filesQuery);
   write({

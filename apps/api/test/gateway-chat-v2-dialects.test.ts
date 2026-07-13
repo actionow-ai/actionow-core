@@ -1,27 +1,21 @@
-// 批次5 slice6 — 切换预案③ tests for the remaining five legacy faces:
+// 批次5 slice6 (坍缩于批次6 D2) — tests for the five dialect faces:
 // (1) GatewayChatV2Service dispatch over a mocked GatewayService for
 // anthropic/gemini/rerank/moderations/transcriptions (sync/stream/replay/error,
 // per-dialect error envelopes, the §9.4 transcriptions media input), and
-// (2) each old controller's ENTRY flag branch (flag=true → new gateway;
-// flag=false → the untouched legacy relay; 双面并存).
+// (2) the collapsed controllers delegate every request to the new gateway
+// unconditionally (the gray-release branch died with the legacy relay world).
 import { Buffer } from 'node:buffer';
 
-import type { ChatResponse, GatewayResponse, StreamFrame } from '@actionow/contracts';
-import type { Database } from '@actionow/db';
+import type { GatewayResponse, StreamFrame } from '@actionow/contracts';
 import type { ExecuteResult } from '@actionow/engine';
 import type { AppEnv } from '@actionow/infra';
 import type { Request } from 'express';
 import { describe, expect, it, vi } from 'vitest';
 
-import { AuthService } from '../src/auth/auth.service.js';
 import { AnthropicChatController } from '../src/chat/anthropic.controller.js';
-import type { ChatRelayService } from '../src/chat/chat-relay.service.js';
 import { GeminiChatController } from '../src/chat/gemini.controller.js';
-import type { ModerationRelayService } from '../src/chat/moderation-relay.service.js';
 import { ModerationsController } from '../src/chat/moderations.controller.js';
 import { RerankController } from '../src/chat/rerank.controller.js';
-import type { RerankRelayService } from '../src/chat/rerank-relay.service.js';
-import type { SttRelayService } from '../src/chat/stt-relay.service.js';
 import { TranscriptionsController } from '../src/chat/transcriptions.controller.js';
 import { GatewayChatV2Service } from '../src/gateway/chat-v2.service.js';
 import type { GatewayService } from '../src/gateway/gateway.service.js';
@@ -96,11 +90,7 @@ function serviceWith(
     resolveVisibleModel: vi.fn().mockResolvedValue(V2_MODEL),
     execute: vi.fn().mockResolvedValue(result),
   };
-  const service = new GatewayChatV2Service(
-    {} as Database,
-    env,
-    gateway as unknown as GatewayService,
-  );
+  const service = new GatewayChatV2Service(env, gateway as unknown as GatewayService);
   return { service, gateway };
 }
 
@@ -394,10 +384,9 @@ describe('GatewayChatV2Service — transcriptions over the new gateway', () => {
   });
 });
 
-// --- the controller entry branches (双面并存, 7/7) ------------------------------------------
+// --- the collapsed controllers (批次6 D2: always-new, 7/7) ----------------------------------
 
 interface V2Stub {
-  isV2Tenant: ReturnType<typeof vi.fn>;
   messages: ReturnType<typeof vi.fn>;
   generateContent: ReturnType<typeof vi.fn>;
   streamGenerateContent: ReturnType<typeof vi.fn>;
@@ -406,9 +395,8 @@ interface V2Stub {
   transcriptions: ReturnType<typeof vi.fn>;
 }
 
-function v2Stub(flag: boolean): V2Stub {
+function v2Stub(): V2Stub {
   return {
-    isV2Tenant: vi.fn().mockResolvedValue(flag),
     messages: vi.fn().mockResolvedValue({ type: 'message', served: 'v2' }),
     generateContent: vi.fn().mockResolvedValue({ candidates: [], served: 'v2' }),
     streamGenerateContent: vi.fn().mockResolvedValue(undefined),
@@ -418,74 +406,18 @@ function v2Stub(flag: boolean): V2Stub {
   };
 }
 
-const IR_RESPONSE: ChatResponse = {
-  message: { role: 'assistant', content: [{ kind: 'text', text: 'old world' }] },
-  stopReason: 'stop',
-  usage: { inputTokens: 1, outputTokens: 1 },
-};
-
-function chatRelayStub(): { chat: ReturnType<typeof vi.fn>; chatStream: ReturnType<typeof vi.fn> } {
-  return {
-    chat: vi.fn().mockResolvedValue({
-      response: IR_RESPONSE,
-      servedBy: { providerType: 'openai' },
-      servedModel: undefined,
-    }),
-    chatStream: vi.fn(),
-  };
-}
-
-describe('AnthropicChatController — 预案③ entry flag branch', () => {
-  function controllerWith(flag: boolean): {
-    controller: AnthropicChatController;
-    relay: ReturnType<typeof chatRelayStub>;
-    v2: V2Stub;
-  } {
-    const relay = chatRelayStub();
-    const v2 = v2Stub(flag);
-    const controller = new AnthropicChatController(
-      relay as unknown as ChatRelayService,
-      new AuthService(),
-      v2 as unknown as GatewayChatV2Service,
-    );
-    return { controller, relay, v2 };
-  }
-
-  it('flag=true routes to the new gateway; the legacy relay is never touched', async () => {
-    const { controller, relay, v2 } = controllerWith(true);
+describe('the five collapsed dialect controllers delegate to the new gateway', () => {
+  it('anthropic /v1/messages → v2.messages', async () => {
+    const v2 = v2Stub();
+    const controller = new AnthropicChatController(v2 as unknown as GatewayChatV2Service);
     const body = await controller.messages({ ...ANTHROPIC_BODY }, fakeReq(), fakeRes());
     expect(v2.messages).toHaveBeenCalledTimes(1);
-    expect(relay.chat).not.toHaveBeenCalled();
     expect(body).toMatchObject({ served: 'v2' });
   });
 
-  it('flag=false rides the untouched legacy relay', async () => {
-    const { controller, relay, v2 } = controllerWith(false);
-    const body = await controller.messages({ ...ANTHROPIC_BODY }, fakeReq(), fakeRes());
-    expect(v2.messages).not.toHaveBeenCalled();
-    expect(relay.chat).toHaveBeenCalledTimes(1);
-    expect(body).toMatchObject({ type: 'message', role: 'assistant' });
-  });
-});
-
-describe('GeminiChatController — 预案③ entry flag branch', () => {
-  function controllerWith(flag: boolean): {
-    controller: GeminiChatController;
-    relay: ReturnType<typeof chatRelayStub>;
-    v2: V2Stub;
-  } {
-    const relay = chatRelayStub();
-    const v2 = v2Stub(flag);
-    const controller = new GeminiChatController(
-      relay as unknown as ChatRelayService,
-      new AuthService(),
-      v2 as unknown as GatewayChatV2Service,
-    );
-    return { controller, relay, v2 };
-  }
-
-  it('flag=true routes generateContent AND streamGenerateContent to the new gateway', async () => {
-    const { controller, relay, v2 } = controllerWith(true);
+  it('gemini generateContent + streamGenerateContent → v2', async () => {
+    const v2 = v2Stub();
+    const controller = new GeminiChatController(v2 as unknown as GatewayChatV2Service);
     const body = await controller.generateContent(
       'model-x',
       { ...GEMINI_BODY },
@@ -494,7 +426,7 @@ describe('GeminiChatController — 预案③ entry flag branch', () => {
     );
     expect(v2.generateContent).toHaveBeenCalledWith(
       'model-x',
-      GEMINI_BODY,
+      expect.anything(),
       expect.anything(),
       expect.anything(),
     );
@@ -502,159 +434,44 @@ describe('GeminiChatController — 预案③ entry flag branch', () => {
 
     await controller.streamGenerateContent('model-x', { ...GEMINI_BODY }, fakeReq(), fakeRes());
     expect(v2.streamGenerateContent).toHaveBeenCalledTimes(1);
-    expect(relay.chat).not.toHaveBeenCalled();
-    expect(relay.chatStream).not.toHaveBeenCalled();
   });
 
-  it('flag=false rides the untouched legacy relay', async () => {
-    const { controller, relay, v2 } = controllerWith(false);
-    const body = await controller.generateContent(
-      'model-x',
-      { ...GEMINI_BODY },
-      fakeReq(),
-      fakeRes(),
-    );
-    expect(v2.generateContent).not.toHaveBeenCalled();
-    expect(relay.chat).toHaveBeenCalledTimes(1);
-    expect(body).toMatchObject({ candidates: [{ finishReason: 'STOP' }] });
-  });
-});
-
-describe('RerankController — 预案③ entry flag branch', () => {
-  const RERANK_IR = { model: 'model-x', query: 'q', documents: ['a'] };
-
-  function controllerWith(flag: boolean): {
-    controller: RerankController;
-    relay: { rerank: ReturnType<typeof vi.fn> };
-    v2: V2Stub;
-  } {
-    const relay = {
-      rerank: vi.fn().mockResolvedValue({
-        result: { results: [{ index: 0, relevanceScore: 0.9 }], usage: { inputTokens: 2 } },
-        servedBy: { providerType: 'cohere' },
-      }),
-    };
-    const v2 = v2Stub(flag);
-    const controller = new RerankController(
-      relay as unknown as RerankRelayService,
-      new AuthService(),
-      v2 as unknown as GatewayChatV2Service,
-    );
-    return { controller, relay, v2 };
-  }
-
-  it('flag=true routes the RAW req.body to the new gateway', async () => {
-    const { controller, relay, v2 } = controllerWith(true);
-    const req = fakeReq();
-    const raw = { model: 'model-x', query: 'q', documents: ['a'], top_n: 1 };
-    (req as Request & { body?: unknown }).body = raw;
-    const body = await controller.create(RERANK_IR, req, fakeRes());
-    expect(v2.rerank).toHaveBeenCalledWith(raw, req, expect.anything());
-    expect(relay.rerank).not.toHaveBeenCalled();
+  it('rerank → v2.rerank (raw wire body)', async () => {
+    const v2 = v2Stub();
+    const controller = new RerankController(v2 as unknown as GatewayChatV2Service);
+    const raw = { model: 'model-x', query: 'q', documents: ['a'] };
+    const body = await controller.create(raw, fakeReq(), fakeRes());
+    expect(v2.rerank).toHaveBeenCalledWith(raw, expect.anything(), expect.anything());
     expect(body).toMatchObject({ served: 'v2' });
   });
 
-  it('flag=false rides the untouched legacy relay', async () => {
-    const { controller, relay, v2 } = controllerWith(false);
-    const body = await controller.create(RERANK_IR, fakeReq(), fakeRes());
-    expect(v2.rerank).not.toHaveBeenCalled();
-    expect(relay.rerank).toHaveBeenCalledTimes(1);
-    expect(body).toMatchObject({ results: [{ index: 0, relevance_score: 0.9 }] });
-  });
-});
-
-describe('ModerationsController — 预案③ entry flag branch', () => {
-  const MOD_IR = { model: 'model-x', input: 'bad' };
-
-  function controllerWith(flag: boolean): {
-    controller: ModerationsController;
-    relay: { moderate: ReturnType<typeof vi.fn> };
-    v2: V2Stub;
-  } {
-    const relay = {
-      moderate: vi.fn().mockResolvedValue({
-        result: {
-          results: [{ flagged: false, categories: {}, categoryScores: {} }],
-          usage: { inputTokens: 2 },
-        },
-        servedBy: { providerType: 'openai' },
-      }),
-    };
-    const v2 = v2Stub(flag);
-    const controller = new ModerationsController(
-      relay as unknown as ModerationRelayService,
-      new AuthService(),
-      v2 as unknown as GatewayChatV2Service,
-    );
-    return { controller, relay, v2 };
-  }
-
-  it('flag=true routes the RAW req.body to the new gateway', async () => {
-    const { controller, relay, v2 } = controllerWith(true);
-    const req = fakeReq();
-    (req as Request & { body?: unknown }).body = MOD_IR;
-    const body = await controller.create(MOD_IR, req, fakeRes());
-    expect(v2.moderations).toHaveBeenCalledWith(MOD_IR, req, expect.anything());
-    expect(relay.moderate).not.toHaveBeenCalled();
+  it('moderations → v2.moderations (raw wire body)', async () => {
+    const v2 = v2Stub();
+    const controller = new ModerationsController(v2 as unknown as GatewayChatV2Service);
+    const raw = { model: 'model-x', input: 'check me' };
+    const body = await controller.create(raw, fakeReq(), fakeRes());
+    expect(v2.moderations).toHaveBeenCalledWith(raw, expect.anything(), expect.anything());
     expect(body).toMatchObject({ served: 'v2' });
   });
 
-  it('flag=false rides the untouched legacy relay', async () => {
-    const { controller, relay, v2 } = controllerWith(false);
-    const body = await controller.create(MOD_IR, fakeReq(), fakeRes());
-    expect(v2.moderations).not.toHaveBeenCalled();
-    expect(relay.moderate).toHaveBeenCalledTimes(1);
-    expect(body).toMatchObject({ results: [{ flagged: false }] });
-  });
-});
-
-describe('TranscriptionsController — 预案③ entry flag branch', () => {
-  const FILE = {
-    buffer: Buffer.from('abc'),
-    originalname: 'a.mp3',
-    mimetype: 'audio/mpeg',
-    size: 3,
-  };
-
-  function controllerWith(flag: boolean): {
-    controller: TranscriptionsController;
-    relay: { transcribe: ReturnType<typeof vi.fn> };
-    v2: V2Stub;
-  } {
-    const relay = {
-      transcribe: vi.fn().mockResolvedValue({
-        result: { text: 'old world' },
-        servedBy: { providerType: 'openai' },
-      }),
+  it('transcriptions → v2.transcriptions (multipart file + raw text fields)', async () => {
+    const v2 = v2Stub();
+    const controller = new TranscriptionsController(v2 as unknown as GatewayChatV2Service);
+    const file = {
+      buffer: Buffer.from('RIFFaudio'),
+      originalname: 'a.wav',
+      mimetype: 'audio/wav',
+      size: 9,
     };
-    const v2 = v2Stub(flag);
-    const controller = new TranscriptionsController(
-      relay as unknown as SttRelayService,
-      new AuthService(),
-      v2 as unknown as GatewayChatV2Service,
-      {} as AppEnv,
-    );
-    return { controller, relay, v2 };
-  }
-
-  it('flag=true routes the file + raw multipart fields to the new gateway', async () => {
-    const { controller, relay, v2 } = controllerWith(true);
-    const req = fakeReq();
-    const fields = { model: 'model-x', response_format: 'text' };
-    (req as Request & { body?: unknown }).body = fields;
-    const body = await controller.create(FILE, req, fakeRes());
-    expect(v2.transcriptions).toHaveBeenCalledWith(FILE, fields, req, expect.anything());
-    expect(relay.transcribe).not.toHaveBeenCalled();
-    expect(body).toEqual({ text: 'v2' });
-  });
-
-  it('flag=false rides the untouched legacy relay', async () => {
-    const { controller, relay, v2 } = controllerWith(false);
     const req = fakeReq();
     (req as Request & { body?: unknown }).body = { model: 'model-x' };
-    const body = await controller.create(FILE, req, fakeRes());
-    expect(v2.transcriptions).not.toHaveBeenCalled();
-    expect(relay.transcribe).toHaveBeenCalledTimes(1);
-    expect(body).toEqual({ text: 'old world' });
+    const body = await controller.create(file, req, fakeRes());
+    expect(v2.transcriptions).toHaveBeenCalledWith(
+      file,
+      { model: 'model-x' },
+      req,
+      expect.anything(),
+    );
+    expect(body).toMatchObject({ text: 'v2' });
   });
 });

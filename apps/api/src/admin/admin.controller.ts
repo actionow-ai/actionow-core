@@ -145,22 +145,18 @@ import {
   Put,
   Query,
   Req,
-  Res,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { Response } from 'express';
 
 import { Audit } from '../audit/audit.decorator.js';
 import { AuditInterceptor } from '../audit/audit.interceptor.js';
-import { engineInvalidInput, engineNotFound, engineUnauthorized } from '../common/errors.js';
+import { engineInvalidInput, engineUnauthorized } from '../common/errors.js';
 import { IdempotencyInterceptor } from '../common/idempotency.interceptor.js';
 import { Idempotent } from '../common/idempotent.decorator.js';
 import { mapPageEnvelope, type PageEnvelope, toPageParams } from '../common/pagination.js';
 import { ZodBody } from '../common/zod.pipe.js';
-import { JobStreamService } from '../jobs/job-stream.service.js';
-import { JobsService } from '../jobs/jobs.service.js';
 import {
   AdminService,
   type BreakerStatusWithRate,
@@ -376,8 +372,6 @@ export class AdminController {
     private readonly admin: AdminService,
     private readonly tokens: AdminTokenService,
     private readonly modelTest: ModelTestService,
-    private readonly jobs: JobsService,
-    private readonly jobStream: JobStreamService,
   ) {}
 
   // ----- tenants -----
@@ -1442,7 +1436,7 @@ export class AdminController {
     return { ok: true };
   }
 
-  // ----- provider plugins (P2) -----
+  // ----- provider plugins (P2 · runtime deleted 批次6 D2, rows inert until D3) -----
 
   @Get('plugins')
   @ApiOperation({ summary: 'List provider plugins (manifest + handler) with channel/model counts' })
@@ -1672,26 +1666,6 @@ export class AdminController {
   ): Promise<PageEnvelope<JobView>> {
     const result = await this.admin.listJobs(tenantId, toPageParams({ cursor, limit }));
     return mapPageEnvelope(result, (r) => r.id, toJobView);
-  }
-
-  /**
-   * Stream a job's status/progress over SSE until terminal (#62) — the admin
-   * (cross-tenant) twin of `GET /v1/jobs/:id/stream`. Resolves the job's OWN
-   * tenant (admin sees any tenant), then reuses the tenant-scoped
-   * {@link JobStreamService} unchanged. A missing job 404s before any byte is
-   * written. Browsers can't set a Bearer header on `EventSource`, so the SPA
-   * consumes this via `fetch` + a `ReadableStream` reader (the JWT goes in the
-   * request header) — see the web `useJobStream` hook.
-   */
-  @Get('jobs/:id/stream')
-  @ApiOperation({ summary: 'Stream a job’s progress over SSE until terminal (admin)' })
-  async streamJob(
-    @Param('id') id: string,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<void> {
-    const ctx = await this.jobs.resolveAdminContext(id);
-    if (ctx === undefined) throw engineNotFound(`job ${id} not found`);
-    await this.jobStream.streamTo(res, id, ctx);
   }
 
   // ----- ledger -----
