@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { createUser, schema, upsertBreaker } from '@actionow/db';
 import { hashPassword } from '@actionow/infra';
 import type { INestApplication } from '@nestjs/common';
@@ -73,43 +75,16 @@ beforeEach(async () => {
     .expect(200);
   token = login.body.token as string;
 
-  // Seed a tenant + resource + channel so a breaker row's channel_id FK resolves.
-  const t = await request(app.getHttpServer())
-    .post('/admin/tenants')
-    .set('authorization', `Bearer ${token}`)
-    .send({ name: 'brk' })
-    .expect(201);
-  const tenantId = t.body.id as string;
-  await request(app.getHttpServer())
-    .post('/admin/resources')
-    .set('authorization', `Bearer ${token}`)
-    .send({
-      id: 'brk-res',
-      tenantId,
-      kind: 'model',
-      modality: 'text',
-      providerType: 'openai',
-      execModes: ['stream'],
-      ioSchema: { inputs: [], outputs: [] },
-    })
-    .expect(201);
-  const ch = await request(app.getHttpServer())
-    .post('/admin/resources/brk-res/channels')
-    .set('authorization', `Bearer ${token}`)
-    .send({
-      providerType: 'openai',
-      endpoint: 'https://api.openai.com/v1',
-      model: 'gpt-4o',
-      weight: 1,
-    })
-    .expect(201);
-  channelId = ch.body.id as string;
+  // 批次6 D4: `channel_breaker.channel_id` is a plain uuid — mig 0072 dropped
+  // the old `resource`/`upstream_channel` tables and the FK — so a fresh
+  // random uuid stands in for a channel id with no backing row.
+  channelId = randomUUID();
 });
 
 afterEach(async () => {
   await resetDb(
     () =>
-      client`TRUNCATE TABLE channel_breaker, audit_log, route_group_channel, route_group, api_key, upstream_channel, resource_version, resource, account, tenant, "user" RESTART IDENTITY CASCADE`,
+      client`TRUNCATE TABLE channel_breaker, audit_log, route_group_channel, route_group, api_key, account, tenant, "user" RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -141,7 +116,9 @@ describe('admin breaker status surface (弹性2.0)', () => {
       });
   });
 
-  it('lists a tripped breaker joined with its channel name', async () => {
+  // 批次6 D3: the channel-name join target (`upstream_channel`) is deleted —
+  // the view's channel_name/resource_id degrade to null; the FSM facts remain.
+  it('lists a tripped breaker with its FSM facts', async () => {
     const now = new Date();
     await upsertBreaker(db, {
       channelId,

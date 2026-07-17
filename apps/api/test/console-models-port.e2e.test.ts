@@ -1,6 +1,5 @@
 import type { IntentResult, PaymentProviderKind, VerifiedEvent } from '@actionow/contracts';
 import { schema } from '@actionow/db';
-import type { JobQueuePort } from '@actionow/engine';
 import { PaymentService } from '@actionow/engine';
 import { FakeRateLimitRedis, RedisRateLimiter } from '@actionow/infra';
 import type { PaymentProvider, PaymentRegistry } from '@actionow/payments';
@@ -15,7 +14,7 @@ import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
-import { DB, ENV, JOB_QUEUE, PAYMENTS, RATE_LIMITER } from '../src/common/tokens.js';
+import { DB, ENV, PAYMENTS, RATE_LIMITER } from '../src/common/tokens.js';
 import { MODELS_PORT } from '../src/console/models.port.js';
 import { resetDb } from './reset-db.js';
 
@@ -28,10 +27,6 @@ let pg: StartedPostgreSqlContainer;
 let client: ReturnType<typeof postgres>;
 let db: PostgresJsDatabase<typeof schema>;
 let app: INestApplication;
-
-const noopQueue: JobQueuePort = {
-  enqueueExec: () => Promise.reject(new Error('console path must not enqueue')),
-};
 
 /**
  * The fake provider injected for the e2e: `createIntent` returns a canned
@@ -114,8 +109,6 @@ beforeAll(async () => {
     .useValue(paymentsService)
     .overrideProvider(MODELS_PORT)
     .useValue(oneModelPort)
-    .overrideProvider(JOB_QUEUE)
-    .useValue(noopQueue)
     .overrideProvider(RATE_LIMITER)
     .useValue(new RedisRateLimiter(new FakeRateLimitRedis()))
     .overrideProvider(ENV)
@@ -147,7 +140,7 @@ afterAll(async () => {
 afterEach(async () => {
   await resetDb(
     () =>
-      client`TRUNCATE TABLE api_key, ledger_txn, payment_intent, payment_event, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`,
+      client`TRUNCATE TABLE api_key, ledger_txn, payment_intent, payment_event, account, tenant, "user" RESTART IDENTITY CASCADE`,
   );
 });
 

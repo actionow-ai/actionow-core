@@ -82,8 +82,12 @@ const EXT_BY_MIME: Record<string, string> = {
   'model/gltf-binary': 'glb',
 };
 
-/** Derive a file extension from a URL path, then the content-type/mime, else 'bin'. */
-function extOf(url: string | undefined, mime: string | undefined): string {
+/**
+ * Derive a file extension from a URL path, then the content-type/mime, else
+ * 'bin'. Exported (批次4 slice5) so the gateway's §7.5 persist hook keys
+ * artifacts with the same convention as the legacy media path (复用不重造).
+ */
+export function mediaExtensionOf(url: string | undefined, mime: string | undefined): string {
   if (url !== undefined) {
     try {
       const path = new URL(url).pathname;
@@ -142,7 +146,7 @@ export async function persistMediaResult(
       if (asset === undefined) continue;
       const fetched = await sourceBytes(asset, input.fetchBytes);
       const contentType = fetched.contentType ?? asset.mime;
-      const ext = extOf(asset.url, contentType);
+      const ext = mediaExtensionOf(asset.url, contentType);
       const key = single
         ? `${input.tenantId}/${input.jobId}.${ext}`
         : `${input.tenantId}/${input.jobId}-${String(i)}.${ext}`;

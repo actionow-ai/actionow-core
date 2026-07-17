@@ -1,23 +1,16 @@
 import type { Database } from '@actionow/db';
 import {
-  addChannelToGroup,
   createAccount,
   createApiKey,
   createDb,
-  createPricebookEntry,
-  createResource,
   createRouteGroup,
-  createSecretRef,
   createSubject,
   createTenant,
-  createUpstreamChannel,
   createUser,
   findUserByEmail,
   getAccountByTenant,
-  getResource,
   getRouteGroupByName,
   listApiKeys,
-  listChannels,
   listSubjectsByTenant,
   listTenants,
   setApiKeyGroup,
@@ -29,26 +22,26 @@ import { hashPassword } from '@actionow/infra';
 import { importCatalog } from './seed-catalog.js';
 import { seedIcons } from './seed-icons.js';
 import { OFFICIAL_PRICE_SEED_KEYS, seedOfficialPrices } from './seed-official-prices.js';
-import { backfillChannelPlugins, seedPlugins } from './seed-plugins.js';
-import { PROVIDER_SEED_IDS, seedProviders } from './seed-providers.js';
 
 /**
- * Dev seed (Phase 5, Task 6). Creates the minimal end-to-end fixtures so a fresh
- * database can take a `POST /v1/run` with an API key:
+ * Dev seed. 批次6 D3 (旧世界删除): the resource three-layer fixtures
+ * (`openai-gpt` resource + pricebook + upstream channel + provider catalog
+ * seeding via seed-providers) died with their tables. What the seed now
+ * provisions is the identity/billing skeleton + the REFERENCE layer
+ * (目录 + 方言包 — the official catalog data; dialect packs are code,
+ * registered in the gateway dialect registry at boot):
  *
  *  - 1 tenant (`SEED_TENANT_NAME`)
  *  - 1 admin user (`admin@actionow.local`, dev password) — argon-equivalent
  *    scrypt hash via `hashPassword`; the plaintext is never persisted.
  *  - 1 account topped up to 100 credits (stored as 100_000_000 µcredits)
  *  - 1 API key (the plaintext is returned ONCE and printed to stdout)
- *  - 1 `openai`-style text resource + frozen io_schema (a `prompt` string input,
- *    a `text` output) + an active pricebook + one upstream channel.
+ *  - the well-known `default` route group + key binding
+ *  - the official model catalog (`model_spec` + `official_model_price`)
  *
- * PRICING MODEL: a `unit`/`post` pricebook over the `tokens` usage dimension
- * (rate 1 µcredit/token). The hold is sized from the request's `estimated_usage`
- * (an upper bound) and the final settle uses the adapter's reported token usage
- * — so cost == tokens × 1 µcredit. (The alternative `fixed`/`pre` model is left
- * to the admin CRUD path; `unit`/`post` exercises the metered settle path.)
+ * SUPPLY WIRING is an operator action in the NEW world: providers/channels/
+ * credentials/models/offerings are onboarded through `/admin/supply/*`
+ * (discovery + batch offering + golden probe), never seeded as demo rows.
  *
  * Idempotent: every entity is created only when absent (find-then-create), so
  * re-running the seed against a populated db is a no-op. The one exception is the
@@ -62,32 +55,19 @@ import { PROVIDER_SEED_IDS, seedProviders } from './seed-providers.js';
 export const SEED_TENANT_NAME = 'actionow-dev';
 export const SEED_ADMIN_EMAIL = 'admin@actionow.local';
 export const SEED_ADMIN_PASSWORD = 'actionow-dev-password';
-export const SEED_RESOURCE_ID = 'openai-gpt';
 export const SEED_OPENING_CREDITS = 100;
 /**
  * The well-known `default` route group (分组; Track 3). Always exists after a
  * seed, at ratio 10000 (1.0×); a key with no `route_group_id` falls back to it
- * at routing time (Track 4). The seeded key is bound to it and the seeded chat
- * channels join it. NOTE: additive only — nothing routes/prices by it yet.
+ * at routing time. The seeded key is bound to it.
  */
 export const SEED_DEFAULT_GROUP_NAME = 'default';
-/** Provider type the seeded resource routes to (an openai-compatible adapter). */
-export const SEED_PROVIDER_TYPE = 'openai';
-/** The env secret ref the seeded upstream channel resolves its credential from. */
-export const SEED_CREDENTIAL_REF = 'openai_api_key';
 
-/** The io_schema frozen onto the seeded resource version. */
-const SEED_IO_SCHEMA = {
-  inputs: [{ key: 'prompt', type: 'string', required: true }],
-  outputs: [{ key: 'text', type: 'string' }],
-};
-
-/** Options that let tests/local runs vary the seed's provider wiring. */
+/** Options that let tests/local runs vary the seed's provisioning. */
 export interface SeedOptions {
   /**
-   * The resource's `provider_type` + channel `provider_type`. Defaults to
-   * `openai`; the acceptance e2e overrides it to a stubbed adapter so no network
-   * is required.
+   * 批次6 D3: INERT. The old resource/channel fixtures this switched are
+   * deleted; the option is kept so existing callers/tests keep compiling.
    */
   readonly providerType?: string;
   /**
@@ -106,12 +86,11 @@ export interface SeedOptions {
    * Whether to provision the DEV-ONLY demo fixtures that are pure sample data:
    *   - the 100-credit opening top-up (a spendable phantom balance + a `topup`
    *     ledger row that never corresponds to a real payment), and
-   *   - the two demo end-user subjects (`demo-user-1` / `demo-user-2`), and
-   *   - the seeded `openai-gpt` demo channel is left `active` only when this is on.
-   * Default `true` (dev + tests need a spendable tenant to exercise `/v1/run`).
-   * The CLI sets this `false` in production (unless `SEED_ALLOW_PRODUCTION=true`)
-   * so a prod DB is never seeded with phantom credits, mock users, or a broken
-   * active demo channel — keeping the append-only ledger (the P0 moat) clean.
+   *   - the two demo end-user subjects (`demo-user-1` / `demo-user-2`).
+   * Default `true` (dev + tests need a spendable tenant). The CLI sets this
+   * `false` in production (unless `SEED_ALLOW_PRODUCTION=true`) so a prod DB is
+   * never seeded with phantom credits or mock end-users — keeping the
+   * append-only ledger (the P0 moat) clean.
    */
   readonly seedDemoData?: boolean;
 }
@@ -121,7 +100,6 @@ export interface SeedResult {
   readonly tenantId: string;
   readonly accountId: string;
   readonly adminEmail: string;
-  readonly resourceId: string;
   /** The well-known `default` route group's id (分组; Track 3). */
   readonly defaultGroupId: string;
   /**
@@ -142,9 +120,8 @@ async function findSeedTenant(db: Database): Promise<{ id: string } | undefined>
  * API key plaintext. Safe to re-run; only-missing entities are created.
  */
 export async function seedAll(db: Database, options: SeedOptions = {}): Promise<SeedResult> {
-  const providerType = options.providerType ?? SEED_PROVIDER_TYPE;
-  // Dev-only sample fixtures (phantom balance + mock subjects + active demo
-  // channel). ON by default (dev/tests); the CLI turns it OFF for a prod DB.
+  // Dev-only sample fixtures (phantom balance + mock subjects). ON by default
+  // (dev/tests); the CLI turns it OFF for a prod DB.
   const seedDemoData = options.seedDemoData ?? true;
 
   // 1. tenant
@@ -181,47 +158,9 @@ export async function seedAll(db: Database, options: SeedOptions = {}): Promise<
     await topUp(db, accountId, tenantId, creditsToMicro(SEED_OPENING_CREDITS));
   }
 
-  // 4. resource (+ io_schema), pricebook, channel
-  if ((await getResource(db, SEED_RESOURCE_ID)) === undefined) {
-    await createResource(db, {
-      id: SEED_RESOURCE_ID,
-      tenantId,
-      kind: 'model',
-      modality: 'text',
-      providerType,
-      execModes: ['blocking'],
-      ioSchema: SEED_IO_SCHEMA,
-      version: 1,
-    });
-    await createPricebookEntry(db, {
-      resourceId: SEED_RESOURCE_ID,
-      resourceVersion: 1,
-      version: 1,
-      method: 'unit',
-      timing: 'post',
-      spec: { method: 'unit', dimensions: { tokens: { rate: 1 } } },
-      active: true,
-    });
-    // The channel credential is an env secret ref: a `secret_ref` row locating
-    // the env var that holds the provider key (the resolver materializes it at
-    // run time; the secret itself is never stored).
-    const secret = await createSecretRef(db, {
-      provider: 'env',
-      locator: SEED_CREDENTIAL_REF,
-      name: 'OpenAI (演示)',
-    });
-    await createUpstreamChannel(db, {
-      resourceId: SEED_RESOURCE_ID,
-      providerType,
-      credentialRef: secret.id,
-      weight: 1,
-      // The `openai-gpt` fixture is a DEV demo target (its `openai_api_key`
-      // locator is not in the production env contract, so it cannot serve a real
-      // call). Seed it `active` for dev/tests; leave it `disabled` in production
-      // so a fresh prod DB has no broken, unroutable active channel.
-      status: seedDemoData ? 'active' : 'disabled',
-    });
-  }
+  // 4. 批次6 D3: the demo resource + pricebook + upstream channel fixtures are
+  //    GONE with the resource three-layer. Supply wiring is an operator action
+  //    (/admin/supply/* onboarding), never seeded.
 
   // 5. API key — minted only when the tenant has none (plaintext is one-time).
   const { rows: existingKeys } = await listApiKeys(db, tenantId, { limit: 1 });
@@ -251,10 +190,9 @@ export async function seedAll(db: Database, options: SeedOptions = {}): Promise<
     }
   }
 
-  // 6. Track 3: the well-known `default` route group (ratio 10000), the seeded
-  //    key bound to it, and the seeded chat channels joined to it (priority 0,
-  //    weight 1). Additive only — nothing routes/prices by the group yet (Track
-  //    4/5); the group merely exists so the wiring is in place + manageable.
+  // 6. Track 3: the well-known `default` route group (ratio 10000) + the seeded
+  //    key bound to it. 批次6 D3: the old chat-channel memberships died with
+  //    `upstream_channel`; the group survives as the pricing/access tier entity.
   const defaultGroupId = await seedDefaultRouteGroup(db, tenantId);
 
   // 7. 接入与供给: import the OFFICIAL normalized model catalog (model_spec for
@@ -276,7 +214,6 @@ export async function seedAll(db: Database, options: SeedOptions = {}): Promise<
     tenantId,
     accountId,
     adminEmail: SEED_ADMIN_EMAIL,
-    resourceId: SEED_RESOURCE_ID,
     defaultGroupId,
     apiKey,
   };
@@ -288,20 +225,11 @@ export async function seedAll(db: Database, options: SeedOptions = {}): Promise<
  *  - create the `default` group (ratio 10000) if absent (its partial-unique name
  *    means a re-run finds the existing live row instead of inserting a dup);
  *  - bind EVERY live key of the seed tenant that has no group to `default`
- *    (`setApiKeyGroup` writes the same value on re-runs → idempotent);
- *  - add the channels of the given chat resources to `default` with priority 0 /
- *    weight 1 (`addChannelToGroup` upserts on the `(group, channel)` PK → no
- *    dup). `listChannels` returns `[]` for an absent resource, so a resource that
- *    is not seeded yet (e.g. the runtime-provisioned codex channel) is simply
- *    skipped until it exists.
+ *    (`setApiKeyGroup` writes the same value on re-runs → idempotent).
  *
  * Returns the `default` group's id. Network-free; safe to re-run.
  */
-async function seedDefaultRouteGroup(
-  db: Database,
-  tenantId: string,
-  chatResourceIds: readonly string[] = [SEED_RESOURCE_ID],
-): Promise<string> {
+async function seedDefaultRouteGroup(db: Database, tenantId: string): Promise<string> {
   const existing = await getRouteGroupByName(db, SEED_DEFAULT_GROUP_NAME);
   const group =
     existing ??
@@ -316,14 +244,6 @@ async function seedDefaultRouteGroup(
   for (const key of keys) {
     if (key.routeGroupId === null) {
       await setApiKeyGroup(db, key.id, group.id);
-    }
-  }
-
-  // Add the seeded chat channels to the default group (priority 0, weight 1).
-  for (const resourceId of chatResourceIds) {
-    const channels = await listChannels(db, resourceId);
-    for (const channel of channels) {
-      await addChannelToGroup(db, { groupId: group.id, channelId: channel.id });
     }
   }
 
@@ -367,21 +287,11 @@ async function main(): Promise<void> {
   // append-only ledger (the P0 moat) and the subject roster.
   const seedDemoData = !isProd || process.env.SEED_DEMO_DATA === 'true';
   const result = await seedAll(db, { seedAdmin, adminPassword, seedDemoData });
-  // Track 2: the official-price catalog (cost basis). Seeded BEFORE the provider
-  // channels so the direct/relay chat channels below can auto-price from a live
-  // `official_model_price` row (a model with no verified price is created
-  // `disabled` at 0 rather than sold at a fake near-free rate). Idempotent.
+  // Track 2: the official-price catalog (cost basis, 目录参考层). Idempotent.
+  // 批次6 D3: seed-providers (the old resource/channel/pricebook demo catalog)
+  // is deleted — supply wiring happens via /admin/supply/* onboarding.
   await seedOfficialPrices(db);
-  // Register the real-provider catalog (resources + channels + pricebooks) as
-  // DATA. Idempotent + network-free; the channels' credentials/proxies resolve
-  // from env at run time.
-  await seedProviders(db, { tenantId: result.tenantId });
-  // P2: built-in provider plugins (vendor-named media + native chat + Codex CLI) as DATA.
-  await seedPlugins(db);
   await seedIcons(db);
-  // 模型接入 3-pane: group existing channels under a plugin by provider_type
-  // (routing is unchanged — dispatch keys on provider_type, never plugin_id).
-  await backfillChannelPlugins(db);
 
   const log = console.log.bind(console);
   log('seed complete');
@@ -397,22 +307,22 @@ async function main(): Promise<void> {
     // Operator-supplied password: never echo it to stdout.
     log(`  admin     : ${result.adminEmail} (password: <operator-supplied>)`);
   }
-  log(`  resource  : ${result.resourceId}`);
-  log(`  providers : ${PROVIDER_SEED_IDS.join(', ')}`);
   log(`  prices(draft): ${OFFICIAL_PRICE_SEED_KEYS.join(', ')}`);
+  log('  supply    : (none seeded — onboard providers/channels/offerings via /admin/supply/*)');
+  log('  dialects  : (code, registered in the gateway dialect registry at boot)');
 
   if (result.apiKey === null) {
     log('  api_key   : (already provisioned; the plaintext is unrecoverable)');
   } else {
     log(`  api_key   : ${result.apiKey}`);
     log('');
-    log('sample request:');
+    log('sample request (after supply onboarding):');
     log(
       [
-        `  curl -sS -X POST 'http://localhost:3000/v1/run/${result.resourceId}' \\`,
+        `  curl -sS -X POST 'http://localhost:3000/v1/chat/completions' \\`,
         `    -H 'authorization: Bearer ${result.apiKey}' \\`,
         `    -H 'content-type: application/json' \\`,
-        `    -d '{"inputs":{"prompt":"hello"},"estimated_usage":{"tokens":1000}}'`,
+        `    -d '{"model":"<supply_model name>","messages":[{"role":"user","content":"hello"}]}'`,
       ].join('\n'),
     );
   }

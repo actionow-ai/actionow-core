@@ -171,18 +171,6 @@ describe('admin catalog api', () => {
     expect(calls[0]?.method).toBe('GET');
     expect(calls[0]?.path).toBe('/admin/modifiers');
   });
-
-  it('difyImport posts to /admin/dify/import (raw client)', async () => {
-    const { api, calls } = fakeApis();
-    await api.difyImport({
-      tenantId: 't1',
-      resourceId: 'r1',
-      yaml: 'x',
-      endpoint: 'https://e',
-      pricingModel: 'fixed',
-    });
-    expect(calls[0]?.path).toBe('/admin/dify/import');
-  });
 });
 
 // P0 coverage-gap fixes: write paths the backend already serves but the FE

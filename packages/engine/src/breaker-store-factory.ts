@@ -14,8 +14,9 @@
 import {
   type DbOrTx,
   getBreakerRows,
-  getChannelById,
   getFaultPolicyById,
+  getSupplyChannelById,
+  getSupplyProviderById,
   upsertBreaker,
 } from '@actionow/db';
 import type { BreakerRedis } from '@actionow/infra';
@@ -71,19 +72,25 @@ export function pgBreakerPersistence(db: DbOrTx): BreakerPersistence {
 }
 
 /**
- * Resolve a channel's effective {@link BreakerConfig}: read its `fault_policy_id`,
- * load that policy's nullable breaker columns, and merge them over the global
- * defaults (`resolveBreakerConfig`). An unknown channel / unbound policy → the
- * defaults. Best-effort: any read failure is swallowed by the store's outer
- * try/catch and falls back to the defaults via `resolveBreakerConfig`.
+ * Resolve a channel's effective {@link BreakerConfig}: read its fault-policy
+ * binding, load that policy's nullable breaker columns, and merge them over the
+ * global defaults (`resolveBreakerConfig`). 批次6 D3: the binding source is the
+ * NEW world's supply chain — `supply_channel` → its provider's
+ * `default_fault_policy_id` (the old `upstream_channel.fault_policy_id` died
+ * with its table; historical breaker rows keyed by old channel uuids simply
+ * miss → defaults). An unknown channel / unbound policy → the defaults.
+ * Best-effort: any read failure is swallowed by the store's outer try/catch
+ * and falls back to the defaults.
  */
 export async function resolveChannelBreakerConfig(
   db: DbOrTx,
   channelId: string,
 ): Promise<BreakerConfig> {
-  const channel = await getChannelById(db, channelId);
-  if (channel?.faultPolicyId == null) return resolveBreakerConfig();
-  const policy = await getFaultPolicyById(db, channel.faultPolicyId);
+  const channel = await getSupplyChannelById(db, channelId);
+  if (channel === undefined) return resolveBreakerConfig();
+  const provider = await getSupplyProviderById(db, channel.providerId);
+  if (provider?.defaultFaultPolicyId == null) return resolveBreakerConfig();
+  const policy = await getFaultPolicyById(db, provider.defaultFaultPolicyId);
   return resolveBreakerConfig(policy);
 }
 

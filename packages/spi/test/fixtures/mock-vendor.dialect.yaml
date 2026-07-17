@@ -1,0 +1,171 @@
+# model-supply-greenfield 批次2 slice 2 — mock 厂商 DSL pack (判据 2.4:
+# "以 mock 厂商演示 DSL 零代码接入"). A fictional "mockvendor" whose two
+# operations exercise the whole DSL surface WITHOUT one line of adapter code:
+#
+#   chat.completions  — direct + stream, bearer auth, body/usage/business-error
+#                        extraction, `[DONE]` stream passthrough.
+#   images.generation — submit_poll + submit_callback, a media placement, task
+#                        status mapping, and an hmac_sha256_timestamp callback.
+#
+# RED LINE (§4.1 layer 3): every `body`/`query`/path value is pure structure
+# porterage from EffectiveParams.upstream (or the reserved upstream_model_name).
+# There is NO value scaling / semantic mapping anywhere — those live on the
+# offering declarations + planner (§4.1 layer 2), which the DSL cannot express.
+
+ref: mockvendor
+version: 1.0.0
+
+auth:
+  scheme: bearer
+  placement:
+    in: header
+    name: Authorization
+    prefix: 'Bearer '
+
+# Dialect-wide error table (→ Dialect.errorTable + every operation's aspect ⑤
+# default). Common HTTP tiers + timeout/network + one 200-business-error code.
+errorTable:
+  rows:
+    - match: { httpStatus: 400 }
+      code: invalid_input
+      retryable: false
+      failover: false
+    - match: { httpStatus: 401 }
+      code: unauthorized
+      retryable: false
+      failover: true
+    - match: { httpStatus: 403 }
+      code: forbidden
+      retryable: false
+      failover: true
+    - match: { httpStatus: 404 }
+      code: model_not_found
+      retryable: false
+      failover: true
+    - match: { httpStatus: 408 }
+      code: upstream_timeout
+      retryable: true
+      failover: true
+    - match: { httpStatus: 429 }
+      code: rate_limited
+      retryable: true
+      failover: true
+    - match: { httpStatus: [500, 599] }
+      code: upstream_error
+      retryable: true
+      failover: true
+    - match: { kind: timeout }
+      code: upstream_timeout
+      retryable: true
+      failover: true
+    - match: { kind: network }
+      code: upstream_error
+      retryable: true
+      failover: true
+    # 200-carried business error: a content-policy rejection.
+    - match: { upstreamCode: content_policy }
+      code: content_filtered
+      retryable: false
+      failover: false
+  fallback:
+    code: upstream_error
+    retryable: false
+    failover: true
+
+operations:
+  chat.completions:
+    fetchModes: [direct, stream]
+    request:
+      method: POST
+      path: /v1/chat/completions
+      bodyKind: json
+      # upstream param (or the reserved model-name token) → body json path.
+      body:
+        upstream_model_name: '$.model'
+        messages: '$.messages'
+        temperature: '$.temperature'
+        max_tokens: '$.max_tokens'
+    response:
+      output: '$.choices'
+      usage:
+        input_tokens: '$.usage.prompt_tokens'
+        output_tokens: '$.usage.completion_tokens'
+      businessError:
+        errorWhenPresent: '$.error'
+        codePath: '$.error.code'
+        messagePath: '$.error.message'
+      stream:
+        doneSentinel: '[DONE]'
+
+  images.generation:
+    fetchModes: [submit_poll, submit_callback]
+    request:
+      method: POST
+      path: /v1/images/generations
+      bodyKind: json
+      body:
+        upstream_model_name: '$.model'
+        prompt: '$.prompt'
+        size: '$.size'
+      # a media placement (aspect ②): the resolved "image" medium → body.image.
+      media:
+        deliveryForms: [url, base64]
+        placements:
+          - param: image
+            path: '$.image'
+    response:
+      output: '$.image_url'
+      businessError:
+        errorWhenPresent: '$.error'
+        codePath: '$.error.code'
+        messagePath: '$.error.message'
+    task:
+      submit:
+        response:
+          taskIdPath: '$.task_id'
+          inlinePath: '$.image_url'
+      query:
+        request:
+          method: GET
+          path: /v1/images/tasks/{task_id}
+        taskIdPath: '$.task_id'
+        statusPath: '$.status'
+        statusMap:
+          queued: pending
+          processing: running
+          done: succeeded
+          error: failed
+        unknownStatus: running
+        outputPath: '$.image_url'
+        progressPath: '$.progress'
+        usage:
+          images: '$.usage.images'
+        errorMessagePath: '$.error.message'
+      callback:
+        verify:
+          strategy: hmac_sha256_timestamp
+          signatureHeader: x-mockvendor-signature
+          timestampHeader: x-mockvendor-timestamp
+          windowMs: 300000
+          secretConfigKey: callbackSecret
+        taskIdPath: '$.task_id'
+        statusPath: '$.status'
+        statusMap:
+          queued: pending
+          processing: running
+          done: succeeded
+          error: failed
+        unknownStatus: running
+        outputPath: '$.image_url'
+        usage:
+          images: '$.usage.images'
+        errorMessagePath: '$.error.message'
+
+# Discovery endpoint declaration (§10) — schema + pure parse only this slice.
+discovery:
+  request:
+    method: GET
+    path: /v1/models
+  modelsPath: '$.data'
+  idPath: '$.id'
+  displayNamePath: '$.name'

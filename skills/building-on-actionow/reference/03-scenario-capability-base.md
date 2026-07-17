@@ -14,7 +14,7 @@
 ```
 你的前端 ──▶ 你的后端 ──(控制面 JWT)──▶ core /auth, /console      onboard / 充值
                      └──(用户的 ak_)───▶ core /v1                 chat / run / files
-core ──(webhook 最小 ping)──▶ 你的后端 ──(ak_)──▶ GET /v1/jobs/:id  异步结果
+core ──(签名事件信封,含完整 task 体)──▶ 你的后端(验签 + evt_id 幂等)   异步结果
 ```
 
 ## 凭证与信任边界
@@ -31,7 +31,7 @@ core ──(webhook 最小 ping)──▶ 你的后端 ──(ak_)──▶ GET 
 
 `POST /console/subjects { externalId=<你的用户id> }` → 存 `subject.id`;`POST /console/api-keys { subjectId }` → 存 `plaintext`(`ak_`,仅一次)。机制:[../../actionow-integration/reference/01-authentication.md](../../actionow-integration/reference/01-authentication.md)。
 
-> `/console/subjects`(及 `/sub-account/*`、`/limit-plan`)、`/console/redeem`、`/console/limit-plans` 都**不在** OpenAPI —— 用裸 `fetch`;`/console/api-keys`、`/console/payments/intents` 有类型。同理**整个中继方言**(`/v1/chat/completions`、`/v1/embeddings`、`/v1/audio/transcriptions` 等)与 `/auth/refresh`、`/auth/logout` 也未类型化,只有 `/v1/run`·`/v1/jobs`·`/v1/resources`·`/v1/files` 有类型。完整「哪些 SDK 有类型、哪些走裸 fetch」清单见 [../../actionow-integration/reference/07-sdk-reference.md](../../actionow-integration/reference/07-sdk-reference.md)。
+> `/console/subjects`(及 `/sub-account/*`、`/limit-plan`)、`/console/redeem`、`/console/limit-plans` 都**不在** OpenAPI —— 用裸 `fetch`;`/console/api-keys`、`/console/payments/intents` 有类型。数据面:**新任务面有类型**(`/v1/tasks` 族、`/v1/videos/generations`、`/v1/audio/music`、`GET /v1/gateway/models`,连同 `/v1/files`);**整个中继方言**(`/v1/chat/completions`、`/v1/embeddings`、`/v1/audio/transcriptions` 等)与 `/auth/login` 未类型化,走裸 `fetch`。完整「哪些 SDK 有类型、哪些走裸 fetch」清单见 [../../actionow-integration/reference/07-sdk-reference.md](../../actionow-integration/reference/07-sdk-reference.md)。
 
 ### B. 充值 / 额度
 
@@ -41,13 +41,15 @@ core ──(webhook 最小 ping)──▶ 你的后端 ──(ak_)──▶ GET 
 
 后端用该用户的 `ak_` 打 `POST /v1/chat/completions`(OpenAI 线);`stream:true` 走 SSE。机制:[../../actionow-integration/reference/02-chat-and-relay.md](../../actionow-integration/reference/02-chat-and-relay.md)。
 
-### D. 媒体 / 异步
+### D. 媒体 / 异步(任务范式)
 
-`POST /v1/run/:resourceId`(`async-poll` 轮询 或 `async-callback` webhook)→ `GET /v1/jobs/:id`;第三条结果通道:`GET /v1/jobs/:id/stream`(SSE 进度推送,终态 `done`/`error`)。机制:[../../actionow-integration/reference/03-media-jobs-and-files.md](../../actionow-integration/reference/03-media-jobs-and-files.md) + [../../actionow-integration/reference/06-webhooks.md](../../actionow-integration/reference/06-webhooks.md)。
+`POST /v1/videos/generations` · `/v1/audio/music` · `/v1/tasks`(body 带 `type`,**model 寻址**)→ 服务端二择一:200 同步结果 或 202 + Task → `GET /v1/tasks/:id` 轮询 / `GET /v1/tasks/:id/stream` SSE / `callback_url` 签名事件信封(带完整 task 体)。SDK 一把梭:`submitTaskAndWait`。机制:[../../actionow-integration/reference/03-media-tasks-and-files.md](../../actionow-integration/reference/03-media-tasks-and-files.md) + [../../actionow-integration/reference/06-webhooks.md](../../actionow-integration/reference/06-webhooks.md)。
+
+> 旧 `POST /v1/run/:resourceId` + `GET /v1/jobs/*` 已 **deprecated**(迁移窗内仍可用,窗后删除)——存量集成尽快迁移,新集成一律走 `/v1/tasks` 族。
 
 ### E. 文件
 
-presign → PUT → confirm → 下载 URL;`file_id` 作 `/v1/run` 的输入。机制:[../../actionow-integration/reference/03-media-jobs-and-files.md](../../actionow-integration/reference/03-media-jobs-and-files.md)。
+presign → PUT → confirm → 下载 URL;`file_id` 填进模型契约声明为 `file` 类型的参数(契约见 `GET /v1/gateway/models`)。机制:[../../actionow-integration/reference/03-media-tasks-and-files.md](../../actionow-integration/reference/03-media-tasks-and-files.md)。
 
 ## 示例代码 / 脚本
 

@@ -2,7 +2,6 @@ import { createDefaultRegistry } from '@actionow/adapters';
 import type { Database } from '@actionow/db';
 import { createDb } from '@actionow/db';
 import type { BreakerStore } from '@actionow/engine';
-import { registerEngineAdapters } from '@actionow/engine';
 import type { AppEnv, ConcurrencyLimiter, RateLimiter } from '@actionow/infra';
 import { createRedis, loadEnv, RedisConcurrencyLimiter, RedisRateLimiter } from '@actionow/infra';
 import type { Provider } from '@nestjs/common';
@@ -12,19 +11,8 @@ import { AuditModule } from '../audit/audit.module.js';
 import { AuditService } from '../audit/audit.service.js';
 import { API_KEY_REPO, defaultApiKeyRepo } from '../auth/api-key.guard.js';
 import { buildBreakerStore } from '../common/breaker-store.js';
-import { BullmqJobQueue } from '../common/bullmq-queue.js';
 import { SecretResolver } from '../common/secret-resolver.js';
-import {
-  ADAPTERS,
-  BREAKER,
-  CONCURRENCY_LIMITER,
-  DB,
-  ENV,
-  JOB_PROGRESS,
-  JOB_QUEUE,
-  RATE_LIMITER,
-} from '../common/tokens.js';
-import { RedisJobProgressBus } from '../jobs/job-progress.bus.js';
+import { ADAPTERS, BREAKER, CONCURRENCY_LIMITER, DB, ENV, RATE_LIMITER } from '../common/tokens.js';
 
 const envProvider: Provider = {
   provide: ENV,
@@ -37,15 +25,11 @@ const dbProvider: Provider = {
   useFactory: (env: AppEnv): Database => createDb(env.DATABASE_URL),
 };
 
+// The legacy code-adapter registry — still consumed by the admin model
+// connectivity pre-test (ModelTestService). Dies with the resource world (D3).
 const adaptersProvider: Provider = {
   provide: ADAPTERS,
-  useFactory: () => registerEngineAdapters(createDefaultRegistry()),
-};
-
-const queueProvider: Provider = {
-  provide: JOB_QUEUE,
-  inject: [ENV],
-  useFactory: (env: AppEnv): BullmqJobQueue => new BullmqJobQueue(env.REDIS_URL),
+  useFactory: () => createDefaultRegistry(),
 };
 
 // The ApiKeyGuard's db surface, exported globally so it can be overridden with a
@@ -53,15 +37,14 @@ const queueProvider: Provider = {
 const apiKeyRepoProvider: Provider = { provide: API_KEY_REPO, useValue: defaultApiKeyRepo };
 
 // The two-level rate limiter, backed by a dedicated Redis client. Exported so
-// tests can override it with an in-memory fake (the blocking /v1/run e2e does
-// not stand up Redis).
+// tests can override it with an in-memory fake.
 const rateLimiterProvider: Provider = {
   provide: RATE_LIMITER,
   inject: [ENV],
   useFactory: (env: AppEnv): RateLimiter => new RedisRateLimiter(createRedis(env.REDIS_URL)),
 };
 
-// In-flight (concurrency) limiter for governance `concurrency` rules; same Redis,
+// In-flight (concurrency) limiter for the §7.8 concurrency gates; same Redis,
 // overridable with a fake in tests.
 const concurrencyLimiterProvider: Provider = {
   provide: CONCURRENCY_LIMITER,
@@ -73,8 +56,7 @@ const concurrencyLimiterProvider: Provider = {
 // The per-(channel, model) circuit breaker (弹性2.0), over a dedicated Redis
 // client (window + half-open trial gate) + the PG FSM state, with every
 // transition mirrored into the audit_log via AuditService. Fail-open /
-// best-effort, so it only OPTIMIZES the relay routing. Overridable with a fake
-// in tests.
+// best-effort. Overridable with a fake in tests.
 const breakerProvider: Provider = {
   provide: BREAKER,
   inject: [ENV, DB, AuditService],
@@ -84,23 +66,10 @@ const breakerProvider: Provider = {
     }),
 };
 
-// The job-progress SSE bus (`GET /v1/jobs/:id/stream`), over a DEDICATED ioredis
-// SUBSCRIBER client (subscriber mode is exclusive — must not reuse the breaker /
-// rate-limiter client). Ref-counts channel subscriptions across connections and
-// quits the client on module destroy (it owns its lifecycle). Fail-open, so a
-// Redis outage only degrades latency — the SSE service's DB-poll backstop keeps
-// the stream correct. Overridable with a fake in tests.
-const jobProgressProvider: Provider = {
-  provide: JOB_PROGRESS,
-  inject: [ENV],
-  useFactory: (env: AppEnv): RedisJobProgressBus =>
-    new RedisJobProgressBus(createRedis(env.REDIS_URL)),
-};
-
 /**
  * Global infrastructure module: one shared drizzle `Database`, the parsed env,
- * the engine's default adapter registry, the stub secret resolver, and the
- * BullMQ job queue. Exported so feature modules (execution, jobs) inject them
+ * the adapter registry (admin model pre-test), the secret resolver, and the
+ * shared limiter/breaker primitives. Exported so feature modules inject them
  * by token without re-instantiating per request.
  */
 @Global()
@@ -110,24 +79,20 @@ const jobProgressProvider: Provider = {
     envProvider,
     dbProvider,
     adaptersProvider,
-    queueProvider,
     apiKeyRepoProvider,
     rateLimiterProvider,
     concurrencyLimiterProvider,
     breakerProvider,
-    jobProgressProvider,
     SecretResolver,
   ],
   exports: [
     ENV,
     DB,
     ADAPTERS,
-    JOB_QUEUE,
     API_KEY_REPO,
     RATE_LIMITER,
     CONCURRENCY_LIMITER,
     BREAKER,
-    JOB_PROGRESS,
     SecretResolver,
   ],
 })

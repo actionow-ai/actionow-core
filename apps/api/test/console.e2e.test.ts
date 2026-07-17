@@ -1,6 +1,5 @@
 import type { IntentResult, PaymentProviderKind, VerifiedEvent } from '@actionow/contracts';
 import { schema } from '@actionow/db';
-import type { JobQueuePort } from '@actionow/engine';
 import { PaymentService } from '@actionow/engine';
 import { FakeRateLimitRedis, RedisRateLimiter } from '@actionow/infra';
 import type { PaymentProvider, PaymentRegistry } from '@actionow/payments';
@@ -16,7 +15,7 @@ import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
-import { DB, ENV, JOB_QUEUE, PAYMENTS, RATE_LIMITER } from '../src/common/tokens.js';
+import { DB, ENV, PAYMENTS, RATE_LIMITER } from '../src/common/tokens.js';
 import { resetDb } from './reset-db.js';
 
 const { paymentIntent } = schema;
@@ -30,10 +29,6 @@ let pg: StartedPostgreSqlContainer;
 let client: ReturnType<typeof postgres>;
 let db: PostgresJsDatabase<typeof schema>;
 let app: INestApplication;
-
-const noopQueue: JobQueuePort = {
-  enqueueExec: () => Promise.reject(new Error('console path must not enqueue')),
-};
 
 /**
  * The fake provider injected for the e2e: `createIntent` returns a canned
@@ -91,8 +86,6 @@ beforeAll(async () => {
     .useValue(db)
     .overrideProvider(PAYMENTS)
     .useValue(paymentsService)
-    .overrideProvider(JOB_QUEUE)
-    .useValue(noopQueue)
     .overrideProvider(RATE_LIMITER)
     .useValue(new RedisRateLimiter(new FakeRateLimitRedis()))
     .overrideProvider(ENV)
@@ -129,7 +122,7 @@ afterAll(async () => {
 afterEach(async () => {
   await resetDb(
     () =>
-      client`TRUNCATE TABLE file_object, api_key, ledger_txn, payment_intent, payment_event, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`,
+      client`TRUNCATE TABLE file_object, api_key, ledger_txn, payment_intent, payment_event, account, tenant, "user" RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -159,12 +152,13 @@ describe('/console', () => {
     const key = minted.body.plaintext as string;
 
     // The audited gap is CLOSED: the self-minted tenant key drives the /v1 data
-    // plane (ApiKeyGuard) without any admin ever issuing a key.
-    const jobs = await request(server())
-      .get('/v1/jobs')
+    // plane (ApiKeyGuard) without any admin ever issuing a key (批次6 D2: the
+    // task-center list replaced the old /v1/jobs probe).
+    const tasks = await request(server())
+      .get('/v1/tasks')
       .set('authorization', `Bearer ${key}`)
       .expect(200);
-    expect(Array.isArray(jobs.body.data)).toBe(true);
+    expect(Array.isArray(tasks.body.data)).toBe(true);
 
     // Listing returns the key WITHOUT a hash (the plaintext is unrecoverable).
     const listed = await request(server())

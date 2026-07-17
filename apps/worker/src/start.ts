@@ -1,42 +1,60 @@
-import type { ConnectionOptions, Job as BullJob } from 'bullmq';
+import type { ConnectionOptions } from 'bullmq';
 import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 
 import {
+  createArtifactReaperProcessor,
   createFileLifecycleReaperProcessor,
-  createHoldReaperProcessor,
-  createJobExecProcessor,
+  createReconcileDailyProcessor,
   createRelayTraceReaperProcessor,
+  createTaskEventsReaperProcessor,
+  createTaskPollProcessor,
+  createTaskReaperProcessor,
+  createTaskWebhookProcessor,
   createTokenRefreshProcessor,
-  createWebhookOutboxProcessor,
-  type JobExecData,
 } from './processors/index.js';
 import { QUEUE_NAMES } from './queues.js';
 import type { WorkerRuntime } from './runtime.js';
 
-/** Default cadence for the repeatable webhook-outbox sweep (ms). */
-export const WEBHOOK_SWEEP_MS = 10_000;
-/** Default cadence for the repeatable hold-reaper sweep (ms). */
-export const REAPER_SWEEP_MS = 30_000;
 /** Default cadence for the repeatable oauth token-refresh sweep (ms). */
 export const TOKEN_REFRESH_SWEEP_MS = 60_000;
 /** Default cadence for the repeatable relay-trace retention sweep (ms; hourly). */
 export const RELAY_TRACE_SWEEP_MS = 3_600_000;
 /** Default cadence for the repeatable file-lifecycle (TTL) sweep (ms; hourly). */
 export const FILE_LIFECYCLE_SWEEP_MS = 3_600_000;
+/** Default cadence for the §7.2 task lease-takeover poll sweep (ms). */
+export const TASK_POLL_SWEEP_MS = 10_000;
+/** Default cadence for the §3/§7.3 task orphan + hold-expiry sweep (ms). */
+export const TASK_REAPER_SWEEP_MS = 30_000;
+/** Default cadence for the §7.6 task webhook delivery sweep (ms). */
+export const TASK_WEBHOOK_SWEEP_MS = 10_000;
+/** Default cadence for the §9.3 task_events retention sweep (ms; hourly). */
+export const TASK_EVENTS_SWEEP_MS = 3_600_000;
+/** Default cadence for the §9.4 signed-track artifact lifecycle sweep (ms; hourly). */
+export const ARTIFACT_SWEEP_MS = 3_600_000;
+/** Default cadence for the §9.2 官方渠道 daily reconciliation sweep (ms; daily). */
+export const RECONCILE_DAILY_SWEEP_MS = 86_400_000;
 
 /** Tuning for {@link startWorkers}. */
 export interface StartWorkersOptions {
-  /** Repeatable webhook-outbox sweep cadence in ms (default {@link WEBHOOK_SWEEP_MS}). */
-  webhookSweepMs?: number;
-  /** Repeatable hold-reaper sweep cadence in ms (default {@link REAPER_SWEEP_MS}). */
-  reaperSweepMs?: number;
   /** Repeatable token-refresh sweep cadence in ms (default {@link TOKEN_REFRESH_SWEEP_MS}). */
   tokenRefreshSweepMs?: number;
   /** Repeatable relay-trace retention sweep cadence in ms (default {@link RELAY_TRACE_SWEEP_MS}). */
   relayTraceSweepMs?: number;
   /** Repeatable file-lifecycle (TTL) sweep cadence in ms (default {@link FILE_LIFECYCLE_SWEEP_MS}). */
   fileLifecycleSweepMs?: number;
+  /** §7.2 task lease-takeover poll sweep cadence in ms (default {@link TASK_POLL_SWEEP_MS}). */
+  taskPollSweepMs?: number;
+  /** §3/§7.3 task orphan + hold-expiry sweep cadence in ms (default {@link TASK_REAPER_SWEEP_MS}). */
+  taskReaperSweepMs?: number;
+  /** §7.6 task webhook delivery sweep cadence in ms (default {@link TASK_WEBHOOK_SWEEP_MS}). */
+  taskWebhookSweepMs?: number;
+  /** §9.3 task_events retention sweep cadence in ms (default {@link TASK_EVENTS_SWEEP_MS}). */
+  taskEventsSweepMs?: number;
+  /** §9.4 artifact lifecycle sweep cadence in ms (default {@link ARTIFACT_SWEEP_MS}). */
+  artifactSweepMs?: number;
+  /** §9.2 daily official-channel reconcile sweep cadence in ms (default {@link RECONCILE_DAILY_SWEEP_MS}). */
+  reconcileDailySweepMs?: number;
   /**
    * BullMQ connection. When omitted a fresh ioredis client is created from
    * `runtime.env.REDIS_URL` and owned by the returned handle (closed on
@@ -51,10 +69,14 @@ export interface RunningWorkers {
 }
 
 /**
- * Boot the worker's three BullMQ Workers (`job-exec`, `webhook-outbox`,
- * `hold-reaper`) over the injected {@link WorkerRuntime} and register the
- * repeatable webhook/reaper sweeps. Extracted from `main.ts` so the api's
- * full-stack e2e can stand up a real worker against a Testcontainers Redis.
+ * Boot the worker's BullMQ Workers over the injected {@link WorkerRuntime} and
+ * register the repeatable sweeps: the task-center sweeps `task-poll` /
+ * `task-reaper` / `task-webhook` / `task-events-reaper` / `artifact-reaper` /
+ * `reconcile-daily` plus the shared retention/oauth sweeps (`token-refresh`,
+ * `relay-trace-reaper`, `file-lifecycle-reaper`). 批次6 D2: the old job-path
+ * queues (`job-exec`, `webhook-outbox`, `hold-reaper`) are deleted with the
+ * legacy execution world. Extracted from `main.ts` so the api's full-stack
+ * e2e can stand up a real worker against a Testcontainers Redis.
  *
  * Returns a handle whose `close()` drains and closes every Worker + Queue and,
  * when this function owned the connection, quits the ioredis client — so the
@@ -70,43 +92,25 @@ export function startWorkers(
   const connection: ConnectionOptions =
     opts.connection ?? new Redis(runtime.env.REDIS_URL, { maxRetriesPerRequest: null });
 
-  const webhookSweepMs = opts.webhookSweepMs ?? WEBHOOK_SWEEP_MS;
-  const reaperSweepMs = opts.reaperSweepMs ?? REAPER_SWEEP_MS;
   const tokenRefreshSweepMs = opts.tokenRefreshSweepMs ?? TOKEN_REFRESH_SWEEP_MS;
   const relayTraceSweepMs = opts.relayTraceSweepMs ?? RELAY_TRACE_SWEEP_MS;
   const fileLifecycleSweepMs = opts.fileLifecycleSweepMs ?? FILE_LIFECYCLE_SWEEP_MS;
+  const taskPollSweepMs = opts.taskPollSweepMs ?? TASK_POLL_SWEEP_MS;
+  const taskReaperSweepMs = opts.taskReaperSweepMs ?? TASK_REAPER_SWEEP_MS;
+  const taskWebhookSweepMs = opts.taskWebhookSweepMs ?? TASK_WEBHOOK_SWEEP_MS;
+  const taskEventsSweepMs = opts.taskEventsSweepMs ?? TASK_EVENTS_SWEEP_MS;
+  const artifactSweepMs = opts.artifactSweepMs ?? ARTIFACT_SWEEP_MS;
+  const reconcileDailySweepMs = opts.reconcileDailySweepMs ?? RECONCILE_DAILY_SWEEP_MS;
 
-  const jobExec = createJobExecProcessor(runtime);
-  const processWebhookOutbox = createWebhookOutboxProcessor(runtime);
-  const processHoldReaper = createHoldReaperProcessor(runtime);
   const processTokenRefresh = createTokenRefreshProcessor(runtime);
   const processRelayTraceReaper = createRelayTraceReaperProcessor(runtime);
   const processFileLifecycleReaper = createFileLifecycleReaperProcessor(runtime);
-
-  // job-exec: one job per async run, payload { jobId }.
-  const jobExecWorker = new Worker(
-    'job-exec',
-    (job: BullJob<JobExecData>) => jobExec.process(job.data),
-    { connection },
-  );
-
-  // On EXHAUSTED retries (last attempt failed), terminal-fail the DB job so its
-  // hold is released NOW rather than sitting `running` until the ~15-min reaper.
-  // Earlier attempts (attemptsMade < attempts) are left for BullMQ to retry.
-  jobExecWorker.on('failed', (job, err) => {
-    if (job === undefined) return;
-    const maxAttempts = job.opts.attempts ?? 1;
-    if (job.attemptsMade < maxAttempts) return;
-    void jobExec.failExhausted(job.data.jobId, err.message).catch((e: unknown) => {
-      console.error(`failExhausted error for job ${job.id ?? '?'}: ${String(e)}`);
-    });
-  });
-
-  // webhook-outbox: a repeatable sweep that drains due outbox rows.
-  const webhookWorker = new Worker('webhook-outbox', () => processWebhookOutbox(), { connection });
-
-  // hold-reaper: a repeatable sweep that cancels expired in-flight holds.
-  const reaperWorker = new Worker('hold-reaper', () => processHoldReaper(), { connection });
+  const processTaskPoll = createTaskPollProcessor(runtime);
+  const processTaskReaper = createTaskReaperProcessor(runtime);
+  const processTaskWebhook = createTaskWebhookProcessor(runtime);
+  const processTaskEventsReaper = createTaskEventsReaperProcessor(runtime);
+  const processArtifactReaper = createArtifactReaperProcessor(runtime);
+  const processReconcileDaily = createReconcileDailyProcessor(runtime);
 
   // token-refresh: a repeatable sweep that refreshes near-expiry oauth sessions.
   const tokenRefreshWorker = new Worker('token-refresh', () => processTokenRefresh(), {
@@ -126,17 +130,45 @@ export function startWorkers(
     { connection },
   );
 
-  jobExecWorker.on('ready', () => {
+  // task-poll: the §7.2 lease-takeover sweep — claims expired-lease recoverable
+  // tasks (submit_poll/submit_callback) and polls each to a terminal state.
+  const taskPollWorker = new Worker('task-poll', () => processTaskPoll(), { connection });
+
+  // task-reaper: §3 direct orphans + §7.3 hold-expiry backstop (fail, no charge).
+  const taskReaperWorker = new Worker('task-reaper', () => processTaskReaper(), { connection });
+
+  // task-webhook: drains due §7.6 webhook_deliveries (signed envelopes, fixed ladder).
+  const taskWebhookWorker = new Worker('task-webhook', () => processTaskWebhook(), { connection });
+
+  // task-events-reaper: §9.3 task_events retention sweep.
+  const taskEventsReaperWorker = new Worker('task-events-reaper', () => processTaskEventsReaper(), {
+    connection,
+  });
+
+  // artifact-reaper: §9.4 signed-track expiry (public 轨豁免清理 by construction).
+  const artifactReaperWorker = new Worker('artifact-reaper', () => processArtifactReaper(), {
+    connection,
+  });
+
+  // reconcile-daily: §9.2 官方渠道 daily reconciliation comparer (previous UTC day).
+  const reconcileDailyWorker = new Worker('reconcile-daily', () => processReconcileDaily(), {
+    connection,
+  });
+
+  taskPollWorker.on('ready', () => {
     console.log(`worker ready: ${QUEUE_NAMES.join(', ')}`);
   });
 
   const workers = [
-    jobExecWorker,
-    webhookWorker,
-    reaperWorker,
     tokenRefreshWorker,
     relayTraceWorker,
     fileLifecycleWorker,
+    taskPollWorker,
+    taskReaperWorker,
+    taskWebhookWorker,
+    taskEventsReaperWorker,
+    artifactReaperWorker,
+    reconcileDailyWorker,
   ];
   for (const worker of workers) {
     worker.on('failed', (job, err) => {
@@ -147,25 +179,27 @@ export function startWorkers(
 
   // Register the repeatable sweeps. A fixed `jobId` dedupes the schedule across
   // restarts so it is not registered twice.
-  const webhookQueue = new Queue('webhook-outbox', { connection });
-  const reaperQueue = new Queue('hold-reaper', { connection });
   const tokenRefreshQueue = new Queue('token-refresh', { connection });
   const relayTraceQueue = new Queue('relay-trace-reaper', { connection });
   const fileLifecycleQueue = new Queue('file-lifecycle-reaper', { connection });
+  const taskPollQueue = new Queue('task-poll', { connection });
+  const taskReaperQueue = new Queue('task-reaper', { connection });
+  const taskWebhookQueue = new Queue('task-webhook', { connection });
+  const taskEventsReaperQueue = new Queue('task-events-reaper', { connection });
+  const artifactReaperQueue = new Queue('artifact-reaper', { connection });
+  const reconcileDailyQueue = new Queue('reconcile-daily', { connection });
   const queues = [
-    webhookQueue,
-    reaperQueue,
     tokenRefreshQueue,
     relayTraceQueue,
     fileLifecycleQueue,
+    taskPollQueue,
+    taskReaperQueue,
+    taskWebhookQueue,
+    taskEventsReaperQueue,
+    artifactReaperQueue,
+    reconcileDailyQueue,
   ];
   const scheduled = Promise.all([
-    webhookQueue.add(
-      'sweep',
-      {},
-      { repeat: { every: webhookSweepMs }, jobId: 'webhook-outbox-sweep' },
-    ),
-    reaperQueue.add('sweep', {}, { repeat: { every: reaperSweepMs }, jobId: 'hold-reaper-sweep' }),
     tokenRefreshQueue.add(
       'sweep',
       {},
@@ -180,6 +214,36 @@ export function startWorkers(
       'sweep',
       {},
       { repeat: { every: fileLifecycleSweepMs }, jobId: 'file-lifecycle-reaper-sweep' },
+    ),
+    taskPollQueue.add(
+      'sweep',
+      {},
+      { repeat: { every: taskPollSweepMs }, jobId: 'task-poll-sweep' },
+    ),
+    taskReaperQueue.add(
+      'sweep',
+      {},
+      { repeat: { every: taskReaperSweepMs }, jobId: 'task-reaper-sweep' },
+    ),
+    taskWebhookQueue.add(
+      'sweep',
+      {},
+      { repeat: { every: taskWebhookSweepMs }, jobId: 'task-webhook-sweep' },
+    ),
+    taskEventsReaperQueue.add(
+      'sweep',
+      {},
+      { repeat: { every: taskEventsSweepMs }, jobId: 'task-events-reaper-sweep' },
+    ),
+    artifactReaperQueue.add(
+      'sweep',
+      {},
+      { repeat: { every: artifactSweepMs }, jobId: 'artifact-reaper-sweep' },
+    ),
+    reconcileDailyQueue.add(
+      'sweep',
+      {},
+      { repeat: { every: reconcileDailySweepMs }, jobId: 'reconcile-daily-sweep' },
     ),
   ]);
   // Surface a scheduling failure rather than leaving it floating; a real boot
@@ -197,11 +261,6 @@ export function startWorkers(
       await Promise.all(queues.map((q) => q.close()));
       if (ownsConnection && connection instanceof Redis) {
         await connection.quit();
-      }
-      // Quit the dedicated job-progress SSE publisher client the runtime owns
-      // (createWorkerRuntime built it); a fake test runtime omits it → no-op.
-      if (runtime.progressPublisher !== undefined) {
-        await runtime.progressPublisher.quit();
       }
     },
   };

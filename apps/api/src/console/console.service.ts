@@ -32,7 +32,6 @@ import {
   getSubAccount,
   getSubjectById,
   getTenantLimitPlanId,
-  type Job,
   type KeysetResult,
   type LedgerRow,
   type LimitAlertRow,
@@ -45,7 +44,6 @@ import {
   listConversations,
   listFilesByTenant,
   listIntentsByTenant,
-  listJobs,
   listLedger,
   listLimitAlertsForSubject,
   listLimitPlansByTenant,
@@ -173,10 +171,9 @@ export class ConsoleService {
   }
 
   // ----- usage -----
-
-  listJobs(tenantId: string, page: PageParams): Promise<KeysetResult<Job>> {
-    return listJobs(this.db, tenantId, page);
-  }
+  // 批次6 D3 (旧世界删除): `listJobs` died with the old `job` world — the
+  // console `/usage` face keeps its response SHAPE (web freeze) with an empty
+  // jobs envelope at the controller.
 
   listLedger(tenantId: string, page: PageParams): Promise<KeysetResult<LedgerRow>> {
     return listLedger(this.db, tenantId, page);

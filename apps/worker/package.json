@@ -22,6 +22,7 @@
     "@actionow/domain": "workspace:*",
     "@actionow/engine": "workspace:*",
     "@actionow/infra": "workspace:*",
+    "@actionow/spi": "workspace:*",
     "bullmq": "^5.13.0",
     "ioredis": "^5.10.1",
     "reflect-metadata": "^0.2.0"

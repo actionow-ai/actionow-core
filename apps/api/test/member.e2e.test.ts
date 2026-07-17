@@ -1,5 +1,4 @@
 import { insertUsageLog, schema } from '@actionow/db';
-import type { JobQueuePort } from '@actionow/engine';
 import { FakeRateLimitRedis, RedisRateLimiter } from '@actionow/infra';
 import type { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -13,7 +12,7 @@ import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
-import { DB, ENV, JOB_QUEUE, RATE_LIMITER } from '../src/common/tokens.js';
+import { DB, ENV, RATE_LIMITER } from '../src/common/tokens.js';
 import { resetDb } from './reset-db.js';
 
 const ADMIN_SECRET = 'member-e2e-secret';
@@ -24,10 +23,6 @@ let db: PostgresJsDatabase<typeof schema>;
 let app: INestApplication;
 const jwt = new JwtService({ secret: ADMIN_SECRET });
 
-const noopQueue: JobQueuePort = {
-  enqueueExec: () => Promise.reject(new Error('member path must not enqueue')),
-};
-
 beforeAll(async () => {
   pg = await new PostgreSqlContainer('postgres:16-alpine').start();
   client = postgres(pg.getConnectionUri(), { max: 10 });
@@ -37,8 +32,6 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(DB)
     .useValue(db)
-    .overrideProvider(JOB_QUEUE)
-    .useValue(noopQueue)
     .overrideProvider(RATE_LIMITER)
     .useValue(new RedisRateLimiter(new FakeRateLimitRedis()))
     .overrideProvider(ENV)
@@ -74,7 +67,7 @@ afterEach(async () => {
   await new Promise((resolve) => setTimeout(resolve, 50));
   await resetDb(
     () =>
-      client`TRUNCATE TABLE audit_log, sub_account, subject, file_object, api_key, ledger_txn, usage_log, payment_intent, payment_event, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`,
+      client`TRUNCATE TABLE audit_log, sub_account, subject, file_object, api_key, ledger_txn, usage_log, payment_intent, payment_event, account, tenant, "user" RESTART IDENTITY CASCADE`,
   );
 });
 

@@ -1,6 +1,8 @@
 # 02 · Chat & synchronous relay
 
-All endpoints here are **data plane** (`ak_…` key). They are single-call, synchronous relays (chat may stream). Optional headers: `X-Actionow-Route-Tag` (canary routing) works on every endpoint; `Idempotency-Key` (dedupe; see [05](05-errors-and-idempotency.md)) is honored on chat, `/v1/embeddings`, `/v1/rerank`, `/v1/moderations`, and `/v1/audio/transcriptions` — **not** on `/v1/images/generations`, `/v1/audio/speech`, or `/v1/run` (use the body `idempotency_key` there; see [05](05-errors-and-idempotency.md)).
+All endpoints here are **data plane** (`ak_…` key). They are single-call, synchronous relays (chat may stream). Optional headers: `X-Actionow-Route-Tag` (canary routing) works on every endpoint; `Idempotency-Key` (dedupe; see [05](05-errors-and-idempotency.md)) is honored on chat, `/v1/embeddings`, `/v1/rerank`, `/v1/moderations`, and `/v1/audio/transcriptions`.
+
+> **New-gateway note (双面并存):** the platform is migrating chat/embeddings execution onto the new supply gateway per tenant. The OpenAI wire below is UNCHANGED either way. Two behavioral differences once your tenant is switched: (a) parameters are validated against the model's canonical contract — an unsupported param can answer `400 unsupported_parameter` instead of being forwarded blind; (b) a deprecated model adds `Deprecation: true` + `X-Actionow-Model-Deprecated` response headers. If you see either, consult `GET /v1/gateway/models` for the model's contract and status.
 
 ## Chat — OpenAI wire · `POST /v1/chat/completions`
 
@@ -86,14 +88,17 @@ curl -sX POST "$ACTIONOW_BASE_URL/v1/moderations" \
 # → { id, model, results:[{ flagged, categories:{…}, category_scores:{…} }] }
 ```
 
-## Model discovery · `GET /v1/models`
+## Model discovery · `GET /v1/gateway/models` (rich) and `GET /v1/models` (bare)
 
 ```sh
-curl -s "$ACTIONOW_BASE_URL/v1/models" -H "authorization: Bearer $ACTIONOW_API_KEY"
-# → { object:"list", data:[{ id, object:"model", owned_by:"actionow" }] }
+curl -s "$ACTIONOW_BASE_URL/v1/gateway/models" -H "authorization: Bearer $ACTIONOW_API_KEY"
+# → { object:"list", data:[{ id, object:"model", display_name, modality, status,
+#      operations:[{ operation, paradigms, slow, params:[…] }], capabilities }] }
 ```
 
-Returns exactly the models the caller's tenant may use (public active + tenant-granted). The `id` is what you pass as `model`. This call is free.
+`GET /v1/gateway/models` is the NEW discovery face: exactly the models this caller can use (tenant visibility ∩ key model-allowlist), each with its operation surfaces, paradigms, the `slow` auto-upgrade marker, and the canonical **parameter contract** (name/type/required/default/values/min/max + `billing_relevant`) — use it to know what params a model accepts before calling. The `id` is what you pass as `model`. Both discovery calls are free.
+
+The old `GET /v1/models` still answers the bare OpenAI list shape (`{ data:[{ id, owned_by:"actionow" }] }`) for OpenAI-SDK compatibility.
 
 ## Pinning a channel (multi-channel routing · 渠道指定)
 
@@ -110,7 +115,7 @@ When one model name is served by **multiple upstream channels** (e.g. `gpt-5.5` 
 - **Narrow-only.** The tag filters _within_ the key's already-resolved candidate channels — it can never escalate to channels the key couldn't otherwise reach.
 - **Zero-match is a hard `400 invalid_input`.** A typo'd tag never silently leaks traffic to untagged channels.
 - **Blank/absent header is a no-op** — header-less requests route exactly as before.
-- **Enforced only for in-process execution**: chat (OpenAI / Anthropic / Gemini wire), `/v1/embeddings`, `/v1/rerank`, `/v1/moderations`, `/v1/audio/transcriptions`, `/v1/images/generations`, `/v1/audio/speech`, and `/v1/run` in `exec_mode` blocking/stream. **Async `/v1/run` jobs are NOT pinned**: the tag is validated up front (a zero-match still 400s), but the worker executes over **all** of the resource's active channels. Route-group pinning has the same async hole (wiring it needs a `job.route_group_id` column, deferred). To pin async media traffic, isolate channels at the resource level or use blocking mode.
+- **The task paradigm is fully aligned with sync routing.** On the new gateway (`/v1/videos|audio/music|tasks` and switched chat/embeddings), route tags, key route-groups, pinning, fault policies and circuit breakers apply IDENTICALLY to sync, stream, and task executions — the old "async jobs are not pinned" hole exists only on the deprecated `/v1/run` face (its async worker still executes over all active channels; pin via resource-level isolation there until you migrate).
 
 Sending the header from the official OpenAI SDK (works the same in OpenAI-compatible vendor SDKs, e.g. Volcano Ark):
 
@@ -133,6 +138,6 @@ const client = new OpenAI({
 
 If an SDK cannot send custom headers, fall back to **per-key route groups** or **distinct model names** — both are zero-touch for any OpenAI-compatible SDK.
 
-## Audio & image are here too, but async-shaped
+## Audio & image are here too, and may auto-upgrade
 
-Text-to-speech (`POST /v1/audio/speech`, returns binary audio), transcription (`POST /v1/audio/transcriptions`, multipart), and image generation (`POST /v1/images/generations`) exist as OpenAI-compatible convenience endpoints — see [03-media-jobs-and-files.md](03-media-jobs-and-files.md), which also covers the generic `/v1/run` job path.
+Text-to-speech (`POST /v1/audio/speech`, returns binary audio), transcription (`POST /v1/audio/transcriptions`, multipart), and image generation (`POST /v1/images/generations`) exist as OpenAI-compatible convenience endpoints. On the new gateway a `slow`-marked model makes them answer **`202 + Task`** instead of their usual shape (server-side auto-upgrade, no opt-in) — handle both. See [03-media-tasks-and-files.md](03-media-tasks-and-files.md), which covers the whole task paradigm.

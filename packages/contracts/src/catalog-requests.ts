@@ -230,30 +230,6 @@ export const updateModifierSchema = z.object({
 });
 export type UpdateModifierBody = z.infer<typeof updateModifierSchema>;
 
-/** `POST /admin/dify/import` — register a BYO Dify workflow. */
-export const difyImportSchema = z.object({
-  tenantId: z.string().uuid(),
-  resourceId: z.string().min(1),
-  yaml: z.string().min(1),
-  endpoint: z.string().url(),
-  serviceKeyRef: z.string().uuid().nullable().optional(),
-  pricingModel: z.enum(['fixed', 'matrix', 'metered']),
-  allowBlockers: z.boolean().optional(),
-});
-export type DifyImportBody = z.infer<typeof difyImportSchema>;
-
-/**
- * `PATCH /admin/dify/:resourceId` — update the current dify binding. Every field
- * is optional (omitted = unchanged). `serviceKeyRef` may be set to `null` to
- * clear it. Operates on the resource's highest-version live binding.
- */
-export const updateDifySchema = z.object({
-  endpoint: z.string().url().optional(),
-  serviceKeyRef: z.string().uuid().nullable().optional(),
-  pricingModel: z.enum(['fixed', 'matrix', 'metered']).optional(),
-});
-export type UpdateDifyBody = z.infer<typeof updateDifySchema>;
-
 /** `POST /admin/models` — register a relay model (name → chat resource). */
 export const createModelSchema = z.object({
   name: z.string().min(1),

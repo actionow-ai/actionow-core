@@ -65,12 +65,10 @@ import {
   createModifierSchema,
   createPricebookSchema,
   createResourceSchema,
-  difyImportSchema,
   grantModelSchema,
   syncChannelModelsSchema,
   updateChannelModelParamOverrideSchema,
   updateChannelSchema,
-  updateDifySchema,
   updateModelSchema,
   updateModelSpecSchema,
   updateModifierSchema,
@@ -80,7 +78,6 @@ import {
 import {
   channelModelViewSchema,
   channelViewSchema,
-  difyBindingViewSchema,
   modelGrantViewSchema,
   modelSpecViewSchema,
   modelViewSchema,
@@ -119,11 +116,6 @@ import {
   fileViewSchema,
   presignUploadResultSchema,
   presignUploadSchema,
-  resourceDetailSchema,
-  resourceSummarySchema,
-  runBodySchema,
-  runJobViewSchema,
-  runResponseSchema,
 } from './data-plane.js';
 import { errorViewSchema } from './error-view.js';
 import {
@@ -131,13 +123,24 @@ import {
   faultPolicyViewSchema,
   updateFaultPolicySchema,
 } from './fault-policy.js';
+import {
+  gatewayErrorViewSchema,
+  gatewayInvokeResponseSchema,
+  gatewayModelListSchema,
+  gatewayResourceCreateBodySchema,
+  gatewayTaskCreateBodySchema,
+  gatewayTaskViewSchema,
+} from './gateway-wire.js';
+import {
+  enableSupplyOfferingResponseSchema,
+  probeSupplyOfferingResponseSchema,
+} from './golden-probe.js';
 import { modelTestRequestSchema, modelTestResultSchema } from './model-test.js';
 import {
   apiKeyViewSchema,
   breakerViewSchema,
   channelHealthViewSchema,
   codexLoginStartViewSchema,
-  difyImportViewSchema,
   jobViewSchema,
   ledgerViewSchema,
   modelHealthViewSchema,
@@ -162,8 +165,6 @@ import { priceSpecSchema } from './pricing.js';
 import {
   createPluginRequestSchema,
   providerPluginViewSchema,
-  testPluginRequestSchema,
-  testPluginResponseSchema,
   updatePluginRequestSchema,
 } from './provider-plugin.js';
 import {
@@ -172,6 +173,39 @@ import {
   proxyViewSchema,
   updateProxySchema,
 } from './proxy.js';
+import { dailyReconcileReportSchema, reconciliationReportSchema } from './reconciliation.js';
+import {
+  batchCreateSupplyOfferingsResponseSchema,
+  batchCreateSupplyOfferingsSchema,
+  batchProbeEnableSupplyOfferingsResponseSchema,
+  batchProbeEnableSupplyOfferingsSchema,
+  discoverSupplyModelsResponseSchema,
+} from './supply-discovery.js';
+import {
+  channelSchema as supplyChannelViewSchema,
+  credentialSchema as supplyCredentialViewSchema,
+  modelSchema as supplyModelViewSchema,
+  offeringSchema as supplyOfferingViewSchema,
+  priceCardSchema as supplyPriceCardViewSchema,
+  providerSchema as supplyProviderViewSchema,
+} from './supply-entities.js';
+import {
+  createSupplyChannelSchema,
+  createSupplyCredentialSchema,
+  createSupplyModelSchema,
+  createSupplyOfferingSchema,
+  createSupplyPriceCardSchema,
+  createSupplyPriceCardVersionSchema,
+  createSupplyProviderSchema,
+  grantSupplyModelSchema,
+  supplyPriceCardFromOfficialSchema,
+  updateApiKeyModelAllowlistSchema,
+  updateSupplyChannelSchema,
+  updateSupplyCredentialSchema,
+  updateSupplyModelSchema,
+  updateSupplyOfferingSchema,
+  updateSupplyProviderSchema,
+} from './supply-requests.js';
 
 /**
  * BUILD-TIME ONLY. This module turns the pure zod view contracts into an OpenAPI
@@ -243,8 +277,6 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const ModelGrant = registry.register('ModelGrantView', modelGrantViewSchema);
   const Pricebook = registry.register('PricebookView', pricebookViewSchema);
   const Modifier = registry.register('ModifierView', modifierViewSchema);
-  const DifyBinding = registry.register('DifyBindingView', difyBindingViewSchema);
-  const UpdateDify = registry.register('UpdateDifyBody', updateDifySchema);
 
   // admin operational views (ops-views)
   const ApiKey = registry.register('ApiKeyView', apiKeyViewSchema);
@@ -254,7 +286,6 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const UsageRollup = registry.register('UsageRollupView', usageRollupViewSchema);
   const Payment = registry.register('PaymentIntentView', paymentIntentViewSchema);
   const Secret = registry.register('SecretView', secretViewSchema);
-  registry.register('DifyImportView', difyImportViewSchema);
   const RelayTrace = registry.register('RelayTraceView', relayTraceViewSchema);
   const RedemptionCode = registry.register('RedemptionCodeView', redemptionCodeViewSchema);
   const RedeemCodes = registry.register('RedeemCodesResult', redeemCodesResultSchema);
@@ -262,8 +293,6 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const ProviderPlugin = registry.register('ProviderPluginView', providerPluginViewSchema);
   const CreatePlugin = registry.register('CreatePluginBody', createPluginRequestSchema);
   const UpdatePlugin = registry.register('UpdatePluginBody', updatePluginRequestSchema);
-  const TestPlugin = registry.register('TestPluginBody', testPluginRequestSchema);
-  const TestPluginResp = registry.register('TestPluginResponse', testPluginResponseSchema);
   const OAuthSession = registry.register('OAuthSessionView', oauthSessionViewSchema);
   const OAuthSessionList = registry.register('OAuthSessionListView', oauthSessionListViewSchema);
   const CodexLoginStartV = registry.register('CodexLoginStartView', codexLoginStartViewSchema);
@@ -332,12 +361,9 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const UpdateConversation = registry.register('UpdateConversationBody', updateConversationSchema);
   const AppendMessage = registry.register('AppendMessageBody', appendMessageSchema);
 
-  // data-plane views (data-plane): the generation hot path (/v1/run, /v1/jobs,
-  // /v1/resources, /v1/files) an external developer's app drives via @actionow/sdk.
-  const RunResp = registry.register('RunResponse', runResponseSchema);
-  const RunJob = registry.register('RunJobView', runJobViewSchema);
-  const ResourceSummary = registry.register('ResourceSummary', resourceSummarySchema);
-  const ResourceDetail = registry.register('ResourceDetail', resourceDetailSchema);
+  // data-plane views (data-plane): the /v1/files surface an external
+  // developer's app drives via @actionow/sdk (批次6 D2: the /v1/run · /v1/jobs
+  // · /v1/resources schemas died with the legacy execution world).
   const PresignResult = registry.register('PresignUploadResult', presignUploadResultSchema);
   const FileV = registry.register('FileView', fileViewSchema);
   const FileUrl = registry.register('FileUrlResult', fileUrlResultSchema);
@@ -392,7 +418,6 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   const UpdatePricebook = registry.register('UpdatePricebookBody', updatePricebookSchema);
   const CreateModifier = registry.register('CreateModifierBody', createModifierSchema);
   const UpdateModifier = registry.register('UpdateModifierBody', updateModifierSchema);
-  const DifyImport = registry.register('DifyImportBody', difyImportSchema);
   const CreateModel = registry.register('CreateModelBody', createModelSchema);
   const UpdateModel = registry.register('UpdateModelBody', updateModelSchema);
   const CreateModelSpec = registry.register('CreateModelSpecBody', createModelSpecSchema);
@@ -436,7 +461,6 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     consoleChangePasswordSchema,
   );
   // data-plane request bodies (data-plane)
-  const RunReq = registry.register('RunBody', runBodySchema);
   const PresignReq = registry.register('PresignUploadBody', presignUploadSchema);
   // Speech-to-text relay (multipart) contracts. `TranscriptionReq` carries the
   // non-file fields; the path's multipart requestBody extends it with the binary
@@ -835,14 +859,6 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     created: true,
   });
   write({
-    method: 'post',
-    path: '/admin/plugins/test',
-    summary: 'Run a handler fn in the sandbox (test panel)',
-    tag: 'catalog',
-    body: TestPlugin,
-    response: TestPluginResp,
-  });
-  write({
     method: 'patch',
     path: '/admin/plugins/{id}',
     summary: 'Update a provider plugin',
@@ -1199,24 +1215,6 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
   });
   write({
     method: 'post',
-    path: '/admin/dify/import',
-    summary: 'Register a BYO Dify workflow',
-    tag: 'catalog',
-    body: DifyImport,
-    created: true,
-  });
-  list('/admin/dify', 'List dify bindings', DifyBinding, 'catalog', keyset);
-  write({
-    method: 'patch',
-    path: '/admin/dify/{resourceId}',
-    summary: 'Update a dify binding',
-    tag: 'catalog',
-    body: UpdateDify,
-    response: DifyBinding,
-  });
-  del('/admin/dify/{resourceId}', 'Delete a dify binding', 'catalog');
-  write({
-    method: 'post',
     path: '/admin/models',
     summary: 'Register a relay model',
     tag: 'catalog',
@@ -1432,40 +1430,9 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
     body: ConsoleChangePassword,
   });
 
-  // --- data-plane paths (/v1/*): the generation hot path (ak_-key authed) -------
-  write({
-    method: 'post',
-    path: '/v1/run/{resourceId}',
-    summary: 'Run a resource (blocking → output inline; async → queued, poll /v1/jobs)',
-    tag: 'data-plane',
-    body: RunReq,
-    response: RunResp,
-  });
-  list('/v1/jobs', 'List your jobs (paginated)', RunJob, 'data-plane', keyset);
-  getOne('/v1/jobs/{id}', 'Get a job (status/output/usage/cost)', RunJob, 'data-plane');
-  registry.registerPath({
-    method: 'post',
-    path: '/v1/jobs/{id}/cancel',
-    summary: 'Cancel a queued/running job (releases the hold)',
-    tags: ['data-plane'],
-    request: { params: z.object({ id: z.string() }) },
-    responses: {
-      200: { description: 'Canceled job', content: { 'application/json': { schema: RunJob } } },
-    },
-  });
-  list(
-    '/v1/resources',
-    'List resources visible to your key',
-    ResourceSummary,
-    'data-plane',
-    keyset,
-  );
-  getOne(
-    '/v1/resources/{id}',
-    'Get a resource (io_schema + pricing)',
-    ResourceDetail,
-    'data-plane',
-  );
+  // --- data-plane paths (/v1/*): the ak_-key-authed file surface (批次6 D2:
+  // the legacy /v1/run + /v1/jobs + /v1/resources faces died with the old
+  // execution world — the task paradigm lives at /v1/tasks 族 below) --------
   const filesQuery = keyset.extend({ status: z.enum(['pending', 'ready']).optional() });
   list('/v1/files', 'List your files (paginated)', FileV, 'data-plane', filesQuery);
   write({
@@ -1555,6 +1522,545 @@ export function buildOpenApiDocument(): ReturnType<OpenApiGeneratorV3['generateD
       200: {
         description: 'JWK set',
         content: { 'application/json': { schema: Jwks } },
+      },
+    },
+  });
+
+  // --- supply skeleton (model-supply greenfield 批次1) — registered LAST so the
+  // generated document APPENDS (components and paths) instead of reshuffling
+  // pre-existing entries: the FROZEN entity schemas double as the CRUD views;
+  // the write bodies come from supply-requests.ts.
+  const SupplyProvider = registry.register('SupplyProviderView', supplyProviderViewSchema);
+  const SupplyChannel = registry.register('SupplyChannelView', supplyChannelViewSchema);
+  const SupplyCredential = registry.register('SupplyCredentialView', supplyCredentialViewSchema);
+  const SupplyModel = registry.register('SupplyModelView', supplyModelViewSchema);
+  const SupplyOffering = registry.register('SupplyOfferingView', supplyOfferingViewSchema);
+  const SupplyPriceCard = registry.register('SupplyPriceCardView', supplyPriceCardViewSchema);
+  const CreateSupplyProvider = registry.register(
+    'CreateSupplyProviderBody',
+    createSupplyProviderSchema,
+  );
+  const UpdateSupplyProvider = registry.register(
+    'UpdateSupplyProviderBody',
+    updateSupplyProviderSchema,
+  );
+  const CreateSupplyChannel = registry.register(
+    'CreateSupplyChannelBody',
+    createSupplyChannelSchema,
+  );
+  const UpdateSupplyChannel = registry.register(
+    'UpdateSupplyChannelBody',
+    updateSupplyChannelSchema,
+  );
+  const CreateSupplyCredential = registry.register(
+    'CreateSupplyCredentialBody',
+    createSupplyCredentialSchema,
+  );
+  const UpdateSupplyCredential = registry.register(
+    'UpdateSupplyCredentialBody',
+    updateSupplyCredentialSchema,
+  );
+  const CreateSupplyModel = registry.register('CreateSupplyModelBody', createSupplyModelSchema);
+  const UpdateSupplyModel = registry.register('UpdateSupplyModelBody', updateSupplyModelSchema);
+  const GrantSupplyModel = registry.register('GrantSupplyModelBody', grantSupplyModelSchema);
+  const SupplyPriceCardFromOfficial = registry.register(
+    'SupplyPriceCardFromOfficialBody',
+    supplyPriceCardFromOfficialSchema,
+  );
+  const CreateSupplyOffering = registry.register(
+    'CreateSupplyOfferingBody',
+    createSupplyOfferingSchema,
+  );
+  const UpdateSupplyOffering = registry.register(
+    'UpdateSupplyOfferingBody',
+    updateSupplyOfferingSchema,
+  );
+  const CreateSupplyPriceCard = registry.register(
+    'CreateSupplyPriceCardBody',
+    createSupplyPriceCardSchema,
+  );
+  const CreateSupplyPriceCardVersion = registry.register(
+    'CreateSupplyPriceCardVersionBody',
+    createSupplyPriceCardVersionSchema,
+  );
+  const UpdateApiKeyModelAllowlist = registry.register(
+    'UpdateApiKeyModelAllowlistBody',
+    updateApiKeyModelAllowlistSchema,
+  );
+
+  // supply skeleton (model-supply greenfield 批次1) — /admin/supply/* CRUD.
+  const supplyChannelsQuery = keyset.extend({
+    provider_id: z.string().optional(),
+    tenant_id: z.string().optional(),
+  });
+  const supplyCredentialsQuery = keyset.extend({ channel_id: z.string().optional() });
+  const supplyModelsQuery = keyset.extend({ status: z.string().optional() });
+  const supplyOfferingsQuery = keyset.extend({
+    model_id: z.string().optional(),
+    channel_id: z.string().optional(),
+    status: z.string().optional(),
+  });
+  list('/admin/supply/providers', 'List supply providers (厂商)', SupplyProvider, 'supply', keyset);
+  getOne('/admin/supply/providers/{id}', 'Get one supply provider', SupplyProvider, 'supply');
+  write({
+    method: 'post',
+    path: '/admin/supply/providers',
+    summary: 'Register a supply provider (brand + defaults; slug unique)',
+    tag: 'supply',
+    body: CreateSupplyProvider,
+    response: SupplyProvider,
+    created: true,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/supply/providers/{id}',
+    summary: 'Update a supply provider',
+    tag: 'supply',
+    body: UpdateSupplyProvider,
+    response: SupplyProvider,
+  });
+  del('/admin/supply/providers/{id}', 'Soft-delete a supply provider', 'supply');
+  list(
+    '/admin/supply/channels',
+    'List supply channels (渠道)',
+    SupplyChannel,
+    'supply',
+    supplyChannelsQuery,
+  );
+  getOne('/admin/supply/channels/{id}', 'Get one supply channel', SupplyChannel, 'supply');
+  write({
+    method: 'post',
+    path: '/admin/supply/channels',
+    summary: 'Create a supply channel under a provider',
+    tag: 'supply',
+    body: CreateSupplyChannel,
+    response: SupplyChannel,
+    created: true,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/supply/channels/{id}',
+    summary: 'Update a supply channel (provider binding immutable)',
+    tag: 'supply',
+    body: UpdateSupplyChannel,
+    response: SupplyChannel,
+  });
+  del('/admin/supply/channels/{id}', 'Soft-delete a supply channel', 'supply');
+  list(
+    '/admin/supply/credentials',
+    'List supply credentials (redacted; never the secret)',
+    SupplyCredential,
+    'supply',
+    supplyCredentialsQuery,
+  );
+  getOne(
+    '/admin/supply/credentials/{id}',
+    'Get one supply credential (redacted)',
+    SupplyCredential,
+    'supply',
+  );
+  write({
+    method: 'post',
+    path: '/admin/supply/credentials',
+    summary: 'Add a credential to a channel pool (secret encrypted at rest; response redacted)',
+    tag: 'supply',
+    body: CreateSupplyCredential,
+    response: SupplyCredential,
+    created: true,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/supply/credentials/{id}',
+    summary: 'Update a supply credential (metadata/quota/cooldown; never the secret)',
+    tag: 'supply',
+    body: UpdateSupplyCredential,
+    response: SupplyCredential,
+  });
+  del('/admin/supply/credentials/{id}', 'Soft-delete a supply credential', 'supply');
+  list(
+    '/admin/supply/models',
+    'List supply models (product face)',
+    SupplyModel,
+    'supply',
+    supplyModelsQuery,
+  );
+  getOne('/admin/supply/models/{id}', 'Get one supply model', SupplyModel, 'supply');
+  write({
+    method: 'post',
+    path: '/admin/supply/models',
+    summary: 'Register a supply model (external name unique; active requires a sale price card)',
+    tag: 'supply',
+    body: CreateSupplyModel,
+    response: SupplyModel,
+    created: true,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/supply/models/{id}',
+    summary: 'Update a supply model (needs_pricing gate: active requires a sale price card)',
+    tag: 'supply',
+    body: UpdateSupplyModel,
+    response: SupplyModel,
+  });
+  del('/admin/supply/models/{id}', 'Soft-delete a supply model', 'supply');
+  list(
+    '/admin/supply/models/{id}/grants',
+    "List a supply model's tenant grants",
+    ModelGrant,
+    'supply',
+    keyset,
+  );
+  write({
+    method: 'post',
+    path: '/admin/supply/models/{id}/grants',
+    summary: 'Grant a granted-visibility supply model to a tenant (idempotent)',
+    tag: 'supply',
+    body: GrantSupplyModel,
+    response: z.object({ ok: z.boolean() }),
+    created: true,
+  });
+  del(
+    '/admin/supply/models/{id}/grants/{tenantId}',
+    'Revoke (hard-delete) a tenant grant of a supply model',
+    'supply',
+  );
+  write({
+    method: 'post',
+    path: '/admin/supply/models/{id}/price-card/from-official',
+    summary: 'Mint the SALE price card from the official price catalog and bind it',
+    tag: 'supply',
+    body: SupplyPriceCardFromOfficial,
+    response: SupplyPriceCard,
+    created: true,
+  });
+  list(
+    '/admin/supply/offerings',
+    'List supply offerings (model × channel bindings)',
+    SupplyOffering,
+    'supply',
+    supplyOfferingsQuery,
+  );
+  getOne('/admin/supply/offerings/{id}', 'Get one supply offering', SupplyOffering, 'supply');
+  write({
+    method: 'post',
+    path: '/admin/supply/offerings',
+    summary: 'Create a supply offering (unique per live (model, channel))',
+    tag: 'supply',
+    body: CreateSupplyOffering,
+    response: SupplyOffering,
+    created: true,
+  });
+  write({
+    method: 'patch',
+    path: '/admin/supply/offerings/{id}',
+    summary: 'Update a supply offering ((model, channel) identity immutable)',
+    tag: 'supply',
+    body: UpdateSupplyOffering,
+    response: SupplyOffering,
+  });
+  del('/admin/supply/offerings/{id}', 'Soft-delete a supply offering', 'supply');
+  list(
+    '/admin/supply/price-cards',
+    'List supply price cards (versioned)',
+    SupplyPriceCard,
+    'supply',
+    keyset,
+  );
+  getOne('/admin/supply/price-cards/{id}', 'Get one supply price card', SupplyPriceCard, 'supply');
+  write({
+    method: 'post',
+    path: '/admin/supply/price-cards',
+    summary: 'Mint a supply price card (immutable once effective; no PATCH)',
+    tag: 'supply',
+    body: CreateSupplyPriceCard,
+    response: SupplyPriceCard,
+    created: true,
+  });
+  write({
+    method: 'post',
+    path: '/admin/supply/price-cards/{id}/versions',
+    summary: 'Mint the next version of a price card (the only price-change path)',
+    tag: 'supply',
+    body: CreateSupplyPriceCardVersion,
+    response: SupplyPriceCard,
+    created: true,
+  });
+  del('/admin/supply/price-cards/{id}', 'Soft-delete a supply price card', 'supply');
+  write({
+    method: 'patch',
+    path: '/admin/api-keys/{id}/model-allowlist',
+    summary: "Replace an API key's supply-model allowlist ([] = allow all)",
+    tag: 'supply',
+    body: UpdateApiKeyModelAllowlist,
+    response: z.object({ models: z.array(z.string()) }),
+  });
+
+  // --- NEW gateway external face (model-supply greenfield 批次4 slice3, §5) —
+  // registered LAST (append-only doc discipline, same as the supply block).
+  const GatewayTask = registry.register('GatewayTaskView', gatewayTaskViewSchema);
+  const GatewayInvokeResponse = registry.register(
+    'GatewayInvokeResponse',
+    gatewayInvokeResponseSchema,
+  );
+  const GatewayError = registry.register('GatewayErrorView', gatewayErrorViewSchema);
+  const GatewayModelList = registry.register('GatewayModelList', gatewayModelListSchema);
+  const GatewayResourceCreate = registry.register(
+    'GatewayResourceCreateBody',
+    gatewayResourceCreateBodySchema,
+  );
+  const GatewayTaskCreate = registry.register('GatewayTaskCreateBody', gatewayTaskCreateBodySchema);
+  /** A task-paradigm create: 200 sync result (fast), 202 + Task (task/§3 自动升格). */
+  const gatewayCreate = (path: string, summary: string, body: z.ZodTypeAny) => {
+    registry.registerPath({
+      method: 'post',
+      path,
+      summary,
+      tags: ['gateway'],
+      request: { body: { content: { 'application/json': { schema: body } }, required: true } },
+      responses: {
+        200: {
+          description: 'Sync result (fast model)',
+          content: { 'application/json': { schema: GatewayInvokeResponse } },
+        },
+        202: {
+          description: 'Task accepted (task paradigm / §3 auto-upgrade)',
+          content: { 'application/json': { schema: GatewayTask } },
+        },
+        409: {
+          description: 'Idempotency-Key reused with a different body (§5)',
+          content: { 'application/json': { schema: GatewayError } },
+        },
+      },
+    });
+  };
+  gatewayCreate(
+    '/v1/videos/generations',
+    'Create a video generation task (202 + Task)',
+    GatewayResourceCreate,
+  );
+  gatewayCreate(
+    '/v1/audio/music',
+    'Create a music generation task (202 + Task)',
+    GatewayResourceCreate,
+  );
+  gatewayCreate(
+    '/v1/tasks',
+    'Create a task (generic syntactic sugar; operation rides body.type)',
+    GatewayTaskCreate,
+  );
+  const gatewayTasksQuery = keyset.extend({
+    status: z.string().optional(),
+    type: z.string().optional(),
+  });
+  list(
+    '/v1/tasks',
+    'List your tasks (keyset, status/type filters)',
+    GatewayTask,
+    'gateway',
+    gatewayTasksQuery,
+  );
+  getOne('/v1/tasks/{id}', 'Get a task by id', GatewayTask, 'gateway');
+  registry.registerPath({
+    method: 'post',
+    path: '/v1/tasks/{id}/cancel',
+    summary: 'Cancel a task (local mark + hold release; upstream forward in slice4)',
+    tags: ['gateway'],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: {
+        description: 'The canceled task',
+        content: { 'application/json': { schema: GatewayTask } },
+      },
+      409: {
+        description: 'Task already terminal (not cancelable)',
+        content: { 'application/json': { schema: GatewayError } },
+      },
+    },
+  });
+  registry.registerPath({
+    method: 'get',
+    path: '/v1/tasks/{id}/stream',
+    summary: 'Stream task progress over SSE until terminal (DB-poll backstop)',
+    tags: ['gateway'],
+    request: { params: z.object({ id: z.string() }) },
+    responses: { 200: { description: 'text/event-stream of task progress frames' } },
+  });
+  getOne(
+    '/v1/gateway/models',
+    'NEW discovery face: models visible to the caller (tenant visibility ∩ key allowlist) with operations/paradigms/contract summary',
+    GatewayModelList,
+    'gateway',
+  );
+
+  // --- §9.2 reconciliation report (批次4 slice6, 判据 2.6 报表可出即达标) —
+  // appended AFTER the gateway block (same append-only doc discipline).
+  const ReconciliationReport = registry.register(
+    'ReconciliationReportView',
+    reconciliationReportSchema,
+  );
+  registry.registerPath({
+    method: 'get',
+    path: '/admin/reconciliation/report',
+    summary:
+      'Usage-side reconciliation report: gateway settles aggregated per (day, tenant, channel, offering) with sale/cost/margin µcredits (§9.2 对账降级 — 月度报表; 官方渠道日对账自动化在批次5)',
+    tags: ['supply'],
+    request: {
+      query: z.object({
+        /** Inclusive ISO start (or YYYY-MM-DD) of the window. */
+        from: z.string(),
+        /** Exclusive ISO end (or YYYY-MM-DD) of the window. */
+        to: z.string(),
+        /** Optional tenant scope. */
+        tenant_id: z.string().optional(),
+      }),
+    },
+    responses: {
+      200: {
+        description: 'The aggregated reconciliation report',
+        content: { 'application/json': { schema: ReconciliationReport } },
+      },
+    },
+  });
+
+  // --- 批次5 slice4: 官方渠道日对账比对器 (§9.2 daily half) — appended AFTER
+  // the monthly-report block (same append-only doc discipline).
+  const DailyReconcileReport = registry.register(
+    'DailyReconcileReportView',
+    dailyReconcileReportSchema,
+  );
+  registry.registerPath({
+    method: 'get',
+    path: '/admin/reconciliation/daily',
+    summary:
+      'Daily official-channel reconciliation: per-offering official-baseline recompute vs booked cost with deviation/alert flags (§9.2 对账降级 — 官方渠道日比对; 中转渠道 stays monthly-report scope)',
+    tags: ['supply'],
+    request: {
+      query: z.object({
+        /** The UTC day to reconcile, YYYY-MM-DD. */
+        date: z.string(),
+        /** Optional explicit threshold override (percent); default = RECONCILIATION_DEVIATION_PCT. */
+        threshold_pct: z.string().optional(),
+      }),
+    },
+    responses: {
+      200: {
+        description: 'The daily reconciliation comparison report',
+        content: { 'application/json': { schema: DailyReconcileReport } },
+      },
+    },
+  });
+
+  // --- 批次5 slice1: golden probe + offering enable 双门 (§10) — appended
+  // AFTER the reconciliation block (same append-only doc discipline).
+  const ProbeSupplyOffering = registry.register(
+    'ProbeSupplyOfferingResponse',
+    probeSupplyOfferingResponseSchema,
+  );
+  const EnableSupplyOffering = registry.register(
+    'EnableSupplyOfferingResponse',
+    enableSupplyOfferingResponseSchema,
+  );
+  registry.registerPath({
+    method: 'post',
+    path: '/admin/supply/offerings/{id}/probe',
+    summary:
+      'Run a golden probe against the offering upstream (real small sample; R5 budget-gated; no status change)',
+    tags: ['supply'],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: {
+        description: 'The probe verdict (completed) or the R5 budget-gate refusal (rejected)',
+        content: { 'application/json': { schema: ProbeSupplyOffering } },
+      },
+    },
+  });
+  registry.registerPath({
+    method: 'post',
+    path: '/admin/supply/offerings/{id}/enable',
+    summary:
+      'Enable an offering through the gate stack (needs_pricing + 3 config-time invariants + golden probe); violations answer structured with enabled: false',
+    tags: ['supply'],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: {
+        description: 'The enable verdict: enabled, or the structured gate violations',
+        content: { 'application/json': { schema: EnableSupplyOffering } },
+      },
+    },
+  });
+
+  // --- 批次5 slice2: 发现与批建 (§10 Major A5) — appended AFTER the slice-1
+  // lifecycle block (same append-only doc discipline).
+  const DiscoverSupplyModels = registry.register(
+    'DiscoverSupplyModelsResponse',
+    discoverSupplyModelsResponseSchema,
+  );
+  const BatchCreateSupplyOfferings = registry.register(
+    'BatchCreateSupplyOfferingsBody',
+    batchCreateSupplyOfferingsSchema,
+  );
+  const BatchCreateSupplyOfferingsResponse = registry.register(
+    'BatchCreateSupplyOfferingsResponse',
+    batchCreateSupplyOfferingsResponseSchema,
+  );
+  const BatchProbeEnableSupplyOfferings = registry.register(
+    'BatchProbeEnableSupplyOfferingsBody',
+    batchProbeEnableSupplyOfferingsSchema,
+  );
+  const BatchProbeEnableSupplyOfferingsResponse = registry.register(
+    'BatchProbeEnableSupplyOfferingsResponse',
+    batchProbeEnableSupplyOfferingsResponseSchema,
+  );
+  registry.registerPath({
+    method: 'post',
+    path: '/admin/supply/channels/{id}/discover',
+    summary:
+      "Discover the channel's upstream models (dialect discovery endpoint or the official catalog by provider slug); flags models already offered on the channel",
+    tags: ['supply'],
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: {
+        description: 'The discovered model candidates and which source produced them',
+        content: { 'application/json': { schema: DiscoverSupplyModels } },
+      },
+    },
+  });
+  registry.registerPath({
+    method: 'post',
+    path: '/admin/supply/channels/{id}/offerings/batch',
+    summary:
+      'Batch-create the picked offerings on the channel — ALWAYS draft — minting missing SALE cards from the official catalog (no match → needs_pricing)',
+    tags: ['supply'],
+    request: {
+      params: z.object({ id: z.string() }),
+      body: {
+        content: { 'application/json': { schema: BatchCreateSupplyOfferings } },
+      },
+    },
+    responses: {
+      201: {
+        description: 'The created draft offerings with their per-model pricing outcomes',
+        content: { 'application/json': { schema: BatchCreateSupplyOfferingsResponse } },
+      },
+    },
+  });
+  registry.registerPath({
+    method: 'post',
+    path: '/admin/supply/channels/{id}/offerings/probe-and-enable',
+    summary:
+      "Run the channel's draft/probing offerings (or an explicit id list) through the FULL enable stack one by one; per-offering verdicts with failure reasons",
+    tags: ['supply'],
+    request: {
+      params: z.object({ id: z.string() }),
+      body: {
+        content: { 'application/json': { schema: BatchProbeEnableSupplyOfferings } },
+      },
+    },
+    responses: {
+      200: {
+        description:
+          'Per-offering enable verdicts (violations + probe results) and the enabled count',
+        content: { 'application/json': { schema: BatchProbeEnableSupplyOfferingsResponse } },
       },
     },
   });

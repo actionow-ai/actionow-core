@@ -8,7 +8,6 @@ import {
   type ConsoleFileView,
   consoleFileViewSchema,
   type ConsoleJobView,
-  consoleJobViewSchema,
   type ConsoleLedgerView,
   consoleLedgerViewSchema,
   type ConsoleLimitStatusView,
@@ -58,7 +57,6 @@ import type {
   ApiKeyRow,
   Conversation,
   FileObject,
-  Job,
   LedgerRow,
   LimitPlanRow,
   LimitRuleRow,
@@ -182,18 +180,10 @@ function toSubAccountView(row: SubAccountRow): SubAccountView {
   });
 }
 
-/** Project a job row to the console job view (money as decimal strings). */
-function toConsoleJobView(j: Job): JobView {
-  return consoleJobViewSchema.parse({
-    job_id: j.id,
-    subject_id: j.subjectId,
-    resource_id: j.resourceId,
-    status: j.status,
-    exec_mode: j.execMode,
-    cost: j.costCredits === null ? null : j.costCredits.toString(),
-    created_at: j.createdAt.toISOString(),
-  });
-}
+// 批次6 D3 (旧世界删除): `toConsoleJobView` + the `listJobs` source died with
+// the old `job` world. `ConsoleJobView` stays in @actionow/contracts (web
+// freeze) and `/usage` keeps its `{ jobs, ledger }` shape with an EMPTY jobs
+// envelope (the new task world lists via `/v1/tasks`).
 
 /** Project a ledger row to the console ledger view (money as decimal strings). */
 function toConsoleLedgerView(l: LedgerRow): LedgerView {
@@ -499,26 +489,26 @@ export class ConsoleController {
    * keysets, each gets its OWN envelope under `jobs`/`ledger`, paged by its own
    * cursor query param (`jobs_cursor` / `ledger_cursor`) with a shared `limit`.
    * A single shared cursor cannot drive two distinct keysets, so they are split.
+   *
+   * 批次6 D3: the old `job` world is deleted — `jobs` is now a permanently
+   * EMPTY envelope (shape preserved for the frozen web frontend; the new task
+   * world lists via `/v1/tasks`).
    */
   @Get('usage')
   @ApiOperation({ summary: 'Your tenant jobs + ledger (two keyset envelopes)' })
   async usage(
     @Req() req: ConsoleRequest,
-    @Query('jobs_cursor') jobsCursor?: string,
+    @Query('jobs_cursor') _jobsCursor?: string,
     @Query('ledger_cursor') ledgerCursor?: string,
     @Query('limit') limit?: string,
   ): Promise<{ jobs: PageEnvelope<JobView>; ledger: PageEnvelope<LedgerView> }> {
     const ctx = ctxOf(req);
-    const jobs = await this.console.listJobs(
-      ctx.tenantId,
-      toPageParams({ cursor: jobsCursor, limit }),
-    );
     const ledger = await this.console.listLedger(
       ctx.tenantId,
       toPageParams({ cursor: ledgerCursor, limit }),
     );
     return {
-      jobs: mapPageEnvelope(jobs, (j) => j.id, toConsoleJobView),
+      jobs: { data: [], next_cursor: null, has_more: false },
       ledger: mapPageEnvelope(ledger, (l) => l.id, toConsoleLedgerView),
     };
   }

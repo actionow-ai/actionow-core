@@ -11,12 +11,12 @@ async function bootstrap(): Promise<void> {
   const env = loadEnv();
   // `rawBody: true` makes the exact request bytes available as `req.rawBody`
   // (a Buffer) on every route while still JSON-parsing the body normally. The
-  // `/v1/callbacks/:provider` ingress recomputes the HMAC over these exact
-  // bytes — re-serializing the parsed JSON would not byte-match the signature.
+  // `/v1/gateway/callbacks/:offeringId` ingress recomputes the HMAC over these
+  // exact bytes — re-serializing the parsed JSON would not byte-match it.
   const app = await NestFactory.create(AppModule, { rawBody: true });
   // Run NestJS lifecycle hooks (onModuleDestroy) on SIGTERM/SIGINT so a routine
-  // deploy drains gracefully — e.g. BullmqJobQueue.close() quits its Redis client
-  // instead of being hard-killed mid-flight.
+  // deploy drains gracefully (Redis clients quit instead of being hard-killed
+  // mid-flight).
   app.enableShutdownHooks();
   // Belt-and-suspenders: the filter is also registered via APP_FILTER in
   // AppModule (so it applies under the test harness). Registering here keeps

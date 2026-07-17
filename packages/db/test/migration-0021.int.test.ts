@@ -41,15 +41,9 @@ async function column(
 }
 
 describe('migration 0021 — channel cost + usage_log.provider_cost (Track 5)', () => {
-  it('adds nullable bigint upstream_channel.input_cost_per_1m / output_cost_per_1m', async () => {
-    for (const col of ['input_cost_per_1m', 'output_cost_per_1m']) {
-      const c = await column('upstream_channel', col);
-      expect(c, `upstream_channel.${col}`).toBeDefined();
-      expect(c?.data_type).toBe('bigint');
-      expect(c?.is_nullable).toBe('YES');
-    }
-  });
-
+  // 批次6 D4: the `upstream_channel.*_cost_per_1m` assertions died with the
+  // table (mig 0072 dropped `upstream_channel`); only the surviving
+  // `usage_log.provider_cost` column is asserted here.
   it('adds a nullable bigint usage_log.provider_cost', async () => {
     const c = await column('usage_log', 'provider_cost');
     expect(c).toBeDefined();

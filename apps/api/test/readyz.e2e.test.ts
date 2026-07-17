@@ -86,6 +86,6 @@ it('GET /readyz returns 200 with all dependency checks ok when deps are up (no a
   const res = await request(server()).get('/readyz').expect(200);
   expect(res.body).toEqual({
     status: 'ready',
-    checks: { postgres: 'ok', redis: 'ok', queue: 'ok' },
+    checks: { postgres: 'ok', redis: 'ok' },
   });
 });

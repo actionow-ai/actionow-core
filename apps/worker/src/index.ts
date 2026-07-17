@@ -5,10 +5,4 @@
  * NOT re-exported (importing it would run `bootstrap`).
  */
 export { createWorkerRuntime, type WorkerRuntime } from './runtime.js';
-export {
-  REAPER_SWEEP_MS,
-  type RunningWorkers,
-  startWorkers,
-  type StartWorkersOptions,
-  WEBHOOK_SWEEP_MS,
-} from './start.js';
+export { type RunningWorkers, startWorkers, type StartWorkersOptions } from './start.js';

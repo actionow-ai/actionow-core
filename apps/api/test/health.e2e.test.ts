@@ -1,11 +1,10 @@
-import type { JobQueuePort } from '@actionow/engine';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
-import { DB, ENV, JOB_QUEUE } from '../src/common/tokens.js';
+import { DB, ENV } from '../src/common/tokens.js';
 
 let app: INestApplication;
 
@@ -25,8 +24,6 @@ beforeAll(async () => {
     })
     .overrideProvider(DB)
     .useValue({})
-    .overrideProvider(JOB_QUEUE)
-    .useValue({ enqueueExec: () => Promise.resolve() } satisfies JobQueuePort)
     .compile();
   app = moduleRef.createNestApplication();
   await app.init();

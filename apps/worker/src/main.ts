@@ -9,7 +9,7 @@ import { startWorkers } from './start.js';
 /**
  * Worker entrypoint: build the production runtime from the environment and boot
  * the BullMQ Workers + repeatable sweeps via {@link startWorkers} (which logs
- * `worker ready` once `job-exec` connects), bring up a minimal HTTP liveness
+ * `worker ready` once the queues connect), bring up a minimal HTTP liveness
  * server on `WORKER_HEALTH_PORT` (so an orchestrator can probe the otherwise-
  * headless process), then register SIGTERM/SIGINT handlers that DRAIN and close
  * the workers (and the liveness server) before exit — so a routine deploy lets

@@ -1,0 +1,1157 @@
+
+
+全模态模型网关 · 技术规范 v0.1
+
+ 
+全模态模型网关 · 技术规范
+ 
+v0.1-draft · 2026-07-10
+ 1. 概述
+ 1.1 目标
+ 1.2 非目标
+ 1.3 设计原则
+ 1.4 术语表
+ 2. 总体架构
+ 2.1 分层架构
+ 2.2 组件职责
+ 2.3 门面与透传
+ 2.4 关键时序
+ 3. 对外 API 规范
+ 3.1 门面与路由识别
+ 3.2 通用约定
+ 3.3 同步与流式 API
+ 3.4 统一异步任务 API
+ 3.5 文件 API
+ 3.6 Realtime API
+ 3.7 统一错误规范
+ 3.8 官方原生透传门面
+ 4. 内部核心设计
+ 4.1 统一中间表示 IR
+ 4.2 交互范式判定
+ 4.3 异步任务中心
+ 4.4 媒体文件服务
+ 4.5 路由引擎
+ 4.6 限流与配额
+ 4.7 计量计费
+ 4.8 内容安全
+ 4.9 可观测性
+ 5. 适配器规范（SPI）
+ 5.1 五切面接口
+ 5.2 执行流水线
+ 5.3 声明式配置 DSL
+ 5.4 代码插件
+ 5.5 模型注册表
+ 5.6 一致性测试
+ 6. 数据模型
+ 7. 非功能性需求
+ 8. 实施里程碑
+ 9. 开放问题
+ 附录 A · 请求示例
+ 附录 B · 上游差异全景
+
+# 全模态模型网关 · 技术规范
+
+ 版本 v0.1状态 Draft / 评审稿日期 2026-07-10范围 LLM · 图像 · 视频 · 音频 · 实时语音
+
+本文使用规范用语：必须（MUST）、禁止（MUST NOT）、应当（SHOULD）、可以（MAY），语义遵循 RFC 2119。未另行说明时，示例中的域名 api.gw.example.com 代指网关对外地址。
+
+## 1.概述
+
+### 1.1目标
+
+本规范定义一个全模态模型网关（Omni-Modal Model Gateway，下称"网关"）的对外协议与内部架构。网关向业务方提供统一、稳定的模型调用入口，覆盖 LLM 对话、Embedding、图像生成/理解、视频生成、语音合成（TTS）、语音识别（ASR）、音乐生成与实时语音会话，并将上游各模型厂商（下称 Provider）在鉴权、协议、参数、响应方式、计费口径上的全部差异在网关内部消化。
+
+核心目标：
+
+ 
+一套入口调所有模型——业务方无需感知 Provider 差异，切换模型只改 model 字段；
+ 
+无感接入——已有官方 SDK 用户只改 base_url 与 key 即可迁移（原生透传门面）；
+ 
+统一治理——鉴权、限流、配额、计费、审计、内容安全在所有链路（含透传）上一致生效；
+ 
+生产级可靠性——多 Key 池、故障转移、降级链、熔断、任务崩溃恢复、产物转存。
+
+### 1.2非目标（Non-Goals）
+
+ 
+不做模型托管与推理（不含自建推理集群的调度，自建集群以普通 Provider 身份接入）；
+ 
+不做训练、微调任务的编排；
+ 
+V1 不做语义缓存、成本智能路由（列入 第 8 章后续里程碑）；
+ 
+不承诺对 Provider 私有 API 的 100% 字段级覆盖——统一门面覆盖主流参数集，长尾参数经 extra 透传（见 3.3）。
+
+### 1.3设计原则
+
+ 
+ | # | 原则 | 含义
+ 
+ | P1 | 核心链路模态无关 | 鉴权、限流、路由、计费、审计等治理能力不感知模态；模态差异只存在于能力元数据（模型注册表）、适配器与媒体服务中。
+ 
+ | P2 | 四种交互范式收敛 | 一切请求在内部归为 同步 / 流式 / 异步任务 / 实时会话 四种生命周期形态。范式是"骨"，对外协议方言是"皮"。
+ 
+ | P3 | 轻翻译、重治理 | 翻译（方言转换）可以跳过（透传快速通道），治理禁止跳过。任何门面进来的流量都必须经过完整治理管道。
+ 
+ | P4 | 一切异步收敛为统一任务 | 上游无论回调式还是轮询式，都在任务中心内部消化为统一任务模型；对下游同时提供轮询与 Webhook。
+ 
+ | P5 | 产物必转存 | 上游返回的临时产物 URL 必须在托管模式下转存至自有对象存储后再对外交付；透传模式除外（显式声明，风险自负）。
+
+### 1.4术语表
+
+ 
+ | 术语 | 定义
+ 
+ | Provider / 上游 | 模型能力供应方，如 OpenAI、Anthropic、阿里百炼、火山方舟、可灵、MiniMax、ElevenLabs 等。
+ 
+ | 门面（Facade） | 网关对外暴露的一套协议方言。分三类：统一规范门面（OpenAI 兼容基座）、官方原生门面（透传）、自有扩展门面（任务 / Realtime）。
+ 
+ | 交互范式（Paradigm） | 请求-响应的生命周期形态：sync / stream / task / realtime。
+ 
+ | IR（中间表示） | Intermediate Representation。方言无关的内部统一请求/响应/流帧/任务模型，翻译路径的枢纽。
+ 
+ | 适配器（Adapter） | 对接单个 Provider 的插件，由五个切面组成（见第 5 章）。
+ 
+ | 透传（Passthrough） | 入口方言与上游方言一致时，body 基本原样转发、仅做治理与必要字段改写的快速通道。
+ 
+ | 产物（Artifact） | 模型生成的媒体结果：图片、视频、音频文件等。
+ 
+ | 转存（Rehost） | 将上游临时产物下载并写入自有对象存储 + CDN，替换为自有域名签名 URL 的过程。
+ 
+ | BYOK | Bring Your Own Key，租户自带上游凭证，由网关代管代用。
+ 
+ | 租户（Tenant） | 网关的计费与隔离主体；一个租户可签发多把网关 API Key。
+
+## 2.总体架构
+
+### 2.1分层架构
+
+文件直传 / 产物取回
+
+产物转存 / 素材中转
+
+业务方 / 客户端 SDK
+
+① 统一接入层 —— 协议门面
+OpenAI 兼容基座（chat · images · audio）· 统一异步任务 API
+Realtime WebSocket · 官方原生透传门面
+
+② 网关核心 —— 模态无关治理
+租户鉴权/BYOK · 限流配额并发排队
+路由/多Key池/failover/降级链
+计量计费 · 内容安全/审计 · 缓存/幂等
+
+③ 异步任务中心（持久化）
+统一状态机 · 调度队列 · 租约恢复
+上游：轮询调度 + 回调接收/验签
+下游：轮询 API + Webhook 分发
+
+⑤ Provider 适配层 —— 五切面插件
+传输 · 凭证注入 · 请求映射
+响应/流式归一 · 任务生命周期
+
+上游模型服务
+LLM · 图像 · 视频 · TTS/ASR/音乐
+
+④ 媒体文件服务
+输入：上传/校验/转码/临时URL
+输出：转存 OSS+CDN 签名URL
+
+模型注册表
+能力元数据 · 价格
+限额 · 映射规则
+
+可观测性
+Trace · TTFT/任务时长
+日志脱敏
+图 2-1 · 全模态模型网关分层架构
+
+### 2.2组件职责
+
+ 
+ | 组件 | 职责 | 有无状态
+ 
+ | ① 统一接入层 | 协议门面挂载与方言识别、TLS 终结、请求体大小控制、SSE/WS 连接管理。 | 无状态
+ 
+ | ② 网关核心 | 治理管道：租户鉴权、限流配额与排队、路由与多 Key 池、计量计费、内容安全、缓存与幂等。 | 无状态
+ 
+ | ③ 异步任务中心 | 统一任务状态机与持久化、调度队列、上游轮询调度器与回调接收器、下游 Webhook 分发、超时与过期清理。 | 有状态（DB）
+ 
+ | ④ 媒体文件服务 | 输入文件上传/校验/转码/临时 URL 签发；输出产物转存、CDN 分发、生命周期管理。 | 状态在对象存储
+ 
+ | ⑤ Provider 适配层 | 方言翻译五切面：传输、凭证注入、请求映射、响应/流式归一、任务生命周期（见第 5 章）。 | 无状态
+ 
+ | 模型注册表 | 模型目录、能力标志、参数映射规则、价格、限额、合规域——全网关的配置中枢，支持热更新。 | 配置存储
+ 
+ | 可观测性 | 全链路 Trace、指标（TTFT / 吞吐 / 任务时长）、结构化日志与脱敏、审计流。 | —
+
+部署提示①②⑤ 为无状态组件，可水平扩展；③ 依赖数据库并通过租约（lease）实现多副本接管（见 4.3）；Realtime 会话对网关节点有粘性（见 3.6）。
+
+### 2.3门面与透传：范式是"骨"，方言是"皮"
+
+对外协议存在两层概念，必须严格区分：
+
+ 
+交互范式（4 种）是网关内部的生命周期骨架，描述"请求-响应如何流动"；
+ 
+协议方言（N 种）是对外门面，描述"URL、字段、鉴权长什么样"。
+
+任何门面进来的请求，最终都被归类到四种范式之一处理。统一规范门面直接以 OpenAI 兼容协议为基座——自有规范与最大的官方事实标准合一；官方原生门面提供无感接入；当入口方言与上游方言一致时走透传快速通道，跳过翻译但不跳过治理。
+
+任意方言 in → 任意上游 out
+可跨厂商 failover
+
+不翻译，只能同厂商
+多Key / 多区域容灾
+
+OpenAI SDK
+只改 base_url + key
+
+各家官方 SDK
+Anthropic · DashScope · 可灵…
+
+自有 SDK / HTTP
+视频任务 · Realtime
+
+统一规范门面
+OpenAI 兼容基座
+
+官方原生门面
+/anthropic/… /dashscope/…
+
+自有扩展门面
+/v1/tasks · /v1/realtime
+
+治理管道（所有门面必经，绝不跳过）
+租户鉴权 → 凭证替换/重签 · 限流配额 · 计量计费 · 审计 · 内容安全
+
+翻译路径：统一中间表示 IR
+四种交互范式住在这里
+同步 / 流式 / 异步任务 / 实时会话
+
+透传快速通道
+入口方言 = 上游方言时
+body 基本原样 · 旁路解析 usage
+
+Provider 适配层
+
+上游模型服务
+图 2-2 · 协议门面、治理管道与透传快速通道
+
+### 2.4关键时序
+
+#### 2.4.1 流式请求（sync 与 stream 范式）
+
+上游 Provider适配器网关核心统一门面客户端末帧提取 usage；缺失则本地估算并打 estimated 标中断/上游错误 → event:error 帧 + 统一错误体POST /v1/chat/completions (stream=true)1方言解析 → 统一中间表示 IR2IR 请求3鉴权 · 限流 · 内容预检 · 路由选 Key4分发到适配器5请求映射 → 凭证注入（流水线最后一步）6上游 HTTP 请求7SSE 字节流（各家私有帧格式）8StreamFrame 统一帧（边收边转，有限缓冲）9SSE（OpenAI 兼容帧 + usage 末帧 + [DONE]）10
+图 2-3 · 流式请求时序：适配器边收边转，网关不做全量缓冲
+
+#### 2.4.2 异步任务（task 范式）
+
+展示"上游回调 + 兜底轮询"双保险，以及产物转存先于 Webhook 发出的关键顺序约束：
+
+媒体服务上游适配器任务中心门面客户端status=running（节点持租约，崩溃可接管）par[回调路径][兜底轮询]status=succeeded；usage → 计费事件POST /v1/videos/generations (Idempotency-Key)1幂等检查 → 建任务落库 (pending)2202 Task{id, status=pending}3调度（配额/并发闸门）→ submit4提交生成任务（映射 + 签名）5provider_task_id6上游 webhook（验签 · 去重 · 容忍乱序）7反查上游确认（防伪造）8自适应间隔轮询 query9查询任务状态10succeeded + 产物临时 URL11产物转存（下载 → OSS → CDN）12自有域名签名 URL13Webhook task.succeeded（HMAC 签名，重试至 24h）14GET /v1/tasks/{id}（或直接消费 webhook）15
+图 2-4 · 异步任务全生命周期时序
+
+## 3.对外 API 规范
+
+### 3.1门面与路由识别
+
+ 
+ | 门面 | 路径空间 | 说明
+ 
+ | 统一规范门面 | /v1/* | OpenAI 兼容基座 + 网关扩展（3.3、3.4、3.5、3.6）。
+ 
+ | 官方原生门面 | /{provider}/*
+如 /anthropic/v1/messages | 透传方言，body 遵循该 Provider 官方规范（3.8）。
+ 
+ | 自有扩展门面 | /v1/tasks、/v1/realtime 等 | OpenAI 未覆盖领域的网关自有协议，归属统一规范门面路径空间。
+
+方言识别必须支持路径前缀方式；可以额外支持"按 key 归属识别"——租户将某把网关 key 绑定到特定 Provider 方言后，可直接使用官方原始路径（如 /v1/messages），网关按 key 自动路由到对应原生门面，实现零路径改动迁移。
+
+### 3.2通用约定
+
+ 
+ | 项 | 约定
+ 
+ | Base URL / 版本 | https://api.gw.example.com/v1。破坏性变更升 /v2；非破坏性变更（新增字段）不升版本，客户端必须忽略未知字段。
+ 
+ | 鉴权 | Authorization: Bearer sk-gw-<random>。key 归属租户，支持多把、标签、过期时间、额度上限、模型白名单。服务端仅存哈希（见第 6 章）。
+ 
+ | 幂等 | 创建类 POST 应当携带 Idempotency-Key: <uuid>。网关保存键值映射 24h：同键同 body 返回首次结果；同键不同 body 返回 409 conflict。对异步任务（成本高）必须支持。
+ 
+ | 请求 ID | 响应头 X-Request-Id 全链路唯一；客户端可自带该头用于关联。流式与 Webhook 载荷中同样携带。
+ 
+ | 限流头 | X-RateLimit-Limit-Requests / -Remaining-Requests / -Reset-Requests（token 维度同构）；429 时必须返回 Retry-After。
+ 
+ | 路由回显 | 发生降级/故障转移时，响应头 X-GW-Model-Served 与 body 的 model 字段必须反映实际服务模型，禁止谎报。
+ 
+ | 内容类型 | application/json; charset=utf-8 为主；文件上传用 multipart/form-data；音频输出可为二进制流。
+ 
+ | 时间与 ID | 时间一律 RFC 3339 UTC。资源 ID 带类型前缀：task_ file_ art_ evt_ req_。
+ 
+ | 分页 | 游标式：?limit=20&after=<id>，响应含 has_more 与 last_id。
+
+### 3.3同步与流式 API（OpenAI 兼容基座）
+
+本节端点与 OpenAI 协议字段级兼容（子集 + 扩展）。网关扩展一律收敛在两个命名空间，禁止在顶层散布私有字段：
+
+ 
+gw：控制网关行为（路由、降级、产物模式、追踪标签）；
+ 
+extra：原样透传给上游的长尾参数（经模型注册表白名单校验）。
+
+#### 3.3.1 POST/v1/chat/completions
+
+{
+ "model": "claude-sonnet-4-5",
+ "messages": [
+ { "role": "system", "content": "你是一个助手" },
+ { "role": "user", "content": [
+ { "type": "text", "text": "这张图里有什么？" },
+ { "type": "image_url", "image_url": { "url": "gwfile://file_9x2k" } }
+ ]}
+ ],
+ "temperature": 0.7, // 统一值域 [0,2]，网关向各家值域线性映射
+ "max_tokens": 1024,
+ "stream": true,
+ "tools": [ ... ], // OpenAI tools 格式，网关翻译到各家工具协议
+ "gw": {
+ "fallback_models": ["deepseek-v3", "qwen-max"], // 降级链，按序尝试
+ "route": { "region": "cn", "providers_allow": ["volc"] },
+ "trace_tag": "order-service"
+ },
+ "extra": { "top_k": 40 } // 白名单校验后透传上游
+}
+
+多模态输入引用必须支持三种形式：https:// 公网 URL、data: base64 内联（≤ 8 MB）、gwfile://<file_id>（经 3.5 文件 API 预上传，推荐用于音视频等大文件）。
+
+流式约定（stream=true）：
+
+ 
+SSE 帧格式与 OpenAI chat.completion.chunk 兼容，以 data: [DONE] 结束；
+ 
+usage 必须在末帧给出（默认开启，等价 stream_options.include_usage=true）；上游缺失时由网关估算并置 "usage_estimated": true；
+ 
+网关应当每 15s 发送 SSE 注释心跳（: ping）防止中间设备断连；
+ 
+流中途失败必须发送 event: error + 统一错误体（3.7）后关闭，禁止静默断流。
+
+#### 3.3.2 其余同步端点
+
+ 
+ | 端点 | 要点
+ 
+ | POST/v1/embeddings | OpenAI 标准。input 支持字符串/数组；返回 usage.prompt_tokens。
+ 
+ | POST/v1/images/generations | model, prompt, n, size("1024x1024"|"auto"), quality, response_format(url|b64_json)。默认同步；请求 gw.async=true 或注册表标记慢模型时必须转为任务范式，返回 202 + Task（3.4）。url 为托管模式下的自有域名签名 URL。
+ 
+ | POST/v1/images/edits | multipart：image（文件或 gwfile://）、mask、prompt。
+ 
+ | POST/v1/audio/speech | TTS。model, input, voice, format(mp3|wav|opus|pcm), speed。响应为音频二进制；stream=true 时 chunked 边合成边下发；gw.response="url" 时改回 JSON+签名 URL。
+ 
+ | POST/v1/audio/transcriptions | ASR。multipart file 或 gwfile://；response_format(json|text|srt|vtt)、timestamp_granularities。长音频（注册表阈值）应当转任务范式。
+
+### 3.4统一异步任务 API（task 范式）
+
+设计决策 D-1：资源风格创建 + 通用任务查询创建端点按资源风格命名（贴近 OpenAI 生态直觉），全部返回统一 Task 对象；查询/取消/列表走通用 /v1/tasks。另提供 POST /v1/tasks（body 带 type）作为等价语法糖，便于泛化客户端。
+
+#### 3.4.1 创建端点
+
+ 
+ | 端点 | type | 关键参数
+ 
+ | POST/v1/videos/generations | video.generation | model, prompt, image(gwfile://|url, 可选 i2v 首帧), duration_s, resolution("720p"|"1080p"), fps, seed, webhook
+ 
+ | POST/v1/audio/music | music.generation | model, prompt, lyrics, duration_s, webhook
+ 
+ | POST/v1/images/generations（async） | image.generation | 同 3.3.2，gw.async=true 触发
+ 
+ | POST/v1/tasks | 任意 | { "type": "video.generation", "model": "...", "input": { ... } }
+
+创建成功必须返回 202 Accepted + Task 对象；配额/余额不足在创建时同步拒绝，禁止先受理后静默失败。
+
+#### 3.4.2 Task 对象
+
+{
+ "id": "task_01HZY8KQ3W",
+ "object": "task",
+ "type": "video.generation",
+ "model": "kling-v2.5",
+ "status": "succeeded", // pending | running | succeeded | failed | canceled | expired
+ "progress": 100, // 0-100；上游无进度时为 null
+ "input": { "prompt": "...", "duration_s": 10 }, // 原始请求回显（脱敏）
+ "output": {
+ "artifacts": [{
+ "id": "art_7f3k1",
+ "kind": "video",
+ "url": "https://cdn.gw.example.com/a/7f3k1.mp4?sig=...", // 托管模式：自有域名签名 URL
+ "mime": "video/mp4", "bytes": 83886080,
+ "width": 1920, "height": 1080, "duration_s": 10,
+ "expires_at": "2026-08-09T00:00:00Z"
+ }]
+ },
+ "error": null, // failed 时为统一错误体（3.7）
+ "usage": { "unit": "video_seconds", "amount": 10, "estimated": false },
+ "webhook": { "url": "https://cb.tenant.com/hook", "status": "delivered" },
+ "provider": { "name": "kling", "task_id": "kt-889231" }, // 租户可配置隐藏
+ "created_at": "2026-07-10T03:00:00Z",
+ "started_at": "2026-07-10T03:00:05Z",
+ "finished_at": "2026-07-10T03:04:11Z",
+ "expires_at": "2026-10-08T03:04:11Z" // 任务记录保留期
+}
+
+#### 3.4.3 状态机
+
+POST 创建（202 返回）
+
+上游提交成功
+
+提交失败（重试耗尽）/ 排队超时
+
+客户端取消
+
+生成完成且产物转存完毕
+
+上游失败 / 运行超时 / 任务丢失
+
+客户端取消（canceling → canceled）
+
+产物保留期满
+
+pending
+
+running
+
+failed
+
+canceled
+
+succeeded
+
+expired
+
+内部子状态（对外均显示 running）：
+upstream_submitted → generating → transferring
+Webhook 在产物转存完成后才发出
+图 3-1 · 任务状态机（对外 6 态；running 含内部子状态）
+
+ 
+终态（succeeded / failed / canceled / expired）禁止再迁移；
+ 
+expired 仅表示产物不可再取回，任务元数据仍可查询；
+ 
+每次状态迁移写入 task_events 事件流（第 6 章），作为审计与 Webhook 的事实来源。
+
+#### 3.4.4 查询 / 取消 / 列表
+
+ 
+ | 端点 | 说明
+ 
+ | GET/v1/tasks/{task_id} | 返回 Task 对象。轮询间隔应当 ≥ 2s；网关对该端点按租户限流。
+ 
+ | GET/v1/tasks?status=running&type=video.generation&limit=20 | 游标分页列表。
+ 
+ | POST/v1/tasks/{task_id}/cancel | 请求取消。上游支持取消则转发；不支持则本地标记、结果到达后丢弃。已产生的上游费用照常计量。响应返回 canceling 或终态。
+
+#### 3.4.5 Webhook
+
+注册方式：创建任务时的 webhook.url（请求级）或租户控制台默认配置（租户级），请求级优先。事件类型：task.running、task.progress（节流 ≤ 1 次/10s）、task.succeeded、task.failed、task.canceled。
+
+POST {webhook.url}
+X-GW-Signature: t=1783047851, v1=<hex( HMAC-SHA256( secret, t + "." + raw_body ) )>
+Content-Type: application/json
+
+{
+ "id": "evt_01J0AB",
+ "object": "event",
+ "type": "task.succeeded",
+ "created_at": "2026-07-10T03:04:12Z",
+ "data": { ...完整 Task 对象... }
+}
+
+ 
+接收方校验：时间戳容差 300s 内、签名匹配；网关禁止在签名外附带任何鉴权凭据；
+ 
+重试策略：非 2xx 或 5s 超时视为失败，按 5s / 30s / 2m / 10m / 1h / 6h / 24h 退避重试后放弃并告警；3xx 禁止跟随；
+ 
+接收方必须按 evt_ ID 幂等消费——重复投递是常态而非异常；
+ 
+task.succeeded 必须在产物转存完成后才发出（保证 data 中 URL 立即可用，见 4.3）。
+
+### 3.5文件 API
+
+解决"输入模态怎么交给上游"的统一入口。上传后获得 file_id，在任何端点以 gwfile://<file_id> 引用；网关在路由确定后，按目标 Provider 的要求把文件变成"它要的形式"（公网临时 URL / base64 / 官方 file 接口 / 直传其指定 OSS）。
+
+ 
+ | 端点 | 说明
+ 
+ | POST/v1/files | multipart：file + purpose(model_input)。单请求 ≤ 512 MB。
+ 
+ | POST/v1/uploads → PUT/v1/uploads/{id}/parts/{n} → POST/v1/uploads/{id}/complete | 大文件分片上传：创建（声明 filename/bytes/mime，获得 part_size）→ 传分片 → 提交（校验 sha256）。
+ 
+ | GET/v1/files/{file_id} | 元数据（File 对象）。
+ 
+ | GET/v1/files/{file_id}/content | 302 跳转到限时签名 URL。
+ 
+ | DELETE/v1/files/{file_id} | 删除（正被 running 任务引用时返回 409）。
+
+File 对象：
+{
+ "id": "file_9x2k", "object": "file",
+ "filename": "input.mp4", "mime": "video/mp4", "bytes": 10485760,
+ "purpose": "model_input",
+ "status": "ready", // processing | ready | rejected
+ "reject_reason": null, // 格式/时长/分辨率/安全扫描不通过
+ "checksum_sha256": "…",
+ "media": { "width": 1280, "height": 720, "duration_s": 8.5 }, // 探测结果
+ "created_at": "…", "expires_at": "…" // 输入文件默认保留 7 天
+}
+
+入库必须做 MIME 白名单校验与安全扫描，应当做媒体探测（ffprobe：编码/分辨率/时长）。当目标模型的输入约束（注册表声明）不满足时：能转码则在任务提交前自动转码，不能则报 invalid_media。
+
+### 3.6Realtime API（realtime 范式）
+
+WSwss://api.gw.example.com/v1/realtime?model=...　事件语义对齐 OpenAI Realtime 协议子集，双向 JSON 事件信封 { "event_id", "type", ... }。
+
+ 
+ | 项 | 约定
+ 
+ | 鉴权 | 服务端场景用 Authorization 头；浏览器/端上场景应当先调 POST/v1/realtime/sessions 换取一次性 client_secret（TTL 60s）直连，禁止把长期 key 下发到端上。
+ 
+ | 客户端事件 | session.update、input_audio_buffer.append / commit、response.create / cancel
+ 
+ | 服务端事件 | session.created、response.output_audio.delta、response.output_text.delta、response.done、error、rate_limits.updated，以及网关扩展 gw.usage（每 60s 计费心跳 + 会话结束结算帧）
+ 
+ | 会话粘性 | 会话建立时选定上游与网关节点并保持粘性；V1 节点故障即会话终止（发 error 后关闭），按已消耗时长结算。断线续播（resume_token）列入开放问题。
+ 
+ | 时长上限 | 单会话应当设硬上限（默认 30 min）与空闲超时（默认 60s），防挂死计费。
+
+### 3.7统一错误规范
+
+所有门面（含透传的网关侧自身错误）必须使用统一错误体；上游原始错误保留在 provider 字段供排障：
+
+{
+ "error": {
+ "code": "rate_limited", // 机器可读，见下表
+ "type": "throttle", // 分类：invalid_request | auth | throttle | upstream | content | internal
+ "message": "Upstream concurrency limit reached, request queued timeout.",
+ "param": "model", // 可选：出错参数
+ "request_id": "req_01J0…",
+ "retryable": true, // 客户端可原样重试
+ "failover": true, // 网关可切换 Key/Provider 重试
+ "provider": { "name": "kling", "status": 429, "code": "1302", "message": "..." }
+ }
+}
+
+ 
+ | code | HTTP | retryable | failover | 说明
+ 
+ | invalid_request | 400 | 否 | 否 | 参数缺失、格式错误、值域越界
+ 
+ | unsupported_parameter | 400 | 否 | 视配置 | 目标模型不支持该参数（strict 模式，见 4.2）
+ 
+ | invalid_media | 422 | 否 | 否 | 输入文件格式/分辨率/时长不满足且无法转码
+ 
+ | authentication_error | 401 | 否 | 否 | 网关 key 无效/过期
+ 
+ | permission_denied | 403 | 否 | 否 | key 无权访问该模型/功能/门面
+ 
+ | insufficient_balance | 402 | 否 | 否 | 租户余额不足
+ 
+ | not_found | 404 | 否 | 否 | 资源或模型不存在
+ 
+ | conflict | 409 | 否 | 否 | 幂等键冲突（同键不同 body）、状态冲突
+ 
+ | payload_too_large | 413 | 否 | 否 | 超过 body / 文件大小限制
+ 
+ | content_filtered | 422 | 否 | 否 | 内容安全拦截；error.stage = input | output
+ 
+ | rate_limited | 429 | 是 | 是 | 网关或上游限流、排队超时；带 Retry-After
+ 
+ | quota_exceeded | 429 | 否 | 否 | 租户配额耗尽（区别于瞬时限流，重试无效）
+ 
+ | upstream_error | 502 | 是 | 是 | 上游 5xx / 协议异常 / 响应不可解析
+ 
+ | model_unavailable | 503 | 是 | 是 | 上游不可用、熔断打开、无健康 Key
+ 
+ | upstream_timeout | 504 | 是 | 是 | 上游连接/首字节/总时长超时
+ 
+ | upstream_task_lost | — | 否 | 否 | 仅任务：上游查不到已提交任务（含结果保留期已过）
+ 
+ | internal_error | 500 | 是 | 否 | 网关内部错误
+
+任务的 error 字段复用同一错误体（无 HTTP 维度）。retryable/failover 两个标志同时驱动客户端行为与网关内部的重试/降级决策（4.5）。
+
+### 3.8官方原生透传门面
+
+目标：官方 SDK 用户只改 base_url 与 key，代码零改动迁移。原则：轻翻译、重治理（P3）。
+
+#### 3.8.1 治理注入与字段改写
+
+ 
+ | 环节 | 透传模式下的行为
+ 
+ | 鉴权 | 必须替换：验证网关 key → 换上游真实凭证。Bearer 类替换 header；AK/SK 签名类见 3.8.2。
+ 
+ | 限流/配额/审计/安全 | 必须全量生效，与统一门面同一套治理管道。
+ 
+ | 计费 | 必须旁路解析 usage：按 Provider+端点声明的提取规则（JSONPath / 流式末帧规则）读取，不修改 body。解析器版本必须跟随上游 API 版本管理。
+ 
+ | body 改写白名单 | 仅限三类，逐 Provider 在适配器配置中显式声明：① 回调地址字段（callback_url / notify_url → 改写为网关回调接收地址，网关收到后转发租户）；② 上游要求的上传/输出桶地址；③ 托管产物模式下响应中的产物 URL。白名单之外禁止触碰 body。
+ 
+ | 产物模式 | artifact_mode = passthrough（默认，URL 原样，租户自行赶在过期前取）| managed（转存改写，响应头 X-GW-Artifacts-Rewritten: true）。租户级配置，请求头 X-GW-Artifact-Mode 可覆盖。
+ 
+ | 错误 | 上游错误体与状态码原样返回（保持官方 SDK 的错误处理逻辑可用）；网关自身产生的错误（限流、鉴权失败等）用统一错误体（3.7）。
+
+#### 3.8.2 AK/SK 签名方言的"验签-重签"
+
+租户（持网关签发的 gw-AK/SK，按官方 SDK 正常签名）
+ │ 官方签名请求
+ ▼
+网关：① 用租户 gw-SK 对请求验签（实现该厂商官方签名算法）
+ ② 治理管道（限流/计费/审计/安全）
+ ③ 白名单字段改写（如 callback_url）
+ ④ 用上游真实 AK/SK 对最终请求重签
+ │
+ ▼ 上游 Provider
+
+要点：签名覆盖的 header/query 集合、规范化规则、时间戳容差必须与官方算法逐字节一致；重签发生在一切改写之后（P3 + 5.2 流水线顺序）。每支持一种签名算法即一个"签名插件"，V1 范围见第 8 章。
+
+#### 3.8.3 透传的能力边界
+
+ 
+禁止跨厂商 failover（body 是方言私有的）；仅同厂商多 Key / 多区域容灾有效；
+ 
+不支持 gw 扩展命名空间（避免污染官方 schema）；网关行为控制走请求头 X-GW-*；
+ 
+上游官方 API 升级时透传天然兼容（不翻译），但 usage 旁路解析器与签名插件必须回归验证。
+
+与翻译路径的组合入口是官方方言、但希望跨厂商路由时，可以对该 Provider 方言实现"入口翻译器"（方言 → IR），之后与统一门面共享全部路由/降级能力——即"用 OpenAI SDK 调所有模型"的模式。是否为某方言建入口翻译器是逐方言的产品决策。
+
+## 4.内部核心设计
+
+### 4.1统一中间表示 IR
+
+IR 是翻译路径的枢纽：门面把方言解析为 IR，适配器把 IR 翻译为上游请求；反向同理。以下为语言无关的结构定义（伪代码）：
+
+// —— 请求 ——
+record GatewayRequest {
+ request_id : string
+ tenant_id : string; api_key_id : string
+ facade : UNIFIED | NATIVE(provider) | EXTENSION
+ paradigm : SYNC | STREAM | TASK | REALTIME // 见 4.2 判定
+ operation : "chat.completions" | "images.generations" | "video.generation" | ...
+ model : string // 逻辑模型名
+ params : CanonicalParams // 统一语义参数（透传时为空）
+ media : MediaRef[] // 已解析的输入文件引用
+ options : GwOptions { fallback_models[], route{}, artifact_mode, trace_tag, async }
+ raw : bytes? // NATIVE 透传保留原始 body
+ idempotency_key: string?
+}
+record MediaRef {
+ kind : IMAGE | AUDIO | VIDEO | FILE
+ source : GWFILE | URL | INLINE
+ file_id: string?; url: string?; bytes: bytes?
+ mime : string; meta { width?, height?, duration_s? }
+}
+
+// —— 响应与流帧 ——
+record GatewayResponse { model_served, content, tool_calls[], artifacts[], usage, finish_reason }
+union StreamFrame = TextDelta | ToolCallDelta | AudioChunk | UsageFrame | Done | ErrorFrame
+
+// —— 任务 ——
+record TaskUpdate {
+ provider_task_id : string
+ status : PENDING | RUNNING | SUCCEEDED | FAILED | CANCELED
+ progress : int? // 0-100
+ artifacts_upstream : UpstreamArtifact[]? // 上游临时 URL，待转存
+ error : GatewayError?
+ usage : Usage?
+ raw : json // 上游原始载荷，落 task_events 审计
+}
+
+CanonicalParams 的统一语义基准：temperature ∈ [0,2]、max_tokens 指输出上限、消息为 OpenAI messages 结构、工具为 OpenAI tools 结构。适配器负责与各家值域/结构互译（映射规则声明在注册表，见 5.5）。
+
+### 4.2交互范式判定
+
+ 
+ | 输入 | 判定
+ 
+ | operation + 注册表 | 每个 model × operation 在注册表声明支持的范式集合，如 video.generation → [task]、chat.completions → [sync, stream]。
+ 
+ | 请求参数 | stream=true → STREAM；gw.async=true → TASK；WS 升级 → REALTIME。
+ 
+ | 自动升格 | 注册表标记 slow=true 的模型（如高分辨率图像），同步请求必须自动升格为 TASK 并返回 202——禁止让 HTTP 连接挂 5 分钟。
+ 
+ | 参数能力校验 | 请求使用了模型不支持的能力（如对无 vision 模型传图）时：strict 模式报 unsupported_parameter；lenient 模式丢弃该参数但必须在响应 warnings[] 中声明。默认 strict。
+
+### 4.3异步任务中心
+
+#### 4.3.1 组件
+
+ 
+ | 组件 | 职责
+ 
+ | TaskStore | 任务持久化；一切状态变更先写 tasks + task_events（事务），再产生副作用。事件流是 Webhook 与审计的唯一事实来源。
+ 
+ | Scheduler | 出队与并发闸门：按 模型 × 上游Key 的并发上限（注册表声明，视频厂商普遍 5~20 并发）+ 租户公平（每租户 in-flight 上限）。有界队列，超 max_queue_time → failed(rate_limited)。
+ 
+ | UpstreamPoller | 轮询调度器：自适应间隔——前 30s 每 5s，之后指数放宽至 60s 上限（Provider 可覆盖），加抖动；轮询消耗上游配额，必须纳入上游限流预算。
+ 
+ | CallbackReceiver | 统一回调接收端点 /callbacks/{provider}/{task_id}?nonce=…：逐厂商验签、按（task_id + 状态 + 载荷哈希）去重、容忍乱序（旧状态到达直接丢弃）。收到"完成"回调后应当反查上游一次确认，防伪造与脏数据。
+ 
+ | Notifier | 下游 Webhook 分发（3.4.5 策略），投递记录落 webhook_deliveries。
+ 
+ | Reaper | 超时与过期：运行超 max_run_time（注册表按模型声明，默认 30 min）置 failed；产物保留期满置 expired 并释放存储。
+
+#### 4.3.2 关键机制
+
+ 
+崩溃恢复（租约）：running 任务携带 owner_node + lease_until，持有节点周期续租；租约过期任务被其他节点扫描接管，继续轮询。任务中心多副本部署时以此实现无单点。
+ 
+提交幂等：先落库（pending，记录 submit_attempt）再调上游。上游提交超时时结果未知——若该厂商支持客户端令牌则带 client_token 重试；不支持则先查询后重提，仍不确定时宁可标记失败也禁止盲目重提（视频重复提交=真金白银）。
+ 
+转存先于成功：上游完成 → 内部子状态 transferring（对外仍 running）→ 转存完成才置 succeeded 并发 Webhook。转存重试 3 次仍失败时降级：交付上游原始 URL + warnings["artifact_rehost_failed"] + 内部告警。
+ 
+取消语义：canceling 为内部中间态；上游不支持取消时本地标记、晚到结果丢弃；已产生费用照常计量。
+
+### 4.4媒体文件服务
+
+ 
+ | 方向 | 管线
+ 
+ | 输入 | 上传（直传/分片）→ MIME 白名单 + 安全扫描 → ffprobe 媒体探测 → 入库（files）→ 任务提交时按目标模型输入约束按需转码 → 生成上游可访问形式：限时公网签名 URL（默认，TTL 覆盖任务时长）/ base64 / 官方文件接口上传 / 直传其指定桶——由适配器声明选择。
+ 
+ | 输出 | 上游产物临时 URL → 转存队列（高优先级，上游 URL 生命期短至 1h）→ 分片下载（重试 3 次、断点续传）→ 写对象存储（含 sha256）→ CDN 预热（可以）→ 生成 art_ 记录与自有域名签名 URL。
+
+ 
+签名 URL 默认 TTL 24h，可续签（GET /v1/files/{id}/content 每次生成新签名）；
+ 
+生命周期：输入文件默认 7 天；产物按租户策略（默认 90 天）；删除受法务保留（legal hold）标志约束；
+ 
+大对象全程流式管道，禁止整文件读入内存（见第 7 章）。
+
+### 4.5路由引擎
+
+candidates = Registry.endpoints(model) // 该逻辑模型的全部上游端点
+ |> filter( 健康度 ∧ 熔断闭合 ∧ 合规域(tenant) ∧ 能力满足(params) ∧ region 约束 )
+ |> sort( weight desc, cost asc, p95_latency asc )
+key = KeyPool(endpoint).pick() // 轮转；429/401 触发冷却(cooldown)
+
+ 
+ | 机制 | 规则
+ 
+ | 重试（同端点） | 仅 retryable=true 且非流式已发帧场景；上限 2 次，指数退避 + 抖动。流式一旦向客户端发出首帧，禁止整流重试。
+ 
+ | 故障转移（换 Key/端点） | failover=true 错误触发；同厂商优先（Key 池 → 区域），再跨厂商（仅统一门面 + 有映射能力）。
+ 
+ | 降级链 | gw.fallback_models 按序尝试；每一跳重新走参数映射与能力校验；最终响应必须回显实际模型（3.2 路由回显）。
+ 
+ | 熔断 | 按端点滑动窗口（30s）：错误率 > 50% 且样本 ≥ 20 → open 30s → half-open 放量试探。窗口对 5xx/超时计数，4xx 不计。
+ 
+ | 健康探测 | 被动（真实流量信号）为主；可以对高价值端点配置低频主动探测（注册表声明探测请求）。
+
+### 4.6限流与配额
+
+四层限流，任意一层拒绝即返回 429（rate_limited 或 quota_exceeded）：
+
+ 
+ | 层 | 主体 | 手段
+ 
+ | L1 | 租户 / 网关 Key | 令牌桶：RPM + TPM（或模态等价单位：张/秒/字符）；月度/预付费配额（quota_exceeded，重试无效）。
+ 
+ | L2 | 模型（全局） | 保护性总闸，防单模型雪崩拖垮网关。
+ 
+ | L3 | 上游 Key | 镜像上游申明的 RPM/TPM/并发额度；触顶时优先切换 Key 池内其他 Key，而非直接拒绝。
+ 
+ | L4 | 任务并发闸门 | 异步任务专用：模型 × 上游Key 并发上限 + 有界等待队列（4.3 Scheduler）。
+
+实现：集中式令牌桶（Redis 原子脚本）+ 本地小额预取缓冲，容忍短暂超卖；并发闸门用分布式信号量。所有限流决策打点，供容量规划。
+
+### 4.7计量计费
+
+UsageEvent {
+ id, tenant_id, api_key_id, request_id | task_id | session_id,
+ model, provider, operation, facade,
+ unit : tokens_in | tokens_out | tokens_cached | images | video_seconds
+ | tts_characters | asr_seconds | session_minutes | rehost_bytes,
+ amount : decimal,
+ estimated : bool, // 上游未返回 usage、由网关估算
+ price_snapshot : { unit_price, currency, version }, // 计费时刻价格快照
+ cost : decimal,
+ created_at
+}
+
+ 
+ | 采集点 | 规则
+ 
+ | 同步响应 | 直接取上游 usage；缺失 → tokenizer 估算 + estimated=true。
+ 
+ | 流式 | 取 UsageFrame 末帧；断流（客户端断开/上游中断）时必须按已转发内容估算补账。
+ 
+ | 异步任务 | 任务完成时取上游 usage，或按任务参数推导（时长 × 分辨率档）。失败任务默认不计费；上游明确已扣费的部分（如部分厂商排队后失败仍计）按 Provider 声明处理并打标。
+ 
+ | Realtime | 每 60s 心跳事件 + 会话结束结算帧，双向 token/音频秒分别计。
+ 
+ | 透传 | 旁路解析器（3.8.1）产出，与统一门面同一事件模型。
+
+对账：按日汇总 usage_events 与上游账单比对，偏差 > 2% 告警。计费事件必须先落盘再出账（append-only），事件与账务分离，可重放。
+
+### 4.8内容安全
+
+ 
+ | 环节 | 策略
+ 
+ | 输入审核 | 同步链路：文本走低延迟审核（< 50ms 预算，超时放行+异步复核 或 阻断，按租户风险等级配置）；任务链路：提交上游前完成全量审核（含图像/音频，时间充裕）。
+ 
+ | 输出审核 | 流式：滑动窗口增量审核，命中即发 event:error(content_filtered) 并终止；产物：转存完成后、交付前审核（图像/视频抽帧）。
+ 
+ | 处置与留痕 | 拦截返回 content_filtered（stage 标注）；全部审核决策写审计日志。上游内置审核的拦截映射为同一错误码，provider 字段保留原始信息。
+ 
+ | 合规域路由 | 租户标注合规域（如 cn / global），路由引擎必须过滤不合规端点（4.5）；数据驻留与跨境传输策略在注册表按端点声明。
+
+### 4.9可观测性
+
+ 
+Trace：W3C traceparent 贯穿 facade → governance → adapter → upstream；任务范式跨越提交/轮询/回调/转存多段，用 task_id 做 trace 关联属性。
+ 
+核心指标：TTFT（首帧延迟，流式北极星）、tokens/s 吞吐、网关自身附加延迟（第 7 章 SLO）、任务排队时长/运行时长/转存时长、上游错误率与熔断状态、Key 池余量、Webhook 投递成功率、转存失败率。
+ 
+日志脱敏：网关 key 仅记前缀；上游凭证禁止出现在任何日志；prompt/产物内容默认不记录，租户 opt-in 后采样记录并截断（≤ 4KB）。
+ 
+审计流：谁（租户/key）在何时用什么模型做了什么操作、治理决策（限流/审核/降级）——append-only，与运行日志分离。
+
+## 5.适配器规范（Provider Adapter SPI）
+
+### 5.1五切面接口
+
+一个适配器 = 五个可独立实现/复用的切面。除 TaskLifecycle 外均为无状态纯函数风格：
+
+// ① 传输：协议与连接（HTTP/SSE/WS/gRPC），通常复用通用实现
+interface Transport {
+ send(preq: ProviderRequest) -> ProviderResponse
+ openStream(preq) -> ByteStream
+ openSocket(preq) -> DuplexSocket // realtime
+}
+
+// ② 凭证注入：流水线最后一步（5.2）
+interface CredentialInjector {
+ inject(preq: ProviderRequest, cred: Credential) -> ProviderRequest
+ // Bearer: 加 header；AK/SK: 对最终请求计算签名；OAuth: 取缓存 token（过期自动刷新）
+ verifyInbound(req)? -> bool // 透传门面的验签端（3.8.2）
+}
+
+// ③ 请求映射：IR → 上游方言
+interface RequestMapper {
+ map(ir: GatewayRequest, mediaResolved: ResolvedMedia[]) -> ProviderRequest
+ // 方法/路径/参数位置(query|json|form)/字段翻译/值域缩放/媒体形式选择
+}
+
+// ④ 响应归一：上游方言 → IR（含流式转码与错误映射）
+interface ResponseNormalizer {
+ normalize(presp) -> GatewayResponse | GatewayError // 含"HTTP 200 带业务错误码"的翻译
+ transcode(bytes: ByteStream) -> Stream<StreamFrame> // 边收边转，缓冲 ≤ 64KB
+ extractUsage(presp | frame | taskUpdate) -> UsageEvent[]
+}
+
+// ⑤ 任务生命周期：task 范式专用
+interface TaskLifecycle {
+ submit(preq) -> ProviderTaskRef
+ query(ref) -> TaskUpdate
+ cancel(ref) -> void // capability: 可不支持
+ parseCallback(httpReq) -> TaskUpdate // capability: 回调式厂商实现
+ verifyCallback(httpReq) -> bool
+}
+
+### 5.2执行流水线
+
+校验/能力检查 → 内容预检 → 路由选端点+Key → RequestMapper
+ → 媒体注入（把 gwfile:// 变成该厂商要的形式）
+ → 白名单字段改写（透传：callback_url 等）
+ → CredentialInjector（最后一步，此后禁止任何修改）
+ → Transport 发送 → ResponseNormalizer / transcode → UsageExtract → 交付
+
+顺序硬约束AK/SK 签名对最终字节计算。凭证注入之后任何组件（含日志中间件）禁止再改写请求，否则上游验签失败且极难排查。流水线实现应当在注入后冻结请求对象。
+
+### 5.3声明式配置 DSL（覆盖约 80% 简单 REST 厂商）
+
+简单厂商应当用配置接入（不发版、热加载）；DSL 由通用引擎解释执行，能力覆盖：鉴权模板、字段映射、值域缩放、状态映射、轮询/回调声明、usage 提取。示例（虚构厂商 acme）：
+
+provider: acme
+auth:
+ type: api_key
+ in: header
+ name: X-Acme-Key # 也支持 in: query / body_field；bearer 模板等
+
+operations:
+ chat.completions:
+ method: POST
+ url: https://api.acme.com/v3/chat
+ paradigms: [sync, stream]
+ request:
+ model: { to: model_id }
+ messages: { to: dialog }
+ temperature: { to: temp, scale: "[0,2]->[0,1]" }
+ max_tokens: { to: max_new_tokens }
+ response:
+ content: { from: "$.result.text" }
+ usage: { in: "$.meter", tokens_in: "$.prompt", tokens_out: "$.completion" }
+ error: { when: "$.code != 0", code_map: { "429": rate_limited, "1005": content_filtered } }
+ stream:
+ format: sse
+ delta: { from: "$.delta" }
+ done: { signal: "data: [END]" }
+ usage_frame: last
+
+ video.generation:
+ method: POST
+ url: https://api.acme.com/v3/video/submit
+ paradigms: [task]
+ request:
+ prompt: { to: text }
+ image: { to: first_frame_url, media_form: public_url } # 媒体注入形式
+ task:
+ id: { from: "$.data.tid" }
+ query:
+ method: GET
+ url: "https://api.acme.com/v3/video/query?tid={tid}"
+ status: { from: "$.data.state",
+ map: { QUEUING: pending, PROCESSING: running, SUCCESS: succeeded, FAIL: failed } }
+ progress: { from: "$.data.percent" }
+ artifacts: { from: "$.data.video_url", kind: video }
+ poll: { initial: 5s, max: 60s, backoff: 1.5 }
+ callback: # 可选：回调式取回
+ request_field: notify_url # 改写白名单字段（3.8.1）
+ verify: { type: hmac_sha256, header: X-Acme-Sign, secret_ref: acme_cb_secret }
+ cancel: { method: POST, url: "https://api.acme.com/v3/video/cancel", supports: true }
+ usage: { unit: video_seconds, from: "$.data.duration" }
+
+### 5.4代码插件
+
+以下场景 DSL 表达不了，必须写代码插件（实现 5.1 对应切面接口，其余切面仍可复用通用实现）：
+
+ 
+AK/SK 请求签名与透传验签-重签（阿里云 ACS3-HMAC-SHA256、火山 HMAC-SHA256、AWS SigV4 系）；
+ 
+私有流式分帧（非标准 SSE、二进制分帧、增量语义特殊）；
+ 
+WebSocket / Realtime 事件协议互译；
+ 
+多步交互（先换 token 再调用、先申请上传凭证再传文件）。
+
+插件以独立模块打包，声明 provider + 切面 + 版本，网关按注册表引用装配；插件升级必须过 5.6 一致性测试。
+
+### 5.5模型注册表
+
+全网关的配置中枢，热更新、带版本与灰度。条目示例：
+
+model: kling-v2.5 # 逻辑模型名（对外唯一）
+display_name: 可灵 2.5
+modality: video
+operations: [video.generation]
+paradigms: [task]
+capabilities: [t2v, i2v]
+input_constraints: # 媒体服务转码依据（4.4）
+ image: { mime: [image/jpeg, image/png], max_mb: 10, min_edge: 300 }
+limits: { max_duration_s: 10, resolutions: [720p, 1080p] }
+slow: true # 4.2 自动升格依据
+endpoints:
+ - provider: kling
+ adapter: { type: dsl, ref: kling.yaml, version: 3 }
+ region: cn
+ compliance_domain: cn
+ weight: 100
+ key_pool: kp_kling_prod # 引用凭证池（第 6 章 provider_keys）
+ rate: { concurrent_tasks: 10 }
+ timeouts: { submit: 30s, max_run: 15m }
+pricing:
+ - { unit: video_seconds, price: "0.50", currency: CNY, tier: "1080p", version: 7 }
+task_defaults: { result_retention: 90d }
+
+### 5.6适配器一致性测试（Conformance Suite）
+
+每个适配器（DSL 或代码）合入与升级必须通过对 mock 上游的标准用例集：
+
+ 
+ | 类别 | 必测用例
+ 
+ | 凭证 | 注入位置/格式正确；签名逐字节比对官方样例向量；token 过期自动刷新。
+ 
+ | 请求映射 | 全参数映射快照测试；值域边界（temperature 0 / 2）；媒体三种引用形式。
+ 
+ | 响应/流式 | 正常帧、乱序/半帧粘包容错、上游中断→ErrorFrame、"200 带业务错误"翻译、usage 提取（含缺失估算路径）。
+ 
+ | 任务 | 状态映射全覆盖（含未知状态→告警不崩溃）、进度、取消（支持/不支持两分支）、回调验签正/负样本、轮询退避曲线。
+ 
+ | 错误 | 厂商错误码→统一码表映射完整；retryable/failover 标志正确。
+ 
+ | 超时 | 连接/首字节/总时长三级超时行为。
+
+## 6.数据模型（核心存储）
+
+ 
+ | 表 | 关键字段 | 说明 / 索引要点
+ 
+ | tenants | id, name, plan, compliance_domain, balance, artifact_policy, webhook_default | 计费与隔离主体。
+ 
+ | api_keys | id, tenant_id, key_hash, prefix, scopes(models[]), quota, expires_at, dialect_binding | 仅存哈希；prefix 用于日志展示；dialect_binding 支持按 key 识别方言（3.1）。
+ 
+ | provider_keys | id, provider, pool_id, cred_encrypted(KMS 信封), region, rate_declared, status, cooldown_until | 上游凭证池；BYOK 记 tenant_id。明文禁止落库落日志。
+ 
+ | models / model_endpoints | 注册表落地（5.5），版本化 | 变更走审计 + 灰度发布。
+ 
+ | tasks | id, tenant_id, type, model, status, substatus, progress, input_json, error_json, usage_json, provider, provider_task_id, idempotency_key, owner_node, lease_until, webhook_json, timestamps… | 索引：(tenant_id,status,created_at)、(status,lease_until)（接管扫描）、(idempotency_key) unique、(provider,provider_task_id)（回调反查）。
+ 
+ | task_events | id, task_id, seq, from_status, to_status, payload_raw, created_at | append-only 事件流；Webhook 与审计的事实来源。
+ 
+ | files / artifacts | id, tenant_id, storage_key, mime, bytes, checksum, media_meta, source(upload|rehost), upstream_url, expires_at, legal_hold | 生命周期由 Reaper 驱动。
+ 
+ | usage_events | 4.7 结构 | 按月分区；append-only；出账与对账的输入。
+ 
+ | webhook_deliveries | id, event_id, task_id, url, attempt, status_code, next_retry_at | 投递审计与重试驱动。
+ 
+ | audit_logs | actor, action, resource, decision, detail, created_at | append-only，独立存储，含治理决策。
+
+## 7.非功能性需求（NFR）
+
+ 
+ | 维度 | 要求
+ 
+ | 性能 | 网关自身附加延迟（不含上游）：同步 p99 < 30ms；流式首帧附加 < 20ms、逐帧附加 < 5ms；流式转发缓冲 ≤ 64KB；文件与产物全程流式管道，内存占用与文件大小无关。
+ 
+ | 容量（V1 目标） | 5,000 RPS 同步 + 50,000 并发 SSE + 10,000 活跃任务 + 2,000 并发 Realtime 会话（示例基线，按业务校准）。
+ 
+ | 可用性 | 核心链路 99.95%。①②⑤ 无状态多副本；③ 多副本租约接管（RPO=0：一切先落库）；网关升级必须对 SSE/WS 做连接排水（drain）。
+ 
+ | 安全 | 上游凭证 KMS 信封加密、内存最小驻留；网关 key 只存哈希；管理面最小权限 + 双人审批（凭证操作）；审计 append-only。
+ 
+ | 合规 | 合规域路由硬隔离（4.8）；数据驻留按端点声明；租户数据删除权（GDPR/个保法风格）由文件生命周期 + 任务记录脱敏支持。
+
+## 8.实施里程碑
+
+ 
+ | 阶段 | 范围 | 验收标志
+ 
+ | Phase 1
+统一门面 MVP | OpenAI 兼容门面（chat / embeddings / images 同步 / audio）；治理管道全量（鉴权/限流/计费/审计）；DSL 适配引擎 + 3~5 个 Provider；多 Key 池与同厂商 failover。 | 业务方零文档改造迁入；计费对账偏差 < 2%。
+ 
+ | Phase 2
+全模态异步 | 任务中心（状态机/租约/轮询+回调/Webhook）；文件 API 与媒体转存；视频/音乐 Provider 接入；图像自动升格。 | 视频任务端到端成功率 > 99%（除上游失败）；产物 URL 零过期事故。
+ 
+ | Phase 3
+无感接入 | 官方原生透传门面（Anthropic /v1/messages 优先，国内按需）；AK/SK 验签-重签插件 2 家；usage 旁路解析器；按 key 方言识别。 | 官方 SDK 用户改 base_url 即迁移成功。
+ 
+ | Phase 4
+进阶 | Realtime 通道；跨厂商 failover（入口翻译器）；语义缓存；成本/延迟智能路由；对账自动化。 | —
+
+## 9.开放问题（Open Questions）
+
+ 
+ | # | 问题 | 倾向
+ 
+ | Q1 | 失败任务计费口径：上游"排队后失败仍扣费"的厂商，成本转嫁租户还是网关吸收？ | 按 Provider 声明透传成本，账单单列，待商务确认。
+ 
+ | Q2 | Realtime 断线重连（resume）是否承诺？ | V1 不承诺；观察上游 resume 能力成熟度。
+ 
+ | Q3 | 租户自带对象存储（产物直写租户桶）？ | Phase 4 评估；涉及凭证托管与转码归属。
+ 
+ | Q4 | Batch 批处理 API（文件级异步，OpenAI /v1/batches 风格）是否纳入任务中心？ | 可复用任务模型，Phase 3 后评估需求量。
+ 
+ | Q5 | gRPC / 双向流入口是否提供？ | 暂无需求方，不排期。
+ 
+ | Q6 | 多活/多区域部署下任务中心的就近与容灾模型？ | V1 单区域主备；多活需任务分区方案，另立 RFC。
+
+## A.附录 A · 请求示例
+
+#### A.1 流式对话（统一门面）
+
+curl -N https://api.gw.example.com/v1/chat/completions \
+ -H "Authorization: Bearer sk-gw-xxxx" \
+ -H "Content-Type: application/json" \
+ -d '{
+ "model": "claude-sonnet-4-5",
+ "messages": [{"role":"user","content":"用一句话解释模型网关"}],
+ "stream": true,
+ "gw": { "fallback_models": ["deepseek-v3"] }
+ }'
+
+#### A.2 视频生成任务 + Webhook
+
+curl https://api.gw.example.com/v1/videos/generations \
+ -H "Authorization: Bearer sk-gw-xxxx" \
+ -H "Idempotency-Key: 7d1e5c9e-4a2b-4f1c-9a3e-000000000001" \
+ -d '{
+ "model": "kling-v2.5",
+ "prompt": "无人机穿越晨雾中的雪山",
+ "duration_s": 10,
+ "resolution": "1080p",
+ "webhook": { "url": "https://cb.tenant.com/gw-hook" }
+ }'
+# → 202 { "id": "task_01HZY8KQ3W", "status": "pending", ... }
+
+curl https://api.gw.example.com/v1/tasks/task_01HZY8KQ3W \
+ -H "Authorization: Bearer sk-gw-xxxx"
+
+#### A.3 官方原生透传（Anthropic 方言）
+
+# 官方 SDK 只需：base_url 指向网关 + 换网关 key，body 与路径均为 Anthropic 官方规范
+curl https://api.gw.example.com/anthropic/v1/messages \
+ -H "x-api-key: sk-gw-xxxx" \
+ -H "anthropic-version: 2023-06-01" \
+ -d '{ "model": "claude-sonnet-4-5", "max_tokens": 256,
+ "messages": [{"role":"user","content":"hello"}] }'
+
+#### A.4 文件预上传 + 图生视频
+
+curl https://api.gw.example.com/v1/files \
+ -H "Authorization: Bearer sk-gw-xxxx" \
+ -F purpose=model_input -F file=@first_frame.png
+# → { "id": "file_9x2k", "status": "ready", ... }
+
+curl https://api.gw.example.com/v1/videos/generations \
+ -H "Authorization: Bearer sk-gw-xxxx" \
+ -d '{ "model": "kling-v2.5", "prompt": "镜头缓慢推近",
+ "image": "gwfile://file_9x2k", "duration_s": 5 }'
+
+## B.附录 B · 上游差异维度全景
+
+网关要消化的全部差异维度及对应机制（正文索引）。
+
+ 
+ | 维度 | 上游常见形态 | 网关机制（章节）
+ 
+ | 鉴权 | Key 在 header（Bearer / x-api-key / 自定义）、query、body；AK/SK 请求签名；OAuth2 换临时 token；JWT；IP 白名单 / mTLS | 凭证注入切面，签名最后一步（5.1、5.2）；透传验签-重签（3.8.2）
+ 
+ | 请求方法与参数位置 | GET/POST/PUT/DELETE；query / JSON / form-data / urlencoded / 二进制 body / header 传参 | 声明式请求映射（5.3）
+ 
+ | 传输协议 | HTTP、SSE、WebSocket、gRPC、WebRTC | Transport 切面（5.1）；接入层长连接（2.2）
+ 
+ | 响应模式 | 同步；SSE；WS 双向流；task_id+轮询；webhook 回调；混合式；Batch | 四范式收敛（P2、4.2）；任务中心统一消化（4.3）
+ 
+ | 流式帧格式 | data:+[DONE]、event 类型、私有分帧、usage 仅末帧、增量 vs 全量 | 流式转码器（5.1 ④）
+ 
+ | 输入文件传递 | 公网 URL / base64 / 官方 file 接口 / 直传指定 OSS；大小、格式、分辨率、时长限制各异 | 文件 API + 媒体注入 + 按需转码（3.5、4.4）
+ 
+ | 输出产物 | 临时 URL（1~24h 过期）/ base64 / 二进制流；体积巨大 | 转存 + CDN + 自有签名 URL（P5、4.4）
+ 
+ | 参数语义 | temperature 值域、max_tokens 命名、system 位置、多模态 content 结构、能力子集、size 枚举 | CanonicalParams + 映射表 + 能力校验（4.1、4.2、5.5）
+ 
+ | 错误语义 | 200 带业务错误码；限流/违规/欠费表达各异 | 统一错误码 + retryable/failover 标志（3.7）
+ 
+ | 限流与并发 | RPM / TPM / 张数 / 视频并发任务数 | 四层限流 + Key 池 + 排队（4.6）
+ 
+ | 计费单位 | token（tokenizer 各异）/ 张 / 秒×分辨率 / 字符 / 会话分钟 | 统一计量事件 + 估算器（4.7）
+ 
+ | 任务生命周期 | 状态枚举、进度有无、结果保留时长、能否取消，全都不同 | 统一状态机 + 持久化 + 租约（3.4.3、4.3）
+ 
+ | 回调可靠性 | 需公网可达；重复 / 乱序 / 丢失；验签方式各异 | 验签+去重+乱序容忍+反查+兜底轮询（4.3.1）
+ 
+ | 实时会话 | WS / WebRTC 有状态双向流，事件协议各异 | 独立会话通道 + 粘性 + 心跳计费（3.6）
+ 
+ | 安全合规 | 内置审核不可关且口径不一；数据留存政策；境内外差异 | 自有审核层 + 合规域路由 + 审计（4.8）
+ 
+ | 幂等与重试 | 上游普遍无幂等保证 | Idempotency-Key + 可重试标志 + 贵任务防重提（3.2、4.3.2、4.5）
+
+— 本规范为 v0.1 评审稿。修订记录：2026-07-10 初稿（含第 1–9 章与附录 A/B）。反馈请附章节号。 —
+

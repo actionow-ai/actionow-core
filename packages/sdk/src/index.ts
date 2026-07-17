@@ -6,25 +6,30 @@ export type { components, paths };
 
 /**
  * Ergonomic data-plane helpers (additive to the generated typed client). They
- * wrap the few flows where a raw `openapi-fetch` call is awkward: the async-job
- * submit→poll loop and SSE streaming. (Inbound-webhook signature verification is
+ * wrap the few flows where a raw `openapi-fetch` call is awkward: SSE streaming
+ * and the task submit→poll loop. (Inbound-webhook signature verification is
  * server-only — it uses `node:crypto` — so it lives at the `@actionow/sdk/webhook`
  * subpath, keeping this main entry browser-safe so apps/web can bundle it.)
+ * 批次6 D2: the legacy job helpers (`submitAndWait`/`consumeJobStream`) died
+ * with the /v1/run + /v1/jobs faces — use the task-paradigm helpers below.
  */
-export {
-  consumeJobStream,
-  type ConsumeJobStreamOptions,
-  type JobProgressEvent,
-  type JobStreamFrame,
-} from './job-stream.js';
 export { consumeSse, SSE_DONE, type SseFrame } from './sse.js';
+// Task-paradigm helpers (model-supply greenfield §5): one call digests the
+// 200 (sync) / 202 (Task → poll) dual shape the server decides (§3 自动升格).
 export {
   ActionowApiError,
-  isTerminalJobStatus,
-  JobTimeoutError,
-  submitAndWait,
-  type SubmitAndWaitOptions,
-} from './submit-and-wait.js';
+  isTerminalTaskStatus,
+  operationIsSlow,
+  submitTaskAndWait,
+  type SubmitTaskOptions,
+  type SubmitTaskResult,
+  type TaskCreateBody,
+  type TaskCreatePath,
+  TaskTimeoutError,
+  TERMINAL_TASK_STATUSES,
+  type TerminalTaskStatus,
+  waitForTask,
+} from './task.js';
 
 /**
  * The contract model types — the SAME single source the backend `.parse()`s and
@@ -48,7 +53,6 @@ export type UsageLogView = Schemas['UsageLogView'];
 export type UsageRollupView = Schemas['UsageRollupView'];
 export type PaymentIntentView = Schemas['PaymentIntentView'];
 export type SecretView = Schemas['SecretView'];
-export type DifyImportView = Schemas['DifyImportView'];
 export type RedemptionCodeView = Schemas['RedemptionCodeView'];
 export type RedeemCodesResult = Schemas['RedeemCodesResult'];
 // upstream OAuth subscription sessions (credential management)
@@ -72,14 +76,18 @@ export type ConsoleIntentView = Schemas['ConsoleIntentView'];
 export type ConsoleFileView = Schemas['ConsoleFileView'];
 /** The uniform error envelope returned on any non-2xx (the `error` branch of a result). */
 export type ErrorView = Schemas['ErrorView'];
-// data-plane views + bodies (the generation hot path: /v1/run, /v1/jobs, /v1/resources, /v1/files)
-export type RunResponse = Schemas['RunResponse'];
-export type RunJobView = Schemas['RunJobView'];
-export type ResourceSummary = Schemas['ResourceSummary'];
-export type ResourceDetail = Schemas['ResourceDetail'];
+// data-plane views + bodies (/v1/files)
 export type PresignUploadResult = Schemas['PresignUploadResult'];
 export type FileView = Schemas['FileView'];
 export type FileUrlResult = Schemas['FileUrlResult'];
+// NEW gateway task-paradigm views (model-supply greenfield §5: /v1/tasks 族,
+// /v1/videos/generations, /v1/audio/music, /v1/gateway/models)
+export type GatewayTaskView = Schemas['GatewayTaskView'];
+export type GatewayInvokeResponse = Schemas['GatewayInvokeResponse'];
+export type GatewayErrorView = Schemas['GatewayErrorView'];
+export type GatewayModelList = Schemas['GatewayModelList'];
+export type GatewayResourceCreateBody = Schemas['GatewayResourceCreateBody'];
+export type GatewayTaskCreateBody = Schemas['GatewayTaskCreateBody'];
 
 /**
  * The contract REQUEST-BODY types — the SAME single source the backend `ZodBody`
@@ -109,7 +117,6 @@ export type CreatePricebookBody = Schemas['CreatePricebookBody'];
 export type UpdatePricebookBody = Schemas['UpdatePricebookBody'];
 export type CreateModifierBody = Schemas['CreateModifierBody'];
 export type UpdateModifierBody = Schemas['UpdateModifierBody'];
-export type DifyImportBody = Schemas['DifyImportBody'];
 export type CreateModelBody = Schemas['CreateModelBody'];
 export type UpdateModelBody = Schemas['UpdateModelBody'];
 export type GrantModelBody = Schemas['GrantModelBody'];
@@ -124,7 +131,6 @@ export type ConsoleCreateApiKeyBody = Schemas['ConsoleCreateApiKeyBody'];
 export type ConsoleCreateIntentBody = Schemas['ConsoleCreateIntentBody'];
 export type ConsoleChangePasswordBody = Schemas['ConsoleChangePasswordBody'];
 // data-plane (data-plane)
-export type RunBody = Schemas['RunBody'];
 export type PresignUploadBody = Schemas['PresignUploadBody'];
 
 export interface ActionowClientOptions {

@@ -57,23 +57,6 @@ let client: ReturnType<typeof postgres>;
 let db: PostgresJsDatabase<typeof schema>;
 let app: INestApplication;
 
-/** The §7.1 sample BYO workflow: a model node + an image tool node. */
-const WORKFLOW_DSL = `
-app: { mode: workflow, name: 小红书文案配图, icon: "🎨" }
-kind: app
-version: "0.1.5"
-workflow:
-  graph:
-    nodes:
-      - { id: start, data: { type: start, variables: [
-            { variable: topic, label: 主题, type: text-input, required: true, max_length: 100 } ] } }
-      - { id: llm1, data: { type: llm, model: { provider: openai, name: gpt-4o-mini } } }
-      - { id: img1, data: { type: tool, provider_type: builtin, tool_name: dalle3 } }
-      - { id: end, data: { type: end, outputs: [
-            { variable: caption,   value_selector: [llm1, text] },
-            { variable: image_url, value_selector: [img1, image] } ] } }
-`;
-
 beforeAll(async () => {
   container = await new PostgreSqlContainer('postgres:16-alpine').start();
   client = postgres(container.getConnectionUri(), { max: 10 });
@@ -131,7 +114,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await resetDb(
     () =>
-      client`TRUNCATE TABLE request_idempotency, route_group_channel, route_group, api_key, sub_account, subject, ledger_txn, dify_binding, redemption_code, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, oauth_session, secret_material, secret_ref, "user" RESTART IDENTITY CASCADE`,
+      client`TRUNCATE TABLE request_idempotency, route_group_channel, route_group, api_key, sub_account, subject, ledger_txn, redemption_code, modifier, account, tenant, oauth_session, secret_material, secret_ref, "user" RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -148,7 +131,7 @@ describe('admin CRUD flow', () => {
     expect(res.body.error.code).toBe('unauthorized');
   });
 
-  it('drives create tenant → account → topup → api-key → resource → pricebook', async () => {
+  it('drives create tenant → account → topup → api-key (批次6 D3: the resource/pricebook legs died with the catalog)', async () => {
     // 1. tenant
     const tenantRes = await auth(
       request(app.getHttpServer()).post('/admin/tenants').send({ name: 'acme' }),
@@ -199,51 +182,8 @@ describe('admin CRUD flow', () => {
     expect(keyList.body.data[0]).not.toHaveProperty('hash');
     expect(keyList.body.data[0].resource_allowlist).toEqual(['xhs']);
 
-    // 5. resource
-    const resourceRes = await auth(
-      request(app.getHttpServer())
-        .post('/admin/resources')
-        .send({
-          id: 'gpt',
-          tenantId,
-          kind: 'model',
-          modality: 'text',
-          providerType: 'openai',
-          execModes: ['blocking'],
-          ioSchema: {
-            inputs: [{ key: 'prompt', type: 'string', required: true }],
-            outputs: [{ key: 'text', type: 'string' }],
-          },
-        }),
-    ).expect(201);
-    expect(resourceRes.body.id).toBe('gpt');
-    expect(resourceRes.body.current_version).toBe(1);
-
-    // channel
-    await auth(
-      request(app.getHttpServer())
-        .post('/admin/resources/gpt/channels')
-        .send({ providerType: 'openai', weight: 1 }),
-    ).expect(201);
-
-    // 6. pricebook — a fixed 2-credit entry → stored as 2_000_000 µcredits
-    const pbRes = await auth(
-      request(app.getHttpServer()).post('/admin/pricebook').send({
-        resourceId: 'gpt',
-        resourceVersion: 1,
-        version: 1,
-        method: 'fixed',
-        timing: 'pre',
-        spec: {},
-        fixedCredits: 2,
-      }),
-    ).expect(201);
-    expect(pbRes.body.spec.amount).toBe('2000000');
-
-    const pbList = await auth(
-      request(app.getHttpServer()).get('/admin/pricebook').query({ resourceId: 'gpt' }),
-    ).expect(200);
-    expect(pbList.body.data).toHaveLength(1);
+    // 批次6 D3: the resource + channel + pricebook legs (the old catalog CRUD)
+    // died with their tables — supply onboarding lives at /admin/supply/*.
 
     // ledger endpoint returns the topup row
     const ledgerView = await auth(
@@ -253,63 +193,9 @@ describe('admin CRUD flow', () => {
     expect(ledgerView.body.data[0].credits_delta).toBe('100000000');
   });
 
-  it('manages channels: create with routing fields, patch, and list (P0b)', async () => {
-    const tenantRes = await auth(
-      request(app.getHttpServer()).post('/admin/tenants').send({ name: 'chan' }),
-    ).expect(201);
-    const tenantId = tenantRes.body.id as string;
-    await auth(
-      request(app.getHttpServer())
-        .post('/admin/resources')
-        .send({
-          id: 'chat-res',
-          tenantId,
-          kind: 'model',
-          modality: 'text',
-          providerType: 'openai',
-          execModes: ['stream'],
-          ioSchema: { inputs: [], outputs: [] },
-        }),
-    ).expect(201);
-
-    // create with the full routing field set the engine honors
-    const created = await auth(
-      request(app.getHttpServer())
-        .post('/admin/resources/chat-res/channels')
-        .send({
-          providerType: 'openai',
-          endpoint: 'https://api.deepseek.com/v1',
-          model: 'deepseek-chat',
-          proxyRef: 'upstream_proxy',
-          config: { region: 'us' },
-          weight: 2,
-        }),
-    ).expect(201);
-    expect(created.body.endpoint).toBe('https://api.deepseek.com/v1');
-    expect(created.body.model).toBe('deepseek-chat');
-    expect(created.body.proxy_ref).toBe('upstream_proxy');
-    expect(created.body.config).toEqual({ region: 'us' });
-    const channelId = created.body.id as string;
-
-    // patch weight + status + endpoint; other fields untouched
-    const patched = await auth(
-      request(app.getHttpServer())
-        .patch(`/admin/resources/chat-res/channels/${channelId}`)
-        .send({ weight: 5, status: 'disabled', endpoint: 'https://api.openai.com/v1' }),
-    ).expect(200);
-    expect(patched.body.weight).toBe(5);
-    expect(patched.body.status).toBe('disabled');
-    expect(patched.body.endpoint).toBe('https://api.openai.com/v1');
-    expect(patched.body.model).toBe('deepseek-chat');
-
-    // list includes the now-disabled channel (operator view)
-    const list = await auth(
-      request(app.getHttpServer()).get('/admin/resources/chat-res/channels'),
-    ).expect(200);
-    expect(list.body.data).toHaveLength(1);
-    expect(list.body.data[0].id).toBe(channelId);
-    expect(list.body.data[0].status).toBe('disabled');
-  });
+  // 批次6 D3 (旧世界删除): the `manages channels` case (the old
+  // resource/channel CRUD) died with the catalog — supply channels are
+  // covered by the /admin/supply/* tests.
 
   it('creates a scope-aware modifier with a µcredit value', async () => {
     const tenantRes = await auth(
@@ -716,7 +602,7 @@ describe('Track D1: credential revocation (soft-delete) denies access', () => {
       request(app.getHttpServer()).post('/admin/accounts').send({ tenantId, credits: 10 }),
     ).expect(201);
 
-    // mint a key (no allowlist → may run any resource, incl. /v1/models discovery)
+    // mint a key (no allowlist → may call any /v1 data-plane route)
     const keyRes = await auth(
       request(app.getHttpServer()).post('/admin/api-keys').send({ tenantId }),
     ).expect(201);
@@ -725,7 +611,7 @@ describe('Track D1: credential revocation (soft-delete) denies access', () => {
 
     // the LIVE key authenticates on a guarded /v1/* route.
     await request(app.getHttpServer())
-      .get('/v1/models')
+      .get('/v1/tasks')
       .set('authorization', `Bearer ${plaintext}`)
       .expect(200);
 
@@ -736,7 +622,7 @@ describe('Track D1: credential revocation (soft-delete) denies access', () => {
     // revoked key authenticates as absent (401 unauthorized), proving revocation
     // actually denies access.
     const denied = await request(app.getHttpServer())
-      .get('/v1/models')
+      .get('/v1/tasks')
       .set('authorization', `Bearer ${plaintext}`)
       .expect(401);
     expect(denied.body.error.code).toBe('unauthorized');
@@ -927,89 +813,17 @@ describe('Track D1: secrets list / get (metadata only, never the material)', () 
   });
 });
 
-describe('POST /admin/dify/import', () => {
-  it('registers a BYO fixed workflow and returns its io_schema', async () => {
-    const tenantRes = await auth(
-      request(app.getHttpServer()).post('/admin/tenants').send({ name: 'dify' }),
-    ).expect(201);
-    const tenantId = tenantRes.body.id as string;
-
-    const res = await auth(
-      request(app.getHttpServer()).post('/admin/dify/import').send({
-        tenantId,
-        resourceId: 'xhs',
-        yaml: WORKFLOW_DSL,
-        endpoint: 'https://dify.example/v1',
-        pricingModel: 'fixed',
-      }),
-    ).expect(200);
-
-    expect(res.body.resource_id).toBe('xhs');
-    expect(res.body.version).toBe(1);
-    expect(res.body.io_schema.inputs.map((i: { key: string }) => i.key)).toEqual(['topic']);
-    expect(res.body.io_schema.outputs.map((o: { key: string }) => o.key)).toEqual([
-      'caption',
-      'image_url',
-    ]);
-
-    // persisted: resource + binding rows exist
-    const [resRow] = await db.select().from(schema.resource);
-    expect(resRow?.id).toBe('xhs');
-    expect(resRow?.providerType).toBe('dify-workflow');
-    const [bindRow] = await db.select().from(schema.difyBinding);
-    expect(bindRow?.pricingModel).toBe('fixed');
-  });
-
-  it('rejects a BYO + metered import with a 400 metered_not_allowed envelope', async () => {
-    const tenantRes = await auth(
-      request(app.getHttpServer()).post('/admin/tenants').send({ name: 'metered' }),
-    ).expect(201);
-    const tenantId = tenantRes.body.id as string;
-
-    const res = await auth(
-      request(app.getHttpServer()).post('/admin/dify/import').send({
-        tenantId,
-        resourceId: 'metered-xhs',
-        yaml: WORKFLOW_DSL,
-        endpoint: 'https://dify.example/v1',
-        pricingModel: 'metered',
-      }),
-    ).expect(400);
-
-    expect(res.body.error.code).toBe('invalid_input');
-    expect(res.body.error.message).toMatch(/metered_not_allowed/);
-
-    // nothing persisted
-    const resources = await db.select().from(schema.resource);
-    expect(resources).toHaveLength(0);
-  });
-});
-
-/** Create a tenant + a chat resource the catalog rows can attach to. */
-async function seedTenantResource(name: string, resourceId: string): Promise<string> {
+/** Create a tenant (批次6 D3: the old chat-resource attachment died with the catalog). */
+async function seedTenant(name: string): Promise<string> {
   const t = await auth(request(app.getHttpServer()).post('/admin/tenants').send({ name })).expect(
     201,
   );
-  const tenantId = t.body.id as string;
-  await auth(
-    request(app.getHttpServer())
-      .post('/admin/resources')
-      .send({
-        id: resourceId,
-        tenantId,
-        kind: 'model',
-        modality: 'text',
-        providerType: 'openai',
-        execModes: ['blocking'],
-        ioSchema: { inputs: [], outputs: [] },
-      }),
-  ).expect(201);
-  return tenantId;
+  return t.body.id as string;
 }
 
 describe('D3: tenant get / patch', () => {
   it('GET-by-id → PATCH isolationMode → GET reflects it', async () => {
-    const tenantId = await seedTenantResource('tn-d3', 'tn-d3-res');
+    const tenantId = await seedTenant('tn-d3');
 
     const got = await auth(request(app.getHttpServer()).get(`/admin/tenants/${tenantId}`)).expect(
       200,
@@ -1032,7 +846,7 @@ describe('D3: tenant get / patch', () => {
 
 describe('D3: account get (no PATCH/DELETE — balance is ledger-owned)', () => {
   it('GET returns the balance/held view; topup is the only mover', async () => {
-    const tenantId = await seedTenantResource('acct-d3', 'acct-d3-res');
+    const tenantId = await seedTenant('acct-d3');
     const acct = await auth(
       request(app.getHttpServer()).post('/admin/accounts').send({ tenantId, credits: 10 }),
     ).expect(201);
@@ -1052,7 +866,7 @@ describe('D3: account get (no PATCH/DELETE — balance is ledger-owned)', () => 
 
 describe('D3: account list (paginated balance/held view)', () => {
   it('GET /admin/accounts lists accounts with tenant_id + balance/held', async () => {
-    const tenantId = await seedTenantResource('acct-list', 'acct-list-res');
+    const tenantId = await seedTenant('acct-list');
     const created = await auth(
       request(app.getHttpServer()).post('/admin/accounts').send({ tenantId, credits: 25 }),
     ).expect(201);
@@ -1075,104 +889,8 @@ describe('D3: account list (paginated balance/held view)', () => {
   });
 });
 
-describe('D3: resource get / patch (status only)', () => {
-  it('GET → PATCH status → GET reflects it; key fields untouched', async () => {
-    await seedTenantResource('res-d3', 'res-d3');
-
-    const got = await auth(request(app.getHttpServer()).get('/admin/resources/res-d3')).expect(200);
-    expect(got.body.status).toBe('active');
-    expect(got.body.kind).toBe('model');
-
-    const patched = await auth(
-      request(app.getHttpServer()).patch('/admin/resources/res-d3').send({ status: 'disabled' }),
-    ).expect(200);
-    expect(patched.body.status).toBe('disabled');
-    expect(patched.body.kind).toBe('model'); // immutable key field
-
-    await auth(request(app.getHttpServer()).get('/admin/resources/nope')).expect(404);
-  });
-});
-
-describe('D3: channel get / soft-delete (nested under resource)', () => {
-  it('create → GET-by-id → DELETE (204) → GET 404 + list excludes; channel ∉ resource → 404', async () => {
-    await seedTenantResource('ch-d3', 'ch-d3-res');
-    const created = await auth(
-      request(app.getHttpServer())
-        .post('/admin/resources/ch-d3-res/channels')
-        .send({ providerType: 'openai', weight: 1 }),
-    ).expect(201);
-    const channelId = created.body.id as string;
-
-    // GET-by-id within its resource.
-    const got = await auth(
-      request(app.getHttpServer()).get(`/admin/resources/ch-d3-res/channels/${channelId}`),
-    ).expect(200);
-    expect(got.body.id).toBe(channelId);
-
-    // a channel queried under the WRONG resource → 404.
-    await auth(
-      request(app.getHttpServer()).get(`/admin/resources/other-res/channels/${channelId}`),
-    ).expect(404);
-
-    // DELETE → 204
-    await auth(
-      request(app.getHttpServer()).delete(`/admin/resources/ch-d3-res/channels/${channelId}`),
-    ).expect(204);
-
-    // GET now 404 AND the list excludes it.
-    await auth(
-      request(app.getHttpServer()).get(`/admin/resources/ch-d3-res/channels/${channelId}`),
-    ).expect(404);
-    const list = await auth(
-      request(app.getHttpServer()).get('/admin/resources/ch-d3-res/channels'),
-    ).expect(200);
-    expect(list.body.data).toHaveLength(0);
-
-    // second delete → 404 (idempotent).
-    await auth(
-      request(app.getHttpServer()).delete(`/admin/resources/ch-d3-res/channels/${channelId}`),
-    ).expect(404);
-  });
-});
-
-describe('D3: pricebook get / patch / delete', () => {
-  it('create → GET → PATCH (µcredit conversion) → DELETE (204) → 404 + delisted', async () => {
-    await seedTenantResource('pb-d3', 'pb-d3-res');
-    const created = await auth(
-      request(app.getHttpServer()).post('/admin/pricebook').send({
-        resourceId: 'pb-d3-res',
-        resourceVersion: 1,
-        version: 1,
-        method: 'fixed',
-        timing: 'pre',
-        spec: {},
-        fixedCredits: 2,
-      }),
-    ).expect(201);
-    const id = created.body.id as string;
-    expect(created.body.spec.amount).toBe('2000000');
-
-    await auth(request(app.getHttpServer()).get(`/admin/pricebook/${id}`)).expect(200);
-
-    // PATCH fixedCredits 5 → µcredit spec.amount 5_000_000 + timing flips.
-    const patched = await auth(
-      request(app.getHttpServer())
-        .patch(`/admin/pricebook/${id}`)
-        .send({ timing: 'post', fixedCredits: 5, active: false }),
-    ).expect(200);
-    expect(patched.body.timing).toBe('post');
-    expect(patched.body.spec.amount).toBe('5000000');
-    expect(patched.body.active).toBe(false);
-
-    await auth(request(app.getHttpServer()).delete(`/admin/pricebook/${id}`)).expect(204);
-    await auth(request(app.getHttpServer()).get(`/admin/pricebook/${id}`)).expect(404);
-    const list = await auth(
-      request(app.getHttpServer()).get('/admin/pricebook').query({ resourceId: 'pb-d3-res' }),
-    ).expect(200);
-    expect(list.body.data).toHaveLength(0);
-    await auth(request(app.getHttpServer()).delete(`/admin/pricebook/${id}`)).expect(404);
-  });
-});
+// 批次6 D3 (旧世界删除): the `D3: resource / channel / pricebook` describes
+// died with the catalog CRUD endpoints (supply twins live at /admin/supply/*).
 
 describe('D3: modifier get / patch / delete', () => {
   it('create → GET → PATCH (credit-op value → µcredits) → DELETE (204) → 404 + delisted', async () => {
@@ -1238,50 +956,6 @@ describe('D4: redemption-code list (status filter, paginated)', () => {
       request(app.getHttpServer()).get('/admin/redemption-codes').query({ status: 'bogus' }),
     ).expect(400);
     expect(bad.body.error.code).toBe('invalid_input');
-  });
-});
-
-describe('D4: dify list / patch / delete', () => {
-  it('import → list → PATCH (endpoint/pricing) → DELETE (204) → list empty', async () => {
-    const tenantRes = await auth(
-      request(app.getHttpServer()).post('/admin/tenants').send({ name: 'dify-d4' }),
-    ).expect(201);
-    const tenantId = tenantRes.body.id as string;
-
-    await auth(
-      request(app.getHttpServer()).post('/admin/dify/import').send({
-        tenantId,
-        resourceId: 'dify-d4-res',
-        yaml: WORKFLOW_DSL,
-        endpoint: 'https://dify.example/v1',
-        pricingModel: 'fixed',
-      }),
-    ).expect(200);
-
-    const list = await auth(request(app.getHttpServer()).get('/admin/dify')).expect(200);
-    expect(list.body.data.map((b: { resource_id: string }) => b.resource_id)).toContain(
-      'dify-d4-res',
-    );
-
-    const patched = await auth(
-      request(app.getHttpServer())
-        .patch('/admin/dify/dify-d4-res')
-        .send({ endpoint: 'https://dify.example/v2', pricingModel: 'matrix' }),
-    ).expect(200);
-    expect(patched.body.endpoint).toBe('https://dify.example/v2');
-    expect(patched.body.pricing_model).toBe('matrix');
-
-    await auth(request(app.getHttpServer()).delete('/admin/dify/dify-d4-res')).expect(204);
-    const after = await auth(request(app.getHttpServer()).get('/admin/dify')).expect(200);
-    expect(after.body.data.map((b: { resource_id: string }) => b.resource_id)).not.toContain(
-      'dify-d4-res',
-    );
-
-    // PATCH/DELETE of an unknown binding → 404.
-    await auth(
-      request(app.getHttpServer()).patch('/admin/dify/nope').send({ pricingModel: 'fixed' }),
-    ).expect(404);
-    await auth(request(app.getHttpServer()).delete('/admin/dify/dify-d4-res')).expect(404);
   });
 });
 

@@ -20,7 +20,7 @@
 ## 凭证与信任边界
 
 - member JWT 前端持有:`/member/*` 自助(读 + 改资料/密码/自建自己的 key),**无法**打 `/v1`。
-- 服务端 `ak_` 绝不下发浏览器。**注意归因边界:`/v1/chat/completions` 从不解析 `end_user`**(只有 `POST /v1/run/:resourceId` 与 media-dialect 解析)——用租户级代理 `ak_` 带 `end_user` 调 chat,消费会全记在租户池、`usage_log` 无 `subject_id`、端用户在 `/member/usage` 看不到自己的用量。**chat 的按用户归因必须用 subject 级 `ak_`**:代理侧按用户持有各自的 key(服务端 `POST /console/api-keys { subjectId }` 铸,或成员自助 `POST /member/api-keys`)。`end_user=<external_id>` 的写法只保留给 `POST /v1/run/:resourceId`。
+- 服务端 `ak_` 绝不下发浏览器。**注意归因边界:按用户归因只有一条路 = subject 级 `ak_`**——`/v1/chat/completions` 从不解析 `end_user`,新任务面(`/v1/tasks` 族)根本没有 `end_user` 字段(归因骑在 key 上)。用租户级代理 `ak_` 调用,消费会全记在租户池、端用户在 `/member/usage` 看不到自己的用量。代理侧按用户持有各自的 key(服务端 `POST /console/api-keys { subjectId }` 铸,或成员自助 `POST /member/api-keys`)。`end_user=<external_id>` 的写法只存在于 **deprecated** 的 `POST /v1/run/:resourceId`(迁移窗后删除)。
 - 若用 core 的 refresh-token 会话:**refresh token 是轮换的**——向 `POST /auth/refresh` 出示已轮换过的旧 token 会被判定为盗用,**吊销整个会话族并 401**。刷新后必须把新的 access/refresh token **原子持久化**,绝不用旧 token 重试。
 - 控制面 JWT 只在你首次建号/配置时用,不参与请求热路径。
 - 想省掉代理?让前端用 member JWT 调 `POST /member/api-keys` 自助铸一把 `ak_`、再直连 `/v1` 也可行——代价是 `ak_` 落到浏览器,自行权衡。
@@ -41,7 +41,7 @@
 
 ### 4. AI 调用(经你的代理)
 
-前端 → 你的 `/api/chat`(校验前端带来的 member JWT)→ 代理用**该用户的 subject 级 `ak_`** 打 `POST /v1/chat/completions`。**不要**指望租户级 `ak_` + `end_user` 归因 chat——`/v1/chat/completions` 从不解析 `end_user`,那样花费全落租户池、`/member/usage` 看不到。subject 级 key 由服务端 `POST /console/api-keys { subjectId }` 铸(或成员自助 `POST /member/api-keys`),代理按用户取用;`end_user=<external_id>` 只用于 `POST /v1/run/:resourceId`。机制:[../../actionow-integration/reference/02-chat-and-relay.md](../../actionow-integration/reference/02-chat-and-relay.md)。
+前端 → 你的 `/api/chat`(校验前端带来的 member JWT)→ 代理用**该用户的 subject 级 `ak_`** 打 `POST /v1/chat/completions`(媒体/异步则打 `/v1/tasks` 族)。**不要**指望租户级 `ak_` + `end_user` 归因——chat 从不解析 `end_user`,新任务面没有该字段,那样花费全落租户池、`/member/usage` 看不到。subject 级 key 由服务端 `POST /console/api-keys { subjectId }` 铸(或成员自助 `POST /member/api-keys`),代理按用户取用。机制:[../../actionow-integration/reference/02-chat-and-relay.md](../../actionow-integration/reference/02-chat-and-relay.md) + [../../actionow-integration/reference/03-media-tasks-and-files.md](../../actionow-integration/reference/03-media-tasks-and-files.md)。
 
 ## 示例代码 / 脚本
 

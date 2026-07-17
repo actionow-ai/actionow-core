@@ -13,6 +13,11 @@ import { AppModule } from '../src/app.module.js';
 import { DB, ENV } from '../src/common/tokens.js';
 import { resetDb } from './reset-db.js';
 
+// 批次6 D3 (旧世界删除): the bulk model/channel actions (and their fixtures
+// over /admin/resources + /admin/models) died with the resource three-layer.
+// What survives here: the oauth-sessions bulk revoke, the latest-audit badge
+// batch, and the single-row audit emissions on KEPT entities.
+
 const ADMIN_SECRET = 'e2e-admin-secret';
 const ADMIN_EMAIL = 'admin@actionow.local';
 const ADMIN_PASSWORD = 'hunter2';
@@ -57,7 +62,6 @@ afterAll(async () => {
 });
 
 let token: string;
-let tenantId: string;
 
 beforeEach(async () => {
   await createUser(db, {
@@ -71,54 +75,17 @@ beforeEach(async () => {
     .send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD })
     .expect(200);
   token = login.body.token as string;
-
-  const t = await request(app.getHttpServer())
-    .post('/admin/tenants')
-    .set('authorization', `Bearer ${token}`)
-    .send({ name: 'acme' })
-    .expect(201);
-  tenantId = t.body.id as string;
-
-  // A chat resource the models/channels live under.
-  await request(app.getHttpServer())
-    .post('/admin/resources')
-    .set('authorization', `Bearer ${token}`)
-    .send({
-      id: 'bulk-res',
-      tenantId,
-      kind: 'model',
-      modality: 'text',
-      providerType: 'openai',
-      execModes: ['blocking'],
-      ioSchema: { inputs: [], outputs: [] },
-    })
-    .expect(201);
 });
 
 afterEach(async () => {
   await resetDb(
     () =>
-      client`TRUNCATE TABLE audit_log, request_idempotency, model_grant, model, api_key, ledger_txn, pricebook_entry, channel_model, upstream_channel, fault_policy, route_group, resource_version, resource, account, tenant, "user" RESTART IDENTITY CASCADE`,
+      client`TRUNCATE TABLE audit_log, request_idempotency, api_key, ledger_txn, fault_policy, route_group, account, tenant, "user" RESTART IDENTITY CASCADE`,
   );
 });
 
 function auth(req: request.Test): request.Test {
   return req.set('authorization', `Bearer ${token}`);
-}
-
-async function createModel(name: string): Promise<void> {
-  await auth(
-    request(app.getHttpServer()).post('/admin/models').send({ name, resourceId: 'bulk-res' }),
-  ).expect(201);
-}
-
-async function createChannel(): Promise<string> {
-  const ch = await auth(
-    request(app.getHttpServer())
-      .post('/admin/resources/bulk-res/channels')
-      .send({ providerType: 'openai' }),
-  ).expect(201);
-  return ch.body.id as string;
 }
 
 async function createFaultPolicy(name: string): Promise<string> {
@@ -145,11 +112,6 @@ async function latestAuditFor(
   id: string,
   expectedAction?: string,
 ): Promise<{ action: string; actor_type: string } | undefined> {
-  // The @Audit write is fire-and-forget, so for a target that is mutated twice
-  // (e.g. a `*.create` THEN the asserted `*.update`) the latest row is briefly the
-  // earlier action until the second write lands. Poll until the latest row IS the
-  // expected action (when given) — otherwise the first row that appears wins. The
-  // window is generous (2s) for CI headroom.
   for (let attempt = 0; attempt < 40; attempt++) {
     const res = await auth(
       request(app.getHttpServer())
@@ -167,115 +129,6 @@ async function latestAuditFor(
   return undefined;
 }
 
-describe('bulk models (partial success + per-entity audit)', () => {
-  it('disables a batch [real, real, bogus] → succeeded=[2], failed=[bogus], rows disabled, an audit row each', async () => {
-    await createModel('bulk-m1');
-    await createModel('bulk-m2');
-
-    const res = await auth(
-      request(app.getHttpServer())
-        .post('/admin/models/bulk')
-        .send({ ids: ['bulk-m1', 'bulk-m2', 'nope'], action: 'disable' }),
-    ).expect(200);
-
-    expect(res.body.succeeded).toEqual(expect.arrayContaining(['bulk-m1', 'bulk-m2']));
-    expect(res.body.succeeded).toHaveLength(2);
-    expect(res.body.failed).toHaveLength(1);
-    expect(res.body.failed[0].id).toBe('nope');
-    expect(typeof res.body.failed[0].error).toBe('string');
-
-    // The two real models are now `disabled`.
-    const m1 = await auth(request(app.getHttpServer()).get('/admin/models/bulk-m1')).expect(200);
-    const m2 = await auth(request(app.getHttpServer()).get('/admin/models/bulk-m2')).expect(200);
-    expect(m1.body.status).toBe('disabled');
-    expect(m2.body.status).toBe('disabled');
-
-    // Barrier: the per-model `model.disable` audit is written fire-and-forget, so
-    // wait for both to land before the count read below (else a transient 0/1).
-    await latestAuditFor('model', 'bulk-m1', 'model.disable');
-    await latestAuditFor('model', 'bulk-m2', 'model.disable');
-
-    // One audit_log row PER disabled model (action `model.disable`).
-    const rows = await client<{ target_id: string; action: string; actor_type: string }[]>`
-      SELECT target_id, action, actor_type FROM audit_log
-      WHERE target_type = 'model' AND action = 'model.disable'`;
-    const ids = rows.map((r) => r.target_id);
-    expect(ids).toEqual(expect.arrayContaining(['bulk-m1', 'bulk-m2']));
-    expect(rows.filter((r) => r.action === 'model.disable')).toHaveLength(2);
-    expect(rows.every((r) => r.actor_type === 'operator')).toBe(true);
-    // The bogus id never produced an audit row.
-    expect(ids).not.toContain('nope');
-  });
-
-  it('enables then deletes a batch (delete soft-deletes + delists)', async () => {
-    await createModel('bulk-e1');
-    await createModel('bulk-e2');
-
-    const enabled = await auth(
-      request(app.getHttpServer())
-        .post('/admin/models/bulk')
-        .send({ ids: ['bulk-e1', 'bulk-e2'], action: 'enable' }),
-    ).expect(200);
-    expect(enabled.body.succeeded).toHaveLength(2);
-    expect(enabled.body.failed).toHaveLength(0);
-
-    const deleted = await auth(
-      request(app.getHttpServer())
-        .post('/admin/models/bulk')
-        .send({ ids: ['bulk-e1', 'bulk-e2'], action: 'delete' }),
-    ).expect(200);
-    expect(deleted.body.succeeded).toHaveLength(2);
-
-    // Both delisted (soft-deleted) — GET-by-name now 404.
-    await auth(request(app.getHttpServer()).get('/admin/models/bulk-e1')).expect(404);
-    await auth(request(app.getHttpServer()).get('/admin/models/bulk-e2')).expect(404);
-  });
-
-  it('rejects an empty ids[] (400)', async () => {
-    await auth(
-      request(app.getHttpServer()).post('/admin/models/bulk').send({ ids: [], action: 'disable' }),
-    ).expect(400);
-  });
-});
-
-describe('bulk channels (smoke)', () => {
-  it('disables a batch [real, bogus] → succeeded=[1], failed=[bogus] + an audit row', async () => {
-    const channelId = await createChannel();
-
-    const res = await auth(
-      request(app.getHttpServer())
-        .post('/admin/channels/bulk')
-        .send({ ids: [channelId, 'no-such-channel'], action: 'disable' }),
-    ).expect(200);
-
-    expect(res.body.succeeded).toEqual([channelId]);
-    expect(res.body.failed).toHaveLength(1);
-    expect(res.body.failed[0].id).toBe('no-such-channel');
-
-    // Barrier: the `channel.disable` audit is written fire-and-forget — wait for it.
-    await latestAuditFor('channel', channelId, 'channel.disable');
-
-    const rows = await client<{ target_id: string }[]>`
-      SELECT target_id FROM audit_log WHERE target_type = 'channel' AND action = 'channel.disable'`;
-    expect(rows.map((r) => r.target_id)).toEqual([channelId]);
-  });
-
-  it('deletes a batch (soft-delete drops it from the resource listing)', async () => {
-    const channelId = await createChannel();
-    const res = await auth(
-      request(app.getHttpServer())
-        .post('/admin/channels/bulk')
-        .send({ ids: [channelId], action: 'delete' }),
-    ).expect(200);
-    expect(res.body.succeeded).toEqual([channelId]);
-
-    const list = await auth(
-      request(app.getHttpServer()).get('/admin/resources/bulk-res/channels'),
-    ).expect(200);
-    expect(list.body.data.map((c: { id: string }) => c.id)).not.toContain(channelId);
-  });
-});
-
 describe('bulk oauth-sessions (smoke)', () => {
   it('revoke of bogus ids → all in failed (partial-success, never aborts)', async () => {
     const res = await auth(
@@ -292,27 +145,19 @@ describe('bulk oauth-sessions (smoke)', () => {
 
 describe('latest-audit batch (前端打磨 — entity-list audit badges)', () => {
   it('returns the newest audit row per target and omits ids with no history', async () => {
-    await createModel('badge-m1');
-    await createModel('badge-m2');
+    // Two audited creates (fault_policy.create) — the badge source.
+    const fp1 = await createFaultPolicy('badge-fp1');
+    const fp2 = await createFaultPolicy('badge-fp2');
 
-    // A bulk disable emits one `model.disable` audit row per model — the badge source.
-    await auth(
-      request(app.getHttpServer())
-        .post('/admin/models/bulk')
-        .send({ ids: ['badge-m1', 'badge-m2'], action: 'disable' }),
-    ).expect(200);
-
-    // Barrier: the per-model `model.disable` audits are fire-and-forget — wait for
-    // both to land so the batch read below sees `model.disable` as the latest (not
-    // the earlier `model.create`).
-    await latestAuditFor('model', 'badge-m1', 'model.disable');
-    await latestAuditFor('model', 'badge-m2', 'model.disable');
+    // Barrier: the audits are fire-and-forget — wait for both to land.
+    await latestAuditFor('fault_policy', fp1, 'fault_policy.create');
+    await latestAuditFor('fault_policy', fp2, 'fault_policy.create');
 
     const res = await auth(
       request(app.getHttpServer())
         .post('/admin/audit-log/latest')
         // `nope` has no audit row → must be absent from the response.
-        .send({ target_type: 'model', ids: ['badge-m1', 'badge-m2', 'nope'] }),
+        .send({ target_type: 'fault_policy', ids: [fp1, fp2, 'nope'] }),
     ).expect(200);
 
     const byId = new Map<string, { action: string; actor_type: string; created_at: string }>(
@@ -322,46 +167,23 @@ describe('latest-audit batch (前端打磨 — entity-list audit badges)', () =>
     );
     expect(res.body).toHaveLength(2);
     expect(byId.has('nope')).toBe(false);
-    expect(byId.get('badge-m1')?.action).toBe('model.disable');
-    expect(byId.get('badge-m1')?.actor_type).toBe('operator');
-    expect(typeof byId.get('badge-m1')?.created_at).toBe('string');
-    expect(byId.get('badge-m2')?.action).toBe('model.disable');
+    expect(byId.get(fp1)?.action).toBe('fault_policy.create');
+    expect(byId.get(fp1)?.actor_type).toBe('operator');
+    expect(typeof byId.get(fp1)?.created_at).toBe('string');
+    expect(byId.get(fp2)?.action).toBe('fault_policy.create');
   });
 
   it('returns [] for an empty ids[]', async () => {
     const res = await auth(
       request(app.getHttpServer())
         .post('/admin/audit-log/latest')
-        .send({ target_type: 'model', ids: [] }),
+        .send({ target_type: 'fault_policy', ids: [] }),
     ).expect(200);
     expect(res.body).toEqual([]);
   });
 });
 
 describe('single-row audit emission feeds badges (前端打磨)', () => {
-  it('a single-row model PATCH emits a model.update audit row', async () => {
-    await createModel('single-m1');
-    await auth(
-      request(app.getHttpServer()).patch('/admin/models/single-m1').send({ status: 'disabled' }),
-    ).expect(200);
-
-    const row = await latestAuditFor('model', 'single-m1', 'model.update');
-    expect(row?.action).toBe('model.update');
-    expect(row?.actor_type).toBe('operator');
-  });
-
-  it('a single-row channel PATCH emits a channel.update audit row', async () => {
-    const channelId = await createChannel();
-    await auth(
-      request(app.getHttpServer())
-        .patch(`/admin/resources/bulk-res/channels/${channelId}`)
-        .send({ status: 'disabled' }),
-    ).expect(200);
-
-    const row = await latestAuditFor('channel', channelId, 'channel.update');
-    expect(row?.action).toBe('channel.update');
-  });
-
   it('creating a fault policy emits a fault_policy.create row (previously badge-less)', async () => {
     const id = await createFaultPolicy('single-fp');
     const row = await latestAuditFor('fault_policy', id, 'fault_policy.create');

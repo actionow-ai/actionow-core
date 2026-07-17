@@ -13,8 +13,6 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { upstreamChannel } from './catalog.js';
-
 /**
  * A **route group (分组)** — an operator-defined access + pricing + fallback tier
  * (Track 3; spec §"New: `route_group`"). An API key binds to ONE group
@@ -84,9 +82,9 @@ export const routeGroupChannel = pgTable(
     groupId: uuid('group_id')
       .notNull()
       .references(() => routeGroup.id),
-    channelId: uuid('channel_id')
-      .notNull()
-      .references(() => upstreamChannel.id),
+    // 批次6 D3/D4: plain uuid — the FK to the deleted `upstream_channel` table was
+    // dropped (mig 0072: DROP CONSTRAINT route_group_channel_channel_id_upstream_channel_id_fk).
+    channelId: uuid('channel_id').notNull(),
     /** HIGHER = tried first (fallback tier). */
     priority: integer('priority').notNull().default(0),
     /** Weighted-random pick within a priority tier. */

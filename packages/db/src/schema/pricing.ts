@@ -1,43 +1,17 @@
-import type { Markup, PriceSpec } from '@actionow/contracts';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
   check,
-  index,
   integer,
-  jsonb,
   pgTable,
   text,
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { resource } from './catalog.js';
-
-export const pricebookEntry = pgTable(
-  'pricebook_entry',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    resourceId: text('resource_id')
-      .notNull()
-      .references(() => resource.id),
-    resourceVersion: integer('resource_version').notNull(),
-    version: integer('version').notNull(),
-    method: text('method').notNull(), // unit|matrix|fixed|formula|passthrough
-    timing: text('timing').notNull(), // pre|post
-    spec: jsonb('spec').$type<PriceSpec>().notNull(), // dimensions|table|amount|formula
-    markup: jsonb('markup').$type<Markup>(),
-    active: boolean('active').notNull().default(true),
-    // created_at backfills existing rows to "now" (additive); Track B keysets list
-    // endpoints on (created_at, id).
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-    deletedAt: timestamp('deleted_at', { withTimezone: true }),
-  },
-  // `pricebook_resource_idx` on (resource_id, version) also serves as the FK index on resource_id.
-  (t) => [index('pricebook_resource_idx').on(t.resourceId, t.version)],
-);
+// 批次6 D3/D4 (旧世界删除): the `pricebook_entry` table DEFINITION is deleted
+// and mig 0072 (D4) DROPs the table. `modifier` + `gift_code` are KEPT assets.
 
 export const modifier = pgTable('modifier', {
   id: uuid('id').primaryKey().defaultRandom(),

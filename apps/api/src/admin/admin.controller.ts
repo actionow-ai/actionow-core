@@ -12,20 +12,12 @@ import {
   type BulkResultView,
   type ChannelHealthView,
   channelHealthViewSchema,
-  type ChannelModelLinkInput,
-  channelModelLinkInputSchema,
-  type ChannelModelView,
-  channelModelViewSchema,
-  type ChannelView,
-  channelViewSchema,
   type CodexLoginStartView,
   codexLoginStartViewSchema,
   type FaultPolicyView,
   faultPolicyViewSchema,
   type IconAssetView,
   iconAssetViewSchema,
-  type JobView,
-  jobViewSchema,
   type LatestAuditView,
   latestAuditViewSchema,
   type LedgerView,
@@ -40,15 +32,10 @@ import {
   limitRuleViewSchema,
   type LimitUsageView,
   limitUsageViewSchema,
-  type ModelGrantView,
-  modelGrantViewSchema,
   type ModelHealthView,
   modelHealthViewSchema,
   type ModelSpecView,
   modelSpecViewSchema,
-  type ModelTestResult,
-  type ModelView,
-  modelViewSchema,
   type ModifierView,
   modifierViewSchema,
   type OAuthSessionListView,
@@ -61,11 +48,6 @@ import {
   opsHealthViewSchema,
   type OpsSummaryView,
   opsSummaryViewSchema,
-  type ParamOverride,
-  type PricebookView,
-  pricebookViewSchema,
-  type ProviderPluginView,
-  providerPluginViewSchema,
   type ProvisionView,
   provisionViewSchema,
   type ProxyView,
@@ -74,8 +56,6 @@ import {
   reconcileRowViewSchema,
   type RedemptionCodeView,
   redemptionCodeViewSchema,
-  type ResourceView,
-  resourceViewSchema,
   type RouteGroupChannelView,
   routeGroupChannelViewSchema,
   type RouteGroupView,
@@ -88,7 +68,6 @@ import {
   subjectViewSchema,
   type TenantView,
   tenantViewSchema,
-  type TestPluginResponse,
   type UsageLogView,
   usageLogViewSchema,
   type UsageRollupView,
@@ -99,10 +78,8 @@ import type {
   AdminTokenView as AdminTokenRow,
   ApiKeyRow,
   AuditLogRow,
-  ChannelHealthRow,
   FaultPolicyRow,
   IconAssetRow,
-  Job,
   LatestAuditRow,
   LedgerRow,
   LimitAlertRow,
@@ -110,27 +87,21 @@ import type {
   LimitRuleRow,
   LimitRuleStatus,
   LimitUsageRow,
-  ModelGrantRow,
   ModelHealthBucket,
   ModelHealthRow,
-  ModelRow,
   ModelSpecRow,
   ModifierRow,
   OAuthSessionListRow,
   OfficialModelPriceRow,
-  PricebookEntryRow,
-  ProviderPluginRow,
   ProxyRow,
   ReconcileRow,
   RedemptionCodeRow,
-  Resource,
   RouteGroupChannelRow,
   RouteGroupRow,
   SecretRefView,
   SubAccountRow,
   SubjectRow,
   TenantRow,
-  UpstreamChannelRow,
   UsageLogRow,
   UsageRollupRow,
 } from '@actionow/db';
@@ -146,25 +117,22 @@ import {
   Put,
   Query,
   Req,
-  Res,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { Response } from 'express';
 
 import { Audit } from '../audit/audit.decorator.js';
 import { AuditInterceptor } from '../audit/audit.interceptor.js';
-import { engineInvalidInput, engineNotFound, engineUnauthorized } from '../common/errors.js';
+import { engineInvalidInput, engineUnauthorized } from '../common/errors.js';
 import { IdempotencyInterceptor } from '../common/idempotency.interceptor.js';
 import { Idempotent } from '../common/idempotent.decorator.js';
 import { mapPageEnvelope, type PageEnvelope, toPageParams } from '../common/pagination.js';
 import { ZodBody } from '../common/zod.pipe.js';
-import { JobStreamService } from '../jobs/job-stream.service.js';
-import { JobsService } from '../jobs/jobs.service.js';
 import {
   AdminService,
   type BreakerStatusWithRate,
+  type ChannelHealthRow,
   type ProvisionResult,
   type RelayTraceView,
   toRelayTraceView,
@@ -177,10 +145,6 @@ import {
   addGroupChannelSchema,
   type AnalyticsUsageQueryDto,
   analyticsUsageQuerySchema,
-  type BulkChannelActionDto,
-  bulkChannelActionSchema,
-  type BulkModelActionDto,
-  bulkModelActionSchema,
   type BulkOAuthSessionActionDto,
   bulkOAuthSessionActionSchema,
   type CodexLoginComplete,
@@ -193,14 +157,10 @@ import {
   createAdminTokenSchema,
   type CreateApiKeyDto,
   createApiKeySchema,
-  type CreateChannelDto,
-  createChannelSchema,
   type CreateFaultPolicyDto,
   createFaultPolicySchema,
   type CreateLimitPlanDto,
   createLimitPlanRequestSchema,
-  type CreateModelDto,
-  createModelSchema,
   type CreateModelSpecDto,
   createModelSpecSchema,
   type CreateModifierDto,
@@ -209,14 +169,8 @@ import {
   createOAuthSessionSchema,
   type CreateOfficialPriceDto,
   createOfficialPriceSchema,
-  type CreatePluginDto,
-  createPluginRequestSchema,
-  type CreatePricebookDto,
-  createPricebookSchema,
   type CreateProxyDto,
   createProxySchema,
-  type CreateResourceDto,
-  createResourceSchema,
   type CreateRouteGroupDto,
   createRouteGroupSchema,
   type CreateSecretDto,
@@ -227,18 +181,12 @@ import {
   createSubjectSchema,
   type CreateTenantDto,
   createTenantSchema,
-  type EnsureResourceDto,
-  ensureResourceSchema,
   type GenerateCodesDto,
   generateCodesSchema,
-  type GrantModelDto,
-  grantModelSchema,
   type LatestAuditRequestDto,
   latestAuditRequestSchema,
   type ModelSpecsQueryDto,
   modelSpecsQuerySchema,
-  type ModelTestDto,
-  modelTestRequestSchema,
   type OfficialPricesQueryDto,
   officialPricesQuerySchema,
   type ProvisionDto,
@@ -247,18 +195,12 @@ import {
   proxyProbeRequestSchema,
   type RedemptionCodesQueryDto,
   redemptionCodesQuerySchema,
-  type RefundJobDto,
-  refundJobSchema,
   type RelayTraceQueryDto,
   relayTraceQuerySchema,
   type SetFileTtlDto,
   setFileTtlSchema,
   type SetLimitPlanDto,
   setLimitPlanRequestSchema,
-  type SyncChannelModelsDto,
-  syncChannelModelsSchema,
-  type TestPluginDto,
-  testPluginRequestSchema,
   type TopupDto,
   topupSchema,
   type TopupSubAccountDto,
@@ -267,32 +209,20 @@ import {
   transferCreditsSchema,
   type UpdateApiKeyGroupDto,
   updateApiKeyGroupSchema,
-  type UpdateChannelDto,
-  type UpdateChannelModelParamOverrideDto,
-  updateChannelModelParamOverrideSchema,
-  updateChannelSchema,
   type UpdateCredentialMetaDto,
   updateCredentialMetaSchema,
   type UpdateFaultPolicyDto,
   updateFaultPolicySchema,
   type UpdateLimitPlanDto,
   updateLimitPlanRequestSchema,
-  type UpdateModelDto,
-  updateModelSchema,
   type UpdateModelSpecDto,
   updateModelSpecSchema,
   type UpdateModifierDto,
   updateModifierSchema,
   type UpdateOfficialPriceDto,
   updateOfficialPriceSchema,
-  type UpdatePluginDto,
-  updatePluginRequestSchema,
-  type UpdatePricebookDto,
-  updatePricebookSchema,
   type UpdateProxyDto,
   updateProxySchema,
-  type UpdateResourceDto,
-  updateResourceSchema,
   type UpdateRouteGroupDto,
   updateRouteGroupSchema,
   type UpdateSubjectDto,
@@ -300,7 +230,6 @@ import {
   type UpdateTenantDto,
   updateTenantSchema,
 } from './dto/admin.dto.js';
-import { ModelTestService } from './model-test.service.js';
 
 // ----- JSON views (bigint money serialized as decimal µcredit strings) -----
 // TenantView / AccountView are defined ONCE as zod schemas in
@@ -378,9 +307,6 @@ export class AdminController {
   constructor(
     private readonly admin: AdminService,
     private readonly tokens: AdminTokenService,
-    private readonly modelTest: ModelTestService,
-    private readonly jobs: JobsService,
-    private readonly jobStream: JobStreamService,
   ) {}
 
   // ----- tenants -----
@@ -686,24 +612,10 @@ export class AdminController {
     return { account_id: id, file_ttl_days: dto.days };
   }
 
-  @Post('jobs/:id/refund')
-  @HttpCode(200)
-  @ApiOperation({ summary: 'Refund a settled job (credits → µcredits; capped at the charge)' })
-  @Audit({
-    action: 'job.refund',
-    target: 'job',
-    resolve: ({ params, body }) => ({
-      targetId: params.id ?? null,
-      meta: { ...(body as Record<string, unknown>) },
-    }),
-  })
-  async refundJob(
-    @Param('id') id: string,
-    @Body(new ZodBody(refundJobSchema)) dto: RefundJobDto,
-  ): Promise<{ job_id: string; status: string; refunded: string; balance_after: string | null }> {
-    const result = await this.admin.refundSettledJob(id, dto);
-    return { job_id: id, ...result };
-  }
+  // 批次6 D3 (旧世界删除): `POST /admin/jobs/:id/refund` (job-based refund)
+  // died with the old `job` world. NEW-WORLD REFUND GAP: gateway-v2 task
+  // settles have no admin refund face yet — a follow-up must add a task-based
+  // refund (against `task`/`ledger_txn`) when operations needs it.
 
   @Get('accounts')
   @ApiOperation({ summary: 'List accounts (balance/held view, paginated)' })
@@ -951,27 +863,12 @@ export class AdminController {
     return toOAuthSessionView(session);
   }
 
-  // ----- resources -----
-
-  @Post('resources')
-  @HttpCode(201)
-  @Idempotent()
-  @ApiOperation({ summary: 'Register a catalog resource (+ io_schema)' })
-  async createResource(
-    @Body(new ZodBody(createResourceSchema)) dto: CreateResourceDto,
-  ): Promise<ResourceView> {
-    return toResourceView(await this.admin.createResource(dto));
-  }
-
-  @Post('resources/ensure')
-  @ApiOperation({
-    summary: 'Reuse-or-create a platform for (providerType, modality) — 模型接入 onboarding',
-  })
-  async ensureResource(
-    @Body(new ZodBody(ensureResourceSchema)) dto: EnsureResourceDto,
-  ): Promise<ResourceView> {
-    return toResourceView(await this.admin.ensureResource(dto));
-  }
+  // ----- provider types (adapter registry — survives the old catalog) -----
+  // 批次6 D3 (旧世界删除): the `/admin/resources*` + nested channel/model +
+  // `/admin/pricebook*` CRUD (the resource three-layer face) is DELETED with
+  // its tables. The NEW supply face is `/admin/supply/*` (supply.controller).
+  // The contract view/request types stay in @actionow/contracts for the frozen
+  // web frontend (dead types until the frontend rewrite).
 
   @Get('provider-types')
   @ApiOperation({
@@ -979,238 +876,6 @@ export class AdminController {
   })
   listProviderTypes(): string[] {
     return this.admin.listProviderTypes();
-  }
-
-  @Get('resources')
-  @ApiOperation({ summary: 'List catalog resources (paginated)' })
-  async listResources(
-    @Query('cursor') cursor?: string,
-    @Query('limit') limit?: string,
-  ): Promise<PageEnvelope<ResourceView>> {
-    const result = await this.admin.listResources(toPageParams({ cursor, limit }));
-    return mapPageEnvelope(result, (r) => r.id, toResourceView);
-  }
-
-  @Get('resources/:id')
-  @ApiOperation({ summary: 'Get one catalog resource by id or 404' })
-  async getResource(@Param('id') id: string): Promise<ResourceView> {
-    return toResourceView(await this.admin.getResource(id));
-  }
-
-  @Patch('resources/:id')
-  @ApiOperation({ summary: 'Update a resource (status only — key fields are immutable)' })
-  async updateResource(
-    @Param('id') id: string,
-    @Body(new ZodBody(updateResourceSchema)) dto: UpdateResourceDto,
-  ): Promise<ResourceView> {
-    return toResourceView(await this.admin.updateResource(id, dto));
-  }
-
-  @Post('resources/:id/channels')
-  @HttpCode(201)
-  @Idempotent()
-  @ApiOperation({ summary: 'Add an upstream channel to a resource' })
-  @Audit({
-    action: 'channel.create',
-    target: 'channel',
-    resolve: ({ result }) => {
-      const r = result as { id?: string; provider_type?: string };
-      return { targetId: r.id ?? null, meta: { providerType: r.provider_type } };
-    },
-  })
-  async createChannel(
-    @Param('id') id: string,
-    @Body(new ZodBody(createChannelSchema)) dto: CreateChannelDto,
-  ): Promise<ChannelView> {
-    return toChannelView(await this.admin.createChannel(id, dto));
-  }
-
-  @Get('resources/:id/channels')
-  @ApiOperation({ summary: "List a resource's upstream channels (incl. disabled, paginated)" })
-  async listChannels(
-    @Param('id') id: string,
-    @Query('cursor') cursor?: string,
-    @Query('limit') limit?: string,
-  ): Promise<PageEnvelope<ChannelView>> {
-    const result = await this.admin.listResourceChannels(id, toPageParams({ cursor, limit }));
-    const counts = await this.admin.modelCountsByChannels(result.rows.map((r) => r.id));
-    return mapPageEnvelope(
-      result,
-      (r) => r.id,
-      (r) => toChannelView(r, counts.get(r.id) ?? 0),
-    );
-  }
-
-  @Get('resources/:id/channels/:channelId')
-  @ApiOperation({ summary: 'Get one channel of a resource or 404 (channel ∉ resource → 404)' })
-  async getChannel(
-    @Param('id') id: string,
-    @Param('channelId') channelId: string,
-  ): Promise<ChannelView> {
-    const row = await this.admin.getChannel(id, channelId);
-    const counts = await this.admin.modelCountsByChannels([row.id]);
-    return toChannelView(row, counts.get(row.id) ?? 0);
-  }
-
-  @Get('resources/:id/channels/:channelId/models')
-  @ApiOperation({ summary: 'List the models a channel serves (channel_model links)' })
-  async listChannelModels(
-    @Param('id') id: string,
-    @Param('channelId') channelId: string,
-  ): Promise<ModelView[]> {
-    const rows = await this.admin.listChannelModels(id, channelId);
-    const served = await this.admin.servedChannelsByModels(rows.map((r) => r.id));
-    return rows.map((r) => toModelView(r, served.get(r.id) ?? [], r.paramOverride));
-  }
-
-  @Post('resources/:id/channels/:channelId/models')
-  @HttpCode(201)
-  @ApiOperation({ summary: 'Link an existing platform model to a channel' })
-  async linkChannelModel(
-    @Param('id') id: string,
-    @Param('channelId') channelId: string,
-    @Body(new ZodBody(channelModelLinkInputSchema)) dto: ChannelModelLinkInput,
-  ): Promise<{ ok: true }> {
-    await this.admin.linkChannelModel(id, channelId, dto.model_id, dto.param_override);
-    return { ok: true };
-  }
-
-  @Patch('resources/:id/channels/:channelId/models/:modelId/param-override')
-  @ApiOperation({ summary: 'Set/clear a per-(model×channel) parameter override (channel_model)' })
-  @Audit({
-    action: 'channel_model.param_override',
-    target: 'channel',
-    resolve: ({ params }) => ({
-      targetId: params.channelId ?? null,
-      meta: { modelId: params.modelId ?? null },
-    }),
-  })
-  async setChannelModelParamOverride(
-    @Param('id') id: string,
-    @Param('channelId') channelId: string,
-    @Param('modelId') modelId: string,
-    @Body(new ZodBody(updateChannelModelParamOverrideSchema))
-    dto: UpdateChannelModelParamOverrideDto,
-  ): Promise<ChannelModelView> {
-    const link = await this.admin.setChannelModelParamOverride(
-      id,
-      channelId,
-      modelId,
-      dto.paramOverride,
-    );
-    return channelModelViewSchema.parse({
-      channel_id: link.channelId,
-      model_id: link.modelId,
-      param_override: link.paramOverride,
-    });
-  }
-
-  @Delete('resources/:id/channels/:channelId/models/:modelId')
-  @HttpCode(204)
-  @ApiOperation({ summary: 'Unlink a model from a channel (does not delete the model)' })
-  async unlinkChannelModel(
-    @Param('id') id: string,
-    @Param('channelId') channelId: string,
-    @Param('modelId') modelId: string,
-  ): Promise<void> {
-    await this.admin.unlinkChannelModel(id, channelId, modelId);
-  }
-
-  @Patch('resources/:id/channels/:channelId')
-  @ApiOperation({ summary: 'Update an upstream channel (weight/status/endpoint/model/...)' })
-  @Audit({
-    action: 'channel.update',
-    target: 'channel',
-    resolve: ({ params, body }) => {
-      const b = body as { status?: string };
-      return { targetId: params.channelId ?? null, meta: { status: b.status } };
-    },
-  })
-  async updateChannel(
-    @Param('channelId') channelId: string,
-    @Body(new ZodBody(updateChannelSchema)) dto: UpdateChannelDto,
-  ): Promise<ChannelView> {
-    return toChannelView(await this.admin.updateChannel(channelId, dto));
-  }
-
-  @Delete('resources/:id/channels/:channelId')
-  @HttpCode(204)
-  @ApiOperation({ summary: 'Soft-delete an upstream channel (channel ∉ resource → 404)' })
-  @Audit({
-    action: 'channel.delete',
-    target: 'channel',
-    resolve: ({ params }) => ({ targetId: params.channelId ?? null }),
-  })
-  async deleteChannel(
-    @Param('id') id: string,
-    @Param('channelId') channelId: string,
-  ): Promise<void> {
-    await this.admin.deleteChannel(id, channelId);
-  }
-
-  @Post('resources/:id/channels/:channelId/sync-models')
-  @HttpCode(200)
-  @Idempotent()
-  @ApiOperation({
-    summary: "Sync a channel provider's available models into model rows (multi-model routing)",
-  })
-  async syncChannelModels(
-    @Param('id') id: string,
-    @Param('channelId') channelId: string,
-    @Body(new ZodBody(syncChannelModelsSchema)) dto: SyncChannelModelsDto,
-  ): Promise<{
-    resource_id: string;
-    created: string[];
-    updated: string[];
-    total: number;
-    summary: { name: string; priced: string }[];
-  }> {
-    return this.admin.syncChannelModels(id, channelId, dto);
-  }
-
-  // ----- pricebook -----
-
-  @Post('pricebook')
-  @HttpCode(201)
-  @Idempotent()
-  @ApiOperation({ summary: 'Add a pricebook entry (fixed amount in credits)' })
-  async createPricebook(
-    @Body(new ZodBody(createPricebookSchema)) dto: CreatePricebookDto,
-  ): Promise<PricebookView> {
-    return toPricebookView(await this.admin.createPricebook(dto));
-  }
-
-  @Get('pricebook')
-  @ApiOperation({ summary: 'List a resource’s pricebook entries (paginated)' })
-  async listPricebook(
-    @Query('resourceId') resourceId: string,
-    @Query('cursor') cursor?: string,
-    @Query('limit') limit?: string,
-  ): Promise<PageEnvelope<PricebookView>> {
-    const result = await this.admin.listPricebook(resourceId, toPageParams({ cursor, limit }));
-    return mapPageEnvelope(result, (r) => r.id, toPricebookView);
-  }
-
-  @Get('pricebook/:id')
-  @ApiOperation({ summary: 'Get one pricebook entry by id or 404' })
-  async getPricebook(@Param('id') id: string): Promise<PricebookView> {
-    return toPricebookView(await this.admin.getPricebook(id));
-  }
-
-  @Patch('pricebook/:id')
-  @ApiOperation({ summary: 'Update a pricebook entry (fixedCredits → µcredit spec.amount)' })
-  async updatePricebook(
-    @Param('id') id: string,
-    @Body(new ZodBody(updatePricebookSchema)) dto: UpdatePricebookDto,
-  ): Promise<PricebookView> {
-    return toPricebookView(await this.admin.updatePricebook(id, dto));
-  }
-
-  @Delete('pricebook/:id')
-  @HttpCode(204)
-  @ApiOperation({ summary: 'Soft-delete a pricebook entry' })
-  async deletePricebook(@Param('id') id: string): Promise<void> {
-    await this.admin.deletePricebook(id);
   }
 
   // ----- modifiers -----
@@ -1445,164 +1110,16 @@ export class AdminController {
     return { ok: true };
   }
 
-  // ----- provider plugins (P2) -----
-
-  @Get('plugins')
-  @ApiOperation({ summary: 'List provider plugins (manifest + handler) with channel/model counts' })
-  async listPlugins(): Promise<ProviderPluginView[]> {
-    const [rows, counts] = await Promise.all([this.admin.listPlugins(), this.admin.pluginCounts()]);
-    return rows.map((r) => toPluginView(r, counts.get(r.id)));
-  }
-
-  @Get('plugins/:id/channels')
-  @ApiOperation({ summary: "List a plugin's bound channels across resources (模型接入 3-pane)" })
-  async listPluginChannels(@Param('id') id: string): Promise<ChannelView[]> {
-    const rows = await this.admin.listPluginChannels(id);
-    const counts = await this.admin.modelCountsByChannels(rows.map((r) => r.id));
-    return rows.map((r) => toChannelView(r, counts.get(r.id) ?? 0));
-  }
-
-  @Post('plugins')
-  @HttpCode(201)
-  @ApiOperation({ summary: 'Create a provider plugin' })
-  async createPlugin(
-    @Body(new ZodBody(createPluginRequestSchema)) dto: CreatePluginDto,
-  ): Promise<ProviderPluginView> {
-    return toPluginView(await this.admin.createPlugin(dto));
-  }
-
-  @Post('plugins/test')
-  @ApiOperation({ summary: 'Run one handler fn in the sandbox with a sample arg (test panel)' })
-  async testPlugin(
-    @Body(new ZodBody(testPluginRequestSchema)) dto: TestPluginDto,
-  ): Promise<TestPluginResponse> {
-    return this.admin.testPlugin(dto);
-  }
-
-  @Patch('plugins/:id')
-  @ApiOperation({ summary: 'Update a provider plugin (edit bumps version → freeze)' })
-  async updatePlugin(
-    @Param('id') id: string,
-    @Body(new ZodBody(updatePluginRequestSchema)) dto: UpdatePluginDto,
-  ): Promise<ProviderPluginView> {
-    return toPluginView(await this.admin.updatePlugin(id, dto));
-  }
-
-  @Delete('plugins/:id')
-  @HttpCode(204)
-  @ApiOperation({ summary: 'Soft-delete a custom provider plugin (built-ins rejected)' })
-  async deletePlugin(@Param('id') id: string): Promise<void> {
-    await this.admin.deletePlugin(id);
-  }
-
-  // ----- models -----
-
-  @Post('models')
-  @HttpCode(201)
-  @Idempotent()
-  @ApiOperation({ summary: 'Register a relay model (name → chat resource)' })
-  @Audit({
-    action: 'model.create',
-    target: 'model',
-    resolve: ({ result }) => {
-      const r = result as { name?: string };
-      return { targetId: r.name ?? null };
-    },
-  })
-  async createModel(@Body(new ZodBody(createModelSchema)) dto: CreateModelDto): Promise<ModelView> {
-    return toModelView(await this.admin.createModel(dto));
-  }
-
-  @Post('models/test')
-  @HttpCode(200)
-  @ApiOperation({
-    summary: 'Probe a candidate model (connectivity + functional) before adding it',
-  })
-  async testModel(
-    @Body(new ZodBody(modelTestRequestSchema)) dto: ModelTestDto,
-  ): Promise<ModelTestResult> {
-    return this.modelTest.test(dto);
-  }
-
-  @Get('models')
-  @ApiOperation({ summary: 'List the relay model catalog (paginated)' })
-  async listModels(
-    @Query('cursor') cursor?: string,
-    @Query('limit') limit?: string,
-  ): Promise<PageEnvelope<ModelView>> {
-    const result = await this.admin.listModels(toPageParams({ cursor, limit }));
-    const served = await this.admin.servedChannelsByModels(result.rows.map((r) => r.id));
-    return mapPageEnvelope(
-      result,
-      (r) => r.id,
-      (r) => toModelView(r, served.get(r.id) ?? []),
-    );
-  }
-
-  @Get('models/:name')
-  @ApiOperation({ summary: 'Get one relay model by name or 404' })
-  async getModel(@Param('name') name: string): Promise<ModelView> {
-    const row = await this.admin.getModel(name);
-    const served = await this.admin.servedChannelsByModels([row.id]);
-    return toModelView(row, served.get(row.id) ?? []);
-  }
-
-  @Patch('models/:name')
-  @ApiOperation({ summary: 'Update a relay model (display/capabilities/prices/visibility/status)' })
-  @Audit({
-    action: 'model.update',
-    target: 'model',
-    resolve: ({ params, body }) => {
-      const b = body as { status?: string; display_name?: string };
-      return { targetId: params.name ?? null, meta: { status: b.status } };
-    },
-  })
-  async updateModel(
-    @Param('name') name: string,
-    @Body(new ZodBody(updateModelSchema)) dto: UpdateModelDto,
-  ): Promise<ModelView> {
-    return toModelView(await this.admin.updateModel(name, dto));
-  }
-
-  @Delete('models/:name')
-  @HttpCode(204)
-  @ApiOperation({ summary: 'Soft-delete a relay model — it stops routing after' })
-  @Audit({
-    action: 'model.delete',
-    target: 'model',
-    resolve: ({ params }) => ({ targetId: params.name ?? null }),
-  })
-  async deleteModel(@Param('name') name: string): Promise<void> {
-    await this.admin.deleteModel(name);
-  }
+  // 批次6 D3 (旧世界删除): the `/admin/plugins*` CRUD (provider_plugin rows,
+  // runtime already deleted in D2), the `/admin/models*` relay-model CRUD
+  // (+ `models/test` connectivity pre-probe, superseded by the §10 golden
+  // probe on the supply face), the models/channels bulk actions and the
+  // model-grant face died with the resource three-layer. The NEW twins live
+  // under `/admin/supply/*`.
 
   // ----- bulk admin actions (前端打磨) -----
   // Each returns a partial-success {succeeded, failed} (one bad id never aborts
   // the batch) and emits ONE audit_log row per affected entity in the service.
-
-  @Post('models/bulk')
-  @HttpCode(200)
-  @ApiOperation({
-    summary: 'Bulk enable/disable/delete models (by name; partial success + per-entity audit)',
-  })
-  async bulkModels(
-    @Body(new ZodBody(bulkModelActionSchema)) dto: BulkModelActionDto,
-    @Req() req: AdminRequest,
-  ): Promise<BulkResultView> {
-    return this.admin.bulkModels(dto.action, dto.ids, req.admin?.adminId);
-  }
-
-  @Post('channels/bulk')
-  @HttpCode(200)
-  @ApiOperation({
-    summary: 'Bulk enable/disable/delete channels (by id; partial success + per-entity audit)',
-  })
-  async bulkChannels(
-    @Body(new ZodBody(bulkChannelActionSchema)) dto: BulkChannelActionDto,
-    @Req() req: AdminRequest,
-  ): Promise<BulkResultView> {
-    return this.admin.bulkChannels(dto.action, dto.ids, req.admin?.adminId);
-  }
 
   @Post('oauth-sessions/bulk')
   @HttpCode(200)
@@ -1616,94 +1133,8 @@ export class AdminController {
     return this.admin.bulkRevokeOAuthSessions(dto.ids, req.admin?.adminId);
   }
 
-  @Post('models/:name/grants')
-  @HttpCode(201)
-  @Idempotent()
-  @ApiOperation({ summary: 'Grant a tenant-visibility model to a tenant' })
-  @Audit({
-    action: 'model_grant.create',
-    target: 'model_grant',
-    resolve: ({ params, body }) => {
-      const b = body as { tenantId?: string };
-      return {
-        tenantId: b.tenantId ?? null,
-        targetId: params.name ?? null,
-        meta: { model: params.name },
-      };
-    },
-  })
-  async grantModel(
-    @Param('name') name: string,
-    @Body(new ZodBody(grantModelSchema)) dto: GrantModelDto,
-  ): Promise<{ ok: true }> {
-    await this.admin.grantModel(name, dto);
-    return { ok: true };
-  }
-
-  @Get('models/:name/grants')
-  @ApiOperation({
-    summary: "List a model's tenant grants (paginated); 404 if the model is unknown",
-  })
-  async listModelGrants(
-    @Param('name') name: string,
-    @Query('cursor') cursor?: string,
-    @Query('limit') limit?: string,
-  ): Promise<PageEnvelope<ModelGrantView>> {
-    const result = await this.admin.listModelGrants(name, toPageParams({ cursor, limit }));
-    return mapPageEnvelope(result, (r) => r.id, toModelGrantView);
-  }
-
-  @Delete('models/:name/grants/:tenantId')
-  @HttpCode(204)
-  @ApiOperation({ summary: 'Revoke (hard-delete) a tenant grant of a model' })
-  @Audit({
-    action: 'model_grant.revoke',
-    target: 'model_grant',
-    resolve: ({ params }) => ({
-      tenantId: params.tenantId ?? null,
-      targetId: params.name ?? null,
-      meta: { model: params.name },
-    }),
-  })
-  async deleteModelGrant(
-    @Param('name') name: string,
-    @Param('tenantId') tenantId: string,
-  ): Promise<void> {
-    await this.admin.deleteModelGrant(name, tenantId);
-  }
-
-  // ----- jobs -----
-
-  @Get('jobs')
-  @ApiOperation({ summary: 'List a tenant’s jobs (keyset, paginated)' })
-  async listJobs(
-    @Query('tenantId') tenantId: string,
-    @Query('cursor') cursor?: string,
-    @Query('limit') limit?: string,
-  ): Promise<PageEnvelope<JobView>> {
-    const result = await this.admin.listJobs(tenantId, toPageParams({ cursor, limit }));
-    return mapPageEnvelope(result, (r) => r.id, toJobView);
-  }
-
-  /**
-   * Stream a job's status/progress over SSE until terminal (#62) — the admin
-   * (cross-tenant) twin of `GET /v1/jobs/:id/stream`. Resolves the job's OWN
-   * tenant (admin sees any tenant), then reuses the tenant-scoped
-   * {@link JobStreamService} unchanged. A missing job 404s before any byte is
-   * written. Browsers can't set a Bearer header on `EventSource`, so the SPA
-   * consumes this via `fetch` + a `ReadableStream` reader (the JWT goes in the
-   * request header) — see the web `useJobStream` hook.
-   */
-  @Get('jobs/:id/stream')
-  @ApiOperation({ summary: 'Stream a job’s progress over SSE until terminal (admin)' })
-  async streamJob(
-    @Param('id') id: string,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<void> {
-    const ctx = await this.jobs.resolveAdminContext(id);
-    if (ctx === undefined) throw engineNotFound(`job ${id} not found`);
-    await this.jobStream.streamTo(res, id, ctx);
-  }
+  // 批次6 D3 (旧世界删除): the `GET /admin/jobs` list died with the old `job`
+  // world (the new task world lists via `/v1/tasks` / the gateway task face).
 
   // ----- ledger -----
 
@@ -2512,30 +1943,6 @@ function toLimitAlertView(row: LimitAlertRow): LimitAlertView {
   });
 }
 
-function toPluginView(
-  row: ProviderPluginRow,
-  counts: { channels: number; models: number } = { channels: 0, models: 0 },
-): ProviderPluginView {
-  return providerPluginViewSchema.parse({
-    id: row.id,
-    slug: row.slug,
-    label: row.label,
-    modalities: row.modalities,
-    protocol: row.protocol,
-    auth_strategy: row.authStrategy,
-    manifest: row.manifest,
-    handler: row.handler,
-    version: row.version,
-    builtin: row.builtin,
-    icon: row.icon,
-    channel_count: counts.channels,
-    model_count: counts.models,
-    status: row.status,
-    created_at: row.createdAt.toISOString(),
-    updated_at: row.updatedAt.toISOString(),
-  });
-}
-
 function toOAuthSessionListView(row: OAuthSessionListRow): OAuthSessionListView {
   return oauthSessionListViewSchema.parse({
     id: row.secretRefId,
@@ -2559,42 +1966,6 @@ function toAccountView(row: AccountRow): AccountView {
     credit_held: row.creditHeld.toString(),
     limit_plan_id: row.limitPlanId,
     created_at: row.createdAt.toISOString(),
-  });
-}
-
-function toResourceView(row: Resource): ResourceView {
-  return resourceViewSchema.parse({
-    id: row.id,
-    tenant_id: row.tenantId,
-    kind: row.kind,
-    modality: row.modality,
-    provider_type: row.providerType,
-    exec_modes: row.execModes,
-    status: row.status,
-    current_version: row.currentVersion,
-    created_at: row.createdAt.toISOString(),
-  });
-}
-
-function toChannelView(row: UpstreamChannelRow, modelCount = 0): ChannelView {
-  return channelViewSchema.parse({
-    id: row.id,
-    resource_id: row.resourceId,
-    provider_type: row.providerType,
-    credential_ref: row.credentialRef,
-    endpoint: row.endpoint,
-    model: row.model,
-    proxy_ref: row.proxyRef,
-    config: row.config,
-    weight: row.weight,
-    status: row.status,
-    input_cost_per_1m: row.inputCostPer1m === null ? null : row.inputCostPer1m.toString(),
-    output_cost_per_1m: row.outputCostPer1m === null ? null : row.outputCostPer1m.toString(),
-    fault_policy_id: row.faultPolicyId,
-    model_count: modelCount,
-    icon: row.icon,
-    plugin_id: row.pluginId,
-    tags: row.tags,
   });
 }
 
@@ -2644,20 +2015,6 @@ function toFaultPolicyView(row: FaultPolicyRow): FaultPolicyView {
   });
 }
 
-function toPricebookView(row: PricebookEntryRow): PricebookView {
-  return pricebookViewSchema.parse({
-    id: row.id,
-    resource_id: row.resourceId,
-    resource_version: row.resourceVersion,
-    version: row.version,
-    method: row.method,
-    timing: row.timing,
-    spec: row.spec,
-    markup: row.markup,
-    active: row.active,
-  });
-}
-
 function toModifierView(row: ModifierRow): ModifierView {
   return modifierViewSchema.parse({
     id: row.id,
@@ -2683,63 +2040,6 @@ function toLedgerView(row: LedgerRow): LedgerView {
     balance_after: row.balanceAfter.toString(),
     resource_id: row.resourceId,
     job_id: row.jobId,
-    created_at: row.createdAt.toISOString(),
-  });
-}
-
-function toJobView(row: Job): JobView {
-  return jobViewSchema.parse({
-    job_id: row.id,
-    tenant_id: row.tenantId,
-    subject_id: row.subjectId,
-    resource_id: row.resourceId,
-    status: row.status,
-    exec_mode: row.execMode,
-    cost: row.costCredits === null ? null : row.costCredits.toString(),
-    created_at: row.createdAt.toISOString(),
-  });
-}
-
-function toModelView(
-  row: ModelRow,
-  servedChannelIds: string[] = [],
-  paramOverride: ParamOverride | null = null,
-): ModelView {
-  return modelViewSchema.parse({
-    id: row.id,
-    name: row.name,
-    display: row.display,
-    modality: row.modality,
-    capabilities: row.capabilities,
-    visibility: row.visibility,
-    resource_id: row.resourceId,
-    input_price: row.inputPrice.toString(),
-    output_price: row.outputPrice.toString(),
-    cached_input_price: row.cachedInputPrice === null ? null : row.cachedInputPrice.toString(),
-    rate_limit: row.rateLimit,
-    fallback_models: row.fallbackModels,
-    served_channel_ids: servedChannelIds,
-    // Only populated when the model was fetched THROUGH a channel link (col-3);
-    // null for the flat catalog + create/update responses (no channel context).
-    param_override: paramOverride,
-    // Frozen model profile (mig 0064); a null column parses to the empty profile
-    // (never null on the view — the schema's inner defaults fill it).
-    param_profile: row.paramProfile ?? {},
-    tags: row.tags,
-    maker: row.maker,
-    context_length: row.contextLength,
-    reasoning: row.reasoning,
-    icon: row.icon,
-    status: row.status,
-    created_at: row.createdAt.toISOString(),
-  });
-}
-
-function toModelGrantView(row: ModelGrantRow): ModelGrantView {
-  return modelGrantViewSchema.parse({
-    id: row.id,
-    model_id: row.modelId,
-    tenant_id: row.tenantId,
     created_at: row.createdAt.toISOString(),
   });
 }

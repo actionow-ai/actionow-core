@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>model-supply-greenfield-batch1-start</title>
+<style>:root{--ink:#1C1C1C;--mid:#4A4D4A;--soft:#7E827E;--frame:#2B2B2B;--line:#C9CCC9;--page:#F3F3F1;--red:#A8332A;--redtint:#F8EDEB;--gold:#8A6420;--goldtint:#FBF7EA;--green:#2F5D50}
+body.t-plan{--type:#7A2018;--tint:#F7EDEB}
+body.t-research{--type:#2B4A78;--tint:#EDF1F7}
+body.t-case{--type:#2F5D50;--tint:#EEF4F1}
+body.t-handoff{--type:#8A6420;--tint:#F6F0E3}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Songti SC","Noto Serif CJK SC",serif;background:var(--page);color:var(--ink);line-height:1.85;font-size:14px;max-width:780px;margin:0 auto;padding:22px 24px 40px}
+.sheet{background:#fff;border:2px solid var(--frame);padding:0 0 26px}
+.ctrl{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:7px 22px;font-family:"PingFang SC",sans-serif;font-size:10.5px;letter-spacing:2.5px;color:var(--soft)}
+.ctrl b{color:var(--type);font-weight:700}
+.appr{display:grid;grid-template-columns:106px 1.25fr 1.1fr 1fr 1fr;border-bottom:2px solid var(--frame)}
+.ac{border-right:1px solid var(--frame);padding:7px 14px 6px}
+.ac.last{border-right:0}
+.ac .al{font-family:"PingFang SC",sans-serif;font-size:9.5px;letter-spacing:2px;color:var(--soft);margin-bottom:1px}
+.ac .av{font-family:"PingFang SC",sans-serif;font-weight:600;font-size:13px;overflow-wrap:anywhere}
+.ac .av.t{color:var(--type);font-weight:700}
+.ac .av.ok{color:var(--green);font-weight:700}
+.ac .av.warn{color:var(--red);font-weight:700}
+.ac2{border-top:1px solid var(--line)}
+.sealcell{grid-column:1;grid-row:1/span 2;border-right:1px solid var(--frame);display:grid;place-items:center;padding:8px}
+.sq{width:62px;height:62px;border:2.5px solid var(--type);box-shadow:inset 0 0 0 1.5px #fff,inset 0 0 0 3px var(--type);display:grid;place-items:center;color:var(--type);font-family:"STZhongsong","Songti SC",serif;font-size:19px;font-weight:900;letter-spacing:2px;line-height:1.5;text-align:center}
+.titlebar{padding:18px 26px 0}
+h1{font-family:"PingFang SC",sans-serif;font-size:22px;font-weight:800;letter-spacing:.5px;line-height:1.5;overflow-wrap:anywhere}
+.sub{font-size:13.5px;color:var(--mid);margin-top:4px}
+.tally{display:grid;grid-template-columns:1fr 1fr 1fr 1.7fr;border:1.5px solid var(--frame);margin:14px 26px 0}
+.tally.c3{grid-template-columns:1fr 1fr 1.7fr}
+.tc{padding:9px 14px 8px;border-right:1px solid var(--frame)}
+.tc:last-child{border-right:0}
+.tc .n{font-family:"PingFang SC",sans-serif;font-size:23px;font-weight:800;line-height:1.3;color:var(--ink)}
+.tc .n.sm{font-size:15px;line-height:1.95}
+.tc .n small{font-size:13px;color:var(--soft);font-weight:500}
+.tc .l{font-family:"PingFang SC",sans-serif;font-size:9.5px;letter-spacing:2.5px;color:var(--soft);margin-top:1px}
+.tc.warn .n{color:var(--red)}
+.tc.v{background:var(--type)}
+.tc.v .n{color:#fff;font-size:15px;line-height:1.85;font-weight:700}
+.tc.v .l{color:rgba(255,255,255,.75)}
+.keypoints{margin:12px 26px 0;border:1.5px solid var(--type);background:var(--tint);padding:11px 17px 10px}
+.keypoints .kt{font-family:"PingFang SC",sans-serif;font-weight:800;font-size:12.5px;letter-spacing:3px;color:var(--type);margin-bottom:5px}
+.keypoints ol{list-style:none}
+.keypoints li{padding:3px 0 3px 28px;position:relative;font-size:13px}
+.keypoints li .kn{position:absolute;left:0;top:5px;width:18px;height:18px;background:var(--type);color:#fff;font-family:"PingFang SC",sans-serif;font-size:10.5px;font-weight:700;display:grid;place-items:center}
+.keypoints li b{font-family:"PingFang SC",sans-serif;font-weight:700}
+.question{margin:14px 26px 0;border:1.5px solid var(--frame);background:#fff;padding:12px 17px}
+.question .qt{font-family:"PingFang SC",sans-serif;font-weight:800;font-size:12.5px;letter-spacing:3px;color:var(--type);margin-bottom:5px}
+.question p{font-family:"PingFang SC",sans-serif;font-weight:600;font-size:14.5px;line-height:1.8;text-align:justify}
+.meta{padding:9px 26px 0;font-size:12px;color:var(--soft);letter-spacing:1px}
+.body{padding:0 26px}
+h2{font-family:"PingFang SC",sans-serif;font-size:15px;font-weight:800;letter-spacing:1px;margin:26px 0 10px;padding:7px 12px;background:#F1F1EF;border-left:5px solid var(--type)}
+h2 .num{font-family:"SF Mono",Menlo,monospace;color:var(--type);margin-right:10px;font-size:13px}
+h2.danger{border-left-color:var(--red)}
+h2.danger .num{color:var(--red)}
+p{margin-bottom:.8em;text-align:justify}
+p:last-child{margin-bottom:0}
+b,strong{font-family:"PingFang SC",sans-serif;font-weight:600}
+.clause{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:6px 0;font-size:13.5px}
+.clause.n{grid-template-columns:44px 1fr}
+.clause dt{font-family:"PingFang SC",sans-serif;font-size:11.5px;font-weight:700;color:var(--soft);padding-top:2px;letter-spacing:1px}
+.clause.n dt{font-family:"SF Mono",Menlo,monospace;color:var(--type);letter-spacing:0}
+.clause dd{text-align:justify;overflow-wrap:anywhere}
+.note{font-size:12px;color:var(--soft)}
+table.formal{width:100%;border-collapse:collapse;margin:8px 0 6px;font-size:13px}
+table.formal th{font-family:"PingFang SC",sans-serif;font-weight:700;font-size:11.5px;letter-spacing:1.5px;border:1px solid var(--frame);background:#F1F1EF;padding:6px 10px;text-align:center}
+table.formal th.danger{background:var(--redtint);color:var(--red)}
+table.formal td{border:1px solid var(--line);border-left:1px solid var(--frame);border-right:1px solid var(--frame);padding:7px 10px 6px;vertical-align:top;line-height:1.78;overflow-wrap:anywhere}
+table.formal tr:last-child td{border-bottom:1px solid var(--frame)}
+table.formal td.c{text-align:center;white-space:nowrap;font-family:"SF Mono",Menlo,monospace;font-size:12px}
+.mk{font-family:"PingFang SC",sans-serif;font-weight:700;white-space:nowrap}
+.mk.ok{color:var(--green)}
+.mk.bad{color:var(--red)}
+.mk.wait{color:var(--soft)}
+.vd{font-family:"PingFang SC",sans-serif;font-weight:700;white-space:nowrap}
+.vd.ok{color:var(--green)}
+.vd.bad{color:var(--red)}
+.vd.mid{color:var(--gold)}
+.vd i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.vd.ok i{background:var(--green)}
+.vd.bad i{background:var(--red)}
+.vd.mid i{background:var(--gold)}
+.judge{border:1.5px solid var(--frame);margin-bottom:13px}
+.judge-h{display:flex;gap:12px;align-items:baseline;padding:9px 16px;border-bottom:1px solid var(--frame);background:#F1F1EF}
+.judge-h .ji{font-family:"PingFang SC",sans-serif;font-size:11px;font-weight:800;color:#fff;background:var(--type);padding:2px 10px;letter-spacing:3px;white-space:nowrap}
+.judge-h .jt{font-family:"PingFang SC",sans-serif;font-weight:700;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+.judge-b{padding:8px 16px 12px}
+.jrow{display:grid;grid-template-columns:70px 1fr;gap:10px;padding:5px 0;font-size:13px}
+.jrow dt{font-family:"PingFang SC",sans-serif;font-size:11.5px;font-weight:700;color:var(--soft);padding-top:2px;letter-spacing:1.5px}
+.jrow dd{text-align:justify;color:var(--mid);overflow-wrap:anywhere}
+.hind{margin:8px 0 2px;border:1px solid var(--gold);background:var(--goldtint);padding:9px 14px}
+.hind dt{font-family:"PingFang SC",sans-serif;font-size:11px;font-weight:800;letter-spacing:2px;color:var(--gold);margin-bottom:3px}
+.hind dd{font-family:"PingFang SC",sans-serif;font-weight:600;font-size:13px;line-height:1.8}
+.aux{font-size:12.5px;color:var(--mid);padding-top:6px}
+.aux dt{display:inline;font-family:"PingFang SC",sans-serif;font-size:11px;font-weight:700;color:var(--soft);margin-right:8px;letter-spacing:1px}
+.aux dd{display:inline}
+.appetite{margin:8px 0 4px;border:1.5px solid var(--gold);background:var(--goldtint);padding:11px 16px}
+.appetite .at{font-family:"PingFang SC",sans-serif;font-size:11px;font-weight:800;letter-spacing:2px;color:var(--gold);margin-bottom:3px}
+.appetite .av2{font-family:"PingFang SC",sans-serif;font-weight:700;font-size:15px}
+.appetite .av2 small{font-weight:500;font-size:12.5px;color:var(--mid)}
+.dgrid{display:grid;grid-template-columns:46px 1fr;gap:8px;padding:5px 0;font-size:13px}
+.dgrid dt{font-family:"SF Mono",Menlo,monospace;font-size:11px;color:var(--type);font-weight:700;padding-top:2px}
+.dgrid dd{text-align:justify;color:var(--mid)}
+.dgrid dd b{color:var(--ink)}
+.next{border:1.5px solid var(--type);background:var(--tint);padding:13px 17px 11px;margin-top:12px}
+.next .lead{font-family:"PingFang SC",sans-serif;font-weight:700;font-size:14.5px;line-height:1.8;margin-bottom:8px}
+.next p{font-size:13px;color:var(--mid)}
+.gate{margin-top:9px;border:1px solid var(--red);background:var(--redtint);padding:9px 13px;font-size:13px}
+.gate .gl{font-family:"PingFang SC",sans-serif;font-size:11px;font-weight:800;letter-spacing:2px;color:var(--red);margin-right:9px}
+.pend{font-family:"PingFang SC",sans-serif;font-size:10px;font-weight:700;color:var(--red);border:1px solid var(--red);padding:1px 7px;white-space:nowrap}
+code{font-family:"SF Mono",Menlo,monospace;background:#F1F1EF;padding:1px 5px;border-radius:2px;font-size:11.5px;overflow-wrap:anywhere}
+footer{margin-top:12px;text-align:center;font-family:"PingFang SC",sans-serif;font-size:10.5px;color:var(--soft);letter-spacing:2px}</style></head>
+<body class="t-handoff">
+<div class="sheet">
+<div class="ctrl"><span>受控文档 · <b>model-supply-greenfield-batch1-start</b></span><span>流程依据:SOP v0.4 非妥协 #1</span></div>
+<div class="appr"><div class="sealcell"><div class="sq">交<br>接</div></div><div class="ac"><div class="al">文档类别</div><div class="av t">交接单</div></div><div class="ac"><div class="al">编号</div><div class="av">model-supply-greenfield-batch1-start</div></div><div class="ac"><div class="al">层级</div><div class="av">—</div></div><div class="ac last"><div class="al">阶段</div><div class="av">转下一 session</div></div><div class="ac ac2"><div class="al">移交</div><div class="av">本 session</div></div><div class="ac ac2"><div class="al">接收</div><div class="av">下一 session</div></div><div class="ac ac2"><div class="al">污染信号</div><div class="av warn">非污染——批次边界主动交接:本 session 已完整承载批次0(三输入研读+契约设计权衡+冻结落地+验证+commit/push),按 RPI 离散 session 纪律,批次1(db schema)以冻结契约+设计 §2 为输入换新 session 冷启动,避免批次0 的设计往返上下文稀释批次1 的 db 细节。</div></div><div class="ac ac2 last"><div class="al">时点</div><div class="av">2026-07-10 15:19</div></div></div>
+<div class="titlebar"><h1>model-supply-greenfield-batch1-start</h1></div>
+<div class="tally"><div class="tc"><div class="n sm">下一 session</div><div class="l">接收</div></div><div class="tc"><div class="n">4<small> 项</small></div><div class="l">实现项</div></div><div class="tc warn"><div class="n">7</div><div class="l">禁区</div></div><div class="tc v"><div class="n sm">唯一输入 · 见下一步</div><div class="l">开工指引</div></div></div>
+<div class="body">
+<h2><span class="num">1</span>下一步(接收方照此开工)</h2>
+<div class="next"><div class="lead">开批次1 build session(供给数据模型):主输入 = 设计终稿 §2/§2.7(docs/plans/draft_2026-07-10_model-supply-greenfield.md)+ plan v3 批次1 段 + 冻结契约(packages/contracts/src/supply-entities.ts、supply-params.ts、gateway-ir.ts)。先按 tc-build 过 pre-flight,transition.py build-start TEA-1073 幂等重跑无害。</div><p>从 packages/db/src/schema 起建六表 provider/channel/credential/model/offering/price_card,字段形状对齐 supply-entities.ts 契约;offering UNIQUE(model_id,channel_id) 与 model 对外唯一名 name 用部分唯一索引(WHERE deleted_at IS NULL,沿用 mig 0052 范式);migration 经 pnpm db:generate 生成,nullable FK 列必须显式命名 FK 约束(否则 downgrade 不可逆,TEA-62 教训)。</p><p>api_key 白名单改 model 维度:scopes.models[] 且 null=全放行(语义与现 resourceAllowlist null 一致,批次1 定死);model_grant(model,tenant) 可见性 SQL gate;BYOK = channel.tenant_id 非空即租户私有;五实体+price_card 全部管理写操作挂 @Audit。</p><p>批内其余按 plan v3 批次1 段:参数契约结构化声明落库(supports/domain/map/fixed/unsupported + billingRelevant)、官方价目对接与 needs_pricing 闸(匹配不上→disabled 永不 0 价上架)、五实体 CRUD API。批次2(适配器 SPI)与本批交错,由另一独立 session 承担,接缝即冻结契约。</p></div>
+<h2 class="danger"><span class="num">2</span>禁区(已证伪路线 · 勿重试)</h2>
+<table class="formal"><tr><th class="danger" style="width:42px">标记</th><th class="danger">已证伪的路线与原因</th></tr><tr><td class="c"><span class="mk bad">×</span></td><td>不要沿用现 resource/upstream_channel/channel_model 三层建模——绿地整体替换,软链接改 offering 硬绑定;model_map 死列不复活,上游名映射只走 offering.upstream_model_name(契约已断言该字段不存在)。</td></tr><tr><td class="c"><span class="mk bad">×</span></td><td>参数值域缩放/语义映射不要放进适配器切面①——§4.1 三层归属定死:canonical 归一@门面、offering 声明@规划器(产出 EffectiveParams)、切面①只消费 EffectiveParams.upstream 做 wire 结构搬运。</td></tr><tr><td class="c"><span class="mk bad">×</span></td><td>hold 预扣不要排在限流前(429 风暴抖账)——§7.8 闸门顺序:限流→额度预检(只读)→模型闸→凭证选key→取(offering,credential)信号量→hold 写账。</td></tr><tr><td class="c"><span class="mk bad">×</span></td><td>direct 阻塞取数不要做租约接管重提(无上游句柄,会双扣)——至多一次:崩溃即 failed 不扣费;租约恢复只承诺 submit_poll/submit_callback。</td></tr><tr><td class="c"><span class="mk bad">×</span></td><td>上游回调 envelope 契约现状是断的(callbacks.service.ts:112 传裸 body→生产纯轮询)——批次4 按 §6 切面⑥显式类型化重做(TaskUpdate 已冻结),不要照抄现状。</td></tr><tr><td class="c"><span class="mk bad">×</span></td><td>dify 相关(packages/dify、dify_binding、dify-workflow adapter、BYO 导入)是删除对象不是参考对象——Dify 按普通方言接入(一 app 一渠道),删除在批次5 迁移窗后、DRI 确认执行。</td></tr><tr><td class="c"><span class="mk bad">×</span></td><td>批次0 契约只增不改——批次1/2 发现缺口时只加可选字段/新枚举值并同步改冻结守卫测试(有意识动作),绝不重命名/改形状;也不要把新六表挂回旧世界契约(io-schema/param-profile/catalog-views 是旧资产,窗口期原样存活)。</td></tr></table>
+<h2><span class="num">3</span>交接时点存档</h2>
+<div class="clause"><dt>末次提交</dt><dd><code>b97d6bf4 feat(contracts): freeze batch-0 gateway IR + five supply entities (TEA-1073)</code> · 分支 <code>plan/model-supply-greenfield (已 push origin;批次0 已合入本分支)</code></dd></div><div class="clause"><dt>已完成</dt><dd><p>批次0 完成并已 push:IR 五对象(GatewayRequest 带 isDefault 标记/EffectiveParams canonical+upstream 双 bag/GatewayResponse usage.billingDims/StreamFrame/TaskUpdate)+ 五实体(provider/channel/credential/model/offering)+ price_card 第六表的 zod 契约冻入 packages/contracts(新文件 gateway-ir.ts、supply-params.ts、supply-entities.ts + 三份测试,57 新用例含枚举冻结守卫)。契约冻结生效:此后只增不改。</p><p>验证全过:contracts 194/194(现有测试零破坏)、仓库级 turbo typecheck 24/24、eslint/prettier 干净、pre-push 闸过。TEA-1073 已 build-start(status in_progress)。开工卡因 tcmcp-remote 未连接【未广播】,手动文案已交用户,续作 session 不重发。</p><p>批次0 关键落点(批次1 直接消费):任务六态 = pending/running/succeeded/failed/canceled/expired(源:研究稿 03-tasks-media.md §3.4.3);canonical 参数契约内嵌在 model.operations[] 每个操作面(images.generation 与 images.edit 参数不同);实体字段 snake_case、IR 字段 camelCase(两派各随其消费方惯例);错误对象 retryable+failover 双标志必填;AUTH_SCHEMES 五种决定 credential secret 的 discriminated 形状。</p></dd></div>
+</div>
+</div>
+<footer>AI MIQ 团队 · 受控文档 · 交接 · multica issue 内联渲染</footer>
+</body></html>

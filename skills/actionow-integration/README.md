@@ -1,25 +1,27 @@
 # actionow-integration skill
 
-A self-contained **agent skill** that teaches a third-party developer's coding agent (Claude Code, Codex, Cursor, etc.) how to correctly integrate with an **Actionow / actionow-core** AI gateway — auth, OpenAI-compatible `/v1` calls, async jobs, files, billing/errors, and webhooks.
+A self-contained **agent skill** that teaches a third-party developer's coding agent (Claude Code, Codex, Cursor, etc.) how to correctly integrate with an **Actionow / actionow-core** AI gateway — auth, OpenAI-compatible `/v1` calls, the task-paradigm API (`/v1/tasks` family, model addressing, 200/202 submit-and-wait), files, billing/errors, and signed task webhooks.
 
 Core can be used two ways — as a **pure full-modality model gateway** (one tenant-level `ak_` key on `/v1`, no subjects, no federation) or as an **app base** (federate your own end-users as subjects) — and this skill covers the `/v1` call mechanics for both.
 
 It is the contract a third party works from **without** access to actionow-core's source. Everything is verified against the gateway's real contracts (`packages/contracts`, the `/v1` + `/console` controllers).
 
+> **Migration:** the old `/v1/run` + `/v1/jobs` job face is deprecated (short migration window, then removed). This skill documents the replacement task-paradigm API as the default and keeps a clearly-marked legacy section for old integrations. See SKILL.md's migration notice.
+
 ## What's inside
 
 ```
 actionow-integration/
-  SKILL.md                     ← entry point: mental model, golden path, gotchas, index
+  SKILL.md                     ← entry point: mental model, migration notice, golden path, gotchas, index
   reference/
-    01-authentication.md         credentials, Model-A/B, onboarding subjects, keys
-    02-chat-and-relay.md         chat (OpenAI/Anthropic/Gemini), embeddings, rerank, moderation
-    03-media-jobs-and-files.md   /v1/run, exec modes, jobs, images/audio, file upload/download
+    01-authentication.md         credentials, Model-A/B, onboarding subjects, keys, allowlists
+    02-chat-and-relay.md         chat (OpenAI/Anthropic/Gemini), embeddings, rerank, moderation, discovery
+    03-media-tasks-and-files.md  the /v1/tasks family, 200/202 dual shape, images/audio, file upload/download
     04-billing-and-limits.md     µcredit money, wallets, hold→settle, governance limits
-    05-errors-and-idempotency.md error envelope, 11 codes, retry policy, Idempotency-Key
-    06-webhooks.md               async-callback + HMAC signature verification
-    07-sdk-reference.md          @actionow/sdk client + helpers
-    endpoint-catalog.md          every public endpoint, by plane
+    05-errors-and-idempotency.md error envelopes, retry policy, Idempotency-Key + 409 conflict
+    06-webhooks.md               task-event envelopes + timestamped HMAC signature verification
+    07-sdk-reference.md          @actionow/sdk client + submitTaskAndWait / verifyTaskWebhookSignature
+    endpoint-catalog.md          every public endpoint, by plane (deprecated face marked)
   scripts/                      runnable, zero-dependency (bash+curl / Node 18+ global fetch)
     smoke-test.sh  chat.mjs  run-and-poll.mjs  onboard-subject.mjs  verify-webhook.mjs
 ```

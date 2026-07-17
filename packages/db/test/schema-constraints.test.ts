@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { eq } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
@@ -24,7 +26,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE job, account, "user", tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE account, "user", tenant RESTART IDENTITY CASCADE`;
 });
 
 describe('schema constraints (Track B Task 1)', () => {
@@ -49,18 +51,7 @@ describe('schema constraints (Track B Task 1)', () => {
     await expect(client`INSERT INTO account (tenant_id) VALUES (${t.id})`).rejects.toThrow();
   });
 
-  it('job carries a nullable account_id FK to account', async () => {
-    const [t] = await client`INSERT INTO tenant (name) VALUES ('t2') RETURNING id`;
-    if (!t) throw new Error('tenant insert returned no row');
-    const [a] = await client`INSERT INTO account (tenant_id) VALUES (${t.id}) RETURNING id`;
-    if (!a) throw new Error('account insert returned no row');
-    const [r] =
-      await client`INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes, current_version) VALUES ('res1', ${t.id}, 'model', 'text', 'openai', '["blocking"]'::jsonb, 1) RETURNING id`;
-    if (!r) throw new Error('resource insert returned no row');
-    await client`INSERT INTO job (tenant_id, resource_id, resource_version, status, exec_mode, inputs, account_id) VALUES (${t.id}, ${r.id}, 1, 'queued', 'blocking', '{}'::jsonb, ${a.id})`;
-    const rows = await client`SELECT account_id FROM job`;
-    expect(rows[0]?.account_id).toBe(a.id);
-  });
+  // 批次6 D3 (旧世界删除): the `job.account_id` FK test died with the old `job` world.
 });
 
 describe('user.tenant_role constraint (rbac Task 1)', () => {
@@ -98,30 +89,24 @@ describe('user.tenant_role constraint (rbac Task 1)', () => {
 });
 
 describe('channel_breaker (弹性2.0)', () => {
-  /** Insert a minimal tenant → resource → upstream_channel chain; return the channel id. */
-  async function makeChannel(): Promise<string> {
-    const [t] = await client`INSERT INTO tenant (name) VALUES ('brk') RETURNING id`;
-    if (!t) throw new Error('tenant insert returned no row');
-    await client`
-      INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes, current_version)
-      VALUES ('brk-res', ${t.id}, 'model', 'text', 'mock-chat', '["blocking"]'::jsonb, 1)
-    `;
-    const [ch] = await client`
-      INSERT INTO upstream_channel (resource_id, provider_type) VALUES ('brk-res', 'mock-chat') RETURNING id
-    `;
-    if (!ch) throw new Error('upstream_channel insert returned no row');
-    return ch.id as string;
+  /**
+   * 批次6 D4: `channel_breaker.channel_id` is a plain uuid — mig 0072 dropped
+   * the old `resource`/`upstream_channel` tables and the FK — so a fresh
+   * random uuid stands in for a channel id with no backing row.
+   */
+  function makeChannel(): string {
+    return randomUUID();
   }
 
   it('rejects an invalid breaker state', async () => {
-    const ch = await makeChannel();
+    const ch = makeChannel();
     await expect(
       db.insert(schema.channelBreaker).values({ channelId: ch, model: 'gpt-x', state: 'bogus' }),
     ).rejects.toThrow();
   });
 
   it('accepts the three valid states + composite PK', async () => {
-    const ch = await makeChannel();
+    const ch = makeChannel();
     for (const state of ['closed', 'open', 'half_open']) {
       await db.insert(schema.channelBreaker).values({ channelId: ch, model: `m-${state}`, state });
     }
@@ -133,7 +118,7 @@ describe('channel_breaker (弹性2.0)', () => {
   });
 
   it('enforces the composite PK (channel_id, model)', async () => {
-    const ch = await makeChannel();
+    const ch = makeChannel();
     await db.insert(schema.channelBreaker).values({ channelId: ch, model: 'dup', state: 'closed' });
     await expect(
       db.insert(schema.channelBreaker).values({ channelId: ch, model: 'dup', state: 'open' }),
@@ -141,32 +126,8 @@ describe('channel_breaker (弹性2.0)', () => {
   });
 });
 
-describe('channel.tags (route tagging)', () => {
-  /** Insert a minimal tenant → resource chain; return the resource id. */
-  async function makeResource(): Promise<string> {
-    const [t] = await client`INSERT INTO tenant (name) VALUES ('tag') RETURNING id`;
-    if (!t) throw new Error('tenant insert returned no row');
-    await client`
-      INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes, current_version)
-      VALUES ('tag-res', ${t.id}, 'model', 'text', 'openai', '["blocking"]'::jsonb, 1)
-    `;
-    return 'tag-res';
-  }
-
-  it('channel.tags defaults to empty array and round-trips values', async () => {
-    const res = await makeResource();
-    const [a] = await db
-      .insert(schema.upstreamChannel)
-      .values({ resourceId: res, providerType: 'openai' })
-      .returning();
-    expect(a?.tags).toEqual([]);
-    const [b] = await db
-      .insert(schema.upstreamChannel)
-      .values({ resourceId: res, providerType: 'openai', tags: ['canary', 'beta'] })
-      .returning();
-    expect(b?.tags).toEqual(['canary', 'beta']);
-  });
-});
+// 批次6 D3 (旧世界删除): the `channel.tags (route tagging)` describe over the
+// deleted `upstream_channel` schema definition is gone with its table.
 
 describe('session (migration 0056 — refresh-token rotation)', () => {
   /** Insert a user; return its id (for `principal_kind='user'` linkage). */
@@ -281,12 +242,6 @@ describe('schema hardening (migration 0052)', () => {
     await client`INSERT INTO subject (tenant_id, external_id) VALUES (${t.id}, 'ext-1')`;
   });
 
-  it('provider_plugin.slug is unique among LIVE rows but freed by soft-delete', async () => {
-    const ins = (slug: string) =>
-      client`INSERT INTO provider_plugin (slug, label, protocol, auth_strategy, manifest, handler) VALUES (${slug}, 'L', 'sync', 'bearer', '{}'::jsonb, 'h')`;
-    await ins('p-uq-soft');
-    await expect(ins('p-uq-soft')).rejects.toThrow(); // duplicate live slug
-    await client`UPDATE provider_plugin SET deleted_at = now() WHERE slug = 'p-uq-soft' AND deleted_at IS NULL`;
-    await ins('p-uq-soft'); // freed after soft-delete
-  });
+  // 批次6 D4: the `provider_plugin.slug` partial-unique test died with its
+  // table (mig 0072 dropped `provider_plugin`).
 });

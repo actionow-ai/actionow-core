@@ -1,5 +1,5 @@
 import type { Database } from '@actionow/db';
-import { listVisibleModels } from '@actionow/db';
+import { listVisibleSupplyModels } from '@actionow/db';
 
 /**
  * The tenant-scoped public view of a catalog model the console lists. Owned by
@@ -40,25 +40,26 @@ export const fakeModelsPort: ModelsPort = {
 };
 
 /**
- * The real {@link ModelsPort} (Track C): delegates to the `@actionow/db`
- * `listVisibleModels` repo (public + tenant-granted models, visibility-gated in
- * SQL) and maps each repo row to the console {@link ModelView}. The repo's
- * `display` is nullable; it is coerced to a non-null string via `display ?? name`
- * so the console contract's `display: string` always holds.
+ * The real {@link ModelsPort} (批次6 D3 — re-sourced to the NEW supply world):
+ * delegates to the `@actionow/db` `listVisibleSupplyModels` repo (servable
+ * `public` + tenant-granted supply models, visibility-gated in SQL) and maps
+ * each row to the console {@link ModelView}. The old catalog facet columns
+ * (`tags`/`maker`/`contextLength`/`reasoning`) have no `supply_model` twin —
+ * they degrade to empty/null (the console schema already allows it).
  */
 export const realModelsPort: ModelsPort = {
   async listVisibleModels(db: Database, tenantId: string): Promise<ModelView[]> {
-    const rows = await listVisibleModels(db, tenantId);
+    const rows = await listVisibleSupplyModels(db, tenantId);
     return rows.map((m) => ({
       name: m.name,
-      display: m.display ?? m.name,
+      display: m.displayName,
       modality: m.modality,
       capabilities: m.capabilities,
       visibility: m.visibility,
-      tags: m.tags,
-      maker: m.maker,
-      contextLength: m.contextLength,
-      reasoning: m.reasoning,
+      tags: [],
+      maker: null,
+      contextLength: null,
+      reasoning: null,
     }));
   },
 };

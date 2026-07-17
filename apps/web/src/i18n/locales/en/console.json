@@ -413,7 +413,6 @@
     "limitPlans": "Limit plans",
     "faultPolicies": "Fault tolerance",
     "officialPrices": "Official prices",
-    "dify": "Dify import",
     "plugins": "Plugins",
     "proxies": "Proxies",
     "redemptionCodes": "Redemption codes",
@@ -456,7 +455,6 @@
     "limitPlans": "Reusable limit plans: spend budgets, rate limits, quotas & alert thresholds",
     "faultPolicies": "Retry / backoff / timeouts / fallback — per-channel fault tolerance",
     "officialPrices": "Reference model prices",
-    "dify": "Import a Dify workflow as a resource",
     "plugins": "Provider plugins: manifest + sandboxed handler over heterogeneous upstreams",
     "proxies": "Egress proxies: encrypted at rest, health-probed, bound per channel",
     "accounts": "Account balance & top-up",
@@ -1661,49 +1659,6 @@
       "message": "Delete the \"{{scope}}\" modifier? This cannot be undone."
     }
   },
-  "dify": {
-    "title": "Dify import",
-    "new": "New import",
-    "submit": "Import",
-    "imported": "Import complete",
-    "form": {
-      "tenant": "Tenant",
-      "resourceId": "Resource ID",
-      "endpoint": "Dify endpoint",
-      "yaml": "Workflow YAML",
-      "pricingModel": "Pricing model",
-      "allowBlockers": "Allow blocking nodes",
-      "serviceKeyRef": "Service key (optional)",
-      "serviceKeyNone": "No service key",
-      "tenantRequired": "Select a tenant.",
-      "resourceRequired": "Enter a resource ID.",
-      "yamlRequired": "Paste the workflow YAML."
-    },
-    "pricing": {
-      "fixed": "Fixed",
-      "matrix": "Matrix",
-      "metered": "Metered"
-    },
-    "report": "Compatibility report",
-    "deleted": "Binding deleted",
-    "updated": "Binding updated",
-    "editTitle": "Edit dify binding",
-    "bindings": {
-      "title": "Bound workflows",
-      "empty": "No dify bindings yet"
-    },
-    "cols": {
-      "resource": "Resource",
-      "mode": "Mode",
-      "endpoint": "Endpoint",
-      "pricing": "Pricing",
-      "created": "Created"
-    },
-    "delete": {
-      "title": "Delete binding?",
-      "message": "Delete the dify binding for {{resource}}? This cannot be undone."
-    }
-  },
   "plugins": {
     "new": "New plugin",
     "editTitle": "Edit plugin",
@@ -1711,8 +1666,6 @@
     "created": "Plugin created",
     "updated": "Plugin updated",
     "deleted": "Plugin deleted",
-    "testOk": "Test passed",
-    "testError": "Test failed",
     "builtin": "Built-in",
     "custom": "Custom",
     "cols": {
@@ -1736,13 +1689,6 @@
       "auth": "Auth strategy",
       "handler": "Handler (sandboxed JS)",
       "handlerHint": "Export mapRequest/mapResponse (plus mapSubmit/mapPollRequest/mapPoll for async). Runs in the sandbox — no secrets, no network."
-    },
-    "test": {
-      "title": "Test panel",
-      "fn": "Handler function",
-      "arg": "Sample arg (JSON)",
-      "run": "Run test",
-      "badArg": "Sample arg is not valid JSON."
     },
     "delete": {
       "title": "Delete plugin?",

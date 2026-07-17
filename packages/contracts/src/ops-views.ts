@@ -3,7 +3,7 @@ import { z } from 'zod';
 /**
  * Single source of truth for the admin **operational** control-plane wire views
  * (api keys, jobs, ledger, per-call usage log, usage rollups, payment intents,
- * created secrets, dify import). Same contract-first pattern as `admin-views.ts`:
+ * created secrets). Same contract-first pattern as `admin-views.ts`:
  * the backend `toView` mappers `.parse()` against these schemas (a drifting
  * mapper fails loudly); the frontend imports the inferred TYPE only
  * (`import type`), so no zod ships to the browser. Money is always a µ-unit
@@ -131,18 +131,6 @@ export const secretViewSchema = z.object({
   created_at: z.string(),
 });
 export type SecretView = z.infer<typeof secretViewSchema>;
-
-/**
- * The `POST /admin/dify/import` response: the registered resource's schema.
- * `io_schema`/`compat_report` are free-form JSON blobs (unknown) on the wire.
- */
-export const difyImportViewSchema = z.object({
-  resource_id: z.string(),
-  version: z.number(),
-  io_schema: z.unknown(),
-  compat_report: z.unknown(),
-});
-export type DifyImportView = z.infer<typeof difyImportViewSchema>;
 
 /**
  * One upstream relay audit trace (`GET /admin/relay-traces`). Tokens are redacted

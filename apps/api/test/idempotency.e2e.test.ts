@@ -154,33 +154,22 @@ describe('Track D5: Idempotency-Key replay (allowlisted admin POSTs)', () => {
       .send({ name: 'acme' })
       .expect(201);
 
-    // The SAME key against POST /admin/models must NOT replay the tenant body —
-    // it runs the models handler fresh (different scope).
-    await auth(request(app.getHttpServer()).post('/admin/resources').set('Idempotency-Key', key))
-      .send({
-        id: 'res-x',
-        tenantId: tenant.body.id,
-        kind: 'model',
-        modality: 'text',
-        providerType: 'openai',
-        execModes: ['blocking'],
-        ioSchema: { inputs: [], outputs: [] },
-      })
-      .expect(201);
-
-    const model = await auth(
-      request(app.getHttpServer()).post('/admin/models').set('Idempotency-Key', key),
+    // The SAME key against POST /admin/accounts (批次6 D3: the old
+    // /admin/resources + /admin/models scopes died with the catalog) must NOT
+    // replay the tenant body — it runs the accounts handler fresh.
+    const account = await auth(
+      request(app.getHttpServer()).post('/admin/accounts').set('Idempotency-Key', key),
     )
-      .send({ name: 'gpt-x', resourceId: 'res-x' })
+      .send({ tenantId: tenant.body.id })
       .expect(201);
 
-    // The model response is its own (a model, not the tenant replay).
-    expect(model.body.name).toBe('gpt-x');
-    expect(model.body.id).not.toBe(tenant.body.id);
+    // The account response is its own (an account, not the tenant replay).
+    expect(account.body.tenant_id).toBe(tenant.body.id);
+    expect(account.body.id).not.toBe(tenant.body.id);
 
     // Each route has its own independent cached row under the same key.
     expect(await idemRowsForScope('POST /admin/tenants')).toBe(1);
-    expect(await idemRowsForScope('POST /admin/models')).toBe(1);
+    expect(await idemRowsForScope('POST /admin/accounts')).toBe(1);
   });
 
   it('WITHOUT an Idempotency-Key header → normal behavior (two POSTs → two entities)', async () => {

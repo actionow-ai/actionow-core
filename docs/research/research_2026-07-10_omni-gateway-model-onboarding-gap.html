@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>omni-gateway-model-onboarding-gap</title>
+<style>:root{--ink:#1C1C1C;--mid:#4A4D4A;--soft:#7E827E;--frame:#2B2B2B;--line:#C9CCC9;--page:#F3F3F1;--red:#A8332A;--redtint:#F8EDEB;--gold:#8A6420;--goldtint:#FBF7EA;--green:#2F5D50}
+body.t-plan{--type:#7A2018;--tint:#F7EDEB}
+body.t-research{--type:#2B4A78;--tint:#EDF1F7}
+body.t-case{--type:#2F5D50;--tint:#EEF4F1}
+body.t-handoff{--type:#8A6420;--tint:#F6F0E3}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Songti SC","Noto Serif CJK SC",serif;background:var(--page);color:var(--ink);line-height:1.85;font-size:14px;max-width:780px;margin:0 auto;padding:22px 24px 40px}
+.sheet{background:#fff;border:2px solid var(--frame);padding:0 0 26px}
+.ctrl{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:7px 22px;font-family:"PingFang SC",sans-serif;font-size:10.5px;letter-spacing:2.5px;color:var(--soft)}
+.ctrl b{color:var(--type);font-weight:700}
+.appr{display:grid;grid-template-columns:106px 1.25fr 1.1fr 1fr 1fr;border-bottom:2px solid var(--frame)}
+.ac{border-right:1px solid var(--frame);padding:7px 14px 6px}
+.ac.last{border-right:0}
+.ac .al{font-family:"PingFang SC",sans-serif;font-size:9.5px;letter-spacing:2px;color:var(--soft);margin-bottom:1px}
+.ac .av{font-family:"PingFang SC",sans-serif;font-weight:600;font-size:13px;overflow-wrap:anywhere}
+.ac .av.t{color:var(--type);font-weight:700}
+.ac .av.ok{color:var(--green);font-weight:700}
+.ac .av.warn{color:var(--red);font-weight:700}
+.ac2{border-top:1px solid var(--line)}
+.sealcell{grid-column:1;grid-row:1/span 2;border-right:1px solid var(--frame);display:grid;place-items:center;padding:8px}
+.sq{width:62px;height:62px;border:2.5px solid var(--type);box-shadow:inset 0 0 0 1.5px #fff,inset 0 0 0 3px var(--type);display:grid;place-items:center;color:var(--type);font-family:"STZhongsong","Songti SC",serif;font-size:19px;font-weight:900;letter-spacing:2px;line-height:1.5;text-align:center}
+.titlebar{padding:18px 26px 0}
+h1{font-family:"PingFang SC",sans-serif;font-size:22px;font-weight:800;letter-spacing:.5px;line-height:1.5;overflow-wrap:anywhere}
+.sub{font-size:13.5px;color:var(--mid);margin-top:4px}
+.tally{display:grid;grid-template-columns:1fr 1fr 1fr 1.7fr;border:1.5px solid var(--frame);margin:14px 26px 0}
+.tally.c3{grid-template-columns:1fr 1fr 1.7fr}
+.tc{padding:9px 14px 8px;border-right:1px solid var(--frame)}
+.tc:last-child{border-right:0}
+.tc .n{font-family:"PingFang SC",sans-serif;font-size:23px;font-weight:800;line-height:1.3;color:var(--ink)}
+.tc .n.sm{font-size:15px;line-height:1.95}
+.tc .n small{font-size:13px;color:var(--soft);font-weight:500}
+.tc .l{font-family:"PingFang SC",sans-serif;font-size:9.5px;letter-spacing:2.5px;color:var(--soft);margin-top:1px}
+.tc.warn .n{color:var(--red)}
+.tc.v{background:var(--type)}
+.tc.v .n{color:#fff;font-size:15px;line-height:1.85;font-weight:700}
+.tc.v .l{color:rgba(255,255,255,.75)}
+.keypoints{margin:12px 26px 0;border:1.5px solid var(--type);background:var(--tint);padding:11px 17px 10px}
+.keypoints .kt{font-family:"PingFang SC",sans-serif;font-weight:800;font-size:12.5px;letter-spacing:3px;color:var(--type);margin-bottom:5px}
+.keypoints ol{list-style:none}
+.keypoints li{padding:3px 0 3px 28px;position:relative;font-size:13px}
+.keypoints li .kn{position:absolute;left:0;top:5px;width:18px;height:18px;background:var(--type);color:#fff;font-family:"PingFang SC",sans-serif;font-size:10.5px;font-weight:700;display:grid;place-items:center}
+.keypoints li b{font-family:"PingFang SC",sans-serif;font-weight:700}
+.question{margin:14px 26px 0;border:1.5px solid var(--frame);background:#fff;padding:12px 17px}
+.question .qt{font-family:"PingFang SC",sans-serif;font-weight:800;font-size:12.5px;letter-spacing:3px;color:var(--type);margin-bottom:5px}
+.question p{font-family:"PingFang SC",sans-serif;font-weight:600;font-size:14.5px;line-height:1.8;text-align:justify}
+.meta{padding:9px 26px 0;font-size:12px;color:var(--soft);letter-spacing:1px}
+.body{padding:0 26px}
+h2{font-family:"PingFang SC",sans-serif;font-size:15px;font-weight:800;letter-spacing:1px;margin:26px 0 10px;padding:7px 12px;background:#F1F1EF;border-left:5px solid var(--type)}
+h2 .num{font-family:"SF Mono",Menlo,monospace;color:var(--type);margin-right:10px;font-size:13px}
+h2.danger{border-left-color:var(--red)}
+h2.danger .num{color:var(--red)}
+p{margin-bottom:.8em;text-align:justify}
+p:last-child{margin-bottom:0}
+b,strong{font-family:"PingFang SC",sans-serif;font-weight:600}
+.clause{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:6px 0;font-size:13.5px}
+.clause.n{grid-template-columns:44px 1fr}
+.clause dt{font-family:"PingFang SC",sans-serif;font-size:11.5px;font-weight:700;color:var(--soft);padding-top:2px;letter-spacing:1px}
+.clause.n dt{font-family:"SF Mono",Menlo,monospace;color:var(--type);letter-spacing:0}
+.clause dd{text-align:justify;overflow-wrap:anywhere}
+.note{font-size:12px;color:var(--soft)}
+table.formal{width:100%;border-collapse:collapse;margin:8px 0 6px;font-size:13px}
+table.formal th{font-family:"PingFang SC",sans-serif;font-weight:700;font-size:11.5px;letter-spacing:1.5px;border:1px solid var(--frame);background:#F1F1EF;padding:6px 10px;text-align:center}
+table.formal th.danger{background:var(--redtint);color:var(--red)}
+table.formal td{border:1px solid var(--line);border-left:1px solid var(--frame);border-right:1px solid var(--frame);padding:7px 10px 6px;vertical-align:top;line-height:1.78;overflow-wrap:anywhere}
+table.formal tr:last-child td{border-bottom:1px solid var(--frame)}
+table.formal td.c{text-align:center;white-space:nowrap;font-family:"SF Mono",Menlo,monospace;font-size:12px}
+.mk{font-family:"PingFang SC",sans-serif;font-weight:700;white-space:nowrap}
+.mk.ok{color:var(--green)}
+.mk.bad{color:var(--red)}
+.mk.wait{color:var(--soft)}
+.vd{font-family:"PingFang SC",sans-serif;font-weight:700;white-space:nowrap}
+.vd.ok{color:var(--green)}
+.vd.bad{color:var(--red)}
+.vd.mid{color:var(--gold)}
+.vd i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.vd.ok i{background:var(--green)}
+.vd.bad i{background:var(--red)}
+.vd.mid i{background:var(--gold)}
+.judge{border:1.5px solid var(--frame);margin-bottom:13px}
+.judge-h{display:flex;gap:12px;align-items:baseline;padding:9px 16px;border-bottom:1px solid var(--frame);background:#F1F1EF}
+.judge-h .ji{font-family:"PingFang SC",sans-serif;font-size:11px;font-weight:800;color:#fff;background:var(--type);padding:2px 10px;letter-spacing:3px;white-space:nowrap}
+.judge-h .jt{font-family:"PingFang SC",sans-serif;font-weight:700;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+.judge-b{padding:8px 16px 12px}
+.jrow{display:grid;grid-template-columns:70px 1fr;gap:10px;padding:5px 0;font-size:13px}
+.jrow dt{font-family:"PingFang SC",sans-serif;font-size:11.5px;font-weight:700;color:var(--soft);padding-top:2px;letter-spacing:1.5px}
+.jrow dd{text-align:justify;color:var(--mid);overflow-wrap:anywhere}
+.hind{margin:8px 0 2px;border:1px solid var(--gold);background:var(--goldtint);padding:9px 14px}
+.hind dt{font-family:"PingFang SC",sans-serif;font-size:11px;font-weight:800;letter-spacing:2px;color:var(--gold);margin-bottom:3px}
+.hind dd{font-family:"PingFang SC",sans-serif;font-weight:600;font-size:13px;line-height:1.8}
+.aux{font-size:12.5px;color:var(--mid);padding-top:6px}
+.aux dt{display:inline;font-family:"PingFang SC",sans-serif;font-size:11px;font-weight:700;color:var(--soft);margin-right:8px;letter-spacing:1px}
+.aux dd{display:inline}
+.appetite{margin:8px 0 4px;border:1.5px solid var(--gold);background:var(--goldtint);padding:11px 16px}
+.appetite .at{font-family:"PingFang SC",sans-serif;font-size:11px;font-weight:800;letter-spacing:2px;color:var(--gold);margin-bottom:3px}
+.appetite .av2{font-family:"PingFang SC",sans-serif;font-weight:700;font-size:15px}
+.appetite .av2 small{font-weight:500;font-size:12.5px;color:var(--mid)}
+.dgrid{display:grid;grid-template-columns:46px 1fr;gap:8px;padding:5px 0;font-size:13px}
+.dgrid dt{font-family:"SF Mono",Menlo,monospace;font-size:11px;color:var(--type);font-weight:700;padding-top:2px}
+.dgrid dd{text-align:justify;color:var(--mid)}
+.dgrid dd b{color:var(--ink)}
+.next{border:1.5px solid var(--type);background:var(--tint);padding:13px 17px 11px;margin-top:12px}
+.next .lead{font-family:"PingFang SC",sans-serif;font-weight:700;font-size:14.5px;line-height:1.8;margin-bottom:8px}
+.next p{font-size:13px;color:var(--mid)}
+.gate{margin-top:9px;border:1px solid var(--red);background:var(--redtint);padding:9px 13px;font-size:13px}
+.gate .gl{font-family:"PingFang SC",sans-serif;font-size:11px;font-weight:800;letter-spacing:2px;color:var(--red);margin-right:9px}
+.pend{font-family:"PingFang SC",sans-serif;font-size:10px;font-weight:700;color:var(--red);border:1px solid var(--red);padding:1px 7px;white-space:nowrap}
+code{font-family:"SF Mono",Menlo,monospace;background:#F1F1EF;padding:1px 5px;border-radius:2px;font-size:11.5px;overflow-wrap:anywhere}
+footer{margin-top:12px;text-align:center;font-family:"PingFang SC",sans-serif;font-size:10.5px;color:var(--soft);letter-spacing:2px}</style></head>
+<body class="t-research">
+<div class="sheet">
+<div class="ctrl"><span>受控文档 · <b>omni-gateway-model-onboarding-gap</b></span><span>流程依据:SOP v0.4 · 研究阶段</span></div>
+<div class="appr"><div class="sealcell"><div class="sq">研<br>究</div></div><div class="ac"><div class="al">文档类别</div><div class="av t">研究报告</div></div><div class="ac"><div class="al">编号</div><div class="av">omni-gateway-model-onboarding-gap</div></div><div class="ac"><div class="al">层级</div><div class="av">—</div></div><div class="ac last"><div class="al">阶段</div><div class="av">调研完成</div></div><div class="ac ac2"><div class="al">拟制</div><div class="av">调研子 agent</div></div><div class="ac ac2"><div class="al">对账</div><div class="av">负责人</div></div><div class="ac ac2"><div class="al">复核</div><div class="av">与前轮对照</div></div><div class="ac ac2 last"><div class="al">日期</div><div class="av">2026-07-10</div></div></div>
+<div class="titlebar"><h1>omni-gateway-model-onboarding-gap</h1></div>
+<div class="question"><div class="qt">研究问题</div><p>对照另一 agent 产出的《全模态模型网关 技术规范 v0.1》(omni-model-gateway-spec.html)，深挖 actionow-core 模型接入面——适配器 SPI、模型注册表、异步任务中心、路由/限流/计费——的结构性不合理与缺口：哪些该修、哪些现状反而更优、哪些是待裁决的产品问题。调研方式：4 个独立 subagent 并行读码（适配器与协议层 / 注册表与接入流程 / 异步任务与媒体 / 路由限流计费），关键断言经 orchestrator 亲验代码复核；维度全文见 docs/research/research_2026-07-10_omni-gateway-gap.d/。</p></div><div class="tally c3"><div class="tc"><div class="n sm">已填充</div><div class="l">发现</div></div><div class="tc"><div class="n sm">已记录</div><div class="l">待解问题</div></div><div class="tc v"><div class="n sm">直觉成立——接入层（适配器三轨、异步任务中心、注册表元数据）存在结构性短板，且回调断链与 15 分钟顶棚两处缺陷已亲验坐实；但治理、计费闭环、容错底盘达标甚至领先 spec，应定向加固而非推倒重来。</div><div class="l">总体裁决</div></div></div><div class="keypoints"><div class="kt">发现要点</div><ol><li><span class="kn">1</span>【三轨适配器并存·无统一 SPI】接入通道有三条且能力不对齐：单体 ProviderAdapter 接口 11+ 方法（packages/adapters/src/types.ts:39-87，新接一家手写 400-850 行 + 改 default-registry.ts/index.ts 两个注册点）、provider_plugin QuickJS 沙箱插件（仅媒体 sync/async-poll，无 chat）、async-media 的 config 驱动（submitPath/pollPath）。鉴权注入内联在各 adapter 重复（OpenAI Bearer / Anthropic x-api-key / Gemini query key），AK/SK 签名器（volc/tencent/kling）只存在于 plugin 通道 signers.ts、代码 adapter 用不上；adapter 的 capabilities 声明写了但 dispatch 未消费（types.ts:24-30 注释自认）。对照 spec 第 5 章：五切面 SPI、声明式 DSL、强制一致性测试套件均无对应物。</li><li><span class="kn">2</span>【异步任务中心承载力不足·回调断链已亲验】callbacks.service.ts:112 把裸 parsedBody 传给 adapter.parseCallback，而 asyncMediaAdapter.parseCallback（packages/adapters/src/async-media.ts:326）期望引擎侧 envelope（rawBody/secret/headers…），shape 校验不过恒返回空 → 真实上游回调一律 401「callback does not correlate」，生产实际纯轮询；且 callbacks.service.ts:97 与适配器内各有一套 HMAC 验签（契约漂移的直接证据）。轮询固定间隔无退避无抖动（默认 1s×30 次），单次 poll HTTP 错误或非 succeeded 回调直接把任务打成 failed——spec 4.3 的回调+兜底轮询双保险、乱序容忍、反查确认全缺。DEFAULT_HOLD_TTL_MS=15 分钟（packages/engine/src/execution-service.ts:347）兼任事实 max_run_time：渠道 poll 预算配超 15 分钟的慢模型（1080p 视频常态 5-15min+）会被 hold-reaper 中途取消；无租约恢复，worker 崩溃后 running 任务无人接管。无 task_events 事件流、无 progress 百分比、无 expired 态。</li><li><span class="kn">3</span>【注册表元数据不足以『开一家店』】对照 spec 5.5 逐项：缺 operations、模型级 paradigms（现挂平台级 exec_modes）、slow 升格标记、region/compliance_domain、key_pool、上游并发额度（视频厂商普遍 5-20 并发）、输入媒体约束、per-model 超时。upstream_channel.model_map（我方名→上游名映射）是全仓零消费者的死列（packages/db/src/schema/catalog.ts:116），改名映射只能靠 channel.model 单值钉选——同一账号接 N 个需改名模型要建 N 条渠道；channel_model link 是软偏好（未 link 渠道降 1e6 priority 仍可兜底，channel-routing.service.ts:47-54），「已链接」语义暧昧。单渠道单 credential_ref，无 key 池轮转/冷却。</li></ol></div>
+<div class="body">
+<h2><span class="num">1</span>发现</h2>
+<p>【三轨适配器并存·无统一 SPI】接入通道有三条且能力不对齐：单体 ProviderAdapter 接口 11+ 方法（packages/adapters/src/types.ts:39-87，新接一家手写 400-850 行 + 改 default-registry.ts/index.ts 两个注册点）、provider_plugin QuickJS 沙箱插件（仅媒体 sync/async-poll，无 chat）、async-media 的 config 驱动（submitPath/pollPath）。鉴权注入内联在各 adapter 重复（OpenAI Bearer / Anthropic x-api-key / Gemini query key），AK/SK 签名器（volc/tencent/kling）只存在于 plugin 通道 signers.ts、代码 adapter 用不上；adapter 的 capabilities 声明写了但 dispatch 未消费（types.ts:24-30 注释自认）。对照 spec 第 5 章：五切面 SPI、声明式 DSL、强制一致性测试套件均无对应物。</p><p>【异步任务中心承载力不足·回调断链已亲验】callbacks.service.ts:112 把裸 parsedBody 传给 adapter.parseCallback，而 asyncMediaAdapter.parseCallback（packages/adapters/src/async-media.ts:326）期望引擎侧 envelope（rawBody/secret/headers…），shape 校验不过恒返回空 → 真实上游回调一律 401「callback does not correlate」，生产实际纯轮询；且 callbacks.service.ts:97 与适配器内各有一套 HMAC 验签（契约漂移的直接证据）。轮询固定间隔无退避无抖动（默认 1s×30 次），单次 poll HTTP 错误或非 succeeded 回调直接把任务打成 failed——spec 4.3 的回调+兜底轮询双保险、乱序容忍、反查确认全缺。DEFAULT_HOLD_TTL_MS=15 分钟（packages/engine/src/execution-service.ts:347）兼任事实 max_run_time：渠道 poll 预算配超 15 分钟的慢模型（1080p 视频常态 5-15min+）会被 hold-reaper 中途取消；无租约恢复，worker 崩溃后 running 任务无人接管。无 task_events 事件流、无 progress 百分比、无 expired 态。</p><p>【注册表元数据不足以『开一家店』】对照 spec 5.5 逐项：缺 operations、模型级 paradigms（现挂平台级 exec_modes）、slow 升格标记、region/compliance_domain、key_pool、上游并发额度（视频厂商普遍 5-20 并发）、输入媒体约束、per-model 超时。upstream_channel.model_map（我方名→上游名映射）是全仓零消费者的死列（packages/db/src/schema/catalog.ts:116），改名映射只能靠 channel.model 单值钉选——同一账号接 N 个需改名模型要建 N 条渠道；channel_model link 是软偏好（未 link 渠道降 1e6 priority 仍可兜底，channel-routing.service.ts:47-54），「已链接」语义暧昧。单渠道单 credential_ref，无 key 池轮转/冷却。</p><p>【范式反向：异步被拉平成同步】media-dialect.service.ts 自述把异步的 image-relay/audio-relay『driven to a terminal state IN-PROCESS』——/v1/images/generations、/v1/audio/speech 同步挂住 HTTP 连接在进程内轮询到终态。spec 4.2 方向相反：注册表 slow 标记的模型必须自动升格 task 返回 202，禁止连接挂几分钟。我们既无 slow 元数据也无升格机制；慢模型上该端点是稳定性隐患——客户端/中间层超时断开时任务照跑照扣费，结果无处交付（inline 流程无 abort 接线）。</p><p>【路由/限流缺维度】候选过滤只有 active/熔断/route-tag/require_params，无健康度/区域/成本/延迟维度；排序 = tier 降序 + 组内加权随机。限流只有 L1（租户 600 / key 120 RPM 固定窗 + 治理 5 维），spec 4.6 的 L2 全局模型闸、L3 上游限额镜像、L4 任务并发闸门全缺——媒体上游小并发窗口下任务会直冲上游 429。降级链 fallback_models 为服务端模型配置，调用方不可请求级指定。异步 worker 侧：faultPolicy 挂而不用（JobRunner 不消费，apps/worker/src/loaders.ts:43）、不受 route_group tier/tag 钉选约束——同步与异步两套路由语义分叉。</p><p>【计费采集缺审计维度】µUSD 三层记账（ledger+job+usage_log）与 settle 封顶扎实，但：无 estimated 标志（估算 usage 与上游实报不可区分，spec 4.7 要求显式打标）、无价格快照列（价改后历史账单无法还原口径）、无上游账单对账机制；流式 hold = prompt 字节/4×2 + 固定 32k 输出预扣（已知炸点，零余额/小额户体验差）；断流按已转发字节/4 补账（方向正确）。</p><p>【错误与可观测】统一错误信封 11 码含 retryable，但无 failover 标志、无 request_id 字段、429 不带 Retry-After；Gemini 流中错误只渲染 finishReason:OTHER（错误语义丢失）；错误映射只按 HTTP status（packages/adapters/src/errors.ts），无 per-provider 业务错误码表，『200 带业务错误』仅 dify/async-media 个案硬编码。relay_trace 全量抓包（脱敏+1MB 截断）是好底子，但未配 retention 默认永久；无 TTFT 指标、无 traceparent 贯穿任务多段。</p><p>【媒体字节路径安全遗留】media-bytes.ts:30 对上游产物 URL 裸 fetch：无 SSRF 防护（infra/ssrf.ts 存在但该路径未接，backend-architecture-review 批次曾显式推迟）、arrayBuffer 全量进内存（spec 第 7 章要求全程流式管道；30s 单一超时对 GB 级视频不够）；产物为永久公开 URL 非签名 URL、无保留期；输入文件无 MIME 白名单/安全扫描/媒体探测/分片上传。下游 webhook 载荷仅 {job_id}（无事件类型/evt_id/数据体），重试 5 次至 8s 即放弃（spec：7 档退避至 24h），签名无时间戳防重放。</p><p>【现状达标或领先处——不必推倒】治理管道全门面必经（P3 达标）；幂等 claimIdempotency ON CONFLICT + 预生成 jobId 回放；require_persist=true 转存先于 settle、失败不扣费（与 spec『转存先于成功』同向）；熔断 per(channel,model) + 跨组 failover + 流式 pre-commit（先拉首帧才回 200，天然满足『已发帧禁整流重试』且错误语义更硬）；参数契约两级绑定（模型级 profile + 模型×渠道 override）比 spec 的注册表映射更细；llm-protocol 有三方言矩阵与 golden-sse 字节快照测试。Anthropic/Gemini 门面按 spec 分类正是『入口翻译器』（可跨厂商路由），并非做错——缺的是『透传门面』这个独立能力项，属产品决策而非实现纠错。</p><p>【生效/缓存语义不一致】模型/渠道配置每请求直查 SQL（改行即生效但热路径无缓存），default 分组 id/倍率进程级缓存（改倍率需重启），platform_setting 10s TTL——三种生效语义并存，无注册表版本化/灰度（spec 5.5 热更新+版本+灰度）。目录侧 model_spec/official_model_price 与运行时 model 为 sync 时一次性冻结、之后不跟价，且无价格历史表；手动 create model 纯透传不自动 enrich（admin.service.ts:1921）。</p><p>【候选方向·仅选项不取舍（归 Plan session）】A) 适配器 SPI 收敛：抽出凭证注入/签名/usage 提取为共享切面，签名器从 plugin 通道提升为全通道能力，补 adapter 一致性测试套件；DSL 引擎可后置。B) 任务中心加固：per-model max_run_time 与 hold TTL 解耦、poll 重试+退避+抖动、修 parseCallback 契约断链、补 task_events 与 progress、webhook 载荷与重试档位对齐。C) 注册表补全：激活或删除 model_map、paradigms/slow/并发额度/输入约束落到模型/渠道级、接任务并发闸门。D) 范式升格：media-dialect 慢模型改 202+Task（或按租户 opt-in）。E) 透传门面是否立项单独评审（涉及 AK/SK 验签-重签与 usage 旁路解析两块新工程）。</p>
+<h2><span class="num">2</span>待解问题</h2>
+<p>透传门面（spec 3.8）是否立项？此前中转 1:1 审计结论『生产可用=是，drop-in=否』——是否把 drop-in 升级为产品目标，直接决定候选方向 E 的优先级。</p><p>media-dialect 同步拉平是『OpenAI 兼容优先』的刻意取舍还是过渡态？若升格 202，OpenAI images/audio 客户端的兼容性如何处理（spec 用 gw.async + slow 强制升格，等价物需要产品定义）。</p><p>失败任务但上游已扣费（部分厂商排队后失败仍计费）的成本口径：转嫁租户还是平台吸收？（spec 开放问题 Q1 同题，牵涉 require_persist=false 渠道的静默沿用行为）</p><p>relay_trace 与媒体产物的 retention 默认口径（现均默认永久）：合规与存储成本需要一个明确值。</p><p>参数值域缩放（如 temperature [0,2]→[0,1]）在已接/将接上游中是否真实存在？现只 clamp 不缩放，遇值域异构上游会语义失真。</p><p>Realtime（实时语音会话）范式是否进路线图？决定 IR/范式层是否要为 WS 双向流预留位。</p>
+</div>
+</div>
+<footer>AI MIQ 团队 · 受控文档 · 研究 · multica issue 内联渲染</footer>
+</body></html>

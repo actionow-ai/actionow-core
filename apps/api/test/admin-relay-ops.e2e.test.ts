@@ -84,7 +84,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await resetDb(
     () =>
-      client`TRUNCATE TABLE relay_trace, usage_log, redemption_code, model_grant, model, api_key, ledger_txn, pricebook_entry, upstream_channel, resource_version, resource, account, tenant, "user" RESTART IDENTITY CASCADE`,
+      client`TRUNCATE TABLE relay_trace, usage_log, redemption_code, api_key, ledger_txn, account, tenant, "user" RESTART IDENTITY CASCADE`,
   );
 });
 

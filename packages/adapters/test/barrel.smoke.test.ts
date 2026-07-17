@@ -19,7 +19,6 @@ describe('@actionow/adapters barrel', () => {
     expect(adapters.anthropicAdapter.providerType).toBe('anthropic');
     expect(adapters.geminiAdapter.providerType).toBe('gemini');
     expect(typeof adapters.createAsyncMediaMock).toBe('function');
-    expect(adapters.difyWorkflowAdapter.providerType).toBe('dify-workflow');
     expect(typeof adapters.createMockStream).toBe('function');
   });
 
@@ -30,7 +29,6 @@ describe('@actionow/adapters barrel', () => {
       'anthropic',
       'gemini',
       'async-media-mock',
-      'dify-workflow',
       'mock-stream',
     ] as const) {
       expect(registry.get(providerType).providerType).toBe(providerType);

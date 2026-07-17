@@ -1,26 +1,18 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
-import { apiKey, routeGroup, routeGroupChannel, upstreamChannel } from '../schema/index.js';
+import { apiKey, routeGroup, routeGroupChannel } from '../schema/index.js';
 import { keysetPage, type KeysetResult, type PageParams } from './pagination.js';
 import type { DbOrTx } from './types.js';
 
+// 批次6 D3 (旧世界删除): the Track-4 router consumers over the deleted
+// `upstream_channel` table (`listGroupChannelsForResource` /
+// `listCandidateChannelsWithFallback` / `GroupChannelForResource`) are gone —
+// route groups survive as the pricing/access tier entity (供给渠道 binds
+// `route_group_id`); the old channel-membership rows are inert history.
+
 export type RouteGroupRow = InferSelectModel<typeof routeGroup>;
 export type RouteGroupChannelRow = InferSelectModel<typeof routeGroupChannel>;
-export type UpstreamChannelRow = InferSelectModel<typeof upstreamChannel>;
-
-/**
- * An {@link upstreamChannel} row of a resource that is a MEMBER of a route group,
- * carrying the per-`(group, channel)` `priority` + `weight` from the join — the
- * shape Track 4's group-scoped router consumes. Ordered `priority DESC, weight
- * DESC` (HIGHER priority is the earlier fallback tier).
- */
-export type GroupChannelForResource = UpstreamChannelRow & {
-  /** The per-(group,channel) priority (HIGHER = tried first). */
-  readonly priority: number;
-  /** The per-(group,channel) weighted-random weight within a tier. */
-  readonly weight: number;
-};
 
 // ----- route_group CRUD -----
 
@@ -232,95 +224,8 @@ export function listGroupChannels(
   });
 }
 
-/**
- * The Track-4 router consumer: the ACTIVE, non-soft-deleted {@link upstreamChannel}
- * rows of `resourceId` that are members of route group `groupId`, JOINed with
- * `route_group_channel` so each row carries the per-`(group, channel)` `priority`
- * + `weight`. Ordered `priority DESC, weight DESC` (HIGHER priority is the earlier
- * fallback tier; weight breaks ties within a tier).
- *
- * Returns an EMPTY array when the group is soft-deleted OR `status != 'active'`
- * (a disabled group offers no candidates), or when the resource has no group
- * members. Data layer only — Track 4 wires the cooldown filter + weighted pick
- * + failover cascade on top of this ordered candidate list.
- */
-export async function listGroupChannelsForResource(
-  db: DbOrTx,
-  resourceId: string,
-  groupId: string,
-): Promise<GroupChannelForResource[]> {
-  const rows = await db
-    .select({
-      channel: upstreamChannel,
-      priority: routeGroupChannel.priority,
-      weight: routeGroupChannel.weight,
-    })
-    .from(routeGroupChannel)
-    .innerJoin(upstreamChannel, eq(routeGroupChannel.channelId, upstreamChannel.id))
-    .innerJoin(routeGroup, eq(routeGroupChannel.groupId, routeGroup.id))
-    .where(
-      and(
-        eq(routeGroupChannel.groupId, groupId),
-        eq(upstreamChannel.resourceId, resourceId),
-        eq(upstreamChannel.status, 'active'),
-        isNull(upstreamChannel.deletedAt),
-        eq(routeGroup.status, 'active'),
-        isNull(routeGroup.deletedAt),
-      ),
-    )
-    .orderBy(desc(routeGroupChannel.priority), desc(routeGroupChannel.weight));
-  return rows.map((r) => ({ ...r.channel, priority: r.priority, weight: r.weight }));
-}
-
-/**
- * The per-hop priority demotion for cross-group failover (弹性2.0): hop `k`'s
- * channels are demoted by `k × OFFSET`, so each fallback group sorts STRICTLY
- * below every tier of the groups ahead of it. Large enough that it dwarfs any
- * realistic per-(group,channel) priority spread (which is human-set, small).
- * Composes additively with the catalog-supply `UNLINKED_PRIORITY_OFFSET`.
- */
-export const FALLBACK_TIER_OFFSET = 1_000_000;
-
 /** Max number of groups walked in a `fallback_group_id` chain (incl. the start). */
 export const FALLBACK_MAX_DEPTH = 5;
-
-/**
- * Cross-group failover candidate set (弹性2.0): start at `groupId` and walk the
- * `route_group.fallback_group_id` chain, concatenating each group's
- * {@link listGroupChannelsForResource} candidates. Hop `k`'s channels are demoted
- * by `k × {@link FALLBACK_TIER_OFFSET}` so a fallback group's whole set sorts
- * strictly below the group ahead of it — the engine exhausts a group's tiers
- * before cascading to the next group.
- *
- * Guards: a cycle (a group already visited) STOPS the walk (each group
- * contributes at most once), and the chain is capped at
- * {@link FALLBACK_MAX_DEPTH} hops. A disabled/soft-deleted group in the chain
- * contributes zero channels (its `listGroupChannelsForResource` is empty) but a
- * still-set `fallbackGroupId` is followed; a soft-deleted group resolves to
- * `undefined` via {@link getRouteGroupById}, ending the walk.
- *
- * Data layer only — Track 4 / the breaker filter + weighted pick + failover
- * cascade run on top of this ordered candidate list. With no fallback set this
- * is exactly {@link listGroupChannelsForResource}.
- */
-export async function listCandidateChannelsWithFallback(
-  db: DbOrTx,
-  resourceId: string,
-  groupId: string,
-): Promise<GroupChannelForResource[]> {
-  const out: GroupChannelForResource[] = [];
-  const seen = new Set<string>();
-  let current: string | null = groupId;
-  for (let hop = 0; hop < FALLBACK_MAX_DEPTH && current !== null && !seen.has(current); hop++) {
-    seen.add(current);
-    const rows = await listGroupChannelsForResource(db, resourceId, current);
-    const offset = hop * FALLBACK_TIER_OFFSET;
-    for (const r of rows) out.push({ ...r, priority: r.priority - offset });
-    const grp = await getRouteGroupById(db, current);
-    current = grp?.fallbackGroupId ?? null;
-  }
-  return out;
-}
 
 /**
  * The reason a proposed `fallback_group_id` is rejected, returned by

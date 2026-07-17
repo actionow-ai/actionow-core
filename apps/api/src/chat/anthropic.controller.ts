@@ -1,36 +1,24 @@
-import {
-  parseAnthropicChat,
-  renderAnthropicChat,
-  renderAnthropicMessagesStream,
-} from '@actionow/llm-protocol';
 import { Body, Controller, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 
 import { ApiKeyGuard } from '../auth/api-key.guard.js';
-import { AuthService } from '../auth/auth.service.js';
-import { GovernanceGuard } from '../auth/governance.guard.js';
-import { idempotencyKeyHeader } from '../common/idempotency.interceptor.js';
-import { routeTagHeader } from '../common/route-tag.js';
-import { ChatRelayService } from './chat-relay.service.js';
-import { pipeSse } from './sse.js';
+import { GatewayChatV2Service } from '../gateway/chat-v2.service.js';
 
 /**
- * Anthropic-compatible chat relay: `POST /v1/messages`. Parses the wire body
- * into the neutral IR, drives the engine via {@link ChatRelayService}, and
- * renders the IR back to the Anthropic dialect (`type:'message'` JSON, or the
- * typed streaming events `event: message_start`…`event: message_stop`). The
- * hold runs inside `chatStream` BEFORE any SSE byte.
+ * Anthropic-compatible chat: `POST /v1/messages`, served END TO END by the NEW
+ * supply gateway ({@link GatewayChatV2Service}): Anthropic wire → §4.1 layer-1
+ * 归一 → gateway.execute → Anthropic rendering (`type:'message'` JSON, or the
+ * typed streaming events `event: message_start`…`event: message_stop`).
+ *
+ * 批次6 D2: the 切换预案②③ gray-release branch is collapsed — always-new.
  */
 @ApiTags('v1')
 @ApiBearerAuth('api-key')
-@UseGuards(ApiKeyGuard, GovernanceGuard)
+@UseGuards(ApiKeyGuard)
 @Controller('v1')
 export class AnthropicChatController {
-  constructor(
-    private readonly relay: ChatRelayService,
-    private readonly auth: AuthService,
-  ) {}
+  constructor(private readonly gatewayV2: GatewayChatV2Service) {}
 
   @Post('messages')
   @HttpCode(200)
@@ -39,34 +27,6 @@ export class AnthropicChatController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<Record<string, unknown> | undefined> {
-    const ctx = this.auth.resolve(req);
-    const ir = parseAnthropicChat(body);
-    const idem = idempotencyKeyHeader(req);
-    const routeTag = routeTagHeader(req);
-    if (body.stream === true) {
-      // The relay may degrade across the model fallback chain pre-commit, so the
-      // committed model can differ from `ir.model`; label the message_start with
-      // the SERVED model (parity with the blocking path).
-      const { events, servedModel } = await this.relay.chatStream(
-        ir.model,
-        ir,
-        ctx,
-        idem,
-        routeTag,
-      );
-      await pipeSse(res, renderAnthropicMessagesStream(events, servedModel ?? ir.model));
-      return undefined;
-    }
-    const { response, servedBy, servedModel } = await this.relay.chat(
-      ir.model,
-      ir,
-      ctx,
-      idem,
-      routeTag,
-    );
-    if (servedBy !== undefined) res.setHeader('x-actionow-channel', servedBy.providerType);
-    // Label the response with the SERVED model — the relay may have degraded
-    // across the model fallback chain (parity with the streaming path).
-    return renderAnthropicChat(response, servedModel ?? ir.model);
+    return this.gatewayV2.messages(body, req, res);
   }
 }
