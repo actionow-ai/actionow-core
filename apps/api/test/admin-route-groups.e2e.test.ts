@@ -1,4 +1,4 @@
-import { createUser, schema } from '@actionow/db';
+import { createSupplyChannel, createSupplyProvider, createUser, schema } from '@actionow/db';
 import { hashPassword } from '@actionow/infra';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -82,7 +82,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await resetDb(
     () =>
-      client`TRUNCATE TABLE request_idempotency, route_group_channel, route_group, api_key, upstream_channel, resource_version, resource, tenant, "user" RESTART IDENTITY CASCADE`,
+      client`TRUNCATE TABLE request_idempotency, route_group_channel, route_group, api_key, supply_channel, supply_provider, upstream_channel, resource_version, resource, tenant, "user" RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -100,24 +100,33 @@ async function makeTenant(): Promise<string> {
   return res.body.id as string;
 }
 
-/** Create a chat resource + one channel; returns the channel id. */
-async function makeChannel(tenantId: string): Promise<{ resourceId: string; channelId: string }> {
-  const resourceId = `res-${Math.random().toString(36).slice(2)}`;
-  await auth(request(server()).post('/admin/resources'))
-    .send({
-      id: resourceId,
-      tenantId,
-      kind: 'model',
-      modality: 'text',
-      providerType: 'openai',
-      execModes: ['blocking'],
-      ioSchema: { inputs: [], outputs: [] },
-    })
-    .expect(201);
-  const ch = await auth(request(server()).post(`/admin/resources/${resourceId}/channels`))
-    .send({ providerType: 'openai' })
-    .expect(201);
-  return { resourceId, channelId: ch.body.id as string };
+/**
+ * Create a NEW-world supply channel (批次6 D3: the membership target the
+ * admin face validates against is `supply_channel`; the old resource/channel
+ * endpoints are deleted). Until D4 drops the legacy
+ * `route_group_channel.channel_id → upstream_channel.id` FK, the membership
+ * INSERT is still gated by the DB constraint — so the fixture also mirrors
+ * the channel id into a raw `upstream_channel` row. D4 removes the mirror
+ * with the FK.
+ */
+async function makeChannel(tenantId: string): Promise<{ channelId: string }> {
+  const suffix = Math.random().toString(36).slice(2);
+  const provider = await createSupplyProvider(db, {
+    slug: `prov-${suffix}`,
+    name: `Provider ${suffix}`,
+    defaultDialect: { ref: 'openai', version: '1' },
+  });
+  const channel = await createSupplyChannel(db, {
+    providerId: provider.id,
+    name: `ch-${suffix}`,
+    authScheme: 'bearer',
+  });
+  await client`
+    INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes, current_version)
+    VALUES (${`res-${suffix}`}, ${tenantId}, 'model', 'text', 'openai', '["blocking"]'::jsonb, 1)`;
+  await client`
+    INSERT INTO upstream_channel (id, resource_id, provider_type) VALUES (${channel.id}, ${`res-${suffix}`}, 'openai')`;
+  return { channelId: channel.id };
 }
 
 describe('admin route-groups CRUD', () => {

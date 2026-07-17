@@ -27,6 +27,7 @@ import {
 
 import {
   apiKey,
+  limitRule,
   supplyChannel,
   supplyCredential,
   supplyModel,
@@ -1001,6 +1002,32 @@ export async function resolveSupplyModelByNameForTenant(
     )
     .limit(1);
   return rows[0];
+}
+
+/**
+ * The §9.1 模型全局闸 cap for one external model name (批次6 D3 — the old
+ * `model.rate_limit` column died with the `model` table; this re-sources the
+ * gate from the NEW world): the model's bound `limit_plan` (对外限额,
+ * `supply_model.limit_plan_id`) is read and its `rpm`-dimension rules are
+ * reduced to the TIGHTEST cap that applies to this model (`model_scope` null =
+ * plan-wide, or an exact name match). `null` = no gate configured (no live
+ * model / no plan binding / no rpm rule) — exactly the old "rate_limit NULL"
+ * semantics the gate treats as pass-through.
+ */
+export async function getSupplyModelRateLimit(db: DbOrTx, name: string): Promise<number | null> {
+  const rows = await db
+    .select({ limitPlanId: supplyModel.limitPlanId })
+    .from(supplyModel)
+    .where(and(eq(supplyModel.name, name), isNull(supplyModel.deletedAt)))
+    .limit(1);
+  const planId = rows[0]?.limitPlanId ?? null;
+  if (planId === null) return null;
+  const rules = await db.select().from(limitRule).where(eq(limitRule.planId, planId));
+  const caps = rules
+    .filter((r) => r.dimension === 'rpm' && (r.modelScope === null || r.modelScope === name))
+    .map((r) => Number(r.cap));
+  if (caps.length === 0) return null;
+  return Math.min(...caps);
 }
 
 /** An offering the calling tenant may route to, plus the channel-ownership facts. */

@@ -9,18 +9,15 @@ import { encryptSecret } from '../src/crypto.js';
 import {
   createApiKey,
   createOAuthSession,
-  createResource,
   createTenant,
   findApiKeyByHash,
-  getResource,
   hashApiKey,
-  listResources,
   listTenants,
   resolveSecretRef,
 } from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
 
-const { apiKey, oauthSession, resource, secretRef, tenant } = schema;
+const { apiKey, oauthSession, secretRef, tenant } = schema;
 
 let container: StartedPostgreSqlContainer;
 let client: ReturnType<typeof postgres>;
@@ -42,7 +39,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE oauth_session, secret_ref, api_key, resource, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE oauth_session, secret_ref, api_key, tenant RESTART IDENTITY CASCADE`;
   process.env.SECRET_ENCRYPTION_KEY = KEY_B64;
 });
 
@@ -59,33 +56,8 @@ describe('soft-delete: list repos exclude deleted_at rows', () => {
     expect((await listTenants(db, { limit: 200 })).rows.map((r) => r.id)).not.toContain(t.id);
   });
 
-  it('listResources / getResource exclude a soft-deleted resource', async () => {
-    const t = await createTenant(db, { name: 'res-tenant' });
-    await createResource(db, {
-      id: 'soft-del-res',
-      tenantId: t.id,
-      kind: 'model',
-      modality: 'text',
-      providerType: 'openai',
-      execModes: ['blocking'],
-      ioSchema: { inputs: [], outputs: [] },
-      version: 1,
-    });
-    expect(await getResource(db, 'soft-del-res')).toBeDefined();
-    expect((await listResources(db, { limit: 200 })).rows.map((r) => r.id)).toContain(
-      'soft-del-res',
-    );
-
-    await db
-      .update(resource)
-      .set({ deletedAt: sql`now()` })
-      .where(eq(resource.id, 'soft-del-res'));
-
-    expect(await getResource(db, 'soft-del-res')).toBeUndefined();
-    expect((await listResources(db, { limit: 200 })).rows.map((r) => r.id)).not.toContain(
-      'soft-del-res',
-    );
-  });
+  // 批次6 D3 (旧世界删除): the `resource` soft-delete case died with the
+  // resource three-layer (createResource/getResource/listResources are gone).
 });
 
 describe('soft-delete: credential resolution treats deleted rows as absent', () => {

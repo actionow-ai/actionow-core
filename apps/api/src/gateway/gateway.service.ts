@@ -26,7 +26,7 @@ import type { GatewayRequest, HttpClient } from '@actionow/contracts';
 import type { Database, SupplyModelRow } from '@actionow/db';
 import {
   getApiKeyModelAllowlist,
-  getModelRateLimit,
+  getSupplyModelRateLimit,
   listVisibleSupplyModels,
   resolveSupplyModelByNameForTenant,
 } from '@actionow/db';
@@ -108,15 +108,14 @@ export class GatewayService {
       // §7.2 lease identity — which node drives recoverable tasks it created.
       ownerNode: hostname(),
       persist,
-      // §9.1 模型全局闸 cap source (批次6 P5, 择稳): the OLD `model` table's
-      // rate_limit — exactly what GovernanceGuard.resolveModelLimit read, kept
-      // while the old world exists so behavior matches the proven guard, with
-      // the guard's 30s cache. supply_model has NO rpm column; the DELETE
-      // slice must re-source this (candidates: supply_model.limit_plan_id's
-      // rpm rule — the "对外限额" binding — or a platform setting) when the
-      // old `model` table drops.
+      // §9.1 模型全局闸 cap source (批次6 D3 — re-sourced off the deleted
+      // `model.rate_limit`): the model's bound 对外限额 plan
+      // (`supply_model.limit_plan_id`) reduced to its TIGHTEST applicable
+      // rpm-dimension rule (plan-wide or exact model_scope match); no live
+      // model / no binding / no rpm rule → null = gate pass-through (the old
+      // "rate_limit NULL" semantics). Same 30s cache as the proven guard.
       resolveModelLimit: createCachedModelLimitResolver({
-        fetch: (name) => getModelRateLimit(db, name),
+        fetch: (name) => getSupplyModelRateLimit(db, name),
       }),
     };
     this.queries = DEFAULT_QUERIES;

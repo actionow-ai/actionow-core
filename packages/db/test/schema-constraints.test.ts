@@ -24,7 +24,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE job, account, "user", tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE account, "user", tenant RESTART IDENTITY CASCADE`;
 });
 
 describe('schema constraints (Track B Task 1)', () => {
@@ -49,18 +49,7 @@ describe('schema constraints (Track B Task 1)', () => {
     await expect(client`INSERT INTO account (tenant_id) VALUES (${t.id})`).rejects.toThrow();
   });
 
-  it('job carries a nullable account_id FK to account', async () => {
-    const [t] = await client`INSERT INTO tenant (name) VALUES ('t2') RETURNING id`;
-    if (!t) throw new Error('tenant insert returned no row');
-    const [a] = await client`INSERT INTO account (tenant_id) VALUES (${t.id}) RETURNING id`;
-    if (!a) throw new Error('account insert returned no row');
-    const [r] =
-      await client`INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes, current_version) VALUES ('res1', ${t.id}, 'model', 'text', 'openai', '["blocking"]'::jsonb, 1) RETURNING id`;
-    if (!r) throw new Error('resource insert returned no row');
-    await client`INSERT INTO job (tenant_id, resource_id, resource_version, status, exec_mode, inputs, account_id) VALUES (${t.id}, ${r.id}, 1, 'queued', 'blocking', '{}'::jsonb, ${a.id})`;
-    const rows = await client`SELECT account_id FROM job`;
-    expect(rows[0]?.account_id).toBe(a.id);
-  });
+  // 批次6 D3 (旧世界删除): the `job.account_id` FK test died with the old `job` world.
 });
 
 describe('user.tenant_role constraint (rbac Task 1)', () => {
@@ -141,32 +130,8 @@ describe('channel_breaker (弹性2.0)', () => {
   });
 });
 
-describe('channel.tags (route tagging)', () => {
-  /** Insert a minimal tenant → resource chain; return the resource id. */
-  async function makeResource(): Promise<string> {
-    const [t] = await client`INSERT INTO tenant (name) VALUES ('tag') RETURNING id`;
-    if (!t) throw new Error('tenant insert returned no row');
-    await client`
-      INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes, current_version)
-      VALUES ('tag-res', ${t.id}, 'model', 'text', 'openai', '["blocking"]'::jsonb, 1)
-    `;
-    return 'tag-res';
-  }
-
-  it('channel.tags defaults to empty array and round-trips values', async () => {
-    const res = await makeResource();
-    const [a] = await db
-      .insert(schema.upstreamChannel)
-      .values({ resourceId: res, providerType: 'openai' })
-      .returning();
-    expect(a?.tags).toEqual([]);
-    const [b] = await db
-      .insert(schema.upstreamChannel)
-      .values({ resourceId: res, providerType: 'openai', tags: ['canary', 'beta'] })
-      .returning();
-    expect(b?.tags).toEqual(['canary', 'beta']);
-  });
-});
+// 批次6 D3 (旧世界删除): the `channel.tags (route tagging)` describe over the
+// deleted `upstream_channel` schema definition is gone with its table.
 
 describe('session (migration 0056 — refresh-token rotation)', () => {
   /** Insert a user; return its id (for `principal_kind='user'` linkage). */

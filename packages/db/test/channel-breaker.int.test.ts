@@ -6,8 +6,6 @@ import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
-  createResource,
-  createUpstreamChannel,
   getBreakerRows,
   listBreakers,
   listBreakersWithChannel,
@@ -38,26 +36,26 @@ afterEach(async () => {
   await client`TRUNCATE TABLE channel_breaker, upstream_channel, resource, tenant RESTART IDENTITY CASCADE`;
 });
 
+/**
+ * 批次6 D3: the `resource`/`upstream_channel` schema definitions (and their
+ * repo creators) are deleted, but the DB still carries both tables AND the
+ * `channel_breaker.channel_id` FK until D4's DROP migration lands — so the
+ * fixture seeds them with RAW SQL. D4 removes this seeding with the FK.
+ */
 async function seedChannel(providerType = 'mock-chat'): Promise<string> {
   const [t] = await db.insert(tenant).values({ name: 'acme' }).returning();
   if (!t) throw new Error('tenant insert returned no row');
-  await createResource(db, {
-    id: 'chat-res',
-    tenantId: t.id,
-    kind: 'model',
-    modality: 'text',
-    providerType,
-    execModes: ['stream'],
-    ioSchema: { inputs: [], outputs: [] },
-    version: 1,
-  });
-  const ch = await createUpstreamChannel(db, {
-    resourceId: 'chat-res',
-    providerType,
-    weight: 1,
-    status: 'active',
-  });
-  return ch.id;
+  await client`
+    INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes)
+    VALUES ('chat-res', ${t.id}, 'model', 'text', ${providerType}, '["stream"]'::jsonb)
+    ON CONFLICT (id) DO NOTHING`;
+  const rows = await client`
+    INSERT INTO upstream_channel (resource_id, provider_type, weight, status)
+    VALUES ('chat-res', ${providerType}, 1, 'active')
+    RETURNING id`;
+  const id = rows[0]?.id as string | undefined;
+  if (id === undefined) throw new Error('upstream_channel insert returned no row');
+  return id;
 }
 
 describe('channel_breaker repo (弹性2.0)', () => {
@@ -159,7 +157,7 @@ describe('channel_breaker repo (弹性2.0)', () => {
     expect(all.map((r) => r.model).sort()).toEqual(['gpt-x', 'gpt-y']);
   });
 
-  it('listBreakersWithChannel joins the channel provider_type + resource_id (admin status surface)', async () => {
+  it('listBreakersWithChannel serves the FSM facts with null labels (批次6 D3 — join target deleted)', async () => {
     const ch = await seedChannel('deepseek');
     await upsertBreaker(db, {
       channelId: ch,
@@ -174,9 +172,10 @@ describe('channel_breaker repo (弹性2.0)', () => {
     const rows = await listBreakersWithChannel(db);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.channelId).toBe(ch);
-    // upstream_channel has no human name; provider_type is the display label.
-    expect(rows[0]?.channelName).toBe('deepseek');
-    expect(rows[0]?.resourceId).toBe('chat-res');
+    // 批次6 D3: the old `upstream_channel` join target is deleted — the label
+    // fields degrade to null (the shape a hard-deleted channel already produced).
+    expect(rows[0]?.channelName).toBeNull();
+    expect(rows[0]?.resourceId).toBeNull();
     expect(rows[0]?.model).toBe('gpt-x');
     expect(rows[0]?.state).toBe('open');
     expect(rows[0]?.tripCount).toBe(2);

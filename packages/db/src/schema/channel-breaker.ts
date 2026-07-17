@@ -1,8 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { check, integer, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
-import { upstreamChannel } from './catalog.js';
-
 /**
  * Per-(channel, model) circuit-breaker state (弹性2.0). The runtime FSM:
  * closed (normal) → open (tripped, excluded from routing) → half_open (trial).
@@ -18,9 +16,9 @@ import { upstreamChannel } from './catalog.js';
 export const channelBreaker = pgTable(
   'channel_breaker',
   {
-    channelId: uuid('channel_id')
-      .notNull()
-      .references(() => upstreamChannel.id),
+    // 批次6 D3: plain uuid — the FK to the deleted `upstream_channel` table is
+    // dropped (D4: DROP CONSTRAINT channel_breaker_channel_id_upstream_channel_id_fk).
+    channelId: uuid('channel_id').notNull(),
     /** Resolved model name, or `'*'` for model-less resources. */
     model: text('model').notNull(),
     state: text('state').notNull().default('closed'),

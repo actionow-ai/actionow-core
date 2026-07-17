@@ -73,37 +73,26 @@ beforeEach(async () => {
     .expect(200);
   token = login.body.token as string;
 
-  // Seed a tenant + resource + channel so a breaker row's channel_id FK resolves.
+  // 批次6 D3: the resource/channel admin endpoints (and the schema
+  // definitions) are deleted, but the DB still carries both tables AND the
+  // `channel_breaker.channel_id` FK until D4's DROP migration — so the
+  // fixture seeds them with RAW SQL. D4 removes this seeding with the FK.
   const t = await request(app.getHttpServer())
     .post('/admin/tenants')
     .set('authorization', `Bearer ${token}`)
     .send({ name: 'brk' })
     .expect(201);
   const tenantId = t.body.id as string;
-  await request(app.getHttpServer())
-    .post('/admin/resources')
-    .set('authorization', `Bearer ${token}`)
-    .send({
-      id: 'brk-res',
-      tenantId,
-      kind: 'model',
-      modality: 'text',
-      providerType: 'openai',
-      execModes: ['stream'],
-      ioSchema: { inputs: [], outputs: [] },
-    })
-    .expect(201);
-  const ch = await request(app.getHttpServer())
-    .post('/admin/resources/brk-res/channels')
-    .set('authorization', `Bearer ${token}`)
-    .send({
-      providerType: 'openai',
-      endpoint: 'https://api.openai.com/v1',
-      model: 'gpt-4o',
-      weight: 1,
-    })
-    .expect(201);
-  channelId = ch.body.id as string;
+  await client`
+    INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes, current_version)
+    VALUES ('brk-res', ${tenantId}, 'model', 'text', 'openai', '["stream"]'::jsonb, 1)`;
+  const rows = await client`
+    INSERT INTO upstream_channel (resource_id, provider_type, weight, status)
+    VALUES ('brk-res', 'openai', 1, 'active')
+    RETURNING id`;
+  const id = rows[0]?.id as string | undefined;
+  if (id === undefined) throw new Error('upstream_channel insert returned no row');
+  channelId = id;
 });
 
 afterEach(async () => {
@@ -141,7 +130,9 @@ describe('admin breaker status surface (弹性2.0)', () => {
       });
   });
 
-  it('lists a tripped breaker joined with its channel name', async () => {
+  // 批次6 D3: the channel-name join target (`upstream_channel`) is deleted —
+  // the view's channel_name/resource_id degrade to null; the FSM facts remain.
+  it('lists a tripped breaker with its FSM facts', async () => {
     const now = new Date();
     await upsertBreaker(db, {
       channelId,

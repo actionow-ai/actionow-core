@@ -142,14 +142,34 @@ describe('GatewayService.execute — limit-plan → scopedRules threading (批�
   });
 });
 
-describe('GatewayService — §9.1 model global gate cap source (批次6 P5, 择稳)', () => {
-  it('reads the OLD model table rate_limit (getModelRateLimit shape) behind the 30s cache', async () => {
+describe('GatewayService — §9.1 model global gate cap source (批次6 D3, supply re-source)', () => {
+  it('reads the supply_model 对外限额 plan rpm rules (getSupplyModelRateLimit shape) behind the 30s cache', async () => {
     let selects = 0;
+    // Two query shapes, distinguished by the select() argument: the
+    // supply_model lookup selects {limitPlanId} then `.limit(1)`; the
+    // limit_rule fetch is a bare select() whose awaited builder yields rows.
     const db = {
-      select: () => {
+      select: (fields?: unknown) => {
         selects += 1;
+        if (fields !== undefined) {
+          return {
+            from: () => ({
+              where: () => ({ limit: () => Promise.resolve([{ limitPlanId: 'plan-1' }]) }),
+            }),
+          };
+        }
         return {
-          from: () => ({ where: () => ({ limit: () => Promise.resolve([{ rateLimit: 42 }]) }) }),
+          from: () => ({
+            where: () =>
+              Promise.resolve([
+                // plan-wide rpm rule → applies (the cap the gate must read).
+                { dimension: 'rpm', modelScope: null, cap: 42n },
+                // rpm rule scoped to ANOTHER model → must NOT apply.
+                { dimension: 'rpm', modelScope: 'other-model', cap: 7n },
+                // non-rpm dimension → must NOT apply.
+                { dimension: 'spend', modelScope: null, cap: 1n },
+              ]),
+          }),
         };
       },
     };
@@ -165,6 +185,7 @@ describe('GatewayService — §9.1 model global gate cap source (批次6 P5, 择
 
     await expect(deps.resolveModelLimit?.('gpt-x')).resolves.toBe(42);
     await expect(deps.resolveModelLimit?.('gpt-x')).resolves.toBe(42); // cached
-    expect(selects).toBe(1); // guard-parity 30s TTL — one fetch within the window
+    // guard-parity 30s TTL — one model lookup + one rules fetch within the window
+    expect(selects).toBe(2);
   });
 });

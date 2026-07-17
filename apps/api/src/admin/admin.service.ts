@@ -2,33 +2,21 @@ import { randomUUID } from 'node:crypto';
 
 import type { AdapterRegistry } from '@actionow/adapters';
 import {
-  type AdapterContext,
-  type CreatePluginRequest,
   type HttpClient,
-  type ModelParamProfile,
-  type ParamOverride,
   type PriceSpec,
   type RelayTraceView,
   relayTraceViewSchema,
-  type UpdatePluginRequest,
 } from '@actionow/contracts';
 import {
   type AccountRow,
   addChannelToGroup,
-  anyResourceTenantId,
   type ApiKeyRow,
   type AuditLogFilter,
   type AuditLogRow,
   type BreakerStatusRow,
-  type ChannelHealthRow,
-  channelIdsByModelIds,
-  type ChannelModelRow,
   checkFallbackChain,
   countAccounts,
-  countByPlugin,
-  countModelsByChannelIds,
   countPlanBindings,
-  countResources,
   countTenants,
   countUsageLogs,
   createAccount,
@@ -38,54 +26,38 @@ import {
   createFaultPolicy,
   type CreateFaultPolicyInput,
   createLimitPlan,
-  createModel,
-  type CreateModelInput,
   createModelSpec,
   createModifier,
   createOAuthSession,
   type CreateOAuthSessionInput,
   createOfficialPrice,
   type CreateOfficialPriceInput,
-  createPlugin,
-  createPricebookEntry,
   createProxy,
   type CreateProxyInput,
   createRedemptionCode,
-  createResource,
   createRouteGroup,
   type CreateRouteGroupInput,
   createSubAccount,
   createSubject,
   createTenant,
-  createUpstreamChannel,
   type Database,
   decryptSecret,
-  deleteModelGrant,
   encryptSecret,
   type FaultPolicyRow,
-  findResourceByProviderModality,
   getAccount,
-  getChannelById,
-  getChannelModelOverride,
   getFaultPolicyById,
   getLimitPlanById,
-  getModelById,
-  getModelByName,
   getModelSpecById,
   getModifierById,
   getOfficialPriceById,
-  getPluginById,
-  getPricebookEntryById,
   getProxyById,
-  getResource,
   getRouteGroupById,
   getSecretRefById,
   getSubAccount,
   getSubjectById,
+  getSupplyChannelById,
   getTenant,
-  grantModel,
   type IconAssetRow,
-  type Job,
   type KeysetResult,
   latestAuditByTarget,
   type LatestAuditRow,
@@ -97,38 +69,26 @@ import {
   type LimitRuleStatus,
   limitRuleStatus,
   type LimitUsageRow,
-  linkChannelModel,
-  linkChannelModelsByNames,
   listAccounts,
-  listAllChannelsWithHealth,
   listApiKeys,
   listAuditLog,
   listBreakersWithChannel,
-  listChannelModels,
-  listChannelsByPlugin,
-  listChannelsForResource,
   listFaultPolicies,
   listGroupChannels,
   listIconAssets,
-  listJobs,
   listLedger,
   listLimitAlerts,
   listLimitPlans,
-  listModelGrants,
   listModelHealth,
   listModelHealthHistory,
-  listModels,
   listModelSpecs,
   type ListModelSpecsFilter,
   listModifiers,
   listOAuthSessions,
   listOfficialPrices,
-  listPlugins,
-  listPricebookEntries,
   listProxies,
   listRedemptionCodes,
   listRelayTraces,
-  listResources,
   listRouteGroups,
   listRulesByPlan,
   listRulesByPlanIds,
@@ -137,32 +97,24 @@ import {
   listTenants,
   listUsageForSubject,
   listUsageLogsGlobal,
-  type ModelGrantRow,
   type ModelHealthBucket,
   type ModelHealthRow,
-  type ModelRow,
   type ModelSpecRow,
   type ModifierRow,
   normalizeModelSlug,
   type OAuthSessionListRow,
   type OfficialModelPriceRow,
   type PageParams,
-  type PluginCounts,
-  type PricebookEntryRow,
-  type ProviderPluginRow,
   type ProxyRow,
   type ReconcileRow,
   reconcileTenant,
   recordProxyHealth,
   type RedemptionCodeRow,
-  refundJob,
-  type RefundStatus,
   type RelayTraceFilter,
   type RelayTraceRow,
   removeChannelFromGroup,
   replacePlanRules,
   resetBreaker,
-  type Resource,
   revokeSessionsForPrincipal,
   rollupUsage,
   type RouteGroupChannelRow,
@@ -171,20 +123,15 @@ import {
   type SecretRefView,
   setApiKeyGroup,
   setApiKeyLimitPlan,
-  setChannelModelOverride,
   setFileTtlDays,
   setTenantLimitPlan,
   softDeleteApiKey,
-  softDeleteChannel,
   softDeleteFaultPolicy,
   softDeleteLimitPlan,
-  softDeleteModel,
   softDeleteModelSpec,
   softDeleteModifier,
   softDeleteOAuthSession,
   softDeleteOfficialPrice,
-  softDeletePlugin,
-  softDeletePricebookEntry,
   softDeleteProxy,
   softDeleteRouteGroup,
   softDeleteSecretRef,
@@ -196,30 +143,20 @@ import {
   topUp,
   topupSubAccount,
   transferCredits,
-  unlinkAllForChannel,
-  unlinkChannelModel,
   updateFaultPolicy,
   type UpdateFaultPolicyInput,
   updateLimitPlan,
-  updateModel,
   updateModelSpec,
   type UpdateModelSpecInput,
   updateModifier,
   updateOAuthSessionMeta,
   updateOfficialPrice,
-  updatePlugin,
-  updatePricebookEntry,
   updateProxy,
   type UpdateProxyInput,
-  updateResource,
   updateRouteGroup,
   updateSecretRefMeta,
   updateSubject,
   updateTenant,
-  updateUpstreamChannel,
-  type UpdateUpstreamChannelInput,
-  upsertModelsFromSync,
-  type UpstreamChannelRow,
   type UsageLogRow,
   type UsageRollupQuery,
   type UsageRollupRow,
@@ -247,43 +184,31 @@ import type {
   CodexLoginComplete,
   CreateAccountDto,
   CreateApiKeyDto,
-  CreateChannelDto,
   CreateFaultPolicyDto,
   CreateLimitPlanDto,
-  CreateModelDto,
   CreateModelSpecDto,
   CreateModifierDto,
   CreateOAuthSessionDto,
   CreateOfficialPriceDto,
-  CreatePricebookDto,
   CreateProxyDto,
-  CreateResourceDto,
   CreateRouteGroupDto,
   CreateSecretDto,
   CreateSubAccountDto,
   CreateSubjectDto,
   CreateTenantDto,
-  EnsureResourceDto,
   GenerateCodesDto,
-  GrantModelDto,
   ProvisionDto,
   ProxyProbeDto,
-  RefundJobDto,
-  SyncChannelModelsDto,
   TopupDto,
   TopupSubAccountDto,
   TransferCreditsDto,
   UpdateApiKeyGroupDto,
-  UpdateChannelDto,
   UpdateFaultPolicyDto,
   UpdateLimitPlanDto,
-  UpdateModelDto,
   UpdateModelSpecDto,
   UpdateModifierDto,
   UpdateOfficialPriceDto,
-  UpdatePricebookDto,
   UpdateProxyDto,
-  UpdateResourceDto,
   UpdateRouteGroupDto,
   UpdateSubjectDto,
   UpdateTenantDto,
@@ -291,24 +216,6 @@ import type {
 
 /** Modifier ops whose `value` is a µcredit amount (vs. a whole-percent int). */
 const CREDIT_VALUE_OPS = new Set(['flat_off', 'override_rate']);
-
-/**
- * Map a channel's `provider_type` onto the official-catalog `provider` key the
- * sync matcher looks up against (Track 2; spec D7). Subscription/relay
- * provider-types resolve to their underlying API provider so codex/openai both
- * price off the `openai` catalog. An unlisted provider_type is used verbatim.
- */
-const PROVIDER_TYPE_TO_CATALOG: Readonly<Record<string, string>> = {
-  'codex-oauth': 'openai',
-  openai: 'openai',
-  anthropic: 'anthropic',
-  gemini: 'google',
-};
-
-/** Resolve the official-catalog provider for a channel `provider_type` (default = verbatim). */
-function catalogProviderFor(providerType: string): string {
-  return PROVIDER_TYPE_TO_CATALOG[providerType] ?? providerType;
-}
 
 /**
  * Convert a HUMAN USD-per-1M-tokens amount (e.g. `1.25`) to an integer µUSD/1M
@@ -384,6 +291,26 @@ export interface ProvisionResult {
  * read (Redis miss/outage, or no breaker store wired).
  */
 export type BreakerStatusWithRate = BreakerStatusRow & { failureRate: number | null };
+
+/**
+ * 批次6 D3 (旧世界删除): the per-channel health rollup row the old
+ * `listAllChannelsWithHealth` (over the deleted `upstream_channel`) produced.
+ * The SHAPE survives here because `GET /admin/health` keeps its contract for
+ * the frozen web frontend — but the list is now permanently empty (see
+ * {@link AdminService.opsHealth}).
+ */
+export interface ChannelHealthRow {
+  channelId: string;
+  resourceId: string;
+  providerType: string;
+  status: string;
+  credentialRef: string | null;
+  consecutiveFailures: number;
+  cooldownUntil: Date | null;
+  lastFailureAt: Date | null;
+  degraded: boolean;
+  breakerState: 'closed' | 'open' | 'half_open';
+}
 
 /** The partial-success result of a bulk admin action (前端打磨). */
 export interface BulkResult {
@@ -461,39 +388,8 @@ export class AdminService {
     return [...new Set(this.adapters.providerTypes())].sort((a, b) => a.localeCompare(b));
   }
 
-  /**
-   * Reuse-or-create a platform (resource) for `(providerType, modality)` so the
-   * 模型接入 channel-add flow never makes the operator hand-create one. Reuses the
-   * newest live match; otherwise creates a fresh resource under the operator's
-   * platform tenant (the newest existing resource's tenant) with a unique slug id
-   * + sensible defaults. Throws when there is no tenant to own a new resource.
-   */
-  async ensureResource(dto: EnsureResourceDto): Promise<Resource> {
-    const existing = await findResourceByProviderModality(this.db, dto.providerType, dto.modality);
-    if (existing !== undefined) return existing;
-    const tenantId = await anyResourceTenantId(this.db);
-    if (tenantId === undefined) {
-      throw engineInvalidInput('no platform tenant exists yet — create a platform manually first');
-    }
-    // Build a unique human-readable slug id (provider-modality, suffixed on collision).
-    const base = `${dto.providerType}-${dto.modality}`;
-    let id = base;
-    for (let n = 2; (await getResource(this.db, id)) !== undefined; n++)
-      id = `${base}-${String(n)}`;
-    return createResource(this.db, {
-      id,
-      tenantId,
-      kind: 'model',
-      modality: dto.modality,
-      providerType: dto.providerType,
-      execModes: ['blocking'],
-      ioSchema: {
-        inputs: [{ key: 'prompt', type: 'string', required: true }],
-        outputs: [{ key: 'text', type: 'string' }],
-      },
-      version: 1,
-    });
-  }
+  // 批次6 D3 (旧世界删除): `ensureResource` (the 模型接入 reuse-or-create
+  // platform helper) died with the resource three-layer.
 
   // ----- tenants -----
 
@@ -702,32 +598,9 @@ export class AdminService {
     return { id: row.id };
   }
 
-  /**
-   * Reverse a settled job's charge, crediting back the wallet it debited (subject
-   * sub-wallet in HARD mode, else the tenant pool) and writing a `refund` ledger
-   * row. `credits` (human, optional) → µcredits, capped at the remaining
-   * refundable; omitted → the full remaining. Idempotent (a repeated full refund
-   * is a no-op). 404 for an unknown job; invalid_input when the job isn't settled.
-   */
-  async refundSettledJob(
-    jobId: string,
-    dto: RefundJobDto,
-  ): Promise<{ status: RefundStatus; refunded: string; balance_after: string | null }> {
-    const amount = dto.credits === undefined ? undefined : creditsToMicro(dto.credits);
-    const result = await refundJob(this.db, {
-      jobId,
-      ...(amount !== undefined ? { amount } : {}),
-    });
-    if (result.status === 'job_not_found') throw engineNotFound(`job ${jobId} not found`);
-    if (result.status === 'not_settled') {
-      throw engineInvalidInput('job is not settled or has no charge to refund');
-    }
-    return {
-      status: result.status,
-      refunded: result.refunded.toString(),
-      balance_after: result.balanceAfter === null ? null : result.balanceAfter.toString(),
-    };
-  }
+  // 批次6 D3 (旧世界删除): `refundSettledJob` (job-based refund) died with the
+  // old `job` world. NEW-WORLD REFUND GAP: the gateway-v2 task face has no
+  // admin refund yet — a follow-up must build a task/ledger-based refund.
 
   // ----- api keys -----
 
@@ -1042,21 +915,9 @@ export class AdminService {
     return listIconAssets(this.db);
   }
 
-  /** Every channel bound to a plugin (across resources) — 模型接入 3-pane middle column. */
-  listPluginChannels(pluginId: string): Promise<UpstreamChannelRow[]> {
-    return listChannelsByPlugin(this.db, pluginId);
-  }
-
-  // ----- provider plugins (P2 · runtime deleted 批次6 D2, rows inert until D3) -----
-
-  listPlugins(): Promise<ProviderPluginRow[]> {
-    return listPlugins(this.db);
-  }
-
-  /** Per-plugin live channel + distinct-model counts (模型接入 card stats). */
-  pluginCounts(): Promise<Map<string, PluginCounts>> {
-    return countByPlugin(this.db);
-  }
+  // 批次6 D3 (旧世界删除): the provider-plugin face (`listPlugins` /
+  // `pluginCounts` / `listPluginChannels` / plugin CRUD) died with the
+  // `provider_plugin` + `upstream_channel` tables.
 
   // ----- governance limits (额度套餐) -----
 
@@ -1190,45 +1051,6 @@ export class AdminService {
     if (!ok) throw engineNotFound(`tenant ${tenantId} account not found`);
   }
 
-  createPlugin(dto: CreatePluginRequest): Promise<ProviderPluginRow> {
-    return createPlugin(this.db, {
-      slug: dto.slug,
-      label: dto.label,
-      modalities: dto.manifest.modalities,
-      protocol: dto.manifest.protocol,
-      authStrategy: dto.manifest.authStrategy,
-      manifest: dto.manifest,
-      handler: dto.handler,
-      ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
-    });
-  }
-
-  async updatePlugin(id: string, dto: UpdatePluginRequest): Promise<ProviderPluginRow> {
-    const row = await updatePlugin(this.db, id, {
-      ...(dto.label !== undefined ? { label: dto.label } : {}),
-      ...(dto.manifest !== undefined
-        ? {
-            manifest: dto.manifest,
-            modalities: dto.manifest.modalities,
-            protocol: dto.manifest.protocol,
-            authStrategy: dto.manifest.authStrategy,
-          }
-        : {}),
-      ...(dto.handler !== undefined ? { handler: dto.handler } : {}),
-      ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
-      ...(dto.status !== undefined ? { status: dto.status } : {}),
-    });
-    if (row === undefined) throw engineNotFound(`plugin ${id} not found`);
-    return row;
-  }
-
-  async deletePlugin(id: string): Promise<void> {
-    const row = await getPluginById(this.db, id);
-    if (row === undefined) throw engineNotFound(`plugin ${id} not found`);
-    if (row.builtin) throw engineInvalidInput('built-in plugins cannot be deleted');
-    await softDeletePlugin(this.db, id);
-  }
-
   /**
    * Begin the turnkey server-side codex OAuth login. The explicit ToS ack is
    * enforced by the controller's `codexLoginStartSchema` (`z.literal(true)`)
@@ -1360,451 +1182,11 @@ export class AdminService {
     };
   }
 
-  // ----- resources -----
-
-  async createResource(dto: CreateResourceDto): Promise<Resource> {
-    try {
-      return await createResource(this.db, {
-        id: dto.id,
-        tenantId: dto.tenantId,
-        kind: dto.kind,
-        modality: dto.modality,
-        providerType: dto.providerType,
-        execModes: dto.execModes,
-        ioSchema: dto.ioSchema,
-        version: dto.version ?? 1,
-      });
-    } catch (err) {
-      // The text PK (`resource.id`) and `(resource_id, version)` can't be partial
-      // unique indexes, so a re-create that collides (e.g. re-POSTing the same id
-      // + version, or an id still occupied by a soft-deleted row) surfaces as a
-      // Postgres 23505. Map it to a clean 400 instead of a 500. We do NOT revive
-      // the soft-deleted row — the operator must pick a fresh id.
-      if (isUniqueViolation(err)) {
-        throw engineInvalidInput(`resource '${dto.id}' already exists`);
-      }
-      throw err;
-    }
-  }
-
-  listResources(page: PageParams): Promise<KeysetResult<Resource>> {
-    return listResources(this.db, page);
-  }
-
-  /** Fetch one resource by id, or `resource_not_found` (404) when absent/soft-deleted. */
-  async getResource(resourceId: string): Promise<Resource> {
-    const row = await getResource(this.db, resourceId);
-    if (row === undefined) {
-      throw engineNotFound(`resource ${resourceId} not found`);
-    }
-    return row;
-  }
-
-  /**
-   * Patch a resource's SAFE fields (only `status`). The key fields
-   * (`id`/`kind`/`modality`/`providerType`) are immutable. 404 when absent.
-   */
-  async updateResource(resourceId: string, dto: UpdateResourceDto): Promise<Resource> {
-    const row = await updateResource(this.db, resourceId, { status: dto.status });
-    if (row === undefined) {
-      throw engineNotFound(`resource ${resourceId} not found`);
-    }
-    return row;
-  }
-
-  async createChannel(resourceId: string, dto: CreateChannelDto): Promise<UpstreamChannelRow> {
-    const resource = await getResource(this.db, resourceId);
-    if (resource === undefined) {
-      throw engineNotFound(`resource ${resourceId} not found`);
-    }
-    return createUpstreamChannel(this.db, {
-      resourceId,
-      providerType: dto.providerType,
-      credentialRef: dto.credentialRef ?? null,
-      endpoint: dto.endpoint ?? null,
-      model: dto.model ?? null,
-      proxyRef: dto.proxyRef ?? null,
-      config: dto.config ?? null,
-      weight: dto.weight,
-      status: dto.status,
-      // HUMAN USD/1M cost rates → integer µUSD/1M (Track 5); omitted → null.
-      ...(dto.inputCostUsdPer1m !== undefined
-        ? { inputCostPer1m: usdPer1mToMicro(dto.inputCostUsdPer1m) }
-        : {}),
-      ...(dto.outputCostUsdPer1m !== undefined
-        ? { outputCostPer1m: usdPer1mToMicro(dto.outputCostUsdPer1m) }
-        : {}),
-      ...(dto.faultPolicyId !== undefined ? { faultPolicyId: dto.faultPolicyId } : {}),
-      ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
-      ...(dto.pluginId !== undefined ? { pluginId: dto.pluginId } : {}),
-      ...(dto.tags !== undefined ? { tags: dto.tags } : {}),
-    });
-  }
-
-  /** List every channel of a resource (incl. disabled) — operator routing view. */
-  listResourceChannels(
-    resourceId: string,
-    page: PageParams,
-  ): Promise<KeysetResult<UpstreamChannelRow>> {
-    return listChannelsForResource(this.db, resourceId, page);
-  }
-
-  /**
-   * Patch an upstream channel's routing fields (weight/status/endpoint/model/...)
-   * + the Track-5 per-channel cost rates. The HUMAN USD/1M cost fields are
-   * converted to integer µUSD/1M here (mirroring the create path); passing `null`
-   * CLEARS a cost column (→ unknown cost / 0). All other fields pass through.
-   */
-  async updateChannel(channelId: string, dto: UpdateChannelDto): Promise<UpstreamChannelRow> {
-    const patch: {
-      -readonly [K in keyof UpdateUpstreamChannelInput]: UpdateUpstreamChannelInput[K];
-    } = {};
-    if (dto.credentialRef !== undefined) patch.credentialRef = dto.credentialRef;
-    if (dto.endpoint !== undefined) patch.endpoint = dto.endpoint;
-    if (dto.model !== undefined) patch.model = dto.model;
-    if (dto.proxyRef !== undefined) patch.proxyRef = dto.proxyRef;
-    if (dto.config !== undefined) patch.config = dto.config;
-    if (dto.weight !== undefined) patch.weight = dto.weight;
-    if (dto.status !== undefined) patch.status = dto.status;
-    if (dto.inputCostUsdPer1m !== undefined) {
-      patch.inputCostPer1m =
-        dto.inputCostUsdPer1m === null ? null : usdPer1mToMicro(dto.inputCostUsdPer1m);
-    }
-    if (dto.outputCostUsdPer1m !== undefined) {
-      patch.outputCostPer1m =
-        dto.outputCostUsdPer1m === null ? null : usdPer1mToMicro(dto.outputCostUsdPer1m);
-    }
-    if (dto.faultPolicyId !== undefined) patch.faultPolicyId = dto.faultPolicyId;
-    if (dto.icon !== undefined) patch.icon = dto.icon;
-    if (dto.pluginId !== undefined) patch.pluginId = dto.pluginId;
-    if (dto.tags !== undefined) patch.tags = dto.tags;
-    const row = await updateUpstreamChannel(this.db, channelId, patch);
-    if (row === undefined) {
-      throw engineNotFound(`channel ${channelId} not found`);
-    }
-    return row;
-  }
-
-  /**
-   * Fetch one channel scoped to its resource (the nested route), or
-   * `resource_not_found` (404) when the channel is absent / soft-deleted / does
-   * not belong to `resourceId`.
-   */
-  async getChannel(resourceId: string, channelId: string): Promise<UpstreamChannelRow> {
-    const row = await getChannelById(this.db, channelId, resourceId);
-    if (row === undefined) {
-      throw engineNotFound(`channel ${channelId} not found for resource ${resourceId}`);
-    }
-    return row;
-  }
-
-  /**
-   * Revoke (soft-delete) a channel scoped to its resource. Routing
-   * (`listChannels`) and the operator listing both filter soft-deleted, so the
-   * channel drops out immediately. 404 when no live channel matched (already
-   * deleted / wrong resource / unknown).
-   */
-  async deleteChannel(resourceId: string, channelId: string): Promise<{ id: string }> {
-    const id = await softDeleteChannel(this.db, channelId, resourceId);
-    if (id === undefined) {
-      throw engineNotFound(`channel ${channelId} not found for resource ${resourceId}`);
-    }
-    // Drop this channel's model links (pure join data — no reason to keep them
-    // once the channel is gone; also keeps model_count / routing correct).
-    await unlinkAllForChannel(this.db, channelId);
-    return { id };
-  }
-
-  // --- channel↔model links (catalog supply-hierarchy) -----------------------
-
-  /** Per-channel link counts (batch) for populating `model_count` in channel views. */
-  async modelCountsByChannels(channelIds: string[]): Promise<Map<string, number>> {
-    return countModelsByChannelIds(this.db, channelIds);
-  }
-
-  /** Served-channel ids (batch) for populating `served_channel_ids` in model views. */
-  async servedChannelsByModels(modelIds: string[]): Promise<Map<string, string[]>> {
-    return channelIdsByModelIds(this.db, modelIds);
-  }
-
-  /**
-   * The models a channel serves (right-panel grid), each carrying its per-link
-   * `param_override` (mig 0062); 404s if the channel ∉ resource.
-   */
-  async listChannelModels(resourceId: string, channelId: string): Promise<ChannelModelRow[]> {
-    await this.getChannel(resourceId, channelId);
-    return listChannelModels(this.db, channelId);
-  }
-
-  /**
-   * Link an existing platform model to a channel; validates the channel +
-   * same-platform model. When `paramOverride` is supplied, attaches it at link
-   * time (mig 0062) so a link can be created WITH a per-(model×channel) override
-   * in one call; omitted → a plain link (no override, == today).
-   */
-  async linkChannelModel(
-    resourceId: string,
-    channelId: string,
-    modelId: string,
-    paramOverride?: ParamOverride,
-  ): Promise<void> {
-    await this.getChannel(resourceId, channelId);
-    const m = await getModelById(this.db, modelId);
-    if (m?.resourceId !== resourceId) {
-      throw engineInvalidInput('model must belong to the same platform as the channel');
-    }
-    if (paramOverride !== undefined) {
-      await setChannelModelOverride(this.db, channelId, modelId, paramOverride);
-    } else {
-      await linkChannelModel(this.db, channelId, modelId);
-    }
-  }
-
-  /** Remove a channel↔model link; 404s if the channel ∉ resource. */
-  async unlinkChannelModel(resourceId: string, channelId: string, modelId: string): Promise<void> {
-    await this.getChannel(resourceId, channelId);
-    await unlinkChannelModel(this.db, channelId, modelId);
-  }
-
-  /**
-   * Set (or clear with `null`) the per-(model×channel) parameter override (mig
-   * 0062). Validates the channel ∈ resource + the model ∈ platform, then upserts
-   * the `channel_model` link's `param_override`. Returns the resulting link view.
-   */
-  async setChannelModelParamOverride(
-    resourceId: string,
-    channelId: string,
-    modelId: string,
-    paramOverride: ParamOverride | null,
-  ): Promise<{ channelId: string; modelId: string; paramOverride: ParamOverride | null }> {
-    await this.getChannel(resourceId, channelId);
-    const m = await getModelById(this.db, modelId);
-    if (m?.resourceId !== resourceId) {
-      throw engineInvalidInput('model must belong to the same platform as the channel');
-    }
-    await setChannelModelOverride(this.db, channelId, modelId, paramOverride);
-    const stored = await getChannelModelOverride(this.db, channelId, modelId);
-    return { channelId, modelId, paramOverride: stored };
-  }
-
-  /**
-   * Sync the upstream models a channel's provider exposes into `model` rows
-   * (multi-model routing + Track 2 auto-pricing). Loads the channel (verifying it
-   * belongs to `resourceId`), resolves the provider adapter, and — if it supports
-   * model discovery (`listModels`) — calls it with an {@link AdapterContext} built
-   * the SAME way the chat relay/engine does (per-channel model/endpoint/config, the
-   * credential resolved via the shared {@link SecretResolver} incl. its `oauth`
-   * branch, the egress proxy resolved from `proxyRef` with the global
-   * `UPSTREAM_PROXY_URL` fallback).
-   *
-   * Each upstream slug becomes a `model` row via {@link upsertModelsFromSync},
-   * AUTO-PRICED against the {@link officialModelPrice} catalog under the
-   * channel's catalog provider ({@link catalogProviderFor}):
-   * - matched → priced from the official µUSD/1M row, `active`;
-   * - unmatched → `disabled` + `needs_pricing` (NEVER billable at 0) — UNLESS the
-   *   request supplies explicit `defaultInputPrice`/`defaultOutputPrice` (µUSD/1M),
-   *   in which case the unmatched model is created `active` at those prices;
-   * - existing → price/status preserved (display + capabilities refreshed).
-   *
-   * Returns the created/updated names, the total, and a per-model
-   * `priced: official|default|needs_pricing|existing` summary.
-   */
-  async syncChannelModels(
-    resourceId: string,
-    channelId: string,
-    dto: SyncChannelModelsDto,
-  ): Promise<{
-    resource_id: string;
-    created: string[];
-    updated: string[];
-    total: number;
-    summary: { name: string; priced: string }[];
-  }> {
-    // Load the channel and verify it belongs to this resource (else not_found).
-    // A resource has few channels; a generous page bounds the scan without a
-    // dedicated single-channel getter (a Track D concern).
-    const { rows: channels } = await listChannelsForResource(this.db, resourceId, { limit: 200 });
-    const channel = channels.find((c) => c.id === channelId);
-    if (channel === undefined) {
-      throw engineNotFound(`channel ${channelId} not found for resource ${resourceId}`);
-    }
-
-    // Resolve the provider adapter; reject providers without model discovery.
-    const adapter = this.adapters.get(channel.providerType);
-    if (adapter.listModels === undefined) {
-      throw engineInvalidInput(`provider ${channel.providerType} does not support model sync`);
-    }
-
-    const ctx = await this.buildSyncContext(channel);
-    const models = await adapter.listModels(ctx);
-
-    const result = await upsertModelsFromSync(this.db, {
-      resourceId,
-      provider: catalogProviderFor(channel.providerType),
-      models: models.map((m) => ({
-        name: m.id,
-        display: m.displayName,
-        capabilities: m.capabilities,
-      })),
-      // Explicit unmatched-default override (µUSD/1M). When omitted, an unmatched
-      // model becomes `needs_pricing`+disabled rather than billing at 0.
-      ...(dto.defaultInputPrice !== undefined
-        ? { defaultInputPrice: BigInt(dto.defaultInputPrice) }
-        : {}),
-      ...(dto.defaultOutputPrice !== undefined
-        ? { defaultOutputPrice: BigInt(dto.defaultOutputPrice) }
-        : {}),
-    });
-
-    // Catalog supply-hierarchy: a synced channel now OWNS the models it
-    // discovered — link them so they show in its model grid + route preferentially.
-    await linkChannelModelsByNames(this.db, channelId, [...result.created, ...result.updated]);
-
-    return {
-      resource_id: resourceId,
-      created: result.created,
-      updated: result.updated,
-      total: result.created.length + result.updated.length,
-      summary: result.summary.map((s) => ({ name: s.name, priced: s.priced })),
-    };
-  }
-
-  /**
-   * Build the {@link AdapterContext} for a channel's `listModels` call, mirroring
-   * the engine's `buildContext`/`resolveProxy`: the credential is resolved via the
-   * shared {@link SecretResolver} (so the `oauth` branch returns the live access
-   * token), the egress proxy comes from `proxyRef` (falling back to the global
-   * `UPSTREAM_PROXY_URL`), and each optional field is assigned only when present
-   * (exactOptionalPropertyTypes).
-   */
-  private async buildSyncContext(channel: UpstreamChannelRow): Promise<AdapterContext> {
-    const ctx: AdapterContext = { providerType: channel.providerType, http: this.http };
-    if (channel.model !== null) ctx.model = channel.model;
-    if (channel.endpoint !== null) ctx.endpoint = channel.endpoint;
-    if (channel.config !== null) ctx.config = channel.config;
-    if (channel.credentialRef !== null) {
-      const apiKey = await this.secrets.resolve(channel.credentialRef);
-      if (apiKey !== undefined) ctx.apiKey = apiKey;
-    }
-    const proxyUrl = await this.resolveChannelProxy(channel);
-    if (proxyUrl !== undefined) ctx.proxyUrl = proxyUrl;
-    return ctx;
-  }
-
-  /** Resolve a channel's egress proxy: its `proxyRef` (via the resolver), else `UPSTREAM_PROXY_URL`. */
-  private async resolveChannelProxy(channel: UpstreamChannelRow): Promise<string | undefined> {
-    if (channel.proxyRef !== null) {
-      const url = await this.secrets.resolve(channel.proxyRef);
-      if (url !== undefined) return url;
-    }
-    return this.env.UPSTREAM_PROXY_URL;
-  }
-
-  // ----- pricebook -----
-
-  /**
-   * Create a pricebook entry. For `method: 'fixed'`, a human-credit `fixedCredits`
-   * is converted to a µcredit `amount` and merged into the persisted `spec` so
-   * the engine reads µcredits directly.
-   */
-  createPricebook(dto: CreatePricebookDto): Promise<PricebookEntryRow> {
-    const spec = this.buildPricebookSpec(dto);
-    return createPricebookEntry(this.db, {
-      resourceId: dto.resourceId,
-      resourceVersion: dto.resourceVersion,
-      version: dto.version,
-      method: dto.method,
-      timing: dto.timing,
-      spec,
-      markup: dto.markup,
-      active: dto.active,
-    });
-  }
-
-  private buildPricebookSpec(dto: CreatePricebookDto): unknown {
-    if (dto.fixedCredits === undefined) {
-      return dto.spec ?? {};
-    }
-    if (dto.method !== 'fixed') {
-      throw engineInvalidInput('fixedCredits is only valid for method "fixed"');
-    }
-    const base = isRecord(dto.spec) ? dto.spec : {};
-    return { method: 'fixed', ...base, amount: creditsToMicro(dto.fixedCredits).toString() };
-  }
-
-  listPricebook(resourceId: string, page: PageParams): Promise<KeysetResult<PricebookEntryRow>> {
-    return listPricebookEntries(this.db, resourceId, page);
-  }
-
-  /** Fetch one pricebook entry by id, or `resource_not_found` (404) when absent. */
-  async getPricebook(id: string): Promise<PricebookEntryRow> {
-    const row = await getPricebookEntryById(this.db, id);
-    if (row === undefined) {
-      throw engineNotFound(`pricebook entry ${id} not found`);
-    }
-    return row;
-  }
-
-  /**
-   * Patch a pricebook entry. Mirrors the create path's credit→µcredit conversion:
-   * a human-credit `fixedCredits` is converted and merged into the persisted
-   * `spec` as a µcredit `amount`. The EFFECTIVE method (the patched `method` if
-   * present, else the entry's stored one) decides whether `fixedCredits` is
-   * valid (`fixed` only). 404 when the entry is absent / soft-deleted.
-   */
-  async updatePricebook(id: string, dto: UpdatePricebookDto): Promise<PricebookEntryRow> {
-    const existing = await getPricebookEntryById(this.db, id);
-    if (existing === undefined) {
-      throw engineNotFound(`pricebook entry ${id} not found`);
-    }
-    const patch: {
-      method?: string;
-      timing?: string;
-      spec?: unknown;
-      markup?: unknown;
-      active?: boolean;
-    } = {};
-    if (dto.method !== undefined) patch.method = dto.method;
-    if (dto.timing !== undefined) patch.timing = dto.timing;
-    if (dto.markup !== undefined) patch.markup = dto.markup;
-    if (dto.active !== undefined) patch.active = dto.active;
-    // The spec is rebuilt only when the caller sends a `spec` or a `fixedCredits`;
-    // an omitted-both PATCH leaves the stored spec untouched.
-    if (dto.spec !== undefined || dto.fixedCredits !== undefined) {
-      patch.spec = this.buildUpdatePricebookSpec(dto, existing.method);
-    }
-    const row = await updatePricebookEntry(this.db, id, patch);
-    if (row === undefined) {
-      throw engineNotFound(`pricebook entry ${id} not found`);
-    }
-    return row;
-  }
-
-  /**
-   * Build the patched `spec`, applying the SAME credit→µcredit conversion as
-   * {@link buildPricebookSpec}. Validates `fixedCredits` against the EFFECTIVE
-   * method (the patched one, else the stored `currentMethod`).
-   */
-  private buildUpdatePricebookSpec(dto: UpdatePricebookDto, currentMethod: string): unknown {
-    if (dto.fixedCredits === undefined) {
-      return dto.spec ?? {};
-    }
-    const effectiveMethod = dto.method ?? currentMethod;
-    if (effectiveMethod !== 'fixed') {
-      throw engineInvalidInput('fixedCredits is only valid for method "fixed"');
-    }
-    const base = isRecord(dto.spec) ? dto.spec : {};
-    return { method: 'fixed', ...base, amount: creditsToMicro(dto.fixedCredits).toString() };
-  }
-
-  /** Revoke (soft-delete) a pricebook entry; 404 when no live entry matched. */
-  async deletePricebook(id: string): Promise<{ id: string }> {
-    const deleted = await softDeletePricebookEntry(this.db, id);
-    if (deleted === undefined) {
-      throw engineNotFound(`pricebook entry ${id} not found`);
-    }
-    return { id: deleted };
-  }
+  // 批次6 D3 (旧世界删除): the resource three-layer admin face — resource
+  // CRUD, upstream-channel CRUD, channel_model link/override, sync-models
+  // (+ its adapter sync context/proxy helpers) and the pricebook CRUD — is
+  // DELETED with its tables. The NEW supply twins live in supply.controller
+  // (/admin/supply/*), pricing on supply_price_card.
 
   // ----- modifiers -----
 
@@ -1892,49 +1274,12 @@ export class AdminService {
     return { id: deleted };
   }
 
-  // ----- models -----
-
-  /**
-   * Register a relay model. `inputPrice`/`outputPrice` are µUSD per 1M tokens
-   * integers (`$X/1M → X×1e6`; NOT human credits) — passed through unchanged.
-   * `capabilities` defaults to `{}` when omitted.
-   */
-  async createModel(dto: CreateModelDto): Promise<ModelRow> {
-    const input: CreateModelInput = {
-      name: dto.name,
-      resourceId: dto.resourceId,
-      ...(dto.display !== undefined ? { display: dto.display } : {}),
-      ...(dto.modality !== undefined ? { modality: dto.modality } : {}),
-      ...(dto.capabilities !== undefined ? { capabilities: dto.capabilities } : {}),
-      ...(dto.visibility !== undefined ? { visibility: dto.visibility } : {}),
-      ...(dto.inputPrice !== undefined ? { inputPrice: BigInt(dto.inputPrice) } : {}),
-      ...(dto.outputPrice !== undefined ? { outputPrice: BigInt(dto.outputPrice) } : {}),
-      ...(dto.cachedInputPrice !== undefined
-        ? { cachedInputPrice: BigInt(dto.cachedInputPrice) }
-        : {}),
-      ...(dto.rateLimit !== undefined ? { rateLimit: dto.rateLimit } : {}),
-      ...(dto.fallbackModels !== undefined ? { fallbackModels: dto.fallbackModels } : {}),
-      ...(dto.tags !== undefined ? { tags: dto.tags } : {}),
-      ...(dto.maker !== undefined ? { maker: dto.maker } : {}),
-      ...(dto.contextLength !== undefined ? { contextLength: dto.contextLength } : {}),
-      ...(dto.reasoning !== undefined ? { reasoning: dto.reasoning } : {}),
-      ...(dto.paramProfile !== undefined ? { paramProfile: dto.paramProfile } : {}),
-      ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
-      ...(dto.status !== undefined ? { status: dto.status } : {}),
-    };
-    try {
-      return await createModel(this.db, input);
-    } catch (err) {
-      // A LIVE model with this name already exists (the `model_name_idx` partial
-      // unique index) — turn the 23505 into a clean 400 rather than a 500.
-      if (isUniqueViolation(err)) throw engineInvalidInput(`model '${dto.name}' already exists`);
-      throw err;
-    }
-  }
-
-  listModels(page: PageParams): Promise<KeysetResult<ModelRow>> {
-    return listModels(this.db, page);
-  }
+  // ----- model health (status page — usage_log-derived, survives D3) -----
+  // 批次6 D3 (旧世界删除): the relay-model CRUD (create/list/get/update/
+  // delete + grants + bulk model/channel actions) died with the `model` /
+  // `channel_model` / `upstream_channel` tables. The NEW twins live on the
+  // supply face (supply.controller). `modelHealthReport` stays — it reads
+  // only `usage_log`.
 
   /**
    * Per-model health for the status page, derived from real `usage_log` traffic
@@ -1958,141 +1303,7 @@ export class AdminService {
     return summaries.map((summary) => ({ summary, history: byModel.get(summary.model) ?? [] }));
   }
 
-  /** Fetch one model by its unique `name`, or `resource_not_found` (404) when absent. */
-  async getModel(name: string): Promise<ModelRow> {
-    const row = await getModelByName(this.db, name);
-    if (row === undefined) {
-      throw engineNotFound(`model ${name} not found`);
-    }
-    return row;
-  }
-
-  /**
-   * Patch a relay model (by `name`). `inputPrice`/`outputPrice` are µUSD-per-1M-token
-   * integers (passed through unchanged, same convention as create). `display`
-   * may be set to `null`. 404 when the model is absent / soft-deleted.
-   */
-  async updateModel(name: string, dto: UpdateModelDto): Promise<ModelRow> {
-    const patch: {
-      display?: string | null;
-      capabilities?: Record<string, boolean>;
-      inputPrice?: bigint;
-      outputPrice?: bigint;
-      cachedInputPrice?: bigint | null;
-      visibility?: string;
-      rateLimit?: number | null;
-      fallbackModels?: string[] | null;
-      tags?: string[];
-      maker?: string | null;
-      contextLength?: number | null;
-      reasoning?: string | null;
-      paramProfile?: ModelParamProfile | null;
-      icon?: string | null;
-      status?: string;
-    } = {};
-    if (dto.display !== undefined) patch.display = dto.display;
-    if (dto.capabilities !== undefined) patch.capabilities = dto.capabilities;
-    if (dto.inputPrice !== undefined) patch.inputPrice = BigInt(dto.inputPrice);
-    if (dto.outputPrice !== undefined) patch.outputPrice = BigInt(dto.outputPrice);
-    if (dto.cachedInputPrice !== undefined)
-      patch.cachedInputPrice = dto.cachedInputPrice === null ? null : BigInt(dto.cachedInputPrice);
-    if (dto.visibility !== undefined) patch.visibility = dto.visibility;
-    if (dto.rateLimit !== undefined) patch.rateLimit = dto.rateLimit;
-    if (dto.fallbackModels !== undefined) patch.fallbackModels = dto.fallbackModels;
-    if (dto.tags !== undefined) patch.tags = dto.tags;
-    if (dto.maker !== undefined) patch.maker = dto.maker;
-    if (dto.contextLength !== undefined) patch.contextLength = dto.contextLength;
-    if (dto.reasoning !== undefined) patch.reasoning = dto.reasoning;
-    if (dto.paramProfile !== undefined) patch.paramProfile = dto.paramProfile;
-    if (dto.icon !== undefined) patch.icon = dto.icon;
-    if (dto.status !== undefined) patch.status = dto.status;
-    const row = await updateModel(this.db, name, patch);
-    if (row === undefined) {
-      throw engineNotFound(`model ${name} not found`);
-    }
-    return row;
-  }
-
-  /**
-   * Revoke (soft-delete) a model (by `name`). `resolveModelForTenant` filters
-   * soft-deleted, so the model stops routing immediately. 404 when no live model
-   * matched (already deleted / unknown).
-   */
-  async deleteModel(name: string): Promise<{ name: string }> {
-    const deleted = await softDeleteModel(this.db, name);
-    if (deleted === undefined) {
-      throw engineNotFound(`model ${name} not found`);
-    }
-    return { name: deleted };
-  }
-
   // ----- bulk admin actions (前端打磨) -----
-
-  /**
-   * Bulk enable/disable/delete models BY NAME with partial success. Each name
-   * reuses the SAME single-row repo op as the per-row routes (`updateModel`
-   * status / `softDeleteModel`) and — on success — emits ONE `audit_log` row
-   * (`model.enable|disable|delete`, best-effort via {@link AuditService}) so the
-   * entity's audit badge reflects the bulk change. A name that matched no live
-   * model throws `not found`, landing it in `failed` without aborting the batch.
-   */
-  bulkModels(
-    action: 'enable' | 'disable' | 'delete',
-    names: string[],
-    actorId?: string,
-  ): Promise<BulkResult> {
-    return bulkApply(names, async (name) => {
-      if (action === 'delete') {
-        const deleted = await softDeleteModel(this.db, name);
-        if (deleted === undefined) throw engineNotFound(`model ${name} not found`);
-      } else {
-        const status = action === 'enable' ? 'active' : 'disabled';
-        const row = await updateModel(this.db, name, { status });
-        if (row === undefined) throw engineNotFound(`model ${name} not found`);
-      }
-      await this.audit.record({
-        actorType: 'operator',
-        actorId: actorId ?? null,
-        action: `model.${action}`,
-        targetType: 'model',
-        targetId: name,
-      });
-    });
-  }
-
-  /**
-   * Bulk enable/disable/delete channels BY ID with partial success. Reuses the
-   * single-row repo ops (`updateUpstreamChannel` status / `softDeleteChannel`,
-   * + `unlinkAllForChannel` on delete, mirroring {@link deleteChannel}). Emits
-   * one `audit_log` row per affected channel (`channel.enable|disable|delete`,
-   * best-effort). Channel ids are global, so the soft-delete is NOT
-   * resource-scoped here (the bulk route is flat). An id matching no live
-   * channel throws `not found` → that id lands in `failed`.
-   */
-  bulkChannels(
-    action: 'enable' | 'disable' | 'delete',
-    ids: string[],
-    actorId?: string,
-  ): Promise<BulkResult> {
-    return bulkApply(ids, async (id) => {
-      if (action === 'delete') {
-        const deleted = await softDeleteChannel(this.db, id);
-        if (deleted === undefined) throw engineNotFound(`channel ${id} not found`);
-        await unlinkAllForChannel(this.db, id);
-      } else {
-        const status = action === 'enable' ? 'active' : 'disabled';
-        const row = await updateUpstreamChannel(this.db, id, { status });
-        if (row === undefined) throw engineNotFound(`channel ${id} not found`);
-      }
-      await this.audit.record({
-        actorType: 'operator',
-        actorId: actorId ?? null,
-        action: `channel.${action}`,
-        targetType: 'channel',
-        targetId: id,
-      });
-    });
-  }
 
   /**
    * Bulk revoke OAuth sessions BY ID with partial success. Reuses the single-row
@@ -2116,42 +1327,8 @@ export class AdminService {
     });
   }
 
-  /** Grant a tenant-visibility model (by name) to a tenant. */
-  async grantModel(modelName: string, dto: GrantModelDto): Promise<void> {
-    await grantModel(this.db, modelName, dto.tenantId);
-  }
-
-  /**
-   * List a model's tenant grants (by model `name`), paginated. 404 when the
-   * model itself is absent / soft-deleted (so an operator can tell a missing
-   * model from one with zero grants).
-   */
-  async listModelGrants(modelName: string, page: PageParams): Promise<KeysetResult<ModelGrantRow>> {
-    const m = await getModelByName(this.db, modelName);
-    if (m === undefined) {
-      throw engineNotFound(`model ${modelName} not found`);
-    }
-    return listModelGrants(this.db, modelName, page);
-  }
-
-  /**
-   * Revoke a tenant's grant of a model: HARD-deletes the `model_grant` row
-   * (`model_grant` has no `deleted_at`). 404 when the model is absent or the
-   * tenant has no grant on it.
-   */
-  async deleteModelGrant(modelName: string, tenantId: string): Promise<{ id: string }> {
-    const id = await deleteModelGrant(this.db, modelName, tenantId);
-    if (id === undefined) {
-      throw engineNotFound(`grant for tenant ${tenantId} on model ${modelName} not found`);
-    }
-    return { id };
-  }
-
-  // ----- jobs -----
-
-  listJobs(tenantId: string, page: PageParams): Promise<KeysetResult<Job>> {
-    return listJobs(this.db, tenantId, page);
-  }
+  // 批次6 D3 (旧世界删除): the model-grant face (grant/list/revoke) died
+  // with `model_grant`; the `GET /admin/jobs` list died with `job`.
 
   // ----- ledger -----
 
@@ -2755,7 +1932,11 @@ export class AdminService {
     dto: AddGroupChannelDto,
   ): Promise<RouteGroupChannelRow> {
     await this.requireRouteGroup(groupId);
-    const channel = await getChannelById(this.db, channelId);
+    // 批次6 D3: the membership target is validated against the NEW
+    // `supply_channel` (the old `upstream_channel` died with its table). Until
+    // D4 drops the legacy `route_group_channel.channel_id` FK, inserts remain
+    // gated by the DB constraint (historical rows are inert).
+    const channel = await getSupplyChannelById(this.db, channelId);
     if (channel === undefined) {
       throw engineNotFound(`channel ${channelId} not found`);
     }
@@ -2834,32 +2015,32 @@ export class AdminService {
 
   // ----- ops snapshot -----
 
-  /** Authoritative platform counts for the overview KPI band (true `count(*)`). */
+  /**
+   * Authoritative platform counts for the overview KPI band (true `count(*)`).
+   * 批次6 D3: the `resource` table is deleted — `resources` degrades to 0
+   * (shape preserved for the frozen web frontend; the KPI re-points to supply
+   * models in the frontend rewrite).
+   */
   async opsSummary(): Promise<{ tenants: number; resources: number; accounts: number }> {
-    const [tenants, resources, accounts] = await Promise.all([
-      countTenants(this.db),
-      countResources(this.db),
-      countAccounts(this.db),
-    ]);
-    return { tenants, resources, accounts };
+    const [tenants, accounts] = await Promise.all([countTenants(this.db), countAccounts(this.db)]);
+    return { tenants, resources: 0, accounts };
   }
 
   /**
-   * Read-only ops health snapshot: per-channel circuit-breaker state +
-   * billable throughput normalized to req/min over the last `windowSeconds`.
-   * Introduces no new aggregates beyond the channel-health join and a windowed
-   * `count(*)`.
+   * Read-only ops health snapshot: billable throughput normalized to req/min
+   * over the last `windowSeconds`. 批次6 D3: the per-channel health rollup
+   * (`listAllChannelsWithHealth` over `upstream_channel`) died with its table —
+   * `channels` is a permanently EMPTY list (shape preserved for the frozen web
+   * frontend; the new-world health surfaces are `GET /admin/breakers` + the
+   * per-offering breaker on the supply face).
    */
   async opsHealth(
     windowSeconds = 60,
   ): Promise<{ windowSeconds: number; rpmBillable: number; channels: ChannelHealthRow[] }> {
     const from = new Date(Date.now() - windowSeconds * 1000);
-    const [count, channels] = await Promise.all([
-      countUsageLogs(this.db, { from }),
-      listAllChannelsWithHealth(this.db),
-    ]);
+    const count = await countUsageLogs(this.db, { from });
     const rpmBillable = windowSeconds === 0 ? 0 : Math.round((count / windowSeconds) * 60);
-    return { windowSeconds, rpmBillable, channels };
+    return { windowSeconds, rpmBillable, channels: [] };
   }
 
   /**
@@ -2893,11 +2074,6 @@ export class AdminService {
   resetBreaker(channelId: string, model: string): Promise<void> {
     return resetBreaker(this.db, channelId, model);
   }
-}
-
-/** True when `value` is a plain object (used to merge into a pricebook spec). */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**

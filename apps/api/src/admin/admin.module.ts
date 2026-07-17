@@ -21,7 +21,6 @@ import {
   AdminTokenAuthService,
   defaultAdminTokenAuthRepo,
 } from './auth/admin-token-auth.service.js';
-import { ModelTestService } from './model-test.service.js';
 import { OfferingLifecycleService } from './offering-lifecycle.service.js';
 import { ReconciliationController } from './reconciliation.controller.js';
 import { SupplyAdminController } from './supply.controller.js';
@@ -53,7 +52,6 @@ import { SupplyOnboardingService } from './supply-onboarding.service.js';
     AdminAuthService,
     AdminService,
     AdminTokenService,
-    ModelTestService,
     // NEW-WORLD supply skeleton CRUD (/admin/supply/*, model-supply 批次1).
     SupplyAdminService,
     // 批次5 slice1: golden probe + enable 双门 (/admin/supply/offerings/:id/

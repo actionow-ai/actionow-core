@@ -6,11 +6,11 @@
 // summaries (member 自助面 + key-allowlist config feed on it; replaces the
 // old /v1/resources discovery in the new world).
 //
-// 双面并存处置: the OLD OpenAI-shape `GET /v1/models` (chat/models.controller,
-// old-world listVisibleModels) is UNTOUCHED — mounting a second controller on
-// the same route would shadow nondeterministically. The new face lives at
-// `GET /v1/gateway/models`; slice6's 切换预案 repoints `/v1/models` here by
-// swapping the controller path in ONE line once the chat facade migrates.
+// 批次6 D3: the OLD OpenAI-shape `GET /v1/models` (chat/models.controller
+// over the deleted catalog) is GONE with the resource three-layer — this is
+// now the only discovery face. It stays at `GET /v1/gateway/models`;
+// repointing `/v1/models` here is a one-line path swap when the product
+// wants the OpenAI-compatible route back.
 import type { GatewayModelList, GatewayModelView, ModelOperation } from '@actionow/contracts';
 import type { SupplyModelRow } from '@actionow/db';
 import { Controller, Get, Req, UseGuards } from '@nestjs/common';

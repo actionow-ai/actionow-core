@@ -146,41 +146,9 @@ function memberToken(subjectId: string, tenantId: string): string {
   return jwt.sign({ sub: subjectId, tenant_id: tenantId, typ: 'subject' });
 }
 
-/** Seed a `/v1` resource (fake-llm, unit pricing) for the tenant so keys can run. */
-async function seedResource(tenantId: string, resourceId: string): Promise<void> {
-  await db.insert(schema.resource).values({
-    id: resourceId,
-    tenantId,
-    kind: 'model',
-    modality: 'text',
-    providerType: 'fake-llm',
-    execModes: ['blocking'],
-    currentVersion: 1,
-  });
-  await db.insert(schema.resourceVersion).values({
-    resourceId,
-    version: 1,
-    ioSchema: {
-      inputs: [{ key: 'prompt', type: 'string', required: true }],
-      outputs: [{ key: 'text', type: 'string' }],
-    },
-  });
-  await db.insert(schema.pricebookEntry).values({
-    resourceId,
-    resourceVersion: 1,
-    version: 1,
-    method: 'unit',
-    timing: 'post',
-    spec: { method: 'unit', dimensions: { tokens: { rate: 1 } } },
-    active: true,
-  });
-  await db.insert(schema.upstreamChannel).values({
-    resourceId,
-    providerType: 'fake-llm',
-    weight: 1,
-    status: 'active',
-  });
-}
+// 批次6 D3 (旧世界删除): the old `seedResource` fixture (resource +
+// resource_version + pricebook_entry + upstream_channel) died with its tables.
+// The `/v1/tasks` list is a pure auth probe — no supply fixture needed.
 
 describe('/member/* write self-service (subject-scoped)', () => {
   it('PATCH /member/me updates the caller-subject own display_name', async () => {
@@ -276,7 +244,6 @@ describe('/member/* write self-service (subject-scoped)', () => {
       .update(schema.account)
       .set({ creditBalance: 50_000_000n })
       .where(eq(schema.account.tenantId, tenantId));
-    await seedResource(tenantId, 'openai-gpt');
 
     const subjectId = await makeSubject(adminToken, 'mw-mint-subj');
     const token = memberToken(subjectId, tenantId);
@@ -330,11 +297,7 @@ describe('/member/* write self-service (subject-scoped)', () => {
 
   it('DELETE /member/api-keys/:id revokes OWN key (it stops authing); a sibling key → 404', async () => {
     const { token: adminToken, tenantId } = await registerAdmin('mw-revoke@example.com');
-    await db
-      .update(schema.account)
-      .set({ creditBalance: 50_000_000n })
-      .where(eq(schema.account.tenantId, tenantId));
-    await seedResource(tenantId, 'openai-gpt');
+    await db.update(schema.account).set({ creditBalance: 50_000_000n });
 
     const subjectA = await makeSubject(adminToken, 'mw-revoke-a');
     const subjectB = await makeSubject(adminToken, 'mw-revoke-b');

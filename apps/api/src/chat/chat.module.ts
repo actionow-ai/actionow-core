@@ -6,12 +6,6 @@ import { GatewayModule } from '../gateway/gateway.module.js';
 import { AnthropicChatController } from './anthropic.controller.js';
 import { EmbeddingsController } from './embeddings.controller.js';
 import { GeminiChatController } from './gemini.controller.js';
-import {
-  MODEL_RESOLVER,
-  ModelResolverService,
-  realModelResolverPort,
-} from './model-resolver.service.js';
-import { ModelsController } from './models.controller.js';
 import { ModerationsController } from './moderations.controller.js';
 import { OpenAIChatController } from './openai.controller.js';
 import { RerankController } from './rerank.controller.js';
@@ -26,9 +20,9 @@ import { TranscriptionsController } from './transcriptions.controller.js';
  * {@link GatewayChatV2Service} (批次6 D2 — the legacy relay world is deleted;
  * the 切换预案②③ gray-release branches are collapsed to always-new).
  *
- * `GET /v1/models` (OpenAI-shaped discovery over the OLD catalog's
- * `listVisibleModels`) survives until the resource/model tables drop (D3);
- * the new discovery face is `GET /v1/gateway/models`.
+ * 批次6 D3: the old `GET /v1/models` (OpenAI-shaped discovery over the OLD
+ * catalog's `listVisibleModels`) died with the resource/model tables; the
+ * discovery face is `GET /v1/gateway/models` (gateway module).
  */
 @Module({
   imports: [GatewayModule],
@@ -40,14 +34,8 @@ import { TranscriptionsController } from './transcriptions.controller.js';
     RerankController,
     ModerationsController,
     TranscriptionsController,
-    ModelsController,
   ],
-  providers: [
-    ModelResolverService,
-    AuthService,
-    ApiKeyGuard,
-    { provide: MODEL_RESOLVER, useValue: realModelResolverPort },
-  ],
+  providers: [AuthService, ApiKeyGuard],
 })
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- NestJS modules are decorated empty classes
 export class ChatModule {}

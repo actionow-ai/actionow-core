@@ -1,5 +1,5 @@
 import type { IntentResult, PaymentProviderKind, VerifiedEvent } from '@actionow/contracts';
-import { createModel, createResource, schema } from '@actionow/db';
+import { createSupplyModel, schema } from '@actionow/db';
 import { PaymentService } from '@actionow/engine';
 import { FakeRateLimitRedis, RedisRateLimiter } from '@actionow/infra';
 import type { PaymentProvider, PaymentRegistry } from '@actionow/payments';
@@ -113,7 +113,7 @@ afterAll(async () => {
 afterEach(async () => {
   await resetDb(
     () =>
-      client`TRUNCATE TABLE model_grant, model, resource_version, resource, api_key, ledger_txn, payment_intent, payment_event, job, account, tenant, "user" RESTART IDENTITY CASCADE`,
+      client`TRUNCATE TABLE supply_model_grant, supply_model, api_key, ledger_txn, payment_intent, payment_event, account, tenant, "user" RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -136,29 +136,24 @@ async function tenantOf(email: string): Promise<string> {
   return row.tenantId;
 }
 
-describe('GET /console/models over the real bound ModelsPort (Track C seam)', () => {
-  it('returns a created public model for the caller tenant', async () => {
+describe('GET /console/models over the real bound ModelsPort (批次6 D3 — supply world)', () => {
+  it('returns a created public supply model for the caller tenant', async () => {
     const email = 'bind@example.com';
     const token = await registerUser(email);
-    const tenantId = await tenantOf(email);
+    await tenantOf(email); // sanity: registration provisioned a tenant
 
-    // Create a chat resource + a public model in the caller's own tenant.
-    await createResource(db, {
-      id: 'gpt4o-res',
-      tenantId,
-      kind: 'model',
-      modality: 'text',
-      providerType: 'openai',
-      execModes: ['blocking'],
-      ioSchema: { inputs: [], outputs: [] },
-      version: 1,
-    });
-    await createModel(db, {
+    // Create a servable public supply model (the port is global-visibility
+    // gated: `public` OR a supply_model_grant for the tenant).
+    await createSupplyModel(db, {
       name: 'gpt-4o',
-      resourceId: 'gpt4o-res',
-      display: 'GPT-4o',
+      displayName: 'GPT-4o',
+      modality: 'text',
+      status: 'active',
       visibility: 'public',
-      capabilities: { tools: true },
+      capabilities: ['tool-call'],
+      operations: [
+        { operation: 'chat.completions', paradigms: ['sync', 'stream'], slow: false, params: [] },
+      ],
     });
 
     const res = await request(server())
@@ -171,9 +166,9 @@ describe('GET /console/models over the real bound ModelsPort (Track C seam)', ()
     expect(res.body.data[0]).toMatchObject({
       name: 'gpt-4o',
       display: 'GPT-4o',
-      modality: 'chat',
+      modality: 'text',
       visibility: 'public',
     });
-    expect(res.body.data[0].capabilities).toEqual({ tools: true });
+    expect(res.body.data[0].capabilities).toEqual(['tool-call']);
   });
 });

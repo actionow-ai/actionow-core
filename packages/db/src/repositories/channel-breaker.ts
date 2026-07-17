@@ -1,6 +1,5 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
-import { upstreamChannel } from '../schema/catalog.js';
 import { channelBreaker } from '../schema/channel-breaker.js';
 import type { DbOrTx } from './types.js';
 
@@ -102,12 +101,11 @@ export async function listBreakers(db: DbOrTx): Promise<BreakerRow[]> {
 }
 
 /**
- * A breaker row joined with its channel's identifying fields for the admin status
- * view. An `upstream_channel` has no human name column, so `channelName` carries
- * the channel's `provider_type` (the closest display label) and `resourceId` the
- * owning resource id (itself a human-readable slug like `gpt`); together they
- * locate the channel for the ops surface. Both are nullable for a breaker whose
- * channel row was hard-deleted (the LEFT JOIN misses).
+ * A breaker row projected for the admin status view. 批次6 D3: the
+ * `upstream_channel` table (the old join target for `channelName`/`resourceId`)
+ * is deleted — these historical FSM rows keep their raw `channelId` and the
+ * label fields degrade to `null` (the same shape a hard-deleted channel already
+ * produced), so the ops surface + contract stay unchanged.
  */
 export interface BreakerStatusRow {
   readonly channelId: string;
@@ -123,18 +121,18 @@ export interface BreakerStatusRow {
 }
 
 /**
- * Every `(channel, model)` breaker row LEFT-joined to its channel's identifying
- * fields, ordered newest-transition-first. Backs `GET /admin/breakers` — the ops
- * status surface. A `(channel, model)` with no row is implicitly closed and simply
- * absent from this list (only tripped/probing breakers persist a row).
+ * Every `(channel, model)` breaker row, ordered newest-transition-first. Backs
+ * `GET /admin/breakers` — the ops status surface. A `(channel, model)` with no
+ * row is implicitly closed and simply absent from this list (only
+ * tripped/probing breakers persist a row). `channelName`/`resourceId` are
+ * `null` since the old `upstream_channel` join target is deleted (D3).
  */
 export async function listBreakersWithChannel(db: DbOrTx): Promise<BreakerStatusRow[]> {
   return db
     .select({
       channelId: channelBreaker.channelId,
-      // upstream_channel has no human name; provider_type is the display label.
-      channelName: upstreamChannel.providerType,
-      resourceId: upstreamChannel.resourceId,
+      channelName: sql<string | null>`NULL`,
+      resourceId: sql<string | null>`NULL`,
       model: channelBreaker.model,
       state: channelBreaker.state,
       openedAt: channelBreaker.openedAt,
@@ -144,6 +142,5 @@ export async function listBreakersWithChannel(db: DbOrTx): Promise<BreakerStatus
       lastTransitionAt: channelBreaker.lastTransitionAt,
     })
     .from(channelBreaker)
-    .leftJoin(upstreamChannel, eq(upstreamChannel.id, channelBreaker.channelId))
     .orderBy(channelBreaker.lastTransitionAt) as Promise<BreakerStatusRow[]>;
 }

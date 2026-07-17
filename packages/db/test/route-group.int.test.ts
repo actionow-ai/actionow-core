@@ -7,26 +7,27 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   addChannelToGroup,
   createApiKey,
-  createResource,
   createRouteGroup,
   createTenant,
-  createUpstreamChannel,
   getApiKeyForTenant,
   getRouteGroupById,
   getRouteGroupByName,
   listApiKeys,
-  listCandidateChannelsWithFallback,
   listGroupChannels,
-  listGroupChannelsForResource,
   listRouteGroups,
   removeChannelFromGroup,
   setApiKeyGroup,
-  softDeleteChannel,
   softDeleteRouteGroup,
   updateRouteGroup,
-  type UpstreamChannelRow,
 } from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
+
+// 批次6 D3 (旧世界删除): the Track-4 router consumers over the deleted
+// `upstream_channel` table (`listGroupChannelsForResource` /
+// `listCandidateChannelsWithFallback`, and the resource/channel fixtures)
+// died with the resource three-layer. Route groups survive as the
+// pricing/access tier entity; the membership CRUD below still backs the
+// retained `/admin/route-groups/:id/channels` face.
 
 let container: StartedPostgreSqlContainer;
 let client: ReturnType<typeof postgres>;
@@ -45,29 +46,27 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE route_group_channel, route_group, api_key, upstream_channel, resource_version, resource, secret_ref, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE route_group_channel, route_group, api_key, upstream_channel, resource, tenant RESTART IDENTITY CASCADE`;
 });
 
-/** Create a tenant + a chat resource and return ids (resource for channel FKs). */
-async function seedResource(idSuffix: string): Promise<{ tenantId: string; resourceId: string }> {
+/**
+ * 批次6 D3: the `resource`/`upstream_channel` schema definitions (and their
+ * repo creators) are deleted, but the DB still carries both tables AND the
+ * `route_group_channel.channel_id` FK until D4's DROP migration lands — so the
+ * membership fixture seeds a channel with RAW SQL. D4 removes this with the FK.
+ */
+async function seedChannelRaw(idSuffix: string): Promise<string> {
   const tenant = await createTenant(db, { name: `t-${idSuffix}` });
-  const resourceId = `res-${idSuffix}`;
-  await createResource(db, {
-    id: resourceId,
-    tenantId: tenant.id,
-    kind: 'model',
-    modality: 'text',
-    providerType: 'openai',
-    execModes: ['blocking'],
-    ioSchema: { inputs: [], outputs: [] },
-    version: 1,
-  });
-  return { tenantId: tenant.id, resourceId };
-}
-
-/** Create an upstream channel on a resource. */
-function mkChannel(resourceId: string, status = 'active'): Promise<UpstreamChannelRow> {
-  return createUpstreamChannel(db, { resourceId, providerType: 'openai', status });
+  await client`
+    INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes, current_version)
+    VALUES (${`res-${idSuffix}`}, ${tenant.id}, 'model', 'text', 'openai', '["blocking"]'::jsonb, 1)`;
+  const rows = await client`
+    INSERT INTO upstream_channel (resource_id, provider_type, status)
+    VALUES (${`res-${idSuffix}`}, 'openai', 'active')
+    RETURNING id`;
+  const id = rows[0]?.id as string | undefined;
+  if (id === undefined) throw new Error('upstream_channel insert returned no row');
+  return id;
 }
 
 describe('route_group CRUD', () => {
@@ -154,179 +153,33 @@ describe('route_group CRUD', () => {
 
 describe('route_group_channel membership', () => {
   it('adds, lists with priority/weight, upserts on conflict, and removes', async () => {
-    const { resourceId } = await seedResource('m1');
     const group = await createRouteGroup(db, { name: 'g' });
-    const c1 = await mkChannel(resourceId);
-    const c2 = await mkChannel(resourceId);
+    const c1 = await seedChannelRaw('m1');
+    const c2 = await seedChannelRaw('m2');
 
-    await addChannelToGroup(db, { groupId: group.id, channelId: c1.id, priority: 10, weight: 3 });
-    await addChannelToGroup(db, { groupId: group.id, channelId: c2.id }); // defaults 0/1
+    await addChannelToGroup(db, { groupId: group.id, channelId: c1, priority: 10, weight: 3 });
+    await addChannelToGroup(db, { groupId: group.id, channelId: c2 }); // defaults 0/1
 
     const { rows } = await listGroupChannels(db, group.id, { limit: 50 });
     const byChannel = new Map(rows.map((r) => [r.channelId, r]));
-    expect(byChannel.get(c1.id)?.priority).toBe(10);
-    expect(byChannel.get(c1.id)?.weight).toBe(3);
-    expect(byChannel.get(c2.id)?.priority).toBe(0);
-    expect(byChannel.get(c2.id)?.weight).toBe(1);
+    expect(byChannel.get(c1)?.priority).toBe(10);
+    expect(byChannel.get(c1)?.weight).toBe(3);
+    expect(byChannel.get(c2)?.priority).toBe(0);
+    expect(byChannel.get(c2)?.weight).toBe(1);
 
     // Upsert on PK conflict → updates priority/weight (no duplicate row).
-    await addChannelToGroup(db, { groupId: group.id, channelId: c1.id, priority: 20, weight: 5 });
+    await addChannelToGroup(db, { groupId: group.id, channelId: c1, priority: 20, weight: 5 });
     const after = await listGroupChannels(db, group.id, { limit: 50 });
     expect(after.rows).toHaveLength(2);
-    expect(after.rows.find((r) => r.channelId === c1.id)?.priority).toBe(20);
-    expect(after.rows.find((r) => r.channelId === c1.id)?.weight).toBe(5);
+    expect(after.rows.find((r) => r.channelId === c1)?.priority).toBe(20);
+    expect(after.rows.find((r) => r.channelId === c1)?.weight).toBe(5);
 
     // Remove the membership row (no soft-delete; the row is gone).
-    const removed = await removeChannelFromGroup(db, group.id, c1.id);
+    const removed = await removeChannelFromGroup(db, group.id, c1);
     expect(removed).toBe(true);
     expect((await listGroupChannels(db, group.id, { limit: 50 })).rows).toHaveLength(1);
     // A second remove is a no-op (false).
-    expect(await removeChannelFromGroup(db, group.id, c1.id)).toBe(false);
-  });
-});
-
-describe('listGroupChannelsForResource (Track 4 consumer shape)', () => {
-  it('returns only the resource’s channels in the group, priority DESC, weight DESC', async () => {
-    const { resourceId: resA } = await seedResource('a');
-    const { resourceId: resB } = await seedResource('b');
-    const group = await createRouteGroup(db, { name: 'g' });
-
-    // resA channels: a1 (pri 5, w 2), a2 (pri 5, w 9 → sorts before a1), a3 (pri 10).
-    const a1 = await mkChannel(resA);
-    const a2 = await mkChannel(resA);
-    const a3 = await mkChannel(resA);
-    // resB channel b1 is in the group too — must be EXCLUDED (wrong resource).
-    const b1 = await mkChannel(resB);
-
-    await addChannelToGroup(db, { groupId: group.id, channelId: a1.id, priority: 5, weight: 2 });
-    await addChannelToGroup(db, { groupId: group.id, channelId: a2.id, priority: 5, weight: 9 });
-    await addChannelToGroup(db, { groupId: group.id, channelId: a3.id, priority: 10, weight: 1 });
-    await addChannelToGroup(db, { groupId: group.id, channelId: b1.id, priority: 99, weight: 1 });
-
-    const rows = await listGroupChannelsForResource(db, resA, group.id);
-    expect(rows.map((r) => r.id)).toEqual([a3.id, a2.id, a1.id]); // pri DESC, then weight DESC
-    // each row carries the per-(group,channel) priority + weight + channel fields.
-    expect(rows[0]?.priority).toBe(10);
-    expect(rows[1]?.weight).toBe(9);
-    expect(rows[0]?.resourceId).toBe(resA);
-    expect(rows.some((r) => r.id === b1.id)).toBe(false);
-  });
-
-  it('excludes soft-deleted channels and disabled/soft-deleted groups', async () => {
-    const { resourceId } = await seedResource('s');
-    const group = await createRouteGroup(db, { name: 'live' });
-    const live = await mkChannel(resourceId);
-    const dead = await mkChannel(resourceId);
-    const disabled = await mkChannel(resourceId, 'disabled');
-
-    await addChannelToGroup(db, { groupId: group.id, channelId: live.id, priority: 1, weight: 1 });
-    await addChannelToGroup(db, { groupId: group.id, channelId: dead.id, priority: 2, weight: 1 });
-    await addChannelToGroup(db, {
-      groupId: group.id,
-      channelId: disabled.id,
-      priority: 3,
-      weight: 1,
-    });
-
-    await softDeleteChannel(db, dead.id);
-
-    const rows = await listGroupChannelsForResource(db, resourceId, group.id);
-    // soft-deleted + disabled channels are excluded → only the active live one.
-    expect(rows.map((r) => r.id)).toEqual([live.id]);
-
-    // A soft-deleted group yields no candidates.
-    await softDeleteRouteGroup(db, group.id);
-    expect(await listGroupChannelsForResource(db, resourceId, group.id)).toHaveLength(0);
-
-    // Re-create the group + re-add the live channel; disable the group → no candidates.
-    const g2 = await createRouteGroup(db, { name: 'disabled-group', status: 'disabled' });
-    await addChannelToGroup(db, { groupId: g2.id, channelId: live.id, priority: 1, weight: 1 });
-    expect(await listGroupChannelsForResource(db, resourceId, g2.id)).toHaveLength(0);
-  });
-});
-
-describe('listCandidateChannelsWithFallback (cross-group failover, 弹性2.0)', () => {
-  it('appends the fallback group’s channels at a strictly lower tier', async () => {
-    const { resourceId } = await seedResource('fb1');
-    // Group A (a1 pri 5, a2 pri 10) → fallback group B (b1 pri 99).
-    const a1 = await mkChannel(resourceId);
-    const a2 = await mkChannel(resourceId);
-    const b1 = await mkChannel(resourceId);
-    const groupB = await createRouteGroup(db, { name: 'fb-b' });
-    const groupA = await createRouteGroup(db, { name: 'fb-a', fallbackGroupId: groupB.id });
-    await addChannelToGroup(db, { groupId: groupA.id, channelId: a1.id, priority: 5, weight: 1 });
-    await addChannelToGroup(db, { groupId: groupA.id, channelId: a2.id, priority: 10, weight: 1 });
-    await addChannelToGroup(db, { groupId: groupB.id, channelId: b1.id, priority: 99, weight: 1 });
-
-    const rows = await listCandidateChannelsWithFallback(db, resourceId, groupA.id);
-    // A's own channels keep their (group,channel) priority; B's are demoted below.
-    const byId = new Map(rows.map((r) => [r.id, r]));
-    expect(byId.get(a1.id)?.priority).toBe(5);
-    expect(byId.get(a2.id)?.priority).toBe(10);
-    // b1 (own priority 99) is demoted by one hop's offset → strictly below A's lowest.
-    const b1Pri = byId.get(b1.id)?.priority ?? 0;
-    expect(b1Pri).toBeLessThan(5);
-    expect(b1Pri).toBeLessThan(byId.get(a1.id)?.priority ?? 0);
-    expect(rows).toHaveLength(3);
-  });
-
-  it('stops at a cycle (A→B→A) — each group’s channels appear once', async () => {
-    const { resourceId } = await seedResource('fb2');
-    const a1 = await mkChannel(resourceId);
-    const b1 = await mkChannel(resourceId);
-    const groupA = await createRouteGroup(db, { name: 'cyc-a' });
-    const groupB = await createRouteGroup(db, { name: 'cyc-b', fallbackGroupId: groupA.id });
-    await updateRouteGroup(db, groupA.id, { fallbackGroupId: groupB.id }); // A→B, B→A
-    await addChannelToGroup(db, { groupId: groupA.id, channelId: a1.id, priority: 1, weight: 1 });
-    await addChannelToGroup(db, { groupId: groupB.id, channelId: b1.id, priority: 1, weight: 1 });
-
-    const rows = await listCandidateChannelsWithFallback(db, resourceId, groupA.id);
-    const ids = rows.map((r) => r.id);
-    // Cycle guard: A and B each contribute exactly once, no infinite loop.
-    expect(ids.filter((id) => id === a1.id)).toHaveLength(1);
-    expect(ids.filter((id) => id === b1.id)).toHaveLength(1);
-    expect(rows).toHaveLength(2);
-  });
-
-  it('truncates a chain longer than the depth cap (5 hops)', async () => {
-    const { resourceId } = await seedResource('fb3');
-    // Build a linear chain g0 → g1 → ... → g6 (7 groups), one channel each.
-    const groups: string[] = [];
-    const channels: string[] = [];
-    let nextFallback: string | null = null;
-    for (let i = 6; i >= 0; i--) {
-      const g = await createRouteGroup(db, {
-        name: `depth-${String(i)}`,
-        ...(nextFallback !== null ? { fallbackGroupId: nextFallback } : {}),
-      });
-      const ch = await mkChannel(resourceId);
-      await addChannelToGroup(db, { groupId: g.id, channelId: ch.id, priority: 1, weight: 1 });
-      groups[i] = g.id;
-      channels[i] = ch.id;
-      nextFallback = g.id;
-    }
-
-    const startGroupId = groups[0];
-    if (startGroupId === undefined) throw new Error('no start group');
-    const rows = await listCandidateChannelsWithFallback(db, resourceId, startGroupId);
-    // Depth cap = 5 hops → at most 5 groups' channels (g0..g4), never the full 7.
-    expect(rows.length).toBeLessThanOrEqual(5);
-    expect(rows.length).toBeGreaterThanOrEqual(1);
-    // The starting group's channel is always present.
-    expect(rows.some((r) => r.id === channels[0])).toBe(true);
-    // The deepest groups beyond the cap are truncated.
-    expect(rows.some((r) => r.id === channels[6])).toBe(false);
-  });
-
-  it('returns just the group’s own channels when there is no fallback', async () => {
-    const { resourceId } = await seedResource('fb4');
-    const a1 = await mkChannel(resourceId);
-    const group = await createRouteGroup(db, { name: 'no-fb' });
-    await addChannelToGroup(db, { groupId: group.id, channelId: a1.id, priority: 3, weight: 1 });
-
-    const rows = await listCandidateChannelsWithFallback(db, resourceId, group.id);
-    expect(rows.map((r) => r.id)).toEqual([a1.id]);
-    expect(rows[0]?.priority).toBe(3); // own tier unchanged at hop 0
+    expect(await removeChannelFromGroup(db, group.id, c1)).toBe(false);
   });
 });
 

@@ -97,9 +97,11 @@ describe('one-step provision (POST /admin/provision) e2e', () => {
     expect(body.account.credit_balance).toBe(String(50_000_000));
     expect(body.api_key.plaintext).toMatch(/^ak_[A-Za-z0-9_-]+$/);
 
-    // The minted key is REAL and usable: it authenticates a data-plane call.
+    // The minted key is REAL and usable: it authenticates a data-plane call
+    // (批次6 D3: the old GET /v1/models died with the catalog — the task-center
+    // list is the auth probe).
     await request(app.getHttpServer())
-      .get('/v1/models')
+      .get('/v1/tasks')
       .set('authorization', `Bearer ${body.api_key.plaintext}`)
       .expect(200);
   });
