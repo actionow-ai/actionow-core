@@ -14,7 +14,9 @@ const DRIZZLE_DIR = join(import.meta.dirname, '..', 'drizzle');
 
 // The Track C relay tables. Asserted by name (not by migration number) so a
 // future renumbering/squash of migrations can't silently drop the assertion.
-const RELAY_TABLES = ['model', 'model_grant', 'usage_log', 'redemption_code'] as const;
+// 批次6 D4: `model` / `model_grant` were dropped by mig 0072 (old-world
+// deletion) — only the surviving relay tables are asserted here.
+const RELAY_TABLES = ['usage_log', 'redemption_code'] as const;
 
 let container: StartedPostgreSqlContainer;
 let client: ReturnType<typeof postgres>;
@@ -34,7 +36,7 @@ afterAll(async () => {
 });
 
 describe('relay tables after full migration', () => {
-  it('creates model, model_grant, usage_log, redemption_code', async () => {
+  it('creates usage_log, redemption_code', async () => {
     for (const table of RELAY_TABLES) {
       const rows = await client`SELECT to_regclass(${`public.${table}`}) AS reg`;
       expect(rows[0]?.reg).toBe(table);

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { eq } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
@@ -87,30 +89,24 @@ describe('user.tenant_role constraint (rbac Task 1)', () => {
 });
 
 describe('channel_breaker (弹性2.0)', () => {
-  /** Insert a minimal tenant → resource → upstream_channel chain; return the channel id. */
-  async function makeChannel(): Promise<string> {
-    const [t] = await client`INSERT INTO tenant (name) VALUES ('brk') RETURNING id`;
-    if (!t) throw new Error('tenant insert returned no row');
-    await client`
-      INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes, current_version)
-      VALUES ('brk-res', ${t.id}, 'model', 'text', 'mock-chat', '["blocking"]'::jsonb, 1)
-    `;
-    const [ch] = await client`
-      INSERT INTO upstream_channel (resource_id, provider_type) VALUES ('brk-res', 'mock-chat') RETURNING id
-    `;
-    if (!ch) throw new Error('upstream_channel insert returned no row');
-    return ch.id as string;
+  /**
+   * 批次6 D4: `channel_breaker.channel_id` is a plain uuid — mig 0072 dropped
+   * the old `resource`/`upstream_channel` tables and the FK — so a fresh
+   * random uuid stands in for a channel id with no backing row.
+   */
+  function makeChannel(): string {
+    return randomUUID();
   }
 
   it('rejects an invalid breaker state', async () => {
-    const ch = await makeChannel();
+    const ch = makeChannel();
     await expect(
       db.insert(schema.channelBreaker).values({ channelId: ch, model: 'gpt-x', state: 'bogus' }),
     ).rejects.toThrow();
   });
 
   it('accepts the three valid states + composite PK', async () => {
-    const ch = await makeChannel();
+    const ch = makeChannel();
     for (const state of ['closed', 'open', 'half_open']) {
       await db.insert(schema.channelBreaker).values({ channelId: ch, model: `m-${state}`, state });
     }
@@ -122,7 +118,7 @@ describe('channel_breaker (弹性2.0)', () => {
   });
 
   it('enforces the composite PK (channel_id, model)', async () => {
-    const ch = await makeChannel();
+    const ch = makeChannel();
     await db.insert(schema.channelBreaker).values({ channelId: ch, model: 'dup', state: 'closed' });
     await expect(
       db.insert(schema.channelBreaker).values({ channelId: ch, model: 'dup', state: 'open' }),
@@ -246,12 +242,6 @@ describe('schema hardening (migration 0052)', () => {
     await client`INSERT INTO subject (tenant_id, external_id) VALUES (${t.id}, 'ext-1')`;
   });
 
-  it('provider_plugin.slug is unique among LIVE rows but freed by soft-delete', async () => {
-    const ins = (slug: string) =>
-      client`INSERT INTO provider_plugin (slug, label, protocol, auth_strategy, manifest, handler) VALUES (${slug}, 'L', 'sync', 'bearer', '{}'::jsonb, 'h')`;
-    await ins('p-uq-soft');
-    await expect(ins('p-uq-soft')).rejects.toThrow(); // duplicate live slug
-    await client`UPDATE provider_plugin SET deleted_at = now() WHERE slug = 'p-uq-soft' AND deleted_at IS NULL`;
-    await ins('p-uq-soft'); // freed after soft-delete
-  });
+  // 批次6 D4: the `provider_plugin.slug` partial-unique test died with its
+  // table (mig 0072 dropped `provider_plugin`).
 });

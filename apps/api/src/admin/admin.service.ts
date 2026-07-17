@@ -1932,10 +1932,9 @@ export class AdminService {
     dto: AddGroupChannelDto,
   ): Promise<RouteGroupChannelRow> {
     await this.requireRouteGroup(groupId);
-    // 批次6 D3: the membership target is validated against the NEW
-    // `supply_channel` (the old `upstream_channel` died with its table). Until
-    // D4 drops the legacy `route_group_channel.channel_id` FK, inserts remain
-    // gated by the DB constraint (historical rows are inert).
+    // 批次6 D3/D4: the membership target is validated against the NEW
+    // `supply_channel` (the old `upstream_channel` died with its table; mig
+    // 0072 dropped the legacy `route_group_channel.channel_id` FK).
     const channel = await getSupplyChannelById(this.db, channelId);
     if (channel === undefined) {
       throw engineNotFound(`channel ${channelId} not found`);

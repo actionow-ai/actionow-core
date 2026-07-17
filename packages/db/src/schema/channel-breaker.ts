@@ -16,8 +16,8 @@ import { check, integer, pgTable, primaryKey, text, timestamp, uuid } from 'driz
 export const channelBreaker = pgTable(
   'channel_breaker',
   {
-    // 批次6 D3: plain uuid — the FK to the deleted `upstream_channel` table is
-    // dropped (D4: DROP CONSTRAINT channel_breaker_channel_id_upstream_channel_id_fk).
+    // 批次6 D3/D4: plain uuid — the FK to the deleted `upstream_channel` table was
+    // dropped (mig 0072: DROP CONSTRAINT channel_breaker_channel_id_upstream_channel_id_fk).
     channelId: uuid('channel_id').notNull(),
     /** Resolved model name, or `'*'` for model-less resources. */
     model: text('model').notNull(),

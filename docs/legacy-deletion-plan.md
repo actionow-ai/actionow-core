@@ -1,9 +1,13 @@
 # 旧世界删除计划（切换预案④ · DRI 确认后执行 · 不可逆）
 
-> **状态：待 DRI 确认。本文档只是删除计划，删除本身尚未执行。**
+> **状态（2026-07-17）：DRI 已授权，代码删除 D1–D4 已执行完毕（批次 6）。**
+> 步骤 2–6 已落地（commits ad05311 / 33f1315 / 2983266）；步骤 7 的 DROP migration
+> **0072 已生成并通过 testcontainer 全链 apply 验证**，但 **尚未对生产库执行** ——
+> DROP 上生产是独立部署动作，须 DRI 二次确认后随发布手动打（见步骤 7 注）。
+> 步骤 8 收尾（全链验证 + skill 二次清除）已完成。
 >
 > 依据 plan v3 切换预案 D1：「删除是最后一步不可逆动作，DRI 显式确认后执行」。
-> 生成于批次 5（运营面收口 + 切换接线已落地），删除留待迁移窗结束 + DRI 签字。
+> 生成于批次 5（运营面收口 + 切换接线已落地）。
 
 ## 0. 删除前置门（全部满足才可动手）
 
@@ -53,7 +57,9 @@
 5. **删 `/v1/jobs` + job-runner**：删 jobs 模块（改 app.module + admin.module 的 JobsService 复用）→ 删 worker job-exec.processor + start.ts 旧队列 → 删 engine job-runner/stream/reaper/job-progress（改 barrel）→ 删 SDK 旧 helper submitAndWait/consumeJobStream/verifyWebhookSignature（改 sdk barrel）。
 6. **删 resource 三层 + 旧供给**：删 channel-routing.service、旧 model-resolver 旧路径、admin catalog CRUD、seed-providers/seed 供给段。schema 局部删（resource/version/upstream_channel/model/modelGrant/channelModel/pricebookEntry；留 secretRef/secretMaterial/modifier）+ 对应 repo。
 7. **DROP migration（最后 · 单独批 · DRI 二次确认）**：drizzle migration append-only 不可删旧 SQL → 新增一支 DROP migration（mig 0072+）：`ALTER TABLE ledger_txn DROP CONSTRAINT ..._job_id_...` → `DROP TABLE job, resource, resource_version, upstream_channel, channel_model, dify_binding, provider_plugin, pricebook_entry, webhook_outbox`。**一旦上生产不可回滚**，与代码删除分开发布、独立确认。
+   ✅ **D4 已生成 `0072_tan_skreet.sql`**（3 DROP CONSTRAINT 先行 + 12 DROP TABLE；手工调序保证先删 FK 再删表），并在 testcontainer 临时库上全链 0000→0072 干净 apply（migration-0072.int.test.ts 断言 12 表已删/3 FK 已删/保留资产完好）。⚠️ **生产库尚未执行**：Zeabur 不自动跑迁移——上线时须按 release-v0011 runbook 手动打 0072 SQL + 补 drizzle bookkeeping（hash=sha256(raw .sql)），打之前做好快照。
 8. **收尾**：全链 typecheck/lint/test + 漂移门绿；skill 二次清除迁移窗保留段（见 batch5-slice4 报告清单）；更新 openapi 快照 + docs.e2e；seed 改为「目录 + 方言包」；清 worker 旧队列文档。
+   ✅ **D4 已完成 skill 二次清除**（actionow-integration：SKILL.md 迁移通告→removed 映射表、03 尾部 legacy face 段、endpoint-catalog DEPRECATED→REMOVED、05/06/07 legacy 小节、run-and-poll/verify-webhook 头注；building-on-actionow：SKILL.md 4/6 条、02/03 括注）；全链验证见 D4 报告。openapi 快照/docs.e2e 已在 D2-E 随 SDK 重生成落地。
 
 ## 5. 破坏面（删除时一并清的测试/文档）
 

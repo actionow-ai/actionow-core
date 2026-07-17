@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
@@ -46,27 +48,16 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE route_group_channel, route_group, api_key, upstream_channel, resource, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE route_group_channel, route_group, api_key, tenant RESTART IDENTITY CASCADE`;
 });
 
 /**
- * 批次6 D3: the `resource`/`upstream_channel` schema definitions (and their
- * repo creators) are deleted, but the DB still carries both tables AND the
- * `route_group_channel.channel_id` FK until D4's DROP migration lands — so the
- * membership fixture seeds a channel with RAW SQL. D4 removes this with the FK.
+ * 批次6 D4: `route_group_channel.channel_id` is a plain uuid — mig 0072
+ * dropped both the old `resource`/`upstream_channel` tables and the FK — so a
+ * fresh random uuid stands in for a channel id with no backing row.
  */
-async function seedChannelRaw(idSuffix: string): Promise<string> {
-  const tenant = await createTenant(db, { name: `t-${idSuffix}` });
-  await client`
-    INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes, current_version)
-    VALUES (${`res-${idSuffix}`}, ${tenant.id}, 'model', 'text', 'openai', '["blocking"]'::jsonb, 1)`;
-  const rows = await client`
-    INSERT INTO upstream_channel (resource_id, provider_type, status)
-    VALUES (${`res-${idSuffix}`}, 'openai', 'active')
-    RETURNING id`;
-  const id = rows[0]?.id as string | undefined;
-  if (id === undefined) throw new Error('upstream_channel insert returned no row');
-  return id;
+function seedChannelRaw(): string {
+  return randomUUID();
 }
 
 describe('route_group CRUD', () => {
@@ -154,8 +145,8 @@ describe('route_group CRUD', () => {
 describe('route_group_channel membership', () => {
   it('adds, lists with priority/weight, upserts on conflict, and removes', async () => {
     const group = await createRouteGroup(db, { name: 'g' });
-    const c1 = await seedChannelRaw('m1');
-    const c2 = await seedChannelRaw('m2');
+    const c1 = seedChannelRaw();
+    const c2 = seedChannelRaw();
 
     await addChannelToGroup(db, { groupId: group.id, channelId: c1, priority: 10, weight: 3 });
     await addChannelToGroup(db, { groupId: group.id, channelId: c2 }); // defaults 0/1

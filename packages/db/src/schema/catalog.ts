@@ -1,9 +1,9 @@
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
-// 批次6 D3 (旧世界删除): the resource three-layer (`resource` /
+// 批次6 D3/D4 (旧世界删除): the resource three-layer (`resource` /
 // `resource_version` / `upstream_channel`) and `dify_binding` table
-// DEFINITIONS are deleted — D4 ships the DROP migration. Only the secret
+// DEFINITIONS are deleted and mig 0072 (D4) DROPs the tables. Only the secret
 // vault survives here: `secret_ref` + `secret_material` are KEPT assets (the
 // new `supply_credential.secret_ref_id` FK depends on them).
 

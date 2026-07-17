@@ -16,11 +16,11 @@ import {
 import { account } from './accounts.js';
 import { subject, tenant } from './identity.js';
 
-// 批次6 D3 (旧世界删除): the `job` + `webhook_outbox` table DEFINITIONS are
-// deleted — D4 ships the DROP migration. `ledger_txn` + `idempotency_key` +
+// 批次6 D3/D4 (旧世界删除): the `job` + `webhook_outbox` table DEFINITIONS are
+// deleted and mig 0072 (D4) DROPs the tables. `ledger_txn` + `idempotency_key` +
 // `request_idempotency` are KEPT assets; `ledger_txn.job_id` keeps its COLUMN
-// (historical settle attribution) but loses the FK to the dying `job` table
-// (D4: ALTER TABLE ledger_txn DROP CONSTRAINT ledger_txn_job_id_job_id_fk).
+// (historical settle attribution) but lost the FK to the dead `job` table
+// (mig 0072: ALTER TABLE ledger_txn DROP CONSTRAINT ledger_txn_job_id_job_id_fk).
 
 // immutable: no updated_at (an append-only money ledger row is never mutated)
 export const ledgerTxn = pgTable(

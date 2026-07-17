@@ -116,7 +116,7 @@ afterEach(async () => {
   await new Promise((resolve) => setTimeout(resolve, 50));
   await resetDb(
     () =>
-      client`TRUNCATE TABLE audit_log, limit_rule, limit_plan, subject, file_object, api_key, ledger_txn, payment_intent, payment_event, job, resource, account, tenant, "user" RESTART IDENTITY CASCADE`,
+      client`TRUNCATE TABLE audit_log, limit_rule, limit_plan, subject, file_object, api_key, ledger_txn, payment_intent, payment_event, account, tenant, "user" RESTART IDENTITY CASCADE`,
   );
 });
 

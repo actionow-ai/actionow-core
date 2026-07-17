@@ -10,8 +10,8 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-// 批次6 D3 (旧世界删除): the `pricebook_entry` table DEFINITION is deleted —
-// D4 ships the DROP migration. `modifier` + `gift_code` are KEPT assets.
+// 批次6 D3/D4 (旧世界删除): the `pricebook_entry` table DEFINITION is deleted
+// and mig 0072 (D4) DROPs the table. `modifier` + `gift_code` are KEPT assets.
 
 export const modifier = pgTable('modifier', {
   id: uuid('id').primaryKey().defaultRandom(),

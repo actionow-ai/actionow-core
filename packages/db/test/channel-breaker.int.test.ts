@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { and, eq } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
@@ -14,7 +16,7 @@ import {
 } from '../src/repositories/index.js';
 import * as schema from '../src/schema/index.js';
 
-const { channelBreaker, tenant } = schema;
+const { channelBreaker } = schema;
 
 let container: StartedPostgreSqlContainer;
 let client: ReturnType<typeof postgres>;
@@ -33,36 +35,23 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await client`TRUNCATE TABLE channel_breaker, upstream_channel, resource, tenant RESTART IDENTITY CASCADE`;
+  await client`TRUNCATE TABLE channel_breaker RESTART IDENTITY CASCADE`;
 });
 
 /**
- * 批次6 D3: the `resource`/`upstream_channel` schema definitions (and their
- * repo creators) are deleted, but the DB still carries both tables AND the
- * `channel_breaker.channel_id` FK until D4's DROP migration lands — so the
- * fixture seeds them with RAW SQL. D4 removes this seeding with the FK.
+ * 批次6 D4: `channel_breaker.channel_id` is a plain uuid — mig 0072 dropped
+ * both the old `resource`/`upstream_channel` tables and the FK — so a fresh
+ * random uuid stands in for a channel id with no backing row.
  */
-async function seedChannel(providerType = 'mock-chat'): Promise<string> {
-  const [t] = await db.insert(tenant).values({ name: 'acme' }).returning();
-  if (!t) throw new Error('tenant insert returned no row');
-  await client`
-    INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes)
-    VALUES ('chat-res', ${t.id}, 'model', 'text', ${providerType}, '["stream"]'::jsonb)
-    ON CONFLICT (id) DO NOTHING`;
-  const rows = await client`
-    INSERT INTO upstream_channel (resource_id, provider_type, weight, status)
-    VALUES ('chat-res', ${providerType}, 1, 'active')
-    RETURNING id`;
-  const id = rows[0]?.id as string | undefined;
-  if (id === undefined) throw new Error('upstream_channel insert returned no row');
-  return id;
+function seedChannel(): string {
+  return randomUUID();
 }
 
 describe('channel_breaker repo (弹性2.0)', () => {
   const t0 = new Date('2026-06-25T00:00:00.000Z');
 
   it('getBreakerRows returns the rows for the given channels+model (closed = no row)', async () => {
-    const ch = await seedChannel();
+    const ch = seedChannel();
     // No row yet → empty.
     expect(await getBreakerRows(db, [ch], 'gpt-x')).toEqual([]);
     expect(await getBreakerRows(db, [], 'gpt-x')).toEqual([]);
@@ -77,7 +66,7 @@ describe('channel_breaker repo (弹性2.0)', () => {
   });
 
   it('upsertBreaker inserts then updates on the composite PK', async () => {
-    const ch = await seedChannel();
+    const ch = seedChannel();
     await upsertBreaker(db, {
       channelId: ch,
       model: 'gpt-x',
@@ -112,7 +101,7 @@ describe('channel_breaker repo (弹性2.0)', () => {
   });
 
   it('resetBreaker deletes the (channel, model) row back to closed', async () => {
-    const ch = await seedChannel();
+    const ch = seedChannel();
     await upsertBreaker(db, {
       channelId: ch,
       model: 'gpt-x',
@@ -135,7 +124,7 @@ describe('channel_breaker repo (弹性2.0)', () => {
   });
 
   it('listBreakers returns every breaker row across channels+models', async () => {
-    const ch = await seedChannel();
+    const ch = seedChannel();
     await upsertBreaker(db, {
       channelId: ch,
       model: 'gpt-x',
@@ -158,7 +147,7 @@ describe('channel_breaker repo (弹性2.0)', () => {
   });
 
   it('listBreakersWithChannel serves the FSM facts with null labels (批次6 D3 — join target deleted)', async () => {
-    const ch = await seedChannel('deepseek');
+    const ch = seedChannel();
     await upsertBreaker(db, {
       channelId: ch,
       model: 'gpt-x',

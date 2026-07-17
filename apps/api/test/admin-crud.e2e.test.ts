@@ -114,7 +114,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await resetDb(
     () =>
-      client`TRUNCATE TABLE request_idempotency, route_group_channel, route_group, api_key, sub_account, subject, ledger_txn, dify_binding, redemption_code, pricebook_entry, upstream_channel, resource_version, resource, modifier, account, tenant, oauth_session, secret_material, secret_ref, "user" RESTART IDENTITY CASCADE`,
+      client`TRUNCATE TABLE request_idempotency, route_group_channel, route_group, api_key, sub_account, subject, ledger_txn, redemption_code, modifier, account, tenant, oauth_session, secret_material, secret_ref, "user" RESTART IDENTITY CASCADE`,
   );
 });
 

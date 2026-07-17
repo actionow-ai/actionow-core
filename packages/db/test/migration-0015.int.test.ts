@@ -54,27 +54,22 @@ async function hasCheck(name: string): Promise<boolean> {
   return (rows[0]?.n ?? 0) > 0;
 }
 
+// 批次6 D4: this suite asserts the FINAL schema after the whole chain, and
+// mig 0072 drops the old-world tables (resource / upstream_channel / model /
+// pricebook_entry / dify_binding / job / webhook_outbox / …) — their 0015
+// hardening assertions (and the job-status CHECK behavior test) are retired;
+// migration-0072.int.test.ts asserts the drops.
 describe('migration 0015 — schema hardening (Track A)', () => {
   it('adds created_at where it was missing', async () => {
     // `channel_health` (also hardened by 0015) is dropped in 0048 (resilience-v2),
     // so it is no longer part of the final schema asserted here.
-    for (const t of ['oauth_session', 'gift_code', 'dify_binding']) {
+    for (const t of ['oauth_session', 'gift_code']) {
       expect(await hasColumn(t, 'created_at'), `${t}.created_at`).toBe(true);
     }
   });
 
   it('adds updated_at to the mutable tables that lacked it', async () => {
-    for (const t of [
-      'tenant',
-      'api_key',
-      'user',
-      'resource',
-      'upstream_channel',
-      'pricebook_entry',
-      'modifier',
-      'secret_ref',
-      'file_object',
-    ]) {
+    for (const t of ['tenant', 'api_key', 'user', 'modifier', 'secret_ref', 'file_object']) {
       expect(await hasColumn(t, 'updated_at'), `${t}.updated_at`).toBe(true);
     }
   });
@@ -84,14 +79,9 @@ describe('migration 0015 — schema hardening (Track A)', () => {
       'tenant',
       'account',
       'api_key',
-      'resource',
-      'model',
-      'upstream_channel',
       'secret_ref',
       'oauth_session',
-      'pricebook_entry',
       'modifier',
-      'dify_binding',
       'redemption_code',
     ]) {
       expect(await hasColumn(t, 'deleted_at'), `${t}.deleted_at`).toBe(true);
@@ -99,19 +89,15 @@ describe('migration 0015 — schema hardening (Track A)', () => {
   });
 
   it('does NOT add deleted_at to ephemeral/audit tables', async () => {
-    for (const t of ['job', 'ledger_txn', 'usage_log', 'relay_trace', 'webhook_outbox']) {
+    for (const t of ['ledger_txn', 'usage_log', 'relay_trace']) {
       expect(await hasColumn(t, 'deleted_at'), `${t}.deleted_at should be absent`).toBe(false);
     }
   });
 
   it('creates the FK indexes', async () => {
     for (const name of [
-      'dify_binding_resource_idx',
-      'resource_tenant_idx',
-      'resource_version_resource_idx',
       'ledger_txn_tenant_idx',
       'ledger_txn_account_idx',
-      'webhook_outbox_job_idx',
       'user_tenant_idx',
       'redemption_code_redeemed_by_tenant_idx',
     ]) {
@@ -121,41 +107,15 @@ describe('migration 0015 — schema hardening (Track A)', () => {
 
   it('creates the status CHECK constraints', async () => {
     for (const name of [
-      'job_status_allowed',
       'oauth_session_status_allowed',
       'payment_intent_status_allowed',
       'redemption_code_status_allowed',
       'gift_code_status_allowed',
-      'resource_status_allowed',
-      'upstream_channel_status_allowed',
-      'model_status_allowed',
       'file_object_status_allowed',
       'usage_log_status_allowed',
-      'webhook_outbox_status_allowed',
       'api_key_status_allowed',
     ]) {
       expect(await hasCheck(name), name).toBe(true);
     }
-  });
-
-  it('the job status CHECK rejects an out-of-set value and accepts a valid one', async () => {
-    const [t] = await client`INSERT INTO tenant (name) VALUES ('chk') RETURNING id`;
-    if (!t) throw new Error('tenant insert returned no row');
-    const [r] = await client`
-      INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes, current_version)
-      VALUES ('chk-res', ${t.id}, 'model', 'text', 'openai', '["blocking"]'::jsonb, 1) RETURNING id`;
-    if (!r) throw new Error('resource insert returned no row');
-
-    await expect(
-      client`INSERT INTO job (tenant_id, resource_id, resource_version, status, exec_mode, inputs)
-             VALUES (${t.id}, ${r.id}, 1, 'bogus', 'blocking', '{}'::jsonb)`,
-    ).rejects.toThrow();
-
-    await client`INSERT INTO job (tenant_id, resource_id, resource_version, status, exec_mode, inputs)
-                 VALUES (${t.id}, ${r.id}, 1, 'queued', 'blocking', '{}'::jsonb)`;
-    const rows = await client<{ n: number }[]>`SELECT count(*)::int AS n FROM job`;
-    expect(rows[0]?.n).toBe(1);
-
-    await client`TRUNCATE TABLE job, resource, tenant RESTART IDENTITY CASCADE`;
   });
 });

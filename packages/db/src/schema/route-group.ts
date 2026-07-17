@@ -82,8 +82,8 @@ export const routeGroupChannel = pgTable(
     groupId: uuid('group_id')
       .notNull()
       .references(() => routeGroup.id),
-    // 批次6 D3: plain uuid — the FK to the deleted `upstream_channel` table is
-    // dropped (D4: DROP CONSTRAINT route_group_channel_channel_id_upstream_channel_id_fk).
+    // 批次6 D3/D4: plain uuid — the FK to the deleted `upstream_channel` table was
+    // dropped (mig 0072: DROP CONSTRAINT route_group_channel_channel_id_upstream_channel_id_fk).
     channelId: uuid('channel_id').notNull(),
     /** HIGHER = tried first (fallback tier). */
     priority: integer('priority').notNull().default(0),

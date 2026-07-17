@@ -126,26 +126,27 @@ describe('holdCredits', () => {
   });
 });
 
-describe('ledger_txn.job_id foreign key (P2-8)', () => {
-  it('rejects a ledger row referencing a non-existent job', async () => {
+// 批次6 D4: `ledger_txn.job_id` lost its FK when mig 0072 dropped the old
+// `job` table — the column survives as PLAIN-uuid historical attribution.
+describe('ledger_txn.job_id plain-uuid attribution (批次6 D4)', () => {
+  it('accepts a ledger row whose job_id resolves to no live row (no FK)', async () => {
     const { tenantId, accountId } = await seedAccount(1_000_000n);
-    const bogusJob = '99999999-9999-9999-9999-999999999999';
+    const legacyJob = '99999999-9999-9999-9999-999999999999';
 
-    const error = await appendLedger(db, {
+    await appendLedger(db, {
       tenantId,
       accountId,
       type: 'settle',
       creditsDelta: -1n,
       balanceAfter: 999_999n,
-      jobId: bogusJob,
-    }).then(
-      () => undefined,
-      (e: unknown) => e,
-    );
+      jobId: legacyJob,
+    });
 
-    expect(error).toBeInstanceOf(Error);
-    const cause: unknown = error instanceof Error ? error.cause : undefined;
-    expect((cause as { code?: unknown }).code).toBe('23503'); // foreign_key_violation
+    const rows = await client<
+      { job_id: string | null }[]
+    >`SELECT job_id FROM ledger_txn WHERE account_id = ${accountId} AND type = 'settle'`;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.job_id).toBe(legacyJob);
   });
 });
 

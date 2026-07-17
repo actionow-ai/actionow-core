@@ -82,7 +82,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await resetDb(
     () =>
-      client`TRUNCATE TABLE request_idempotency, route_group_channel, route_group, api_key, supply_channel, supply_provider, upstream_channel, resource_version, resource, tenant, "user" RESTART IDENTITY CASCADE`,
+      client`TRUNCATE TABLE request_idempotency, route_group_channel, route_group, api_key, supply_channel, supply_provider, tenant, "user" RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -103,13 +103,11 @@ async function makeTenant(): Promise<string> {
 /**
  * Create a NEW-world supply channel (批次6 D3: the membership target the
  * admin face validates against is `supply_channel`; the old resource/channel
- * endpoints are deleted). Until D4 drops the legacy
- * `route_group_channel.channel_id → upstream_channel.id` FK, the membership
- * INSERT is still gated by the DB constraint — so the fixture also mirrors
- * the channel id into a raw `upstream_channel` row. D4 removes the mirror
- * with the FK.
+ * endpoints are deleted). 批次6 D4: mig 0072 dropped the legacy
+ * `route_group_channel.channel_id → upstream_channel.id` FK (and the table),
+ * so no mirror row is needed — the supply channel id is inserted directly.
  */
-async function makeChannel(tenantId: string): Promise<{ channelId: string }> {
+async function makeChannel(): Promise<{ channelId: string }> {
   const suffix = Math.random().toString(36).slice(2);
   const provider = await createSupplyProvider(db, {
     slug: `prov-${suffix}`,
@@ -121,11 +119,6 @@ async function makeChannel(tenantId: string): Promise<{ channelId: string }> {
     name: `ch-${suffix}`,
     authScheme: 'bearer',
   });
-  await client`
-    INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes, current_version)
-    VALUES (${`res-${suffix}`}, ${tenantId}, 'model', 'text', 'openai', '["blocking"]'::jsonb, 1)`;
-  await client`
-    INSERT INTO upstream_channel (id, resource_id, provider_type) VALUES (${channel.id}, ${`res-${suffix}`}, 'openai')`;
   return { channelId: channel.id };
 }
 
@@ -179,8 +172,7 @@ describe('admin route-groups CRUD', () => {
 
 describe('admin route-group channel membership', () => {
   it('adds a channel (priority/weight), lists it, then removes it', async () => {
-    const tenantId = await makeTenant();
-    const { channelId } = await makeChannel(tenantId);
+    const { channelId } = await makeChannel();
     const group = await auth(request(server()).post('/admin/route-groups'))
       .send({ name: 'g' })
       .expect(201);
@@ -227,8 +219,7 @@ describe('admin route-group channel membership', () => {
   });
 
   it('404s adding a channel to an unknown group, or an unknown channel to a group', async () => {
-    const tenantId = await makeTenant();
-    const { channelId } = await makeChannel(tenantId);
+    const { channelId } = await makeChannel();
     const group = await auth(request(server()).post('/admin/route-groups'))
       .send({ name: 'g2' })
       .expect(201);

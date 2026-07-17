@@ -505,6 +505,13 @@
       "when": 1783849617014,
       "tag": "0071_handy_dust",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1784276572589,
+      "tag": "0072_tan_skreet",
+      "breakpoints": true
     }
   ]
 }

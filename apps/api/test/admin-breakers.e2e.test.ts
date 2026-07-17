@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { createUser, schema, upsertBreaker } from '@actionow/db';
 import { hashPassword } from '@actionow/infra';
 import type { INestApplication } from '@nestjs/common';
@@ -73,32 +75,16 @@ beforeEach(async () => {
     .expect(200);
   token = login.body.token as string;
 
-  // 批次6 D3: the resource/channel admin endpoints (and the schema
-  // definitions) are deleted, but the DB still carries both tables AND the
-  // `channel_breaker.channel_id` FK until D4's DROP migration — so the
-  // fixture seeds them with RAW SQL. D4 removes this seeding with the FK.
-  const t = await request(app.getHttpServer())
-    .post('/admin/tenants')
-    .set('authorization', `Bearer ${token}`)
-    .send({ name: 'brk' })
-    .expect(201);
-  const tenantId = t.body.id as string;
-  await client`
-    INSERT INTO resource (id, tenant_id, kind, modality, provider_type, exec_modes, current_version)
-    VALUES ('brk-res', ${tenantId}, 'model', 'text', 'openai', '["stream"]'::jsonb, 1)`;
-  const rows = await client`
-    INSERT INTO upstream_channel (resource_id, provider_type, weight, status)
-    VALUES ('brk-res', 'openai', 1, 'active')
-    RETURNING id`;
-  const id = rows[0]?.id as string | undefined;
-  if (id === undefined) throw new Error('upstream_channel insert returned no row');
-  channelId = id;
+  // 批次6 D4: `channel_breaker.channel_id` is a plain uuid — mig 0072 dropped
+  // the old `resource`/`upstream_channel` tables and the FK — so a fresh
+  // random uuid stands in for a channel id with no backing row.
+  channelId = randomUUID();
 });
 
 afterEach(async () => {
   await resetDb(
     () =>
-      client`TRUNCATE TABLE channel_breaker, audit_log, route_group_channel, route_group, api_key, upstream_channel, resource_version, resource, account, tenant, "user" RESTART IDENTITY CASCADE`,
+      client`TRUNCATE TABLE channel_breaker, audit_log, route_group_channel, route_group, api_key, account, tenant, "user" RESTART IDENTITY CASCADE`,
   );
 });
 
