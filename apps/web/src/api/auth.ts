@@ -159,9 +159,26 @@ export function refreshSession(): Promise<Session | null> {
   return refreshInFlight;
 }
 
+/**
+ * localStorage key prefixes holding session-scoped secrets that must NOT survive
+ * a logout (the next operator on a shared browser must not inherit them). The
+ * playground data-plane key (namespaced per subject) lives under this prefix.
+ */
+const SESSION_SCOPED_PREFIXES = ['actionow.playground.key'];
+
 export function logout(): void {
   const current = session;
   setSession(null);
+  try {
+    for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
+      const key = window.localStorage.key(i);
+      if (key !== null && SESSION_SCOPED_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+        window.localStorage.removeItem(key);
+      }
+    }
+  } catch {
+    // Best effort; the session token is already cleared above.
+  }
   if (current?.refreshToken) {
     void fetch(`${config.apiBaseUrl}/auth/logout`, {
       method: 'POST',

@@ -111,7 +111,8 @@ export function LandingPage() {
 
   const signedIn = getSession() !== null;
   const consoleHref = sessionPayload()?.role === 'admin' ? '/console/overview' : '/app/overview';
-  const primaryTo = signedIn ? consoleHref : '/login';
+  // Signed-out primary CTA promises "create account" → open /login in register mode.
+  const primaryTo = signedIn ? consoleHref : '/login?mode=register';
   const primaryLabel = signedIn ? t('landing.enterConsole') : t('landing.createAccount');
 
   const steps = [
@@ -182,7 +183,7 @@ export function LandingPage() {
                       className="flex items-center gap-2.5 text-sm text-muted-foreground"
                     >
                       <span className="text-success">
-                        <CircleCheckBigIcon animateOnView size={16} />
+                        <CircleCheckBigIcon animateOnView={!reduceMotion} size={16} />
                       </span>
                       {point}
                     </li>
@@ -221,7 +222,7 @@ export function LandingPage() {
                 <p className="mt-1 text-sm text-muted-foreground">{t('landing.ctaBody')}</p>
               </div>
               <Button asChild size="lg" className="h-11 shrink-0 px-6 text-[15px]">
-                <Link to="/login">
+                <Link to="/login?mode=register">
                   {t('landing.createAccount')}
                   <ArrowRightIcon animateOnHover />
                 </Link>

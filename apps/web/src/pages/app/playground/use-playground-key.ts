@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 
+import { sessionPayload } from '@/api/auth';
 import { apiFetch } from '@/api/client';
 
 /**
@@ -13,7 +14,7 @@ import { apiFetch } from '@/api/client';
  * mint-result dialog.
  */
 
-const STORAGE_KEY = 'actionow.playground.key';
+const STORAGE_PREFIX = 'actionow.playground.key';
 /** Slot `id` marker for an opt-in persisted pasted key (no server-side id known). */
 const PASTED_ID = 'pasted';
 
@@ -22,9 +23,20 @@ export interface PlaygroundKey {
   plaintext: string;
 }
 
+/**
+ * Slot key namespaced by the current session subject, so a different operator
+ * on the same browser never reads (and calls the data plane with) the previous
+ * operator's key. Falls back to the bare prefix only when no session is present
+ * (the hook is never used unauthenticated in practice).
+ */
+function slotKey(): string {
+  const sub = sessionPayload()?.sub;
+  return sub === undefined ? STORAGE_PREFIX : `${STORAGE_PREFIX}.${sub}`;
+}
+
 function readSlot(): PlaygroundKey | null {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(slotKey());
     if (raw === null) return null;
     const parsed = JSON.parse(raw) as Partial<PlaygroundKey>;
     if (typeof parsed.id !== 'string' || typeof parsed.plaintext !== 'string') return null;
@@ -36,8 +48,8 @@ function readSlot(): PlaygroundKey | null {
 
 function writeSlot(key: PlaygroundKey | null): void {
   try {
-    if (key === null) window.localStorage.removeItem(STORAGE_KEY);
-    else window.localStorage.setItem(STORAGE_KEY, JSON.stringify(key));
+    if (key === null) window.localStorage.removeItem(slotKey());
+    else window.localStorage.setItem(slotKey(), JSON.stringify(key));
   } catch {
     // Key still applies in-memory for this session.
   }

@@ -1,6 +1,6 @@
 import { config } from '@/config';
 
-import { decodeJwtPayload, getSession, refreshSession } from './auth';
+import { getSession, refreshSession } from './auth';
 
 /** Cursor pagination envelope shared by every list endpoint. */
 export interface PageOf<T> {
@@ -50,7 +50,14 @@ export interface ApiFetchOptions {
   body?: unknown;
   query?: Record<string, QueryValue>;
   signal?: AbortSignal;
-  /** Skip the automatic 401 → refresh → retry pass (used by the retry itself). */
+  /**
+   * Skip the automatic 401 → refresh → retry pass. Set internally by the retry
+   * itself, and by callers that probe a plane the current session may not belong
+   * to (e.g. a tenant-less platform admin hitting `/console/me`): there a 401 is
+   * an expected plane mismatch, not an expiry, so refreshing is useless — and
+   * with the current backend it would re-mint the admin session with the wrong
+   * role. Genuine expiries on real calls still refresh eagerly.
+   */
   skipRefresh?: boolean;
 }
 
@@ -102,24 +109,16 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     signal,
   });
 
-  // Refresh only when the access token is actually stale. The backend answers
-  // 401 (not 403) for plane mismatches too (e.g. a tenant-less platform admin
-  // probing /console/me) — refreshing there is useless and, worse, the current
-  // refresh endpoint re-mints admin sessions with the user role, silently
-  // downgrading the session.
-  if (response.status === 401 && !skipRefresh && session && isTokenStale(session.accessToken)) {
+  // Eagerly refresh on any 401 (a lagging client clock must still recover), EXCEPT
+  // where the caller opted out via skipRefresh — the plane-mismatch probes that
+  // 401 by design and must not spend a refresh (see ApiFetchOptions.skipRefresh).
+  if (response.status === 401 && !skipRefresh && session) {
     const renewed = await refreshSession();
     if (renewed) return apiFetch<T>(path, { ...options, skipRefresh: true });
   }
   if (!response.ok) throw await parseError(response);
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
-}
-
-function isTokenStale(accessToken: string): boolean {
-  const exp = decodeJwtPayload(accessToken).exp;
-  if (!exp) return true;
-  return exp * 1000 - Date.now() < 30_000;
 }
 
 /** Map any thrown error to the `ApiErrorNotice` shape. */

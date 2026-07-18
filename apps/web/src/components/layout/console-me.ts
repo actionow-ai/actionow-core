@@ -19,7 +19,9 @@ export interface ConsoleMe {
 export function useConsoleMe(enabled = true) {
   return useQuery({
     queryKey: ['console', 'me'],
-    queryFn: () => apiFetch<ConsoleMe>('/console/me'),
+    // A tenant-less platform admin 401s here by design; that is a plane mismatch,
+    // not an expiry, so don't spend (and risk downgrading) a token refresh on it.
+    queryFn: () => apiFetch<ConsoleMe>('/console/me', { skipRefresh: true }),
     staleTime: Infinity,
     retry: false,
     enabled,

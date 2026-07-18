@@ -139,6 +139,9 @@ export function PlaygroundPage() {
   const [showSystem, setShowSystem] = useState(false);
   const [streamEnabled, setStreamEnabled] = useState(true);
   const [sending, setSending] = useState(false);
+  /** True only while the /v1 call is in flight — drives the Stop button + live
+   * streaming bubble, independent of `sending` (which also spans persistence). */
+  const [streaming, setStreaming] = useState(false);
   const [streamText, setStreamText] = useState<string | null>(null);
   const [minted, setMinted] = useState<PlaygroundKey | null>(null);
   const [regenPending, setRegenPending] = useState(false);
@@ -147,6 +150,12 @@ export function PlaygroundPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
+  /** Synchronous re-entrancy guard: set before the first await so a double-tap
+   * during the initial key mint can't launch a second concurrent send. */
+  const sendingRef = useRef(false);
+  /** Conversation id whose server-declared model has been applied to the picker,
+   * so a mid-conversation model switch isn't reverted by a post-send refetch. */
+  const modelSyncedIdRef = useRef<string | null>(null);
   const streamTextRef = useRef('');
   const threadRef = useRef<HTMLDivElement | null>(null);
   /** Stamp of the last server transcript applied to `items` (dedupes re-applies). */
@@ -180,8 +189,16 @@ export function PlaygroundPage() {
     if (appliedStampRef.current === detail.dataUpdatedAt) return;
     appliedStampRef.current = detail.dataUpdatedAt;
     setItems(data.messages.map(toThreadItem));
-    if (data.model !== null && chatModels.some((m) => m.name === data.model)) {
+    // Seed the picker from the conversation's model only on its FIRST load. The
+    // conversation's model is frozen at creation; re-applying it on every
+    // post-send refetch would revert a mid-conversation model switch.
+    if (
+      modelSyncedIdRef.current !== activeId &&
+      data.model !== null &&
+      chatModels.some((m) => m.name === data.model)
+    ) {
       setModel(data.model);
+      modelSyncedIdRef.current = activeId;
     }
   }, [detail.data, detail.dataUpdatedAt, activeId, sending, chatModels]);
 
@@ -209,6 +226,7 @@ export function PlaygroundPage() {
     appliedStampRef.current = 0;
     dirtyRef.current = false;
     lastPersistedIdRef.current = null;
+    modelSyncedIdRef.current = null;
   };
 
   const selectConversation = (id: string) => {
@@ -218,6 +236,7 @@ export function PlaygroundPage() {
     appliedStampRef.current = 0;
     dirtyRef.current = false;
     lastPersistedIdRef.current = null;
+    modelSyncedIdRef.current = null;
   };
 
   const rename = useMutation({
@@ -273,9 +292,12 @@ export function PlaygroundPage() {
   }
 
   async function handleSend(): Promise<void> {
-    if (sending) return;
+    // Synchronous re-entrancy guard (set before ANY await) so a double-tap during
+    // the first-send key mint can't launch a second flow past the async `sending`.
+    if (sendingRef.current || sending) return;
     const prompt = input.trim();
     if (prompt === '' || model === '') return;
+    sendingRef.current = true;
 
     // 1. Resolve the data-plane key (mint lazily for admins, paste for members).
     let apiKey: string;
@@ -286,12 +308,14 @@ export function PlaygroundPage() {
         if (ensured.mintedNow) setMinted(ensured.key);
       } catch (error) {
         pushNote(`${t('playground.errorMintFailed')} — ${toApiStateError(error).message}`);
+        sendingRef.current = false;
         return;
       }
     } else {
       apiKey = pastedKey.trim();
       if (apiKey === '') {
         pushNote(t('playground.keyRequiredMember'));
+        sendingRef.current = false;
         return;
       }
     }
@@ -322,6 +346,7 @@ export function PlaygroundPage() {
         });
         conversationId = created.id;
         setActiveId(created.id);
+        modelSyncedIdRef.current = created.id;
         void queryClient.invalidateQueries({ queryKey: LIST_KEY });
       } catch (error) {
         pushNote(
@@ -329,6 +354,7 @@ export function PlaygroundPage() {
         );
         setSending(false);
         setInput(prompt);
+        sendingRef.current = false;
         return;
       }
     }
@@ -347,11 +373,27 @@ export function PlaygroundPage() {
       },
     ]);
 
-    // 4. Run the /v1 call (streaming by default), with one admin 401 self-heal.
+    // 4. Persist the user turn NOW, before the model call, so the transcript keeps
+    //    it even if the answer aborts, errors, or the assistant persist fails.
+    let anchorId: string | null = null;
+    try {
+      const savedUser = await apiFetch<MessageView>(
+        `/console/conversations/${conversationId}/messages`,
+        { method: 'POST', body: { role: 'user', content: prompt } satisfies AppendMessageBody },
+      );
+      anchorId = savedUser.id;
+    } catch (error) {
+      pushNote(`${t('playground.persistFailed')} — ${toApiStateError(error).message}`);
+    }
+
+    // 5. Run the /v1 call (streaming by default), with one admin 401 self-heal.
+    //    `streaming` (not `sending`) drives the Stop button + live bubble, so
+    //    neither lingers during the create/persist round-trips around the call.
     const controller = new AbortController();
     abortRef.current = controller;
     streamTextRef.current = '';
     setStreamText('');
+    setStreaming(true);
     const startedAt = performance.now();
 
     const run = (key: string): Promise<ChatOutcome> =>
@@ -400,6 +442,7 @@ export function PlaygroundPage() {
       else pushNote(noteFor(error));
     }
     abortRef.current = null;
+    setStreaming(false);
 
     const latencyMs = Math.round(performance.now() - startedAt);
     let finished: ThreadMessageItem | null = null;
@@ -430,15 +473,11 @@ export function PlaygroundPage() {
     }
     setStreamText(null);
 
-    // 5. Persist the exchange (storage-only): user turn, then assistant turn.
+    // 6. Persist the assistant turn (the user turn is already saved in step 4).
     const assistant = finished;
     if (assistant !== null) {
       setItems((prev) => [...prev, assistant]);
       try {
-        await apiFetch<MessageView>(`/console/conversations/${conversationId}/messages`, {
-          method: 'POST',
-          body: { role: 'user', content: prompt } satisfies AppendMessageBody,
-        });
         const persisted = await apiFetch<MessageView>(
           `/console/conversations/${conversationId}/messages`,
           {
@@ -452,14 +491,21 @@ export function PlaygroundPage() {
             } satisfies AppendMessageBody,
           },
         );
-        lastPersistedIdRef.current = persisted.id;
-        void queryClient.invalidateQueries({ queryKey: detailKey(conversationId) });
-        void queryClient.invalidateQueries({ queryKey: LIST_KEY });
+        anchorId = persisted.id;
       } catch (error) {
         pushNote(`${t('playground.persistFailed')} — ${toApiStateError(error).message}`);
       }
     }
+
+    // Let the reconcile effect adopt the server transcript once it provably
+    // contains our last persisted row (assistant if any, else the user turn).
+    lastPersistedIdRef.current = anchorId;
+    if (anchorId !== null) {
+      void queryClient.invalidateQueries({ queryKey: detailKey(conversationId) });
+      void queryClient.invalidateQueries({ queryKey: LIST_KEY });
+    }
     setSending(false);
+    sendingRef.current = false;
   }
 
   function assistantMeta(item: ThreadMessageItem): string {
@@ -733,7 +779,7 @@ export function PlaygroundPage() {
             ) : (
               <div className="space-y-4">
                 {items.map(renderItem)}
-                {sending ? (
+                {streaming ? (
                   <div className="max-w-[85%]">
                     <div className="whitespace-pre-wrap text-sm leading-relaxed">
                       {streamText ?? ''}
@@ -763,7 +809,7 @@ export function PlaygroundPage() {
               rows={2}
               className="min-h-12 flex-1 resize-none"
             />
-            {sending ? (
+            {streaming ? (
               <Button
                 variant="outline"
                 size="icon"

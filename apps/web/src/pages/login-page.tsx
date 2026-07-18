@@ -21,7 +21,11 @@ export function LoginPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const [mode, setMode] = useState<Mode>('login');
+  // Landing "Create account" CTAs link to /login?mode=register so the form opens
+  // in the mode the button promised instead of always defaulting to sign-in.
+  const [mode, setMode] = useState<Mode>(() =>
+    new URLSearchParams(location.search).get('mode') === 'register' ? 'register' : 'login',
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [pending, setPending] = useState(false);
