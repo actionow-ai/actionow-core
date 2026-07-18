@@ -1,4 +1,6 @@
 /// <reference types="vitest/config" />
+import path from 'node:path';
+
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
@@ -28,6 +30,11 @@ const proxy = {
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   // Pre-bundle the app's common runtime deps at dev-server startup so Vite does
   // NOT discover-then-cold-optimize them on first navigation. That cold pass
   // forces a full reload, which flashes a blank page on a deep `/console/*`
@@ -41,8 +48,26 @@ export default defineConfig({
       '@tanstack/react-query',
       'react-i18next',
       'i18next',
-      '@phosphor-icons/react',
+      'motion/react',
+      'lucide-react',
     ],
+  },
+  build: {
+    modulePreload: {
+      // Overlay code is only used by matched lazy routes. Motion remains an intentional entry
+      // dependency because the root MotionConfig enforces prefers-reduced-motion globally.
+      resolveDependencies: (_filename, dependencies) =>
+        dependencies.filter((dependency) => !dependency.includes('overlay-vendor')),
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'motion-vendor': ['motion/react'],
+          'overlay-vendor': ['radix-ui', '@floating-ui/react'],
+        },
+      },
+    },
   },
   server: {
     port: 5173,
@@ -56,6 +81,6 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
-    css: false,
+    css: true,
   },
 });
