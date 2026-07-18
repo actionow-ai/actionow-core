@@ -1,4 +1,12 @@
-import { Boxes, ChartColumn, FolderOpen, Gauge, UsersRound, Wallet } from 'lucide-react';
+import {
+  Boxes,
+  ChartColumn,
+  FolderOpen,
+  Gauge,
+  MessagesSquare,
+  UsersRound,
+  Wallet,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -30,6 +38,11 @@ export function TenantShell() {
           label: t('nav.appOverview'),
           to: '/app/overview',
           icon: <LayoutDashboardIcon animateOnHover size={18} />,
+        },
+        {
+          label: t('nav.appPlayground'),
+          to: '/app/playground',
+          icon: <MessagesSquare className={iconClass} />,
         },
         { label: t('nav.appKeys'), to: '/app/keys', icon: <KeyIcon animateOnHover size={18} /> },
         { label: t('nav.appModels'), to: '/app/models', icon: <Boxes className={iconClass} /> },

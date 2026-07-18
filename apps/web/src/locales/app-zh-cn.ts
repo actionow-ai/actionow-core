@@ -69,6 +69,7 @@ export const appZhCN = {
     groupEndUsers: '端用户',
     groupManage: '管理',
     appOverview: '总览',
+    appPlayground: 'Playground',
     appKeys: 'API 密钥',
     appModels: '模型目录',
     appUsage: '用量',

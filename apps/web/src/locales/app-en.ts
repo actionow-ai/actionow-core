@@ -69,6 +69,7 @@ export const appEn = {
     groupEndUsers: 'End users',
     groupManage: 'Manage',
     appOverview: 'Overview',
+    appPlayground: 'Playground',
     appKeys: 'API keys',
     appModels: 'Model catalog',
     appUsage: 'Usage',

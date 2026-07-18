@@ -6,6 +6,7 @@ import { ConsoleShell } from '@/components/layout/console-shell';
 import { RequireSession, useSession } from '@/components/layout/require-session';
 import { TenantShell } from '@/components/layout/tenant-shell';
 import { Skeleton } from '@/components/ui/data-display';
+import { config } from '@/config';
 
 const LoginPage = lazy(() => import('@/pages/login-page').then((m) => ({ default: m.LoginPage })));
 const AuthCallbackPage = lazy(() =>
@@ -13,6 +14,12 @@ const AuthCallbackPage = lazy(() =>
 );
 const NotFoundPage = lazy(() =>
   import('@/pages/not-found-page').then((m) => ({ default: m.NotFoundPage })),
+);
+const LandingPage = lazy(() =>
+  import('@/pages/landing/landing-page').then((m) => ({ default: m.LandingPage })),
+);
+const PlaygroundPage = lazy(() =>
+  import('@/pages/app/playground/playground-page').then((m) => ({ default: m.PlaygroundPage })),
 );
 
 // 管理台 /console — backed by /admin/*
@@ -189,7 +196,10 @@ export function App() {
     <BrowserRouter>
       <Suspense fallback={<RouteFallback />}>
         <Routes>
-          <Route path="/" element={<RootRedirect />} />
+          <Route
+            path="/"
+            element={config.deploymentMode === 'app' ? <RootRedirect /> : <LandingPage />}
+          />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
@@ -256,6 +266,7 @@ export function App() {
           >
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<Lazy page={<AppOverviewPage />} />} />
+            <Route path="playground" element={<Lazy page={<PlaygroundPage />} />} />
             <Route path="keys" element={<Lazy page={<AppKeysPage />} />} />
             <Route path="models" element={<Lazy page={<AppModelsPage />} />} />
             <Route path="usage" element={<Lazy page={<AppUsagePage />} />} />

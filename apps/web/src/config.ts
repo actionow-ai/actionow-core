@@ -6,4 +6,6 @@ export const config = {
   oauthEnabled: import.meta.env.VITE_OAUTH_ENABLED === 'true',
   /** White-label brand name rendered by the shell brand block. */
   brandName: import.meta.env.VITE_BRAND_NAME ?? 'Actionow',
+  /** `marketing` (default) serves the landing page at `/`; `app` redirects to the consoles. */
+  deploymentMode: import.meta.env.VITE_DEPLOYMENT_MODE === 'app' ? 'app' : 'marketing',
 } as const;

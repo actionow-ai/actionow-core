@@ -1,5 +1,6 @@
 import { locale as appCoreLocale } from '@/pages/app/core/locale';
 import { locale as appOpsLocale } from '@/pages/app/ops/locale';
+import { locale as playgroundLocale } from '@/pages/app/playground/locale';
 import { locale as appUsersLocale } from '@/pages/app/users/locale';
 import { locale as billingLocale } from '@/pages/console/billing/locale';
 import { locale as governanceLocale } from '@/pages/console/governance/locale';
@@ -9,6 +10,7 @@ import { locale as settingsLocale } from '@/pages/console/settings/locale';
 import { locale as supplyModelsLocale } from '@/pages/console/supply-models/locale';
 import { locale as supplySourcesLocale } from '@/pages/console/supply-sources/locale';
 import { locale as tenantsLocale } from '@/pages/console/tenants/locale';
+import { locale as landingLocale } from '@/pages/landing/locale';
 
 import { appEn } from './app-en';
 import { appZhCN } from './app-zh-cn';
@@ -51,6 +53,8 @@ const areaLocales = [
   appCoreLocale,
   appUsersLocale,
   appOpsLocale,
+  playgroundLocale,
+  landingLocale,
 ];
 
 export const resources = {
