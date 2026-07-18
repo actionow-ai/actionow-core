@@ -8,9 +8,12 @@ const distArgIndex = process.argv.indexOf('--dist');
 const DIST_ROOT = path.resolve(distArgIndex === -1 ? 'dist' : process.argv[distArgIndex + 1]);
 const INDEX_PATH = path.join(DIST_ROOT, 'index.html');
 
-const MAX_INITIAL_JS_GZIP_BYTES = 192 * 1024;
+// 本项目上调 JS/total 预算（graphite 默认 192/208KB）：双控制台 37 页的 zh+en 文案
+// 随 i18n init 进入口 chunk（约 +30KB gzip），无运行时依赖泄漏（contracts 全部
+// import type）。若未来入口再涨，优先做按需 locale 拆分而不是继续调此值。
+const MAX_INITIAL_JS_GZIP_BYTES = 256 * 1024;
 const MAX_INITIAL_CSS_GZIP_BYTES = 16 * 1024;
-const MAX_INITIAL_TOTAL_GZIP_BYTES = 208 * 1024;
+const MAX_INITIAL_TOTAL_GZIP_BYTES = 272 * 1024;
 const MAX_MODULE_PRELOADS = 2;
 
 function attribute(tag, name) {
