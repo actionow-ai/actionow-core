@@ -1,8 +1,9 @@
 'use client';
 
+import { type HTMLMotionProps, motion, type Transition } from 'motion/react';
 import * as React from 'react';
-import { motion, type Transition, type HTMLMotionProps } from 'motion/react';
 
+import { Slot, type WithAsChild } from '@/components/ui/primitives/animate/slot';
 import {
   Highlight,
   HighlightItem,
@@ -10,17 +11,15 @@ import {
   type HighlightProps,
 } from '@/components/ui/primitives/effects/highlight';
 import { getStrictContext } from '@/lib/get-strict-context';
-import { Slot, type WithAsChild } from '@/components/ui/primitives/animate/slot';
 
-type TabsContextType = {
+interface TabsContextType {
   activeValue: string;
   handleValueChange: (value: string) => void;
   registerTrigger: (value: string, node: HTMLElement | null) => void;
   baseId: string;
-};
+}
 
-const [TabsProvider, useTabs] =
-  getStrictContext<TabsContextType>('TabsContext');
+const [TabsProvider, useTabs] = getStrictContext<TabsContextType>('TabsContext');
 
 // LOCAL DIVERGENCE FROM VENDORED animate-ui UPSTREAM.
 // Upstream renders the tablist/tab/tabpanel roles but ships no WAI-ARIA keyboard
@@ -54,16 +53,8 @@ type ControlledTabsProps = BaseTabsProps & {
 
 type TabsProps = UnControlledTabsProps | ControlledTabsProps;
 
-function Tabs({
-  defaultValue,
-  value,
-  onValueChange,
-  children,
-  ...props
-}: TabsProps) {
-  const [activeValue, setActiveValue] = React.useState<string | undefined>(
-    defaultValue,
-  );
+function Tabs({ defaultValue, value, onValueChange, children, ...props }: TabsProps) {
+  const [activeValue, setActiveValue] = React.useState<string | undefined>(defaultValue);
   const baseId = React.useId();
   const triggersRef = React.useRef(new Map<string, HTMLElement>());
   const initialSet = React.useRef(false);
@@ -76,9 +67,7 @@ function Tabs({
       triggersRef.current.size > 0 &&
       !initialSet.current
     ) {
-      const firstTab = triggersRef.current.keys().next().value as
-        | string
-        | undefined;
+      const firstTab = triggersRef.current.keys().next().value as string | undefined;
       if (firstTab !== undefined) {
         setActiveValue(firstTab);
         initialSet.current = true;
@@ -161,9 +150,7 @@ function TabsList({ onKeyDown, ...props }: TabsListProps) {
     const tabs = Array.from(
       event.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]'),
     ).filter(
-      (tab) =>
-        !tab.hasAttribute('disabled') &&
-        tab.getAttribute('aria-disabled') !== 'true',
+      (tab) => !tab.hasAttribute('disabled') && tab.getAttribute('aria-disabled') !== 'true',
     );
     if (tabs.length === 0) return;
 
@@ -176,9 +163,7 @@ function TabsList({ onKeyDown, ...props }: TabsListProps) {
         break;
       case 'ArrowLeft':
         nextIndex =
-          currentIndex < 0
-            ? tabs.length - 1
-            : (currentIndex - 1 + tabs.length) % tabs.length;
+          currentIndex < 0 ? tabs.length - 1 : (currentIndex - 1 + tabs.length) % tabs.length;
         break;
       case 'Home':
         nextIndex = 0;
@@ -192,19 +177,13 @@ function TabsList({ onKeyDown, ...props }: TabsListProps) {
 
     event.preventDefault();
     const nextTab = tabs[nextIndex];
+    if (!nextTab) return;
     nextTab.focus();
     const nextValue = nextTab.dataset.value;
     if (nextValue !== undefined) handleValueChange(nextValue);
   };
 
-  return (
-    <div
-      role="tablist"
-      data-slot="tabs-list"
-      onKeyDown={handleKeyDown}
-      {...props}
-    />
-  );
+  return <div role="tablist" data-slot="tabs-list" onKeyDown={handleKeyDown} {...props} />;
 }
 
 type TabsHighlightItemProps = HighlightItemProps & {
@@ -222,12 +201,7 @@ type TabsTriggerProps = WithAsChild<
   } & HTMLMotionProps<'button'>
 >;
 
-function TabsTrigger({
-  ref,
-  value,
-  asChild = false,
-  ...props
-}: TabsTriggerProps) {
+function TabsTrigger({ ref, value, asChild = false, ...props }: TabsTriggerProps) {
   const { activeValue, handleValueChange, registerTrigger, baseId } = useTabs();
 
   const localRef = React.useRef<HTMLButtonElement | null>(null);
@@ -288,7 +262,7 @@ function TabsContents({
   );
 
   const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const itemRefs = React.useRef<Array<HTMLDivElement | null>>([]);
+  const itemRefs = React.useRef<(HTMLDivElement | null)[]>([]);
   const [height, setHeight] = React.useState(0);
   const roRef = React.useRef<ResizeObserver | null>(null);
 
@@ -302,16 +276,13 @@ function TabsContents({
     const cs = getComputedStyle(container);
     const isBorderBox = cs.boxSizing === 'border-box';
     const paddingY =
-      (parseFloat(cs.paddingTop || '0') || 0) +
-      (parseFloat(cs.paddingBottom || '0') || 0);
+      (parseFloat(cs.paddingTop || '0') || 0) + (parseFloat(cs.paddingBottom || '0') || 0);
     const borderY =
-      (parseFloat(cs.borderTopWidth || '0') || 0) +
-      (parseFloat(cs.borderBottomWidth || '0') || 0);
+      (parseFloat(cs.borderTopWidth || '0') || 0) + (parseFloat(cs.borderBottomWidth || '0') || 0);
 
     let total = base + (isBorderBox ? paddingY + borderY : 0);
 
-    const dpr =
-      typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
     total = Math.ceil(total * dpr) / dpr;
 
     return total;
@@ -388,12 +359,7 @@ type TabsContentProps = WithAsChild<
   } & HTMLMotionProps<'div'>
 >;
 
-function TabsContent({
-  value,
-  style,
-  asChild = false,
-  ...props
-}: TabsContentProps) {
+function TabsContent({ value, style, asChild = false, ...props }: TabsContentProps) {
   const { activeValue, baseId } = useTabs();
   const isActive = activeValue === value;
 
@@ -419,20 +385,19 @@ function TabsContent({
 
 export {
   Tabs,
-  TabsList,
+  TabsContent,
+  type TabsContentProps,
+  TabsContents,
+  type TabsContentsProps,
+  type TabsContextType,
   TabsHighlight,
   TabsHighlightItem,
-  TabsTrigger,
-  TabsContents,
-  TabsContent,
-  useTabs,
-  type TabsProps,
-  type TabsListProps,
-  type TabsHighlightProps,
   type TabsHighlightItemProps,
+  type TabsHighlightProps,
+  TabsList,
+  type TabsListProps,
+  type TabsProps,
+  TabsTrigger,
   type TabsTriggerProps,
-  type TabsContentsProps,
-  type TabsContentProps,
-  type TabsContextType,
+  useTabs,
 };
-

@@ -1,13 +1,13 @@
 'use client';
 
-import * as React from 'react';
 import { motion, type Variants } from 'motion/react';
+import * as React from 'react';
 
 import {
   getVariants,
-  useAnimateIconContext,
-  IconWrapper,
   type IconProps,
+  IconWrapper,
+  useAnimateIconContext,
 } from '@/components/ui/icons/icon';
 
 type CircleCheckBigProps = IconProps<keyof typeof animations>;
@@ -75,7 +75,6 @@ export {
   animations,
   CircleCheckBig,
   CircleCheckBig as CircleCheckBigIcon,
-  type CircleCheckBigProps,
   type CircleCheckBigProps as CircleCheckBigIconProps,
+  type CircleCheckBigProps,
 };
-

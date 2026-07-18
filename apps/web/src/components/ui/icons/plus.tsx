@@ -1,13 +1,13 @@
 'use client';
 
-import * as React from 'react';
 import { motion, type Variants } from 'motion/react';
+import * as React from 'react';
 
 import {
   getVariants,
-  useAnimateIconContext,
-  IconWrapper,
   type IconProps,
+  IconWrapper,
+  useAnimateIconContext,
 } from '@/components/ui/icons/icon';
 
 type PlusProps = IconProps<keyof typeof animations>;
@@ -118,11 +118,4 @@ function Plus(props: PlusProps) {
   return <IconWrapper icon={IconComponent} {...props} />;
 }
 
-export {
-  animations,
-  Plus,
-  Plus as PlusIcon,
-  type PlusProps,
-  type PlusProps as PlusIconProps,
-};
-
+export { animations, Plus, Plus as PlusIcon, type PlusProps as PlusIconProps, type PlusProps };

@@ -1,13 +1,13 @@
 'use client';
 
-import * as React from 'react';
 import { motion, type Variants } from 'motion/react';
+import * as React from 'react';
 
 import {
   getVariants,
-  useAnimateIconContext,
-  IconWrapper,
   type IconProps,
+  IconWrapper,
+  useAnimateIconContext,
 } from '@/components/ui/icons/icon';
 
 type ListProps = IconProps<keyof typeof animations>;
@@ -136,42 +136,12 @@ function IconComponent({ size, ...props }: ListProps) {
       strokeLinejoin="round"
       {...props}
     >
-      <motion.path
-        d="M3 5h.01"
-        variants={variants.path1}
-        initial="initial"
-        animate={controls}
-      />
-      <motion.path
-        d="M8 5h13"
-        variants={variants.path2}
-        initial="initial"
-        animate={controls}
-      />
-      <motion.path
-        d="M3 12h.01"
-        variants={variants.path3}
-        initial="initial"
-        animate={controls}
-      />
-      <motion.path
-        d="M8 12h13"
-        variants={variants.path4}
-        initial="initial"
-        animate={controls}
-      />
-      <motion.path
-        d="M3 19h.01"
-        variants={variants.path5}
-        initial="initial"
-        animate={controls}
-      />
-      <motion.path
-        d="M8 19h13"
-        variants={variants.path6}
-        initial="initial"
-        animate={controls}
-      />
+      <motion.path d="M3 5h.01" variants={variants.path1} initial="initial" animate={controls} />
+      <motion.path d="M8 5h13" variants={variants.path2} initial="initial" animate={controls} />
+      <motion.path d="M3 12h.01" variants={variants.path3} initial="initial" animate={controls} />
+      <motion.path d="M8 12h13" variants={variants.path4} initial="initial" animate={controls} />
+      <motion.path d="M3 19h.01" variants={variants.path5} initial="initial" animate={controls} />
+      <motion.path d="M8 19h13" variants={variants.path6} initial="initial" animate={controls} />
     </motion.svg>
   );
 }
@@ -180,11 +150,4 @@ function List(props: ListProps) {
   return <IconWrapper icon={IconComponent} {...props} />;
 }
 
-export {
-  animations,
-  List,
-  List as ListIcon,
-  type ListProps,
-  type ListProps as ListIconProps,
-};
-
+export { animations, List, List as ListIcon, type ListProps as ListIconProps, type ListProps };

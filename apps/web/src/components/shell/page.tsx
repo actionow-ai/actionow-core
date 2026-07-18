@@ -2,8 +2,8 @@ import { motion, useReducedMotion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 
 import { Card, Skeleton } from '@/components/ui/data-display';
-import { cn } from '@/lib/utils';
 import { DURATION, EASE_OUT } from '@/lib/motion';
+import { cn } from '@/lib/utils';
 
 function PageTransition({ children }: { children: React.ReactNode }) {
   const reduceMotion = useReducedMotion();
@@ -32,7 +32,9 @@ function PageHeader({
     <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         <h1 className="text-2xl font-semibold tracking-[-0.035em] sm:text-[1.75rem]">{title}</h1>
-        <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">{description}</p>
+        <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          {description}
+        </p>
       </div>
       {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
     </header>
@@ -57,7 +59,10 @@ function StatCard({
   const { t } = useTranslation();
   const Icon = icon;
   return (
-    <Card className={cn('relative overflow-hidden p-5', emphasis && 'bg-surface-strong/60 shadow-none')} interactive>
+    <Card
+      className={cn('relative overflow-hidden p-5', emphasis && 'bg-surface-strong/60 shadow-none')}
+      interactive
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm text-muted-foreground">{title}</p>
@@ -68,7 +73,12 @@ function StatCard({
           )}
           <p className="mt-1.5 text-xs text-muted-foreground">{detail}</p>
         </div>
-        <span className={cn('flex size-9 items-center justify-center rounded-lg bg-surface-strong text-muted-foreground', emphasis && 'bg-surface text-foreground shadow-xs')}>
+        <span
+          className={cn(
+            'flex size-9 items-center justify-center rounded-lg bg-surface-strong text-muted-foreground',
+            emphasis && 'bg-surface text-foreground shadow-xs',
+          )}
+        >
           <Icon className="size-4" />
         </span>
       </div>
@@ -76,7 +86,17 @@ function StatCard({
   );
 }
 
-function EmptyState({ icon, title, description, action }: { icon: React.ElementType; title: string; description: string; action?: React.ReactNode }) {
+function EmptyState({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+}) {
   const Icon = icon;
   return (
     <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">

@@ -1,13 +1,13 @@
 'use client';
 
-import * as React from 'react';
 import { motion, type Variants } from 'motion/react';
+import * as React from 'react';
 
 import {
   getVariants,
-  useAnimateIconContext,
-  IconWrapper,
   type IconProps,
+  IconWrapper,
+  useAnimateIconContext,
 } from '@/components/ui/icons/icon';
 
 type KeyProps = IconProps<keyof typeof animations>;
@@ -103,11 +103,4 @@ function Key(props: KeyProps) {
   return <IconWrapper icon={IconComponent} {...props} />;
 }
 
-export {
-  animations,
-  Key,
-  Key as KeyIcon,
-  type KeyProps,
-  type KeyProps as KeyIconProps,
-};
-
+export { animations, Key, Key as KeyIcon, type KeyProps as KeyIconProps, type KeyProps };

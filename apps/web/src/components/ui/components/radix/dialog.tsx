@@ -1,26 +1,26 @@
-import * as React from 'react';
 import { XIcon } from 'lucide-react';
+import * as React from 'react';
 
 import {
   Dialog as DialogPrimitive,
-  DialogContent as DialogContentPrimitive,
-  DialogDescription as DialogDescriptionPrimitive,
-  DialogFooter as DialogFooterPrimitive,
-  DialogHeader as DialogHeaderPrimitive,
-  DialogTitle as DialogTitlePrimitive,
-  DialogTrigger as DialogTriggerPrimitive,
-  DialogPortal as DialogPortalPrimitive,
-  DialogOverlay as DialogOverlayPrimitive,
   DialogClose as DialogClosePrimitive,
-  type DialogProps as DialogPrimitiveProps,
-  type DialogContentProps as DialogContentPrimitiveProps,
-  type DialogDescriptionProps as DialogDescriptionPrimitiveProps,
-  type DialogFooterProps as DialogFooterPrimitiveProps,
-  type DialogHeaderProps as DialogHeaderPrimitiveProps,
-  type DialogTitleProps as DialogTitlePrimitiveProps,
-  type DialogTriggerProps as DialogTriggerPrimitiveProps,
-  type DialogOverlayProps as DialogOverlayPrimitiveProps,
   type DialogCloseProps as DialogClosePrimitiveProps,
+  DialogContent as DialogContentPrimitive,
+  type DialogContentProps as DialogContentPrimitiveProps,
+  DialogDescription as DialogDescriptionPrimitive,
+  type DialogDescriptionProps as DialogDescriptionPrimitiveProps,
+  DialogFooter as DialogFooterPrimitive,
+  type DialogFooterProps as DialogFooterPrimitiveProps,
+  DialogHeader as DialogHeaderPrimitive,
+  type DialogHeaderProps as DialogHeaderPrimitiveProps,
+  DialogOverlay as DialogOverlayPrimitive,
+  type DialogOverlayProps as DialogOverlayPrimitiveProps,
+  DialogPortal as DialogPortalPrimitive,
+  type DialogProps as DialogPrimitiveProps,
+  DialogTitle as DialogTitlePrimitive,
+  type DialogTitleProps as DialogTitlePrimitiveProps,
+  DialogTrigger as DialogTriggerPrimitive,
+  type DialogTriggerProps as DialogTriggerPrimitiveProps,
 } from '@/components/ui/primitives/radix/dialog';
 import { cn } from '@/lib/utils';
 
@@ -101,10 +101,7 @@ type DialogFooterProps = DialogFooterPrimitiveProps;
 function DialogFooter({ className, ...props }: DialogFooterProps) {
   return (
     <DialogFooterPrimitive
-      className={cn(
-        'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end',
-        className,
-      )}
+      className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:justify-end', className)}
       {...props}
     />
   );
@@ -134,19 +131,19 @@ function DialogDescription({ className, ...props }: DialogDescriptionProps) {
 
 export {
   Dialog,
-  DialogTrigger,
   DialogClose,
-  DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
-  DialogDescription,
-  type DialogProps,
-  type DialogTriggerProps,
   type DialogCloseProps,
+  DialogContent,
   type DialogContentProps,
-  type DialogHeaderProps,
-  type DialogFooterProps,
-  type DialogTitleProps,
+  DialogDescription,
   type DialogDescriptionProps,
+  DialogFooter,
+  type DialogFooterProps,
+  DialogHeader,
+  type DialogHeaderProps,
+  type DialogProps,
+  DialogTitle,
+  type DialogTitleProps,
+  DialogTrigger,
+  type DialogTriggerProps,
 };

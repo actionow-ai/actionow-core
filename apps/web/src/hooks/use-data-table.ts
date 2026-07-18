@@ -72,6 +72,7 @@ export function useDataTable<T>(
     },
     sort,
     toggleSort,
-    directionFor: (key: string): SortDirection | null => (sort?.key === key ? sort.direction : null),
+    directionFor: (key: string): SortDirection | null =>
+      sort?.key === key ? sort.direction : null,
   };
 }

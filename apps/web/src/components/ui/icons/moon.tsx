@@ -1,13 +1,13 @@
 'use client';
 
-import * as React from 'react';
 import { motion, type Variants } from 'motion/react';
+import * as React from 'react';
 
 import {
   getVariants,
-  useAnimateIconContext,
-  IconWrapper,
   type IconProps,
+  IconWrapper,
+  useAnimateIconContext,
 } from '@/components/ui/icons/icon';
 
 type MoonProps = IconProps<keyof typeof animations>;
@@ -85,11 +85,4 @@ function Moon(props: MoonProps) {
   return <IconWrapper icon={IconComponent} {...props} />;
 }
 
-export {
-  animations,
-  Moon,
-  Moon as MoonIcon,
-  type MoonProps,
-  type MoonProps as MoonIconProps,
-};
-
+export { animations, Moon, Moon as MoonIcon, type MoonProps as MoonIconProps, type MoonProps };

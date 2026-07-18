@@ -1,13 +1,13 @@
 'use client';
 
-import * as React from 'react';
 import { motion, type Variants } from 'motion/react';
+import * as React from 'react';
 
 import {
   getVariants,
-  useAnimateIconContext,
-  IconWrapper,
   type IconProps,
+  IconWrapper,
+  useAnimateIconContext,
 } from '@/components/ui/icons/icon';
 
 type ArrowRightProps = IconProps<keyof typeof animations>;
@@ -78,6 +78,6 @@ export {
   animations,
   ArrowRight,
   ArrowRight as ArrowRightIcon,
-  type ArrowRightProps,
   type ArrowRightProps as ArrowRightIconProps,
+  type ArrowRightProps,
 };

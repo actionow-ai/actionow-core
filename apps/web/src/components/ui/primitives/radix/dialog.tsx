@@ -1,19 +1,18 @@
 'use client';
 
-import * as React from 'react';
+import { AnimatePresence, type HTMLMotionProps, motion } from 'motion/react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
-import { AnimatePresence, motion, type HTMLMotionProps } from 'motion/react';
+import * as React from 'react';
 
 import { useControlledState } from '@/hooks/use-controlled-state';
 import { getStrictContext } from '@/lib/get-strict-context';
 
-type DialogContextType = {
+interface DialogContextType {
   isOpen: boolean;
   setIsOpen: DialogProps['onOpenChange'];
-};
+}
 
-const [DialogProvider, useDialog] =
-  getStrictContext<DialogContextType>('DialogContext');
+const [DialogProvider, useDialog] = getStrictContext<DialogContextType>('DialogContext');
 
 type DialogProps = React.ComponentProps<typeof DialogPrimitive.Root>;
 
@@ -26,11 +25,7 @@ function Dialog(props: DialogProps) {
 
   return (
     <DialogProvider value={{ isOpen, setIsOpen }}>
-      <DialogPrimitive.Root
-        data-slot="dialog"
-        {...props}
-        onOpenChange={setIsOpen}
-      />
+      <DialogPrimitive.Root data-slot="dialog" {...props} onOpenChange={setIsOpen} />
     </DialogProvider>
   );
 }
@@ -41,23 +36,14 @@ function DialogTrigger(props: DialogTriggerProps) {
   return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
 }
 
-type DialogPortalProps = Omit<
-  React.ComponentProps<typeof DialogPrimitive.Portal>,
-  'forceMount'
->;
+type DialogPortalProps = Omit<React.ComponentProps<typeof DialogPrimitive.Portal>, 'forceMount'>;
 
 function DialogPortal(props: DialogPortalProps) {
   const { isOpen } = useDialog();
 
   return (
     <AnimatePresence>
-      {isOpen && (
-        <DialogPrimitive.Portal
-          data-slot="dialog-portal"
-          forceMount
-          {...props}
-        />
-      )}
+      {isOpen && <DialogPrimitive.Portal data-slot="dialog-portal" forceMount {...props} />}
     </AnimatePresence>
   );
 }
@@ -106,8 +92,7 @@ function DialogContent({
   transition = { type: 'spring', stiffness: 150, damping: 25 },
   ...props
 }: DialogContentProps) {
-  const initialRotation =
-    from === 'bottom' || from === 'left' ? '20deg' : '-20deg';
+  const initialRotation = from === 'bottom' || from === 'left' ? '20deg' : '-20deg';
   const isVertical = from === 'top' || from === 'bottom';
   const rotateAxis = isVertical ? 'rotateX' : 'rotateY';
 
@@ -170,39 +155,34 @@ function DialogTitle(props: DialogTitleProps) {
   return <DialogPrimitive.Title data-slot="dialog-title" {...props} />;
 }
 
-type DialogDescriptionProps = React.ComponentProps<
-  typeof DialogPrimitive.Description
->;
+type DialogDescriptionProps = React.ComponentProps<typeof DialogPrimitive.Description>;
 
 function DialogDescription(props: DialogDescriptionProps) {
-  return (
-    <DialogPrimitive.Description data-slot="dialog-description" {...props} />
-  );
+  return <DialogPrimitive.Description data-slot="dialog-description" {...props} />;
 }
 
 export {
   Dialog,
-  DialogPortal,
-  DialogOverlay,
   DialogClose,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
-  DialogDescription,
-  useDialog,
-  type DialogProps,
-  type DialogTriggerProps,
-  type DialogPortalProps,
   type DialogCloseProps,
-  type DialogOverlayProps,
+  DialogContent,
   type DialogContentProps,
-  type DialogHeaderProps,
-  type DialogFooterProps,
-  type DialogTitleProps,
-  type DialogDescriptionProps,
   type DialogContextType,
+  DialogDescription,
+  type DialogDescriptionProps,
   type DialogFlipDirection,
+  DialogFooter,
+  type DialogFooterProps,
+  DialogHeader,
+  type DialogHeaderProps,
+  DialogOverlay,
+  type DialogOverlayProps,
+  DialogPortal,
+  type DialogPortalProps,
+  type DialogProps,
+  DialogTitle,
+  type DialogTitleProps,
+  DialogTrigger,
+  type DialogTriggerProps,
+  useDialog,
 };
-

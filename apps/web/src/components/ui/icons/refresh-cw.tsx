@@ -1,13 +1,13 @@
 'use client';
 
-import * as React from 'react';
 import { motion, type Variants } from 'motion/react';
+import * as React from 'react';
 
 import {
   getVariants,
-  useAnimateIconContext,
-  IconWrapper,
   type IconProps,
+  IconWrapper,
+  useAnimateIconContext,
 } from '@/components/ui/icons/icon';
 
 type RefreshCwProps = IconProps<keyof typeof animations>;
@@ -73,24 +73,14 @@ function IconComponent({ size, ...props }: RefreshCwProps) {
         initial="initial"
         animate={controls}
       />
-      <motion.path
-        d="M21 3v5h-5"
-        variants={variants.path2}
-        initial="initial"
-        animate={controls}
-      />
+      <motion.path d="M21 3v5h-5" variants={variants.path2} initial="initial" animate={controls} />
       <motion.path
         d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"
         variants={variants.path3}
         initial="initial"
         animate={controls}
       />
-      <motion.path
-        d="M8 16H3v5"
-        variants={variants.path4}
-        initial="initial"
-        animate={controls}
-      />
+      <motion.path d="M8 16H3v5" variants={variants.path4} initial="initial" animate={controls} />
     </motion.svg>
   );
 }
@@ -103,7 +93,6 @@ export {
   animations,
   RefreshCw,
   RefreshCw as RefreshCwIcon,
-  type RefreshCwProps,
   type RefreshCwProps as RefreshCwIconProps,
+  type RefreshCwProps,
 };
-

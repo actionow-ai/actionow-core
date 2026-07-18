@@ -1,8 +1,12 @@
 import { Languages } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/components/animate/tooltip';
 import { Button } from '@/components/ui/components/buttons/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/components/animate/tooltip';
 import { toggleLanguage } from '@/lib/i18n';
 
 function LanguageButton() {

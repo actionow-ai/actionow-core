@@ -1,13 +1,13 @@
 'use client';
 
-import * as React from 'react';
 import { motion, type Variants } from 'motion/react';
+import * as React from 'react';
 
 import {
   getVariants,
-  useAnimateIconContext,
-  IconWrapper,
   type IconProps,
+  IconWrapper,
+  useAnimateIconContext,
 } from '@/components/ui/icons/icon';
 
 type MenuProps = IconProps<keyof typeof animations>;
@@ -117,11 +117,4 @@ function Menu(props: MenuProps) {
   return <IconWrapper icon={IconComponent} {...props} />;
 }
 
-export {
-  animations,
-  Menu,
-  Menu as MenuIcon,
-  type MenuProps,
-  type MenuProps as MenuIconProps,
-};
-
+export { animations, Menu, Menu as MenuIcon, type MenuProps as MenuIconProps, type MenuProps };

@@ -1,13 +1,13 @@
 'use client';
 
-import * as React from 'react';
 import { motion, type Variants } from 'motion/react';
+import * as React from 'react';
 
 import {
   getVariants,
-  useAnimateIconContext,
-  IconWrapper,
   type IconProps,
+  IconWrapper,
+  useAnimateIconContext,
 } from '@/components/ui/icons/icon';
 
 type SearchProps = IconProps<keyof typeof animations>;
@@ -90,7 +90,6 @@ export {
   animations,
   Search,
   Search as SearchIcon,
-  type SearchProps,
   type SearchProps as SearchIconProps,
+  type SearchProps,
 };
-

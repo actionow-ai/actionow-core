@@ -1,19 +1,18 @@
 'use client';
 
-import * as React from 'react';
+import { AnimatePresence, type HTMLMotionProps, motion } from 'motion/react';
 import { Dialog as SheetPrimitive } from 'radix-ui';
-import { AnimatePresence, motion, type HTMLMotionProps } from 'motion/react';
+import * as React from 'react';
 
-import { getStrictContext } from '@/lib/get-strict-context';
 import { useControlledState } from '@/hooks/use-controlled-state';
+import { getStrictContext } from '@/lib/get-strict-context';
 
-type SheetContextType = {
+interface SheetContextType {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-};
+}
 
-const [SheetProvider, useSheet] =
-  getStrictContext<SheetContextType>('SheetContext');
+const [SheetProvider, useSheet] = getStrictContext<SheetContextType>('SheetContext');
 
 type SheetProps = React.ComponentProps<typeof SheetPrimitive.Root>;
 
@@ -26,11 +25,7 @@ function Sheet(props: SheetProps) {
 
   return (
     <SheetProvider value={{ isOpen, setIsOpen }}>
-      <SheetPrimitive.Root
-        data-slot="sheet"
-        {...props}
-        onOpenChange={setIsOpen}
-      />
+      <SheetPrimitive.Root data-slot="sheet" {...props} onOpenChange={setIsOpen} />
     </SheetProvider>
   );
 }
@@ -54,9 +49,7 @@ function SheetPortal(props: SheetPortalProps) {
 
   return (
     <AnimatePresence>
-      {isOpen && (
-        <SheetPrimitive.Portal forceMount data-slot="sheet-portal" {...props} />
-      )}
+      {isOpen && <SheetPrimitive.Portal forceMount data-slot="sheet-portal" {...props} />}
     </AnimatePresence>
   );
 }
@@ -156,37 +149,32 @@ function SheetTitle(props: SheetTitleProps) {
   return <SheetPrimitive.Title data-slot="sheet-title" {...props} />;
 }
 
-type SheetDescriptionProps = React.ComponentProps<
-  typeof SheetPrimitive.Description
->;
+type SheetDescriptionProps = React.ComponentProps<typeof SheetPrimitive.Description>;
 
 function SheetDescription(props: SheetDescriptionProps) {
-  return (
-    <SheetPrimitive.Description data-slot="sheet-description" {...props} />
-  );
+  return <SheetPrimitive.Description data-slot="sheet-description" {...props} />;
 }
 
 export {
-  useSheet,
   Sheet,
-  SheetPortal,
-  SheetOverlay,
-  SheetTrigger,
   SheetClose,
-  SheetContent,
-  SheetHeader,
-  SheetFooter,
-  SheetTitle,
-  SheetDescription,
-  type SheetProps,
-  type SheetPortalProps,
-  type SheetOverlayProps,
-  type SheetTriggerProps,
   type SheetCloseProps,
+  SheetContent,
   type SheetContentProps,
-  type SheetHeaderProps,
-  type SheetFooterProps,
-  type SheetTitleProps,
+  SheetDescription,
   type SheetDescriptionProps,
+  SheetFooter,
+  type SheetFooterProps,
+  SheetHeader,
+  type SheetHeaderProps,
+  SheetOverlay,
+  type SheetOverlayProps,
+  SheetPortal,
+  type SheetPortalProps,
+  type SheetProps,
+  SheetTitle,
+  type SheetTitleProps,
+  SheetTrigger,
+  type SheetTriggerProps,
+  useSheet,
 };
-

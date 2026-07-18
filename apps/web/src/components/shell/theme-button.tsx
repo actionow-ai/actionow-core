@@ -1,7 +1,11 @@
 import { useTranslation } from 'react-i18next';
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/components/animate/tooltip';
 import { Button } from '@/components/ui/components/buttons/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/components/animate/tooltip';
 import { MoonIcon } from '@/components/ui/icons/moon';
 import { SunIcon } from '@/components/ui/icons/sun';
 import { useTheme } from '@/lib/theme';

@@ -1,13 +1,13 @@
 'use client';
 
-import * as React from 'react';
 import { motion, type Variants } from 'motion/react';
+import * as React from 'react';
 
 import {
   getVariants,
-  useAnimateIconContext,
-  IconWrapper,
   type IconProps,
+  IconWrapper,
+  useAnimateIconContext,
 } from '@/components/ui/icons/icon';
 
 type CopyProps = IconProps<keyof typeof animations>;
@@ -117,11 +117,4 @@ function Copy(props: CopyProps) {
   return <IconWrapper icon={IconComponent} {...props} />;
 }
 
-export {
-  animations,
-  Copy,
-  Copy as CopyIcon,
-  type CopyProps,
-  type CopyProps as CopyIconProps,
-};
-
+export { animations, Copy, Copy as CopyIcon, type CopyProps as CopyIconProps, type CopyProps };

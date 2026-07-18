@@ -1,7 +1,10 @@
 import * as React from 'react';
 
 type Theme = 'light' | 'dark';
-type ThemeContextValue = { theme: Theme; toggleTheme: () => void };
+interface ThemeContextValue {
+  theme: Theme;
+  toggleTheme: () => void;
+}
 
 const STORAGE_KEY = 'graphite.theme';
 
@@ -35,5 +38,4 @@ function useTheme() {
 }
 
 // ThemeProvider and its hook intentionally share one context module.
-// eslint-disable-next-line react-refresh/only-export-components
 export { ThemeProvider, useTheme };

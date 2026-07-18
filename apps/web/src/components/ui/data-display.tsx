@@ -1,21 +1,31 @@
 // Animate UI does not publish styled data-display registry items. These local primitives follow its official tokens, spacing, radius, and accessibility conventions.
-import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
+import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/components/buttons/button';
 import { RefreshCwIcon } from '@/components/ui/icons/refresh-cw';
 import { SearchIcon } from '@/components/ui/icons/search';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { SortDirection } from '@/hooks/use-data-table';
 import { cn } from '@/lib/utils';
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
-function Card({ className, interactive = false, ...props }: React.ComponentProps<typeof motion.div> & { interactive?: boolean }) {
+function Card({
+  className,
+  interactive = false,
+  ...props
+}: React.ComponentProps<typeof motion.div> & { interactive?: boolean }) {
   const reduceMotion = useReducedMotion();
   return (
     <motion.div
@@ -40,12 +50,21 @@ const badgeVariants = cva('inline-flex items-center rounded-full px-2.5 py-1 tex
   defaultVariants: { variant: 'neutral' },
 });
 
-function Badge({ className, variant, ...props }: React.ComponentProps<'span'> & VariantProps<typeof badgeVariants>) {
+function Badge({
+  className,
+  variant,
+  ...props
+}: React.ComponentProps<'span'> & VariantProps<typeof badgeVariants>) {
   return <span className={cn(badgeVariants({ variant }), className)} {...props} />;
 }
 
 function DataTable({ className, ...props }: React.ComponentProps<'table'>) {
-  return <table className={cn('w-full min-w-[720px] border-collapse text-left text-sm', className)} {...props} />;
+  return (
+    <table
+      className={cn('w-full min-w-[720px] border-collapse text-left text-sm', className)}
+      {...props}
+    />
+  );
 }
 
 function DataTableHeader({ className, ...props }: React.ComponentProps<'thead'>) {
@@ -57,7 +76,9 @@ function DataTableBody({ className, ...props }: React.ComponentProps<'tbody'>) {
 }
 
 function DataTableRow({ className, ...props }: React.ComponentProps<'tr'>) {
-  return <tr className={cn('transition-colors hover:bg-surface-subtle/70', className)} {...props} />;
+  return (
+    <tr className={cn('transition-colors hover:bg-surface-subtle/70', className)} {...props} />
+  );
 }
 
 function DataTableHead({ className, ...props }: React.ComponentProps<'th'>) {
@@ -76,7 +97,8 @@ function DataTableSortHead({
   className?: string;
 }) {
   const { t } = useTranslation();
-  const SortIcon = direction === 'asc' ? ArrowUp : direction === 'desc' ? ArrowDown : ChevronsUpDown;
+  const SortIcon =
+    direction === 'asc' ? ArrowUp : direction === 'desc' ? ArrowDown : ChevronsUpDown;
   return (
     <th
       className={cn('p-0 font-semibold', className)}
@@ -85,7 +107,9 @@ function DataTableSortHead({
       <button
         type="button"
         onClick={onToggle}
-        aria-label={typeof children === 'string' ? t('table.sortBy', { column: children }) : undefined}
+        aria-label={
+          typeof children === 'string' ? t('table.sortBy', { column: children }) : undefined
+        }
         className={cn(
           'flex w-full items-center gap-1.5 px-4 py-3 text-left font-semibold whitespace-nowrap outline-hidden transition-colors hover:text-foreground focus-visible:outline-solid focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
           direction && 'text-foreground',
@@ -124,19 +148,32 @@ function DataTablePagination({
   const showPageSize = onPageSizeChange !== undefined && pageSize !== undefined;
   if (total === undefined && pageCount <= 1 && !showPageSize) return null;
   return (
-    <div className={cn('flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t px-4 py-2.5 text-xs text-muted-foreground', className)}>
+    <div
+      className={cn(
+        'flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t px-4 py-2.5 text-xs text-muted-foreground',
+        className,
+      )}
+    >
       <span>{total === undefined ? null : t('table.total', { count: total })}</span>
       <div className="flex items-center gap-4">
         {showPageSize ? (
           <label className="flex items-center gap-2">
             <span className="whitespace-nowrap">{t('table.pageSize')}</span>
-            <Select value={String(pageSize)} onValueChange={(value) => onPageSizeChange(Number(value))}>
-              <SelectTrigger className="h-8 w-auto gap-1.5 px-3 text-xs" aria-label={t('table.pageSize')}>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(value) => onPageSizeChange(Number(value))}
+            >
+              <SelectTrigger
+                className="h-8 w-auto gap-1.5 px-3 text-xs"
+                aria-label={t('table.pageSize')}
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {pageSizeOptions.map((size) => (
-                  <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                  <SelectItem key={size} value={String(size)}>
+                    {size}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -144,11 +181,25 @@ function DataTablePagination({
         ) : null}
         {pageCount > 1 ? (
           <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="icon-sm" aria-label={t('table.previousPage')} disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t('table.previousPage')}
+              disabled={page <= 1}
+              onClick={() => onPageChange(page - 1)}
+            >
               <ChevronLeft />
             </Button>
-            <span className="min-w-12 text-center font-mono tabular-nums">{total === undefined ? page : t('table.pageOf', { page, pageCount })}</span>
-            <Button variant="ghost" size="icon-sm" aria-label={t('table.nextPage')} disabled={page >= pageCount} onClick={() => onPageChange(page + 1)}>
+            <span className="min-w-12 text-center font-mono tabular-nums">
+              {total === undefined ? page : t('table.pageOf', { page, pageCount })}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t('table.nextPage')}
+              disabled={page >= pageCount}
+              onClick={() => onPageChange(page + 1)}
+            >
               <ChevronRight />
             </Button>
           </div>
@@ -187,7 +238,11 @@ function DataTableToolbar({
       {title ? <div className="flex items-center gap-2 font-semibold">{title}</div> : null}
       {search ? (
         <div className="relative min-w-56 flex-1">
-          <SearchIcon className="pointer-events-none absolute top-2.5 left-3 text-muted-foreground" size={16} aria-hidden="true" />
+          <SearchIcon
+            className="pointer-events-none absolute top-2.5 left-3 text-muted-foreground"
+            size={16}
+            aria-hidden="true"
+          />
           <Input
             className="pl-9"
             value={search.value}

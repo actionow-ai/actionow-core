@@ -2,29 +2,24 @@ import * as React from 'react';
 
 import {
   Tabs as TabsPrimitive,
-  TabsList as TabsListPrimitive,
-  TabsTrigger as TabsTriggerPrimitive,
   TabsContent as TabsContentPrimitive,
+  type TabsContentProps as TabsContentPrimitiveProps,
   TabsContents as TabsContentsPrimitive,
+  type TabsContentsProps as TabsContentsPrimitiveProps,
   TabsHighlight as TabsHighlightPrimitive,
   TabsHighlightItem as TabsHighlightItemPrimitive,
-  type TabsProps as TabsPrimitiveProps,
+  TabsList as TabsListPrimitive,
   type TabsListProps as TabsListPrimitiveProps,
+  type TabsProps as TabsPrimitiveProps,
+  TabsTrigger as TabsTriggerPrimitive,
   type TabsTriggerProps as TabsTriggerPrimitiveProps,
-  type TabsContentProps as TabsContentPrimitiveProps,
-  type TabsContentsProps as TabsContentsPrimitiveProps,
 } from '@/components/ui/primitives/animate/tabs';
 import { cn } from '@/lib/utils';
 
 type TabsProps = TabsPrimitiveProps;
 
 function Tabs({ className, ...props }: TabsProps) {
-  return (
-    <TabsPrimitive
-      className={cn('flex flex-col gap-2', className)}
-      {...props}
-    />
-  );
+  return <TabsPrimitive className={cn('flex flex-col gap-2', className)} {...props} />;
 }
 
 type TabsListProps = TabsListPrimitiveProps;
@@ -68,23 +63,18 @@ function TabsContents(props: TabsContentsProps) {
 type TabsContentProps = TabsContentPrimitiveProps;
 
 function TabsContent({ className, ...props }: TabsContentProps) {
-  return (
-    <TabsContentPrimitive
-      className={cn('outline-hidden', className)}
-      {...props}
-    />
-  );
+  return <TabsContentPrimitive className={cn('outline-hidden', className)} {...props} />;
 }
 
 export {
   Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContents,
   TabsContent,
-  type TabsProps,
-  type TabsListProps,
-  type TabsTriggerProps,
-  type TabsContentsProps,
   type TabsContentProps,
+  TabsContents,
+  type TabsContentsProps,
+  TabsList,
+  type TabsListProps,
+  type TabsProps,
+  TabsTrigger,
+  type TabsTriggerProps,
 };

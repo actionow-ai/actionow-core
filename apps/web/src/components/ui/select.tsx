@@ -1,8 +1,8 @@
 // Animate UI does not publish a styled Select registry item. This local primitive follows its official tokens, focus treatment, radius, and accessibility conventions.
-import * as React from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Select as SelectPrimitive } from 'radix-ui';
+import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 

@@ -26,11 +26,7 @@ export function CopyButton({ value, label }: { value: string; label?: string }) 
         });
       }}
     >
-      {copied ? (
-        <CircleCheckBigIcon className="text-success" />
-      ) : (
-        <CopyIcon animateOnHover />
-      )}
+      {copied ? <CircleCheckBigIcon className="text-success" /> : <CopyIcon animateOnHover />}
     </Button>
   );
 }

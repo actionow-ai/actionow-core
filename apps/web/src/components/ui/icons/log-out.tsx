@@ -1,13 +1,13 @@
 'use client';
 
-import * as React from 'react';
 import { motion, type Variants } from 'motion/react';
+import * as React from 'react';
 
 import {
   getVariants,
-  useAnimateIconContext,
-  IconWrapper,
   type IconProps,
+  IconWrapper,
+  useAnimateIconContext,
 } from '@/components/ui/icons/icon';
 
 type LogOutProps = IconProps<keyof typeof animations>;
@@ -68,12 +68,7 @@ function IconComponent({ size, ...props }: LogOutProps) {
           initial="initial"
           animate={controls}
         />
-        <motion.path
-          d="M21 12H9"
-          variants={variants.path2}
-          initial="initial"
-          animate={controls}
-        />
+        <motion.path d="M21 12H9" variants={variants.path2} initial="initial" animate={controls} />
       </motion.g>
       <motion.path
         d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
@@ -93,7 +88,6 @@ export {
   animations,
   LogOut,
   LogOut as LogOutIcon,
-  type LogOutProps,
   type LogOutProps as LogOutIconProps,
+  type LogOutProps,
 };
-

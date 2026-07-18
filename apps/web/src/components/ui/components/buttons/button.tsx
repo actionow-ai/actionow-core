@@ -1,7 +1,7 @@
 'use client';
 
-import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
+import * as React from 'react';
 
 import {
   Button as ButtonPrimitive,
@@ -14,17 +14,13 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default:
-          'bg-primary text-primary-foreground shadow-xs hover:bg-primary/88',
+        default: 'bg-primary text-primary-foreground shadow-xs hover:bg-primary/88',
         accent: 'bg-accent text-accent-foreground shadow-xs hover:bg-accent/80',
         destructive:
           'bg-destructive text-white shadow-xs hover:bg-destructive/88 focus-visible:outline-destructive',
-        outline:
-          'bg-surface-subtle text-foreground shadow-xs hover:bg-surface-strong',
-        secondary:
-          'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/75',
-        ghost:
-          'hover:bg-accent hover:text-accent-foreground',
+        outline: 'bg-surface-subtle text-foreground shadow-xs hover:bg-surface-strong',
+        secondary: 'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/75',
+        ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {
@@ -47,12 +43,8 @@ type ButtonProps = ButtonPrimitiveProps & VariantProps<typeof buttonVariants>;
 
 function Button({ className, variant, size, ...props }: ButtonProps) {
   return (
-    <ButtonPrimitive
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
+    <ButtonPrimitive className={cn(buttonVariants({ variant, size, className }))} {...props} />
   );
 }
 
-export { Button, buttonVariants, type ButtonProps };
-
+export { Button, type ButtonProps, buttonVariants };

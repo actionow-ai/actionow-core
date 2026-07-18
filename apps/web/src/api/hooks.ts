@@ -26,9 +26,6 @@ export function useCursorQuery<T>(options: {
     getNextPageParam: (last) => last.next_cursor ?? undefined,
     enabled,
   });
-  const rows = useMemo(
-    () => result.data?.pages.flatMap((page) => page.data) ?? [],
-    [result.data],
-  );
+  const rows = useMemo(() => result.data?.pages.flatMap((page) => page.data) ?? [], [result.data]);
   return { ...result, rows };
 }

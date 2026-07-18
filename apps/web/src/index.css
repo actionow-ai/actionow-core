@@ -111,8 +111,16 @@ body::before {
   pointer-events: none;
   content: '';
   background:
-    radial-gradient(circle at 12% -4%, color-mix(in oklab, var(--foreground) 4%, transparent), transparent 26rem),
-    linear-gradient(to bottom, color-mix(in oklab, var(--surface) 60%, transparent), transparent 18rem);
+    radial-gradient(
+      circle at 12% -4%,
+      color-mix(in oklab, var(--foreground) 4%, transparent),
+      transparent 26rem
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--surface) 60%, transparent),
+      transparent 18rem
+    );
 }
 
 ::selection {

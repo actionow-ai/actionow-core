@@ -1,16 +1,16 @@
-import * as React from 'react';
 import * as motion from 'motion/react-client';
+import * as React from 'react';
 
 import {
-  TooltipProvider as TooltipProviderPrimitive,
   Tooltip as TooltipPrimitive,
-  TooltipTrigger as TooltipTriggerPrimitive,
-  TooltipContent as TooltipContentPrimitive,
   TooltipArrow as TooltipArrowPrimitive,
-  type TooltipProviderProps as TooltipProviderPrimitiveProps,
-  type TooltipProps as TooltipPrimitiveProps,
-  type TooltipTriggerProps as TooltipTriggerPrimitiveProps,
+  TooltipContent as TooltipContentPrimitive,
   type TooltipContentProps as TooltipContentPrimitiveProps,
+  type TooltipProps as TooltipPrimitiveProps,
+  TooltipProvider as TooltipProviderPrimitive,
+  type TooltipProviderProps as TooltipProviderPrimitiveProps,
+  TooltipTrigger as TooltipTriggerPrimitive,
+  type TooltipTriggerProps as TooltipTriggerPrimitiveProps,
 } from '@/components/ui/primitives/animate/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -45,10 +45,7 @@ function TooltipContent({
 }: TooltipContentProps) {
   return (
     <TooltipContentPrimitive
-      className={cn(
-        'z-50 w-fit bg-primary text-primary-foreground rounded-lg',
-        className,
-      )}
+      className={cn('z-50 w-fit bg-primary text-primary-foreground rounded-lg', className)}
       {...props}
     >
       <motion.div className="overflow-hidden px-3 py-1.5 text-xs text-balance">
@@ -63,13 +60,12 @@ function TooltipContent({
 }
 
 export {
-  TooltipProvider,
   Tooltip,
-  TooltipTrigger,
   TooltipContent,
-  type TooltipProviderProps,
-  type TooltipProps,
-  type TooltipTriggerProps,
   type TooltipContentProps,
+  type TooltipProps,
+  TooltipProvider,
+  type TooltipProviderProps,
+  TooltipTrigger,
+  type TooltipTriggerProps,
 };
-

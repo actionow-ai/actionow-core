@@ -28,7 +28,8 @@ export const graphiteEn = {
   apiState: {
     failedTitle: 'Request failed',
     unavailableTitle: 'Endpoint not enabled yet',
-    unavailableDescription: 'The server does not provide this capability yet; the page will not show simulated success data.',
+    unavailableDescription:
+      'The server does not provide this capability yet; the page will not show simulated success data.',
     requestId: 'Request ID: {{id}}',
     retry: 'Retry',
     loading: 'Loading data',

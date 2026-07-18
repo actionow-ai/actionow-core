@@ -111,6 +111,18 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   return (await response.json()) as T;
 }
 
+/** Map any thrown error to the `ApiErrorNotice` shape. */
+export function toApiStateError(error: unknown): {
+  status?: number;
+  message: string;
+  requestId?: string;
+} {
+  if (error instanceof ApiError) {
+    return { status: error.status, message: error.message, requestId: error.requestId };
+  }
+  return { message: error instanceof Error ? error.message : String(error) };
+}
+
 /** Format a µcredit decimal string (1 credit = 1_000_000 µ) for display. */
 export function formatMicroCredits(micro: string | number | null | undefined): string {
   if (micro === null || micro === undefined || micro === '') return '—';
