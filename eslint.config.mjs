@@ -1,5 +1,6 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import { nativeControlRestrictions } from './apps/web/eslint-ui.mjs';
 import importX from 'eslint-plugin-import-x';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import boundaries from 'eslint-plugin-boundaries';
@@ -504,6 +505,42 @@ export default tseslint.config(
       '@typescript-eslint/no-empty-function': 'off',
       '@typescript-eslint/no-unnecessary-condition': 'off',
       '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+    },
+  },
+  // graphite UI policy: business layers must use the components/ui wrappers, never
+  // raw interactive elements. Enforced together with apps/web/scripts/check-ui.mjs.
+  // NOTE: this block re-states the DataTable loading/error rule because
+  // `no-restricted-syntax` entries REPLACE (not merge with) the apps/web block above.
+  {
+    files: ['apps/web/src/pages/**/*.tsx', 'apps/web/src/components/**/*.tsx'],
+    ignores: ['apps/web/src/components/ui/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "JSXOpeningElement[name.name='DataTable']:has(JSXAttribute[name.name='loading']):not(:has(JSXAttribute[name.name='error']))",
+          message:
+            'A <DataTable> with `loading` must also pass `error` (wire it to the query’s isError) so a failed fetch surfaces a retry state instead of an empty table. Add error={query.isError} + onRetry={() => void refetch()}.',
+        },
+        ...nativeControlRestrictions(),
+      ],
+    },
+  },
+  // Vendored graphite skeleton layers (ui primitives/engines, hooks, lib, shell):
+  // upstream snapshot code, not authored to this repo's backend-oriented
+  // strict-type-checked profile. Keep syntax rules, drop type-aware ones.
+  {
+    files: [
+      'apps/web/src/components/ui/**/*.{ts,tsx}',
+      'apps/web/src/components/shell/**/*.tsx',
+      'apps/web/src/hooks/**/*.{ts,tsx}',
+      'apps/web/src/lib/**/*.{ts,tsx}',
+    ],
+    extends: [tseslint.configs.disableTypeChecked],
+    rules: {
+      '@typescript-eslint/no-empty-function': 'off',
+      '@typescript-eslint/no-empty-object-type': 'off',
     },
   },
   prettier,

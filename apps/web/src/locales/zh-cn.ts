@@ -1,0 +1,36 @@
+export const graphiteZhCN = {
+  common: {
+    mainNavigation: '主导航',
+    skipToContent: '跳到主要内容',
+    openNavigation: '打开导航',
+    expandSidebar: '展开侧边栏',
+    collapseSidebar: '收起侧边栏',
+    logout: '退出登录',
+    user: '用户',
+    themeToLight: '切换到浅色模式',
+    themeToDark: '切换到深色模式',
+    language: 'Switch to English',
+  },
+  pageChrome: {
+    loading: '加载中',
+  },
+  table: {
+    search: '搜索',
+    searchPlaceholder: '搜索',
+    sortBy: '按{{column}}排序',
+    total: '共 {{count}} 条',
+    pageSize: '每页',
+    pageOf: '第 {{page}} / {{pageCount}} 页',
+    previousPage: '上一页',
+    nextPage: '下一页',
+    refresh: '刷新',
+  },
+  apiState: {
+    failedTitle: '请求失败',
+    unavailableTitle: '该接口尚未启用',
+    unavailableDescription: '服务端暂未提供此能力，页面不会显示模拟成功数据。',
+    requestId: '请求 ID：{{id}}',
+    retry: '重试',
+    loading: '正在加载数据',
+  },
+};
