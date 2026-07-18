@@ -17,7 +17,7 @@
   统一错误信封 → `ApiError { status, code, message, retryable, requestId }`。
 - 列表一律游标分页信封 `PageOf<T> = { data, next_cursor, has_more }`，query 参数 `cursor` + `limit`。
   用 `useCursorQuery<T>({ key, path, query, limit })`（`@/api/hooks`），返回 `rows`（拍平窗口）
-  + react-query infinite 查询字段；表尾放 `<LoadMore count hasMore loading onLoadMore/>`。
+  - react-query infinite 查询字段；表尾放 `<LoadMore count hasMore loading onLoadMore/>`。
 - 少量端点返回裸数组（如 `/admin/breakers`）或单对象，用 `useQuery` + `apiFetch` 直接取。
 - 写操作用 `useMutation`，成功后 `queryClient.invalidateQueries({ queryKey: [...] })`。
 - 错误展示：`<ApiErrorNotice error={toApiStateError(query.error)} onRetry={() => void query.refetch()} />`；
@@ -39,15 +39,57 @@
 ```tsx
 import { Button } from '@/components/ui/components/buttons/button'; // variant×7 size×6, asChild 支持
 import {
-  Badge, Card, DataTable, DataTableBody, DataTableCell, DataTableHead, DataTableHeader,
-  DataTablePagination, DataTableRow, DataTableSortHead, DataTableToolbar, Skeleton,
+  Badge,
+  Card,
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeader,
+  DataTablePagination,
+  DataTableRow,
+  DataTableSortHead,
+  DataTableToolbar,
+  Skeleton,
 } from '@/components/ui/data-display';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/components/radix/dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/components/radix/sheet';
-import { Tabs, TabsContent, TabsContents, TabsList, TabsTrigger } from '@/components/ui/components/animate/tabs';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/components/animate/tooltip';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/components/radix/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/components/radix/sheet';
+import {
+  Tabs,
+  TabsContent,
+  TabsContents,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/components/animate/tabs';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/components/animate/tooltip';
 import { Input, Textarea } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { EmptyState, PageHeader, PageTransition, StatCard } from '@/components/shell/page';
 import { useDataTable } from '@/hooks/use-data-table';
 ```
