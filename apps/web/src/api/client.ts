@@ -1,6 +1,6 @@
 import { config } from '@/config';
 
-import { getSession, refreshSession } from './auth';
+import { decodeJwtPayload, getSession, refreshSession } from './auth';
 
 /** Cursor pagination envelope shared by every list endpoint. */
 export interface PageOf<T> {
@@ -102,13 +102,24 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     signal,
   });
 
-  if (response.status === 401 && !skipRefresh && session) {
+  // Refresh only when the access token is actually stale. The backend answers
+  // 401 (not 403) for plane mismatches too (e.g. a tenant-less platform admin
+  // probing /console/me) — refreshing there is useless and, worse, the current
+  // refresh endpoint re-mints admin sessions with the user role, silently
+  // downgrading the session.
+  if (response.status === 401 && !skipRefresh && session && isTokenStale(session.accessToken)) {
     const renewed = await refreshSession();
     if (renewed) return apiFetch<T>(path, { ...options, skipRefresh: true });
   }
   if (!response.ok) throw await parseError(response);
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+function isTokenStale(accessToken: string): boolean {
+  const exp = decodeJwtPayload(accessToken).exp;
+  if (!exp) return true;
+  return exp * 1000 - Date.now() < 30_000;
 }
 
 /** Map any thrown error to the `ApiErrorNotice` shape. */
