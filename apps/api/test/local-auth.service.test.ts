@@ -240,6 +240,56 @@ describe('LocalAuthService.login', () => {
   });
 });
 
+describe('LocalAuthService.issueToken → session principal_kind tracks the plane', () => {
+  function withSessions(r: LocalAuthRepo): { svc: LocalAuthService; sessions: FakeSessions } {
+    const sessions = new FakeSessions();
+    const svc = new LocalAuthService(
+      {} as Database,
+      r,
+      issuer(),
+      sessions as unknown as SessionService,
+    );
+    return { svc, sessions };
+  }
+
+  it('opens an admin session (principal_kind=admin) for a platform-admin login', async () => {
+    // A platform admin is a `user` row with role='admin'.
+    repo.users.push({
+      id: 'u-admin',
+      email: 'admin@actionow.local',
+      emailVerified: true,
+      passwordHash: hashPassword('actionow-dev-password'),
+      role: 'admin',
+      tenantRole: 'admin',
+      status: 'active',
+      tenantId: null,
+      createdAt: new Date(),
+    });
+    const { svc, sessions } = withSessions(repo);
+    const { token } = await svc.login({
+      email: 'admin@actionow.local',
+      password: 'actionow-dev-password',
+    });
+    // The login access token itself already carries role:'admin'.
+    expect(claimsOf(token).role).toBe('admin');
+    // The session MUST be opened as principal_kind='admin' — that (not the
+    // unstored role) is what a later /auth/refresh re-mints the access role from,
+    // so hard-coding 'user' here silently downgraded the refreshed admin token.
+    expect(sessions.created).toHaveLength(1);
+    expect(sessions.created[0]?.principalKind).toBe('admin');
+    expect(sessions.created[0]?.id).toBe('u-admin');
+  });
+
+  it('opens a user session (principal_kind=user) for a tenant-operator login', async () => {
+    await service(repo).register({ email: 'operator@example.com', password: 'hunter2' });
+    const { svc, sessions } = withSessions(repo);
+    const { token } = await svc.login({ email: 'operator@example.com', password: 'hunter2' });
+    // A tenant operator is a `user` row with role='user' — NOT a platform admin.
+    expect(claimsOf(token).role).toBe('user');
+    expect(sessions.created[0]?.principalKind).toBe('user');
+  });
+});
+
 describe('LocalAuthService.registerMember / loginMember (G-F)', () => {
   it('registers a member as a subject + issues a typ:subject token (no new tenant)', async () => {
     const { token } = await service(repo).registerMember({

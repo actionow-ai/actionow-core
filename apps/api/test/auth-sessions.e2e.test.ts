@@ -187,6 +187,84 @@ describe('member refresh re-mints typ:subject + tenant_id', () => {
   });
 });
 
+/** base64url-decode a JWT payload and read its `role` claim. */
+function decodeRole(accessToken: string): string {
+  const payload = accessToken.split('.')[1] ?? '';
+  const json = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { role?: string };
+  return json.role ?? '';
+}
+
+describe('POST /auth/login (unified) → refresh preserves the platform-admin role', () => {
+  it('a platform admin login → refresh keeps role:admin (no silent downgrade) + still gates /admin', async () => {
+    const { hashPassword } = await import('@actionow/infra');
+    const { createUser } = await import('@actionow/db');
+    // A platform admin: a `user` row with role='admin'.
+    await createUser(db, {
+      email: 'admin@actionow.local',
+      passwordHash: hashPassword('actionow-dev-password'),
+      role: 'admin',
+      emailVerified: true,
+    });
+
+    const login = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'admin@actionow.local', password: 'actionow-dev-password' })
+      .expect(200);
+    // The login access token is correct: role:'admin'.
+    expect(decodeRole(login.body.accessToken as string)).toBe('admin');
+
+    const rotated = await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refreshToken: login.body.refreshToken as string })
+      .expect(200);
+    // The bug: the refreshed access token used to decode to role:'user'.
+    expect(decodeRole(rotated.body.accessToken as string)).toBe('admin');
+
+    // ...and the refreshed token STILL gates the /admin plane.
+    await request(app.getHttpServer())
+      .get('/admin/tenants')
+      .set('authorization', `Bearer ${rotated.body.accessToken as string}`)
+      .expect(200);
+  });
+
+  it('a tenant operator login → refresh stays role:user (regression guard)', async () => {
+    const reg = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: 'operator@example.com', password: 'sup3rSecret' })
+      .expect(200);
+    expect(decodeRole(reg.body.accessToken as string)).toBe('user');
+
+    const rotated = await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refreshToken: reg.body.refreshToken as string })
+      .expect(200);
+    expect(decodeRole(rotated.body.accessToken as string)).toBe('user');
+  });
+
+  it('a tenant-less platform admin is forbidden (403), not unauthorized, on the tenant console', async () => {
+    const { hashPassword } = await import('@actionow/infra');
+    const { createUser } = await import('@actionow/db');
+    await createUser(db, {
+      email: 'admin-console@actionow.local',
+      passwordHash: hashPassword('actionow-dev-password'),
+      role: 'admin',
+      emailVerified: true,
+    });
+    const login = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'admin-console@actionow.local', password: 'actionow-dev-password' })
+      .expect(200);
+
+    // Valid credential, but no tenant → plane mismatch → 403 (not a 401 that would
+    // lure the client into a refresh/re-login loop).
+    const res = await request(app.getHttpServer())
+      .get('/console/me')
+      .set('authorization', `Bearer ${login.body.accessToken as string}`)
+      .expect(403);
+    expect(res.body.error.code).toBe('forbidden');
+  });
+});
+
 describe('admin refresh re-mints the admin role', () => {
   it('an admin login → refresh keeps gating /admin', async () => {
     const { hashPassword } = await import('@actionow/infra');
