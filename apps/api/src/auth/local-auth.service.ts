@@ -161,14 +161,21 @@ export class LocalAuthService {
    * by register/login + OAuth). The access token is signed by the alg-aware
    * {@link TokenIssuerService}; the {@link SessionService} mints the paired refresh
    * token. Returns the additive `{token, accessToken, refreshToken, expiresIn}`.
+   *
+   * The session's `principal_kind` MUST track the user's plane: a platform admin
+   * (`role='admin'`) opens an `admin` session, a tenant operator (`role='user'`)
+   * a `user` session. `principal_kind` — NOT the (unstored) role — is what
+   * {@link SessionService.refresh} re-mints the access role from, so hard-coding
+   * `'user'` here would silently downgrade a refreshed admin token to `role:'user'`.
    */
   async issueToken(
     user: Pick<UserRecord, 'id' | 'role'>,
     meta?: SessionReqMeta,
   ): Promise<AuthResult> {
     const accessToken = await this.issuer.issueAccess({ sub: user.id, role: user.role });
+    const principalKind = user.role === 'admin' ? 'admin' : 'user';
     return this.sessions.createForPrincipal(
-      { principalKind: 'user', id: user.id, role: user.role },
+      { principalKind, id: user.id, role: user.role },
       accessToken,
       meta ?? {},
     );

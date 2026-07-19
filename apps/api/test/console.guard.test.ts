@@ -64,15 +64,23 @@ describe('ConsoleGuard', () => {
       guard(repoWith({})).canActivate(ctxFor({ headers: { authorization: `Bearer ${bad}` } })),
     ).rejects.toMatchObject({ unified: { code: 'unauthorized' } });
   });
-  it('rejects when the user has no tenant (401)', async () => {
+  it('forbids a valid-but-tenant-less user such as a platform admin (403)', async () => {
+    // A valid, active credential with no tenant is a plane mismatch, not missing
+    // auth — 403 forbidden (not 401) so the client does not loop on refresh.
     const t = await token('u1');
     await expect(
       guard(repoWith({ tenantId: null })).canActivate(
         ctxFor({ headers: { authorization: `Bearer ${t}` } }),
       ),
+    ).rejects.toMatchObject({ unified: { code: 'forbidden' } });
+  });
+  it('rejects an unknown subject (deleted user) as invalid credential (401)', async () => {
+    const t = await token('ghost');
+    await expect(
+      guard(repoWith(undefined)).canActivate(ctxFor({ headers: { authorization: `Bearer ${t}` } })),
     ).rejects.toMatchObject({ unified: { code: 'unauthorized' } });
   });
-  it('rejects a disabled user (401)', async () => {
+  it('rejects a disabled user as invalid credential (401)', async () => {
     const t = await token('u1');
     await expect(
       guard(repoWith({ status: 'disabled' })).canActivate(

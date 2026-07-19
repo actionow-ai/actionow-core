@@ -6,7 +6,7 @@ import type { Request } from 'express';
 
 import type { AuthClaims } from '../auth/local-auth.service.js';
 import { TokenVerifierService } from '../auth/token-verifier.service.js';
-import { engineUnauthorized } from '../common/errors.js';
+import { engineForbidden, engineUnauthorized } from '../common/errors.js';
 import { DB } from '../common/tokens.js';
 
 /** The authenticated tenant-console context the guard attaches as `req.console`. */
@@ -45,9 +45,16 @@ export const CONSOLE_REPO = Symbol('CONSOLE_REPO');
  * `LocalAuthService.issueToken`). Verifies the Bearer token, loads the user by
  * `sub`, and requires an `active` user with a non-null `tenant_id` whose tenant
  * resolves to a billing account. On success it attaches
- * `{userId, tenantId, accountId}` to `req.console`. Any missing/expired/forged
- * token, a non-active or tenant-less user, or a tenant without an account fails
- * closed with `unauthorized`. Independent of the `ApiKeyGuard` data plane.
+ * `{userId, tenantId, accountId}` to `req.console`.
+ *
+ * Failure status semantics distinguish an INVALID credential from a WRONG-PLANE
+ * one: a missing/expired/forged token, an unknown subject, or a disabled account
+ * fails closed with `unauthorized` (401 — re-authenticate). A VALID, active
+ * credential that is simply not permitted on this plane — a tenant-less user such
+ * as a platform admin — fails with `forbidden` (403), so clients don't mistake it
+ * for expired auth and loop on refresh. (A tenant that resolves to no billing
+ * account is an internal data anomaly and stays 401, fail-closed.) Independent of
+ * the `ApiKeyGuard` data plane.
  */
 @Injectable()
 export class ConsoleGuard implements CanActivate {
@@ -79,8 +86,18 @@ export class ConsoleGuard implements CanActivate {
     }
 
     const user = await this.repo.findUserById(this.db, claims.sub);
-    if (user?.status !== 'active' || user.tenantId === null) {
-      throw engineUnauthorized('no tenant for console user');
+    // An unknown subject or a disabled/inactive account means the credential
+    // itself is no longer valid — the client SHOULD re-authenticate → 401.
+    if (user?.status !== 'active') {
+      throw engineUnauthorized('no active user for console token');
+    }
+    // A VALID, active credential that simply has no tenant (e.g. a platform admin,
+    // who operates on the /admin plane, not the tenant console) is NOT missing
+    // auth — it's a plane/authorization mismatch. Answer 403 forbidden, not 401,
+    // so clients don't spin in a pointless refresh/re-login loop chasing a token
+    // that will never grant console access.
+    if (user.tenantId === null) {
+      throw engineForbidden('console user has no tenant');
     }
 
     const account = await this.repo.getAccountByTenant(this.db, user.tenantId);
