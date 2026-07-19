@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.0.12](https://github.com/actionow-ai/actionow-core/compare/v0.0.11...v0.0.12) (2026-07-19)
+
+
+### Features
+
+* **contracts:** freeze batch-0 gateway IR + five supply entities (TEA-1073) ([b97d6bf](https://github.com/actionow-ai/actionow-core/commit/b97d6bf4141ae03a2913e35dc1e6e98a8e6d712f))
+* **gateway:** batch-4 task center + v1 API + billing close-out (TEA-1073) ([e7bf1e2](https://github.com/actionow-ai/actionow-core/commit/e7bf1e205703853e0c0aa92ef312bfd9289f1a36))
+* **gateway:** batch-5 complete 7/7 legacy sync-face cutover to gateway v2 (TEA-1073) ([4009713](https://github.com/actionow-ai/actionow-core/commit/4009713294437d197edbc877f58b64b1e192d41c))
+* **gateway:** batch-6 pre-deletion — full limit-plan enforcement on gateway v2 face (TEA-1073) ([cdf8b7d](https://github.com/actionow-ai/actionow-core/commit/cdf8b7d7169de3e0c37f42775a7bf000991ced2a))
+* model-supply-greenfield 绿地重构 + 旧世界删除 (TEA-1073) ([bfe1bc4](https://github.com/actionow-ai/actionow-core/commit/bfe1bc40b483b723937b89a4e51c631371e82a9c))
+* **spi:** batch-2 six-aspect adapter SPI + DSL engine + conformance gate (TEA-1073) ([deae354](https://github.com/actionow-ai/actionow-core/commit/deae3541f579fb6df11f58892d10838021092860))
+* **spi:** batch-2 wave2 — five real dialects clear the conformance gate (TEA-1073) ([5c4898f](https://github.com/actionow-ai/actionow-core/commit/5c4898f3daf51b0fb57e36c1749767f2eb56d47f))
+* **supply:** batch-1 five-entity supply data model + admin CRUD (TEA-1073) ([d4dd42a](https://github.com/actionow-ai/actionow-core/commit/d4dd42afe6d0ed41737776c756647274e2c09a73))
+* **supply:** batch-5 operational close-out + gateway v2 cutover wiring (TEA-1073) ([2eb6e38](https://github.com/actionow-ai/actionow-core/commit/2eb6e38e7908ca0dcc502beeae9709cf969b0d35))
+* **web:** graphite 设计体系重写前端 — 双控制台 37 页 + Playground + 营销首页 ([#125](https://github.com/actionow-ai/actionow-core/issues/125)) ([44fd6a2](https://github.com/actionow-ai/actionow-core/commit/44fd6a2bb771f2ad8de610f961c78ffa69895f73))
+
+
+### Bug Fixes
+
+* **auth:** keep admin role on refresh + 403 for tenant-less console ([#126](https://github.com/actionow-ai/actionow-core/issues/126)) ([f897efe](https://github.com/actionow-ai/actionow-core/commit/f897efedaa69461da4c6ddffef43e610c73e6c45))
+
 ## [0.0.11](https://github.com/actionow-ai/actionow-core/compare/v0.0.10...v0.0.11) (2026-07-07)
 
 
