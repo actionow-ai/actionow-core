@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.13](https://github.com/actionow-ai/actionow-core/compare/v0.0.12...v0.0.13) (2026-07-21)
+
+
+### Bug Fixes
+
+* **gateway:** chat passes holdFloor 0n so per-token cards don't throw at hold ([#132](https://github.com/actionow-ai/actionow-core/issues/132)) ([2fc7bd0](https://github.com/actionow-ai/actionow-core/commit/2fc7bd019ebde14f2472c426dadef26b20332827))
+* **spi:** native request bodies for anthropic + gemini dialects ([#130](https://github.com/actionow-ai/actionow-core/issues/130)) ([3baf32d](https://github.com/actionow-ai/actionow-core/commit/3baf32dd4ee180e309c7d79e59c7025b73d4380e))
+
 ## [0.0.12](https://github.com/actionow-ai/actionow-core/compare/v0.0.11...v0.0.12) (2026-07-19)
 
 
