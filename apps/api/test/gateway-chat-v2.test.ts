@@ -116,6 +116,15 @@ describe('GatewayChatV2Service — chat completions over the new gateway', () =>
     });
   });
 
+  it('§9.2 chat 无预扣: chat rides execute() with holdFloor 0n (a model_token card settles post-call, no pre-quote)', async () => {
+    const { service, gateway } = serviceWith(syncChatResult());
+    await service.completions({ ...CHAT_BODY }, fakeReq(), fakeRes());
+    // Without this, computeGateHold throws `invalid_pricing` for a per-token
+    // sale card (output tokens unknown at hold time). 0n = the no-reservation
+    // discipline; the settle cap is skipped for a 0 hold so the real cost lands.
+    expect(gateway.execute.mock.calls[0]?.[1]).toMatchObject({ holdFloor: 0n });
+  });
+
   it('kind=stream → OpenAI chunk SSE ending [DONE]', async () => {
     async function* frames(): AsyncGenerator<StreamFrame> {
       await Promise.resolve();
@@ -290,6 +299,12 @@ describe('GatewayChatV2Service — embeddings over the new gateway', () => {
     });
     const request = gateway.execute.mock.calls[0]?.[0] as { operation: string };
     expect(request.operation).toBe('embeddings');
+    // §9.2 scope guard: the chat no-reservation 0-hold must NOT leak onto the
+    // other surfaces served here (embeddings/rerank/moderations/asr) — an
+    // explicit holdFloor 0n would override their minimumHold / pre-quote floor.
+    expect(gateway.execute.mock.calls[0]?.[1] as Record<string, unknown>).not.toHaveProperty(
+      'holdFloor',
+    );
   });
 });
 
