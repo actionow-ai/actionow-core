@@ -151,11 +151,128 @@ function httpErrorProbe(res: WireResponse): ErrorProbe {
 // --- aspect ①: request mapping (path+verb branch on stream) -------------------
 
 /**
+ * The OpenAI-shaped canonical keys aspect ① rewrites into gemini-native shape.
+ * Any body key NOT listed here is treated as already-native and passed through
+ * verbatim (contents / systemInstruction / tools / toolConfig / safetySettings
+ * …), so a body the upper layer already gemini-shaped survives untouched.
+ */
+// OpenAI-shaped canonical keys aspect ① consumes: sampling params mapped into
+// `generationConfig`, plus known-standard wire params with NO gemini equivalent
+// (response_format / reasoning_effort / logprobs / …) which are DROPPED — never
+// passed through as a top-level key, since gemini rejects unknown fields
+// (`Unknown name "X": Cannot find field`). Anything NOT listed here is treated as
+// already-native and passed through verbatim (contents / systemInstruction /
+// tools / toolConfig / safetySettings / cachedContent / …).
+const TRANSLATED_KEYS = new Set([
+  'messages',
+  // → generationConfig
+  'max_tokens',
+  'max_output_tokens',
+  'max_completion_tokens',
+  'temperature',
+  'top_p',
+  'stop',
+  'seed',
+  'frequency_penalty',
+  'presence_penalty',
+  'n',
+  // known OpenAI wire params with no clean gemini mapping → dropped, not leaked
+  'response_format',
+  'reasoning_effort',
+  'logprobs',
+  'top_logprobs',
+  'logit_bias',
+  'generationConfig',
+]);
+
+/** OpenAI message `content` → a single gemini part text (string, or the concatenated `text` of a content-part array). */
+function contentToText(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    let text = '';
+    for (const raw of content) {
+      const t = str(asRecord(raw).text);
+      if (t !== undefined) text += t;
+    }
+    return text;
+  }
+  return '';
+}
+
+/**
+ * Translate an OpenAI-shaped canonical body into gemini `generateContent`
+ * shape. The canonical IR (and the golden probe) deliver OpenAI-style
+ * `messages` + `max_tokens` + sampling params — gemini rejects those wire names
+ * outright (`Unknown name "messages"`), so the dialect MUST reshape them:
+ *
+ *   - `messages[]` → `contents[]` ({ role, parts:[{ text }] }); role
+ *     assistant→model, everything else→user. `system`-role messages are hoisted
+ *     into top-level `systemInstruction`, never placed in `contents`.
+ *   - `max_tokens` / `max_output_tokens` → `generationConfig.maxOutputTokens`;
+ *     `temperature` → `.temperature`; `top_p` → `.topP`; `stop` →
+ *     `.stopSequences` (wrapped to an array).
+ *
+ * An already-native key (contents / systemInstruction / generationConfig / …)
+ * passes through: a body carrying only native keys reshapes to itself, so a
+ * pre-shaped upstream bag is a no-op. Never reads `params.canonical`.
+ */
+function toGeminiBody(upstream: Record<string, unknown>): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(upstream)) {
+    if (!TRANSLATED_KEYS.has(key)) body[key] = value; // native / unknown → verbatim
+  }
+
+  // generationConfig: seed from any already-native block, then overlay the
+  // translated OpenAI-style sampling params.
+  const generationConfig: Record<string, unknown> = { ...asRecord(upstream.generationConfig) };
+  const maxTokens =
+    num(upstream.max_tokens) ??
+    num(upstream.max_output_tokens) ??
+    num(upstream.max_completion_tokens);
+  if (maxTokens !== undefined) generationConfig.maxOutputTokens = maxTokens;
+  const temperature = num(upstream.temperature);
+  if (temperature !== undefined) generationConfig.temperature = temperature;
+  const topP = num(upstream.top_p);
+  if (topP !== undefined) generationConfig.topP = topP;
+  const stop = upstream.stop;
+  if (stop !== undefined) {
+    generationConfig.stopSequences = Array.isArray(stop) ? stop : [stop];
+  }
+  const freqPenalty = num(upstream.frequency_penalty);
+  if (freqPenalty !== undefined) generationConfig.frequencyPenalty = freqPenalty;
+  const presPenalty = num(upstream.presence_penalty);
+  if (presPenalty !== undefined) generationConfig.presencePenalty = presPenalty;
+  const seed = num(upstream.seed);
+  if (seed !== undefined) generationConfig.seed = seed;
+  const n = num(upstream.n);
+  if (n !== undefined) generationConfig.candidateCount = n;
+  if (Object.keys(generationConfig).length > 0) body.generationConfig = generationConfig;
+
+  // messages[] → contents[] (+ hoisted systemInstruction).
+  const contents: unknown[] = [];
+  let systemText = '';
+  for (const raw of asArray(upstream.messages)) {
+    const message = asRecord(raw);
+    const role = str(message.role);
+    const text = contentToText(message.content);
+    if (role === 'system') {
+      systemText = systemText.length > 0 ? `${systemText}\n${text}` : text;
+      continue;
+    }
+    contents.push({ role: role === 'assistant' ? 'model' : 'user', parts: [{ text }] });
+  }
+  if (contents.length > 0) body.contents = contents;
+  if (systemText.length > 0) body.systemInstruction = { parts: [{ text: systemText }] };
+
+  return body;
+}
+
+/**
  * Aspect ① — the CODE-mode driver. Model → URL PATH (never the body); the verb
  * (`:generateContent` vs `:streamGenerateContent`) and the `alt=sse` query
- * branch on `input.stream`. Body = spread of `params.upstream` ONLY (already
- * gemini-wire-shaped: contents / systemInstruction / generationConfig / tools /
- * toolConfig / safetySettings …). Reads `params.canonical` NEVER (§4.1 red line).
+ * branch on `input.stream`. Body = {@link toGeminiBody} of `params.upstream`
+ * (OpenAI-shaped canonical keys reshaped to gemini-native; already-native keys
+ * passed through). Reads `params.canonical` NEVER (§4.1 red line).
  */
 const requestMapping: RequestMappingAspect = {
   map(input: RequestMappingInput): WireRequestDraft {
@@ -164,7 +281,7 @@ const requestMapping: RequestMappingAspect = {
       method: 'POST',
       path: `models/${input.upstreamModelName}:${verb}`,
       bodyKind: 'json',
-      body: { ...input.params.upstream },
+      body: toGeminiBody(asRecord(input.params.upstream)),
     };
     if (input.stream) draft.query = { alt: 'sse' };
     return draft;
