@@ -424,6 +424,18 @@ export class GatewayChatV2Service {
       // (the sole 限流/额度 enforcement since the legacy GovernanceGuard died
       // in 批次6 D2).
       limits: auth.limits,
+      // §9.2 chat 无预扣纪律 (no-reservation discipline): a per-token
+      // `model_token` sale card CANNOT pre-quote at hold time (output tokens
+      // unknown until the call returns), so the chat paradigm reserves NOTHING
+      // (holdFloor 0n) and settles the real metered cost afterwards — the settle
+      // cap is deliberately skipped for a 0 hold (see engine pricing.ts), so the
+      // run is charged its true cost, not made free. Without this, chat through a
+      // model_token card throws `invalid_pricing: post-timed price card requires
+      // estimatedUsage or holdFloor`. SCOPED to chat.completions ONLY — the
+      // embeddings/rerank/moderations/asr surfaces served here keep their
+      // minimumHold / pre-quote floor (an explicit 0n would override the §9.2
+      // media/usage floor for a unit/credits card, e.g. audio asr).
+      ...(spec.operation === 'chat.completions' ? { holdFloor: 0n } : {}),
     });
 
     applyDeprecationHeaders(res, result.deprecation);
