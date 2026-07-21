@@ -53,6 +53,16 @@ import { resolveError } from '../aspects.js';
 const PROVIDER = 'anthropic';
 
 /**
+ * Anthropic's Messages API REQUIRES `max_tokens` on EVERY request — omitting it
+ * is a hard 400 (`Invalid request: max_tokens: Field required`). The canonical
+ * IR / golden probe only carries a max-output cap when the model declares one,
+ * so most offerings would arrive without it. The dialect injects this sane
+ * default whenever no caller value is present, so every Anthropic call (probe +
+ * real, streaming + sync) always ships a valid `max_tokens`.
+ */
+const DEFAULT_MAX_TOKENS = 4096;
+
+/**
  * The Messages API protocol version header — a STATIC constant the API requires
  * on every call, NOT a credential (so it lives in aspect ①'s request draft, and
  * gate 1 sees it as an ordinary header, never as signing/secret material).
@@ -281,12 +291,14 @@ function normalizeStreamFrame(
 // --- aspect ①: request mapping (§6-①, §4.1 layer-3 red line) -------------------
 
 /**
- * IR → Anthropic wire request. PURE structure porterage: body = { model,
- * ...params.upstream } (the planner's layer-2 map/hoist already renamed to
- * Anthropic wire names and hoisted `system` to top-level + shaped tool_choice —
- * the dialect places them VERBATIM). Injects NO defaults (max_tokens is
- * required by the API but is the planner/offering's value decision, never the
- * dialect's) and does NO value scaling. On the stream path it additionally sets
+ * IR → Anthropic wire request. Structure porterage: body = { model,
+ * ...params.upstream } (upstream wire names already renamed/hoisted upstream of
+ * the SPI — the dialect places them VERBATIM), with ONE dialect-owned safety
+ * net: `max_tokens` is REQUIRED by the Messages API, so when neither the caller
+ * nor the offering supplied one the dialect injects {@link DEFAULT_MAX_TOKENS}.
+ * This is a wire-protocol requirement (a missing field the API rejects), not a
+ * value-domain re-map — a caller-provided `max_tokens` is always preserved. No
+ * other value scaling happens here. On the stream path it additionally sets
  * `stream: true`; the static protocol header rides in every draft.
  */
 function mapRequest(input: RequestMappingInput): WireRequestDraft {
@@ -294,6 +306,12 @@ function mapRequest(input: RequestMappingInput): WireRequestDraft {
     model: input.upstreamModelName,
     ...input.params.upstream,
   };
+  // Guarantee the API-required max_tokens on EVERY call (probe + real, stream +
+  // sync). Keep any caller/offering value; only default when absent.
+  // `??=` fills in the API-required max_tokens for both an omitted field and an
+  // explicit `null` (some OpenAI-compatible clients send `max_tokens: null` to
+  // mean "no cap", which Anthropic rejects); an explicit 0 is preserved.
+  body.max_tokens ??= DEFAULT_MAX_TOKENS;
   if (input.stream) body.stream = true;
   return {
     method: 'POST',
